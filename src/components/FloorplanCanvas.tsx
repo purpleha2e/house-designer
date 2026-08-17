@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Circle, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { Point, Wall } from '../types'
+import type { FloorLevel, Point, Wall } from '../types'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
 
 const METERS_TO_PIXELS = 60
@@ -10,13 +10,19 @@ const CONNECTION_SNAP_METERS = 0.25
 const ALIGNMENT_GUIDE_TOLERANCE_METERS = 0.5
 const DIMENSION_OFFSET_METERS = 0.28
 const DIMENSION_TICK_METERS = 0.1
+const MIN_ZOOM = 0.45
+const MAX_ZOOM = 2.8
+const ZOOM_STEP = 1.2
+const ANGLE_WIDGET_RADIUS_METERS = 0.65
 
 type FloorplanCanvasProps = {
-  walls: Wall[]
+  activeFloor: FloorLevel
+  floors: FloorLevel[]
   isAddingWall: boolean
   selectedWallId: string | null
   onAddWall: (wall: { start: Point; end: Point }) => void
   onDeleteWall: (wallId: string) => void
+  onExitAddWall: () => void
   onSelectWall: (wallId: string | null) => void
 }
 
@@ -25,10 +31,21 @@ type CanvasSize = {
   height: number
 }
 
+type Viewport = {
+  x: number
+  y: number
+  scale: number
+}
+
 type ContextMenuState = {
   wallId: string
   x: number
   y: number
+}
+
+type PanState = {
+  clientX: number
+  clientY: number
 }
 
 type SnapTarget = {
@@ -58,6 +75,13 @@ type DimensionGuide = {
   rotation: number
 }
 
+type AngleWidget = {
+  arcPoints: number[]
+  baselineEnd: Point
+  labelPoint: Point
+  label: string
+}
+
 function toCanvasPoint(point: Point): Point {
   return {
     x: point.x * METERS_TO_PIXELS,
@@ -76,24 +100,36 @@ function distance(start: Point, end: Point) {
   return Math.hypot(end.x - start.x, end.y - start.y)
 }
 
-function applyLength(start: Point, end: Point, length: number): Point {
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const currentLength = Math.hypot(dx, dy)
-
-  if (currentLength === 0) {
-    return { x: start.x + length, y: start.y }
-  }
-
-  return {
-    x: start.x + (dx / currentLength) * length,
-    y: start.y + (dy / currentLength) * length,
-  }
-}
-
 function parseLengthInput(value: string) {
   const length = Number.parseFloat(value)
   return Number.isFinite(length) && length > 0 ? length : null
+}
+
+function parseAngleInput(value: string) {
+  const angle = Number.parseFloat(value)
+  return Number.isFinite(angle) ? angle : null
+}
+
+function getAngleDegrees(start: Point, end: Point) {
+  return (normalizeAngle(Math.atan2(end.y - start.y, end.x - start.x)) * 180) /
+    Math.PI
+}
+
+function applyLengthAndAngle(
+  start: Point,
+  pointerEnd: Point,
+  lengthInput: string | null,
+  angleInput: string | null,
+) {
+  const typedLength = parseLengthInput(lengthInput ?? '')
+  const typedAngle = parseAngleInput(angleInput ?? '')
+  const length = typedLength ?? distance(start, pointerEnd)
+  const angle = ((typedAngle ?? getAngleDegrees(start, pointerEnd)) * Math.PI) / 180
+
+  return {
+    x: start.x + Math.cos(angle) * length,
+    y: start.y + Math.sin(angle) * length,
+  }
 }
 
 function normalize(dx: number, dy: number): Point {
@@ -262,6 +298,46 @@ function getDraftAxis(start: Point, end: Point): Axis {
     : 'vertical'
 }
 
+function normalizeAngle(angle: number) {
+  return angle < 0 ? angle + Math.PI * 2 : angle
+}
+
+function getAngleWidget(start: Point, end: Point): AngleWidget | null {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const wallLength = Math.hypot(dx, dy)
+
+  if (wallLength < MIN_WALL_LENGTH_METERS) {
+    return null
+  }
+
+  const angle = normalizeAngle(Math.atan2(dy, dx))
+  const steps = Math.max(8, Math.ceil((angle / (Math.PI * 2)) * 48))
+  const arcPoints = Array.from({ length: steps + 1 }, (_, index) => {
+    const stepAngle = (angle * index) / steps
+    return [
+      (start.x + Math.cos(stepAngle) * ANGLE_WIDGET_RADIUS_METERS) *
+        METERS_TO_PIXELS,
+      (start.y + Math.sin(stepAngle) * ANGLE_WIDGET_RADIUS_METERS) *
+        METERS_TO_PIXELS,
+    ]
+  }).flat()
+  const labelAngle = angle / 2
+
+  return {
+    arcPoints,
+    baselineEnd: {
+      x: start.x + ANGLE_WIDGET_RADIUS_METERS,
+      y: start.y,
+    },
+    labelPoint: {
+      x: start.x + Math.cos(labelAngle) * (ANGLE_WIDGET_RADIUS_METERS + 0.28),
+      y: start.y + Math.sin(labelAngle) * (ANGLE_WIDGET_RADIUS_METERS + 0.28),
+    },
+    label: `${Math.round((angle * 180) / Math.PI)}°`,
+  }
+}
+
 function getClosestPointOnSegment(point: Point, start: Point, end: Point): Point {
   const dx = end.x - start.x
   const dy = end.y - start.y
@@ -406,15 +482,21 @@ function getClosestEndpointGuides(
 }
 
 export function FloorplanCanvas({
-  walls,
+  activeFloor,
+  floors,
   isAddingWall,
   selectedWallId,
   onAddWall,
   onDeleteWall,
+  onExitAddWall,
   onSelectWall,
 }: FloorplanCanvasProps) {
+  const walls = activeFloor.walls
+  const snapWalls = floors.flatMap((floor) => floor.walls)
+  const referenceFloors = floors.filter((floor) => floor.id !== activeFloor.id)
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
+  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
   const [draftWall, setDraftWall] = useState<{ start: Point; end: Point } | null>(
     null,
   )
@@ -422,8 +504,13 @@ export function FloorplanCanvas({
   const [hoverAlignmentGuide, setHoverAlignmentGuide] =
     useState<AlignmentGuide | null>(null)
   const [draftLengthInput, setDraftLengthInput] = useState<string | null>(null)
+  const [draftAngleInput, setDraftAngleInput] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [isSnapSuppressed, setIsSnapSuppressed] = useState(false)
+  const [isMiddlePanning, setIsMiddlePanning] = useState(false)
+  const [isAxisLocked, setIsAxisLocked] = useState(false)
   const lengthInputRef = useRef<HTMLInputElement>(null)
+  const middlePanRef = useRef<PanState | null>(null)
 
   useEffect(() => {
     const element = containerRef.current
@@ -456,7 +543,8 @@ export function FloorplanCanvas({
 
   useEffect(() => {
     const typedLength = parseLengthInput(draftLengthInput ?? '')
-    if (!typedLength) {
+    const typedAngle = parseAngleInput(draftAngleInput ?? '')
+    if (!typedLength && typedAngle === null) {
       return
     }
 
@@ -464,15 +552,35 @@ export function FloorplanCanvas({
       currentDraftWall
         ? {
             ...currentDraftWall,
-            end: applyLength(
+            end: applyLengthAndAngle(
               currentDraftWall.start,
               currentDraftWall.end,
-              typedLength,
+              draftLengthInput,
+              draftAngleInput,
             ),
           }
         : currentDraftWall,
     )
-  }, [draftLengthInput])
+  }, [draftLengthInput, draftAngleInput])
+
+  useEffect(() => {
+    if (!isAddingWall) {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      event.preventDefault()
+      resetDraftWall()
+      onExitAddWall()
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [isAddingWall, onExitAddWall])
 
   useEffect(() => {
     if (!draftWall || !isAddingWall) {
@@ -494,6 +602,7 @@ export function FloorplanCanvas({
 
       if (event.key === 'Escape') {
         resetDraftWall()
+        onExitAddWall()
         return
       }
 
@@ -521,11 +630,16 @@ export function FloorplanCanvas({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [draftWall, isAddingWall, onAddWall])
+  }, [draftWall, isAddingWall, onAddWall, onExitAddWall])
 
   const getPointerPoint = (event: KonvaEventObject<PointerEvent>) => {
     const point = event.target.getStage()?.getPointerPosition()
-    return point ? toPlanPoint(point) : null
+    return point
+      ? toPlanPoint({
+          x: (point.x - viewport.x) / viewport.scale,
+          y: (point.y - viewport.y) / viewport.scale,
+        })
+      : null
   }
 
   const resetDraftWall = () => {
@@ -533,6 +647,9 @@ export function FloorplanCanvas({
     setHoverSnapTarget(null)
     setHoverAlignmentGuide(null)
     setDraftLengthInput(null)
+    setDraftAngleInput(null)
+    setIsSnapSuppressed(false)
+    setIsAxisLocked(false)
   }
 
   const closeContextMenu = () => {
@@ -558,8 +675,23 @@ export function FloorplanCanvas({
     })
   }
 
+  const stopMiddlePan = () => {
+    middlePanRef.current = null
+    setIsMiddlePanning(false)
+  }
+
   const handlePointerDown = (event: KonvaEventObject<PointerEvent>) => {
     closeContextMenu()
+
+    if (event.evt.button === 1) {
+      event.evt.preventDefault()
+      middlePanRef.current = {
+        clientX: event.evt.clientX,
+        clientY: event.evt.clientY,
+      }
+      setIsMiddlePanning(true)
+      return
+    }
 
     if (event.evt.button === 2) {
       event.evt.preventDefault()
@@ -580,24 +712,36 @@ export function FloorplanCanvas({
         ? (() => {
             const axis = getDraftAxis(draftWall.start, point)
             const axisPoint = event.evt.ctrlKey ? snapToAxis(draftWall.start, point) : point
-            const alignmentGuide = getClosestAlignmentGuide(
-              axisPoint,
-              walls,
-              axis === 'horizontal' ? 'x' : 'y',
-            )
+            const alignmentGuide = event.evt.shiftKey
+              ? null
+              : getClosestAlignmentGuide(
+                  axisPoint,
+                  snapWalls,
+                  axis === 'horizontal' ? 'x' : 'y',
+                )
             const alignedPoint = applyAlignmentGuide(axisPoint, alignmentGuide)
-            const snappedPoint = snapToConnection(alignedPoint, walls)
+            const snappedPoint = event.evt.shiftKey
+              ? alignedPoint
+              : snapToConnection(alignedPoint, snapWalls)
 
             return {
               ...draftWall,
               end: (() => {
                 const pointerEnd = event.evt.ctrlKey
-                  ? snapToAxisEndpoint(alignedPoint, axis, walls)
+                  ? event.evt.shiftKey
+                    ? alignedPoint
+                    : snapToAxisEndpoint(alignedPoint, axis, snapWalls)
                   : snappedPoint
                 const typedLength = parseLengthInput(draftLengthInput ?? '')
+                const typedAngle = parseAngleInput(draftAngleInput ?? '')
 
-                return typedLength
-                  ? applyLength(draftWall.start, pointerEnd, typedLength)
+                return typedLength || typedAngle !== null
+                  ? applyLengthAndAngle(
+                      draftWall.start,
+                      pointerEnd,
+                      draftLengthInput,
+                      draftAngleInput,
+                    )
                   : pointerEnd
               })(),
             }
@@ -614,18 +758,38 @@ export function FloorplanCanvas({
 
     const point = getPointerPoint(event)
     if (point) {
-      const alignmentGuide = hoverAlignmentGuide ?? getClosestAlignmentGuide(point, walls)
+      const alignmentGuide = hoverAlignmentGuide ?? getClosestAlignmentGuide(point, snapWalls)
       const alignedPoint = applyAlignmentGuide(point, alignmentGuide)
-      const snappedPoint = snapToConnection(alignedPoint, walls)
+      const snappedPoint = snapToConnection(alignedPoint, snapWalls)
       setDraftWall({ start: snappedPoint, end: snappedPoint })
       setHoverAlignmentGuide(alignmentGuide)
     }
   }
 
   const handlePointerMove = (event: KonvaEventObject<PointerEvent>) => {
+    if (middlePanRef.current) {
+      event.evt.preventDefault()
+
+      const deltaX = event.evt.clientX - middlePanRef.current.clientX
+      const deltaY = event.evt.clientY - middlePanRef.current.clientY
+
+      middlePanRef.current = {
+        clientX: event.evt.clientX,
+        clientY: event.evt.clientY,
+      }
+      setViewport((currentViewport) => ({
+        ...currentViewport,
+        x: currentViewport.x + deltaX,
+        y: currentViewport.y + deltaY,
+      }))
+      return
+    }
+
     if (!isAddingWall) {
       setHoverSnapTarget(null)
       setHoverAlignmentGuide(null)
+      setIsSnapSuppressed(false)
+      setIsAxisLocked(false)
       return
     }
 
@@ -635,48 +799,120 @@ export function FloorplanCanvas({
     }
 
     if (!draftWall) {
-      setHoverSnapTarget(getSnapTarget(point, walls))
-      setHoverAlignmentGuide(getClosestAlignmentGuide(point, walls))
+      setHoverSnapTarget(getSnapTarget(point, snapWalls))
+      setHoverAlignmentGuide(getClosestAlignmentGuide(point, snapWalls))
       return
     }
 
     const axis = getDraftAxis(draftWall.start, point)
     const axisPoint = event.evt.ctrlKey ? snapToAxis(draftWall.start, point) : point
-    const alignmentGuide = getClosestAlignmentGuide(
-      axisPoint,
-      walls,
-      axis === 'horizontal' ? 'x' : 'y',
-    )
+    setIsAxisLocked(event.evt.ctrlKey)
+    setIsSnapSuppressed(event.evt.shiftKey)
+    const alignmentGuide = event.evt.shiftKey
+      ? null
+      : getClosestAlignmentGuide(
+          axisPoint,
+          snapWalls,
+          axis === 'horizontal' ? 'x' : 'y',
+        )
     const alignedPoint = applyAlignmentGuide(axisPoint, alignmentGuide)
-    const snappedPoint = snapToConnection(alignedPoint, walls)
-    setHoverSnapTarget(getSnapTarget(snappedPoint, walls))
+    const snappedPoint = event.evt.shiftKey
+      ? alignedPoint
+      : snapToConnection(alignedPoint, snapWalls)
+    setHoverSnapTarget(event.evt.shiftKey ? null : getSnapTarget(snappedPoint, snapWalls))
     setHoverAlignmentGuide(alignmentGuide)
     setDraftWall({
       ...draftWall,
       end: (() => {
         const pointerEnd = event.evt.ctrlKey
-          ? snapToAxisEndpoint(alignedPoint, axis, walls)
+          ? event.evt.shiftKey
+            ? alignedPoint
+            : snapToAxisEndpoint(alignedPoint, axis, snapWalls)
           : snappedPoint
         const typedLength = parseLengthInput(draftLengthInput ?? '')
+        const typedAngle = parseAngleInput(draftAngleInput ?? '')
 
-        return typedLength
-          ? applyLength(draftWall.start, pointerEnd, typedLength)
+        return typedLength || typedAngle !== null
+          ? applyLengthAndAngle(
+              draftWall.start,
+              pointerEnd,
+              draftLengthInput,
+              draftAngleInput,
+            )
           : pointerEnd
       })(),
     })
   }
 
-  const gridLines = Array.from(
-    { length: Math.ceil(Math.max(size.width, size.height) / METERS_TO_PIXELS) + 1 },
-    (_, index) => index * METERS_TO_PIXELS,
+  const zoomAroundPoint = (point: Point, nextScale: number) => {
+    setViewport((currentViewport) => {
+      const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale))
+      const logicalPoint = {
+        x: (point.x - currentViewport.x) / currentViewport.scale,
+        y: (point.y - currentViewport.y) / currentViewport.scale,
+      }
+
+      return {
+        scale,
+        x: point.x - logicalPoint.x * scale,
+        y: point.y - logicalPoint.y * scale,
+      }
+    })
+  }
+
+  const zoomAtCenter = (factor: number) => {
+    zoomAroundPoint(
+      { x: size.width / 2, y: size.height / 2 },
+      viewport.scale * factor,
+    )
+  }
+
+  const handleWheel = (event: KonvaEventObject<WheelEvent>) => {
+    event.evt.preventDefault()
+    const point = event.target.getStage()?.getPointerPosition()
+    if (!point) {
+      return
+    }
+
+    zoomAroundPoint(
+      point,
+      event.evt.deltaY > 0
+        ? viewport.scale / ZOOM_STEP
+        : viewport.scale * ZOOM_STEP,
+    )
+  }
+
+  const visibleBounds = {
+    left: -viewport.x / viewport.scale,
+    top: -viewport.y / viewport.scale,
+    right: (size.width - viewport.x) / viewport.scale,
+    bottom: (size.height - viewport.y) / viewport.scale,
+  }
+  const firstGridX =
+    Math.floor(visibleBounds.left / METERS_TO_PIXELS) * METERS_TO_PIXELS
+  const lastGridX =
+    Math.ceil(visibleBounds.right / METERS_TO_PIXELS) * METERS_TO_PIXELS
+  const firstGridY =
+    Math.floor(visibleBounds.top / METERS_TO_PIXELS) * METERS_TO_PIXELS
+  const lastGridY =
+    Math.ceil(visibleBounds.bottom / METERS_TO_PIXELS) * METERS_TO_PIXELS
+  const verticalGridLines = Array.from(
+    { length: Math.max(0, Math.round((lastGridX - firstGridX) / METERS_TO_PIXELS) + 1) },
+    (_, index) => firstGridX + index * METERS_TO_PIXELS,
+  )
+  const horizontalGridLines = Array.from(
+    { length: Math.max(0, Math.round((lastGridY - firstGridY) / METERS_TO_PIXELS) + 1) },
+    (_, index) => firstGridY + index * METERS_TO_PIXELS,
   )
   const renderedWalls = getRenderedWalls(walls)
   const draftAxis = draftWall ? getDraftAxis(draftWall.start, draftWall.end) : null
   const endpointGuides =
-    draftWall && draftAxis
-      ? getClosestEndpointGuides(draftWall.end, draftAxis, walls)
+    draftWall && draftAxis && !isSnapSuppressed
+      ? getClosestEndpointGuides(draftWall.end, draftAxis, snapWalls)
       : []
   const draftWallLength = draftWall ? distance(draftWall.start, draftWall.end) : null
+  const angleWidget =
+    draftWall && !isAxisLocked ? getAngleWidget(draftWall.start, draftWall.end) : null
   const draftWallMidpoint = draftWall
     ? toCanvasPoint({
         x: (draftWall.start.x + draftWall.end.x) / 2,
@@ -685,23 +921,20 @@ export function FloorplanCanvas({
     : null
   const draftLengthPanelPosition = draftWallMidpoint
     ? {
-        left: draftWallMidpoint.x,
-        top: draftWallMidpoint.y,
+        left: draftWallMidpoint.x * viewport.scale + viewport.x,
+        top: draftWallMidpoint.y * viewport.scale + viewport.y,
       }
     : null
+  const draftAngleDisplay = draftWall
+    ? draftAngleInput ?? Math.round(getAngleDegrees(draftWall.start, draftWall.end)).toString()
+    : ''
 
   const updateDraftLength = (value: string) => {
     setDraftLengthInput(value)
+  }
 
-    const typedLength = parseLengthInput(value)
-    if (!draftWall || !typedLength) {
-      return
-    }
-
-    setDraftWall({
-      ...draftWall,
-      end: applyLength(draftWall.start, draftWall.end, typedLength),
-    })
+  const updateDraftAngle = (value: string) => {
+    setDraftAngleInput(value)
   }
 
   return (
@@ -715,15 +948,54 @@ export function FloorplanCanvas({
               : 'Click to start wall'
             : 'Select Add Wall'}
         </span>
+        <div className="zoom-controls" aria-label="2D zoom controls">
+          <button type="button" onClick={() => zoomAtCenter(1 / ZOOM_STEP)}>
+            -
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}
+          >
+            {Math.round(viewport.scale * 100)}%
+          </button>
+          <button type="button" onClick={() => zoomAtCenter(ZOOM_STEP)}>
+            +
+          </button>
+        </div>
       </div>
 
-      <div ref={containerRef} className="canvas-host">
+      <div
+        ref={containerRef}
+        className={isMiddlePanning ? 'canvas-host panning' : 'canvas-host'}
+      >
         <Stage
           width={size.width}
           height={size.height}
+          x={viewport.x}
+          y={viewport.y}
+          scaleX={viewport.scale}
+          scaleY={viewport.scale}
+          draggable={!isAddingWall && !draftWall && !isMiddlePanning}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
+          onPointerUp={(event) => {
+            if (event.evt.button === 1 || middlePanRef.current) {
+              stopMiddlePan()
+            }
+          }}
+          onDragMove={(event) => {
+            setViewport((currentViewport) => ({
+              ...currentViewport,
+              x: event.target.x(),
+              y: event.target.y(),
+            }))
+          }}
+          onWheel={handleWheel}
           onPointerLeave={() => {
+            if (middlePanRef.current) {
+              stopMiddlePan()
+            }
+
             if (!draftWall) {
               setHoverSnapTarget(null)
               setHoverAlignmentGuide(null)
@@ -731,26 +1003,52 @@ export function FloorplanCanvas({
           }}
         >
           <Layer>
-            <Rect width={size.width} height={size.height} fill="#f8fafc" />
-            {gridLines.map((position) => (
+            <Rect
+              x={visibleBounds.left}
+              y={visibleBounds.top}
+              width={visibleBounds.right - visibleBounds.left}
+              height={visibleBounds.bottom - visibleBounds.top}
+              fill="#f8fafc"
+            />
+            {verticalGridLines.map((position) => (
               <Line
                 key={`vertical-${position}`}
-                points={[position, 0, position, size.height]}
+                points={[position, visibleBounds.top, position, visibleBounds.bottom]}
                 stroke="#e2e8f0"
-                strokeWidth={1}
+                strokeWidth={1 / viewport.scale}
               />
             ))}
-            {gridLines.map((position) => (
+            {horizontalGridLines.map((position) => (
               <Line
                 key={`horizontal-${position}`}
-                points={[0, position, size.width, position]}
+                points={[visibleBounds.left, position, visibleBounds.right, position]}
                 stroke="#e2e8f0"
-                strokeWidth={1}
+                strokeWidth={1 / viewport.scale}
               />
             ))}
           </Layer>
 
           <Layer>
+            {referenceFloors.flatMap((floor) =>
+              getRenderedWalls(floor.walls).map((renderedWall) => {
+                const polygon = getWallPolygon(renderedWall).flatMap((point) => {
+                  const canvasPoint = toCanvasPoint(point)
+                  return [canvasPoint.x, canvasPoint.y]
+                })
+
+                return (
+                  <Line
+                    key={`${floor.id}-${renderedWall.wall.id}`}
+                    points={polygon}
+                    closed
+                    fill="#64748b"
+                    opacity={0.2}
+                    listening={false}
+                  />
+                )
+              }),
+            )}
+
             {walls.flatMap((wall) =>
               getDimensionGuides(wall, walls).map((guide, index) => {
                 const start = toCanvasPoint(guide.start)
@@ -848,6 +1146,59 @@ export function FloorplanCanvas({
                 dash={[10, 8]}
                 lineCap="butt"
               />
+            ) : null}
+
+            {angleWidget && draftWall ? (
+              <>
+                <Line
+                  points={[
+                    toCanvasPoint(draftWall.start).x,
+                    toCanvasPoint(draftWall.start).y,
+                    toCanvasPoint(angleWidget.baselineEnd).x,
+                    toCanvasPoint(angleWidget.baselineEnd).y,
+                  ]}
+                  stroke="#f97316"
+                  strokeWidth={1.25}
+                  dash={[4, 4]}
+                />
+                <Line
+                  points={angleWidget.arcPoints}
+                  stroke="#f97316"
+                  strokeWidth={2}
+                />
+                <Circle
+                  x={toCanvasPoint(draftWall.start).x}
+                  y={toCanvasPoint(draftWall.start).y}
+                  radius={4}
+                  fill="#ffffff"
+                  stroke="#f97316"
+                  strokeWidth={2}
+                />
+                <Rect
+                  x={toCanvasPoint(angleWidget.labelPoint).x - 22}
+                  y={toCanvasPoint(angleWidget.labelPoint).y - 12}
+                  width={44}
+                  height={24}
+                  fill="#ffffff"
+                  stroke="#fed7aa"
+                  strokeWidth={1}
+                  cornerRadius={4}
+                  shadowColor="#0f172a"
+                  shadowOpacity={0.1}
+                  shadowBlur={6}
+                  shadowOffsetY={2}
+                />
+                <Text
+                  x={toCanvasPoint(angleWidget.labelPoint).x - 20}
+                  y={toCanvasPoint(angleWidget.labelPoint).y - 7}
+                  width={40}
+                  align="center"
+                  text={angleWidget.label}
+                  fill="#c2410c"
+                  fontSize={12}
+                  fontStyle="bold"
+                />
+              </>
             ) : null}
 
             {draftWallLength !== null && draftWallMidpoint ? (
@@ -971,41 +1322,83 @@ export function FloorplanCanvas({
           </Layer>
         </Stage>
 
-        {draftLengthInput !== null && draftLengthPanelPosition ? (
-          <label
+        {(draftLengthInput !== null || draftAngleInput !== null) &&
+        draftLengthPanelPosition ? (
+          <div
             className="draft-length-panel"
             style={{
               left: draftLengthPanelPosition.left,
               top: draftLengthPanelPosition.top,
             }}
           >
-            <span>Length</span>
-            <input
-              ref={lengthInputRef}
-              value={draftLengthInput}
-              inputMode="decimal"
-              onChange={(event) => updateDraftLength(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  if (
-                    draftWall &&
-                    distance(draftWall.start, draftWall.end) >=
-                      MIN_WALL_LENGTH_METERS
-                  ) {
-                    onAddWall(draftWall)
+            <label>
+              <span>Length</span>
+              <input
+                ref={lengthInputRef}
+                value={draftLengthInput ?? ''}
+                inputMode="decimal"
+                onChange={(event) => updateDraftLength(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    if (
+                      draftWall &&
+                      distance(draftWall.start, draftWall.end) >=
+                        MIN_WALL_LENGTH_METERS
+                    ) {
+                      onAddWall(draftWall)
+                    }
+                    resetDraftWall()
                   }
-                  resetDraftWall()
-                }
 
                 if (event.key === 'Escape') {
                   event.preventDefault()
                   resetDraftWall()
+                  onExitAddWall()
                 }
               }}
-            />
-            <span>m</span>
-          </label>
+              />
+              <span>m</span>
+            </label>
+
+            <label>
+              <span>Angle</span>
+              <input
+                value={draftAngleDisplay}
+                inputMode="decimal"
+                onChange={(event) => updateDraftAngle(event.target.value)}
+                onFocus={() => {
+                  if (draftAngleInput === null && draftWall) {
+                    setDraftAngleInput(
+                      Math.round(
+                        getAngleDegrees(draftWall.start, draftWall.end),
+                      ).toString(),
+                    )
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    if (
+                      draftWall &&
+                      distance(draftWall.start, draftWall.end) >=
+                        MIN_WALL_LENGTH_METERS
+                    ) {
+                      onAddWall(draftWall)
+                    }
+                    resetDraftWall()
+                  }
+
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    resetDraftWall()
+                    onExitAddWall()
+                  }
+                }}
+              />
+              <span>deg</span>
+            </label>
+          </div>
         ) : null}
 
         {contextMenu ? (

@@ -18,6 +18,14 @@
   box-sizing: border-box;
 }
 
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .toolbar h1,
 .pane-header h2 {
   margin: 0;
@@ -31,10 +39,28 @@
 }
 
 .toolbar p,
-.pane-header span {
+.pane-header span,
+.toolbar-select span {
   margin: 4px 0 0;
   color: #64748b;
   font-size: 13px;
+}
+
+.toolbar-select {
+  display: inline-grid;
+  gap: 2px;
+  text-align: left;
+}
+
+.toolbar-select select {
+  height: 40px;
+  min-width: 112px;
+  border: 1px solid #b9c4d4;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  font-size: 14px;
 }
 
 .tool-button {
@@ -62,6 +88,35 @@
 .tool-button.active {
   border-color: #1d4ed8;
   background: #2563eb;
+  color: #ffffff;
+}
+
+.segmented-control {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid #b9c4d4;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.segmented-control button {
+  height: 40px;
+  border: 0;
+  border-right: 1px solid #b9c4d4;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.segmented-control button:last-child {
+  border-right: 0;
+}
+
+.segmented-control button.active {
+  background: #1e293b;
   color: #ffffff;
 }
 
@@ -128,6 +183,7 @@
 }
 
 .pane-header {
+  position: relative;
   height: 58px;
   padding: 12px 16px;
   border-bottom: 1px solid #d6dde8;
@@ -137,6 +193,40 @@
 
 .pane-header h2 {
   font-size: 15px;
+}
+
+.zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.zoom-controls button {
+  min-width: 34px;
+  height: 32px;
+  border: 0;
+  border-right: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.zoom-controls button:last-child {
+  border-right: 0;
+}
+
+.zoom-controls button:hover,
+.zoom-controls button:focus-visible {
+  background: #eff6ff;
+  outline: none;
 }
 
 .canvas-host,
@@ -152,14 +242,17 @@
   cursor: crosshair;
 }
 
+.canvas-host.panning {
+  cursor: grabbing;
+}
+
 .draft-length-panel {
   position: absolute;
   z-index: 2;
-  display: inline-flex;
-  align-items: center;
+  display: grid;
   gap: 6px;
-  min-width: 128px;
-  padding: 7px 9px;
+  min-width: 158px;
+  padding: 8px;
   border: 1px solid #93c5fd;
   border-radius: 6px;
   background: #ffffff;
@@ -170,8 +263,15 @@
   transform: translate(-50%, -50%);
 }
 
+.draft-length-panel label {
+  display: grid;
+  grid-template-columns: 44px 64px 28px;
+  align-items: center;
+  gap: 6px;
+}
+
 .draft-length-panel input {
-  width: 62px;
+  width: 64px;
   height: 26px;
   border: 1px solid #bfdbfe;
   border-radius: 4px;
