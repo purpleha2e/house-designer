@@ -3,6 +3,12 @@ import { Circle, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { FloorLevel, Point, Wall, WallKind } from '../types'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
+import {
+  buildWallTopology,
+  getOtherNodeConnections,
+  getWallEndpointNode,
+  type WallTopology,
+} from '../wallTopology'
 
 const METERS_TO_PIXELS = 60
 const MIN_WALL_LENGTH_METERS = 0.15
@@ -97,6 +103,19 @@ type DimensionCandidate = DimensionGuide & {
   blockerCount: number
   segmentEnd: number
   segmentStart: number
+  side: -1 | 1
+}
+
+type InternalEndpointOffsetDecision = {
+  endpoint: 'start' | 'end'
+  otherWallId: string
+  otherWallKind: WallKind
+  reason: string
+  side: -1 | 1
+}
+
+type InternalBlockerDiagnostic = {
+  blockers: Array<[number, number]>
   side: -1 | 1
 }
 
@@ -283,15 +302,6 @@ function getVisibleLengthContinuations(wall: Wall, walls: Wall[]) {
   }))
 }
 
-function getWallEndpointDirectionAway(
-  wall: Wall,
-  endpoint: 'start' | 'end',
-) {
-  return endpoint === 'start'
-    ? normalize(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
-    : normalize(wall.start.x - wall.end.x, wall.start.y - wall.end.y)
-}
-
 function subtractBlockedIntervals(
   length: number,
   blockedIntervals: Array<[number, number]>,
@@ -323,6 +333,7 @@ function getFaceBlockers(
   wall: Wall,
   side: -1 | 1,
   walls: Wall[],
+  topology: WallTopology,
 ): Array<[number, number]> {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
@@ -335,54 +346,72 @@ function getFaceBlockers(
   const unit = { x: dx / length, y: dy / length }
   const normal = { x: -unit.y, y: unit.x }
   const faceNormal = { x: normal.x * side, y: normal.y * side }
+  const measuredFaceDistance = (wall.thickness / 2) * side
 
   return walls.flatMap((otherWall) => {
     if (otherWall.id === wall.id) {
       return []
     }
 
-    return (['start', 'end'] as const).flatMap((endpoint) => {
-      const point = endpoint === 'start' ? otherWall.start : otherWall.end
-      const projection = getProjectionOnSegment(point, wall.start, wall.end)
-      const distanceToCenterline = distance(point, projection.point)
-      const projectedDistance = projection.t * length
-      const signedDistance =
-        (point.x - projection.point.x) * normal.x +
-        (point.y - projection.point.y) * normal.y
+    const polygon = topology.wallPolygonsById.get(otherWall.id)
 
-      if (
-        projectedDistance <= WALL_JOIN_EPSILON_METERS ||
-        projectedDistance >= length - WALL_JOIN_EPSILON_METERS ||
-        distanceToCenterline > wall.thickness / 2 + WALL_JOIN_EPSILON_METERS
-      ) {
+    if (!polygon) {
+      return []
+    }
+
+    const axisDistances = polygon.map(
+      (point) => (point.x - wall.start.x) * unit.x + (point.y - wall.start.y) * unit.y,
+    )
+    const normalDistances = polygon.map(
+      (point) =>
+        (point.x - wall.start.x) * normal.x + (point.y - wall.start.y) * normal.y,
+    )
+    const minAxisDistance = Math.min(...axisDistances)
+    const maxAxisDistance = Math.max(...axisDistances)
+    const minNormalDistance = Math.min(...normalDistances)
+    const maxNormalDistance = Math.max(...normalDistances)
+    const touchesStartEndpoint = minAxisDistance <= CONNECTION_SNAP_METERS
+    const touchesEndEndpoint = maxAxisDistance >= length - CONNECTION_SNAP_METERS
+    const endpointConnection =
+      touchesStartEndpoint || touchesEndEndpoint
+        ? getOtherNodeConnections(
+            topology,
+            wall,
+            touchesStartEndpoint ? 'start' : 'end',
+          ).find((connection) => connection.wall.id === otherWall.id)
+        : null
+
+    if (endpointConnection) {
+      const otherDirection =
+        endpointConnection.endpoint === 'start'
+          ? normalize(
+              otherWall.end.x - otherWall.start.x,
+              otherWall.end.y - otherWall.start.y,
+            )
+          : normalize(
+              otherWall.start.x - otherWall.end.x,
+              otherWall.start.y - otherWall.end.y,
+            )
+      const leavesIntoMeasuredSide =
+        otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08
+
+      if (!leavesIntoMeasuredSide) {
         return []
       }
+    }
 
-      const otherDirection = getWallEndpointDirectionAway(otherWall, endpoint)
-      const connectsFromThisSide =
-        otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08 ||
-        Math.abs(signedDistance - (wall.thickness / 2) * side) <=
-          WALL_JOIN_EPSILON_METERS
+    const crossesMeasuredFace =
+      measuredFaceDistance >= minNormalDistance - WALL_JOIN_EPSILON_METERS &&
+      measuredFaceDistance <= maxNormalDistance + WALL_JOIN_EPSILON_METERS
+    const overlapsWallSpan =
+      maxAxisDistance > WALL_JOIN_EPSILON_METERS &&
+      minAxisDistance < length - WALL_JOIN_EPSILON_METERS
 
-      if (!connectsFromThisSide) {
-        return []
-      }
+    if (!crossesMeasuredFace || !overlapsWallSpan) {
+      return []
+    }
 
-      const otherNormal = {
-        x: -otherDirection.y,
-        y: otherDirection.x,
-      }
-      const halfBlockedLength = Math.max(
-        otherWall.thickness / 2,
-        Math.abs(otherNormal.x * unit.x + otherNormal.y * unit.y) *
-          (otherWall.thickness / 2),
-      )
-
-      return [[
-        projectedDistance - halfBlockedLength,
-        projectedDistance + halfBlockedLength,
-      ] as [number, number]]
-    })
+    return [[minAxisDistance, maxAxisDistance] as [number, number]]
   })
 }
 
@@ -664,6 +693,7 @@ function getExternalDimensionEndpointOffset(
   side: -1 | 1,
   renderedExtension: number,
   walls: Wall[],
+  topology: WallTopology,
 ) {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
@@ -680,12 +710,11 @@ function getExternalDimensionEndpointOffset(
     y: unit.x * side,
   }
   let offset = renderedExtension
-  const connectedEndpointWalls = walls.filter(
-    (otherWall) =>
-      otherWall.id !== wall.id &&
-      (distance(endpointPoint, otherWall.start) <= CONNECTION_SNAP_METERS ||
-        distance(endpointPoint, otherWall.end) <= CONNECTION_SNAP_METERS),
-  )
+  const connectedEndpointWalls = getOtherNodeConnections(
+    topology,
+    wall,
+    endpoint,
+  ).map((connection) => connection.wall)
 
   if (connectedEndpointWalls.length >= 2) {
     let hasPerpendicularExternalConnection = false
@@ -761,9 +790,7 @@ function getExternalDimensionEndpointOffset(
       continue
     }
 
-    const renderedOtherWall = getRenderedWalls(walls).find(
-      (candidateWall) => candidateWall.wall.id === otherWall.id,
-    )
+    const renderedOtherWall = topology.renderedWallsById.get(otherWall.id)
 
     if (renderedOtherWall) {
       const otherPolygon = getWallPolygon(renderedOtherWall)
@@ -890,8 +917,10 @@ function getInternalDimensionEndpointOffset(
   wall: Wall,
   endpoint: 'start' | 'end',
   side: -1 | 1,
-  renderedExtension: number,
+  _renderedExtension: number,
   walls: Wall[],
+  topology: WallTopology,
+  decisions?: InternalEndpointOffsetDecision[],
 ) {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
@@ -903,36 +932,45 @@ function getInternalDimensionEndpointOffset(
 
   const unit = { x: dx / length, y: dy / length }
   const endpointPoint = endpoint === 'start' ? wall.start : wall.end
-  const faceNormal = {
-    x: -unit.y * side,
-    y: unit.x * side,
-  }
-  let offset = renderedExtension
+  const normal = { x: -unit.y, y: unit.x }
+  const faceNormal = { x: normal.x * side, y: normal.y * side }
+  const endpointAxisDistance = endpoint === 'start' ? 0 : length
+  const endpointNormalDistance =
+    (endpointPoint.x - wall.start.x) * normal.x +
+    (endpointPoint.y - wall.start.y) * normal.y
+  let offset = 0
 
   for (const otherWall of walls) {
     if (otherWall.id === wall.id) {
       continue
     }
 
-    const otherStartDistance = distance(endpointPoint, otherWall.start)
-    const otherEndDistance = distance(endpointPoint, otherWall.end)
-    const otherDirection =
-      otherStartDistance <= CONNECTION_SNAP_METERS
-        ? normalize(
-            otherWall.end.x - otherWall.start.x,
-            otherWall.end.y - otherWall.start.y,
-          )
-        : otherEndDistance <= CONNECTION_SNAP_METERS
-          ? normalize(
-              otherWall.start.x - otherWall.end.x,
-              otherWall.start.y - otherWall.end.y,
-            )
-          : null
+    const polygon = topology.wallPolygonsById.get(otherWall.id)
 
-    if (!otherDirection) {
+    if (!polygon) {
       continue
     }
 
+    const otherDx = otherWall.end.x - otherWall.start.x
+    const otherDy = otherWall.end.y - otherWall.start.y
+    const otherLength = Math.hypot(otherDx, otherDy)
+
+    if (otherLength === 0) {
+      continue
+    }
+
+    const otherDirection = {
+      x: otherDx / otherLength,
+      y: otherDy / otherLength,
+    }
+    const otherStartDistance = distance(endpointPoint, otherWall.start)
+    const otherEndDistance = distance(endpointPoint, otherWall.end)
+    const otherDirectionAwayFromEndpoint =
+      otherStartDistance <= CONNECTION_SNAP_METERS
+        ? otherDirection
+        : otherEndDistance <= CONNECTION_SNAP_METERS
+          ? { x: -otherDirection.x, y: -otherDirection.y }
+          : null
     const isPerpendicular =
       Math.abs(unit.x * otherDirection.x + unit.y * otherDirection.y) <= 0.08
 
@@ -940,20 +978,71 @@ function getInternalDimensionEndpointOffset(
       continue
     }
 
-    const turnsIntoMeasuredSide =
-      otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08
+    const adjoiningWallRunsAwayFromMeasuredSide = otherDirectionAwayFromEndpoint
+      ? otherDirectionAwayFromEndpoint.x * faceNormal.x +
+          otherDirectionAwayFromEndpoint.y * faceNormal.y <=
+        0.08
+      : false
 
-    if (turnsIntoMeasuredSide) {
-      offset = Math.min(offset, -otherWall.thickness / 2)
-    } else {
-      offset = Math.max(offset, otherWall.thickness / 2)
+    if (adjoiningWallRunsAwayFromMeasuredSide) {
+      decisions?.push({
+        endpoint,
+        otherWallId: otherWall.id,
+        otherWallKind: otherWall.kind,
+        reason: 'using far end-cap face: adjoining wall runs away from measured side',
+        side,
+      })
     }
+
+    const axisDistances = polygon.map(
+      (point) => (point.x - wall.start.x) * unit.x + (point.y - wall.start.y) * unit.y,
+    )
+    const normalDistances = polygon.map(
+      (point) =>
+        (point.x - wall.start.x) * normal.x + (point.y - wall.start.y) * normal.y,
+    )
+    const minAxisDistance = Math.min(...axisDistances)
+    const maxAxisDistance = Math.max(...axisDistances)
+    const minNormalDistance = Math.min(...normalDistances)
+    const maxNormalDistance = Math.max(...normalDistances)
+    const endpointIsInsideOtherWallSpan =
+      endpointAxisDistance >= minAxisDistance - CONNECTION_SNAP_METERS &&
+      endpointAxisDistance <= maxAxisDistance + CONNECTION_SNAP_METERS &&
+      endpointNormalDistance >= minNormalDistance - CONNECTION_SNAP_METERS &&
+      endpointNormalDistance <= maxNormalDistance + CONNECTION_SNAP_METERS
+
+    if (!endpointIsInsideOtherWallSpan) {
+      continue
+    }
+
+    const useFarEndCap =
+      adjoiningWallRunsAwayFromMeasuredSide && otherWall.kind === 'internal'
+    const faceOffset = useFarEndCap
+      ? endpoint === 'start'
+        ? -minAxisDistance
+        : maxAxisDistance - length
+      : endpoint === 'start'
+        ? -maxAxisDistance
+        : minAxisDistance - length
+
+    decisions?.push({
+      endpoint,
+      otherWallId: otherWall.id,
+      otherWallKind: otherWall.kind,
+      reason: `offset ${offset.toFixed(3)} -> ${faceOffset.toFixed(3)}`,
+      side,
+    })
+    offset = faceOffset
   }
 
   return offset
 }
 
-function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
+function getDimensionGuides(
+  wall: Wall,
+  walls: Wall[],
+  topology: WallTopology,
+): DimensionGuide[] {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
   const centerlineLength = Math.hypot(dx, dy)
@@ -972,15 +1061,14 @@ function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
 
   if (!isInternalWall) {
     const side = getExternalDimensionSide(wall, walls)
-    const renderedWall = getRenderedWalls(walls).find(
-      (candidateWall) => candidateWall.wall.id === wall.id,
-    )
+    const renderedWall = topology.renderedWallsById.get(wall.id)
     const startExtension = getExternalDimensionEndpointOffset(
       wall,
       'start',
       side,
       renderedWall?.startExtension ?? 0,
       walls,
+      topology,
     )
     const endExtension = getExternalDimensionEndpointOffset(
       wall,
@@ -988,6 +1076,7 @@ function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
       side,
       renderedWall?.endExtension ?? 0,
       walls,
+      topology,
     )
     const measuredSegment = {
       start: {
@@ -1032,18 +1121,17 @@ function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
 
   const sides = ([-1, 1] as const).map((side) => ({
     side,
-    blockers: getFaceBlockers(wall, side, walls),
+    blockers: getFaceBlockers(wall, side, walls, topology),
   }))
   const candidates = sides.flatMap<DimensionCandidate>(({ side, blockers }) => {
-    const renderedWall = getRenderedWalls(walls).find(
-      (candidateWall) => candidateWall.wall.id === wall.id,
-    )
+    const renderedWall = topology.renderedWallsById.get(wall.id)
     const startContinuation = getInternalDimensionEndpointOffset(
       wall,
       'start',
       side,
       renderedWall?.startExtension ?? 0,
       walls,
+      topology,
     )
     const endContinuation = getInternalDimensionEndpointOffset(
       wall,
@@ -1051,6 +1139,7 @@ function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
       side,
       renderedWall?.endExtension ?? 0,
       walls,
+      topology,
     )
     const faceStart = {
       x: wall.start.x - unitX * startContinuation,
@@ -1488,6 +1577,7 @@ export function FloorplanCanvas({
     () => getSnapSegments(walls, wallKind),
     [walls, wallKind],
   )
+  const wallTopology = useMemo(() => buildWallTopology(walls), [walls])
   const referenceSnapSegments = useMemo(
     () =>
       getSnapSegments(
@@ -1512,6 +1602,98 @@ export function FloorplanCanvas({
   const [isAxisLocked, setIsAxisLocked] = useState(true)
   const lengthInputRef = useRef<HTMLInputElement>(null)
   const middlePanRef = useRef<PanState | null>(null)
+
+  useEffect(() => {
+    if (!import.meta.env.DEV || !selectedWallId) {
+      return
+    }
+
+    const selectedWall = walls.find((wall) => wall.id === selectedWallId)
+
+    if (!selectedWall) {
+      return
+    }
+
+    const dimensionGuides = getDimensionGuides(
+      selectedWall,
+      walls,
+      wallTopology,
+    )
+    const internalEndpointOffsetDecisions: InternalEndpointOffsetDecision[] = []
+    const internalBlockers: InternalBlockerDiagnostic[] = []
+
+    if (selectedWall.kind === 'internal') {
+      const renderedWall = wallTopology.renderedWallsById.get(selectedWall.id)
+
+      for (const side of [-1, 1] as const) {
+        internalBlockers.push({
+          side,
+          blockers: getFaceBlockers(selectedWall, side, walls, wallTopology),
+        })
+        getInternalDimensionEndpointOffset(
+          selectedWall,
+          'start',
+          side,
+          renderedWall?.startExtension ?? 0,
+          walls,
+          wallTopology,
+          internalEndpointOffsetDecisions,
+        )
+        getInternalDimensionEndpointOffset(
+          selectedWall,
+          'end',
+          side,
+          renderedWall?.endExtension ?? 0,
+          walls,
+          wallTopology,
+          internalEndpointOffsetDecisions,
+        )
+      }
+    }
+    const endpointSummaries = (['start', 'end'] as const).map((endpoint) => {
+      const node = getWallEndpointNode(wallTopology, selectedWall.id, endpoint)
+
+      return {
+        endpoint,
+        point: selectedWall[endpoint],
+        connections:
+          node?.connections.map((connection) => ({
+            endpoint: connection.endpoint,
+            id: connection.wall.id,
+            kind: connection.wall.kind,
+            start: connection.wall.start,
+            end: connection.wall.end,
+          })) ?? [],
+      }
+    })
+
+    const diagnostic = {
+      wall: selectedWall,
+      endpointNodes: endpointSummaries,
+      internalEndpointOffsetDecisions,
+      internalBlockers,
+      dimensionGuides: dimensionGuides.map((guide) => ({
+        endX: guide.end.x.toFixed(3),
+        endY: guide.end.y.toFixed(3),
+        faceEndX: guide.faceEnd.x.toFixed(3),
+        faceEndY: guide.faceEnd.y.toFixed(3),
+        faceStartX: guide.faceStart.x.toFixed(3),
+        faceStartY: guide.faceStart.y.toFixed(3),
+        length: guide.text,
+        side: 'side' in guide ? guide.side : '',
+        startX: guide.start.x.toFixed(3),
+        startY: guide.start.y.toFixed(3),
+        tickMode: guide.tickMode,
+      })),
+    }
+
+    console.groupCollapsed(
+      `[floorplan geometry] ${selectedWall.kind} wall ${selectedWall.id}`,
+    )
+    console.log(JSON.stringify(diagnostic, null, 2))
+    console.table(diagnostic.dimensionGuides)
+    console.groupEnd()
+  }, [selectedWallId, wallTopology, walls])
 
   useEffect(() => {
     const element = containerRef.current
@@ -1962,7 +2144,7 @@ export function FloorplanCanvas({
   }
 
   const dimensionRulers = walls.flatMap((wall) =>
-    getDimensionGuides(wall, walls).map((guide, index) => {
+    getDimensionGuides(wall, walls, wallTopology).map((guide, index) => {
       const start = toCanvasPoint(guide.start)
       const end = toCanvasPoint(guide.end)
       const faceStart = toCanvasPoint(guide.faceStart)
