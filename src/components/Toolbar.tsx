@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { FloorLevel, WallKind } from '../types'
 
 type ToolbarProps = {
@@ -6,7 +7,10 @@ type ToolbarProps = {
   isAddingWall: boolean
   wallCount: number
   wallKind: WallKind
+  onAddEmptyFloor: () => void
   onAddFloor: () => void
+  onLoadProject: () => void
+  onSaveProject: () => void
   onSelectFloor: (floorId: string) => void
   onToggleAddWall: () => void
   onWallKindChange: (wallKind: WallKind) => void
@@ -18,11 +22,16 @@ export function Toolbar({
   isAddingWall,
   wallCount,
   wallKind,
+  onAddEmptyFloor,
   onAddFloor,
+  onLoadProject,
+  onSaveProject,
   onSelectFloor,
   onToggleAddWall,
   onWallKindChange,
 }: ToolbarProps) {
+  const [isFloorMenuOpen, setIsFloorMenuOpen] = useState(false)
+
   return (
     <header className="toolbar">
       <div>
@@ -31,6 +40,15 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-controls">
+        <div className="project-actions" aria-label="Project save and load">
+          <button type="button" onClick={onSaveProject}>
+            Save
+          </button>
+          <button type="button" onClick={onLoadProject}>
+            Load
+          </button>
+        </div>
+
         <label className="toolbar-select">
           <span>Floor</span>
           <select
@@ -45,9 +63,32 @@ export function Toolbar({
           </select>
         </label>
 
-        <button type="button" className="tool-button" onClick={onAddFloor}>
-          Add Floor
-        </button>
+        <div className="split-button">
+          <button type="button" onClick={onAddFloor}>
+            Add Floor
+          </button>
+          <button
+            type="button"
+            aria-expanded={isFloorMenuOpen}
+            aria-label="More add floor options"
+            onClick={() => setIsFloorMenuOpen((value) => !value)}
+          >
+            v
+          </button>
+          {isFloorMenuOpen ? (
+            <div className="split-button-menu">
+              <button
+                type="button"
+                onClick={() => {
+                  onAddEmptyFloor()
+                  setIsFloorMenuOpen(false)
+                }}
+              >
+                Add empty floor
+              </button>
+            </div>
+          ) : null}
+        </div>
 
         <div className="segmented-control" aria-label="Wall type">
           <button

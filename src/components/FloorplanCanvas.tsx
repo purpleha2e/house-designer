@@ -1,25 +1,31 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { Circle, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { FloorLevel, Point, Wall } from '../types'
+import type { FloorLevel, Point, Wall, WallKind } from '../types'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
 
 const METERS_TO_PIXELS = 60
 const MIN_WALL_LENGTH_METERS = 0.15
 const CONNECTION_SNAP_METERS = 0.25
+const WALL_JOIN_EPSILON_METERS = 0.03
 const ALIGNMENT_GUIDE_TOLERANCE_METERS = 0.5
 const DIMENSION_OFFSET_METERS = 0.28
 const DIMENSION_TICK_METERS = 0.1
 const MIN_ZOOM = 0.45
-const MAX_ZOOM = 2.8
+const MAX_ZOOM = 4
 const ZOOM_STEP = 1.2
 const ANGLE_WIDGET_RADIUS_METERS = 0.65
+const SNAP_MARKER_INNER_RADIUS = 3
+const SNAP_MARKER_OUTER_RADIUS = 9
+const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
+const DRAFT_INTERNAL_WALL_THICKNESS = 0.15
 
 type FloorplanCanvasProps = {
   activeFloor: FloorLevel
   floors: FloorLevel[]
   isAddingWall: boolean
   selectedWallId: string | null
+  wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
@@ -51,6 +57,14 @@ type PanState = {
 type SnapTarget = {
   point: Point
   kind: 'endpoint' | 'junction'
+  label?: string
+}
+
+type SnapSegment = {
+  start: Point
+  end: Point
+  endpointsOnly?: boolean
+  label?: string
 }
 
 type EndpointGuide = {
@@ -60,19 +74,30 @@ type EndpointGuide = {
   crossDistance: number
 }
 
-type Axis = 'horizontal' | 'vertical'
 type AlignmentAxis = 'x' | 'y'
 
 type AlignmentGuide = EndpointGuide & {
   axis: AlignmentAxis
 }
 
+type Axis = 'horizontal' | 'vertical'
+
 type DimensionGuide = {
   start: Point
   end: Point
+  faceStart: Point
+  faceEnd: Point
   labelPoint: Point
+  tickMode: 'connector' | 'cross'
   text: string
   rotation: number
+}
+
+type DimensionCandidate = DimensionGuide & {
+  blockerCount: number
+  segmentEnd: number
+  segmentStart: number
+  side: -1 | 1
 }
 
 type AngleWidget = {
@@ -115,21 +140,10 @@ function getAngleDegrees(start: Point, end: Point) {
     Math.PI
 }
 
-function applyLengthAndAngle(
-  start: Point,
-  pointerEnd: Point,
-  lengthInput: string | null,
-  angleInput: string | null,
-) {
-  const typedLength = parseLengthInput(lengthInput ?? '')
-  const typedAngle = parseAngleInput(angleInput ?? '')
-  const length = typedLength ?? distance(start, pointerEnd)
-  const angle = ((typedAngle ?? getAngleDegrees(start, pointerEnd)) * Math.PI) / 180
-
-  return {
-    x: start.x + Math.cos(angle) * length,
-    y: start.y + Math.sin(angle) * length,
-  }
+function getDraftWallThickness(wallKind: WallKind) {
+  return wallKind === 'external'
+    ? DRAFT_EXTERNAL_WALL_THICKNESS
+    : DRAFT_INTERNAL_WALL_THICKNESS
 }
 
 function normalize(dx: number, dy: number): Point {
@@ -143,11 +157,11 @@ function normalize(dx: number, dy: number): Point {
 }
 
 function getEndpointDirectionFrom(endpoint: Point, wall: Wall): Point | null {
-  if (distance(endpoint, wall.start) <= CONNECTION_SNAP_METERS) {
+  if (distance(endpoint, wall.start) <= WALL_JOIN_EPSILON_METERS) {
     return normalize(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
   }
 
-  if (distance(endpoint, wall.end) <= CONNECTION_SNAP_METERS) {
+  if (distance(endpoint, wall.end) <= WALL_JOIN_EPSILON_METERS) {
     return normalize(wall.start.x - wall.end.x, wall.start.y - wall.end.y)
   }
 
@@ -179,6 +193,61 @@ function getFaceContinuation(
       continue
     }
 
+    const closestPointOnOtherWall = getClosestPointOnSegment(
+      endpointPoint,
+      otherWall.start,
+      otherWall.end,
+    )
+    const projectionOnOtherWall = getProjectionOnSegment(
+      endpointPoint,
+      otherWall.start,
+      otherWall.end,
+    )
+    const distanceToOtherWallCenterline = distance(
+      endpointPoint,
+      projectionOnOtherWall.point,
+    )
+    const isWithinOtherWallBody =
+      projectionOnOtherWall.t >= 0 &&
+      projectionOnOtherWall.t <= 1 &&
+      distanceToOtherWallCenterline <=
+        otherWall.thickness / 2 + WALL_JOIN_EPSILON_METERS
+
+    if (isWithinOtherWallBody) {
+      const otherWallDirection = normalize(
+        otherWall.end.x - otherWall.start.x,
+        otherWall.end.y - otherWall.start.y,
+      )
+      const otherWallNormal = {
+        x: -otherWallDirection.y,
+        y: otherWallDirection.x,
+      }
+      const directionDotNormal =
+        directionAwayFromEndpoint.x * otherWallNormal.x +
+        directionAwayFromEndpoint.y * otherWallNormal.y
+      const signedDistanceToCenterline =
+        (endpointPoint.x - closestPointOnOtherWall.x) * otherWallNormal.x +
+        (endpointPoint.y - closestPointOnOtherWall.y) * otherWallNormal.y
+
+      if (Math.abs(directionDotNormal) > 0.08) {
+        const faceDistances = [-otherWall.thickness / 2, otherWall.thickness / 2]
+          .map((faceDistance) =>
+            (faceDistance - signedDistanceToCenterline) / directionDotNormal,
+          )
+          .filter((faceDistance) => faceDistance >= 0)
+        const distanceToNearFace = Math.min(...faceDistances)
+        const continuationToWallFace = Number.isFinite(distanceToNearFace)
+          ? -distanceToNearFace
+          : 0
+
+        if (Math.abs(continuationToWallFace) > Math.abs(continuation)) {
+          continuation = continuationToWallFace
+        }
+      }
+
+      continue
+    }
+
     const otherDirection = getEndpointDirectionFrom(endpointPoint, otherWall)
     if (!otherDirection) {
       continue
@@ -207,6 +276,683 @@ function getFaceContinuation(
   return continuation
 }
 
+function getVisibleLengthContinuations(wall: Wall, walls: Wall[]) {
+  return ([-1, 1] as const).map((side) => ({
+    start: getFaceContinuation(wall, 'start', side, walls),
+    end: getFaceContinuation(wall, 'end', side, walls),
+  }))
+}
+
+function getWallEndpointDirectionAway(
+  wall: Wall,
+  endpoint: 'start' | 'end',
+) {
+  return endpoint === 'start'
+    ? normalize(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
+    : normalize(wall.start.x - wall.end.x, wall.start.y - wall.end.y)
+}
+
+function subtractBlockedIntervals(
+  length: number,
+  blockedIntervals: Array<[number, number]>,
+) {
+  return blockedIntervals
+    .map(([start, end]) => [
+      Math.max(0, Math.min(start, length)),
+      Math.max(0, Math.min(end, length)),
+    ] as [number, number])
+    .filter(([start, end]) => end - start > MIN_WALL_LENGTH_METERS / 2)
+    .sort(([firstStart], [secondStart]) => firstStart - secondStart)
+    .reduce<Array<[number, number]>>(
+      (segments, [blockedStart, blockedEnd]) =>
+        segments.flatMap(([segmentStart, segmentEnd]) => {
+          if (blockedEnd <= segmentStart || blockedStart >= segmentEnd) {
+            return [[segmentStart, segmentEnd]]
+          }
+
+          return [
+            [segmentStart, Math.max(segmentStart, blockedStart)] as [number, number],
+            [Math.min(segmentEnd, blockedEnd), segmentEnd] as [number, number],
+          ].filter(([start, end]) => end - start >= MIN_WALL_LENGTH_METERS)
+        }),
+      [[0, length]],
+    )
+}
+
+function getFaceBlockers(
+  wall: Wall,
+  side: -1 | 1,
+  walls: Wall[],
+): Array<[number, number]> {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return []
+  }
+
+  const unit = { x: dx / length, y: dy / length }
+  const normal = { x: -unit.y, y: unit.x }
+  const faceNormal = { x: normal.x * side, y: normal.y * side }
+
+  return walls.flatMap((otherWall) => {
+    if (otherWall.id === wall.id) {
+      return []
+    }
+
+    return (['start', 'end'] as const).flatMap((endpoint) => {
+      const point = endpoint === 'start' ? otherWall.start : otherWall.end
+      const projection = getProjectionOnSegment(point, wall.start, wall.end)
+      const distanceToCenterline = distance(point, projection.point)
+      const projectedDistance = projection.t * length
+      const signedDistance =
+        (point.x - projection.point.x) * normal.x +
+        (point.y - projection.point.y) * normal.y
+
+      if (
+        projectedDistance <= WALL_JOIN_EPSILON_METERS ||
+        projectedDistance >= length - WALL_JOIN_EPSILON_METERS ||
+        distanceToCenterline > wall.thickness / 2 + WALL_JOIN_EPSILON_METERS
+      ) {
+        return []
+      }
+
+      const otherDirection = getWallEndpointDirectionAway(otherWall, endpoint)
+      const connectsFromThisSide =
+        otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08 ||
+        Math.abs(signedDistance - (wall.thickness / 2) * side) <=
+          WALL_JOIN_EPSILON_METERS
+
+      if (!connectsFromThisSide) {
+        return []
+      }
+
+      const otherNormal = {
+        x: -otherDirection.y,
+        y: otherDirection.x,
+      }
+      const halfBlockedLength = Math.max(
+        otherWall.thickness / 2,
+        Math.abs(otherNormal.x * unit.x + otherNormal.y * unit.y) *
+          (otherWall.thickness / 2),
+      )
+
+      return [[
+        projectedDistance - halfBlockedLength,
+        projectedDistance + halfBlockedLength,
+      ] as [number, number]]
+    })
+  })
+}
+
+function getCenterlineLengthForVisibleLength(
+  wall: Wall,
+  walls: Wall[],
+  visibleLength: number,
+) {
+  const continuations = getVisibleLengthContinuations(wall, walls)
+  const averageContinuation =
+    continuations.reduce(
+      (total, continuation) => total + continuation.start + continuation.end,
+      0,
+    ) / continuations.length
+
+  return Math.max(MIN_WALL_LENGTH_METERS, visibleLength - averageContinuation)
+}
+
+function getPlanCenter(walls: Wall[]) {
+  const points = walls.flatMap((wall) => [wall.start, wall.end])
+
+  if (points.length === 0) {
+    return { x: 0, y: 0 }
+  }
+
+  return {
+    x: points.reduce((total, point) => total + point.x, 0) / points.length,
+    y: points.reduce((total, point) => total + point.y, 0) / points.length,
+  }
+}
+
+function getSignedArea(points: Point[]) {
+  return (
+    points.reduce((area, point, index) => {
+      const nextPoint = points[(index + 1) % points.length]
+      return area + point.x * nextPoint.y - nextPoint.x * point.y
+    }, 0) / 2
+  )
+}
+
+function getLoopPointKey(point: Point) {
+  return `${Math.round(point.x / WALL_JOIN_EPSILON_METERS)}:${Math.round(
+    point.y / WALL_JOIN_EPSILON_METERS,
+  )}`
+}
+
+type ExternalLoopEdge = {
+  endKey: string
+  startKey: string
+  wall: Wall
+}
+
+function getExternalWallOutsideSide(wall: Wall, walls: Wall[]): -1 | 1 | null {
+  const externalWalls = walls.filter((candidateWall) => candidateWall.kind !== 'internal')
+
+  if (externalWalls.length < 3) {
+    return null
+  }
+
+  const edges = externalWalls.map((candidateWall) => ({
+    wall: candidateWall,
+    startKey: getLoopPointKey(candidateWall.start),
+    endKey: getLoopPointKey(candidateWall.end),
+  }))
+  const connections = new Map<string, ExternalLoopEdge[]>()
+  const pointsByKey = new Map<string, Point>()
+
+  for (const edge of edges) {
+    connections.set(edge.startKey, [...(connections.get(edge.startKey) ?? []), edge])
+    connections.set(edge.endKey, [...(connections.get(edge.endKey) ?? []), edge])
+    pointsByKey.set(edge.startKey, edge.wall.start)
+    pointsByKey.set(edge.endKey, edge.wall.end)
+  }
+
+  const loops = edges.flatMap((edge) =>
+    [
+      traceExternalLoop(edge, edge.startKey, edge.endKey, connections, pointsByKey),
+      traceExternalLoop(edge, edge.endKey, edge.startKey, connections, pointsByKey),
+    ].filter((loop): loop is ExternalLoopEdge[] => Boolean(loop)),
+  )
+  const bestLoop = loops
+    .filter((loop) => loop.some((edge) => edge.wall.id === wall.id))
+    .sort((firstLoop, secondLoop) => {
+      const firstArea = Math.abs(
+        getSignedArea(firstLoop.map((edge) => pointsByKey.get(edge.startKey)!)),
+      )
+      const secondArea = Math.abs(
+        getSignedArea(secondLoop.map((edge) => pointsByKey.get(edge.startKey)!)),
+      )
+
+      return secondArea - firstArea
+    })[0]
+
+  if (!bestLoop) {
+    return null
+  }
+
+  const loopPoints = bestLoop.map((edge) => pointsByKey.get(edge.startKey)!)
+  const loopArea = getSignedArea(loopPoints)
+  const loopEdge = bestLoop.find((edge) => edge.wall.id === wall.id)
+
+  if (!loopEdge) {
+    return null
+  }
+
+  const wallDirectionMatchesLoop =
+    loopEdge.startKey === getLoopPointKey(wall.start) &&
+    loopEdge.endKey === getLoopPointKey(wall.end)
+  const interiorSideForLoopDirection = loopArea > 0 ? 1 : -1
+  const interiorSide = wallDirectionMatchesLoop
+    ? interiorSideForLoopDirection
+    : ((-interiorSideForLoopDirection) as -1 | 1)
+
+  return (-interiorSide) as -1 | 1
+}
+
+function traceExternalLoop(
+  firstEdge: ExternalLoopEdge,
+  startKey: string,
+  endKey: string,
+  connections: Map<string, ExternalLoopEdge[]>,
+  pointsByKey: Map<string, Point>,
+) {
+  const loop: ExternalLoopEdge[] = [
+    {
+      ...firstEdge,
+      startKey,
+      endKey,
+    },
+  ]
+  const visitedStates = new Set<string>()
+  let previousKey = startKey
+  let currentKey = endKey
+  let currentEdge = firstEdge
+  const maxSteps = connections.size * 4
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    const stateKey = `${currentEdge.wall.id}:${previousKey}:${currentKey}`
+
+    if (visitedStates.has(stateKey)) {
+      return null
+    }
+
+    visitedStates.add(stateKey)
+
+    if (currentKey === startKey) {
+      return loop.length >= 3 ? loop : null
+    }
+
+    const candidates = (connections.get(currentKey) ?? [])
+      .map((edge) => {
+        const nextKey = edge.startKey === currentKey ? edge.endKey : edge.startKey
+
+        return {
+          edge: {
+            ...edge,
+            startKey: currentKey,
+            endKey: nextKey,
+          },
+          nextKey,
+        }
+      })
+      .filter(
+        (candidate) =>
+          candidate.edge.wall.id !== currentEdge.wall.id ||
+          candidate.nextKey !== previousKey,
+      )
+
+    if (candidates.length === 0) {
+      return null
+    }
+
+    const previousPoint = pointsByKey.get(previousKey)!
+    const currentPoint = pointsByKey.get(currentKey)!
+    const incomingAngle = Math.atan2(
+      currentPoint.y - previousPoint.y,
+      currentPoint.x - previousPoint.x,
+    )
+    const nextCandidate = candidates.reduce((bestCandidate, candidate) => {
+      const bestPoint = pointsByKey.get(bestCandidate.nextKey)!
+      const candidatePoint = pointsByKey.get(candidate.nextKey)!
+      const bestTurn = normalizeAngle(
+        incomingAngle -
+          Math.atan2(bestPoint.y - currentPoint.y, bestPoint.x - currentPoint.x),
+      )
+      const candidateTurn = normalizeAngle(
+        incomingAngle -
+          Math.atan2(
+            candidatePoint.y - currentPoint.y,
+            candidatePoint.x - currentPoint.x,
+          ),
+      )
+
+      return candidateTurn < bestTurn ? candidate : bestCandidate
+    }, candidates[0])
+
+    loop.push(nextCandidate.edge)
+    previousKey = currentKey
+    currentKey = nextCandidate.nextKey
+    currentEdge = nextCandidate.edge
+  }
+
+  return null
+}
+
+function applyMeasuredLengthAndAngle(
+  start: Point,
+  pointerEnd: Point,
+  lengthInput: string | null,
+  angleInput: string | null,
+  wallKind: WallKind,
+  roomHeight: number,
+  walls: Wall[],
+) {
+  const typedLength = parseLengthInput(lengthInput ?? '')
+  const typedAngle = parseAngleInput(angleInput ?? '')
+  const angle = ((typedAngle ?? getAngleDegrees(start, pointerEnd)) * Math.PI) / 180
+  const initialLength = typedLength ?? distance(start, pointerEnd)
+  const initialEnd = {
+    x: start.x + Math.cos(angle) * initialLength,
+    y: start.y + Math.sin(angle) * initialLength,
+  }
+
+  if (!typedLength) {
+    return initialEnd
+  }
+
+  const draftWall: Wall = {
+    id: 'draft-wall',
+    kind: wallKind,
+    start,
+    end: initialEnd,
+    thickness: getDraftWallThickness(wallKind),
+    height: roomHeight,
+  }
+  const centerlineLength = getCenterlineLengthForVisibleLength(
+    draftWall,
+    walls,
+    typedLength,
+  )
+
+  return {
+    x: start.x + Math.cos(angle) * centerlineLength,
+    y: start.y + Math.sin(angle) * centerlineLength,
+  }
+}
+
+function getExternalDimensionSide(wall: Wall, walls: Wall[]): -1 | 1 {
+  const loopOutsideSide = getExternalWallOutsideSide(wall, walls)
+
+  if (loopOutsideSide !== null) {
+    return loopOutsideSide
+  }
+
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return 1
+  }
+
+  const normal = { x: -dy / length, y: dx / length }
+  const midpoint = {
+    x: (wall.start.x + wall.end.x) / 2,
+    y: (wall.start.y + wall.end.y) / 2,
+  }
+  const planCenter = getPlanCenter(walls)
+  const centerSide =
+    (planCenter.x - midpoint.x) * normal.x +
+    (planCenter.y - midpoint.y) * normal.y
+
+  return centerSide < 0 ? 1 : -1
+}
+
+function getExternalDimensionEndpointOffset(
+  wall: Wall,
+  endpoint: 'start' | 'end',
+  side: -1 | 1,
+  renderedExtension: number,
+  walls: Wall[],
+) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return 0
+  }
+
+  const unit = { x: dx / length, y: dy / length }
+  const endpointPoint = endpoint === 'start' ? wall.start : wall.end
+  const faceNormal = {
+    x: -unit.y * side,
+    y: unit.x * side,
+  }
+  let offset = renderedExtension
+  const connectedEndpointWalls = walls.filter(
+    (otherWall) =>
+      otherWall.id !== wall.id &&
+      (distance(endpointPoint, otherWall.start) <= CONNECTION_SNAP_METERS ||
+        distance(endpointPoint, otherWall.end) <= CONNECTION_SNAP_METERS),
+  )
+
+  if (connectedEndpointWalls.length >= 2) {
+    let hasPerpendicularExternalConnection = false
+    let measuredSideStop: number | null = null
+    let outsideCornerExtension: number | null = null
+
+    for (const otherWall of connectedEndpointWalls) {
+      if (otherWall.kind === 'internal') {
+        continue
+      }
+
+      const otherDirection =
+        distance(endpointPoint, otherWall.start) <= CONNECTION_SNAP_METERS
+          ? normalize(
+              otherWall.end.x - otherWall.start.x,
+              otherWall.end.y - otherWall.start.y,
+            )
+          : normalize(
+              otherWall.start.x - otherWall.end.x,
+              otherWall.start.y - otherWall.end.y,
+            )
+      const isPerpendicular =
+        Math.abs(unit.x * otherDirection.x + unit.y * otherDirection.y) <= 0.08
+
+      if (!isPerpendicular) {
+        continue
+      }
+
+      hasPerpendicularExternalConnection = true
+
+      const turnsIntoMeasuredSide =
+        otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08
+
+      if (turnsIntoMeasuredSide) {
+        measuredSideStop = Math.min(
+          measuredSideStop ?? Number.POSITIVE_INFINITY,
+          -otherWall.thickness / 2,
+        )
+      } else {
+        outsideCornerExtension = Math.max(
+          outsideCornerExtension ?? Number.NEGATIVE_INFINITY,
+          otherWall.thickness / 2,
+        )
+      }
+    }
+
+    if (hasPerpendicularExternalConnection) {
+      return measuredSideStop ?? outsideCornerExtension ?? renderedExtension
+    }
+  }
+
+  for (const otherWall of walls) {
+    if (otherWall.id === wall.id || otherWall.kind === 'internal') {
+      continue
+    }
+
+    const otherDx = otherWall.end.x - otherWall.start.x
+    const otherDy = otherWall.end.y - otherWall.start.y
+    const otherLength = Math.hypot(otherDx, otherDy)
+
+    if (otherLength === 0) {
+      continue
+    }
+
+    const otherUnit = {
+      x: otherDx / otherLength,
+      y: otherDy / otherLength,
+    }
+    const otherIsPerpendicular =
+      Math.abs(unit.x * otherUnit.x + unit.y * otherUnit.y) <= 0.08
+
+    if (!otherIsPerpendicular) {
+      continue
+    }
+
+    const renderedOtherWall = getRenderedWalls(walls).find(
+      (candidateWall) => candidateWall.wall.id === otherWall.id,
+    )
+
+    if (renderedOtherWall) {
+      const otherPolygon = getWallPolygon(renderedOtherWall)
+      const endpointAxisDistance = endpoint === 'start' ? 0 : length
+      const endpointNormalDistance =
+        (endpointPoint.x - wall.start.x) * faceNormal.x +
+        (endpointPoint.y - wall.start.y) * faceNormal.y
+      const polygonAxisDistances = otherPolygon.map(
+        (point) =>
+          (point.x - wall.start.x) * unit.x + (point.y - wall.start.y) * unit.y,
+      )
+      const polygonNormalDistances = otherPolygon.map(
+        (point) =>
+          (point.x - wall.start.x) * faceNormal.x +
+          (point.y - wall.start.y) * faceNormal.y,
+      )
+      const minAxisDistance = Math.min(...polygonAxisDistances)
+      const maxAxisDistance = Math.max(...polygonAxisDistances)
+      const minNormalDistance = Math.min(...polygonNormalDistances)
+      const maxNormalDistance = Math.max(...polygonNormalDistances)
+      const endpointIsWithinOtherThickness =
+        endpointAxisDistance >= minAxisDistance - WALL_JOIN_EPSILON_METERS &&
+        endpointAxisDistance <= maxAxisDistance + WALL_JOIN_EPSILON_METERS
+      const otherWallCrossesEndpoint =
+        endpointNormalDistance > minNormalDistance + otherWall.thickness &&
+        endpointNormalDistance < maxNormalDistance - otherWall.thickness
+
+      if (endpointIsWithinOtherThickness && otherWallCrossesEndpoint) {
+        const nearFaceDistance =
+          endpoint === 'start' ? maxAxisDistance : minAxisDistance
+
+        offset =
+          endpoint === 'start'
+            ? Math.min(offset, -nearFaceDistance)
+            : Math.min(offset, nearFaceDistance - length)
+        continue
+      }
+    }
+
+    const projectionOnOtherWall = getProjectionOnSegment(
+      endpointPoint,
+      otherWall.start,
+      otherWall.end,
+    )
+    const distanceToOtherCenterline = distance(
+      endpointPoint,
+      projectionOnOtherWall.point,
+    )
+    const endpointHitsOtherWallBody =
+      projectionOnOtherWall.t > WALL_JOIN_EPSILON_METERS &&
+      projectionOnOtherWall.t < 1 - WALL_JOIN_EPSILON_METERS &&
+      distanceToOtherCenterline <=
+        otherWall.thickness / 2 + WALL_JOIN_EPSILON_METERS
+
+    if (endpointHitsOtherWallBody) {
+      const otherNormal = {
+        x: -otherUnit.y,
+        y: otherUnit.x,
+      }
+      const extensionDirection =
+        endpoint === 'start' ? { x: -unit.x, y: -unit.y } : unit
+      const directionDotNormal =
+        extensionDirection.x * otherNormal.x +
+        extensionDirection.y * otherNormal.y
+      const signedDistanceToCenterline =
+        (endpointPoint.x - projectionOnOtherWall.point.x) * otherNormal.x +
+        (endpointPoint.y - projectionOnOtherWall.point.y) * otherNormal.y
+      const faceDistances = [-otherWall.thickness / 2, otherWall.thickness / 2]
+        .map((faceDistance) =>
+          Math.abs(directionDotNormal) > 0.08
+            ? (faceDistance - signedDistanceToCenterline) / directionDotNormal
+            : Number.POSITIVE_INFINITY,
+        )
+        .filter((faceDistance) => faceDistance >= 0)
+      const distanceToNearFace = Math.min(...faceDistances)
+
+      if (Number.isFinite(distanceToNearFace)) {
+        offset = Math.min(offset, -distanceToNearFace)
+      }
+
+      continue
+    }
+
+    const otherStartDistance = distance(endpointPoint, otherWall.start)
+    const otherEndDistance = distance(endpointPoint, otherWall.end)
+    const otherDirection =
+      otherStartDistance <= CONNECTION_SNAP_METERS
+        ? normalize(
+            otherWall.end.x - otherWall.start.x,
+            otherWall.end.y - otherWall.start.y,
+          )
+        : otherEndDistance <= CONNECTION_SNAP_METERS
+          ? normalize(
+              otherWall.start.x - otherWall.end.x,
+              otherWall.start.y - otherWall.end.y,
+            )
+          : null
+
+    if (!otherDirection) {
+      continue
+    }
+
+    const isPerpendicular =
+      Math.abs(unit.x * otherDirection.x + unit.y * otherDirection.y) <= 0.08
+
+    if (!isPerpendicular) {
+      continue
+    }
+
+    const turnsIntoMeasuredSide =
+      otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08
+
+    if (turnsIntoMeasuredSide) {
+      offset = Math.min(offset, -otherWall.thickness / 2)
+    } else {
+      offset = Math.max(offset, otherWall.thickness / 2)
+    }
+  }
+
+  return offset
+}
+
+function getInternalDimensionEndpointOffset(
+  wall: Wall,
+  endpoint: 'start' | 'end',
+  side: -1 | 1,
+  renderedExtension: number,
+  walls: Wall[],
+) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return 0
+  }
+
+  const unit = { x: dx / length, y: dy / length }
+  const endpointPoint = endpoint === 'start' ? wall.start : wall.end
+  const faceNormal = {
+    x: -unit.y * side,
+    y: unit.x * side,
+  }
+  let offset = renderedExtension
+
+  for (const otherWall of walls) {
+    if (otherWall.id === wall.id) {
+      continue
+    }
+
+    const otherStartDistance = distance(endpointPoint, otherWall.start)
+    const otherEndDistance = distance(endpointPoint, otherWall.end)
+    const otherDirection =
+      otherStartDistance <= CONNECTION_SNAP_METERS
+        ? normalize(
+            otherWall.end.x - otherWall.start.x,
+            otherWall.end.y - otherWall.start.y,
+          )
+        : otherEndDistance <= CONNECTION_SNAP_METERS
+          ? normalize(
+              otherWall.start.x - otherWall.end.x,
+              otherWall.start.y - otherWall.end.y,
+            )
+          : null
+
+    if (!otherDirection) {
+      continue
+    }
+
+    const isPerpendicular =
+      Math.abs(unit.x * otherDirection.x + unit.y * otherDirection.y) <= 0.08
+
+    if (!isPerpendicular) {
+      continue
+    }
+
+    const turnsIntoMeasuredSide =
+      otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08
+
+    if (turnsIntoMeasuredSide) {
+      offset = Math.min(offset, -otherWall.thickness / 2)
+    } else {
+      offset = Math.max(offset, otherWall.thickness / 2)
+    }
+  }
+
+  return offset
+}
+
 function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
@@ -222,10 +968,90 @@ function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
   const normalY = unitX
   const offset = wall.thickness / 2 + DIMENSION_OFFSET_METERS
   const rotation = (Math.atan2(dy, dx) * 180) / Math.PI
+  const isInternalWall = wall.kind === 'internal'
 
-  return ([-1, 1] as const).map((side) => {
-    const startContinuation = getFaceContinuation(wall, 'start', side, walls)
-    const endContinuation = getFaceContinuation(wall, 'end', side, walls)
+  if (!isInternalWall) {
+    const side = getExternalDimensionSide(wall, walls)
+    const renderedWall = getRenderedWalls(walls).find(
+      (candidateWall) => candidateWall.wall.id === wall.id,
+    )
+    const startExtension = getExternalDimensionEndpointOffset(
+      wall,
+      'start',
+      side,
+      renderedWall?.startExtension ?? 0,
+      walls,
+    )
+    const endExtension = getExternalDimensionEndpointOffset(
+      wall,
+      'end',
+      side,
+      renderedWall?.endExtension ?? 0,
+      walls,
+    )
+    const measuredSegment = {
+      start: {
+        x: wall.start.x - unitX * startExtension,
+        y: wall.start.y - unitY * startExtension,
+      },
+      end: {
+        x: wall.end.x + unitX * endExtension,
+        y: wall.end.y + unitY * endExtension,
+      },
+    }
+    const centerMidpoint = {
+      x: (measuredSegment.start.x + measuredSegment.end.x) / 2,
+      y: (measuredSegment.start.y + measuredSegment.end.y) / 2,
+    }
+    const dimensionOffsetX = normalX * offset * side
+    const dimensionOffsetY = normalY * offset * side
+    const measuredLength = distance(measuredSegment.start, measuredSegment.end)
+
+    return [
+      {
+        start: {
+          x: measuredSegment.start.x + dimensionOffsetX,
+          y: measuredSegment.start.y + dimensionOffsetY,
+        },
+        end: {
+          x: measuredSegment.end.x + dimensionOffsetX,
+          y: measuredSegment.end.y + dimensionOffsetY,
+        },
+        faceStart: measuredSegment.start,
+        faceEnd: measuredSegment.end,
+        labelPoint: {
+          x: centerMidpoint.x + dimensionOffsetX,
+          y: centerMidpoint.y + dimensionOffsetY,
+        },
+        tickMode: 'cross',
+        text: `${measuredLength.toFixed(2)} m`,
+        rotation,
+      },
+    ]
+  }
+
+  const sides = ([-1, 1] as const).map((side) => ({
+    side,
+    blockers: getFaceBlockers(wall, side, walls),
+  }))
+  const candidates = sides.flatMap<DimensionCandidate>(({ side, blockers }) => {
+    const renderedWall = getRenderedWalls(walls).find(
+      (candidateWall) => candidateWall.wall.id === wall.id,
+    )
+    const startContinuation = getInternalDimensionEndpointOffset(
+      wall,
+      'start',
+      side,
+      renderedWall?.startExtension ?? 0,
+      walls,
+    )
+    const endContinuation = getInternalDimensionEndpointOffset(
+      wall,
+      'end',
+      side,
+      renderedWall?.endExtension ?? 0,
+      walls,
+    )
     const faceStart = {
       x: wall.start.x - unitX * startContinuation,
       y: wall.start.y - unitY * startContinuation,
@@ -238,47 +1064,50 @@ function getDimensionGuides(wall: Wall, walls: Wall[]): DimensionGuide[] {
     const offsetY = normalY * offset * side
     const visibleLength = distance(faceStart, faceEnd)
 
-    return {
-      start: {
-        x: faceStart.x + offsetX,
-        y: faceStart.y + offsetY,
-      },
-      end: {
-        x: faceEnd.x + offsetX,
-        y: faceEnd.y + offsetY,
-      },
-      labelPoint: {
-        x: (faceStart.x + faceEnd.x) / 2 + offsetX,
-        y: (faceStart.y + faceEnd.y) / 2 + offsetY,
-      },
-      text: `${visibleLength.toFixed(2)} m`,
-      rotation,
-    }
+    return subtractBlockedIntervals(
+      visibleLength,
+      blockers.map(([start, end]) => [
+        start + startContinuation,
+        end + startContinuation,
+      ]),
+    ).map(([segmentStart, segmentEnd]) => {
+      const segmentFaceStart = {
+        x: faceStart.x + unitX * segmentStart,
+        y: faceStart.y + unitY * segmentStart,
+      }
+      const segmentFaceEnd = {
+        x: faceStart.x + unitX * segmentEnd,
+        y: faceStart.y + unitY * segmentEnd,
+      }
+      const segmentLength = segmentEnd - segmentStart
+
+      return {
+        start: {
+          x: segmentFaceStart.x + offsetX,
+          y: segmentFaceStart.y + offsetY,
+        },
+        end: {
+          x: segmentFaceEnd.x + offsetX,
+          y: segmentFaceEnd.y + offsetY,
+        },
+        faceStart: segmentFaceStart,
+        faceEnd: segmentFaceEnd,
+        labelPoint: {
+          x: (segmentFaceStart.x + segmentFaceEnd.x) / 2 + offsetX,
+          y: (segmentFaceStart.y + segmentFaceEnd.y) / 2 + offsetY,
+        },
+        blockerCount: blockers.length,
+        segmentEnd,
+        segmentStart,
+        side,
+        tickMode: 'connector',
+        text: `${segmentLength.toFixed(2)} m`,
+        rotation,
+      }
+    })
   })
-}
 
-function getDimensionTick(point: Point, wall: Wall): [Point, Point] {
-  const dx = wall.end.x - wall.start.x
-  const dy = wall.end.y - wall.start.y
-  const length = Math.hypot(dx, dy)
-
-  if (length === 0) {
-    return [point, point]
-  }
-
-  const normalX = -dy / length
-  const normalY = dx / length
-
-  return [
-    {
-      x: point.x - normalX * DIMENSION_TICK_METERS,
-      y: point.y - normalY * DIMENSION_TICK_METERS,
-    },
-    {
-      x: point.x + normalX * DIMENSION_TICK_METERS,
-      y: point.y + normalY * DIMENSION_TICK_METERS,
-    },
-  ]
+  return candidates
 }
 
 function snapToAxis(start: Point, end: Point): Point {
@@ -290,6 +1119,25 @@ function snapToAxis(start: Point, end: Point): Point {
   }
 
   return { x: start.x, y: end.y }
+}
+
+function getDimensionCrossTick(point: Point, rotation: number): [Point, Point] {
+  const angle = (rotation * Math.PI) / 180
+  const normal = {
+    x: -Math.sin(angle),
+    y: Math.cos(angle),
+  }
+
+  return [
+    {
+      x: point.x - normal.x * DIMENSION_TICK_METERS,
+      y: point.y - normal.y * DIMENSION_TICK_METERS,
+    },
+    {
+      x: point.x + normal.x * DIMENSION_TICK_METERS,
+      y: point.y + normal.y * DIMENSION_TICK_METERS,
+    },
+  ]
 }
 
 function getDraftAxis(start: Point, end: Point): Axis {
@@ -358,18 +1206,182 @@ function getClosestPointOnSegment(point: Point, start: Point, end: Point): Point
   }
 }
 
-function getSnapTarget(point: Point, walls: Wall[]): SnapTarget | null {
+function getProjectionOnSegment(point: Point, start: Point, end: Point) {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared === 0) {
+    return { point: start, t: 0 }
+  }
+
+  const rawT = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+  const t = Math.max(0, Math.min(1, rawT))
+
+  return {
+    point: {
+      x: start.x + t * dx,
+      y: start.y + t * dy,
+    },
+    t,
+  }
+}
+
+function getOffsetSegment(
+  wall: Wall,
+  offset: number,
+  startExtension = 0,
+  endExtension = 0,
+): SnapSegment {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return { start: wall.start, end: wall.end }
+  }
+
+  const normalX = -dy / length
+  const normalY = dx / length
+  const unitX = dx / length
+  const unitY = dy / length
+
+  return {
+    start: {
+      x: wall.start.x - unitX * startExtension + normalX * offset,
+      y: wall.start.y - unitY * startExtension + normalY * offset,
+    },
+    end: {
+      x: wall.end.x + unitX * endExtension + normalX * offset,
+      y: wall.end.y + unitY * endExtension + normalY * offset,
+    },
+  }
+}
+
+function getQuarterEndSnapPoints(
+  wall: Wall,
+  offset: number,
+  startExtension: number,
+  endExtension: number,
+): SnapSegment[] {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return []
+  }
+
+  const unitX = dx / length
+  const unitY = dy / length
+  const normalX = -dy / length
+  const normalY = dx / length
+  const quarterThickness = wall.thickness / 4
+  const sideOffset = Math.sign(offset || 1) * (wall.thickness / 2)
+  const insetDistances = [quarterThickness, quarterThickness * 3]
+  const startEnd = {
+    x: wall.start.x - unitX * startExtension + normalX * sideOffset,
+    y: wall.start.y - unitY * startExtension + normalY * sideOffset,
+  }
+  const finishEnd = {
+    x: wall.end.x + unitX * endExtension + normalX * sideOffset,
+    y: wall.end.y + unitY * endExtension + normalY * sideOffset,
+  }
+
+  return insetDistances.flatMap((insetDistance) => {
+    const startPoint = {
+      x: startEnd.x + unitX * insetDistance,
+      y: startEnd.y + unitY * insetDistance,
+    }
+    const finishPoint = {
+      x: finishEnd.x - unitX * insetDistance,
+      y: finishEnd.y - unitY * insetDistance,
+    }
+
+    return [
+      {
+        start: startPoint,
+        end: startPoint,
+        endpointsOnly: true,
+        label: '1/4',
+      },
+      {
+        start: finishPoint,
+        end: finishPoint,
+        endpointsOnly: true,
+        label: '1/4',
+      },
+    ]
+  })
+}
+
+function getSnapSegments(walls: Wall[], wallKind: WallKind): SnapSegment[] {
+  return getRenderedWalls(walls).flatMap(({ wall, startExtension, endExtension }) => {
+    const centerSegment = { start: wall.start, end: wall.end }
+
+    if (wallKind !== 'internal' || wall.kind !== 'external') {
+      return [centerSegment]
+    }
+
+    const quarterThickness = wall.thickness / 4
+    const innerQuarterLane = getOffsetSegment(
+      wall,
+      -quarterThickness,
+      startExtension,
+      endExtension,
+    )
+    const outerQuarterLane = getOffsetSegment(
+      wall,
+      quarterThickness,
+      startExtension,
+      endExtension,
+    )
+
+    return [
+      {
+        ...innerQuarterLane,
+        endpointsOnly: true,
+        label: '1/4',
+      },
+      ...getQuarterEndSnapPoints(
+        wall,
+        -quarterThickness,
+        startExtension,
+        endExtension,
+      ),
+      { ...centerSegment, label: '1/2' },
+      {
+        ...outerQuarterLane,
+        endpointsOnly: true,
+        label: '1/4',
+      },
+      ...getQuarterEndSnapPoints(
+        wall,
+        quarterThickness,
+        startExtension,
+        endExtension,
+      ),
+    ]
+  })
+}
+
+function getSnapTarget(point: Point, segments: SnapSegment[]): SnapTarget | null {
   let closestTarget: SnapTarget | null = null
   let closestDistance = CONNECTION_SNAP_METERS
 
-  for (const wall of walls) {
+  for (const segment of segments) {
     const candidates: SnapTarget[] = [
-      { point: wall.start, kind: 'endpoint' },
-      { point: wall.end, kind: 'endpoint' },
-      {
-        point: getClosestPointOnSegment(point, wall.start, wall.end),
-        kind: 'junction',
-      },
+      { point: segment.start, kind: 'endpoint', label: segment.label },
+      { point: segment.end, kind: 'endpoint', label: segment.label },
+      ...(segment.endpointsOnly
+        ? []
+        : [
+            {
+              point: getClosestPointOnSegment(point, segment.start, segment.end),
+              kind: 'junction' as const,
+              label: segment.label,
+            },
+          ]),
     ]
 
     for (const candidate of candidates) {
@@ -385,8 +1397,21 @@ function getSnapTarget(point: Point, walls: Wall[]): SnapTarget | null {
   return closestTarget
 }
 
-function snapToConnection(point: Point, walls: Wall[]): Point {
-  return getSnapTarget(point, walls)?.point ?? point
+function getSnapPreviewTarget(
+  point: Point,
+  segments: SnapSegment[],
+): SnapTarget | null {
+  const target = getSnapTarget(point, segments)
+
+  if (!target) {
+    return null
+  }
+
+  if (target.kind === 'junction' && distance(point, target.point) < 0.01) {
+    return null
+  }
+
+  return target
 }
 
 function getClosestAlignmentGuide(
@@ -439,61 +1464,38 @@ function applyAlignmentGuide(point: Point, guide: AlignmentGuide | null): Point 
   return guide?.projection ?? point
 }
 
-function snapToAxisEndpoint(point: Point, axis: Axis, walls: Wall[]): Point {
-  const guide = getClosestAlignmentGuide(
-    point,
-    walls,
-    axis === 'horizontal' ? 'x' : 'y',
-  )
-
-  return applyAlignmentGuide(point, guide)
-}
-
-function getClosestEndpointGuides(
-  point: Point,
-  axis: Axis,
-  walls: Wall[],
-): EndpointGuide[] {
-  return walls
-    .flatMap((wall) => [wall.start, wall.end])
-    .map((endpoint) => ({
-      endpoint,
-      projection:
-        axis === 'horizontal'
-          ? { x: endpoint.x, y: point.y }
-          : { x: point.x, y: endpoint.y },
-      distance:
-        axis === 'horizontal'
-          ? Math.abs(endpoint.x - point.x)
-          : Math.abs(endpoint.y - point.y),
-      crossDistance:
-        axis === 'horizontal'
-          ? Math.abs(endpoint.y - point.y)
-          : Math.abs(endpoint.x - point.x),
-    }))
-    .filter((guide) => {
-      return (
-        guide.distance > 0.02 &&
-        guide.distance <= ALIGNMENT_GUIDE_TOLERANCE_METERS
-      )
-    })
-    .sort((a, b) => a.distance * 2 + a.crossDistance - (b.distance * 2 + b.crossDistance))
-    .slice(0, 2)
-}
-
 export function FloorplanCanvas({
   activeFloor,
   floors,
   isAddingWall,
   selectedWallId,
+  wallKind,
   onAddWall,
   onDeleteWall,
   onExitAddWall,
   onSelectWall,
 }: FloorplanCanvasProps) {
   const walls = activeFloor.walls
-  const snapWalls = floors.flatMap((floor) => floor.walls)
-  const referenceFloors = floors.filter((floor) => floor.id !== activeFloor.id)
+  const referenceFloors = useMemo(
+    () => floors.filter((floor) => floor.id !== activeFloor.id),
+    [activeFloor.id, floors],
+  )
+  const snapWalls = useMemo(
+    () => floors.flatMap((floor) => floor.walls),
+    [floors],
+  )
+  const activeSnapSegments = useMemo(
+    () => getSnapSegments(walls, wallKind),
+    [walls, wallKind],
+  )
+  const referenceSnapSegments = useMemo(
+    () =>
+      getSnapSegments(
+        referenceFloors.flatMap((floor) => floor.walls),
+        wallKind,
+      ),
+    [referenceFloors, wallKind],
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
@@ -506,9 +1508,8 @@ export function FloorplanCanvas({
   const [draftLengthInput, setDraftLengthInput] = useState<string | null>(null)
   const [draftAngleInput, setDraftAngleInput] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
-  const [isSnapSuppressed, setIsSnapSuppressed] = useState(false)
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
-  const [isAxisLocked, setIsAxisLocked] = useState(false)
+  const [isAxisLocked, setIsAxisLocked] = useState(true)
   const lengthInputRef = useRef<HTMLInputElement>(null)
   const middlePanRef = useRef<PanState | null>(null)
 
@@ -552,16 +1553,19 @@ export function FloorplanCanvas({
       currentDraftWall
         ? {
             ...currentDraftWall,
-            end: applyLengthAndAngle(
+            end: applyMeasuredLengthAndAngle(
               currentDraftWall.start,
               currentDraftWall.end,
               draftLengthInput,
               draftAngleInput,
+              wallKind,
+              activeFloor.roomHeight,
+              snapWalls,
             ),
           }
         : currentDraftWall,
     )
-  }, [draftLengthInput, draftAngleInput])
+  }, [activeFloor.roomHeight, draftLengthInput, draftAngleInput, snapWalls, wallKind])
 
   useEffect(() => {
     if (!isAddingWall) {
@@ -648,9 +1652,44 @@ export function FloorplanCanvas({
     setHoverAlignmentGuide(null)
     setDraftLengthInput(null)
     setDraftAngleInput(null)
-    setIsSnapSuppressed(false)
-    setIsAxisLocked(false)
+    setIsAxisLocked(true)
   }
+
+  const getDraftEndPoint = (
+    start: Point,
+    point: Point,
+    event: PointerEvent,
+  ) => {
+    const basePoint = event.ctrlKey ? point : snapToAxis(start, point)
+
+    if (event.shiftKey) {
+      return basePoint
+    }
+
+    const axis = getDraftAxis(start, point)
+    const alignmentGuide = event.ctrlKey
+      ? null
+      : getClosestAlignmentGuide(
+          basePoint,
+          snapWalls,
+          axis === 'horizontal' ? 'x' : 'y',
+        )
+    const alignedPoint = applyAlignmentGuide(basePoint, alignmentGuide)
+    const snappedPoint = snapToPreferredConnection(alignedPoint)
+
+    return event.ctrlKey ? snappedPoint : snapToAxis(start, snappedPoint)
+  }
+
+  const getPreferredSnapTarget = (point: Point) =>
+    getSnapTarget(point, activeSnapSegments) ??
+    getSnapTarget(point, referenceSnapSegments)
+
+  const getPreferredSnapPreviewTarget = (point: Point) =>
+    getSnapPreviewTarget(point, activeSnapSegments) ??
+    getSnapPreviewTarget(point, referenceSnapSegments)
+
+  const snapToPreferredConnection = (point: Point) =>
+    getPreferredSnapTarget(point)?.point ?? point
 
   const closeContextMenu = () => {
     setContextMenu(null)
@@ -710,37 +1749,23 @@ export function FloorplanCanvas({
       const point = getPointerPoint(event)
       const wallToAdd = point
         ? (() => {
-            const axis = getDraftAxis(draftWall.start, point)
-            const axisPoint = event.evt.ctrlKey ? snapToAxis(draftWall.start, point) : point
-            const alignmentGuide = event.evt.shiftKey
-              ? null
-              : getClosestAlignmentGuide(
-                  axisPoint,
-                  snapWalls,
-                  axis === 'horizontal' ? 'x' : 'y',
-                )
-            const alignedPoint = applyAlignmentGuide(axisPoint, alignmentGuide)
-            const snappedPoint = event.evt.shiftKey
-              ? alignedPoint
-              : snapToConnection(alignedPoint, snapWalls)
+            const pointerEnd = getDraftEndPoint(draftWall.start, point, event.evt)
 
             return {
               ...draftWall,
               end: (() => {
-                const pointerEnd = event.evt.ctrlKey
-                  ? event.evt.shiftKey
-                    ? alignedPoint
-                    : snapToAxisEndpoint(alignedPoint, axis, snapWalls)
-                  : snappedPoint
                 const typedLength = parseLengthInput(draftLengthInput ?? '')
                 const typedAngle = parseAngleInput(draftAngleInput ?? '')
 
                 return typedLength || typedAngle !== null
-                  ? applyLengthAndAngle(
+                  ? applyMeasuredLengthAndAngle(
                       draftWall.start,
                       pointerEnd,
                       draftLengthInput,
                       draftAngleInput,
+                      wallKind,
+                      activeFloor.roomHeight,
+                      snapWalls,
                     )
                   : pointerEnd
               })(),
@@ -758,11 +1783,16 @@ export function FloorplanCanvas({
 
     const point = getPointerPoint(event)
     if (point) {
-      const alignmentGuide = hoverAlignmentGuide ?? getClosestAlignmentGuide(point, snapWalls)
+      const alignmentGuide = event.evt.shiftKey
+        ? null
+        : hoverAlignmentGuide ?? getClosestAlignmentGuide(point, snapWalls)
       const alignedPoint = applyAlignmentGuide(point, alignmentGuide)
-      const snappedPoint = snapToConnection(alignedPoint, snapWalls)
+      const snappedPoint = event.evt.shiftKey
+        ? point
+        : hoverSnapTarget?.point ?? snapToPreferredConnection(alignedPoint)
       setDraftWall({ start: snappedPoint, end: snappedPoint })
-      setHoverAlignmentGuide(alignmentGuide)
+      setHoverAlignmentGuide(null)
+      setIsAxisLocked(true)
     }
   }
 
@@ -788,8 +1818,7 @@ export function FloorplanCanvas({
     if (!isAddingWall) {
       setHoverSnapTarget(null)
       setHoverAlignmentGuide(null)
-      setIsSnapSuppressed(false)
-      setIsAxisLocked(false)
+      setIsAxisLocked(true)
       return
     }
 
@@ -799,45 +1828,45 @@ export function FloorplanCanvas({
     }
 
     if (!draftWall) {
-      setHoverSnapTarget(getSnapTarget(point, snapWalls))
-      setHoverAlignmentGuide(getClosestAlignmentGuide(point, snapWalls))
+      setHoverSnapTarget(getPreferredSnapPreviewTarget(point))
+      setHoverAlignmentGuide(
+        event.evt.shiftKey ? null : getClosestAlignmentGuide(point, snapWalls),
+      )
       return
     }
 
+    const pointerEnd = getDraftEndPoint(draftWall.start, point, event.evt)
     const axis = getDraftAxis(draftWall.start, point)
-    const axisPoint = event.evt.ctrlKey ? snapToAxis(draftWall.start, point) : point
-    setIsAxisLocked(event.evt.ctrlKey)
-    setIsSnapSuppressed(event.evt.shiftKey)
-    const alignmentGuide = event.evt.shiftKey
-      ? null
-      : getClosestAlignmentGuide(
-          axisPoint,
-          snapWalls,
-          axis === 'horizontal' ? 'x' : 'y',
-        )
-    const alignedPoint = applyAlignmentGuide(axisPoint, alignmentGuide)
-    const snappedPoint = event.evt.shiftKey
-      ? alignedPoint
-      : snapToConnection(alignedPoint, snapWalls)
-    setHoverSnapTarget(event.evt.shiftKey ? null : getSnapTarget(snappedPoint, snapWalls))
+    const basePoint = event.evt.ctrlKey ? point : snapToAxis(draftWall.start, point)
+    const alignmentGuide =
+      event.evt.ctrlKey || event.evt.shiftKey
+        ? null
+        : getClosestAlignmentGuide(
+            basePoint,
+            snapWalls,
+            axis === 'horizontal' ? 'x' : 'y',
+          )
+    const snapPreviewPoint = applyAlignmentGuide(basePoint, alignmentGuide)
+    setIsAxisLocked(!event.evt.ctrlKey)
+    setHoverSnapTarget(
+      event.evt.shiftKey ? null : getPreferredSnapPreviewTarget(snapPreviewPoint),
+    )
     setHoverAlignmentGuide(alignmentGuide)
     setDraftWall({
       ...draftWall,
       end: (() => {
-        const pointerEnd = event.evt.ctrlKey
-          ? event.evt.shiftKey
-            ? alignedPoint
-            : snapToAxisEndpoint(alignedPoint, axis, snapWalls)
-          : snappedPoint
         const typedLength = parseLengthInput(draftLengthInput ?? '')
         const typedAngle = parseAngleInput(draftAngleInput ?? '')
 
         return typedLength || typedAngle !== null
-          ? applyLengthAndAngle(
+          ? applyMeasuredLengthAndAngle(
               draftWall.start,
               pointerEnd,
               draftLengthInput,
               draftAngleInput,
+              wallKind,
+              activeFloor.roomHeight,
+              snapWalls,
             )
           : pointerEnd
       })(),
@@ -905,11 +1934,6 @@ export function FloorplanCanvas({
     (_, index) => firstGridY + index * METERS_TO_PIXELS,
   )
   const renderedWalls = getRenderedWalls(walls)
-  const draftAxis = draftWall ? getDraftAxis(draftWall.start, draftWall.end) : null
-  const endpointGuides =
-    draftWall && draftAxis && !isSnapSuppressed
-      ? getClosestEndpointGuides(draftWall.end, draftAxis, snapWalls)
-      : []
   const draftWallLength = draftWall ? distance(draftWall.start, draftWall.end) : null
   const angleWidget =
     draftWall && !isAxisLocked ? getAngleWidget(draftWall.start, draftWall.end) : null
@@ -937,6 +1961,79 @@ export function FloorplanCanvas({
     setDraftAngleInput(value)
   }
 
+  const dimensionRulers = walls.flatMap((wall) =>
+    getDimensionGuides(wall, walls).map((guide, index) => {
+      const start = toCanvasPoint(guide.start)
+      const end = toCanvasPoint(guide.end)
+      const faceStart = toCanvasPoint(guide.faceStart)
+      const faceEnd = toCanvasPoint(guide.faceEnd)
+      const labelPoint = toCanvasPoint(guide.labelPoint)
+      const [startTickA, startTickB] = getDimensionCrossTick(
+        guide.start,
+        guide.rotation,
+      ).map(toCanvasPoint)
+      const [endTickA, endTickB] = getDimensionCrossTick(
+        guide.end,
+        guide.rotation,
+      ).map(toCanvasPoint)
+      const textRotation =
+        guide.rotation > 90 || guide.rotation < -90
+          ? guide.rotation + 180
+          : guide.rotation
+
+      return (
+        <Fragment key={`${wall.id}-dimension-${index}`}>
+          <Line
+            points={[start.x, start.y, end.x, end.y]}
+            stroke="#64748b"
+            strokeWidth={1}
+            dash={[4, 5]}
+          />
+          {guide.tickMode === 'connector' ? (
+            <>
+              <Line
+                points={[faceStart.x, faceStart.y, start.x, start.y]}
+                stroke="#64748b"
+                strokeWidth={1}
+              />
+              <Line
+                points={[faceEnd.x, faceEnd.y, end.x, end.y]}
+                stroke="#64748b"
+                strokeWidth={1}
+              />
+            </>
+          ) : (
+            <>
+              <Line
+                points={[startTickA.x, startTickA.y, startTickB.x, startTickB.y]}
+                stroke="#64748b"
+                strokeWidth={1}
+              />
+              <Line
+                points={[endTickA.x, endTickA.y, endTickB.x, endTickB.y]}
+                stroke="#64748b"
+                strokeWidth={1}
+              />
+            </>
+          )}
+          <Text
+            x={labelPoint.x}
+            y={labelPoint.y}
+            width={70}
+            offsetX={35}
+            offsetY={8}
+            align="center"
+            text={guide.text}
+            fill="#475569"
+            fontSize={12}
+            fontStyle="bold"
+            rotation={textRotation}
+          />
+        </Fragment>
+      )
+    }),
+  )
+
   return (
     <section className="editor-pane">
       <div className="pane-header">
@@ -944,7 +2041,7 @@ export function FloorplanCanvas({
         <span>
           {isAddingWall
             ? draftWall
-              ? 'Move pointer, click to finish'
+              ? 'Move pointer, Ctrl for free angle'
               : 'Click to start wall'
             : 'Select Add Wall'}
         </span>
@@ -996,9 +2093,10 @@ export function FloorplanCanvas({
               stopMiddlePan()
             }
 
+            setHoverAlignmentGuide(null)
+
             if (!draftWall) {
               setHoverSnapTarget(null)
-              setHoverAlignmentGuide(null)
             }
           }}
         >
@@ -1049,64 +2147,6 @@ export function FloorplanCanvas({
               }),
             )}
 
-            {walls.flatMap((wall) =>
-              getDimensionGuides(wall, walls).map((guide, index) => {
-                const start = toCanvasPoint(guide.start)
-                const end = toCanvasPoint(guide.end)
-                const labelPoint = toCanvasPoint(guide.labelPoint)
-                const [startTickA, startTickB] = getDimensionTick(guide.start, wall)
-                const [endTickA, endTickB] = getDimensionTick(guide.end, wall)
-                const textRotation =
-                  guide.rotation > 90 || guide.rotation < -90
-                    ? guide.rotation + 180
-                    : guide.rotation
-
-                return (
-                  <Fragment key={`${wall.id}-dimension-${index}`}>
-                    <Line
-                      points={[start.x, start.y, end.x, end.y]}
-                      stroke="#64748b"
-                      strokeWidth={1}
-                      dash={[4, 5]}
-                    />
-                    <Line
-                      points={[
-                        toCanvasPoint(startTickA).x,
-                        toCanvasPoint(startTickA).y,
-                        toCanvasPoint(startTickB).x,
-                        toCanvasPoint(startTickB).y,
-                      ]}
-                      stroke="#64748b"
-                      strokeWidth={1}
-                    />
-                    <Line
-                      points={[
-                        toCanvasPoint(endTickA).x,
-                        toCanvasPoint(endTickA).y,
-                        toCanvasPoint(endTickB).x,
-                        toCanvasPoint(endTickB).y,
-                      ]}
-                      stroke="#64748b"
-                      strokeWidth={1}
-                    />
-                    <Text
-                      x={labelPoint.x}
-                      y={labelPoint.y}
-                      width={70}
-                      offsetX={35}
-                      offsetY={8}
-                      align="center"
-                      text={guide.text}
-                      fill="#475569"
-                      fontSize={12}
-                      fontStyle="bold"
-                      rotation={textRotation}
-                    />
-                  </Fragment>
-                )
-              }),
-            )}
-
             {renderedWalls.map((renderedWall) => {
               const polygon = getWallPolygon(renderedWall).flatMap((point) => {
                 const canvasPoint = toCanvasPoint(point)
@@ -1132,6 +2172,8 @@ export function FloorplanCanvas({
                 />
               )
             })}
+
+            {dimensionRulers}
 
             {draftWall ? (
               <Line
@@ -1230,84 +2272,64 @@ export function FloorplanCanvas({
               </>
             ) : null}
 
-            {draftWall
-              ? endpointGuides.map((guide) => {
-                  const guideEnd = toCanvasPoint(guide.projection)
-
-                  return (
-                    <Line
-                      key={`${guideEnd.x}-${guideEnd.y}`}
-                      points={[
-                        toCanvasPoint(guide.endpoint).x,
-                        toCanvasPoint(guide.endpoint).y,
-                        guideEnd.x,
-                        guideEnd.y,
-                      ]}
-                      stroke="#16a34a"
-                      strokeWidth={1.5}
-                      dash={[5, 6]}
-                    />
-                  )
-                })
-              : null}
-
-            {draftWall && hoverAlignmentGuide ? (
-              <>
-                <Line
-                  points={[
-                    toCanvasPoint(hoverAlignmentGuide.endpoint).x,
-                    toCanvasPoint(hoverAlignmentGuide.endpoint).y,
-                    toCanvasPoint(hoverAlignmentGuide.projection).x,
-                    toCanvasPoint(hoverAlignmentGuide.projection).y,
-                  ]}
-                  stroke="#16a34a"
-                  strokeWidth={1.5}
-                  dash={[5, 6]}
-                />
-                <Circle
-                  x={toCanvasPoint(hoverAlignmentGuide.projection).x}
-                  y={toCanvasPoint(hoverAlignmentGuide.projection).y}
-                  radius={5}
-                  fill="#ffffff"
-                  stroke="#16a34a"
-                  strokeWidth={3}
-                />
-              </>
-            ) : null}
-
-            {hoverAlignmentGuide && !draftWall && isAddingWall ? (
-              <>
-                <Line
-                  points={[
-                    toCanvasPoint(hoverAlignmentGuide.endpoint).x,
-                    toCanvasPoint(hoverAlignmentGuide.endpoint).y,
-                    toCanvasPoint(hoverAlignmentGuide.projection).x,
-                    toCanvasPoint(hoverAlignmentGuide.projection).y,
-                  ]}
-                  stroke="#16a34a"
-                  strokeWidth={1.5}
-                  dash={[5, 6]}
-                />
-                <Circle
-                  x={toCanvasPoint(hoverAlignmentGuide.projection).x}
-                  y={toCanvasPoint(hoverAlignmentGuide.projection).y}
-                  radius={5}
-                  fill="#ffffff"
-                  stroke="#16a34a"
-                  strokeWidth={3}
-                />
-              </>
+            {hoverAlignmentGuide ? (
+              <Line
+                points={[
+                  toCanvasPoint(hoverAlignmentGuide.endpoint).x,
+                  toCanvasPoint(hoverAlignmentGuide.endpoint).y,
+                  toCanvasPoint(hoverAlignmentGuide.projection).x,
+                  toCanvasPoint(hoverAlignmentGuide.projection).y,
+                ]}
+                stroke="#16a34a"
+                strokeWidth={1.5}
+                dash={[5, 6]}
+              />
             ) : null}
 
             {hoverSnapTarget ? (
-              <Circle
-                x={toCanvasPoint(hoverSnapTarget.point).x}
-                y={toCanvasPoint(hoverSnapTarget.point).y}
-                radius={hoverSnapTarget.kind === 'endpoint' ? 7 : 6}
-                fill="#ffffff"
-                stroke={hoverSnapTarget.kind === 'endpoint' ? '#16a34a' : '#f97316'}
-                strokeWidth={3}
-              />
+              <>
+                {[
+                  [-1, -1],
+                  [1, -1],
+                  [1, 1],
+                  [-1, 1],
+                ].map(([xDirection, yDirection]) => {
+                  const snapPoint = toCanvasPoint(hoverSnapTarget.point)
+                  const markerColor =
+                    hoverSnapTarget.label || hoverSnapTarget.kind === 'endpoint'
+                      ? '#16a34a'
+                      : '#f97316'
+
+                  return (
+                    <Line
+                      key={`${xDirection}-${yDirection}`}
+                      points={[
+                        snapPoint.x + xDirection * SNAP_MARKER_INNER_RADIUS,
+                        snapPoint.y + yDirection * SNAP_MARKER_INNER_RADIUS,
+                        snapPoint.x + xDirection * SNAP_MARKER_OUTER_RADIUS,
+                        snapPoint.y + yDirection * SNAP_MARKER_OUTER_RADIUS,
+                      ]}
+                      stroke={markerColor}
+                      strokeWidth={2}
+                      lineCap="round"
+                      listening={false}
+                    />
+                  )
+                })}
+                {hoverSnapTarget.label ? (
+                  <Text
+                    x={toCanvasPoint(hoverSnapTarget.point).x - 13}
+                    y={toCanvasPoint(hoverSnapTarget.point).y - 23}
+                    width={26}
+                    align="center"
+                    text={hoverSnapTarget.label}
+                    fill="#15803d"
+                    fontSize={8}
+                    fontStyle="bold"
+                    listening={false}
+                  />
+                ) : null}
+              </>
             ) : null}
 
             {walls.length === 0 && !draftWall ? (

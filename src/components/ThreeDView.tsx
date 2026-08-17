@@ -2,7 +2,7 @@ import { Edges, OrbitControls } from '@react-three/drei'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import { Color, DirectionalLight, Object3D, Shape } from 'three'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FloorLevel, Point, Wall } from '../types'
 import { getRenderedWalls, type RenderedWall } from '../wallGeometry'
 
@@ -11,10 +11,29 @@ type ThreeDViewProps = {
   floors: FloorLevel[]
 }
 
+type RenderOptions = {
+  ambientOcclusion: boolean
+  floorSlabs: boolean
+  groundPlane: boolean
+  referenceFloors: boolean
+  shadows: boolean
+}
+
 const ambientOcclusionColor = new Color('black')
 const FLOOR_PLANE_MARGIN = 5
 const SHADOW_MARGIN = 8
 const FOOTPRINT_EPSILON = 0.04
+
+type FootprintEdge = {
+  wall: Wall
+  startKey: string
+  endKey: string
+}
+
+type FootprintCandidate = {
+  edge: FootprintEdge
+  nextKey: string
+}
 
 function getFloorPlaneBounds(floor: FloorLevel) {
   if (floor.walls.length === 0) {
@@ -41,10 +60,6 @@ function getPointKey(point: Point) {
   return `${Math.round(point.x / FOOTPRINT_EPSILON)}:${Math.round(point.y / FOOTPRINT_EPSILON)}`
 }
 
-function getPointDistance(start: Point, end: Point) {
-  return Math.hypot(end.x - start.x, end.y - start.y)
-}
-
 function getSignedArea(points: Point[]) {
   return (
     points.reduce((area, point, index) => {
@@ -52,6 +67,17 @@ function getSignedArea(points: Point[]) {
       return area + point.x * nextPoint.y - nextPoint.x * point.y
     }, 0) / 2
   )
+}
+
+function normalizeAngleRadians(angle: number) {
+  const fullCircle = Math.PI * 2
+  let normalized = angle % fullCircle
+
+  if (normalized < 0) {
+    normalized += fullCircle
+  }
+
+  return normalized
 }
 
 function getLineIntersection(
@@ -88,53 +114,186 @@ function getLineIntersection(
 }
 
 function getExternalWallLoop(walls: Wall[]) {
-  const externalWalls = walls.filter((wall) => wall.kind === 'external')
+  const externalWalls = walls.filter((wall) => wall.kind !== 'internal')
 
   if (externalWalls.length < 3) {
     return null
   }
 
-  const connections = new Map<string, Wall[]>()
-  for (const wall of externalWalls) {
-    for (const point of [wall.start, wall.end]) {
-      const key = getPointKey(point)
-      connections.set(key, [...(connections.get(key) ?? []), wall])
+  const edges = externalWalls.map((wall) => ({
+    wall,
+    startKey: getPointKey(wall.start),
+    endKey: getPointKey(wall.end),
+  }))
+  const connections = new Map<string, FootprintEdge[]>()
+  const pointGroups = new Map<string, Point[]>()
+
+  for (const edge of edges) {
+    connections.set(edge.startKey, [...(connections.get(edge.startKey) ?? []), edge])
+    connections.set(edge.endKey, [...(connections.get(edge.endKey) ?? []), edge])
+    pointGroups.set(edge.startKey, [
+      ...(pointGroups.get(edge.startKey) ?? []),
+      edge.wall.start,
+    ])
+    pointGroups.set(edge.endKey, [
+      ...(pointGroups.get(edge.endKey) ?? []),
+      edge.wall.end,
+    ])
+  }
+
+  const pointsByKey = new Map(
+    [...pointGroups.entries()].map(([key, points]) => [
+      key,
+      {
+        x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+        y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+      },
+    ]),
+  )
+  const loops: Point[][] = []
+
+  for (const edge of edges) {
+    for (const [startKey, endKey] of [
+      [edge.startKey, edge.endKey],
+      [edge.endKey, edge.startKey],
+    ] as const) {
+      const rightTurnLoop = traceWallLoop(
+        edge,
+        startKey,
+        endKey,
+        connections,
+        pointsByKey,
+        true,
+      )
+
+      if (rightTurnLoop) {
+        loops.push(rightTurnLoop)
+      }
+
+      const leftTurnLoop = traceWallLoop(
+        edge,
+        startKey,
+        endKey,
+        connections,
+        pointsByKey,
+        false,
+      )
+
+      if (leftTurnLoop) {
+        loops.push(leftTurnLoop)
+      }
     }
   }
 
-  if ([...connections.values()].some((connectedWalls) => connectedWalls.length !== 2)) {
-    return null
-  }
+  return loops.reduce<Point[] | null>((bestLoop, loop) => {
+    const area = Math.abs(getSignedArea(loop))
 
-  const startWall = externalWalls[0]
-  const loop = [startWall.start, startWall.end]
-  const visitedWallIds = new Set([startWall.id])
-  let currentPoint = startWall.end
+    if (area < 0.01 || loop.length < 3) {
+      return bestLoop
+    }
 
-  while (visitedWallIds.size < externalWalls.length) {
-    const connectedWalls = connections.get(getPointKey(currentPoint)) ?? []
-    const nextWall = connectedWalls.find((wall) => !visitedWallIds.has(wall.id))
+    return !bestLoop || area > Math.abs(getSignedArea(bestLoop)) ? loop : bestLoop
+  }, null)
+}
 
-    if (!nextWall) {
+function traceWallLoop(
+  firstEdge: FootprintEdge,
+  startKey: string,
+  endKey: string,
+  connections: Map<string, FootprintEdge[]>,
+  pointsByKey: Map<string, Point>,
+  preferRightTurn: boolean,
+) {
+  const loopKeys = [startKey]
+  const visitedStates = new Set<string>()
+  let previousKey = startKey
+  let currentKey = endKey
+  let currentEdge = firstEdge
+  const maxSteps = connections.size * 4
+
+  for (let step = 0; step < maxSteps; step += 1) {
+    const stateKey = `${currentEdge.wall.id}:${previousKey}:${currentKey}`
+
+    if (visitedStates.has(stateKey)) {
       return null
     }
 
-    const nextPoint =
-      getPointDistance(currentPoint, nextWall.start) <= FOOTPRINT_EPSILON
-        ? nextWall.end
-        : nextWall.start
+    visitedStates.add(stateKey)
+    loopKeys.push(currentKey)
 
-    loop.push(nextPoint)
-    currentPoint = nextPoint
-    visitedWallIds.add(nextWall.id)
+    if (currentKey === startKey) {
+      const uniqueKeys = new Set(loopKeys.slice(0, -1))
+
+      return uniqueKeys.size >= 3
+        ? loopKeys.slice(0, -1).map((key) => pointsByKey.get(key)!)
+        : null
+    }
+
+    const candidates = (connections.get(currentKey) ?? [])
+      .map((edge): FootprintCandidate => {
+        const nextKey = edge.startKey === currentKey ? edge.endKey : edge.startKey
+        return { edge, nextKey }
+      })
+      .filter(
+        (candidate) =>
+          candidate.edge.wall.id !== currentEdge.wall.id ||
+          candidate.nextKey !== previousKey,
+      )
+
+    if (candidates.length === 0) {
+      return null
+    }
+
+    const nextCandidate = chooseNextFootprintEdge(
+      previousKey,
+      currentKey,
+      candidates,
+      pointsByKey,
+      preferRightTurn,
+    )
+
+    previousKey = currentKey
+    currentKey = nextCandidate.nextKey
+    currentEdge = nextCandidate.edge
   }
 
-  if (getPointDistance(currentPoint, loop[0]) > FOOTPRINT_EPSILON) {
-    return null
-  }
+  return null
+}
 
-  loop.pop()
-  return loop
+function chooseNextFootprintEdge(
+  previousKey: string,
+  currentKey: string,
+  candidates: FootprintCandidate[],
+  pointsByKey: Map<string, Point>,
+  preferRightTurn: boolean,
+) {
+  const previousPoint = pointsByKey.get(previousKey)!
+  const currentPoint = pointsByKey.get(currentKey)!
+  const incomingAngle = Math.atan2(
+    currentPoint.y - previousPoint.y,
+    currentPoint.x - previousPoint.x,
+  )
+
+  return candidates.reduce((bestCandidate, candidate) => {
+    const bestPoint = pointsByKey.get(bestCandidate.nextKey)!
+    const candidatePoint = pointsByKey.get(candidate.nextKey)!
+    const bestOutgoingAngle = Math.atan2(
+      bestPoint.y - currentPoint.y,
+      bestPoint.x - currentPoint.x,
+    )
+    const candidateOutgoingAngle = Math.atan2(
+      candidatePoint.y - currentPoint.y,
+      candidatePoint.x - currentPoint.x,
+    )
+    const bestTurn = preferRightTurn
+      ? normalizeAngleRadians(incomingAngle - bestOutgoingAngle)
+      : normalizeAngleRadians(bestOutgoingAngle - incomingAngle)
+    const candidateTurn = preferRightTurn
+      ? normalizeAngleRadians(incomingAngle - candidateOutgoingAngle)
+      : normalizeAngleRadians(candidateOutgoingAngle - incomingAngle)
+
+    return candidateTurn < bestTurn ? candidate : bestCandidate
+  }, candidates[0])
 }
 
 function getOffsetFootprint(loop: Point[], offset: number) {
@@ -206,7 +365,7 @@ function getOffsetFootprint(loop: Point[], offset: number) {
 function getFloorFootprint(floor: FloorLevel) {
   const loop = getExternalWallLoop(floor.walls)
   const externalThickness =
-    floor.walls.find((wall) => wall.kind === 'external')?.thickness ?? 0
+    floor.walls.find((wall) => wall.kind !== 'internal')?.thickness ?? 0
 
   return loop ? getOffsetFootprint(loop, externalThickness / 2) : null
 }
@@ -244,7 +403,13 @@ function getSceneBounds(floors: FloorLevel[]) {
   }
 }
 
-function SunLight({ sceneBounds }: { sceneBounds: ReturnType<typeof getSceneBounds> }) {
+function SunLight({
+  sceneBounds,
+  shadows,
+}: {
+  sceneBounds: ReturnType<typeof getSceneBounds>
+  shadows: boolean
+}) {
   const lightRef = useRef<DirectionalLight>(null)
   const targetRef = useRef<Object3D>(null)
 
@@ -269,7 +434,7 @@ function SunLight({ sceneBounds }: { sceneBounds: ReturnType<typeof getSceneBoun
           sceneBounds.centerZ + 6,
         ]}
         intensity={1.3}
-        castShadow
+        castShadow={shadows}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-camera-left={-sceneBounds.size / 2}
@@ -398,37 +563,110 @@ function FloorSlab({
 }
 
 export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
+  const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
+  const [renderOptions, setRenderOptions] = useState<RenderOptions>({
+    ambientOcclusion: true,
+    floorSlabs: true,
+    groundPlane: true,
+    referenceFloors: true,
+    shadows: true,
+  })
   const sceneBounds = getSceneBounds(floors)
+  const visibleFloors = renderOptions.referenceFloors
+    ? floors
+    : floors.filter((floor) => floor.id === activeFloorId)
+
+  const updateRenderOption = (option: keyof RenderOptions) => {
+    setRenderOptions((currentOptions) => ({
+      ...currentOptions,
+      [option]: !currentOptions[option],
+    }))
+  }
 
   return (
     <section className="editor-pane">
       <div className="pane-header">
         <h2>3D View</h2>
         <span>Orbit enabled</span>
+        <div className="render-options">
+          <button
+            type="button"
+            aria-expanded={isRenderMenuOpen}
+            onClick={() => setIsRenderMenuOpen((value) => !value)}
+          >
+            Render
+          </button>
+          {isRenderMenuOpen ? (
+            <div className="render-options-menu">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={renderOptions.ambientOcclusion}
+                  onChange={() => updateRenderOption('ambientOcclusion')}
+                />
+                Ambient occlusion
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={renderOptions.shadows}
+                  onChange={() => updateRenderOption('shadows')}
+                />
+                Shadows
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={renderOptions.referenceFloors}
+                  onChange={() => updateRenderOption('referenceFloors')}
+                />
+                Reference floors
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={renderOptions.groundPlane}
+                  onChange={() => updateRenderOption('groundPlane')}
+                />
+                Ground plane
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={renderOptions.floorSlabs}
+                  onChange={() => updateRenderOption('floorSlabs')}
+                />
+                Floor slabs
+              </label>
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="three-host">
         <Canvas
-          shadows
+          shadows={renderOptions.shadows}
           camera={{ position: [6, 5, 8], fov: 45 }}
           gl={{ antialias: true }}
         >
           <color attach="background" args={['#eef2f7']} />
           <ambientLight intensity={0.55} />
-          <SunLight sceneBounds={sceneBounds} />
+          <SunLight sceneBounds={sceneBounds} shadows={renderOptions.shadows} />
 
-          {floors.map((floor) => {
+          {visibleFloors.map((floor) => {
             const isActive = floor.id === activeFloorId
-            const hasShadowSurface = isActive && floor.elevation === 0
+            const hasShadowSurface = renderOptions.shadows && isActive
             const floorPlane =
-              floor.elevation === 0 ? getFloorPlaneBounds(floor) : null
+              renderOptions.groundPlane && isActive
+                ? getFloorPlaneBounds(floor)
+                : null
             const hasFloorAbove = floors.some(
               (otherFloor) => otherFloor.elevation > floor.elevation,
             )
 
             return (
               <group key={floor.id}>
-                {hasFloorAbove ? (
+                {renderOptions.floorSlabs && hasFloorAbove ? (
                   <FloorSlab floor={floor} isActive={isActive} />
                 ) : null}
                 {floorPlane ? (
@@ -442,14 +680,14 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
                       ]}
                       position={[
                         floorPlane.centerX,
-                        floor.elevation,
+                        0,
                         floorPlane.centerZ,
                       ]}
                     />
                     <mesh
                       position={[
                         floorPlane.centerX,
-                        floor.elevation - 0.01,
+                        -0.01,
                         floorPlane.centerZ,
                       ]}
                       rotation={[-Math.PI / 2, 0, 0]}
@@ -483,18 +721,20 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
           })}
 
           <OrbitControls makeDefault target={[3, 1.2, 3]} />
-          <EffectComposer multisampling={0}>
-            <N8AO
-              aoRadius={0.75}
-              distanceFalloff={0.45}
-              intensity={3.2}
-              quality="high"
-              aoSamples={32}
-              denoiseSamples={8}
-              denoiseRadius={8}
-              color={ambientOcclusionColor}
-            />
-          </EffectComposer>
+          {renderOptions.ambientOcclusion ? (
+            <EffectComposer multisampling={0}>
+              <N8AO
+                aoRadius={0.75}
+                distanceFalloff={0.45}
+                intensity={3.2}
+                quality="high"
+                aoSamples={32}
+                denoiseSamples={8}
+                denoiseRadius={8}
+                color={ambientOcclusionColor}
+              />
+            </EffectComposer>
+          ) : null}
         </Canvas>
       </div>
     </section>

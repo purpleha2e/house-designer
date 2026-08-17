@@ -9,6 +9,28 @@ import './App.css'
 const DEFAULT_THICKNESS = 0.3
 const DEFAULT_ROOM_HEIGHT = 2.4
 const DEFAULT_SLAB_THICKNESS = 0.3
+const STORAGE_KEY = 'house-designer:project'
+
+type SavedProject = {
+  activeFloorId: string
+  floors: FloorLevel[]
+  wallKind: WallKind
+}
+
+function isSavedProject(value: unknown): value is SavedProject {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const project = value as Partial<SavedProject>
+
+  return (
+    typeof project.activeFloorId === 'string' &&
+    Array.isArray(project.floors) &&
+    project.floors.length > 0 &&
+    (project.wallKind === 'external' || project.wallKind === 'internal')
+  )
+}
 
 function App() {
   const initialWallId: string = crypto.randomUUID()
@@ -68,18 +90,63 @@ function App() {
   }
 
   const deleteWall = (wallId: string) => {
+    const wallFloor = floors.find((floor) =>
+      floor.walls.some((wall) => wall.id === wallId),
+    )
+    const wallToDelete = wallFloor?.walls.find((wall) => wall.id === wallId)
+
+    if (!wallFloor || !wallToDelete) {
+      return
+    }
+
+    const floorsAbove = floors.filter(
+      (floor) => floor.elevation > wallFloor.elevation,
+    )
+    const shouldDeleteFloorsAbove =
+      wallToDelete.kind === 'external' && floorsAbove.length > 0
+
+    if (shouldDeleteFloorsAbove) {
+      const shouldDelete = window.confirm(
+        `Removing a wall under another floor will cause all floors above ${wallFloor.name} to be deleted.\n\nThis will delete ${floorsAbove
+          .map((floor) => floor.name)
+          .join(', ')}. Continue?`,
+      )
+
+      if (!shouldDelete) {
+        return
+      }
+    }
+
     setFloors((currentFloors) =>
-      currentFloors.map((floor) => ({
-        ...floor,
-        walls: floor.walls.filter((wall) => wall.id !== wallId),
-      })),
+      currentFloors
+        .filter(
+          (floor) =>
+            !shouldDeleteFloorsAbove || floor.elevation <= wallFloor.elevation,
+        )
+        .map((floor) => ({
+          ...floor,
+          walls: floor.walls.filter((wall) => wall.id !== wallId),
+        })),
     )
-    setSelectedWallId((currentSelectedWallId) =>
-      currentSelectedWallId === wallId ? null : currentSelectedWallId,
-    )
+    if (
+      shouldDeleteFloorsAbove &&
+      floorsAbove.some((floor) => floor.id === activeFloorId)
+    ) {
+      setActiveFloorId(wallFloor.id)
+    }
+    setSelectedWallId((currentSelectedWallId) => {
+      const selectedWallWasDeleted =
+        currentSelectedWallId === wallId ||
+        (shouldDeleteFloorsAbove &&
+          floorsAbove.some((floor) =>
+            floor.walls.some((wall) => wall.id === currentSelectedWallId),
+          ))
+
+      return selectedWallWasDeleted ? null : currentSelectedWallId
+    })
   }
 
-  const addFloor = () => {
+  const addFloor = ({ copyExternalWalls }: { copyExternalWalls: boolean }) => {
     const floorNumber = floors.length
     const id = crypto.randomUUID()
     const previousFloor = floors[floors.length - 1]
@@ -95,12 +162,61 @@ function App() {
         elevation: previousElevation,
         roomHeight: DEFAULT_ROOM_HEIGHT,
         slabThickness: DEFAULT_SLAB_THICKNESS,
-        walls: [],
+        walls:
+          copyExternalWalls && previousFloor
+            ? previousFloor.walls
+                .filter((wall) => wall.kind === 'external')
+                .map((wall) => ({
+                  ...wall,
+                  id: crypto.randomUUID(),
+                  height: DEFAULT_ROOM_HEIGHT,
+                }))
+            : [],
       },
     ])
     setActiveFloorId(id)
     setSelectedWallId(null)
     setIsAddingWall(false)
+  }
+
+  const saveProject = () => {
+    const project: SavedProject = {
+      activeFloorId,
+      floors,
+      wallKind,
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(project))
+  }
+
+  const loadProject = () => {
+    const savedProject = localStorage.getItem(STORAGE_KEY)
+
+    if (!savedProject) {
+      window.alert('No saved house design was found in this browser.')
+      return
+    }
+
+    try {
+      const parsedProject: unknown = JSON.parse(savedProject)
+
+      if (!isSavedProject(parsedProject)) {
+        window.alert('The saved house design could not be loaded.')
+        return
+      }
+
+      setFloors(parsedProject.floors)
+      setActiveFloorId(
+        parsedProject.floors.some((floor) => floor.id === parsedProject.activeFloorId)
+          ? parsedProject.activeFloorId
+          : parsedProject.floors[0].id,
+      )
+      setWallKind(parsedProject.wallKind)
+      setSelectedWallId(null)
+      setIsAddingWall(false)
+    } catch {
+      window.alert('The saved house design could not be loaded.')
+    }
   }
 
   const activeFloor =
@@ -121,7 +237,10 @@ function App() {
         isAddingWall={isAddingWall}
         wallCount={totalWallCount}
         wallKind={wallKind}
-        onAddFloor={addFloor}
+        onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
+        onAddFloor={() => addFloor({ copyExternalWalls: true })}
+        onLoadProject={loadProject}
+        onSaveProject={saveProject}
         onSelectFloor={(floorId) => {
           setActiveFloorId(floorId)
           setSelectedWallId(null)
@@ -138,6 +257,7 @@ function App() {
           floors={floors}
           isAddingWall={isAddingWall}
           selectedWallId={selectedWallId}
+          wallKind={wallKind}
           onAddWall={addWall}
           onDeleteWall={deleteWall}
           onExitAddWall={() => setIsAddingWall(false)}
