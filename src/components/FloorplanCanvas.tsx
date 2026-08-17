@@ -25,6 +25,14 @@ const SNAP_MARKER_INNER_RADIUS = 3
 const SNAP_MARKER_OUTER_RADIUS = 9
 const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
 const DRAFT_INTERNAL_WALL_THICKNESS = 0.15
+const ROOM_HIGHLIGHT_COLORS = [
+  'rgba(14, 165, 233, 0.12)',
+  'rgba(16, 185, 129, 0.12)',
+  'rgba(245, 158, 11, 0.12)',
+  'rgba(168, 85, 247, 0.12)',
+  'rgba(244, 63, 94, 0.1)',
+  'rgba(20, 184, 166, 0.12)',
+]
 
 type FloorplanCanvasProps = {
   activeFloor: FloorLevel
@@ -47,6 +55,14 @@ type Viewport = {
   x: number
   y: number
   scale: number
+}
+
+type FloorplanRenderOptions = {
+  externalDimensions: boolean
+  floorAreaSummary: boolean
+  internalDimensions: boolean
+  roomAreas: boolean
+  roomHighlights: boolean
 }
 
 type ContextMenuState = {
@@ -1589,6 +1605,14 @@ export function FloorplanCanvas({
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
+  const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
+  const [renderOptions, setRenderOptions] = useState<FloorplanRenderOptions>({
+    externalDimensions: true,
+    floorAreaSummary: true,
+    internalDimensions: true,
+    roomAreas: true,
+    roomHighlights: true,
+  })
   const [draftWall, setDraftWall] = useState<{ start: Point; end: Point } | null>(
     null,
   )
@@ -2143,8 +2167,86 @@ export function FloorplanCanvas({
     setDraftAngleInput(value)
   }
 
+  const updateRenderOption = (option: keyof FloorplanRenderOptions) => {
+    setRenderOptions((currentOptions) => ({
+      ...currentOptions,
+      [option]: !currentOptions[option],
+    }))
+  }
+
+  const floorAreaSummaries = useMemo(
+    () =>
+      floors.map((floor) => {
+        const rooms =
+          floor.id === activeFloor.id
+            ? wallTopology.rooms
+            : buildWallTopology(floor.walls).rooms
+        const area = rooms.reduce((total, room) => total + room.area, 0)
+
+        return {
+          area,
+          id: floor.id,
+          name: floor.name,
+        }
+      }),
+    [activeFloor.id, floors, wallTopology.rooms],
+  )
+
+  const roomRegions =
+    renderOptions.roomAreas || renderOptions.roomHighlights
+      ? wallTopology.rooms.map((room, index) => {
+          const polygonPoints = room.polygon.flatMap((point) => {
+            const canvasPoint = toCanvasPoint(point)
+            return [canvasPoint.x, canvasPoint.y]
+          })
+          const center = toCanvasPoint(
+            room.polygon.reduce(
+              (total, point) => ({
+                x: total.x + point.x / room.polygon.length,
+                y: total.y + point.y / room.polygon.length,
+              }),
+              { x: 0, y: 0 },
+            ),
+          )
+
+          return (
+            <Fragment key={room.id}>
+              {renderOptions.roomHighlights ? (
+                <Line
+                  points={polygonPoints}
+                  closed
+                  fill={ROOM_HIGHLIGHT_COLORS[index % ROOM_HIGHLIGHT_COLORS.length]}
+                  stroke="#38bdf8"
+                  strokeWidth={1}
+                  dash={[6, 6]}
+                  listening={false}
+                />
+              ) : null}
+              {renderOptions.roomAreas ? (
+                <Text
+                  x={center.x}
+                  y={center.y}
+                  width={90}
+                  offsetX={45}
+                  offsetY={8}
+                  align="center"
+                  text={`${room.area.toFixed(1)} m2`}
+                  fill="#0369a1"
+                  fontSize={11}
+                  fontStyle="bold"
+                  listening={false}
+                />
+              ) : null}
+            </Fragment>
+          )
+        })
+      : []
+
   const dimensionRulers = walls.flatMap((wall) =>
-    getDimensionGuides(wall, walls, wallTopology).map((guide, index) => {
+    (wall.kind === 'internal'
+      ? renderOptions.internalDimensions
+      : renderOptions.externalDimensions)
+      ? getDimensionGuides(wall, walls, wallTopology).map((guide, index) => {
       const start = toCanvasPoint(guide.start)
       const end = toCanvasPoint(guide.end)
       const faceStart = toCanvasPoint(guide.faceStart)
@@ -2213,7 +2315,8 @@ export function FloorplanCanvas({
           />
         </Fragment>
       )
-    }),
+    })
+      : [],
   )
 
   return (
@@ -2227,19 +2330,74 @@ export function FloorplanCanvas({
               : 'Click to start wall'
             : 'Select Add Wall'}
         </span>
-        <div className="zoom-controls" aria-label="2D zoom controls">
-          <button type="button" onClick={() => zoomAtCenter(1 / ZOOM_STEP)}>
-            -
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}
-          >
-            {Math.round(viewport.scale * 100)}%
-          </button>
-          <button type="button" onClick={() => zoomAtCenter(ZOOM_STEP)}>
-            +
-          </button>
+        <div className="floorplan-header-controls">
+          <div className="render-options">
+            <button
+              type="button"
+              aria-expanded={isRenderMenuOpen}
+              onClick={() => setIsRenderMenuOpen((value) => !value)}
+            >
+              Render
+            </button>
+            {isRenderMenuOpen ? (
+              <div className="render-options-menu">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.roomHighlights}
+                    onChange={() => updateRenderOption('roomHighlights')}
+                  />
+                  Highlight rooms
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.roomAreas}
+                    onChange={() => updateRenderOption('roomAreas')}
+                  />
+                  Room areas
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.floorAreaSummary}
+                    onChange={() => updateRenderOption('floorAreaSummary')}
+                  />
+                  Floor area summary
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.externalDimensions}
+                    onChange={() => updateRenderOption('externalDimensions')}
+                  />
+                  External dimensions
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.internalDimensions}
+                    onChange={() => updateRenderOption('internalDimensions')}
+                  />
+                  Internal dimensions
+                </label>
+              </div>
+            ) : null}
+          </div>
+          <div className="zoom-controls" aria-label="2D zoom controls">
+            <button type="button" onClick={() => zoomAtCenter(1 / ZOOM_STEP)}>
+              -
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}
+            >
+              {Math.round(viewport.scale * 100)}%
+            </button>
+            <button type="button" onClick={() => zoomAtCenter(ZOOM_STEP)}>
+              +
+            </button>
+          </div>
         </div>
       </div>
 
@@ -2309,6 +2467,8 @@ export function FloorplanCanvas({
           </Layer>
 
           <Layer>
+            {roomRegions}
+
             {referenceFloors.flatMap((floor) =>
               getRenderedWalls(floor.walls).map((renderedWall) => {
                 const polygon = getWallPolygon(renderedWall).flatMap((point) => {
@@ -2525,6 +2685,18 @@ export function FloorplanCanvas({
             ) : null}
           </Layer>
         </Stage>
+
+        {renderOptions.floorAreaSummary ? (
+          <div className="floor-area-summary">
+            {floorAreaSummaries.map((floor) => (
+              <div key={floor.id}>
+                {floor.name} internal area:{' '}
+                {floor.area >= 10 ? floor.area.toFixed(0) : floor.area.toFixed(1)}
+                m2
+              </div>
+            ))}
+          </div>
+        ) : null}
 
         {(draftLengthInput !== null || draftAngleInput !== null) &&
         draftLengthPanelPosition ? (

@@ -291,6 +291,26 @@
   font-size: 15px;
 }
 
+.floorplan-header-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.floorplan-header-controls .render-options,
+.floorplan-header-controls .zoom-controls {
+  position: relative;
+  top: auto;
+  right: auto;
+}
+
+.floorplan-header-controls .render-options-menu {
+  right: 0;
+}
+
 .zoom-controls {
   position: absolute;
   top: 12px;
@@ -400,6 +420,24 @@
 
 .canvas-host.panning {
   cursor: grabbing;
+}
+
+.floor-area-summary {
+  position: absolute;
+  z-index: 2;
+  left: 12px;
+  bottom: 12px;
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #334155;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  pointer-events: none;
 }
 
 .draft-length-panel {

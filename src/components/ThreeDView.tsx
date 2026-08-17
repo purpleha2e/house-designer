@@ -370,6 +370,26 @@ function getFloorFootprint(floor: FloorLevel) {
   return loop ? getOffsetFootprint(loop, externalThickness / 2) : null
 }
 
+function getNearestFloorFootprint(floor: FloorLevel, floors: FloorLevel[]) {
+  const ownFootprint = getFloorFootprint(floor)
+
+  if (ownFootprint) {
+    return ownFootprint
+  }
+
+  for (const candidateFloor of [...floors]
+    .filter((candidateFloor) => candidateFloor.elevation < floor.elevation)
+    .sort((firstFloor, secondFloor) => secondFloor.elevation - firstFloor.elevation)) {
+    const candidateFootprint = getFloorFootprint(candidateFloor)
+
+    if (candidateFootprint) {
+      return candidateFootprint
+    }
+  }
+
+  return null
+}
+
 function getSceneBounds(floors: FloorLevel[]) {
   const walls = floors.flatMap((floor) => floor.walls)
 
@@ -508,12 +528,14 @@ function WallMesh({
 
 function FloorSlab({
   floor,
-  isActive,
+  floors,
+  isSolid,
 }: {
   floor: FloorLevel
-  isActive: boolean
+  floors: FloorLevel[]
+  isSolid: boolean
 }) {
-  const footprint = getFloorFootprint(floor)
+  const footprint = getNearestFloorFootprint(floor, floors)
   const slabShape = useMemo(() => {
     if (!footprint) {
       return null
@@ -539,8 +561,8 @@ function FloorSlab({
     <mesh
       position={[0, floor.elevation + floor.roomHeight, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
-      receiveShadow={isActive}
-      renderOrder={isActive ? 1 : 0}
+      receiveShadow={isSolid}
+      renderOrder={isSolid ? 1 : 0}
     >
       <extrudeGeometry
         args={[
@@ -553,9 +575,9 @@ function FloorSlab({
       />
       <meshStandardMaterial
         color="#e2e8f0"
-        opacity={isActive ? 1 : 0.18}
-        transparent={!isActive}
-        depthWrite={isActive}
+        opacity={isSolid ? 1 : 0.18}
+        transparent={!isSolid}
+        depthWrite={isSolid}
         roughness={0.82}
       />
     </mesh>
@@ -572,9 +594,18 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
     shadows: true,
   })
   const sceneBounds = getSceneBounds(floors)
+  const activeFloor = floors.find((floor) => floor.id === activeFloorId) ?? null
+  const floorBelowActive = activeFloor
+    ? floors
+        .filter((floor) => floor.elevation < activeFloor.elevation)
+        .sort((firstFloor, secondFloor) => secondFloor.elevation - firstFloor.elevation)[0] ??
+      null
+    : null
   const visibleFloors = renderOptions.referenceFloors
     ? floors
-    : floors.filter((floor) => floor.id === activeFloorId)
+    : floors.filter(
+        (floor) => floor.id === activeFloorId || floor.id === floorBelowActive?.id,
+      )
 
   const updateRenderOption = (option: keyof RenderOptions) => {
     setRenderOptions((currentOptions) => ({
@@ -655,19 +686,19 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
 
           {visibleFloors.map((floor) => {
             const isActive = floor.id === activeFloorId
+            const slabIsSolid = floor.id === floorBelowActive?.id
             const hasShadowSurface = renderOptions.shadows && isActive
             const floorPlane =
               renderOptions.groundPlane && isActive
                 ? getFloorPlaneBounds(floor)
                 : null
-            const hasFloorAbove = floors.some(
-              (otherFloor) => otherFloor.elevation > floor.elevation,
-            )
+            const shouldRenderSlab =
+              renderOptions.floorSlabs && floor.id === floorBelowActive?.id
 
             return (
               <group key={floor.id}>
-                {renderOptions.floorSlabs && hasFloorAbove ? (
-                  <FloorSlab floor={floor} isActive={isActive} />
+                {shouldRenderSlab ? (
+                  <FloorSlab floor={floor} floors={floors} isSolid={slabIsSolid} />
                 ) : null}
                 {floorPlane ? (
                   <>
