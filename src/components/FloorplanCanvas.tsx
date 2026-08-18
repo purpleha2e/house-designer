@@ -16,10 +16,18 @@ const CONNECTION_SNAP_METERS = 0.25
 const WALL_JOIN_EPSILON_METERS = 0.03
 const ALIGNMENT_GUIDE_TOLERANCE_METERS = 0.5
 const DIMENSION_OFFSET_METERS = 0.28
-const DIMENSION_TICK_METERS = 0.1
+const DIMENSION_CHEVRON_LENGTH_METERS = 0.09
+const DIMENSION_CHEVRON_MAX_SCREEN_PIXELS = 9
+const DIMENSION_CHEVRON_ANGLE_RADIANS = Math.PI / 5
+const DIMENSION_TICK_METERS = 0.065
+const DIMENSION_TICK_MAX_SCREEN_PIXELS = 10
 const MIN_ZOOM = 0.45
 const MAX_ZOOM = 4
 const ZOOM_STEP = 1.2
+const MEASUREMENT_TEXT_SCALE_THRESHOLD = 2
+const MEASUREMENT_TEXT_FIT_PADDING_METERS = 0.12
+const MIN_MEASUREMENT_TEXT_FIT_SCALE = 0.72
+const MEASUREMENT_TEXT_OFFSET_METERS = 0.1
 const ANGLE_WIDGET_RADIUS_METERS = 0.65
 const SNAP_MARKER_INNER_RADIUS = 3
 const SNAP_MARKER_OUTER_RADIUS = 9
@@ -38,11 +46,13 @@ type FloorplanCanvasProps = {
   activeFloor: FloorLevel
   floors: FloorLevel[]
   isAddingWall: boolean
+  selectedRoomSignature: string | null
   selectedWallId: string | null
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
+  onSelectRoom: (roomSignature: string | null) => void
   onSelectWall: (wallId: string | null) => void
 }
 
@@ -1226,21 +1236,70 @@ function snapToAxis(start: Point, end: Point): Point {
   return { x: start.x, y: end.y }
 }
 
-function getDimensionCrossTick(point: Point, rotation: number): [Point, Point] {
+function rotateVector(vector: Point, angle: number) {
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+
+  return {
+    x: vector.x * cos - vector.y * sin,
+    y: vector.x * sin + vector.y * cos,
+  }
+}
+
+function getDimensionChevron(
+  point: Point,
+  rotation: number,
+  direction: 1 | -1,
+  viewportScale: number,
+): [Point, Point, Point] {
+  const angle = (rotation * Math.PI) / 180
+  const axis = {
+    x: Math.cos(angle) * direction,
+    y: Math.sin(angle) * direction,
+  }
+  const chevronLengthMeters = Math.min(
+    DIMENSION_CHEVRON_LENGTH_METERS,
+    DIMENSION_CHEVRON_MAX_SCREEN_PIXELS / viewportScale / METERS_TO_PIXELS,
+  )
+  const firstArm = rotateVector(axis, DIMENSION_CHEVRON_ANGLE_RADIANS)
+  const secondArm = rotateVector(axis, -DIMENSION_CHEVRON_ANGLE_RADIANS)
+
+  return [
+    point,
+    {
+      x: point.x + firstArm.x * chevronLengthMeters,
+      y: point.y + firstArm.y * chevronLengthMeters,
+    },
+    {
+      x: point.x + secondArm.x * chevronLengthMeters,
+      y: point.y + secondArm.y * chevronLengthMeters,
+    },
+  ]
+}
+
+function getDimensionEndTick(
+  point: Point,
+  rotation: number,
+  viewportScale: number,
+): [Point, Point] {
   const angle = (rotation * Math.PI) / 180
   const normal = {
     x: -Math.sin(angle),
     y: Math.cos(angle),
   }
+  const tickLengthMeters = Math.min(
+    DIMENSION_TICK_METERS,
+    DIMENSION_TICK_MAX_SCREEN_PIXELS / viewportScale / METERS_TO_PIXELS,
+  )
 
   return [
     {
-      x: point.x - normal.x * DIMENSION_TICK_METERS,
-      y: point.y - normal.y * DIMENSION_TICK_METERS,
+      x: point.x - normal.x * tickLengthMeters,
+      y: point.y - normal.y * tickLengthMeters,
     },
     {
-      x: point.x + normal.x * DIMENSION_TICK_METERS,
-      y: point.y + normal.y * DIMENSION_TICK_METERS,
+      x: point.x + normal.x * tickLengthMeters,
+      y: point.y + normal.y * tickLengthMeters,
     },
   ]
 }
@@ -1573,11 +1632,13 @@ export function FloorplanCanvas({
   activeFloor,
   floors,
   isAddingWall,
+  selectedRoomSignature,
   selectedWallId,
   wallKind,
   onAddWall,
   onDeleteWall,
   onExitAddWall,
+  onSelectRoom,
   onSelectWall,
 }: FloorplanCanvasProps) {
   const walls = activeFloor.walls
@@ -2174,6 +2235,14 @@ export function FloorplanCanvas({
     }))
   }
 
+  const roomMetadataBySignature = useMemo(
+    () =>
+      new Map(
+        (activeFloor.rooms ?? []).map((room) => [room.signature, room.name]),
+      ),
+    [activeFloor.rooms],
+  )
+
   const floorAreaSummaries = useMemo(
     () =>
       floors.map((floor) => {
@@ -2208,18 +2277,23 @@ export function FloorplanCanvas({
               { x: 0, y: 0 },
             ),
           )
+          const roomName =
+            roomMetadataBySignature.get(room.signature) ?? `Room ${index + 1}`
+          const isSelectedRoom = room.signature === selectedRoomSignature
 
           return (
-            <Fragment key={room.id}>
+            <Fragment key={room.signature}>
               {renderOptions.roomHighlights ? (
                 <Line
                   points={polygonPoints}
                   closed
                   fill={ROOM_HIGHLIGHT_COLORS[index % ROOM_HIGHLIGHT_COLORS.length]}
-                  stroke="#38bdf8"
-                  strokeWidth={1}
+                  stroke={isSelectedRoom ? '#2563eb' : '#38bdf8'}
+                  strokeWidth={isSelectedRoom ? 2 : 1}
                   dash={[6, 6]}
-                  listening={false}
+                  listening
+                  onClick={() => onSelectRoom(room.signature)}
+                  onTap={() => onSelectRoom(room.signature)}
                 />
               ) : null}
               {renderOptions.roomAreas ? (
@@ -2230,7 +2304,7 @@ export function FloorplanCanvas({
                   offsetX={45}
                   offsetY={8}
                   align="center"
-                  text={`${room.area.toFixed(1)} m2`}
+                  text={`${roomName}\n${room.area.toFixed(1)} m2`}
                   fill="#0369a1"
                   fontSize={11}
                   fontStyle="bold"
@@ -2247,18 +2321,63 @@ export function FloorplanCanvas({
       ? renderOptions.internalDimensions
       : renderOptions.externalDimensions)
       ? getDimensionGuides(wall, walls, wallTopology).map((guide, index) => {
+      const measurementTextScale =
+        viewport.scale > MEASUREMENT_TEXT_SCALE_THRESHOLD
+          ? MEASUREMENT_TEXT_SCALE_THRESHOLD / viewport.scale
+          : 1
+      const guideLengthMeters = distance(guide.faceStart, guide.faceEnd)
+      const availableTextWidth = Math.max(
+        24,
+        (guideLengthMeters - MEASUREMENT_TEXT_FIT_PADDING_METERS) *
+          METERS_TO_PIXELS,
+      )
+      const fitTextScale = Math.max(
+        MIN_MEASUREMENT_TEXT_FIT_SCALE,
+        Math.min(1, availableTextWidth / 70),
+      )
+      const finalTextScale = measurementTextScale * fitTextScale
+      const measurementTextWidth = 70 * finalTextScale
       const start = toCanvasPoint(guide.start)
       const end = toCanvasPoint(guide.end)
       const faceStart = toCanvasPoint(guide.faceStart)
       const faceEnd = toCanvasPoint(guide.faceEnd)
       const labelPoint = toCanvasPoint(guide.labelPoint)
-      const [startTickA, startTickB] = getDimensionCrossTick(
+      const guideDx = guide.end.x - guide.start.x
+      const guideDy = guide.end.y - guide.start.y
+      const guideLength = Math.hypot(guideDx, guideDy)
+      const labelNormal =
+        guideLength > 0
+          ? {
+              x: -guideDy / guideLength,
+              y: guideDx / guideLength,
+            }
+          : { x: 0, y: -1 }
+      const labelOffset = MEASUREMENT_TEXT_OFFSET_METERS * METERS_TO_PIXELS
+      const offsetLabelPoint = {
+        x: labelPoint.x + labelNormal.x * labelOffset,
+        y: labelPoint.y + labelNormal.y * labelOffset,
+      }
+      const [startChevronPoint, startChevronA, startChevronB] = getDimensionChevron(
         guide.start,
         guide.rotation,
+        1,
+        viewport.scale,
       ).map(toCanvasPoint)
-      const [endTickA, endTickB] = getDimensionCrossTick(
+      const [endChevronPoint, endChevronA, endChevronB] = getDimensionChevron(
         guide.end,
         guide.rotation,
+        -1,
+        viewport.scale,
+      ).map(toCanvasPoint)
+      const [startTickA, startTickB] = getDimensionEndTick(
+        guide.start,
+        guide.rotation,
+        viewport.scale,
+      ).map(toCanvasPoint)
+      const [endTickA, endTickB] = getDimensionEndTick(
+        guide.end,
+        guide.rotation,
+        viewport.scale,
       ).map(toCanvasPoint)
       const textRotation =
         guide.rotation > 90 || guide.rotation < -90
@@ -2286,30 +2405,57 @@ export function FloorplanCanvas({
                 strokeWidth={1}
               />
             </>
-          ) : (
-            <>
-              <Line
-                points={[startTickA.x, startTickA.y, startTickB.x, startTickB.y]}
-                stroke="#64748b"
-                strokeWidth={1}
-              />
-              <Line
-                points={[endTickA.x, endTickA.y, endTickB.x, endTickB.y]}
-                stroke="#64748b"
-                strokeWidth={1}
-              />
-            </>
-          )}
+          ) : null}
+          <Line
+            points={[startTickA.x, startTickA.y, startTickB.x, startTickB.y]}
+            stroke="#64748b"
+            strokeWidth={1}
+            lineCap="round"
+          />
+          <Line
+            points={[
+              startChevronA.x,
+              startChevronA.y,
+              startChevronPoint.x,
+              startChevronPoint.y,
+              startChevronB.x,
+              startChevronB.y,
+            ]}
+            stroke="#64748b"
+            strokeWidth={1}
+            lineCap="round"
+            lineJoin="round"
+          />
+          <Line
+            points={[endTickA.x, endTickA.y, endTickB.x, endTickB.y]}
+            stroke="#64748b"
+            strokeWidth={1}
+            lineCap="round"
+          />
+          <Line
+            points={[
+              endChevronA.x,
+              endChevronA.y,
+              endChevronPoint.x,
+              endChevronPoint.y,
+              endChevronB.x,
+              endChevronB.y,
+            ]}
+            stroke="#64748b"
+            strokeWidth={1}
+            lineCap="round"
+            lineJoin="round"
+          />
           <Text
-            x={labelPoint.x}
-            y={labelPoint.y}
-            width={70}
-            offsetX={35}
-            offsetY={8}
+            x={offsetLabelPoint.x}
+            y={offsetLabelPoint.y}
+            width={measurementTextWidth}
+            offsetX={measurementTextWidth / 2}
+            offsetY={8 * finalTextScale}
             align="center"
             text={guide.text}
             fill="#475569"
-            fontSize={12}
+            fontSize={12 * finalTextScale}
             fontStyle="bold"
             rotation={textRotation}
           />

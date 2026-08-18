@@ -259,6 +259,22 @@
   font-weight: 650;
 }
 
+.context-field input {
+  width: 126px;
+  height: 28px;
+  border: 1px solid #b9c4d4;
+  border-radius: 4px;
+  color: #172033;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.context-field input:focus {
+  border-color: #2563eb;
+  outline: 2px solid rgba(37, 99, 235, 0.2);
+}
+
 .editor-grid {
   min-height: 0;
   display: grid;

@@ -4,7 +4,8 @@ import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import { Color, DirectionalLight, Object3D, Shape } from 'three'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FloorLevel, Point, Wall } from '../types'
-import { getRenderedWalls, type RenderedWall } from '../wallGeometry'
+import { getRenderedWalls, getWallPolygon, type RenderedWall } from '../wallGeometry'
+import { buildWallTopology } from '../wallTopology'
 
 type ThreeDViewProps = {
   activeFloorId: string
@@ -67,6 +68,59 @@ function getSignedArea(points: Point[]) {
       return area + point.x * nextPoint.y - nextPoint.x * point.y
     }, 0) / 2
   )
+}
+
+function pointIsOnSegment(point: Point, start: Point, end: Point) {
+  const dx = end.x - start.x
+  const dy = end.y - start.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - start.x, point.y - start.y) <= FOOTPRINT_EPSILON
+  }
+
+  const t = ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared
+
+  if (t < -FOOTPRINT_EPSILON || t > 1 + FOOTPRINT_EPSILON) {
+    return false
+  }
+
+  const projectedPoint = {
+    x: start.x + dx * t,
+    y: start.y + dy * t,
+  }
+
+  return Math.hypot(point.x - projectedPoint.x, point.y - projectedPoint.y) <= FOOTPRINT_EPSILON
+}
+
+function pointIsInPolygon(point: Point, polygon: Point[]) {
+  let isInside = false
+
+  for (
+    let index = 0, previousIndex = polygon.length - 1;
+    index < polygon.length;
+    previousIndex = index, index += 1
+  ) {
+    const currentPoint = polygon[index]
+    const previousPoint = polygon[previousIndex]
+
+    if (pointIsOnSegment(point, previousPoint, currentPoint)) {
+      return true
+    }
+
+    const intersects =
+      currentPoint.y > point.y !== previousPoint.y > point.y &&
+      point.x <
+        ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) /
+          (previousPoint.y - currentPoint.y) +
+          currentPoint.x
+
+    if (intersects) {
+      isInside = !isInside
+    }
+  }
+
+  return isInside
 }
 
 function normalizeAngleRadians(angle: number) {
@@ -390,6 +444,184 @@ function getNearestFloorFootprint(floor: FloorLevel, floors: FloorLevel[]) {
   return null
 }
 
+function getSegmentIntersection(
+  firstStart: Point,
+  firstEnd: Point,
+  secondStart: Point,
+  secondEnd: Point,
+) {
+  const firstDx = firstEnd.x - firstStart.x
+  const firstDy = firstEnd.y - firstStart.y
+  const secondDx = secondEnd.x - secondStart.x
+  const secondDy = secondEnd.y - secondStart.y
+  const denominator = firstDx * secondDy - firstDy * secondDx
+
+  if (Math.abs(denominator) <= 0.000001) {
+    return null
+  }
+
+  const startDx = secondStart.x - firstStart.x
+  const startDy = secondStart.y - firstStart.y
+  const firstT = (startDx * secondDy - startDy * secondDx) / denominator
+  const secondT = (startDx * firstDy - startDy * firstDx) / denominator
+
+  if (
+    firstT < -FOOTPRINT_EPSILON ||
+    firstT > 1 + FOOTPRINT_EPSILON ||
+    secondT < -FOOTPRINT_EPSILON ||
+    secondT > 1 + FOOTPRINT_EPSILON
+  ) {
+    return null
+  }
+
+  return {
+    x: firstStart.x + firstDx * firstT,
+    y: firstStart.y + firstDy * firstT,
+  }
+}
+
+function getPolygonIntersectionCandidates(firstPolygon: Point[], secondPolygon: Point[]) {
+  const candidates: Point[] = [
+    ...firstPolygon.filter((point) => pointIsInPolygon(point, secondPolygon)),
+    ...secondPolygon.filter((point) => pointIsInPolygon(point, firstPolygon)),
+  ]
+
+  for (let firstIndex = 0; firstIndex < firstPolygon.length; firstIndex += 1) {
+    const firstStart = firstPolygon[firstIndex]
+    const firstEnd = firstPolygon[(firstIndex + 1) % firstPolygon.length]
+
+    for (let secondIndex = 0; secondIndex < secondPolygon.length; secondIndex += 1) {
+      const secondStart = secondPolygon[secondIndex]
+      const secondEnd = secondPolygon[(secondIndex + 1) % secondPolygon.length]
+      const intersection = getSegmentIntersection(
+        firstStart,
+        firstEnd,
+        secondStart,
+        secondEnd,
+      )
+
+      if (intersection) {
+        candidates.push(intersection)
+      }
+    }
+  }
+
+  return candidates.reduce<Point[]>((uniquePoints, point) => {
+    if (
+      !uniquePoints.some(
+        (uniquePoint) =>
+          Math.hypot(uniquePoint.x - point.x, uniquePoint.y - point.y) <=
+          FOOTPRINT_EPSILON,
+      )
+    ) {
+      uniquePoints.push(point)
+    }
+
+    return uniquePoints
+  }, [])
+}
+
+function getConvexHull(points: Point[]) {
+  if (points.length <= 3) {
+    return points
+  }
+
+  const sortedPoints = [...points].sort(
+    (firstPoint, secondPoint) =>
+      firstPoint.x - secondPoint.x || firstPoint.y - secondPoint.y,
+  )
+  const cross = (origin: Point, firstPoint: Point, secondPoint: Point) =>
+    (firstPoint.x - origin.x) * (secondPoint.y - origin.y) -
+    (firstPoint.y - origin.y) * (secondPoint.x - origin.x)
+  const lowerHull: Point[] = []
+  const upperHull: Point[] = []
+
+  for (const point of sortedPoints) {
+    while (
+      lowerHull.length >= 2 &&
+      cross(lowerHull[lowerHull.length - 2], lowerHull[lowerHull.length - 1], point) <= 0
+    ) {
+      lowerHull.pop()
+    }
+
+    lowerHull.push(point)
+  }
+
+  for (const point of [...sortedPoints].reverse()) {
+    while (
+      upperHull.length >= 2 &&
+      cross(upperHull[upperHull.length - 2], upperHull[upperHull.length - 1], point) <= 0
+    ) {
+      upperHull.pop()
+    }
+
+    upperHull.push(point)
+  }
+
+  return [...lowerHull.slice(0, -1), ...upperHull.slice(0, -1)]
+}
+
+function getFloorRoomFootprints(floor: FloorLevel) {
+  return buildWallTopology(floor.walls).rooms.map((room) => room.polygon)
+}
+
+function getFloorWallBodyFootprints(floor: FloorLevel) {
+  return getRenderedWalls(floor.walls).map((renderedWall) => getWallPolygon(renderedWall))
+}
+
+function getUpperFloorCoverageFootprints(floor: FloorLevel) {
+  const floorFootprint = getFloorFootprint(floor)
+
+  if (floorFootprint) {
+    return [floorFootprint]
+  }
+
+  return [...getFloorRoomFootprints(floor), ...getFloorWallBodyFootprints(floor)]
+}
+
+function getIntersectionFootprint(firstFootprint: Point[], secondFootprint: Point[]) {
+  if (secondFootprint.every((point) => pointIsInPolygon(point, firstFootprint))) {
+    return secondFootprint
+  }
+
+  if (firstFootprint.every((point) => pointIsInPolygon(point, secondFootprint))) {
+    return firstFootprint
+  }
+
+  const intersectionPoints = getPolygonIntersectionCandidates(
+    firstFootprint,
+    secondFootprint,
+  )
+
+  return intersectionPoints.length >= 3 ? getConvexHull(intersectionPoints) : null
+}
+
+function getSlabFootprints(
+  lowerFloor: FloorLevel,
+  upperFloor: FloorLevel | null,
+  floors: FloorLevel[],
+) {
+  const lowerFootprint = getNearestFloorFootprint(lowerFloor, floors)
+
+  if (!upperFloor) {
+    return lowerFootprint ? [lowerFootprint] : []
+  }
+
+  const upperFootprints = getUpperFloorCoverageFootprints(upperFloor)
+
+  if (!lowerFootprint) {
+    return upperFootprints
+  }
+
+  if (upperFootprints.length === 0) {
+    return []
+  }
+
+  return upperFootprints
+    .map((upperFootprint) => getIntersectionFootprint(lowerFootprint, upperFootprint))
+    .filter((footprint): footprint is Point[] => Boolean(footprint))
+}
+
 function getSceneBounds(floors: FloorLevel[]) {
   const walls = floors.flatMap((floor) => floor.walls)
 
@@ -530,57 +762,64 @@ function FloorSlab({
   floor,
   floors,
   isSolid,
+  upperFloor,
 }: {
   floor: FloorLevel
   floors: FloorLevel[]
   isSolid: boolean
+  upperFloor: FloorLevel | null
 }) {
-  const footprint = getNearestFloorFootprint(floor, floors)
-  const slabShape = useMemo(() => {
-    if (!footprint) {
-      return null
-    }
+  const footprints = getSlabFootprints(floor, upperFloor, floors)
+  const slabShapes = useMemo(
+    () =>
+      footprints.map((footprint) => {
+        const [firstPoint, ...remainingPoints] = footprint
+        const shape = new Shape()
+        shape.moveTo(firstPoint.x, -firstPoint.y)
 
-    const [firstPoint, ...remainingPoints] = footprint
-    const shape = new Shape()
-    shape.moveTo(firstPoint.x, -firstPoint.y)
+        for (const point of remainingPoints) {
+          shape.lineTo(point.x, -point.y)
+        }
 
-    for (const point of remainingPoints) {
-      shape.lineTo(point.x, -point.y)
-    }
+        shape.closePath()
+        return shape
+      }),
+    [footprints],
+  )
 
-    shape.closePath()
-    return shape
-  }, [footprint])
-
-  if (!slabShape) {
+  if (slabShapes.length === 0) {
     return null
   }
 
   return (
-    <mesh
-      position={[0, floor.elevation + floor.roomHeight, 0]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      receiveShadow={isSolid}
-      renderOrder={isSolid ? 1 : 0}
-    >
-      <extrudeGeometry
-        args={[
-          slabShape,
-          {
-            bevelEnabled: false,
-            depth: floor.slabThickness,
-          },
-        ]}
-      />
-      <meshStandardMaterial
-        color="#e2e8f0"
-        opacity={isSolid ? 1 : 0.18}
-        transparent={!isSolid}
-        depthWrite={isSolid}
-        roughness={0.82}
-      />
-    </mesh>
+    <group>
+      {slabShapes.map((slabShape, index) => (
+        <mesh
+          key={index}
+          position={[0, floor.elevation + floor.roomHeight, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          receiveShadow={isSolid}
+          renderOrder={isSolid ? 1 : 0}
+        >
+          <extrudeGeometry
+            args={[
+              slabShape,
+              {
+                bevelEnabled: false,
+                depth: floor.slabThickness,
+              },
+            ]}
+          />
+          <meshStandardMaterial
+            color="#e2e8f0"
+            opacity={isSolid ? 1 : 0.18}
+            transparent={!isSolid}
+            depthWrite={isSolid}
+            roughness={0.82}
+          />
+        </mesh>
+      ))}
+    </group>
   )
 }
 
@@ -601,6 +840,9 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
         .sort((firstFloor, secondFloor) => secondFloor.elevation - firstFloor.elevation)[0] ??
       null
     : null
+  const floorsByElevation = [...floors].sort(
+    (firstFloor, secondFloor) => firstFloor.elevation - secondFloor.elevation,
+  )
   const visibleFloors = renderOptions.referenceFloors
     ? floors
     : floors.filter(
@@ -687,6 +929,11 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
           {visibleFloors.map((floor) => {
             const isActive = floor.id === activeFloorId
             const slabIsSolid = floor.id === floorBelowActive?.id
+            const floorIndex = floorsByElevation.findIndex(
+              (candidateFloor) => candidateFloor.id === floor.id,
+            )
+            const upperFloor =
+              floorIndex >= 0 ? floorsByElevation[floorIndex + 1] ?? null : null
             const hasShadowSurface = renderOptions.shadows && isActive
             const floorPlane =
               renderOptions.groundPlane && isActive
@@ -698,7 +945,12 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
             return (
               <group key={floor.id}>
                 {shouldRenderSlab ? (
-                  <FloorSlab floor={floor} floors={floors} isSolid={slabIsSolid} />
+                  <FloorSlab
+                    floor={floor}
+                    floors={floors}
+                    isSolid={slabIsSolid}
+                    upperFloor={upperFloor}
+                  />
                 ) : null}
                 {floorPlane ? (
                   <>

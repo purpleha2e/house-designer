@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ContextPanel } from './components/ContextPanel'
 import { FloorplanCanvas } from './components/FloorplanCanvas'
 import { Toolbar } from './components/Toolbar'
 import { ThreeDView } from './components/ThreeDView'
-import type { FloorLevel, Wall, WallKind } from './types'
+import type { FloorLevel, Room, Wall, WallKind } from './types'
+import { buildWallTopology, type DetectedRoom } from './wallTopology'
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
@@ -15,6 +16,11 @@ type SavedProject = {
   activeFloorId: string
   floors: FloorLevel[]
   wallKind: WallKind
+}
+
+type SelectedRoom = {
+  detectedRoom: DetectedRoom
+  metadata: Room
 }
 
 function isSavedProject(value: unknown): value is SavedProject {
@@ -40,6 +46,7 @@ function App() {
       id: initialFloorId,
       name: 'Floor 0',
       elevation: 0,
+      rooms: [],
       roomHeight: DEFAULT_ROOM_HEIGHT,
       slabThickness: DEFAULT_SLAB_THICKNESS,
       walls: [
@@ -60,6 +67,49 @@ function App() {
   const [selectedWallId, setSelectedWallId] = useState<string | null>(
     initialWallId,
   )
+  const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
+    null,
+  )
+
+  useEffect(() => {
+    setFloors((currentFloors) => {
+      let changed = false
+
+      const nextFloors = currentFloors.map((floor) => {
+        const detectedRooms = buildWallTopology(floor.walls).rooms
+        const roomMetadataBySignature = new Map(
+          (floor.rooms ?? []).map((room) => [room.signature, room]),
+        )
+        const rooms = detectedRooms.map((detectedRoom, index) => {
+          const existingRoom = roomMetadataBySignature.get(detectedRoom.signature)
+
+          return (
+            existingRoom ?? {
+              id: crypto.randomUUID(),
+              name: `Room ${index + 1}`,
+              signature: detectedRoom.signature,
+            }
+          )
+        })
+
+        const roomSignaturesChanged =
+          rooms.length !== (floor.rooms ?? []).length ||
+          rooms.some((room, index) => room.signature !== floor.rooms?.[index]?.signature)
+
+        if (roomSignaturesChanged) {
+          changed = true
+          return {
+            ...floor,
+            rooms,
+          }
+        }
+
+        return floor
+      })
+
+      return changed ? nextFloors : currentFloors
+    })
+  }, [floors])
 
   const addWall = (wall: Pick<Wall, 'start' | 'end'>) => {
     const id = crypto.randomUUID()
@@ -87,6 +137,7 @@ function App() {
       ),
     )
     setSelectedWallId(id)
+    setSelectedRoomSignature(null)
   }
 
   const deleteWall = (wallId: string) => {
@@ -144,6 +195,7 @@ function App() {
 
       return selectedWallWasDeleted ? null : currentSelectedWallId
     })
+    setSelectedRoomSignature(null)
   }
 
   const addFloor = ({ copyExternalWalls }: { copyExternalWalls: boolean }) => {
@@ -160,6 +212,7 @@ function App() {
         id,
         name: `Floor ${floorNumber}`,
         elevation: previousElevation,
+        rooms: [],
         roomHeight: DEFAULT_ROOM_HEIGHT,
         slabThickness: DEFAULT_SLAB_THICKNESS,
         walls:
@@ -176,6 +229,7 @@ function App() {
     ])
     setActiveFloorId(id)
     setSelectedWallId(null)
+    setSelectedRoomSignature(null)
     setIsAddingWall(false)
   }
 
@@ -213,6 +267,7 @@ function App() {
       )
       setWallKind(parsedProject.wallKind)
       setSelectedWallId(null)
+      setSelectedRoomSignature(null)
       setIsAddingWall(false)
     } catch {
       window.alert('The saved house design could not be loaded.')
@@ -224,6 +279,22 @@ function App() {
   const selectedWall = floors
     .flatMap((floor) => floor.walls)
     .find((wall) => wall.id === selectedWallId)
+  const activeDetectedRooms = useMemo(
+    () => buildWallTopology(activeFloor.walls).rooms,
+    [activeFloor.walls],
+  )
+  const selectedRoom: SelectedRoom | null = selectedRoomSignature
+    ? (() => {
+        const detectedRoom = activeDetectedRooms.find(
+          (room) => room.signature === selectedRoomSignature,
+        )
+        const metadata = (activeFloor.rooms ?? []).find(
+          (room) => room.signature === selectedRoomSignature,
+        )
+
+        return detectedRoom && metadata ? { detectedRoom, metadata } : null
+      })()
+    : null
   const totalWallCount = floors.reduce(
     (wallCount, floor) => wallCount + floor.walls.length,
     0,
@@ -244,12 +315,31 @@ function App() {
         onSelectFloor={(floorId) => {
           setActiveFloorId(floorId)
           setSelectedWallId(null)
+          setSelectedRoomSignature(null)
           setIsAddingWall(false)
         }}
         onToggleAddWall={() => setIsAddingWall((value) => !value)}
         onWallKindChange={setWallKind}
       />
-      <ContextPanel activeFloor={activeFloor} selectedWall={selectedWall} />
+      <ContextPanel
+        activeFloor={activeFloor}
+        selectedRoom={selectedRoom}
+        selectedWall={selectedWall}
+        onRenameRoom={(roomSignature, name) => {
+          setFloors((currentFloors) =>
+            currentFloors.map((floor) =>
+              floor.id === activeFloor.id
+                ? {
+                    ...floor,
+                    rooms: (floor.rooms ?? []).map((room) =>
+                      room.signature === roomSignature ? { ...room, name } : room,
+                    ),
+                  }
+                : floor,
+            ),
+          )
+        }}
+      />
 
       <section className="editor-grid" aria-label="House floorplan editor">
         <FloorplanCanvas
@@ -261,7 +351,15 @@ function App() {
           onAddWall={addWall}
           onDeleteWall={deleteWall}
           onExitAddWall={() => setIsAddingWall(false)}
-          onSelectWall={setSelectedWallId}
+          selectedRoomSignature={selectedRoomSignature}
+          onSelectRoom={(roomSignature) => {
+            setSelectedRoomSignature(roomSignature)
+            setSelectedWallId(null)
+          }}
+          onSelectWall={(wallId) => {
+            setSelectedWallId(wallId)
+            setSelectedRoomSignature(null)
+          }}
         />
         <ThreeDView activeFloorId={activeFloor.id} floors={floors} />
       </section>

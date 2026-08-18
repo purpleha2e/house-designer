@@ -30,6 +30,7 @@ export type DetectedRoom = {
   area: number
   id: string
   polygon: Point[]
+  signature: string
 }
 
 function distance(start: Point, end: Point) {
@@ -348,6 +349,7 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
               area: absoluteArea,
               id: `room-${roomsByKey.size + 1}`,
               polygon: loop,
+              signature: roomKey,
             })
           }
         }
