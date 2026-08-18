@@ -1,7 +1,17 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
-import { Circle, Layer, Line, Rect, Stage, Text } from 'react-konva'
+import {
+  Circle,
+  Group,
+  Image as KonvaImage,
+  Layer,
+  Line,
+  Rect,
+  Stage,
+  Text,
+} from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { FloorLevel, Point, Wall, WallKind } from '../types'
+import type { FloorLevel, PlacedModel, Point, Wall, WallKind } from '../types'
+import { modelLibrary, modelsById } from '../models/modelLibrary'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
 import {
   buildWallTopology,
@@ -9,6 +19,16 @@ import {
   getWallEndpointNode,
   type WallTopology,
 } from '../wallTopology'
+import {
+  AmbientLight,
+  Box3,
+  DirectionalLight,
+  OrthographicCamera,
+  Scene,
+  Vector3,
+  WebGLRenderer,
+} from 'three'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 const METERS_TO_PIXELS = 60
 const MIN_WALL_LENGTH_METERS = 0.15
@@ -33,6 +53,9 @@ const SNAP_MARKER_INNER_RADIUS = 3
 const SNAP_MARKER_OUTER_RADIUS = 9
 const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
 const DRAFT_INTERNAL_WALL_THICKNESS = 0.15
+const MIN_MODEL_SCALE = 0.2
+const MAX_MODEL_SCALE = 5
+const MODEL_ROTATION_SNAP_RADIANS = (5 * Math.PI) / 180
 const ROOM_HIGHLIGHT_COLORS = [
   'rgba(14, 165, 233, 0.12)',
   'rgba(16, 185, 129, 0.12)',
@@ -46,14 +69,18 @@ type FloorplanCanvasProps = {
   activeFloor: FloorLevel
   floors: FloorLevel[]
   isAddingWall: boolean
+  selectedModelId: string | null
   selectedRoomSignature: string | null
   selectedWallId: string | null
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
+  onDeleteModel: (modelId: string) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
+  onSelectModel: (modelId: string | null) => void
   onSelectRoom: (roomSignature: string | null) => void
   onSelectWall: (wallId: string | null) => void
+  onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
 }
 
 type CanvasSize = {
@@ -76,7 +103,8 @@ type FloorplanRenderOptions = {
 }
 
 type ContextMenuState = {
-  wallId: string
+  targetId: string
+  targetType: 'model' | 'wall'
   x: number
   y: number
 }
@@ -152,6 +180,133 @@ type AngleWidget = {
   label: string
 }
 
+type ModelBounds = {
+  depth: number
+  height: number
+  width: number
+}
+
+const modelPreviewCache = new Map<string, HTMLCanvasElement>()
+const modelBoundsCache = new Map<string, ModelBounds>()
+
+function GLBModelPreview({
+  height,
+  opacity,
+  sourceUrl,
+  stroke,
+  strokeWidth,
+  width,
+}: {
+  height: number
+  opacity: number
+  sourceUrl: string
+  stroke: string
+  strokeWidth: number
+  width: number
+}) {
+  const [previewImage, setPreviewImage] = useState<HTMLCanvasElement | null>(
+    () => modelPreviewCache.get(sourceUrl) ?? null,
+  )
+
+  useEffect(() => {
+    if (previewImage || modelPreviewCache.has(sourceUrl)) {
+      setPreviewImage(modelPreviewCache.get(sourceUrl) ?? null)
+      return
+    }
+
+    let isMounted = true
+    const loader = new GLTFLoader()
+
+    loader.load(sourceUrl, (gltf) => {
+      if (!isMounted) {
+        return
+      }
+
+      const canvas = document.createElement('canvas')
+      const size = 512
+      canvas.width = size
+      canvas.height = size
+
+      const scene = new Scene()
+      const model = gltf.scene.clone(true)
+      scene.add(model)
+
+      const bounds = new Box3().setFromObject(model)
+      const modelSize = new Vector3()
+      const center = new Vector3()
+      bounds.getSize(modelSize)
+      bounds.getCenter(center)
+
+      const cameraSize = Math.max(modelSize.x, modelSize.z, 0.1) * 0.65
+      const camera = new OrthographicCamera(
+        -cameraSize,
+        cameraSize,
+        cameraSize,
+        -cameraSize,
+        0.01,
+        Math.max(modelSize.y * 4, 20),
+      )
+      camera.position.set(center.x, center.y + Math.max(modelSize.y * 2, 10), center.z)
+      camera.lookAt(center)
+
+      scene.add(new AmbientLight('#ffffff', 1.9))
+      const light = new DirectionalLight('#ffffff', 2.6)
+      light.position.set(center.x + 3, center.y + 6, center.z + 4)
+      scene.add(light)
+
+      const renderer = new WebGLRenderer({
+        alpha: true,
+        antialias: true,
+        canvas,
+        preserveDrawingBuffer: true,
+      })
+      renderer.setClearColor(0x000000, 0)
+      renderer.setPixelRatio(1)
+      renderer.setSize(size, size, false)
+      renderer.render(scene, camera)
+      renderer.forceContextLoss()
+      renderer.dispose()
+
+      modelPreviewCache.set(sourceUrl, canvas)
+      setPreviewImage(canvas)
+    })
+
+    return () => {
+      isMounted = false
+    }
+  }, [previewImage, sourceUrl])
+
+  return (
+    <>
+      <Rect
+        x={0}
+        y={0}
+        width={width}
+        height={height}
+        offsetX={width / 2}
+        offsetY={height / 2}
+        fill="#ffffff"
+        opacity={0.78}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        cornerRadius={4}
+      />
+      {previewImage ? (
+        <KonvaImage
+          image={previewImage}
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          offsetX={width / 2}
+          offsetY={height / 2}
+          opacity={opacity}
+        />
+      ) : null}
+    </>
+  )
+}
+
 function toCanvasPoint(point: Point): Point {
   return {
     x: point.x * METERS_TO_PIXELS,
@@ -168,6 +323,14 @@ function toPlanPoint(point: Point): Point {
 
 function distance(start: Point, end: Point) {
   return Math.hypot(end.x - start.x, end.y - start.y)
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function snapRadians(angle: number, increment: number) {
+  return Math.round(angle / increment) * increment
 }
 
 function parseLengthInput(value: string) {
@@ -476,6 +639,114 @@ function getSignedArea(points: Point[]) {
       return area + point.x * nextPoint.y - nextPoint.x * point.y
     }, 0) / 2
   )
+}
+
+function getPolygonCentroid(points: Point[]) {
+  const signedArea = getSignedArea(points)
+
+  if (Math.abs(signedArea) < 0.0001) {
+    return {
+      x: points.reduce((total, point) => total + point.x, 0) / points.length,
+      y: points.reduce((total, point) => total + point.y, 0) / points.length,
+    }
+  }
+
+  const factor = points.reduce(
+    (total, point, index) => {
+      const nextPoint = points[(index + 1) % points.length]
+      const cross = point.x * nextPoint.y - nextPoint.x * point.y
+
+      return {
+        x: total.x + (point.x + nextPoint.x) * cross,
+        y: total.y + (point.y + nextPoint.y) * cross,
+      }
+    },
+    { x: 0, y: 0 },
+  )
+
+  return {
+    x: factor.x / (6 * signedArea),
+    y: factor.y / (6 * signedArea),
+  }
+}
+
+function pointIsInPolygon(point: Point, polygon: Point[]) {
+  let isInside = false
+
+  for (
+    let index = 0, previousIndex = polygon.length - 1;
+    index < polygon.length;
+    previousIndex = index, index += 1
+  ) {
+    const currentPoint = polygon[index]
+    const previousPoint = polygon[previousIndex]
+    const intersects =
+      currentPoint.y > point.y !== previousPoint.y > point.y &&
+      point.x <
+        ((previousPoint.x - currentPoint.x) * (point.y - currentPoint.y)) /
+          (previousPoint.y - currentPoint.y) +
+          currentPoint.x
+
+    if (intersects) {
+      isInside = !isInside
+    }
+  }
+
+  return isInside
+}
+
+function getDistanceToPolygonEdge(point: Point, polygon: Point[]) {
+  return polygon.reduce((closestDistance, start, index) => {
+    const end = polygon[(index + 1) % polygon.length]
+    const closestPoint = getClosestPointOnSegment(point, start, end)
+
+    return Math.min(closestDistance, distance(point, closestPoint))
+  }, Number.POSITIVE_INFINITY)
+}
+
+function getRoomLabelPoint(polygon: Point[]) {
+  const centroid = getPolygonCentroid(polygon)
+  const bounds = polygon.reduce(
+    (currentBounds, point) => ({
+      maxX: Math.max(currentBounds.maxX, point.x),
+      maxY: Math.max(currentBounds.maxY, point.y),
+      minX: Math.min(currentBounds.minX, point.x),
+      minY: Math.min(currentBounds.minY, point.y),
+    }),
+    {
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY,
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+    },
+  )
+  const center = {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  }
+  const candidates = [centroid, center]
+  const sampleCount = 8
+
+  for (let xIndex = 1; xIndex < sampleCount; xIndex += 1) {
+    for (let yIndex = 1; yIndex < sampleCount; yIndex += 1) {
+      candidates.push({
+        x: bounds.minX + ((bounds.maxX - bounds.minX) * xIndex) / sampleCount,
+        y: bounds.minY + ((bounds.maxY - bounds.minY) * yIndex) / sampleCount,
+      })
+    }
+  }
+
+  return candidates
+    .filter((point) => pointIsInPolygon(point, polygon))
+    .sort((firstPoint, secondPoint) => {
+      const firstEdgeDistance = getDistanceToPolygonEdge(firstPoint, polygon)
+      const secondEdgeDistance = getDistanceToPolygonEdge(secondPoint, polygon)
+
+      return (
+        secondEdgeDistance - firstEdgeDistance ||
+        distance(firstPoint, centroid) - distance(secondPoint, centroid)
+      )
+    })[0] ?? centroid
 }
 
 function getLoopPointKey(point: Point) {
@@ -1632,14 +1903,18 @@ export function FloorplanCanvas({
   activeFloor,
   floors,
   isAddingWall,
+  selectedModelId,
   selectedRoomSignature,
   selectedWallId,
   wallKind,
   onAddWall,
+  onDeleteModel,
   onDeleteWall,
   onExitAddWall,
+  onSelectModel,
   onSelectRoom,
   onSelectWall,
+  onUpdateModel,
 }: FloorplanCanvasProps) {
   const walls = activeFloor.walls
   const referenceFloors = useMemo(
@@ -1684,9 +1959,54 @@ export function FloorplanCanvas({
   const [draftAngleInput, setDraftAngleInput] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
+  const [isDraggingModel, setIsDraggingModel] = useState(false)
   const [isAxisLocked, setIsAxisLocked] = useState(true)
+  const [modelBoundsById, setModelBoundsById] = useState<Record<string, ModelBounds>>(
+    {},
+  )
   const lengthInputRef = useRef<HTMLInputElement>(null)
   const middlePanRef = useRef<PanState | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+    const loader = new GLTFLoader()
+
+    for (const modelDefinition of modelLibrary) {
+      if (!modelDefinition.sourceUrl || modelBoundsCache.has(modelDefinition.id)) {
+        continue
+      }
+
+      loader.load(modelDefinition.sourceUrl, (gltf) => {
+        if (!isMounted) {
+          return
+        }
+
+        const bounds = new Box3().setFromObject(gltf.scene)
+        const size = new Vector3()
+        bounds.getSize(size)
+
+        const modelBounds = {
+          depth: Math.max(size.z, 0.1),
+          height: Math.max(size.y, 0.1),
+          width: Math.max(size.x, 0.1),
+        }
+
+        modelBoundsCache.set(modelDefinition.id, modelBounds)
+        setModelBoundsById((currentBounds) => ({
+          ...currentBounds,
+          [modelDefinition.id]: modelBounds,
+        }))
+      })
+    }
+
+    setModelBoundsById(
+      Object.fromEntries(modelBoundsCache.entries()) as Record<string, ModelBounds>,
+    )
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!import.meta.env.DEV || !selectedWallId) {
@@ -1903,7 +2223,9 @@ export function FloorplanCanvas({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [draftWall, isAddingWall, onAddWall, onExitAddWall])
 
-  const getPointerPoint = (event: KonvaEventObject<PointerEvent>) => {
+  const getPointerPoint = (
+    event: KonvaEventObject<DragEvent> | KonvaEventObject<PointerEvent>,
+  ) => {
     const point = event.target.getStage()?.getPointerPosition()
     return point
       ? toPlanPoint({
@@ -1975,7 +2297,29 @@ export function FloorplanCanvas({
 
     onSelectWall(wallId)
     setContextMenu({
-      wallId,
+      targetId: wallId,
+      targetType: 'wall',
+      x: event.evt.clientX - containerBounds.left,
+      y: event.evt.clientY - containerBounds.top,
+    })
+  }
+
+  const openModelContextMenu = (
+    modelId: string,
+    event: KonvaEventObject<PointerEvent>,
+  ) => {
+    event.evt.preventDefault()
+    event.cancelBubble = true
+    const containerBounds = containerRef.current?.getBoundingClientRect()
+
+    if (!containerBounds) {
+      return
+    }
+
+    onSelectModel(modelId)
+    setContextMenu({
+      targetId: modelId,
+      targetType: 'model',
       x: event.evt.clientX - containerBounds.left,
       y: event.evt.clientY - containerBounds.top,
     })
@@ -2007,6 +2351,7 @@ export function FloorplanCanvas({
     if (!isAddingWall) {
       if (event.target === event.target.getStage()) {
         onSelectWall(null)
+        onSelectModel(null)
       }
 
       return
@@ -2268,15 +2613,7 @@ export function FloorplanCanvas({
             const canvasPoint = toCanvasPoint(point)
             return [canvasPoint.x, canvasPoint.y]
           })
-          const center = toCanvasPoint(
-            room.polygon.reduce(
-              (total, point) => ({
-                x: total.x + point.x / room.polygon.length,
-                y: total.y + point.y / room.polygon.length,
-              }),
-              { x: 0, y: 0 },
-            ),
-          )
+          const center = toCanvasPoint(getRoomLabelPoint(room.polygon))
           const roomName =
             roomMetadataBySignature.get(room.signature) ?? `Room ${index + 1}`
           const isSelectedRoom = room.signature === selectedRoomSignature
@@ -2315,6 +2652,225 @@ export function FloorplanCanvas({
           )
         })
       : []
+  const modelFootprints = (activeFloor.models ?? []).flatMap((model) => {
+    const modelDefinition = modelsById.get(model.modelId)
+
+    if (!modelDefinition) {
+      return []
+    }
+
+    const center = toCanvasPoint(model.position)
+    const modelBounds = modelBoundsById[modelDefinition.id]
+    const baseWidth = modelBounds?.width ?? modelDefinition.width
+    const baseDepth = modelBounds?.depth ?? modelDefinition.depth
+    const modelScale = model.scale ?? 1
+    const width = baseWidth * modelScale * METERS_TO_PIXELS
+    const height = baseDepth * modelScale * METERS_TO_PIXELS
+    const rotation = (model.rotation * 180) / Math.PI
+    const labelWidth = Math.max(72, width)
+    const isSelectedModel = model.id === selectedModelId
+    const rotateHandleY = -height / 2 - 28
+    const scaleHandle = {
+      x: width / 2 + 22,
+      y: height / 2 + 22,
+    }
+    const baseScaleHandleDistance = Math.hypot(
+      baseWidth / 2 + 22 / METERS_TO_PIXELS,
+      baseDepth / 2 + 22 / METERS_TO_PIXELS,
+    )
+
+    return (
+      <Group
+        key={model.id}
+        x={center.x}
+        y={center.y}
+        rotation={rotation}
+        draggable={!isAddingWall}
+        listening={!isAddingWall}
+        onClick={(event) => {
+          event.cancelBubble = true
+          onSelectModel(model.id)
+        }}
+        onTap={(event) => {
+          event.cancelBubble = true
+          onSelectModel(model.id)
+        }}
+        onContextMenu={(event) => openModelContextMenu(model.id, event)}
+        onDragMove={(event) => {
+          event.cancelBubble = true
+          onUpdateModel(model.id, {
+            position: toPlanPoint({
+              x: event.target.x(),
+              y: event.target.y(),
+            }),
+          })
+        }}
+        onDragStart={(event) => {
+          event.cancelBubble = true
+          setIsDraggingModel(true)
+          onSelectModel(model.id)
+        }}
+        onDragEnd={(event) => {
+          event.cancelBubble = true
+          setIsDraggingModel(false)
+        }}
+      >
+        {modelDefinition.sourceUrl ? (
+          <GLBModelPreview
+            height={height}
+            opacity={0.92}
+            sourceUrl={modelDefinition.sourceUrl}
+            stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
+            strokeWidth={isSelectedModel ? 3 : 1}
+            width={width}
+          />
+        ) : modelDefinition.shape === 'round' ? (
+          <Circle
+            x={0}
+            y={0}
+            radius={Math.max(width, height) / 2}
+            fill={modelDefinition.color}
+            opacity={0.72}
+            stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
+            strokeWidth={isSelectedModel ? 3 : 1}
+          />
+        ) : (
+          <Rect
+            x={0}
+            y={0}
+            width={width}
+            height={height}
+            offsetX={width / 2}
+            offsetY={height / 2}
+            fill={modelDefinition.color}
+            opacity={0.72}
+            stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
+            strokeWidth={isSelectedModel ? 3 : 1}
+            cornerRadius={4}
+          />
+        )}
+        {modelDefinition.sourceUrl ? null : (
+          <Text
+            x={0}
+            y={0}
+            width={labelWidth}
+            offsetX={labelWidth / 2}
+            offsetY={6}
+            align="center"
+            text={modelDefinition.name}
+            fill="#ffffff"
+            fontSize={10}
+            fontStyle="bold"
+            listening={false}
+          />
+        )}
+        {isSelectedModel ? (
+          <>
+            <Line
+              points={[0, -height / 2, 0, rotateHandleY]}
+              stroke="#2563eb"
+              strokeWidth={1.5}
+              dash={[4, 4]}
+              listening={false}
+            />
+            <Circle
+              x={0}
+              y={rotateHandleY}
+              radius={7}
+              fill="#ffffff"
+              stroke="#2563eb"
+              strokeWidth={2}
+              draggable
+              onPointerDown={(event) => {
+                event.cancelBubble = true
+              }}
+              onDragStart={(event) => {
+                event.cancelBubble = true
+                setIsDraggingModel(true)
+              }}
+              onDragMove={(event) => {
+                event.cancelBubble = true
+                const point = getPointerPoint(event)
+
+                if (!point) {
+                  return
+                }
+
+                const rotation =
+                  Math.atan2(
+                    point.y - model.position.y,
+                    point.x - model.position.x,
+                  ) +
+                  Math.PI / 2
+
+                onUpdateModel(model.id, {
+                  rotation: event.evt.shiftKey
+                    ? snapRadians(rotation, MODEL_ROTATION_SNAP_RADIANS)
+                    : rotation,
+                })
+              }}
+              onDragEnd={(event) => {
+                event.cancelBubble = true
+                setIsDraggingModel(false)
+              }}
+            />
+            <Line
+              points={[
+                width / 2,
+                height / 2,
+                scaleHandle.x,
+                scaleHandle.y,
+              ]}
+              stroke="#16a34a"
+              strokeWidth={1.5}
+              dash={[4, 4]}
+              listening={false}
+            />
+            <Rect
+              x={scaleHandle.x}
+              y={scaleHandle.y}
+              width={14}
+              height={14}
+              offsetX={7}
+              offsetY={7}
+              fill="#ffffff"
+              stroke="#16a34a"
+              strokeWidth={2}
+              cornerRadius={3}
+              draggable
+              onPointerDown={(event) => {
+                event.cancelBubble = true
+              }}
+              onDragStart={(event) => {
+                event.cancelBubble = true
+                setIsDraggingModel(true)
+              }}
+              onDragMove={(event) => {
+                event.cancelBubble = true
+                const point = getPointerPoint(event)
+
+                if (!point || baseScaleHandleDistance <= 0) {
+                  return
+                }
+
+                onUpdateModel(model.id, {
+                  scale: clamp(
+                    distance(point, model.position) / baseScaleHandleDistance,
+                    MIN_MODEL_SCALE,
+                    MAX_MODEL_SCALE,
+                  ),
+                })
+              }}
+              onDragEnd={(event) => {
+                event.cancelBubble = true
+                setIsDraggingModel(false)
+              }}
+            />
+          </>
+        ) : null}
+      </Group>
+    )
+  })
 
   const dimensionRulers = walls.flatMap((wall) =>
     (wall.kind === 'internal'
@@ -2383,6 +2939,8 @@ export function FloorplanCanvas({
         guide.rotation > 90 || guide.rotation < -90
           ? guide.rotation + 180
           : guide.rotation
+      const showConnectorLines =
+        guide.tickMode === 'connector' && wall.kind !== 'internal'
 
       return (
         <Fragment key={`${wall.id}-dimension-${index}`}>
@@ -2392,7 +2950,7 @@ export function FloorplanCanvas({
             strokeWidth={1}
             dash={[4, 5]}
           />
-          {guide.tickMode === 'connector' ? (
+          {showConnectorLines ? (
             <>
               <Line
                 points={[faceStart.x, faceStart.y, start.x, start.y]}
@@ -2558,7 +3116,9 @@ export function FloorplanCanvas({
           y={viewport.y}
           scaleX={viewport.scale}
           scaleY={viewport.scale}
-          draggable={!isAddingWall && !draftWall && !isMiddlePanning}
+          draggable={
+            !isAddingWall && !draftWall && !isMiddlePanning && !isDraggingModel
+          }
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={(event) => {
@@ -2660,6 +3220,8 @@ export function FloorplanCanvas({
                 />
               )
             })}
+
+            {modelFootprints}
 
             {dimensionRulers}
 
@@ -2932,11 +3494,15 @@ export function FloorplanCanvas({
             <button
               type="button"
               onClick={() => {
-                onDeleteWall(contextMenu.wallId)
+                if (contextMenu.targetType === 'model') {
+                  onDeleteModel(contextMenu.targetId)
+                } else {
+                  onDeleteWall(contextMenu.targetId)
+                }
                 closeContextMenu()
               }}
             >
-              Delete wall
+              Delete {contextMenu.targetType}
             </button>
           </div>
         ) : null}

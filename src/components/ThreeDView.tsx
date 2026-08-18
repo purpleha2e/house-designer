@@ -1,15 +1,41 @@
-import { Edges, OrbitControls } from '@react-three/drei'
-import { Canvas } from '@react-three/fiber'
+import {
+  Edges,
+  OrbitControls,
+  PointerLockControls,
+  useGLTF,
+} from '@react-three/drei'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
-import { Color, DirectionalLight, Object3D, Shape } from 'three'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { FloorLevel, Point, Wall } from '../types'
+import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib'
+import {
+  BufferGeometry,
+  Color,
+  DirectionalLight,
+  Float32BufferAttribute,
+  Object3D,
+  Shape,
+  Box3,
+  Vector3,
+} from 'three'
+import {
+  Component,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react'
+import type { FloorLevel, PlacedModel, Point, Wall } from '../types'
+import { modelsById } from '../models/modelLibrary'
 import { getRenderedWalls, getWallPolygon, type RenderedWall } from '../wallGeometry'
 import { buildWallTopology } from '../wallTopology'
 
 type ThreeDViewProps = {
   activeFloorId: string
   floors: FloorLevel[]
+  selectedModelId: string | null
 }
 
 type RenderOptions = {
@@ -24,6 +50,43 @@ const ambientOcclusionColor = new Color('black')
 const FLOOR_PLANE_MARGIN = 5
 const SHADOW_MARGIN = 8
 const FOOTPRINT_EPSILON = 0.04
+const WALK_CAMERA_SPEED = 4.2
+const WALK_CAMERA_SHIFT_MULTIPLIER = 2
+const WALK_HEAD_HEIGHT_METERS = 1.8
+
+type CameraMode = 'orbit' | 'walk'
+type AspectRatioMode = 'normal' | 'super-wide' | 'wide'
+
+class ModelLoadBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.warn('Failed to render model in 3D view.', error, errorInfo)
+  }
+
+  render() {
+    return this.state.hasError ? null : this.props.children
+  }
+}
+
+function getCameraFov(aspectRatioMode: AspectRatioMode) {
+  if (aspectRatioMode === 'super-wide') {
+    return 78
+  }
+
+  if (aspectRatioMode === 'wide') {
+    return 62
+  }
+
+  return 45
+}
 
 type FootprintEdge = {
   wall: Wall
@@ -655,6 +718,46 @@ function getSceneBounds(floors: FloorLevel[]) {
   }
 }
 
+type FloorPlaneBounds = NonNullable<ReturnType<typeof getFloorPlaneBounds>>
+
+function GroundGrid({
+  floorPlane,
+  isActive,
+}: {
+  floorPlane: FloorPlaneBounds
+  isActive: boolean
+}) {
+  const geometry = useMemo(() => {
+    const halfSize = floorPlane.size / 2
+    const firstLine = Math.ceil(-halfSize)
+    const lastLine = Math.floor(halfSize)
+    const positions: number[] = []
+
+    for (let position = firstLine; position <= lastLine; position += 1) {
+      positions.push(position, 0, -halfSize, position, 0, halfSize)
+      positions.push(-halfSize, 0, position, halfSize, 0, position)
+    }
+
+    const gridGeometry = new BufferGeometry()
+    gridGeometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+    return gridGeometry
+  }, [floorPlane.size])
+
+  return (
+    <lineSegments
+      geometry={geometry}
+      position={[floorPlane.centerX, 0.006, floorPlane.centerZ]}
+    >
+      <lineBasicMaterial
+        color={isActive ? '#64748b' : '#94a3b8'}
+        depthWrite={false}
+        opacity={isActive ? 0.34 : 0.2}
+        transparent
+      />
+    </lineSegments>
+  )
+}
+
 function SunLight({
   sceneBounds,
   shadows,
@@ -823,10 +926,353 @@ function FloorSlab({
   )
 }
 
-export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
+function ModelMesh({
+  elevation,
+  isActive,
+  isSelected,
+  model,
+}: {
+  elevation: number
+  isActive: boolean
+  isSelected: boolean
+  model: PlacedModel
+}) {
+  const modelDefinition = modelsById.get(model.modelId)
+
+  if (!modelDefinition) {
+    return null
+  }
+
+  if (modelDefinition.sourceUrl) {
+    return (
+      <ImportedModelMesh
+        elevation={elevation}
+        isActive={isActive}
+        isSelected={isSelected}
+        model={model}
+        sourceUrl={modelDefinition.sourceUrl}
+      />
+    )
+  }
+
+  return (
+    <mesh
+      position={[
+        model.position.x,
+        elevation + (modelDefinition.height * model.scale) / 2,
+        model.position.y,
+      ]}
+      rotation={[0, -model.rotation, 0]}
+      castShadow={isActive}
+      receiveShadow={isActive}
+      renderOrder={isActive ? 3 : 1}
+    >
+      {modelDefinition.shape === 'round' ? (
+        <cylinderGeometry
+          args={[
+            (Math.max(modelDefinition.width, modelDefinition.depth) * model.scale) / 2,
+            (Math.max(modelDefinition.width, modelDefinition.depth) * model.scale) / 2,
+            modelDefinition.height * model.scale,
+            32,
+          ]}
+        />
+      ) : (
+        <boxGeometry
+          args={[
+            modelDefinition.width * model.scale,
+            modelDefinition.height * model.scale,
+            modelDefinition.depth * model.scale,
+          ]}
+        />
+      )}
+      <meshStandardMaterial
+        color={isSelected ? '#f97316' : modelDefinition.color}
+        opacity={isActive ? 1 : 0.24}
+        transparent={!isActive}
+        roughness={0.68}
+      />
+      {isSelected ? <Edges color="#f97316" threshold={1} /> : null}
+    </mesh>
+  )
+}
+
+function ImportedModelMesh({
+  elevation,
+  isActive,
+  isSelected,
+  model,
+  sourceUrl,
+}: {
+  elevation: number
+  isActive: boolean
+  isSelected: boolean
+  model: PlacedModel
+  sourceUrl: string
+}) {
+  const gltf = useGLTF(sourceUrl)
+  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
+  const bounds = useMemo(() => {
+    const box = new Box3().setFromObject(scene)
+    const size = new Vector3()
+    const center = new Vector3()
+
+    box.getSize(size)
+    box.getCenter(center)
+
+    return {
+      center,
+      size,
+    }
+  }, [scene])
+
+  useEffect(() => {
+    scene.traverse((object) => {
+      if ('castShadow' in object) {
+        object.castShadow = isActive
+      }
+
+      if ('receiveShadow' in object) {
+        object.receiveShadow = isActive
+      }
+    })
+  }, [isActive, scene])
+
+  return (
+    <group
+      position={[model.position.x, elevation, model.position.y]}
+      rotation={[0, -model.rotation, 0]}
+      scale={model.scale}
+      renderOrder={isActive ? 3 : 1}
+    >
+      <primitive object={scene} />
+      {isSelected ? (
+        <mesh position={[bounds.center.x, bounds.center.y, bounds.center.z]}>
+          <boxGeometry
+            args={[
+              Math.max(bounds.size.x, 0.1),
+              Math.max(bounds.size.y, 0.1),
+              Math.max(bounds.size.z, 0.1),
+            ]}
+          />
+          <meshBasicMaterial
+            color="#f97316"
+            opacity={0.18}
+            transparent
+            wireframe
+          />
+        </mesh>
+      ) : null}
+    </group>
+  )
+}
+
+function CameraFovController({ fov }: { fov: number }) {
+  const { camera } = useThree()
+
+  useEffect(() => {
+    if ('fov' in camera) {
+      camera.fov = fov
+      camera.updateProjectionMatrix()
+    }
+  }, [camera, fov])
+
+  return null
+}
+
+function isTextEntryElement(target: EventTarget | null) {
+  if (
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  ) {
+    return true
+  }
+
+  if (!(target instanceof HTMLInputElement)) {
+    return false
+  }
+
+  return !['button', 'checkbox', 'radio', 'range'].includes(target.type)
+}
+
+function WalkCameraControls({
+  enabled,
+  headHeightEnabled,
+  headHeightY,
+}: {
+  enabled: boolean
+  headHeightEnabled: boolean
+  headHeightY: number
+}) {
+  const { camera, gl } = useThree()
+  const controlsRef = useRef<PointerLockControlsImpl>(null)
+  const keysRef = useRef(new Set<string>())
+  const isShiftPressedRef = useRef(false)
+
+  useEffect(() => {
+    if (!enabled && controlsRef.current?.isLocked) {
+      controlsRef.current.unlock()
+      gl.domElement.style.cursor = ''
+    }
+  }, [enabled, gl.domElement])
+
+  useEffect(() => {
+    if (!enabled) {
+      keysRef.current.clear()
+      isShiftPressedRef.current = false
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTextEntryElement(event.target)) {
+        return
+      }
+
+      if (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+        event.preventDefault()
+        isShiftPressedRef.current = true
+        return
+      }
+
+      if (['KeyA', 'KeyD', 'KeyS', 'KeyW'].includes(event.code)) {
+        event.preventDefault()
+        keysRef.current.add(event.code)
+        isShiftPressedRef.current = event.shiftKey || isShiftPressedRef.current
+      }
+    }
+    const handleKeyUp = (event: KeyboardEvent) => {
+      keysRef.current.delete(event.code)
+
+      if (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+        isShiftPressedRef.current = false
+      }
+    }
+    const startLooking = (event: MouseEvent) => {
+      if (event.button !== 0) {
+        return
+      }
+
+      event.preventDefault()
+      gl.domElement.focus()
+      gl.domElement.style.cursor = 'none'
+      controlsRef.current?.lock()
+    }
+    const stopLooking = () => {
+      gl.domElement.style.cursor = ''
+
+      if (controlsRef.current?.isLocked) {
+        controlsRef.current.unlock()
+      }
+    }
+    const handlePointerLockChange = () => {
+      if (!controlsRef.current?.isLocked) {
+        gl.domElement.style.cursor = ''
+      }
+    }
+    const handleBlur = () => {
+      keysRef.current.clear()
+      isShiftPressedRef.current = false
+      stopLooking()
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', handleBlur)
+    window.addEventListener('mouseup', stopLooking)
+    document.addEventListener('pointerlockchange', handlePointerLockChange)
+    gl.domElement.addEventListener('mousedown', startLooking)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', handleBlur)
+      window.removeEventListener('mouseup', stopLooking)
+      document.removeEventListener('pointerlockchange', handlePointerLockChange)
+      gl.domElement.removeEventListener('mousedown', startLooking)
+      stopLooking()
+    }
+  }, [enabled, gl.domElement])
+
+  useFrame((_, delta) => {
+    if (!enabled || keysRef.current.size === 0) {
+      return
+    }
+
+    const forward = new Vector3()
+    const right = new Vector3()
+    const movement = new Vector3()
+
+    camera.getWorldDirection(forward)
+    right.setFromMatrixColumn(camera.matrix, 0).normalize()
+
+    if (headHeightEnabled) {
+      forward.y = 0
+      right.y = 0
+
+      if (forward.lengthSq() > 0) {
+        forward.normalize()
+      }
+
+      if (right.lengthSq() > 0) {
+        right.normalize()
+      }
+    }
+
+    if (keysRef.current.has('KeyW')) {
+      movement.add(forward)
+    }
+
+    if (keysRef.current.has('KeyS')) {
+      movement.sub(forward)
+    }
+
+    if (keysRef.current.has('KeyD')) {
+      movement.add(right)
+    }
+
+    if (keysRef.current.has('KeyA')) {
+      movement.sub(right)
+    }
+
+    if (movement.lengthSq() > 0) {
+      const speedMultiplier = isShiftPressedRef.current
+        ? WALK_CAMERA_SHIFT_MULTIPLIER
+        : 1
+
+      camera.position.add(
+        movement
+          .normalize()
+          .multiplyScalar(WALK_CAMERA_SPEED * speedMultiplier * delta),
+      )
+    }
+
+    if (headHeightEnabled) {
+      camera.position.y = headHeightY
+    }
+  })
+
+  return (
+    <PointerLockControls
+      ref={controlsRef}
+      enabled={enabled}
+      domElement={gl.domElement}
+      pointerSpeed={0.9}
+      selector=".three-host canvas"
+    />
+  )
+}
+
+export function ThreeDView({
+  activeFloorId,
+  floors,
+  selectedModelId,
+}: ThreeDViewProps) {
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
+  const [cameraMode, setCameraMode] = useState<CameraMode>('orbit')
+  const [aspectRatioMode, setAspectRatioMode] =
+    useState<AspectRatioMode>('normal')
+  const [headHeightEnabled, setHeadHeightEnabled] = useState(false)
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
-    ambientOcclusion: true,
+    ambientOcclusion: false,
     floorSlabs: true,
     groundPlane: true,
     referenceFloors: true,
@@ -834,6 +1280,8 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
   })
   const sceneBounds = getSceneBounds(floors)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId) ?? null
+  const cameraFov = getCameraFov(aspectRatioMode)
+  const headHeightY = (activeFloor?.elevation ?? 0) + WALK_HEAD_HEIGHT_METERS
   const floorBelowActive = activeFloor
     ? floors
         .filter((floor) => floor.elevation < activeFloor.elevation)
@@ -860,68 +1308,114 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
     <section className="editor-pane">
       <div className="pane-header">
         <h2>3D View</h2>
-        <span>Orbit enabled</span>
-        <div className="render-options">
-          <button
-            type="button"
-            aria-expanded={isRenderMenuOpen}
-            onClick={() => setIsRenderMenuOpen((value) => !value)}
-          >
-            Render
-          </button>
-          {isRenderMenuOpen ? (
-            <div className="render-options-menu">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={renderOptions.ambientOcclusion}
-                  onChange={() => updateRenderOption('ambientOcclusion')}
-                />
-                Ambient occlusion
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={renderOptions.shadows}
-                  onChange={() => updateRenderOption('shadows')}
-                />
-                Shadows
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={renderOptions.referenceFloors}
-                  onChange={() => updateRenderOption('referenceFloors')}
-                />
-                Reference floors
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={renderOptions.groundPlane}
-                  onChange={() => updateRenderOption('groundPlane')}
-                />
-                Ground plane
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={renderOptions.floorSlabs}
-                  onChange={() => updateRenderOption('floorSlabs')}
-                />
-                Floor slabs
-              </label>
-            </div>
+        <span>{cameraMode === 'walk' ? 'WASD movement' : 'Orbit enabled'}</span>
+        <div className="three-header-controls">
+          <label className="aspect-ratio-select">
+            <span>Aspect</span>
+            <select
+              value={aspectRatioMode}
+              onChange={(event) =>
+                setAspectRatioMode(event.target.value as AspectRatioMode)
+              }
+            >
+              <option value="normal">Normal</option>
+              <option value="wide">Wide</option>
+              <option value="super-wide">Super-wide</option>
+            </select>
+          </label>
+          <div className="segmented-control compact" aria-label="3D camera mode">
+            <button
+              type="button"
+              className={cameraMode === 'orbit' ? 'active' : ''}
+              onClick={() => setCameraMode('orbit')}
+            >
+              Orbit
+            </button>
+            <button
+              type="button"
+              className={cameraMode === 'walk' ? 'active' : ''}
+              onClick={() => setCameraMode('walk')}
+            >
+              Walk
+            </button>
+          </div>
+          {cameraMode === 'walk' ? (
+            <label className="head-height-toggle">
+              <input
+                type="checkbox"
+                checked={headHeightEnabled}
+                onChange={(event) => {
+                  setHeadHeightEnabled(event.target.checked)
+                  event.currentTarget.blur()
+                }}
+              />
+              Head height
+            </label>
           ) : null}
+          <div className="render-options">
+            <button
+              type="button"
+              aria-expanded={isRenderMenuOpen}
+              onClick={() => setIsRenderMenuOpen((value) => !value)}
+            >
+              Render
+            </button>
+            {isRenderMenuOpen ? (
+              <div className="render-options-menu">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.ambientOcclusion}
+                    onChange={() => updateRenderOption('ambientOcclusion')}
+                  />
+                  Ambient occlusion
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.shadows}
+                    onChange={() => updateRenderOption('shadows')}
+                  />
+                  Shadows
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.referenceFloors}
+                    onChange={() => updateRenderOption('referenceFloors')}
+                  />
+                  Reference floors
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.groundPlane}
+                    onChange={() => updateRenderOption('groundPlane')}
+                  />
+                  Ground plane
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.floorSlabs}
+                    onChange={() => updateRenderOption('floorSlabs')}
+                  />
+                  Floor slabs
+                </label>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <div className="three-host">
         <Canvas
           shadows={renderOptions.shadows}
-          camera={{ position: [6, 5, 8], fov: 45 }}
+          camera={{ position: [6, 5, 8], fov: cameraFov }}
           gl={{ antialias: true }}
+          tabIndex={0}
         >
+          <CameraFovController fov={cameraFov} />
           <color attach="background" args={['#eef2f7']} />
           <ambientLight intensity={0.55} />
           <SunLight sceneBounds={sceneBounds} shadows={renderOptions.shadows} />
@@ -954,19 +1448,7 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
                 ) : null}
                 {floorPlane ? (
                   <>
-                    <gridHelper
-                      args={[
-                        floorPlane.size,
-                        Math.max(2, Math.round(floorPlane.size)),
-                        isActive ? '#94a3b8' : '#cbd5e1',
-                        isActive ? '#cbd5e1' : '#f1f5f9',
-                      ]}
-                      position={[
-                        floorPlane.centerX,
-                        0,
-                        floorPlane.centerZ,
-                      ]}
-                    />
+                    <GroundGrid floorPlane={floorPlane} isActive={isActive} />
                     <mesh
                       position={[
                         floorPlane.centerX,
@@ -999,21 +1481,40 @@ export function ThreeDView({ activeFloorId, floors }: ThreeDViewProps) {
                     renderedWall={renderedWall}
                   />
                 ))}
+                {isActive ? (
+                  <Suspense fallback={null}>
+                    {(floor.models ?? []).map((model) => (
+                      <ModelLoadBoundary key={model.id}>
+                        <ModelMesh
+                          elevation={floor.elevation}
+                          isActive={isActive}
+                          isSelected={model.id === selectedModelId}
+                          model={model}
+                        />
+                      </ModelLoadBoundary>
+                    ))}
+                  </Suspense>
+                ) : null}
               </group>
             )
           })}
 
-          <OrbitControls makeDefault target={[3, 1.2, 3]} />
+          <WalkCameraControls
+            enabled={cameraMode === 'walk'}
+            headHeightEnabled={headHeightEnabled}
+            headHeightY={headHeightY}
+          />
+          {cameraMode === 'orbit' ? <OrbitControls makeDefault target={[3, 1.2, 3]} /> : null}
           {renderOptions.ambientOcclusion ? (
             <EffectComposer multisampling={0}>
               <N8AO
                 aoRadius={0.75}
                 distanceFalloff={0.45}
                 intensity={3.2}
-                quality="high"
-                aoSamples={32}
-                denoiseSamples={8}
-                denoiseRadius={8}
+                quality="medium"
+                aoSamples={16}
+                denoiseSamples={4}
+                denoiseRadius={6}
                 color={ambientOcclusionColor}
               />
             </EffectComposer>

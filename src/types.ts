@@ -20,10 +20,19 @@ export type Room = {
   signature: string
 }
 
+export type PlacedModel = {
+  id: string
+  modelId: string
+  position: Point
+  rotation: number
+  scale: number
+}
+
 export type FloorLevel = {
   id: string
   name: string
   elevation: number
+  models: PlacedModel[]
   rooms: Room[]
   roomHeight: number
   slabThickness: number

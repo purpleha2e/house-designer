@@ -1,13 +1,19 @@
-import type { FloorLevel, Room, Wall } from '../types'
+import type { FloorLevel, PlacedModel, Room, Wall } from '../types'
+import type { ModelDefinition } from '../models/modelLibrary'
 import type { DetectedRoom } from '../wallTopology'
 
 type ContextPanelProps = {
   activeFloor: FloorLevel
+  selectedModel: {
+    definition: ModelDefinition
+    model: PlacedModel
+  } | null
   selectedRoom: {
     detectedRoom: DetectedRoom
     metadata: Room
   } | null
   selectedWall: Wall | undefined
+  onDeleteModel: (modelId: string) => void
   onRenameRoom: (roomSignature: string, name: string) => void
 }
 
@@ -17,8 +23,10 @@ function getWallLength(wall: Wall) {
 
 export function ContextPanel({
   activeFloor,
+  selectedModel,
   selectedRoom,
   selectedWall,
+  onDeleteModel,
   onRenameRoom,
 }: ContextPanelProps) {
   return (
@@ -28,9 +36,11 @@ export function ContextPanel({
         <p>
           {selectedWall
             ? `${activeFloor.name} - wall ${selectedWall.id.slice(0, 8)}`
-            : selectedRoom
-              ? `${activeFloor.name} - ${selectedRoom.metadata.name}`
-            : `${activeFloor.name} selected`}
+            : selectedModel
+              ? `${activeFloor.name} - ${selectedModel.definition.name}`
+              : selectedRoom
+                ? `${activeFloor.name} - ${selectedRoom.metadata.name}`
+                : `${activeFloor.name} selected`}
         </p>
       </div>
 
@@ -62,7 +72,15 @@ export function ContextPanel({
         </div>
         <div>
           <dt>Type</dt>
-          <dd>{selectedWall ? selectedWall.kind : selectedRoom ? 'room' : '-'}</dd>
+          <dd>
+            {selectedWall
+              ? selectedWall.kind
+              : selectedModel
+                ? selectedModel.definition.category
+                : selectedRoom
+                  ? 'room'
+                  : '-'}
+          </dd>
         </div>
         {selectedRoom ? (
           <div>
@@ -72,16 +90,63 @@ export function ContextPanel({
         ) : null}
         <div>
           <dt>Length</dt>
-          <dd>{selectedWall ? `${getWallLength(selectedWall).toFixed(2)} m` : '-'}</dd>
+          <dd>
+            {selectedWall
+              ? `${getWallLength(selectedWall).toFixed(2)} m`
+              : selectedModel
+                ? `${(
+                    selectedModel.definition.width * selectedModel.model.scale
+                  ).toFixed(2)} m`
+                : '-'}
+          </dd>
         </div>
         <div>
-          <dt>Thickness</dt>
-          <dd>{selectedWall ? `${selectedWall.thickness.toFixed(2)} m` : '-'}</dd>
+          <dt>{selectedModel ? 'Depth' : 'Thickness'}</dt>
+          <dd>
+            {selectedWall
+              ? `${selectedWall.thickness.toFixed(2)} m`
+              : selectedModel
+                ? `${(
+                    selectedModel.definition.depth * selectedModel.model.scale
+                  ).toFixed(2)} m`
+                : '-'}
+          </dd>
         </div>
         <div>
           <dt>Height</dt>
-          <dd>{selectedWall ? `${selectedWall.height.toFixed(2)} m` : '-'}</dd>
+          <dd>
+            {selectedWall
+              ? `${selectedWall.height.toFixed(2)} m`
+              : selectedModel
+                ? `${(
+                    selectedModel.definition.height * selectedModel.model.scale
+                  ).toFixed(2)} m`
+                : '-'}
+          </dd>
         </div>
+        {selectedModel ? (
+          <>
+            <div>
+              <dt>Scale</dt>
+              <dd>{selectedModel.model.scale.toFixed(2)}x</dd>
+            </div>
+            <div>
+              <dt>Rotation</dt>
+              <dd>{Math.round((selectedModel.model.rotation * 180) / Math.PI)} deg</dd>
+            </div>
+            <div className="context-actions">
+              <dt>Actions</dt>
+              <dd>
+                <button
+                  type="button"
+                  onClick={() => onDeleteModel(selectedModel.model.id)}
+                >
+                  Delete
+                </button>
+              </dd>
+            </div>
+          </>
+        ) : null}
       </dl>
     </aside>
   )

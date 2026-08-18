@@ -31,21 +31,76 @@ export function Toolbar({
   onWallKindChange,
 }: ToolbarProps) {
   const [isFloorMenuOpen, setIsFloorMenuOpen] = useState(false)
+  const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false)
 
   return (
     <header className="toolbar">
-      <div>
-        <h1>House Designer</h1>
-        <p>{wallCount} walls across {floors.length} floors</p>
+      <div className="project-menu">
+        <button
+          type="button"
+          className="project-menu-button"
+          aria-expanded={isProjectMenuOpen}
+          aria-label="Project menu"
+          onClick={() => setIsProjectMenuOpen((value) => !value)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        {isProjectMenuOpen ? (
+          <div className="project-menu-dropdown">
+            <div>
+              <h1>House Designer</h1>
+              <p>
+                {wallCount} walls across {floors.length} floors
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onSaveProject()
+                setIsProjectMenuOpen(false)
+              }}
+            >
+            Save
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onLoadProject()
+                setIsProjectMenuOpen(false)
+              }}
+            >
+            Load
+            </button>
+          </div>
+        ) : null}
       </div>
 
-      <div className="toolbar-controls">
-        <div className="project-actions" aria-label="Project save and load">
-          <button type="button" onClick={onSaveProject}>
-            Save
+      <div className="tool-dock">
+        <button
+          type="button"
+          className={isAddingWall ? 'tool-button active' : 'tool-button'}
+          aria-pressed={isAddingWall}
+          onClick={onToggleAddWall}
+        >
+          Add Wall
+        </button>
+
+        <div className="segmented-control" aria-label="Wall type">
+          <button
+            type="button"
+            className={wallKind === 'external' ? 'active' : ''}
+            onClick={() => onWallKindChange('external')}
+          >
+            External
           </button>
-          <button type="button" onClick={onLoadProject}>
-            Load
+          <button
+            type="button"
+            className={wallKind === 'internal' ? 'active' : ''}
+            onClick={() => onWallKindChange('internal')}
+          >
+            Internal
           </button>
         </div>
 
@@ -89,32 +144,6 @@ export function Toolbar({
             </div>
           ) : null}
         </div>
-
-        <div className="segmented-control" aria-label="Wall type">
-          <button
-            type="button"
-            className={wallKind === 'external' ? 'active' : ''}
-            onClick={() => onWallKindChange('external')}
-          >
-            External
-          </button>
-          <button
-            type="button"
-            className={wallKind === 'internal' ? 'active' : ''}
-            onClick={() => onWallKindChange('internal')}
-          >
-            Internal
-          </button>
-        </div>
-
-        <button
-          type="button"
-          className={isAddingWall ? 'tool-button active' : 'tool-button'}
-          aria-pressed={isAddingWall}
-          onClick={onToggleAddWall}
-        >
-          Add Wall
-        </button>
       </div>
     </header>
   )
