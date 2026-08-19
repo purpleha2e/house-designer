@@ -5,14 +5,24 @@ type ToolbarProps = {
   activeFloorId: string
   floors: FloorLevel[]
   isAddingWall: boolean
+  selectedFloorViewId: string
   wallCount: number
   wallKind: WallKind
+  canCopy: boolean
+  canPaste: boolean
+  canRedo: boolean
+  canUndo: boolean
   onAddEmptyFloor: () => void
   onAddFloor: () => void
+  onCopy: () => void
+  onCut: () => void
   onLoadProject: () => void
+  onPaste: () => void
+  onRedo: () => void
   onSaveProject: () => void
   onSelectFloor: (floorId: string) => void
   onToggleAddWall: () => void
+  onUndo: () => void
   onWallKindChange: (wallKind: WallKind) => void
 }
 
@@ -20,14 +30,24 @@ export function Toolbar({
   activeFloorId,
   floors,
   isAddingWall,
+  selectedFloorViewId,
   wallCount,
   wallKind,
+  canCopy,
+  canPaste,
+  canRedo,
+  canUndo,
   onAddEmptyFloor,
   onAddFloor,
+  onCopy,
+  onCut,
   onLoadProject,
+  onPaste,
+  onRedo,
   onSaveProject,
   onSelectFloor,
   onToggleAddWall,
+  onUndo,
   onWallKindChange,
 }: ToolbarProps) {
   const [isFloorMenuOpen, setIsFloorMenuOpen] = useState(false)
@@ -87,6 +107,24 @@ export function Toolbar({
           Add Wall
         </button>
 
+        <div className="segmented-control compact edit-actions" aria-label="Edit actions">
+          <button type="button" disabled={!canUndo} onClick={onUndo}>
+            Undo
+          </button>
+          <button type="button" disabled={!canRedo} onClick={onRedo}>
+            Redo
+          </button>
+          <button type="button" disabled={!canCopy} onClick={onCopy}>
+            Copy
+          </button>
+          <button type="button" disabled={!canCopy} onClick={onCut}>
+            Cut
+          </button>
+          <button type="button" disabled={!canPaste} onClick={onPaste}>
+            Paste
+          </button>
+        </div>
+
         <div className="segmented-control" aria-label="Wall type">
           <button
             type="button"
@@ -107,12 +145,13 @@ export function Toolbar({
         <label className="toolbar-select">
           <span>Floor</span>
           <select
-            value={activeFloorId}
+            value={selectedFloorViewId}
             onChange={(event) => onSelectFloor(event.target.value)}
           >
+            <option value="all">All floors</option>
             {floors.map((floor) => (
               <option key={floor.id} value={floor.id}>
-                {floor.name}
+                {floor.id === activeFloorId ? `${floor.name} (editing)` : floor.name}
               </option>
             ))}
           </select>

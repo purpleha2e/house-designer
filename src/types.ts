@@ -12,6 +12,16 @@ export type Wall = {
   end: Point
   thickness: number
   height: number
+  openings?: WallOpening[]
+}
+
+export type WallOpening = {
+  id: string
+  modelId: string
+  center: number
+  width: number
+  bottom: number
+  height: number
 }
 
 export type Room = {
@@ -26,6 +36,12 @@ export type PlacedModel = {
   position: Point
   rotation: number
   scale: number
+  wallAttachment?: WallAttachment
+}
+
+export type WallAttachment = {
+  wallId: string
+  offset: number
 }
 
 export type FloorLevel = {

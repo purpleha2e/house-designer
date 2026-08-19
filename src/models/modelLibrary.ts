@@ -4,6 +4,8 @@ export type ModelDefinition = {
   category: string
   color: string
   height: number
+  openingWidth?: number
+  wallMount?: 'interior-door' | 'patio-door' | 'window'
   sourceUrl?: string
   shape: 'box' | 'round'
   width: number
@@ -34,17 +36,45 @@ function getModelId(fileName: string) {
 const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles).map(
   ([path, sourceUrl], index) => {
     const fileName = path.split('/').pop() ?? `model-${index + 1}.glb`
+    const modelId = getModelId(fileName)
+    const isWindow = modelId.includes('window')
+    const isInteriorDoor = modelId.includes('interior-door')
+    const isPatioDoor =
+      modelId.includes('patio-door') || modelId.includes('patio-doors')
+    const isPatioDoorWithSideLights = isPatioDoor && modelId.includes('side-lights')
+    const isOpenInteriorDoor = isInteriorDoor && modelId.includes('open')
+    const isThreePaneWindow = isWindow && modelId.includes('three-pane')
 
     return {
-      id: getModelId(fileName) || `model-${index + 1}`,
+      id: modelId || `model-${index + 1}`,
       name: formatModelName(fileName),
-      category: 'Imported',
+      category: isPatioDoor || isInteriorDoor ? 'Doors' : isWindow ? 'Windows' : 'Imported',
       color: '#2563eb',
-      height: 1,
+      height: isInteriorDoor ? 2.1 : isPatioDoor ? 2.08 : isWindow ? 1.1 : 1,
+      openingWidth: isInteriorDoor ? 0.97 : undefined,
       sourceUrl: sourceUrl as string,
       shape: 'box',
-      width: 1,
-      depth: 1,
+      wallMount: isInteriorDoor
+        ? 'interior-door'
+        : isPatioDoor
+          ? 'patio-door'
+          : isWindow
+            ? 'window'
+            : undefined,
+      width: isInteriorDoor
+        ? isOpenInteriorDoor
+          ? 1.14
+          : 0.97
+        : isPatioDoorWithSideLights
+        ? 2.54
+        : isPatioDoor
+          ? 1.62
+          : isThreePaneWindow
+            ? 1.64
+            : isWindow
+              ? 1.09
+              : 1,
+      depth: isInteriorDoor ? (isOpenInteriorDoor ? 0.84 : 0.13) : isPatioDoor || isWindow ? 0.08 : 1,
     }
   },
 )

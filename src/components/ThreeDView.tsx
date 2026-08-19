@@ -8,11 +8,15 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib'
 import {
+  BackSide,
   BufferGeometry,
+  CanvasTexture,
   Color,
   DirectionalLight,
   Float32BufferAttribute,
   Object3D,
+  RepeatWrapping,
+  SRGBColorSpace,
   Shape,
   Box3,
   Vector3,
@@ -25,6 +29,7 @@ import {
   useRef,
   useState,
   type ErrorInfo,
+  type PointerEvent,
   type ReactNode,
 } from 'react'
 import type { FloorLevel, PlacedModel, Point, Wall } from '../types'
@@ -36,6 +41,7 @@ type ThreeDViewProps = {
   activeFloorId: string
   floors: FloorLevel[]
   selectedModelId: string | null
+  showAllFloors: boolean
 }
 
 type RenderOptions = {
@@ -44,6 +50,8 @@ type RenderOptions = {
   groundPlane: boolean
   referenceFloors: boolean
   shadows: boolean
+  skybox: boolean
+  wireframe: boolean
 }
 
 const ambientOcclusionColor = new Color('black')
@@ -53,9 +61,18 @@ const FOOTPRINT_EPSILON = 0.04
 const WALK_CAMERA_SPEED = 4.2
 const WALK_CAMERA_SHIFT_MULTIPLIER = 2
 const WALK_HEAD_HEIGHT_METERS = 1.8
+const WINDOW_SILL_HEIGHT_METERS = 0.9
+const SUN_MIN_ELEVATION = 0.08
+const SUN_MAX_ELEVATION = 1.2
+const LIGHT_GIMBAL_KNOB_RADIUS = 42
 
 type CameraMode = 'orbit' | 'walk'
 type AspectRatioMode = 'normal' | 'super-wide' | 'wide'
+
+type LightDirection = {
+  azimuth: number
+  elevation: number
+}
 
 class ModelLoadBoundary extends Component<
   { children: ReactNode },
@@ -86,6 +103,128 @@ function getCameraFov(aspectRatioMode: AspectRatioMode) {
   }
 
   return 45
+}
+
+function createCountrysideSkyTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = 2048
+  canvas.height = 1024
+
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    return null
+  }
+
+  const skyGradient = context.createLinearGradient(0, 0, 0, canvas.height)
+  skyGradient.addColorStop(0, '#7cb7f2')
+  skyGradient.addColorStop(0.42, '#c7e3ff')
+  skyGradient.addColorStop(0.58, '#eef7ff')
+  skyGradient.addColorStop(1, '#bfdc9b')
+  context.fillStyle = skyGradient
+  context.fillRect(0, 0, canvas.width, canvas.height)
+
+  context.fillStyle = 'rgba(255, 255, 255, 0.72)'
+  for (const cloud of [
+    [220, 190, 72],
+    [720, 140, 58],
+    [1220, 210, 86],
+    [1720, 165, 66],
+  ] as const) {
+    const [x, y, radius] = cloud
+    context.beginPath()
+    context.ellipse(x, y, radius * 1.35, radius * 0.55, 0, 0, Math.PI * 2)
+    context.ellipse(x + radius * 0.8, y + 8, radius, radius * 0.48, 0, 0, Math.PI * 2)
+    context.ellipse(x - radius * 0.9, y + 12, radius * 0.95, radius * 0.42, 0, 0, Math.PI * 2)
+    context.fill()
+  }
+
+  const drawHills = (color: string, baseline: number, amplitude: number, phase: number) => {
+    context.beginPath()
+    context.moveTo(0, canvas.height)
+
+    for (let x = 0; x <= canvas.width; x += 32) {
+      const wave =
+        Math.sin(x / 170 + phase) * amplitude +
+        Math.sin(x / 83 + phase * 0.7) * amplitude * 0.35
+      context.lineTo(x, baseline + wave)
+    }
+
+    context.lineTo(canvas.width, canvas.height)
+    context.closePath()
+    context.fillStyle = color
+    context.fill()
+  }
+
+  drawHills('#8ebf73', 590, 34, 0.6)
+  drawHills('#6aa85e', 650, 42, 2.1)
+  drawHills('#4d8f49', 730, 30, 4.4)
+
+  const texture = new CanvasTexture(canvas)
+  texture.needsUpdate = true
+  return texture
+}
+
+function createBrickTexture(repeatX: number, repeatY: number) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 512
+  canvas.height = 256
+
+  const context = canvas.getContext('2d')
+
+  if (!context) {
+    return null
+  }
+
+  context.fillStyle = '#d8c6b4'
+  context.fillRect(0, 0, canvas.width, canvas.height)
+
+  const brickHeight = 42
+  const brickWidth = 128
+  const mortar = 5
+
+  for (let row = 0; row < Math.ceil(canvas.height / brickHeight) + 1; row += 1) {
+    const y = row * brickHeight
+    const offset = row % 2 === 0 ? 0 : -brickWidth / 2
+
+    for (
+      let column = -1;
+      column < Math.ceil(canvas.width / brickWidth) + 1;
+      column += 1
+    ) {
+      const x = column * brickWidth + offset
+      const variation = (row * 17 + column * 29) % 24
+      context.fillStyle = `rgb(${150 + variation}, ${78 + variation / 2}, ${52 + variation / 3})`
+      context.fillRect(
+        x + mortar,
+        y + mortar,
+        brickWidth - mortar * 2,
+        brickHeight - mortar * 2,
+      )
+      context.fillStyle = 'rgba(255, 255, 255, 0.08)'
+      context.fillRect(
+        x + mortar,
+        y + mortar,
+        brickWidth - mortar * 2,
+        Math.max(3, brickHeight * 0.18),
+      )
+      context.fillStyle = 'rgba(40, 24, 18, 0.1)'
+      context.fillRect(
+        x + mortar,
+        y + brickHeight - mortar - 5,
+        brickWidth - mortar * 2,
+        5,
+      )
+    }
+  }
+
+  const texture = new CanvasTexture(canvas)
+  texture.colorSpace = SRGBColorSpace
+  texture.wrapS = RepeatWrapping
+  texture.wrapT = RepeatWrapping
+  texture.repeat.set(repeatX, repeatY)
+  texture.needsUpdate = true
+  return texture
 }
 
 type FootprintEdge = {
@@ -759,9 +898,11 @@ function GroundGrid({
 }
 
 function SunLight({
+  lightDirection,
   sceneBounds,
   shadows,
 }: {
+  lightDirection: LightDirection
   sceneBounds: ReturnType<typeof getSceneBounds>
   shadows: boolean
 }) {
@@ -774,6 +915,19 @@ function SunLight({
       lightRef.current.target.updateMatrixWorld()
     }
   }, [sceneBounds])
+  const horizontalDistance = Math.max(sceneBounds.size * 0.9, 12)
+  const verticalDistance = Math.max(sceneBounds.maxElevation + 8, 8)
+  const lightHeight = Math.max(
+    0.8,
+    Math.sin(lightDirection.elevation) * verticalDistance,
+  )
+  const lightRadius =
+    horizontalDistance * Math.max(0.08, Math.cos(lightDirection.elevation))
+  const lightPosition = [
+    sceneBounds.centerX + Math.cos(lightDirection.azimuth) * lightRadius,
+    lightHeight,
+    sceneBounds.centerZ + Math.sin(lightDirection.azimuth) * lightRadius,
+  ] as const
 
   return (
     <>
@@ -783,11 +937,7 @@ function SunLight({
       />
       <directionalLight
         ref={lightRef}
-        position={[
-          sceneBounds.centerX + 4,
-          sceneBounds.maxElevation + 8,
-          sceneBounds.centerZ + 6,
-        ]}
+        position={lightPosition}
         intensity={1.3}
         castShadow={shadows}
         shadow-mapSize-width={2048}
@@ -805,16 +955,56 @@ function SunLight({
   )
 }
 
+function ExternalWallMaterial({
+  attach,
+  height,
+  length,
+  wireframe,
+}: {
+  attach?: string
+  height: number
+  length: number
+  wireframe: boolean
+}) {
+  const brickTexture = useMemo(
+    () =>
+      createBrickTexture(
+        Math.max(1, length / 0.85),
+        Math.max(1, height / 0.32),
+      ),
+    [height, length],
+  )
+
+  useEffect(
+    () => () => {
+      brickTexture?.dispose()
+    },
+    [brickTexture],
+  )
+
+  return (
+    <meshStandardMaterial
+      attach={attach}
+      color="#ffffff"
+      map={brickTexture}
+      roughness={0.82}
+      wireframe={wireframe}
+    />
+  )
+}
+
 function WallMesh({
   castsShadow,
   elevation,
   isActive,
   renderedWall,
+  wireframe,
 }: {
   castsShadow: boolean
   elevation: number
   isActive: boolean
   renderedWall: RenderedWall
+  wireframe: boolean
 }) {
   const { wall, startExtension, endExtension } = renderedWall
   const dx = wall.end.x - wall.start.x
@@ -828,23 +1018,138 @@ function WallMesh({
   const centerZ =
     (wall.start.y + wall.end.y) / 2 + unitZ * ((endExtension - startExtension) / 2)
   const rotationY = -Math.atan2(dz, dx)
+  const openings = (wall.openings ?? [])
+    .map((opening) => {
+      const center = startExtension + opening.center
+      const left = Math.max(0, center - opening.width / 2)
+      const right = Math.min(renderedLength, center + opening.width / 2)
+      const bottom = Math.max(0, Math.min(wall.height, opening.bottom))
+      const top = Math.max(bottom, Math.min(wall.height, opening.bottom + opening.height))
+
+      return right > left && top > bottom
+        ? {
+            bottom,
+            left,
+            right,
+            top,
+          }
+        : null
+    })
+    .filter(
+      (
+        opening,
+      ): opening is { bottom: number; left: number; right: number; top: number } =>
+        Boolean(opening),
+    )
+  const activeWallSegments = (() => {
+    if (openings.length === 0) {
+      return [
+        {
+          center: renderedLength / 2,
+          height: wall.height,
+          length: renderedLength,
+          y: wall.height / 2,
+        },
+      ]
+    }
+
+    const xBreaks = [
+      0,
+      renderedLength,
+      ...openings.flatMap((opening) => [opening.left, opening.right]),
+    ]
+      .filter((position) => position >= 0 && position <= renderedLength)
+      .sort((firstPosition, secondPosition) => firstPosition - secondPosition)
+    const uniqueBreaks = xBreaks.filter(
+      (position, index) => index === 0 || Math.abs(position - xBreaks[index - 1]) > 0.001,
+    )
+
+    return uniqueBreaks.slice(0, -1).flatMap((start, index) => {
+      const end = uniqueBreaks[index + 1]
+      const segmentLength = end - start
+
+      if (segmentLength <= 0.001) {
+        return []
+      }
+
+      const midpoint = (start + end) / 2
+      const opening = openings.find(
+        (candidateOpening) =>
+          midpoint >= candidateOpening.left && midpoint <= candidateOpening.right,
+      )
+
+      if (!opening) {
+        return [
+          {
+            center: midpoint,
+            height: wall.height,
+            length: segmentLength,
+            y: wall.height / 2,
+          },
+        ]
+      }
+
+      return [
+        opening.bottom > 0.001
+          ? {
+              center: midpoint,
+              height: opening.bottom,
+              length: segmentLength,
+              y: opening.bottom / 2,
+            }
+          : null,
+        wall.height - opening.top > 0.001
+          ? {
+              center: midpoint,
+              height: wall.height - opening.top,
+              length: segmentLength,
+              y: opening.top + (wall.height - opening.top) / 2,
+            }
+          : null,
+      ].filter(
+        (segment): segment is { center: number; height: number; length: number; y: number } =>
+          Boolean(segment),
+      )
+    })
+  })()
 
   return (
-    <mesh
+    <group
       position={[centerX, elevation + wall.height / 2, centerZ]}
       rotation={[0, rotationY, 0]}
-      castShadow={castsShadow}
-      receiveShadow={castsShadow}
       renderOrder={isActive ? 2 : 1}
     >
-      <boxGeometry args={[renderedLength, wall.height, wall.thickness]} />
       {isActive ? (
-        <meshStandardMaterial
-          color={wall.kind === 'external' ? '#d7dde5' : '#cbd5e1'}
-          roughness={0.72}
-        />
+        activeWallSegments.map((segment, index) => (
+          <mesh
+            key={index}
+            castShadow={castsShadow}
+            position={[
+              segment.center - renderedLength / 2,
+              segment.y - wall.height / 2,
+              0,
+            ]}
+            receiveShadow={castsShadow}
+          >
+            <boxGeometry args={[segment.length, segment.height, wall.thickness]} />
+            {wall.kind === 'external' ? (
+              <ExternalWallMaterial
+                height={segment.height}
+                length={segment.length}
+                wireframe={wireframe}
+              />
+            ) : (
+              <meshStandardMaterial
+                color="#cbd5e1"
+                roughness={0.72}
+                wireframe={wireframe}
+              />
+            )}
+          </mesh>
+        ))
       ) : (
-        <>
+        <mesh castShadow={castsShadow} receiveShadow={castsShadow}>
+          <boxGeometry args={[renderedLength, wall.height, wall.thickness]} />
           <meshBasicMaterial
             color="#94a3b8"
             depthWrite={false}
@@ -853,11 +1158,12 @@ function WallMesh({
             polygonOffsetFactor={1}
             polygonOffsetUnits={1}
             transparent
+            wireframe={wireframe}
           />
           <Edges color="#64748b" threshold={15} />
-        </>
+        </mesh>
       )}
-    </mesh>
+    </group>
   )
 }
 
@@ -866,11 +1172,13 @@ function FloorSlab({
   floors,
   isSolid,
   upperFloor,
+  wireframe,
 }: {
   floor: FloorLevel
   floors: FloorLevel[]
   isSolid: boolean
   upperFloor: FloorLevel | null
+  wireframe: boolean
 }) {
   const footprints = getSlabFootprints(floor, upperFloor, floors)
   const slabShapes = useMemo(
@@ -899,6 +1207,7 @@ function FloorSlab({
       {slabShapes.map((slabShape, index) => (
         <mesh
           key={index}
+          castShadow={isSolid}
           position={[0, floor.elevation + floor.roomHeight, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           receiveShadow={isSolid}
@@ -914,11 +1223,19 @@ function FloorSlab({
             ]}
           />
           <meshStandardMaterial
+            attach="material-0"
             color="#e2e8f0"
             opacity={isSolid ? 1 : 0.18}
             transparent={!isSolid}
             depthWrite={isSolid}
             roughness={0.82}
+            wireframe={wireframe}
+          />
+          <ExternalWallMaterial
+            attach="material-1"
+            height={floor.slabThickness}
+            length={10}
+            wireframe={wireframe}
           />
         </mesh>
       ))}
@@ -931,11 +1248,13 @@ function ModelMesh({
   isActive,
   isSelected,
   model,
+  wireframe,
 }: {
   elevation: number
   isActive: boolean
   isSelected: boolean
   model: PlacedModel
+  wireframe: boolean
 }) {
   const modelDefinition = modelsById.get(model.modelId)
 
@@ -943,14 +1262,23 @@ function ModelMesh({
     return null
   }
 
+  const verticalOffset =
+    modelDefinition.wallMount === 'window' ? WINDOW_SILL_HEIGHT_METERS : 0
+  const castsShadow =
+    isActive &&
+    modelDefinition.wallMount !== 'window' &&
+    modelDefinition.wallMount !== 'patio-door'
+
   if (modelDefinition.sourceUrl) {
     return (
       <ImportedModelMesh
-        elevation={elevation}
+        castsShadow={castsShadow}
+        elevation={elevation + verticalOffset}
         isActive={isActive}
         isSelected={isSelected}
         model={model}
         sourceUrl={modelDefinition.sourceUrl}
+        wireframe={wireframe}
       />
     )
   }
@@ -959,11 +1287,11 @@ function ModelMesh({
     <mesh
       position={[
         model.position.x,
-        elevation + (modelDefinition.height * model.scale) / 2,
+        elevation + verticalOffset + (modelDefinition.height * model.scale) / 2,
         model.position.y,
       ]}
       rotation={[0, -model.rotation, 0]}
-      castShadow={isActive}
+      castShadow={castsShadow}
       receiveShadow={isActive}
       renderOrder={isActive ? 3 : 1}
     >
@@ -990,6 +1318,7 @@ function ModelMesh({
         opacity={isActive ? 1 : 0.24}
         transparent={!isActive}
         roughness={0.68}
+        wireframe={wireframe}
       />
       {isSelected ? <Edges color="#f97316" threshold={1} /> : null}
     </mesh>
@@ -997,17 +1326,21 @@ function ModelMesh({
 }
 
 function ImportedModelMesh({
+  castsShadow,
   elevation,
   isActive,
   isSelected,
   model,
   sourceUrl,
+  wireframe,
 }: {
+  castsShadow: boolean
   elevation: number
   isActive: boolean
   isSelected: boolean
   model: PlacedModel
   sourceUrl: string
+  wireframe: boolean
 }) {
   const gltf = useGLTF(sourceUrl)
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
@@ -1028,14 +1361,27 @@ function ImportedModelMesh({
   useEffect(() => {
     scene.traverse((object) => {
       if ('castShadow' in object) {
-        object.castShadow = isActive
+        object.castShadow = castsShadow
       }
 
       if ('receiveShadow' in object) {
         object.receiveShadow = isActive
       }
+
+      if ('material' in object) {
+        const materials = Array.isArray(object.material)
+          ? object.material
+          : [object.material]
+
+        for (const material of materials) {
+          if (material && 'wireframe' in material) {
+            material.wireframe = wireframe
+            material.needsUpdate = true
+          }
+        }
+      }
     })
-  }, [isActive, scene])
+  }, [castsShadow, isActive, scene, wireframe])
 
   return (
     <group
@@ -1077,6 +1423,121 @@ function CameraFovController({ fov }: { fov: number }) {
   }, [camera, fov])
 
   return null
+}
+
+function CountrysideSkybox() {
+  const { camera } = useThree()
+  const groupRef = useRef<Object3D>(null)
+  const texture = useMemo(() => createCountrysideSkyTexture(), [])
+
+  useEffect(
+    () => () => {
+      texture?.dispose()
+    },
+    [texture],
+  )
+
+  useFrame(() => {
+    groupRef.current?.position.copy(camera.position)
+  })
+
+  if (!texture) {
+    return null
+  }
+
+  return (
+    <group ref={groupRef} renderOrder={-1000}>
+      <mesh>
+        <sphereGeometry args={[120, 64, 32]} />
+        <meshBasicMaterial
+          map={texture}
+          side={BackSide}
+          fog={false}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+function LightGimbal({
+  lightDirection,
+  onLightDirectionChange,
+}: {
+  lightDirection: LightDirection
+  onLightDirectionChange: (lightDirection: LightDirection) => void
+}) {
+  const controlRef = useRef<HTMLDivElement>(null)
+  const handlePointer = (event: PointerEvent<HTMLDivElement>) => {
+    const bounds = controlRef.current?.getBoundingClientRect()
+
+    if (!bounds) {
+      return
+    }
+
+    const centerX = bounds.left + bounds.width / 2
+    const centerY = bounds.top + bounds.height / 2
+    const dx = event.clientX - centerX
+    const dy = event.clientY - centerY
+    const radius = Math.max(bounds.width, bounds.height) / 2
+    const distanceFromCenter = Math.min(1, Math.hypot(dx, dy) / radius)
+
+    onLightDirectionChange({
+      azimuth: Math.atan2(dy, dx),
+      elevation:
+        SUN_MIN_ELEVATION +
+        (1 - distanceFromCenter) * (SUN_MAX_ELEVATION - SUN_MIN_ELEVATION),
+    })
+  }
+  const normalizedElevation =
+    (lightDirection.elevation - SUN_MIN_ELEVATION) /
+    (SUN_MAX_ELEVATION - SUN_MIN_ELEVATION)
+  const knobDistance =
+    (1 - Math.min(1, Math.max(0, normalizedElevation))) *
+    LIGHT_GIMBAL_KNOB_RADIUS
+  const knobX = Math.cos(lightDirection.azimuth) * knobDistance
+  const knobY = Math.sin(lightDirection.azimuth) * knobDistance
+
+  return (
+    <div className="light-gimbal" aria-label="Light direction control">
+      <div
+        ref={controlRef}
+        className="light-gimbal-pad"
+        role="slider"
+        aria-label="Move light source"
+        aria-valuetext={`${Math.round((lightDirection.azimuth * 180) / Math.PI)} degrees`}
+        tabIndex={0}
+        onPointerDown={(event) => {
+          event.preventDefault()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          handlePointer(event)
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            handlePointer(event)
+          }
+        }}
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }
+        }}
+        onPointerCancel={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId)
+          }
+        }}
+      >
+        <span className="light-gimbal-ring" />
+        <span
+          className="light-gimbal-knob"
+          style={{
+            transform: `translate(${knobX}px, ${knobY}px)`,
+          }}
+        />
+      </div>
+    </div>
+  )
 }
 
 function isTextEntryElement(target: EventTarget | null) {
@@ -1265,18 +1726,25 @@ export function ThreeDView({
   activeFloorId,
   floors,
   selectedModelId,
+  showAllFloors,
 }: ThreeDViewProps) {
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
   const [cameraMode, setCameraMode] = useState<CameraMode>('orbit')
   const [aspectRatioMode, setAspectRatioMode] =
     useState<AspectRatioMode>('normal')
   const [headHeightEnabled, setHeadHeightEnabled] = useState(false)
+  const [lightDirection, setLightDirection] = useState<LightDirection>({
+    azimuth: Math.atan2(6, 4),
+    elevation: 0.78,
+  })
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
     ambientOcclusion: false,
     floorSlabs: true,
     groundPlane: true,
     referenceFloors: true,
     shadows: true,
+    skybox: false,
+    wireframe: false,
   })
   const sceneBounds = getSceneBounds(floors)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId) ?? null
@@ -1291,7 +1759,9 @@ export function ThreeDView({
   const floorsByElevation = [...floors].sort(
     (firstFloor, secondFloor) => firstFloor.elevation - secondFloor.elevation,
   )
-  const visibleFloors = renderOptions.referenceFloors
+  const visibleFloors = showAllFloors
+    ? floors
+    : renderOptions.referenceFloors
     ? floors
     : floors.filter(
         (floor) => floor.id === activeFloorId || floor.id === floorBelowActive?.id,
@@ -1381,6 +1851,22 @@ export function ThreeDView({
                 <label>
                   <input
                     type="checkbox"
+                    checked={renderOptions.skybox}
+                    onChange={() => updateRenderOption('skybox')}
+                  />
+                  Countryside skybox
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.wireframe}
+                    onChange={() => updateRenderOption('wireframe')}
+                  />
+                  Wireframe
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
                     checked={renderOptions.referenceFloors}
                     onChange={() => updateRenderOption('referenceFloors')}
                   />
@@ -1417,12 +1903,17 @@ export function ThreeDView({
         >
           <CameraFovController fov={cameraFov} />
           <color attach="background" args={['#eef2f7']} />
+          {renderOptions.skybox ? <CountrysideSkybox /> : null}
           <ambientLight intensity={0.55} />
-          <SunLight sceneBounds={sceneBounds} shadows={renderOptions.shadows} />
+          <SunLight
+            lightDirection={lightDirection}
+            sceneBounds={sceneBounds}
+            shadows={renderOptions.shadows}
+          />
 
           {visibleFloors.map((floor) => {
-            const isActive = floor.id === activeFloorId
-            const slabIsSolid = floor.id === floorBelowActive?.id
+            const isActive = showAllFloors || floor.id === activeFloorId
+            const slabIsSolid = showAllFloors || floor.id === floorBelowActive?.id
             const floorIndex = floorsByElevation.findIndex(
               (candidateFloor) => candidateFloor.id === floor.id,
             )
@@ -1434,17 +1925,21 @@ export function ThreeDView({
                 ? getFloorPlaneBounds(floor)
                 : null
             const shouldRenderSlab =
-              renderOptions.floorSlabs && floor.id === floorBelowActive?.id
+              renderOptions.floorSlabs &&
+              (showAllFloors ||
+                floor.id === activeFloorId ||
+                floor.id === floorBelowActive?.id)
 
             return (
               <group key={floor.id}>
                 {shouldRenderSlab ? (
-                  <FloorSlab
-                    floor={floor}
-                    floors={floors}
-                    isSolid={slabIsSolid}
-                    upperFloor={upperFloor}
-                  />
+                    <FloorSlab
+                      floor={floor}
+                      floors={floors}
+                      isSolid={slabIsSolid}
+                      upperFloor={upperFloor}
+                      wireframe={renderOptions.wireframe}
+                    />
                 ) : null}
                 {floorPlane ? (
                   <>
@@ -1468,6 +1963,7 @@ export function ThreeDView({
                         polygonOffsetFactor={2}
                         polygonOffsetUnits={2}
                         transparent={!isActive}
+                        wireframe={renderOptions.wireframe}
                       />
                     </mesh>
                   </>
@@ -1479,6 +1975,7 @@ export function ThreeDView({
                     elevation={floor.elevation}
                     isActive={isActive}
                     renderedWall={renderedWall}
+                    wireframe={renderOptions.wireframe}
                   />
                 ))}
                 {isActive ? (
@@ -1490,6 +1987,7 @@ export function ThreeDView({
                           isActive={isActive}
                           isSelected={model.id === selectedModelId}
                           model={model}
+                          wireframe={renderOptions.wireframe}
                         />
                       </ModelLoadBoundary>
                     ))}
@@ -1520,6 +2018,10 @@ export function ThreeDView({
             </EffectComposer>
           ) : null}
         </Canvas>
+        <LightGimbal
+          lightDirection={lightDirection}
+          onLightDirectionChange={setLightDirection}
+        />
       </div>
     </section>
   )

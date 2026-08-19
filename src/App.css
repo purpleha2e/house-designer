@@ -341,6 +341,17 @@
   color: #ffffff;
 }
 
+.segmented-control button:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.segmented-control button:disabled:hover,
+.segmented-control button:disabled:focus-visible {
+  background: #ffffff;
+  outline: none;
+}
+
 .context-panel {
   position: fixed;
   z-index: 18;
@@ -488,7 +499,7 @@
 .pane-header {
   position: absolute;
   z-index: 10;
-  top: 78px;
+  top: 12px;
   left: 12px;
   right: 12px;
   min-height: 44px;
@@ -501,6 +512,10 @@
   text-align: left;
   backdrop-filter: blur(10px);
   pointer-events: none;
+}
+
+.editor-pane:first-child .pane-header {
+  left: 64px;
 }
 
 .pane-header h2 {
@@ -711,9 +726,69 @@
 }
 
 .three-host {
+  position: relative;
   display: grid;
   place-items: center;
   background: #dbe3ee;
+}
+
+.light-gimbal {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 112px;
+  height: 112px;
+  border: 1px solid rgba(148, 163, 184, 0.72);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.light-gimbal-pad {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(250, 204, 21, 0.22), transparent 16px),
+    conic-gradient(from -90deg, #fde68a, #bfdbfe, #c7d2fe, #fde68a);
+  cursor: grab;
+  touch-action: none;
+}
+
+.light-gimbal-pad:active {
+  cursor: grabbing;
+}
+
+.light-gimbal-pad:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.light-gimbal-ring {
+  position: absolute;
+  inset: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.light-gimbal-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.28);
+  pointer-events: none;
 }
 
 .canvas-host {

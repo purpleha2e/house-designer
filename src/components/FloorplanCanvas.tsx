@@ -56,6 +56,7 @@ const DRAFT_INTERNAL_WALL_THICKNESS = 0.15
 const MIN_MODEL_SCALE = 0.2
 const MAX_MODEL_SCALE = 5
 const MODEL_ROTATION_SNAP_RADIANS = (5 * Math.PI) / 180
+const WALL_MODEL_SNAP_DISTANCE_METERS = 0.65
 const ROOM_HIGHLIGHT_COLORS = [
   'rgba(14, 165, 233, 0.12)',
   'rgba(16, 185, 129, 0.12)',
@@ -70,17 +71,20 @@ type FloorplanCanvasProps = {
   floors: FloorLevel[]
   isAddingWall: boolean
   selectedModelId: string | null
+  selectedModelIds: string[]
   selectedRoomSignature: string | null
   selectedWallId: string | null
+  selectedWallIds: string[]
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
   onDeleteModel: (modelId: string) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
-  onSelectModel: (modelId: string | null) => void
+  onSelectModel: (modelId: string | null, additive?: boolean) => void
   onSelectRoom: (roomSignature: string | null) => void
-  onSelectWall: (wallId: string | null) => void
+  onSelectWall: (wallId: string | null, additive?: boolean) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  onUpdateWall: (wallId: string, updates: Pick<Wall, 'end' | 'start'>) => void
 }
 
 type CanvasSize = {
@@ -113,6 +117,21 @@ type PanState = {
   clientX: number
   clientY: number
 }
+
+type WallDragState =
+  | {
+      type: 'wall'
+      wallId: string
+      startPointer: Point
+      startWall: Pick<Wall, 'end' | 'start'>
+    }
+  | {
+      type: 'endpoint'
+      endpoint: 'start' | 'end'
+      wallId: string
+      startPointer: Point
+      startWall: Pick<Wall, 'end' | 'start'>
+    }
 
 type SnapTarget = {
   point: Point
@@ -1662,6 +1681,45 @@ function getProjectionOnSegment(point: Point, start: Point, end: Point) {
   }
 }
 
+function getWallLength(wall: Wall) {
+  return distance(wall.start, wall.end)
+}
+
+function getWallAngle(wall: Wall) {
+  return Math.atan2(wall.end.y - wall.start.y, wall.end.x - wall.start.x)
+}
+
+function getWallMountForPoint(point: Point, walls: Wall[]) {
+  const candidates = walls
+    .map((wall) => {
+      const projection = getProjectionOnSegment(point, wall.start, wall.end)
+
+      return {
+        distance: distance(point, projection.point),
+        point: projection.point,
+        t: projection.t,
+        wall,
+      }
+    })
+    .filter((candidate) => candidate.distance <= WALL_MODEL_SNAP_DISTANCE_METERS)
+    .sort((firstCandidate, secondCandidate) => firstCandidate.distance - secondCandidate.distance)
+
+  const closest = candidates[0]
+
+  if (!closest) {
+    return null
+  }
+
+  return {
+    position: closest.point,
+    rotation: getWallAngle(closest.wall),
+    wallAttachment: {
+      wallId: closest.wall.id,
+      offset: closest.t * getWallLength(closest.wall),
+    },
+  }
+}
+
 function getOffsetSegment(
   wall: Wall,
   offset: number,
@@ -1801,35 +1859,44 @@ function getSnapSegments(walls: Wall[], wallKind: WallKind): SnapSegment[] {
 }
 
 function getSnapTarget(point: Point, segments: SnapSegment[]): SnapTarget | null {
-  let closestTarget: SnapTarget | null = null
-  let closestDistance = CONNECTION_SNAP_METERS
+  let closestEndpointTarget: SnapTarget | null = null
+  let closestEndpointDistance = CONNECTION_SNAP_METERS
+  let closestJunctionTarget: SnapTarget | null = null
+  let closestJunctionDistance = CONNECTION_SNAP_METERS
 
   for (const segment of segments) {
-    const candidates: SnapTarget[] = [
+    const endpointCandidates: SnapTarget[] = [
       { point: segment.start, kind: 'endpoint', label: segment.label },
       { point: segment.end, kind: 'endpoint', label: segment.label },
-      ...(segment.endpointsOnly
-        ? []
-        : [
-            {
-              point: getClosestPointOnSegment(point, segment.start, segment.end),
-              kind: 'junction' as const,
-              label: segment.label,
-            },
-          ]),
     ]
 
-    for (const candidate of candidates) {
+    for (const candidate of endpointCandidates) {
       const candidateDistance = distance(point, candidate.point)
 
-      if (candidateDistance < closestDistance) {
-        closestDistance = candidateDistance
-        closestTarget = candidate
+      if (candidateDistance < closestEndpointDistance) {
+        closestEndpointDistance = candidateDistance
+        closestEndpointTarget = candidate
       }
+    }
+
+    if (segment.endpointsOnly) {
+      continue
+    }
+
+    const junctionCandidate: SnapTarget = {
+      point: getClosestPointOnSegment(point, segment.start, segment.end),
+      kind: 'junction',
+      label: segment.label,
+    }
+    const junctionDistance = distance(point, junctionCandidate.point)
+
+    if (junctionDistance < closestJunctionDistance) {
+      closestJunctionDistance = junctionDistance
+      closestJunctionTarget = junctionCandidate
     }
   }
 
-  return closestTarget
+  return closestEndpointTarget ?? closestJunctionTarget
 }
 
 function getSnapPreviewTarget(
@@ -1904,8 +1971,10 @@ export function FloorplanCanvas({
   floors,
   isAddingWall,
   selectedModelId,
+  selectedModelIds,
   selectedRoomSignature,
   selectedWallId,
+  selectedWallIds,
   wallKind,
   onAddWall,
   onDeleteModel,
@@ -1915,6 +1984,7 @@ export function FloorplanCanvas({
   onSelectRoom,
   onSelectWall,
   onUpdateModel,
+  onUpdateWall,
 }: FloorplanCanvasProps) {
   const walls = activeFloor.walls
   const referenceFloors = useMemo(
@@ -1960,12 +2030,14 @@ export function FloorplanCanvas({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
   const [isDraggingModel, setIsDraggingModel] = useState(false)
+  const [isDraggingWall, setIsDraggingWall] = useState(false)
   const [isAxisLocked, setIsAxisLocked] = useState(true)
   const [modelBoundsById, setModelBoundsById] = useState<Record<string, ModelBounds>>(
     {},
   )
   const lengthInputRef = useRef<HTMLInputElement>(null)
   const middlePanRef = useRef<PanState | null>(null)
+  const wallDragRef = useRef<WallDragState | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -2279,6 +2351,22 @@ export function FloorplanCanvas({
 
   const snapToPreferredConnection = (point: Point) =>
     getPreferredSnapTarget(point)?.point ?? point
+
+  const getWallEndpointSnapTarget = (point: Point, wall: Wall) =>
+    getSnapTarget(
+      point,
+      getSnapSegments(
+        activeFloor.walls.filter((candidateWall) => candidateWall.id !== wall.id),
+        wall.kind,
+      ),
+    ) ??
+    getSnapTarget(
+      point,
+      getSnapSegments(
+        referenceFloors.flatMap((floor) => floor.walls),
+        wall.kind,
+      ),
+    )
 
   const closeContextMenu = () => {
     setContextMenu(null)
@@ -2652,6 +2740,57 @@ export function FloorplanCanvas({
           )
         })
       : []
+  const wallOpeningMarkers = renderedWalls.flatMap((renderedWall) => {
+    const { wall } = renderedWall
+    const wallLength = getWallLength(wall)
+
+    if (wallLength === 0 || !wall.openings?.length) {
+      return []
+    }
+
+    const direction = {
+      x: (wall.end.x - wall.start.x) / wallLength,
+      y: (wall.end.y - wall.start.y) / wallLength,
+    }
+    const rotation = (getWallAngle(wall) * 180) / Math.PI
+
+    return wall.openings.map((opening) => {
+      const center = toCanvasPoint({
+        x: wall.start.x + direction.x * opening.center,
+        y: wall.start.y + direction.y * opening.center,
+      })
+
+      return (
+        <Group
+          key={`${wall.id}-${opening.id}`}
+          x={center.x}
+          y={center.y}
+          rotation={rotation}
+          listening={false}
+        >
+          <Rect
+            x={0}
+            y={0}
+            width={opening.width * METERS_TO_PIXELS}
+            height={(wall.thickness + 0.08) * METERS_TO_PIXELS}
+            offsetX={(opening.width * METERS_TO_PIXELS) / 2}
+            offsetY={((wall.thickness + 0.08) * METERS_TO_PIXELS) / 2}
+            fill="#f8fafc"
+          />
+          <Line
+            points={[
+              (-opening.width * METERS_TO_PIXELS) / 2,
+              0,
+              (opening.width * METERS_TO_PIXELS) / 2,
+              0,
+            ]}
+            stroke="#38bdf8"
+            strokeWidth={3}
+          />
+        </Group>
+      )
+    })
+  })
   const modelFootprints = (activeFloor.models ?? []).flatMap((model) => {
     const modelDefinition = modelsById.get(model.modelId)
 
@@ -2667,8 +2806,10 @@ export function FloorplanCanvas({
     const width = baseWidth * modelScale * METERS_TO_PIXELS
     const height = baseDepth * modelScale * METERS_TO_PIXELS
     const rotation = (model.rotation * 180) / Math.PI
+    const isWallMountedModel = Boolean(modelDefinition.wallMount)
     const labelWidth = Math.max(72, width)
-    const isSelectedModel = model.id === selectedModelId
+    const isSelectedModel =
+      model.id === selectedModelId || selectedModelIds.includes(model.id)
     const rotateHandleY = -height / 2 - 28
     const scaleHandle = {
       x: width / 2 + 22,
@@ -2689,7 +2830,7 @@ export function FloorplanCanvas({
         listening={!isAddingWall}
         onClick={(event) => {
           event.cancelBubble = true
-          onSelectModel(model.id)
+          onSelectModel(model.id, event.evt.ctrlKey || event.evt.metaKey)
         }}
         onTap={(event) => {
           event.cancelBubble = true
@@ -2698,20 +2839,53 @@ export function FloorplanCanvas({
         onContextMenu={(event) => openModelContextMenu(model.id, event)}
         onDragMove={(event) => {
           event.cancelBubble = true
+          const pointerPosition = toPlanPoint({
+            x: event.target.x(),
+            y: event.target.y(),
+          })
+          const wallMount = isWallMountedModel
+            ? getWallMountForPoint(pointerPosition, activeFloor.walls)
+            : null
+          const nextPosition = wallMount?.position ?? pointerPosition
+
+          if (wallMount) {
+            event.target.position(toCanvasPoint(wallMount.position))
+            event.target.rotation((wallMount.rotation * 180) / Math.PI)
+          }
+
           onUpdateModel(model.id, {
-            position: toPlanPoint({
-              x: event.target.x(),
-              y: event.target.y(),
-            }),
+            position: nextPosition,
+            rotation: wallMount?.rotation ?? model.rotation,
+            wallAttachment: wallMount?.wallAttachment,
           })
         }}
         onDragStart={(event) => {
           event.cancelBubble = true
           setIsDraggingModel(true)
-          onSelectModel(model.id)
+          if (!selectedModelIds.includes(model.id)) {
+            onSelectModel(model.id)
+          }
         }}
         onDragEnd={(event) => {
           event.cancelBubble = true
+          const pointerPosition = toPlanPoint({
+            x: event.target.x(),
+            y: event.target.y(),
+          })
+          const wallMount = isWallMountedModel
+            ? getWallMountForPoint(pointerPosition, activeFloor.walls)
+            : null
+
+          if (wallMount) {
+            event.target.position(toCanvasPoint(wallMount.position))
+            event.target.rotation((wallMount.rotation * 180) / Math.PI)
+            onUpdateModel(model.id, {
+              position: wallMount.position,
+              rotation: wallMount.rotation,
+              wallAttachment: wallMount.wallAttachment,
+            })
+          }
+
           setIsDraggingModel(false)
         }}
       >
@@ -3117,7 +3291,11 @@ export function FloorplanCanvas({
           scaleX={viewport.scale}
           scaleY={viewport.scale}
           draggable={
-            !isAddingWall && !draftWall && !isMiddlePanning && !isDraggingModel
+            !isAddingWall &&
+            !draftWall &&
+            !isMiddlePanning &&
+            !isDraggingModel &&
+            !isDraggingWall
           }
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -3200,26 +3378,208 @@ export function FloorplanCanvas({
                 const canvasPoint = toCanvasPoint(point)
                 return [canvasPoint.x, canvasPoint.y]
               })
+              const isSelectedWall =
+                renderedWall.wall.id === selectedWallId ||
+                selectedWallIds.includes(renderedWall.wall.id)
 
               return (
                 <Line
                   key={renderedWall.wall.id}
                   points={polygon}
                   closed
+                  draggable={!isAddingWall}
                   fill="#1e293b"
-                  stroke={
-                    renderedWall.wall.id === selectedWallId ? '#2563eb' : '#0f172a'
-                  }
-                  strokeWidth={renderedWall.wall.id === selectedWallId ? 3 : 1}
+                  stroke={isSelectedWall ? '#2563eb' : '#0f172a'}
+                  strokeWidth={isSelectedWall ? 3 : 1}
                   lineJoin="miter"
-                  onClick={() => onSelectWall(renderedWall.wall.id)}
+                  onClick={(event) =>
+                    onSelectWall(
+                      renderedWall.wall.id,
+                      event.evt.ctrlKey || event.evt.metaKey,
+                    )
+                  }
                   onContextMenu={(event) =>
                     openWallContextMenu(renderedWall.wall.id, event)
                   }
                   onTap={() => onSelectWall(renderedWall.wall.id)}
+                  onDragStart={(event) => {
+                    event.cancelBubble = true
+                    setHoverSnapTarget(null)
+                    setHoverAlignmentGuide(null)
+                    const pointerPoint = getPointerPoint(event)
+                    wallDragRef.current = pointerPoint
+                      ? {
+                          type: 'wall',
+                          wallId: renderedWall.wall.id,
+                          startPointer: pointerPoint,
+                          startWall: {
+                            start: { ...renderedWall.wall.start },
+                            end: { ...renderedWall.wall.end },
+                          },
+                        }
+                      : null
+                    setIsDraggingWall(true)
+                    if (!selectedWallIds.includes(renderedWall.wall.id)) {
+                      onSelectWall(renderedWall.wall.id)
+                    }
+                  }}
+                  onDragMove={(event) => {
+                    event.cancelBubble = true
+                    const dragState = wallDragRef.current
+                    const pointerPoint = getPointerPoint(event)
+
+                    if (
+                      !dragState ||
+                      dragState.type !== 'wall' ||
+                      dragState.wallId !== renderedWall.wall.id ||
+                      !pointerPoint
+                    ) {
+                      event.target.position({ x: 0, y: 0 })
+                      return
+                    }
+
+                    const rawDelta = {
+                      x: pointerPoint.x - dragState.startPointer.x,
+                      y: pointerPoint.y - dragState.startPointer.y,
+                    }
+                    const delta =
+                      event.evt.shiftKey && Math.abs(rawDelta.x) > Math.abs(rawDelta.y)
+                        ? { x: rawDelta.x, y: 0 }
+                        : event.evt.shiftKey
+                          ? { x: 0, y: rawDelta.y }
+                          : rawDelta
+
+                    event.target.position({ x: 0, y: 0 })
+                    onUpdateWall(dragState.wallId, {
+                      start: {
+                        x: dragState.startWall.start.x + delta.x,
+                        y: dragState.startWall.start.y + delta.y,
+                      },
+                      end: {
+                        x: dragState.startWall.end.x + delta.x,
+                        y: dragState.startWall.end.y + delta.y,
+                      },
+                    })
+                  }}
+                  onDragEnd={(event) => {
+                    event.cancelBubble = true
+                    wallDragRef.current = null
+                    event.target.position({ x: 0, y: 0 })
+                    setIsDraggingWall(false)
+                  }}
                 />
               )
             })}
+
+            {renderedWalls.flatMap((renderedWall) => {
+              const isSelectedWall =
+                renderedWall.wall.id === selectedWallId ||
+                selectedWallIds.includes(renderedWall.wall.id)
+
+              if (!isSelectedWall || isAddingWall) {
+                return []
+              }
+
+              return (['start', 'end'] as const).map((endpoint) => {
+                const point = toCanvasPoint(renderedWall.wall[endpoint])
+
+                return (
+                  <Circle
+                    key={`${renderedWall.wall.id}-${endpoint}-handle`}
+                    x={point.x}
+                    y={point.y}
+                    radius={7}
+                    fill="#ffffff"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    draggable
+                    onDragStart={(event) => {
+                      event.cancelBubble = true
+                      setHoverSnapTarget(null)
+                      setHoverAlignmentGuide(null)
+                      const pointerPoint = getPointerPoint(event)
+                      wallDragRef.current = pointerPoint
+                        ? {
+                            type: 'endpoint',
+                            endpoint,
+                            wallId: renderedWall.wall.id,
+                            startPointer: pointerPoint,
+                            startWall: {
+                              start: { ...renderedWall.wall.start },
+                              end: { ...renderedWall.wall.end },
+                            },
+                          }
+                        : null
+                      setIsDraggingWall(true)
+                    }}
+                    onDragMove={(event) => {
+                      event.cancelBubble = true
+                      const dragState = wallDragRef.current
+                      const pointerPoint = getPointerPoint(event)
+
+                      if (
+                        !dragState ||
+                        dragState.type !== 'endpoint' ||
+                        dragState.wallId !== renderedWall.wall.id ||
+                        dragState.endpoint !== endpoint ||
+                        !pointerPoint
+                      ) {
+                        event.target.position(point)
+                        return
+                      }
+
+                      const draggedStartPoint = dragState.startWall[endpoint]
+                      const rawPoint = {
+                        x:
+                          draggedStartPoint.x +
+                          pointerPoint.x -
+                          dragState.startPointer.x,
+                        y:
+                          draggedStartPoint.y +
+                          pointerPoint.y -
+                          dragState.startPointer.y,
+                      }
+                      const oppositeEndpoint =
+                        endpoint === 'start'
+                          ? dragState.startWall.end
+                          : dragState.startWall.start
+                      const lockedPoint =
+                        event.evt.shiftKey &&
+                        Math.abs(rawPoint.x - oppositeEndpoint.x) >
+                          Math.abs(rawPoint.y - oppositeEndpoint.y)
+                          ? { x: rawPoint.x, y: oppositeEndpoint.y }
+                          : event.evt.shiftKey
+                            ? { x: oppositeEndpoint.x, y: rawPoint.y }
+                            : rawPoint
+                      const snapTarget = getWallEndpointSnapTarget(
+                        lockedPoint,
+                        renderedWall.wall,
+                      )
+                      const nextPoint = snapTarget?.point ?? lockedPoint
+
+                      setHoverSnapTarget(snapTarget)
+                      event.target.position(toCanvasPoint(nextPoint))
+                      onUpdateWall(dragState.wallId, {
+                        start:
+                          endpoint === 'start'
+                            ? nextPoint
+                            : dragState.startWall.start,
+                        end:
+                          endpoint === 'end' ? nextPoint : dragState.startWall.end,
+                      })
+                    }}
+                    onDragEnd={(event) => {
+                      event.cancelBubble = true
+                      wallDragRef.current = null
+                      setHoverSnapTarget(null)
+                      setIsDraggingWall(false)
+                    }}
+                  />
+                )
+              })
+            })}
+
+            {wallOpeningMarkers}
 
             {modelFootprints}
 

@@ -1,7 +1,6 @@
 import type { Point, Wall } from './types'
 
 const CONNECTION_EPSILON_METERS = 0.02
-const CORNER_EPSILON_METERS = 0.18
 
 export type RenderedWall = {
   wall: Wall
@@ -88,8 +87,8 @@ function hasAdditionalJoinContext(
     }
 
     if (
-      distance(point, wall.start) <= CORNER_EPSILON_METERS ||
-      distance(point, wall.end) <= CORNER_EPSILON_METERS
+      distance(point, wall.start) <= CONNECTION_EPSILON_METERS ||
+      distance(point, wall.end) <= CONNECTION_EPSILON_METERS
     ) {
       return true
     }
@@ -125,8 +124,8 @@ function getJoinExtension(
     const touchesExternalCorner =
       isExternalWall(sourceWall) &&
       isExternalWall(wall) &&
-      (distance(point, wall.start) <= CORNER_EPSILON_METERS ||
-        distance(point, wall.end) <= CORNER_EPSILON_METERS)
+      (distance(point, wall.start) <= CONNECTION_EPSILON_METERS ||
+        distance(point, wall.end) <= CONNECTION_EPSILON_METERS)
 
     if (touchesExternalCorner) {
       extension = Math.max(extension, wall.thickness / 2)
