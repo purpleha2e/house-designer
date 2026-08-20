@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+/* eslint-disable react-hooks/set-state-in-effect */
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   Circle,
   Group,
@@ -68,6 +69,7 @@ const ROOM_HIGHLIGHT_COLORS = [
 
 type FloorplanCanvasProps = {
   activeFloor: FloorLevel
+  children?: ReactNode
   floors: FloorLevel[]
   isAddingWall: boolean
   selectedModelId: string | null
@@ -143,6 +145,7 @@ type SnapSegment = {
   start: Point
   end: Point
   endpointsOnly?: boolean
+  includeEndpoints?: boolean
   label?: string
 }
 
@@ -167,7 +170,7 @@ type DimensionGuide = {
   faceStart: Point
   faceEnd: Point
   labelPoint: Point
-  tickMode: 'connector' | 'cross'
+  tickMode: 'connector' | 'cross' | 'internal'
   text: string
   rotation: number
 }
@@ -1374,6 +1377,7 @@ function getDimensionGuides(
   const offset = wall.thickness / 2 + DIMENSION_OFFSET_METERS
   const rotation = (Math.atan2(dy, dx) * 180) / Math.PI
   const isInternalWall = wall.kind === 'internal'
+  const isDiagonalWall = Math.abs(unitX) > 0.001 && Math.abs(unitY) > 0.001
 
   if (!isInternalWall) {
     const side = getExternalDimensionSide(wall, walls)
@@ -1433,6 +1437,10 @@ function getDimensionGuides(
         rotation,
       },
     ]
+  }
+
+  if (isDiagonalWall) {
+    return []
   }
 
   const sides = ([-1, 1] as const).map((side) => ({
@@ -1505,7 +1513,7 @@ function getDimensionGuides(
         segmentEnd,
         segmentStart,
         side,
-        tickMode: 'connector',
+        tickMode: 'internal',
         text: `${segmentLength.toFixed(2)} m`,
         rotation,
       }
@@ -1751,9 +1759,8 @@ function getOffsetSegment(
   }
 }
 
-function getQuarterEndSnapPoints(
+function getInternalToExternalSnapPoints(
   wall: Wall,
-  offset: number,
   startExtension: number,
   endExtension: number,
 ): SnapSegment[] {
@@ -1770,87 +1777,57 @@ function getQuarterEndSnapPoints(
   const normalX = -dy / length
   const normalY = dx / length
   const quarterThickness = wall.thickness / 4
-  const sideOffset = Math.sign(offset || 1) * (wall.thickness / 2)
-  const insetDistances = [quarterThickness, quarterThickness * 3]
-  const startEnd = {
-    x: wall.start.x - unitX * startExtension + normalX * sideOffset,
-    y: wall.start.y - unitY * startExtension + normalY * sideOffset,
+  const halfThickness = wall.thickness / 2
+  const renderedStart = {
+    x: wall.start.x - unitX * startExtension,
+    y: wall.start.y - unitY * startExtension,
   }
-  const finishEnd = {
-    x: wall.end.x + unitX * endExtension + normalX * sideOffset,
-    y: wall.end.y + unitY * endExtension + normalY * sideOffset,
+  const renderedEnd = {
+    x: wall.end.x + unitX * endExtension,
+    y: wall.end.y + unitY * endExtension,
   }
 
-  return insetDistances.flatMap((insetDistance) => {
-    const startPoint = {
-      x: startEnd.x + unitX * insetDistance,
-      y: startEnd.y + unitY * insetDistance,
+  return ([-1, 1] as const).flatMap((side) => {
+    const endEdgeStartPoint = {
+      x: renderedStart.x + normalX * side * quarterThickness,
+      y: renderedStart.y + normalY * side * quarterThickness,
     }
-    const finishPoint = {
-      x: finishEnd.x - unitX * insetDistance,
-      y: finishEnd.y - unitY * insetDistance,
+    const endEdgeFinishPoint = {
+      x: renderedEnd.x + normalX * side * quarterThickness,
+      y: renderedEnd.y + normalY * side * quarterThickness,
+    }
+    const sideStartPoint = {
+      x: renderedStart.x + unitX * quarterThickness + normalX * side * halfThickness,
+      y: renderedStart.y + unitY * quarterThickness + normalY * side * halfThickness,
+    }
+    const sideFinishPoint = {
+      x: renderedEnd.x - unitX * quarterThickness + normalX * side * halfThickness,
+      y: renderedEnd.y - unitY * quarterThickness + normalY * side * halfThickness,
     }
 
-    return [
-      {
-        start: startPoint,
-        end: startPoint,
+    return [endEdgeStartPoint, endEdgeFinishPoint, sideStartPoint, sideFinishPoint].map(
+      (point) => ({
+        start: point,
+        end: point,
         endpointsOnly: true,
         label: '1/4',
-      },
-      {
-        start: finishPoint,
-        end: finishPoint,
-        endpointsOnly: true,
-        label: '1/4',
-      },
-    ]
+      }),
+    )
   })
 }
 
 function getSnapSegments(walls: Wall[], wallKind: WallKind): SnapSegment[] {
   return getRenderedWalls(walls).flatMap(({ wall, startExtension, endExtension }) => {
-    const centerSegment = { start: wall.start, end: wall.end }
+    const centerSegment = getOffsetSegment(wall, 0, startExtension, endExtension)
 
     if (wallKind !== 'internal' || wall.kind !== 'external') {
       return [centerSegment]
     }
 
-    const quarterThickness = wall.thickness / 4
-    const innerQuarterLane = getOffsetSegment(
-      wall,
-      -quarterThickness,
-      startExtension,
-      endExtension,
-    )
-    const outerQuarterLane = getOffsetSegment(
-      wall,
-      quarterThickness,
-      startExtension,
-      endExtension,
-    )
-
     return [
-      {
-        ...innerQuarterLane,
-        endpointsOnly: true,
-        label: '1/4',
-      },
-      ...getQuarterEndSnapPoints(
+      { ...centerSegment, includeEndpoints: false, label: '1/2' },
+      ...getInternalToExternalSnapPoints(
         wall,
-        -quarterThickness,
-        startExtension,
-        endExtension,
-      ),
-      { ...centerSegment, label: '1/2' },
-      {
-        ...outerQuarterLane,
-        endpointsOnly: true,
-        label: '1/4',
-      },
-      ...getQuarterEndSnapPoints(
-        wall,
-        quarterThickness,
         startExtension,
         endExtension,
       ),
@@ -1865,17 +1842,19 @@ function getSnapTarget(point: Point, segments: SnapSegment[]): SnapTarget | null
   let closestJunctionDistance = CONNECTION_SNAP_METERS
 
   for (const segment of segments) {
-    const endpointCandidates: SnapTarget[] = [
-      { point: segment.start, kind: 'endpoint', label: segment.label },
-      { point: segment.end, kind: 'endpoint', label: segment.label },
-    ]
+    if (segment.includeEndpoints !== false) {
+      const endpointCandidates: SnapTarget[] = [
+        { point: segment.start, kind: 'endpoint', label: segment.label },
+        { point: segment.end, kind: 'endpoint', label: segment.label },
+      ]
 
-    for (const candidate of endpointCandidates) {
-      const candidateDistance = distance(point, candidate.point)
+      for (const candidate of endpointCandidates) {
+        const candidateDistance = distance(point, candidate.point)
 
-      if (candidateDistance < closestEndpointDistance) {
-        closestEndpointDistance = candidateDistance
-        closestEndpointTarget = candidate
+        if (candidateDistance < closestEndpointDistance) {
+          closestEndpointDistance = candidateDistance
+          closestEndpointTarget = candidate
+        }
       }
     }
 
@@ -1968,6 +1947,7 @@ function applyAlignmentGuide(point: Point, guide: AlignmentGuide | null): Point 
 
 export function FloorplanCanvas({
   activeFloor,
+  children,
   floors,
   isAddingWall,
   selectedModelId,
@@ -2307,7 +2287,7 @@ export function FloorplanCanvas({
       : null
   }
 
-  const resetDraftWall = () => {
+  function resetDraftWall() {
     setDraftWall(null)
     setHoverSnapTarget(null)
     setHoverAlignmentGuide(null)
@@ -3115,6 +3095,7 @@ export function FloorplanCanvas({
           : guide.rotation
       const showConnectorLines =
         guide.tickMode === 'connector' && wall.kind !== 'internal'
+      const showChevrons = guide.tickMode !== 'internal'
 
       return (
         <Fragment key={`${wall.id}-dimension-${index}`}>
@@ -3144,40 +3125,44 @@ export function FloorplanCanvas({
             strokeWidth={1}
             lineCap="round"
           />
-          <Line
-            points={[
-              startChevronA.x,
-              startChevronA.y,
-              startChevronPoint.x,
-              startChevronPoint.y,
-              startChevronB.x,
-              startChevronB.y,
-            ]}
-            stroke="#64748b"
-            strokeWidth={1}
-            lineCap="round"
-            lineJoin="round"
-          />
+          {showChevrons ? (
+            <Line
+              points={[
+                startChevronA.x,
+                startChevronA.y,
+                startChevronPoint.x,
+                startChevronPoint.y,
+                startChevronB.x,
+                startChevronB.y,
+              ]}
+              stroke="#64748b"
+              strokeWidth={1}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ) : null}
           <Line
             points={[endTickA.x, endTickA.y, endTickB.x, endTickB.y]}
             stroke="#64748b"
             strokeWidth={1}
             lineCap="round"
           />
-          <Line
-            points={[
-              endChevronA.x,
-              endChevronA.y,
-              endChevronPoint.x,
-              endChevronPoint.y,
-              endChevronB.x,
-              endChevronB.y,
-            ]}
-            stroke="#64748b"
-            strokeWidth={1}
-            lineCap="round"
-            lineJoin="round"
-          />
+          {showChevrons ? (
+            <Line
+              points={[
+                endChevronA.x,
+                endChevronA.y,
+                endChevronPoint.x,
+                endChevronPoint.y,
+                endChevronB.x,
+                endChevronB.y,
+              ]}
+              stroke="#64748b"
+              strokeWidth={1}
+              lineCap="round"
+              lineJoin="round"
+            />
+          ) : null}
           <Text
             x={offsetLabelPoint.x}
             y={offsetLabelPoint.y}
@@ -3867,6 +3852,7 @@ export function FloorplanCanvas({
           </div>
         ) : null}
       </div>
+      {children}
     </section>
   )
 }

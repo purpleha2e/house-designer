@@ -1,12 +1,11 @@
+/* eslint-disable react-hooks/immutability */
 import {
   Edges,
-  OrbitControls,
-  PointerLockControls,
+  TransformControls,
   useGLTF,
 } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
-import type { PointerLockControls as PointerLockControlsImpl } from 'three-stdlib'
 import {
   BackSide,
   BufferGeometry,
@@ -14,32 +13,40 @@ import {
   Color,
   DirectionalLight,
   Float32BufferAttribute,
+  FrontSide,
   Object3D,
-  RepeatWrapping,
-  SRGBColorSpace,
+  Raycaster,
   Shape,
   Box3,
+  Spherical,
+  Vector2,
   Vector3,
 } from 'three'
 import {
   Component,
   Suspense,
+  useCallback,
   useEffect,
+  memo,
   useMemo,
   useRef,
   useState,
   type ErrorInfo,
-  type PointerEvent,
+  type MutableRefObject,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
 import type { FloorLevel, PlacedModel, Point, Wall } from '../types'
 import { modelsById } from '../models/modelLibrary'
 import { getRenderedWalls, getWallPolygon, type RenderedWall } from '../wallGeometry'
-import { buildWallTopology } from '../wallTopology'
+import { buildWallTopology, type DetectedRoom } from '../wallTopology'
 
 type ThreeDViewProps = {
   activeFloorId: string
   floors: FloorLevel[]
+  onClearSelection: () => void
+  onSelectModel: (modelId: string, floorId: string) => void
+  onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
   selectedModelId: string | null
   showAllFloors: boolean
 }
@@ -54,6 +61,13 @@ type RenderOptions = {
   wireframe: boolean
 }
 
+type RenderedFloorData = {
+  externalWallPolygons: Point[][]
+  floor: FloorLevel
+  renderedWalls: RenderedWall[]
+  rooms: DetectedRoom[]
+}
+
 const ambientOcclusionColor = new Color('black')
 const FLOOR_PLANE_MARGIN = 5
 const SHADOW_MARGIN = 8
@@ -61,17 +75,63 @@ const FOOTPRINT_EPSILON = 0.04
 const WALK_CAMERA_SPEED = 4.2
 const WALK_CAMERA_SHIFT_MULTIPLIER = 2
 const WALK_HEAD_HEIGHT_METERS = 1.8
+const WALK_LOOK_SENSITIVITY = 0.002
+const WALK_MAX_PITCH_RADIANS = Math.PI / 2 - 0.05
 const WINDOW_SILL_HEIGHT_METERS = 0.9
 const SUN_MIN_ELEVATION = 0.08
 const SUN_MAX_ELEVATION = 1.2
 const LIGHT_GIMBAL_KNOB_RADIUS = 42
+const MODEL_OUTLINE_COLOR = '#f97316'
+const MODEL_BOUNDS_SCALE = 1.035
+const MODEL_BOUNDS_LINE_THICKNESS = 0.010
+const MODEL_WALL_SNAP_DISTANCE_METERS = 0.75
+const SKIRTING_HEIGHT_METERS = 0.09
+const SKIRTING_DEPTH_METERS = 0.018
+const SKIRTING_MIN_SEGMENT_METERS = 0.05
 
-type CameraMode = 'orbit' | 'walk'
 type AspectRatioMode = 'normal' | 'super-wide' | 'wide'
+type TransformMode = 'rotate' | 'scale' | 'translate'
 
 type LightDirection = {
   azimuth: number
   elevation: number
+}
+
+type WalkNavigationMode = 'look' | 'orbit'
+
+type PickGesture = {
+  pointerId: number
+  x: number
+  y: number
+}
+
+type LookGesture = PickGesture
+
+type PickTarget = {
+  blocksCollision: boolean
+  floorId: string
+  modelId: string
+  object: Object3D
+}
+
+type ModelHorizontalBounds = {
+  maxX: number
+  maxZ: number
+  minX: number
+  minZ: number
+}
+
+type PlanAabb = {
+  maxX: number
+  maxY: number
+  minX: number
+  minY: number
+}
+
+type ObjectTransformSnapshot = {
+  position: Vector3
+  rotationY: number
+  scale: Vector3
 }
 
 class ModelLoadBoundary extends Component<
@@ -161,68 +221,6 @@ function createCountrysideSkyTexture() {
   drawHills('#4d8f49', 730, 30, 4.4)
 
   const texture = new CanvasTexture(canvas)
-  texture.needsUpdate = true
-  return texture
-}
-
-function createBrickTexture(repeatX: number, repeatY: number) {
-  const canvas = document.createElement('canvas')
-  canvas.width = 512
-  canvas.height = 256
-
-  const context = canvas.getContext('2d')
-
-  if (!context) {
-    return null
-  }
-
-  context.fillStyle = '#d8c6b4'
-  context.fillRect(0, 0, canvas.width, canvas.height)
-
-  const brickHeight = 42
-  const brickWidth = 128
-  const mortar = 5
-
-  for (let row = 0; row < Math.ceil(canvas.height / brickHeight) + 1; row += 1) {
-    const y = row * brickHeight
-    const offset = row % 2 === 0 ? 0 : -brickWidth / 2
-
-    for (
-      let column = -1;
-      column < Math.ceil(canvas.width / brickWidth) + 1;
-      column += 1
-    ) {
-      const x = column * brickWidth + offset
-      const variation = (row * 17 + column * 29) % 24
-      context.fillStyle = `rgb(${150 + variation}, ${78 + variation / 2}, ${52 + variation / 3})`
-      context.fillRect(
-        x + mortar,
-        y + mortar,
-        brickWidth - mortar * 2,
-        brickHeight - mortar * 2,
-      )
-      context.fillStyle = 'rgba(255, 255, 255, 0.08)'
-      context.fillRect(
-        x + mortar,
-        y + mortar,
-        brickWidth - mortar * 2,
-        Math.max(3, brickHeight * 0.18),
-      )
-      context.fillStyle = 'rgba(40, 24, 18, 0.1)'
-      context.fillRect(
-        x + mortar,
-        y + brickHeight - mortar - 5,
-        brickWidth - mortar * 2,
-        5,
-      )
-    }
-  }
-
-  const texture = new CanvasTexture(canvas)
-  texture.colorSpace = SRGBColorSpace
-  texture.wrapS = RepeatWrapping
-  texture.wrapT = RepeatWrapping
-  texture.repeat.set(repeatX, repeatY)
   texture.needsUpdate = true
   return texture
 }
@@ -646,7 +644,7 @@ function getNearestFloorFootprint(floor: FloorLevel, floors: FloorLevel[]) {
   return null
 }
 
-function getSegmentIntersection(
+function getWallClipSegmentIntersection(
   firstStart: Point,
   firstEnd: Point,
   secondStart: Point,
@@ -695,7 +693,7 @@ function getPolygonIntersectionCandidates(firstPolygon: Point[], secondPolygon: 
     for (let secondIndex = 0; secondIndex < secondPolygon.length; secondIndex += 1) {
       const secondStart = secondPolygon[secondIndex]
       const secondEnd = secondPolygon[(secondIndex + 1) % secondPolygon.length]
-      const intersection = getSegmentIntersection(
+      const intersection = getWallClipSegmentIntersection(
         firstStart,
         firstEnd,
         secondStart,
@@ -928,6 +926,8 @@ function SunLight({
     lightHeight,
     sceneBounds.centerZ + Math.sin(lightDirection.azimuth) * lightRadius,
   ] as const
+  const shadowCameraFar =
+    horizontalDistance + verticalDistance + sceneBounds.size + sceneBounds.maxElevation
 
   return (
     <>
@@ -947,7 +947,7 @@ function SunLight({
         shadow-camera-top={sceneBounds.size / 2}
         shadow-camera-bottom={-sceneBounds.size / 2}
         shadow-camera-near={0.5}
-        shadow-camera-far={sceneBounds.maxElevation + 30}
+        shadow-camera-far={shadowCameraFar}
         shadow-bias={-0.0001}
         shadow-normalBias={0.02}
       />
@@ -957,51 +957,360 @@ function SunLight({
 
 function ExternalWallMaterial({
   attach,
-  height,
-  length,
   wireframe,
 }: {
   attach?: string
-  height: number
-  length: number
   wireframe: boolean
 }) {
-  const brickTexture = useMemo(
-    () =>
-      createBrickTexture(
-        Math.max(1, length / 0.85),
-        Math.max(1, height / 0.32),
-      ),
-    [height, length],
-  )
-
-  useEffect(
-    () => () => {
-      brickTexture?.dispose()
-    },
-    [brickTexture],
-  )
-
   return (
     <meshStandardMaterial
       attach={attach}
-      color="#ffffff"
-      map={brickTexture}
+      color="#94a3b8"
       roughness={0.82}
+      shadowSide={FrontSide}
       wireframe={wireframe}
     />
   )
 }
 
-function WallMesh({
+function getPolygonArea(points: Point[]) {
+  return points.reduce((area, point, index) => {
+    const nextPoint = points[(index + 1) % points.length]
+    return area + point.x * nextPoint.y - nextPoint.x * point.y
+  }, 0) / 2
+}
+
+function dedupePoints(points: Point[]) {
+  return points.filter(
+    (point, index) =>
+      points.findIndex(
+        (candidatePoint) =>
+          Math.hypot(candidatePoint.x - point.x, candidatePoint.y - point.y) <
+          0.0001,
+      ) === index,
+  )
+}
+
+function isPointOnSegment(
+  point: Point,
+  segmentStart: Point,
+  segmentEnd: Point,
+  tolerance = 0.0001,
+) {
+  const segmentDx = segmentEnd.x - segmentStart.x
+  const segmentDy = segmentEnd.y - segmentStart.y
+  const segmentLength = Math.hypot(segmentDx, segmentDy)
+
+  if (segmentLength < tolerance) {
+    return Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y) <= tolerance
+  }
+
+  const cross =
+    (point.x - segmentStart.x) * segmentDy -
+    (point.y - segmentStart.y) * segmentDx
+
+  if (Math.abs(cross) > tolerance * segmentLength) {
+    return false
+  }
+
+  const dot =
+    (point.x - segmentStart.x) * segmentDx +
+    (point.y - segmentStart.y) * segmentDy
+
+  return dot >= -tolerance && dot <= segmentLength * segmentLength + tolerance
+}
+
+function isPointInsidePolygon(point: Point, polygon: Point[]) {
+  let inside = false
+
+  for (
+    let index = 0, previousIndex = polygon.length - 1;
+    index < polygon.length;
+    previousIndex = index, index += 1
+  ) {
+    const current = polygon[index]
+    const previous = polygon[previousIndex]
+    const intersects =
+      current.y > point.y !== previous.y > point.y &&
+      point.x <
+        ((previous.x - current.x) * (point.y - current.y)) /
+          (previous.y - current.y) +
+          current.x
+
+    if (intersects) {
+      inside = !inside
+    }
+  }
+
+  return inside
+}
+
+function isPointInsideOrOnPolygon(point: Point, polygon: Point[]) {
+  return (
+    polygon.some((polygonPoint, index) =>
+      isPointOnSegment(
+        point,
+        polygonPoint,
+        polygon[(index + 1) % polygon.length],
+      ),
+    ) || isPointInsidePolygon(point, polygon)
+  )
+}
+
+function createWallPrismGeometry(footprint: Point[], height: number) {
+  const geometry = new BufferGeometry()
+  const points = getPolygonArea(footprint) > 0 ? [...footprint].reverse() : footprint
+  const positions: number[] = []
+  const normals: number[] = []
+  const pushTriangle = (
+    firstPoint: [number, number, number],
+    secondPoint: [number, number, number],
+    thirdPoint: [number, number, number],
+  ) => {
+    const firstEdge = [
+      secondPoint[0] - firstPoint[0],
+      secondPoint[1] - firstPoint[1],
+      secondPoint[2] - firstPoint[2],
+    ]
+    const secondEdge = [
+      thirdPoint[0] - firstPoint[0],
+      thirdPoint[1] - firstPoint[1],
+      thirdPoint[2] - firstPoint[2],
+    ]
+    const normal = [
+      firstEdge[1] * secondEdge[2] - firstEdge[2] * secondEdge[1],
+      firstEdge[2] * secondEdge[0] - firstEdge[0] * secondEdge[2],
+      firstEdge[0] * secondEdge[1] - firstEdge[1] * secondEdge[0],
+    ]
+    const normalLength = Math.hypot(normal[0], normal[1], normal[2]) || 1
+    const unitNormal = [
+      normal[0] / normalLength,
+      normal[1] / normalLength,
+      normal[2] / normalLength,
+    ]
+
+    positions.push(...firstPoint, ...secondPoint, ...thirdPoint)
+    normals.push(...unitNormal, ...unitNormal, ...unitNormal)
+  }
+  const bottomPoint = (point: Point): [number, number, number] => [
+    point.x,
+    0,
+    point.y,
+  ]
+  const topPoint = (point: Point): [number, number, number] => [
+    point.x,
+    height,
+    point.y,
+  ]
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    pushTriangle(bottomPoint(points[0]), bottomPoint(points[index + 1]), bottomPoint(points[index]))
+    pushTriangle(topPoint(points[0]), topPoint(points[index]), topPoint(points[index + 1]))
+  }
+
+  for (let index = 0; index < points.length; index += 1) {
+    const nextIndex = (index + 1) % points.length
+    pushTriangle(
+      bottomPoint(points[index]),
+      bottomPoint(points[nextIndex]),
+      topPoint(points[nextIndex]),
+    )
+    pushTriangle(
+      bottomPoint(points[index]),
+      topPoint(points[nextIndex]),
+      topPoint(points[index]),
+    )
+  }
+
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3))
+
+  return geometry
+}
+
+function getRaySegmentIntersection(
+  rayStart: Point,
+  rayDirection: Point,
+  segmentStart: Point,
+  segmentEnd: Point,
+) {
+  const segmentDx = segmentEnd.x - segmentStart.x
+  const segmentDy = segmentEnd.y - segmentStart.y
+  const denominator = rayDirection.x * segmentDy - rayDirection.y * segmentDx
+
+  if (Math.abs(denominator) < 0.000001) {
+    return null
+  }
+
+  const startDx = segmentStart.x - rayStart.x
+  const startDy = segmentStart.y - rayStart.y
+  const rayT = (startDx * segmentDy - startDy * segmentDx) / denominator
+  const segmentT = (startDx * rayDirection.y - startDy * rayDirection.x) / denominator
+
+  if (rayT < 0.0001 || segmentT < -0.0001 || segmentT > 1.0001) {
+    return null
+  }
+
+  return {
+    point: {
+      x: rayStart.x + rayDirection.x * rayT,
+      y: rayStart.y + rayDirection.y * rayT,
+    },
+    rayT,
+  }
+}
+
+function getNearestPolygonRayHit(
+  rayStart: Point,
+  rayDirection: Point,
+  polygon: Point[],
+) {
+  let nearestHit: { point: Point; rayT: number } | null = null
+
+  for (let index = 0; index < polygon.length; index += 1) {
+    const hit = getRaySegmentIntersection(
+      rayStart,
+      rayDirection,
+      polygon[index],
+      polygon[(index + 1) % polygon.length],
+    )
+
+    if (hit && (!nearestHit || hit.rayT < nearestHit.rayT)) {
+      nearestHit = hit
+    }
+  }
+
+  return nearestHit?.point ?? null
+}
+
+function getRenderedWallEndpointFace(
+  { wall, startExtension, endExtension }: RenderedWall,
+  endpoint: 'start' | 'end',
+) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return null
+  }
+
+  const unit = { x: dx / length, y: dy / length }
+  const normal = { x: -unit.y, y: unit.x }
+  const center =
+    endpoint === 'start'
+      ? {
+          x: wall.start.x - unit.x * startExtension,
+          y: wall.start.y - unit.y * startExtension,
+        }
+      : {
+          x: wall.end.x + unit.x * endExtension,
+          y: wall.end.y + unit.y * endExtension,
+        }
+  const outwardDirection =
+    endpoint === 'start' ? { x: -unit.x, y: -unit.y } : unit
+  const halfThickness = wall.thickness / 2
+
+  return {
+    corners: [
+      {
+        x: center.x + normal.x * halfThickness,
+        y: center.y + normal.y * halfThickness,
+      },
+      {
+        x: center.x - normal.x * halfThickness,
+        y: center.y - normal.y * halfThickness,
+      },
+    ] as [Point, Point],
+    outwardDirection,
+  }
+}
+
+function getInternalWallJoinFillFootprints(
+  renderedWall: RenderedWall,
+  externalWallPolygons: Point[][],
+) {
+  if (renderedWall.wall.kind !== 'internal') {
+    return []
+  }
+
+  return (['start', 'end'] as const).flatMap((endpoint) => {
+    const endpointFace = getRenderedWallEndpointFace(renderedWall, endpoint)
+
+    if (!endpointFace) {
+      return []
+    }
+
+    return externalWallPolygons.flatMap((externalWallPolygon) => {
+      const cornerStates = endpointFace.corners.map((corner) => ({
+        corner,
+        hit: getNearestPolygonRayHit(
+          corner,
+          endpointFace.outwardDirection,
+          externalWallPolygon,
+        ),
+        inside: isPointInsideOrOnPolygon(corner, externalWallPolygon),
+      }))
+      const outsideStates = cornerStates.filter((state) => !state.inside && state.hit)
+      const insideStates = cornerStates.filter((state) => state.inside)
+
+      if (outsideStates.length === 1 && insideStates.length === 1) {
+        const outsideState = outsideStates[0]
+        const insideState = insideStates[0]
+        const fillDepth = outsideState.hit
+          ? Math.hypot(
+              outsideState.hit.x - outsideState.corner.x,
+              outsideState.hit.y - outsideState.corner.y,
+            )
+          : 0
+        const footprint = outsideState.hit
+          ? dedupePoints([outsideState.corner, insideState.corner, outsideState.hit])
+          : []
+
+        return footprint.length >= 3 && fillDepth <= renderedWall.wall.thickness * 3
+          ? [footprint]
+          : []
+      }
+
+      if (outsideStates.length !== 2 || !outsideStates[0].hit || !outsideStates[1].hit) {
+        return []
+      }
+
+      const fillDepth = Math.max(
+        ...outsideStates.map((state) =>
+          state.hit
+            ? Math.hypot(
+                state.hit.x - state.corner.x,
+                state.hit.y - state.corner.y,
+              )
+            : 0,
+        ),
+      )
+      const footprint = dedupePoints([
+        outsideStates[0].corner,
+        outsideStates[1].corner,
+        outsideStates[1].hit,
+        outsideStates[0].hit,
+      ])
+
+      return footprint.length >= 3 && fillDepth <= renderedWall.wall.thickness * 3
+        ? [footprint]
+        : []
+    })
+  })
+}
+
+const WallMesh = memo(function WallMesh({
   castsShadow,
   elevation,
+  externalWallPolygons,
   isActive,
   renderedWall,
   wireframe,
 }: {
   castsShadow: boolean
   elevation: number
+  externalWallPolygons: Point[][]
   isActive: boolean
   renderedWall: RenderedWall
   wireframe: boolean
@@ -1010,7 +1319,7 @@ function WallMesh({
   const dx = wall.end.x - wall.start.x
   const dz = wall.end.y - wall.start.y
   const length = Math.hypot(dx, dz)
-  const renderedLength = length + startExtension + endExtension
+  const renderedLength = Math.max(0.01, length + startExtension + endExtension)
   const unitX = length === 0 ? 0 : dx / length
   const unitZ = length === 0 ? 0 : dz / length
   const centerX =
@@ -1112,60 +1421,165 @@ function WallMesh({
       )
     })
   })()
+  const joinFillGeometries = useMemo(() => {
+    if (wall.kind !== 'internal' || wall.openings?.length) {
+      return []
+    }
+
+    return getInternalWallJoinFillFootprints(
+      renderedWall,
+      externalWallPolygons,
+    ).map((footprint) => createWallPrismGeometry(footprint, wall.height))
+  }, [
+    externalWallPolygons,
+    renderedWall,
+    wall.height,
+    wall.kind,
+    wall.openings?.length,
+  ])
+
+  useEffect(
+    () => () => {
+      joinFillGeometries.forEach((geometry) => geometry.dispose())
+    },
+    [joinFillGeometries],
+  )
 
   return (
-    <group
-      position={[centerX, elevation + wall.height / 2, centerZ]}
-      rotation={[0, rotationY, 0]}
-      renderOrder={isActive ? 2 : 1}
-    >
-      {isActive ? (
-        activeWallSegments.map((segment, index) => (
-          <mesh
-            key={index}
-            castShadow={castsShadow}
-            position={[
-              segment.center - renderedLength / 2,
-              segment.y - wall.height / 2,
-              0,
-            ]}
-            receiveShadow={castsShadow}
-          >
-            <boxGeometry args={[segment.length, segment.height, wall.thickness]} />
-            {wall.kind === 'external' ? (
-              <ExternalWallMaterial
-                height={segment.height}
-                length={segment.length}
-                wireframe={wireframe}
-              />
-            ) : (
-              <meshStandardMaterial
-                color="#cbd5e1"
-                roughness={0.72}
-                wireframe={wireframe}
-              />
-            )}
+    <>
+      <group
+        position={[centerX, elevation + wall.height / 2, centerZ]}
+        rotation={[0, rotationY, 0]}
+        renderOrder={isActive ? 2 : 1}
+      >
+        {isActive ? (
+          activeWallSegments.map((segment, index) => (
+            <mesh
+              key={index}
+              castShadow={castsShadow}
+              position={[
+                segment.center - renderedLength / 2,
+                segment.y - wall.height / 2,
+                0,
+              ]}
+              receiveShadow={castsShadow}
+            >
+              <boxGeometry args={[segment.length, segment.height, wall.thickness]} />
+              {wall.kind === 'external' ? (
+                <ExternalWallMaterial
+                  wireframe={wireframe}
+                />
+              ) : (
+                <meshStandardMaterial
+                  color="#cbd5e1"
+                  roughness={0.72}
+                  shadowSide={FrontSide}
+                  wireframe={wireframe}
+                />
+              )}
+            </mesh>
+          ))
+        ) : (
+          <mesh castShadow={castsShadow} receiveShadow={castsShadow}>
+            <boxGeometry args={[renderedLength, wall.height, wall.thickness]} />
+            <meshBasicMaterial
+              color="#94a3b8"
+              depthWrite={false}
+              opacity={0.015}
+              polygonOffset
+              polygonOffsetFactor={1}
+              polygonOffsetUnits={1}
+              transparent
+              wireframe={wireframe}
+            />
+            <Edges color="#64748b" threshold={15} />
           </mesh>
-        ))
-      ) : (
-        <mesh castShadow={castsShadow} receiveShadow={castsShadow}>
-          <boxGeometry args={[renderedLength, wall.height, wall.thickness]} />
-          <meshBasicMaterial
-            color="#94a3b8"
-            depthWrite={false}
-            opacity={0.015}
-            polygonOffset
-            polygonOffsetFactor={1}
-            polygonOffsetUnits={1}
-            transparent
+        )}
+      </group>
+      {joinFillGeometries.map((geometry, index) => (
+        <mesh
+          key={`join-fill-${index}`}
+          castShadow={castsShadow}
+          geometry={geometry}
+          position={[0, elevation, 0]}
+          receiveShadow={castsShadow}
+          renderOrder={isActive ? 2 : 1}
+        >
+          <meshStandardMaterial
+            color={isActive ? '#cbd5e1' : '#94a3b8'}
+            opacity={isActive ? 1 : 0.18}
+            roughness={0.72}
+            shadowSide={FrontSide}
+            transparent={!isActive}
             wireframe={wireframe}
           />
-          <Edges color="#64748b" threshold={15} />
         </mesh>
-      )}
+      ))}
+    </>
+  )
+})
+
+const SkirtingBoards = memo(function SkirtingBoards({
+  elevation,
+  rooms,
+  wireframe,
+}: {
+  elevation: number
+  rooms: DetectedRoom[]
+  wireframe: boolean
+}) {
+  return (
+    <group renderOrder={3}>
+      {rooms.flatMap((room, roomIndex) => {
+        const isCounterClockwise = getSignedArea(room.polygon) > 0
+
+        return room.polygon.map((start, edgeIndex) => {
+          const end = room.polygon[(edgeIndex + 1) % room.polygon.length]
+          const dx = end.x - start.x
+          const dz = end.y - start.y
+          const length = Math.hypot(dx, dz)
+
+          if (length < SKIRTING_MIN_SEGMENT_METERS) {
+            return null
+          }
+
+          const unitX = dx / length
+          const unitZ = dz / length
+          const inwardNormal = isCounterClockwise
+            ? { x: -unitZ, z: unitX }
+            : { x: unitZ, z: -unitX }
+          const centerX =
+            (start.x + end.x) / 2 + inwardNormal.x * (SKIRTING_DEPTH_METERS / 2)
+          const centerZ =
+            (start.y + end.y) / 2 + inwardNormal.z * (SKIRTING_DEPTH_METERS / 2)
+          const rotationY = -Math.atan2(dz, dx)
+
+          return (
+            <mesh
+              key={`${room.signature}-${roomIndex}-${edgeIndex}`}
+              position={[
+                centerX,
+                elevation + SKIRTING_HEIGHT_METERS / 2,
+                centerZ,
+              ]}
+              receiveShadow
+              rotation={[0, rotationY, 0]}
+            >
+              <boxGeometry
+                args={[length, SKIRTING_HEIGHT_METERS, SKIRTING_DEPTH_METERS]}
+              />
+              <meshStandardMaterial
+                color="#f8fafc"
+                roughness={0.58}
+                wireframe={wireframe}
+              />
+            </mesh>
+          )
+        })
+      })}
     </group>
   )
-}
+})
 
 function FloorSlab({
   floor,
@@ -1233,8 +1647,6 @@ function FloorSlab({
           />
           <ExternalWallMaterial
             attach="material-1"
-            height={floor.slabThickness}
-            length={10}
             wireframe={wireframe}
           />
         </mesh>
@@ -1243,19 +1655,181 @@ function FloorSlab({
   )
 }
 
+function getPlanAabbFromBox(box: Box3): PlanAabb {
+  return {
+    maxX: box.max.x,
+    maxY: box.max.z,
+    minX: box.min.x,
+    minY: box.min.z,
+  }
+}
+
+function getPlanAabbFromPoints(points: Point[]): PlanAabb {
+  return points.reduce<PlanAabb>(
+    (bounds, point) => ({
+      maxX: Math.max(bounds.maxX, point.x),
+      maxY: Math.max(bounds.maxY, point.y),
+      minX: Math.min(bounds.minX, point.x),
+      minY: Math.min(bounds.minY, point.y),
+    }),
+    {
+      maxX: -Infinity,
+      maxY: -Infinity,
+      minX: Infinity,
+      minY: Infinity,
+    },
+  )
+}
+
+function planAabbsOverlap(
+  firstBounds: PlanAabb,
+  secondBounds: PlanAabb,
+  tolerance = 0,
+) {
+  return (
+    firstBounds.minX < secondBounds.maxX - tolerance &&
+    firstBounds.maxX > secondBounds.minX + tolerance &&
+    firstBounds.minY < secondBounds.maxY - tolerance &&
+    firstBounds.maxY > secondBounds.minY + tolerance
+  )
+}
+
+function getModelWallSnap(
+  position: Point,
+  localBounds: ModelHorizontalBounds | null,
+  localForwardAngle: number | null,
+  walls: Wall[],
+) {
+  const getOutwardProjection = (rotationY: number, localPoint: Point, outwardDirection: Point) => {
+    const cos = Math.cos(rotationY)
+    const sin = Math.sin(rotationY)
+    const worldX = localPoint.x * cos + localPoint.y * sin
+    const worldZ = -localPoint.x * sin + localPoint.y * cos
+
+    return worldX * outwardDirection.x + worldZ * outwardDirection.y
+  }
+  const getWallInset = (rotationY: number, outwardDirection: Point) => {
+    if (!localBounds) {
+      return 0
+    }
+
+    const localCorners = [
+      { x: localBounds.minX, y: localBounds.minZ },
+      { x: localBounds.minX, y: localBounds.maxZ },
+      { x: localBounds.maxX, y: localBounds.minZ },
+      { x: localBounds.maxX, y: localBounds.maxZ },
+    ]
+    const minOutwardProjection = Math.min(
+      ...localCorners.map((corner) =>
+        getOutwardProjection(rotationY, corner, outwardDirection),
+      ),
+    )
+
+    return Math.max(0, -minOutwardProjection)
+  }
+
+  return walls
+    .map((wall) => {
+      const dx = wall.end.x - wall.start.x
+      const dy = wall.end.y - wall.start.y
+      const lengthSquared = dx * dx + dy * dy
+
+      if (lengthSquared === 0) {
+        return null
+      }
+
+      const length = Math.sqrt(lengthSquared)
+      const unit = { x: dx / length, y: dy / length }
+      const normal = { x: -unit.y, y: unit.x }
+      const t =
+        ((position.x - wall.start.x) * dx + (position.y - wall.start.y) * dy) /
+        lengthSquared
+
+      if (t < 0 || t > 1) {
+        return null
+      }
+
+      const projection = {
+        x: wall.start.x + dx * t,
+        y: wall.start.y + dy * t,
+      }
+      const signedDistance =
+        (position.x - projection.x) * normal.x +
+        (position.y - projection.y) * normal.y
+      const side = signedDistance < 0 ? -1 : 1
+      const outwardDirection = {
+        x: normal.x * side,
+        y: normal.y * side,
+      }
+      const outwardAngle = Math.atan2(outwardDirection.y, outwardDirection.x)
+      const rotation =
+        localForwardAngle === null
+          ? Math.atan2(dy, dx) + (side < 0 ? Math.PI : 0)
+          : outwardAngle - localForwardAngle
+      const wallInset = getWallInset(-rotation, {
+        x: outwardDirection.x,
+        y: outwardDirection.y,
+      })
+      const targetDistance = wall.thickness / 2 + wallInset
+      const distanceToWallFace = Math.max(0, Math.abs(signedDistance) - wall.thickness / 2)
+      const snapDistance = distanceToWallFace
+
+      if (distanceToWallFace > MODEL_WALL_SNAP_DISTANCE_METERS) {
+        return null
+      }
+
+      return {
+        distance: snapDistance,
+        position: {
+          x: projection.x + normal.x * side * targetDistance,
+          y: projection.y + normal.y * side * targetDistance,
+        },
+        rotation,
+        wallId: wall.id,
+      }
+    })
+    .filter(
+      (
+        snap,
+      ): snap is { distance: number; position: Point; rotation: number; wallId: string } =>
+        Boolean(snap),
+    )
+    .sort((firstSnap, secondSnap) => firstSnap.distance - secondSnap.distance)[0] ?? null
+}
+
 function ModelMesh({
   elevation,
+  floorId,
   isActive,
   isSelected,
   model,
+  pickTargetsRef,
+  onRegisterPickTarget,
+  onTransformActiveChange,
+  onUpdateModel,
+  transformEnabled,
+  transformMode,
+  walls,
   wireframe,
 }: {
   elevation: number
+  floorId: string
   isActive: boolean
   isSelected: boolean
   model: PlacedModel
+  pickTargetsRef: MutableRefObject<PickTarget[]>
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  onTransformActiveChange: (isActive: boolean) => void
+  onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  transformEnabled: boolean
+  transformMode: TransformMode
+  walls: Wall[]
   wireframe: boolean
 }) {
+  const groupRef = useRef<Object3D>(null!)
+  const lastValidTransformRef = useRef<ObjectTransformSnapshot | null>(null)
+  const [importedLocalBounds, setImportedLocalBounds] =
+    useState<ModelHorizontalBounds | null>(null)
   const modelDefinition = modelsById.get(model.modelId)
 
   if (!modelDefinition) {
@@ -1268,80 +1842,402 @@ function ModelMesh({
     isActive &&
     modelDefinition.wallMount !== 'window' &&
     modelDefinition.wallMount !== 'patio-door'
+  const floorSnapY = elevation + verticalOffset
+  const snapObjectToFloor = () => {
+    const object = groupRef.current
 
-  if (modelDefinition.sourceUrl) {
+    if (object) {
+      object.position.y = floorSnapY
+    }
+  }
+  const getObjectUniformScale = (object: Object3D) =>
+    Math.max(
+      0.2,
+      (Math.abs(object.scale.x) + Math.abs(object.scale.y) + Math.abs(object.scale.z)) / 3,
+    )
+  const importedForwardAngle = modelDefinition.sourceUrl ? -Math.PI / 2 : null
+  const getObjectTransformSnapshot = (object: Object3D): ObjectTransformSnapshot => ({
+    position: object.position.clone(),
+    rotationY: object.rotation.y,
+    scale: object.scale.clone(),
+  })
+  const restoreObjectTransform = (
+    object: Object3D,
+    snapshot: ObjectTransformSnapshot,
+  ) => {
+    object.position.copy(snapshot.position)
+    object.rotation.y = snapshot.rotationY
+    object.scale.copy(snapshot.scale)
+    object.updateWorldMatrix(true, true)
+  }
+  const updateLastValidTransform = () => {
+    const object = groupRef.current
+
+    if (!object) {
+      return
+    }
+
+    lastValidTransformRef.current = getObjectTransformSnapshot(object)
+  }
+  const objectCollides = (ignoredWallId?: string) => {
+    const object = groupRef.current
+
+    if (!object) {
+      return false
+    }
+
+    object.updateWorldMatrix(true, true)
+
+    const collisionTarget =
+      pickTargetsRef.current.find((target) => target.modelId === model.id)
+        ?.object ?? object
+    collisionTarget.updateWorldMatrix(true, false)
+
+    const objectBox = new Box3().setFromObject(collisionTarget)
+    const objectBounds = getPlanAabbFromBox(objectBox)
+    const collidesWithWall = walls.some((wall) => {
+      if (wall.id === ignoredWallId) {
+        return false
+      }
+
+      return planAabbsOverlap(
+        objectBounds,
+        getPlanAabbFromPoints(getWallPolygon({ wall, startExtension: 0, endExtension: 0 })),
+      )
+    })
+
+    if (collidesWithWall) {
+      return true
+    }
+
+    return pickTargetsRef.current.some((target) => {
+      if (
+        !target.blocksCollision ||
+        target.modelId === model.id ||
+        target.floorId !== floorId
+      ) {
+        return false
+      }
+
+      target.object.updateWorldMatrix(true, false)
+
+      return planAabbsOverlap(
+        objectBounds,
+        getPlanAabbFromBox(new Box3().setFromObject(target.object)),
+      )
+    })
+  }
+  const applyObjectSnaps = () => {
+    const object = groupRef.current
+
+    if (!object) {
+      return null
+    }
+
+    snapObjectToFloor()
+
+    const uniformScale = getObjectUniformScale(object)
+    const transformedPosition = {
+      x: object.position.x,
+      y: object.position.z,
+    }
+    const wallSnap = modelDefinition.wallMount
+      ? null
+      : getModelWallSnap(
+          transformedPosition,
+          modelDefinition.sourceUrl ? importedLocalBounds : null,
+          importedForwardAngle,
+          walls,
+        )
+
+    if (wallSnap) {
+      object.position.x = wallSnap.position.x
+      object.position.z = wallSnap.position.y
+      object.rotation.y = -wallSnap.rotation
+    }
+
+    if (objectCollides(wallSnap?.wallId)) {
+      const lastValidTransform = lastValidTransformRef.current
+
+      if (lastValidTransform) {
+        restoreObjectTransform(object, lastValidTransform)
+      }
+
+      return null
+    }
+
+    updateLastValidTransform()
+
+    return {
+      position: wallSnap?.position ?? transformedPosition,
+      rotation: wallSnap?.rotation ?? -object.rotation.y,
+      scale: uniformScale,
+    }
+  }
+  const commitObjectTransform = () => {
+    const snappedTransform = applyObjectSnaps()
+
+    if (!snappedTransform) {
+      return
+    }
+
+    onUpdateModel(model.id, {
+      position: snappedTransform.position,
+      rotation: snappedTransform.rotation,
+      scale: snappedTransform.scale,
+      wallAttachment: undefined,
+    })
+  }
+  const modelGroup = (
+    <group
+      ref={groupRef}
+      position={[model.position.x, floorSnapY, model.position.y]}
+      rotation={[0, -model.rotation, 0]}
+      scale={model.scale}
+      renderOrder={isActive ? 3 : 1}
+    >
+      {modelDefinition.sourceUrl ? (
+        <ImportedModelContent
+          castsShadow={castsShadow}
+          floorId={floorId}
+          isActive={isActive}
+          isSelected={isSelected}
+          blocksCollision={!modelDefinition.wallMount}
+          modelId={model.id}
+          onBoundsChange={setImportedLocalBounds}
+          onRegisterPickTarget={onRegisterPickTarget}
+          sourceUrl={modelDefinition.sourceUrl}
+          wireframe={wireframe}
+        />
+      ) : (
+        <FallbackModelContent
+          castsShadow={castsShadow}
+          isActive={isActive}
+          isSelected={isSelected}
+          model={model}
+          floorId={floorId}
+          onRegisterPickTarget={onRegisterPickTarget}
+          wireframe={wireframe}
+        />
+      )}
+    </group>
+  )
+
+  if (isSelected && isActive && transformEnabled) {
     return (
-      <ImportedModelMesh
-        castsShadow={castsShadow}
-        elevation={elevation + verticalOffset}
-        isActive={isActive}
-        isSelected={isSelected}
-        model={model}
-        sourceUrl={modelDefinition.sourceUrl}
-        wireframe={wireframe}
-      />
+      <>
+        {modelGroup}
+        <TransformControls
+          object={groupRef}
+          mode={transformMode}
+          onMouseDown={() => {
+            updateLastValidTransform()
+            onTransformActiveChange(true)
+          }}
+          onObjectChange={() => {
+            if (transformMode === 'translate') {
+              applyObjectSnaps()
+            }
+          }}
+          onMouseUp={() => {
+            commitObjectTransform()
+            onTransformActiveChange(false)
+          }}
+        />
+      </>
     )
   }
 
+  return modelGroup
+}
+
+function SelectionBoundsBox({
+  center,
+  size,
+}: {
+  center: [number, number, number]
+  size: [number, number, number]
+}) {
+  const scaledSize = [
+    Math.max(size[0] * MODEL_BOUNDS_SCALE, 0.04),
+    Math.max(size[1] * MODEL_BOUNDS_SCALE, 0.04),
+    Math.max(size[2] * MODEL_BOUNDS_SCALE, 0.04),
+  ] as const
+  const halfX = scaledSize[0] / 2
+  const halfY = scaledSize[1] / 2
+  const halfZ = scaledSize[2] / 2
+  const thickness = Math.min(
+    MODEL_BOUNDS_LINE_THICKNESS,
+    Math.min(scaledSize[0], scaledSize[1], scaledSize[2]) / 3,
+  )
+  const edges = [
+    { position: [0, halfY, halfZ], size: [scaledSize[0], thickness, thickness] },
+    { position: [0, halfY, -halfZ], size: [scaledSize[0], thickness, thickness] },
+    { position: [0, -halfY, halfZ], size: [scaledSize[0], thickness, thickness] },
+    { position: [0, -halfY, -halfZ], size: [scaledSize[0], thickness, thickness] },
+    { position: [halfX, 0, halfZ], size: [thickness, scaledSize[1], thickness] },
+    { position: [halfX, 0, -halfZ], size: [thickness, scaledSize[1], thickness] },
+    { position: [-halfX, 0, halfZ], size: [thickness, scaledSize[1], thickness] },
+    { position: [-halfX, 0, -halfZ], size: [thickness, scaledSize[1], thickness] },
+    { position: [halfX, halfY, 0], size: [thickness, thickness, scaledSize[2]] },
+    { position: [halfX, -halfY, 0], size: [thickness, thickness, scaledSize[2]] },
+    { position: [-halfX, halfY, 0], size: [thickness, thickness, scaledSize[2]] },
+    { position: [-halfX, -halfY, 0], size: [thickness, thickness, scaledSize[2]] },
+  ] as const
+
   return (
-    <mesh
-      position={[
-        model.position.x,
-        elevation + verticalOffset + (modelDefinition.height * model.scale) / 2,
-        model.position.y,
-      ]}
-      rotation={[0, -model.rotation, 0]}
-      castShadow={castsShadow}
-      receiveShadow={isActive}
-      renderOrder={isActive ? 3 : 1}
-    >
-      {modelDefinition.shape === 'round' ? (
-        <cylinderGeometry
-          args={[
-            (Math.max(modelDefinition.width, modelDefinition.depth) * model.scale) / 2,
-            (Math.max(modelDefinition.width, modelDefinition.depth) * model.scale) / 2,
-            modelDefinition.height * model.scale,
-            32,
-          ]}
-        />
-      ) : (
-        <boxGeometry
-          args={[
-            modelDefinition.width * model.scale,
-            modelDefinition.height * model.scale,
-            modelDefinition.depth * model.scale,
-          ]}
-        />
-      )}
-      <meshStandardMaterial
-        color={isSelected ? '#f97316' : modelDefinition.color}
-        opacity={isActive ? 1 : 0.24}
-        transparent={!isActive}
-        roughness={0.68}
-        wireframe={wireframe}
-      />
-      {isSelected ? <Edges color="#f97316" threshold={1} /> : null}
-    </mesh>
+    <group position={center} renderOrder={6}>
+      {edges.map((edge, index) => (
+        <mesh key={index} position={edge.position}>
+          <boxGeometry args={edge.size} />
+          <meshBasicMaterial
+            color={MODEL_OUTLINE_COLOR}
+            depthTest={false}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+      ))}
+    </group>
   )
 }
 
-function ImportedModelMesh({
+function FallbackModelContent({
   castsShadow,
-  elevation,
+  floorId,
   isActive,
   isSelected,
   model,
-  sourceUrl,
+  onRegisterPickTarget,
   wireframe,
 }: {
   castsShadow: boolean
-  elevation: number
+  floorId: string
   isActive: boolean
   isSelected: boolean
   model: PlacedModel
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  wireframe: boolean
+}) {
+  const hitboxRef = useRef<Object3D>(null!)
+  const modelDefinition = modelsById.get(model.modelId)
+
+  useEffect(() => {
+    const object = hitboxRef.current
+
+    if (!object) {
+      return
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: !modelDefinition?.wallMount,
+      floorId,
+      modelId: model.id,
+      object,
+    })
+  }, [floorId, model.id, modelDefinition?.wallMount, onRegisterPickTarget])
+
+  if (!modelDefinition) {
+    return null
+  }
+
+  return (
+    <>
+      {isSelected && isActive ? (
+        <SelectionBoundsBox
+          center={[
+            0,
+            modelDefinition.height / 2,
+            modelDefinition.depth / 2,
+          ]}
+          size={[
+            modelDefinition.width,
+            modelDefinition.height,
+            modelDefinition.depth,
+          ]}
+        />
+      ) : null}
+      <mesh
+        position={[
+          0,
+          modelDefinition.height / 2,
+          modelDefinition.depth / 2,
+        ]}
+        castShadow={castsShadow}
+        receiveShadow={isActive}
+      >
+        {modelDefinition.shape === 'round' ? (
+          <cylinderGeometry
+            args={[
+              Math.max(modelDefinition.width, modelDefinition.depth) / 2,
+              Math.max(modelDefinition.width, modelDefinition.depth) / 2,
+              modelDefinition.height,
+              32,
+            ]}
+          />
+        ) : (
+          <boxGeometry
+            args={[
+              modelDefinition.width,
+              modelDefinition.height,
+              modelDefinition.depth,
+            ]}
+          />
+        )}
+        <meshStandardMaterial
+          color={modelDefinition.color}
+          opacity={isActive ? 1 : 0.24}
+          transparent={!isActive}
+          roughness={0.68}
+          wireframe={wireframe}
+        />
+      </mesh>
+      <mesh
+        ref={hitboxRef}
+        position={[0, modelDefinition.height / 2, modelDefinition.depth / 2]}
+      >
+        <boxGeometry
+          args={[
+            Math.max(modelDefinition.width, 0.35),
+            Math.max(modelDefinition.height, 0.35),
+            Math.max(modelDefinition.depth, 0.35),
+          ]}
+        />
+        <meshBasicMaterial
+          color="#ffffff"
+          depthWrite={false}
+          opacity={0}
+          transparent
+        />
+      </mesh>
+    </>
+  )
+}
+
+function ImportedModelContent({
+  blocksCollision,
+  castsShadow,
+  floorId,
+  isActive,
+  isSelected,
+  modelId,
+  onBoundsChange,
+  onRegisterPickTarget,
+  sourceUrl,
+  wireframe,
+}: {
+  blocksCollision: boolean
+  castsShadow: boolean
+  floorId: string
+  isActive: boolean
+  isSelected: boolean
+  modelId: string
+  onBoundsChange: (bounds: ModelHorizontalBounds) => void
+  onRegisterPickTarget: (target: PickTarget) => () => void
   sourceUrl: string
   wireframe: boolean
 }) {
+  const hitboxRef = useRef<Object3D>(null!)
   const gltf = useGLTF(sourceUrl)
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
   const bounds = useMemo(() => {
@@ -1353,10 +2249,35 @@ function ImportedModelMesh({
     box.getCenter(center)
 
     return {
+      box,
       center,
       size,
     }
   }, [scene])
+
+  useEffect(() => {
+    onBoundsChange({
+      maxX: bounds.box.max.x,
+      maxZ: bounds.box.max.z,
+      minX: bounds.box.min.x,
+      minZ: bounds.box.min.z,
+    })
+  }, [bounds, onBoundsChange])
+
+  useEffect(() => {
+    const object = hitboxRef.current
+
+    if (!object) {
+      return
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision,
+      floorId,
+      modelId,
+      object,
+    })
+  }, [blocksCollision, floorId, modelId, onRegisterPickTarget])
 
   useEffect(() => {
     scene.traverse((object) => {
@@ -1384,31 +2305,33 @@ function ImportedModelMesh({
   }, [castsShadow, isActive, scene, wireframe])
 
   return (
-    <group
-      position={[model.position.x, elevation, model.position.y]}
-      rotation={[0, -model.rotation, 0]}
-      scale={model.scale}
-      renderOrder={isActive ? 3 : 1}
-    >
-      <primitive object={scene} />
-      {isSelected ? (
-        <mesh position={[bounds.center.x, bounds.center.y, bounds.center.z]}>
-          <boxGeometry
-            args={[
-              Math.max(bounds.size.x, 0.1),
-              Math.max(bounds.size.y, 0.1),
-              Math.max(bounds.size.z, 0.1),
-            ]}
-          />
-          <meshBasicMaterial
-            color="#f97316"
-            opacity={0.18}
-            transparent
-            wireframe
-          />
-        </mesh>
+    <>
+      {isSelected && isActive ? (
+        <SelectionBoundsBox
+          center={[bounds.center.x, bounds.center.y, bounds.center.z]}
+          size={[bounds.size.x, bounds.size.y, bounds.size.z]}
+        />
       ) : null}
-    </group>
+      <primitive object={scene} />
+      <mesh
+        ref={hitboxRef}
+        position={[bounds.center.x, bounds.center.y, bounds.center.z]}
+      >
+        <boxGeometry
+          args={[
+            Math.max(bounds.size.x, 0.35),
+            Math.max(bounds.size.y, 0.35),
+            Math.max(bounds.size.z, 0.35),
+          ]}
+        />
+        <meshBasicMaterial
+          color="#ffffff"
+          depthWrite={false}
+          opacity={0}
+          transparent
+        />
+      </mesh>
+    </>
   )
 }
 
@@ -1421,6 +2344,26 @@ function CameraFovController({ fov }: { fov: number }) {
       camera.updateProjectionMatrix()
     }
   }, [camera, fov])
+
+  return null
+}
+
+function FpsCounter({ onFpsChange }: { onFpsChange: (fps: number) => void }) {
+  const frameCountRef = useRef(0)
+  const elapsedRef = useRef(0)
+
+  useFrame((_, delta) => {
+    frameCountRef.current += 1
+    elapsedRef.current += delta
+
+    if (elapsedRef.current < 0.35) {
+      return
+    }
+
+    onFpsChange(Math.round(frameCountRef.current / elapsedRef.current))
+    frameCountRef.current = 0
+    elapsedRef.current = 0
+  })
 
   return null
 }
@@ -1468,7 +2411,7 @@ function LightGimbal({
   onLightDirectionChange: (lightDirection: LightDirection) => void
 }) {
   const controlRef = useRef<HTMLDivElement>(null)
-  const handlePointer = (event: PointerEvent<HTMLDivElement>) => {
+  const handlePointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     const bounds = controlRef.current?.getBoundingClientRect()
 
     if (!bounds) {
@@ -1559,31 +2502,52 @@ function WalkCameraControls({
   enabled,
   headHeightEnabled,
   headHeightY,
+  isTransformingRef,
+  movementEnabled,
+  navigationLocked,
+  pickTargetsRef,
+  selectedModelId,
 }: {
   enabled: boolean
   headHeightEnabled: boolean
   headHeightY: number
+  isTransformingRef: MutableRefObject<boolean>
+  movementEnabled: boolean
+  navigationLocked: boolean
+  pickTargetsRef: MutableRefObject<PickTarget[]>
+  selectedModelId: string | null
 }) {
   const { camera, gl } = useThree()
-  const controlsRef = useRef<PointerLockControlsImpl>(null)
   const keysRef = useRef(new Set<string>())
   const isShiftPressedRef = useRef(false)
+  const isLookingRef = useRef(false)
+  const ignoreNextLookMoveRef = useRef(false)
+  const navigationModeRef = useRef<WalkNavigationMode>('look')
+  const orbitTargetRef = useRef(new Vector3())
+  const orbitOffsetRef = useRef(new Vector3())
+  const orbitSphericalRef = useRef(new Spherical())
+  const pendingLookGestureRef = useRef<LookGesture | null>(null)
 
   useEffect(() => {
-    if (!enabled && controlsRef.current?.isLocked) {
-      controlsRef.current.unlock()
-      gl.domElement.style.cursor = ''
-    }
-  }, [enabled, gl.domElement])
-
-  useEffect(() => {
-    if (!enabled) {
+    if (!enabled || navigationLocked) {
       keysRef.current.clear()
       isShiftPressedRef.current = false
+      isLookingRef.current = false
+      ignoreNextLookMoveRef.current = false
+      pendingLookGestureRef.current = null
       return
     }
 
+    if (!movementEnabled) {
+      keysRef.current.clear()
+      isShiftPressedRef.current = false
+    }
+
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (!movementEnabled) {
+        return
+      }
+
       if (isTextEntryElement(event.target)) {
         return
       }
@@ -1601,32 +2565,130 @@ function WalkCameraControls({
       }
     }
     const handleKeyUp = (event: KeyboardEvent) => {
+      if (!movementEnabled) {
+        return
+      }
+
       keysRef.current.delete(event.code)
 
       if (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
         isShiftPressedRef.current = false
       }
     }
-    const startLooking = (event: MouseEvent) => {
-      if (event.button !== 0) {
+    const startLooking = (event: globalThis.PointerEvent) => {
+      if (event.button !== 2 || navigationLocked || isTransformingRef.current) {
         return
       }
 
       event.preventDefault()
+      event.stopImmediatePropagation()
       gl.domElement.focus()
-      gl.domElement.style.cursor = 'none'
-      controlsRef.current?.lock()
+      navigationModeRef.current = 'look'
+
+      if (event.ctrlKey && selectedModelId) {
+        const pickTarget = pickTargetsRef.current.find(
+          (target) => target.modelId === selectedModelId,
+        )
+
+        if (pickTarget) {
+          pickTarget.object.updateWorldMatrix(true, false)
+          pickTarget.object.getWorldPosition(orbitTargetRef.current)
+          navigationModeRef.current = 'orbit'
+        }
+      }
+
+      gl.domElement.requestPointerLock()
+      pendingLookGestureRef.current = null
+      isLookingRef.current = true
+      ignoreNextLookMoveRef.current = true
+    }
+    const maybeLockForLook = (event: globalThis.PointerEvent) => {
+      const pendingLookGesture = pendingLookGestureRef.current
+
+      if (
+        !pendingLookGesture ||
+        pendingLookGesture.pointerId !== event.pointerId ||
+        navigationLocked ||
+        isTransformingRef.current ||
+        document.pointerLockElement === gl.domElement
+      ) {
+        return
+      }
+
+      if (
+        event.clientX === pendingLookGesture.x &&
+        event.clientY === pendingLookGesture.y
+      ) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+        return
+      }
+
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      gl.domElement.requestPointerLock()
+      pendingLookGestureRef.current = null
+      isLookingRef.current = true
+      ignoreNextLookMoveRef.current = true
+    }
+    const updateLooking = (event: MouseEvent) => {
+      if (!isLookingRef.current || document.pointerLockElement !== gl.domElement) {
+        return
+      }
+
+      if (ignoreNextLookMoveRef.current) {
+        ignoreNextLookMoveRef.current = false
+        return
+      }
+
+      if (navigationModeRef.current === 'orbit') {
+        orbitOffsetRef.current.subVectors(camera.position, orbitTargetRef.current)
+        orbitSphericalRef.current.setFromVector3(orbitOffsetRef.current)
+        orbitSphericalRef.current.theta -= event.movementX * WALK_LOOK_SENSITIVITY
+        orbitSphericalRef.current.phi = Math.max(
+          0.05,
+          Math.min(
+            Math.PI - 0.05,
+            orbitSphericalRef.current.phi -
+              event.movementY * WALK_LOOK_SENSITIVITY,
+          ),
+        )
+        orbitOffsetRef.current.setFromSpherical(orbitSphericalRef.current)
+        camera.position.copy(orbitTargetRef.current).add(orbitOffsetRef.current)
+        camera.lookAt(orbitTargetRef.current)
+        return
+      }
+
+      camera.rotation.order = 'YXZ'
+      camera.rotation.y -= event.movementX * WALK_LOOK_SENSITIVITY
+      camera.rotation.x = Math.max(
+        -WALK_MAX_PITCH_RADIANS,
+        Math.min(
+          WALK_MAX_PITCH_RADIANS,
+          camera.rotation.x - event.movementY * WALK_LOOK_SENSITIVITY,
+        ),
+      )
+      camera.rotation.z = 0
     }
     const stopLooking = () => {
-      gl.domElement.style.cursor = ''
-
-      if (controlsRef.current?.isLocked) {
-        controlsRef.current.unlock()
+      if (document.pointerLockElement === gl.domElement) {
+        document.exitPointerLock()
       }
+
+      isLookingRef.current = false
+      ignoreNextLookMoveRef.current = false
+      navigationModeRef.current = 'look'
+      pendingLookGestureRef.current = null
     }
     const handlePointerLockChange = () => {
-      if (!controlsRef.current?.isLocked) {
-        gl.domElement.style.cursor = ''
+      const isLocked = document.pointerLockElement === gl.domElement
+
+      isLookingRef.current = isLocked
+      ignoreNextLookMoveRef.current = isLocked
+
+      if (!isLocked) {
+        isLookingRef.current = false
+        ignoreNextLookMoveRef.current = false
       }
     }
     const handleBlur = () => {
@@ -1634,27 +2696,54 @@ function WalkCameraControls({
       isShiftPressedRef.current = false
       stopLooking()
     }
+    const handleMouseUp = () => {
+      pendingLookGestureRef.current = null
+      stopLooking()
+    }
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault()
+    }
 
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     window.addEventListener('blur', handleBlur)
-    window.addEventListener('mouseup', stopLooking)
+    window.addEventListener('mousemove', updateLooking)
+    window.addEventListener('mouseup', handleMouseUp)
     document.addEventListener('pointerlockchange', handlePointerLockChange)
-    gl.domElement.addEventListener('mousedown', startLooking)
+    gl.domElement.addEventListener('pointerdown', startLooking, true)
+    gl.domElement.addEventListener('pointermove', maybeLockForLook, true)
+    gl.domElement.addEventListener('contextmenu', handleContextMenu)
 
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('blur', handleBlur)
-      window.removeEventListener('mouseup', stopLooking)
+      window.removeEventListener('mousemove', updateLooking)
+      window.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('pointerlockchange', handlePointerLockChange)
-      gl.domElement.removeEventListener('mousedown', startLooking)
+      gl.domElement.removeEventListener('pointerdown', startLooking, true)
+      gl.domElement.removeEventListener('pointermove', maybeLockForLook, true)
+      gl.domElement.removeEventListener('contextmenu', handleContextMenu)
       stopLooking()
     }
-  }, [enabled, gl.domElement])
+  }, [
+    camera,
+    enabled,
+    gl.domElement,
+    isTransformingRef,
+    movementEnabled,
+    navigationLocked,
+    pickTargetsRef,
+    selectedModelId,
+  ])
 
   useFrame((_, delta) => {
-    if (!enabled || keysRef.current.size === 0) {
+    if (
+      !enabled ||
+      !movementEnabled ||
+      navigationLocked ||
+      keysRef.current.size === 0
+    ) {
       return
     }
 
@@ -1711,25 +2800,123 @@ function WalkCameraControls({
     }
   })
 
-  return (
-    <PointerLockControls
-      ref={controlsRef}
-      enabled={enabled}
-      domElement={gl.domElement}
-      pointerSpeed={0.9}
-      selector=".three-host canvas"
-    />
-  )
+  return null
+}
+
+function ModelPicker({
+  active,
+  isTransformingRef,
+  onClearSelection,
+  onSelectModel,
+  pickTargetsRef,
+}: {
+  active: boolean
+  isTransformingRef: MutableRefObject<boolean>
+  onClearSelection: () => void
+  onSelectModel: (modelId: string, floorId: string) => void
+  pickTargetsRef: MutableRefObject<PickTarget[]>
+}) {
+  const { camera, gl } = useThree()
+  const pickGestureRef = useRef<PickGesture | null>(null)
+  const pointer = useMemo(() => new Vector2(), [])
+  const raycaster = useMemo(() => new Raycaster(), [])
+
+  useEffect(() => {
+    const element = gl.domElement
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!active || event.button !== 0 || isTransformingRef.current) {
+        return
+      }
+
+      pickGestureRef.current = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+      }
+    }
+
+    const handlePointerUp = (event: PointerEvent) => {
+      const pickGesture = pickGestureRef.current
+
+      pickGestureRef.current = null
+
+      if (
+        !active ||
+        isTransformingRef.current ||
+        !pickGesture ||
+        pickGesture.pointerId !== event.pointerId
+      ) {
+        return
+      }
+
+      if (event.clientX !== pickGesture.x || event.clientY !== pickGesture.y) {
+        return
+      }
+
+      const bounds = element.getBoundingClientRect()
+      pointer.set(
+        ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+        -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
+      )
+      raycaster.setFromCamera(pointer, camera)
+
+      const targets = pickTargetsRef.current
+      const hits = raycaster.intersectObjects(
+        targets.map((target) => target.object),
+        false,
+      )
+      const hit = hits[0]
+
+      if (!hit) {
+        onClearSelection()
+        return
+      }
+
+      const pickedTarget = targets.find((target) => target.object === hit.object)
+
+      if (pickedTarget) {
+        onSelectModel(pickedTarget.modelId, pickedTarget.floorId)
+      }
+    }
+
+    element.addEventListener('pointerdown', handlePointerDown, true)
+    element.addEventListener('pointerup', handlePointerUp, true)
+
+    return () => {
+      element.removeEventListener('pointerdown', handlePointerDown, true)
+      element.removeEventListener('pointerup', handlePointerUp, true)
+    }
+  }, [
+    camera,
+    gl.domElement,
+    active,
+    isTransformingRef,
+    onClearSelection,
+    onSelectModel,
+    pickTargetsRef,
+    pointer,
+    raycaster,
+  ])
+
+  return null
 }
 
 export function ThreeDView({
   activeFloorId,
   floors,
+  onClearSelection,
+  onSelectModel,
+  onUpdateModel,
   selectedModelId,
   showAllFloors,
 }: ThreeDViewProps) {
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
-  const [cameraMode, setCameraMode] = useState<CameraMode>('orbit')
+  const [transformMode, setTransformMode] = useState<TransformMode>('translate')
+  const [isTransformingModel, setIsTransformingModel] = useState(false)
+  const [fps, setFps] = useState(0)
+  const isTransformingModelRef = useRef(false)
+  const pickTargetsRef = useRef<PickTarget[]>([])
   const [aspectRatioMode, setAspectRatioMode] =
     useState<AspectRatioMode>('normal')
   const [headHeightEnabled, setHeadHeightEnabled] = useState(false)
@@ -1741,31 +2928,66 @@ export function ThreeDView({
     ambientOcclusion: false,
     floorSlabs: true,
     groundPlane: true,
-    referenceFloors: true,
+    referenceFloors: false,
     shadows: true,
     skybox: false,
     wireframe: false,
   })
-  const sceneBounds = getSceneBounds(floors)
+  const sceneBounds = useMemo(() => getSceneBounds(floors), [floors])
   const activeFloor = floors.find((floor) => floor.id === activeFloorId) ?? null
   const cameraFov = getCameraFov(aspectRatioMode)
   const headHeightY = (activeFloor?.elevation ?? 0) + WALK_HEAD_HEIGHT_METERS
+  const floorsByElevation = useMemo(
+    () =>
+      [...floors].sort(
+        (firstFloor, secondFloor) => firstFloor.elevation - secondFloor.elevation,
+      ),
+    [floors],
+  )
   const floorBelowActive = activeFloor
-    ? floors
+    ? floorsByElevation
         .filter((floor) => floor.elevation < activeFloor.elevation)
-        .sort((firstFloor, secondFloor) => secondFloor.elevation - firstFloor.elevation)[0] ??
-      null
+        .at(-1) ?? null
     : null
-  const floorsByElevation = [...floors].sort(
-    (firstFloor, secondFloor) => firstFloor.elevation - secondFloor.elevation,
+  const renderedFloors = useMemo<RenderedFloorData[]>(
+    () =>
+      floors.map((floor) => {
+        const topology = buildWallTopology(floor.walls)
+        const renderedWalls = getRenderedWalls(floor.walls)
+
+        return {
+          externalWallPolygons: renderedWalls
+            .filter((renderedWall) => renderedWall.wall.kind !== 'internal')
+            .map(getWallPolygon),
+          floor,
+          renderedWalls,
+          rooms: topology.rooms,
+        }
+      }),
+    [floors],
+  )
+  const renderedFloorsById = useMemo(
+    () =>
+      new Map(
+        renderedFloors.map((renderedFloor) => [
+          renderedFloor.floor.id,
+          renderedFloor,
+        ]),
+      ),
+    [renderedFloors],
   )
   const visibleFloors = showAllFloors
     ? floors
     : renderOptions.referenceFloors
-    ? floors
-    : floors.filter(
-        (floor) => floor.id === activeFloorId || floor.id === floorBelowActive?.id,
-      )
+      ? floors.filter(
+          (floor) => floor.id === activeFloorId || floor.id === floorBelowActive?.id,
+        )
+      : floors.filter((floor) => floor.id === activeFloorId)
+  const visibleRenderedFloors = visibleFloors
+    .map((floor) => renderedFloorsById.get(floor.id))
+    .filter((floor): floor is RenderedFloorData => Boolean(floor))
+  const transformEnabled = true
+  const navigationLocked = isTransformingModel
 
   const updateRenderOption = (option: keyof RenderOptions) => {
     setRenderOptions((currentOptions) => ({
@@ -1773,12 +2995,27 @@ export function ThreeDView({
       [option]: !currentOptions[option],
     }))
   }
+  const setTransformingModel = useCallback((isTransforming: boolean) => {
+    isTransformingModelRef.current = isTransforming
+    setIsTransformingModel(isTransforming)
+  }, [])
+  const updateFps = useCallback((nextFps: number) => {
+    setFps((currentFps) => (currentFps === nextFps ? currentFps : nextFps))
+  }, [])
+  const registerPickTarget = useCallback((target: PickTarget) => {
+    pickTargetsRef.current = [...pickTargetsRef.current, target]
+
+    return () => {
+      pickTargetsRef.current = pickTargetsRef.current.filter(
+        (candidateTarget) => candidateTarget.object !== target.object,
+      )
+    }
+  }, [])
 
   return (
     <section className="editor-pane">
       <div className="pane-header">
         <h2>3D View</h2>
-        <span>{cameraMode === 'walk' ? 'WASD movement' : 'Orbit enabled'}</span>
         <div className="three-header-controls">
           <label className="aspect-ratio-select">
             <span>Aspect</span>
@@ -1793,35 +3030,40 @@ export function ThreeDView({
               <option value="super-wide">Super-wide</option>
             </select>
           </label>
-          <div className="segmented-control compact" aria-label="3D camera mode">
+          <div className="segmented-control compact" aria-label="3D transform mode">
             <button
               type="button"
-              className={cameraMode === 'orbit' ? 'active' : ''}
-              onClick={() => setCameraMode('orbit')}
+              className={transformMode === 'translate' ? 'active' : ''}
+              onClick={() => setTransformMode('translate')}
             >
-              Orbit
+              Move
             </button>
             <button
               type="button"
-              className={cameraMode === 'walk' ? 'active' : ''}
-              onClick={() => setCameraMode('walk')}
+              className={transformMode === 'rotate' ? 'active' : ''}
+              onClick={() => setTransformMode('rotate')}
             >
-              Walk
+              Rotate
+            </button>
+            <button
+              type="button"
+              className={transformMode === 'scale' ? 'active' : ''}
+              onClick={() => setTransformMode('scale')}
+            >
+              Scale
             </button>
           </div>
-          {cameraMode === 'walk' ? (
-            <label className="head-height-toggle">
-              <input
-                type="checkbox"
-                checked={headHeightEnabled}
-                onChange={(event) => {
-                  setHeadHeightEnabled(event.target.checked)
-                  event.currentTarget.blur()
-                }}
-              />
-              Head height
-            </label>
-          ) : null}
+          <label className="head-height-toggle">
+            <input
+              type="checkbox"
+              checked={headHeightEnabled}
+              onChange={(event) => {
+                setHeadHeightEnabled(event.target.checked)
+                event.currentTarget.blur()
+              }}
+            />
+            Head height
+          </label>
           <div className="render-options">
             <button
               type="button"
@@ -1898,126 +3140,162 @@ export function ThreeDView({
         <Canvas
           shadows={renderOptions.shadows}
           camera={{ position: [6, 5, 8], fov: cameraFov }}
-          gl={{ antialias: true }}
+          dpr={renderOptions.ambientOcclusion ? 1 : [1, 1.5]}
+          gl={{ antialias: true, powerPreference: 'high-performance' }}
           tabIndex={0}
         >
-          <CameraFovController fov={cameraFov} />
-          <color attach="background" args={['#eef2f7']} />
-          {renderOptions.skybox ? <CountrysideSkybox /> : null}
-          <ambientLight intensity={0.55} />
-          <SunLight
-            lightDirection={lightDirection}
-            sceneBounds={sceneBounds}
-            shadows={renderOptions.shadows}
+          <ModelPicker
+            active
+            isTransformingRef={isTransformingModelRef}
+            onClearSelection={onClearSelection}
+            onSelectModel={onSelectModel}
+            pickTargetsRef={pickTargetsRef}
           />
+          <FpsCounter onFpsChange={updateFps} />
+            <CameraFovController fov={cameraFov} />
+            <color attach="background" args={['#eef2f7']} />
+            {renderOptions.skybox ? <CountrysideSkybox /> : null}
+            <ambientLight intensity={0.55} />
+            <SunLight
+              lightDirection={lightDirection}
+              sceneBounds={sceneBounds}
+              shadows={renderOptions.shadows}
+            />
 
-          {visibleFloors.map((floor) => {
-            const isActive = showAllFloors || floor.id === activeFloorId
-            const slabIsSolid = showAllFloors || floor.id === floorBelowActive?.id
-            const floorIndex = floorsByElevation.findIndex(
-              (candidateFloor) => candidateFloor.id === floor.id,
-            )
-            const upperFloor =
-              floorIndex >= 0 ? floorsByElevation[floorIndex + 1] ?? null : null
-            const hasShadowSurface = renderOptions.shadows && isActive
-            const floorPlane =
-              renderOptions.groundPlane && isActive
-                ? getFloorPlaneBounds(floor)
-                : null
-            const shouldRenderSlab =
-              renderOptions.floorSlabs &&
-              (showAllFloors ||
-                floor.id === activeFloorId ||
-                floor.id === floorBelowActive?.id)
+            {visibleRenderedFloors.map((renderedFloor) => {
+              const { floor, renderedWalls, externalWallPolygons, rooms } = renderedFloor
+              const isActive = showAllFloors || floor.id === activeFloorId
+              const slabIsSolid = showAllFloors || floor.id === floorBelowActive?.id
+              const floorIndex = floorsByElevation.findIndex(
+                (candidateFloor) => candidateFloor.id === floor.id,
+              )
+              const upperFloor =
+                floorIndex >= 0 ? floorsByElevation[floorIndex + 1] ?? null : null
+              const hasShadowSurface = renderOptions.shadows && isActive
+              const floorPlane =
+                renderOptions.groundPlane && isActive
+                  ? getFloorPlaneBounds(floor)
+                  : null
+              const shouldRenderSlab =
+                renderOptions.floorSlabs &&
+                (showAllFloors ||
+                  floor.id === activeFloorId ||
+                  floor.id === floorBelowActive?.id)
 
-            return (
-              <group key={floor.id}>
-                {shouldRenderSlab ? (
-                    <FloorSlab
-                      floor={floor}
-                      floors={floors}
-                      isSolid={slabIsSolid}
-                      upperFloor={upperFloor}
-                      wireframe={renderOptions.wireframe}
-                    />
-                ) : null}
-                {floorPlane ? (
-                  <>
-                    <GroundGrid floorPlane={floorPlane} isActive={isActive} />
-                    <mesh
-                      position={[
-                        floorPlane.centerX,
-                        -0.01,
-                        floorPlane.centerZ,
-                      ]}
-                      rotation={[-Math.PI / 2, 0, 0]}
-                      receiveShadow={hasShadowSurface}
-                      renderOrder={isActive ? 0 : -1}
-                    >
-                      <planeGeometry args={[floorPlane.size, floorPlane.size]} />
-                      <meshStandardMaterial
-                        color={isActive ? '#f8fafc' : '#eef2f7'}
-                        depthWrite={isActive}
-                        opacity={isActive ? 1 : 0.035}
-                        polygonOffset={!isActive}
-                        polygonOffsetFactor={2}
-                        polygonOffsetUnits={2}
-                        transparent={!isActive}
+              return (
+                <group key={floor.id}>
+                  {shouldRenderSlab ? (
+                      <FloorSlab
+                        floor={floor}
+                        floors={floors}
+                        isSolid={slabIsSolid}
+                        upperFloor={upperFloor}
                         wireframe={renderOptions.wireframe}
                       />
-                    </mesh>
-                  </>
-                ) : null}
-                {getRenderedWalls(floor.walls).map((renderedWall) => (
-                  <WallMesh
-                    key={renderedWall.wall.id}
-                    castsShadow={hasShadowSurface}
-                    elevation={floor.elevation}
-                    isActive={isActive}
-                    renderedWall={renderedWall}
-                    wireframe={renderOptions.wireframe}
-                  />
-                ))}
-                {isActive ? (
-                  <Suspense fallback={null}>
-                    {(floor.models ?? []).map((model) => (
-                      <ModelLoadBoundary key={model.id}>
-                        <ModelMesh
-                          elevation={floor.elevation}
-                          isActive={isActive}
-                          isSelected={model.id === selectedModelId}
-                          model={model}
+                  ) : null}
+                  {floorPlane ? (
+                    <>
+                      <GroundGrid floorPlane={floorPlane} isActive={isActive} />
+                      <mesh
+                        position={[
+                          floorPlane.centerX,
+                          -0.01,
+                          floorPlane.centerZ,
+                        ]}
+                        rotation={[-Math.PI / 2, 0, 0]}
+                        receiveShadow={hasShadowSurface}
+                        renderOrder={isActive ? 0 : -1}
+                      >
+                        <planeGeometry args={[floorPlane.size, floorPlane.size]} />
+                        <meshStandardMaterial
+                          color={isActive ? '#f8fafc' : '#eef2f7'}
+                          depthWrite={isActive}
+                          opacity={isActive ? 1 : 0.035}
+                          polygonOffset={!isActive}
+                          polygonOffsetFactor={2}
+                          polygonOffsetUnits={2}
+                          transparent={!isActive}
                           wireframe={renderOptions.wireframe}
                         />
-                      </ModelLoadBoundary>
-                    ))}
-                  </Suspense>
-                ) : null}
-              </group>
-            )
-          })}
+                      </mesh>
+                    </>
+                  ) : null}
+                  {renderedWalls.map((renderedWall) => (
+                    <WallMesh
+                      key={renderedWall.wall.id}
+                      castsShadow={hasShadowSurface}
+                      elevation={floor.elevation}
+                      externalWallPolygons={externalWallPolygons}
+                      isActive={isActive}
+                      renderedWall={renderedWall}
+                      wireframe={renderOptions.wireframe}
+                    />
+                  ))}
+                  {isActive ? (
+                    <SkirtingBoards
+                      elevation={floor.elevation}
+                      rooms={rooms}
+                      wireframe={renderOptions.wireframe}
+                    />
+                  ) : null}
+                  {isActive ? (
+                    <Suspense fallback={null}>
+                      {(floor.models ?? []).map((model) => (
+                        <ModelLoadBoundary key={model.id}>
+                          <ModelMesh
+                            elevation={floor.elevation}
+                            floorId={floor.id}
+                            isActive={isActive}
+                            isSelected={model.id === selectedModelId}
+                            model={model}
+                            pickTargetsRef={pickTargetsRef}
+                            onRegisterPickTarget={registerPickTarget}
+                            onTransformActiveChange={setTransformingModel}
+                            onUpdateModel={onUpdateModel}
+                            transformEnabled={transformEnabled}
+                            transformMode={transformMode}
+                            walls={floor.walls}
+                            wireframe={renderOptions.wireframe}
+                          />
+                        </ModelLoadBoundary>
+                      ))}
+                    </Suspense>
+                  ) : null}
+                </group>
+              )
+            })}
 
-          <WalkCameraControls
-            enabled={cameraMode === 'walk'}
-            headHeightEnabled={headHeightEnabled}
-            headHeightY={headHeightY}
-          />
-          {cameraMode === 'orbit' ? <OrbitControls makeDefault target={[3, 1.2, 3]} /> : null}
-          {renderOptions.ambientOcclusion ? (
-            <EffectComposer multisampling={0}>
-              <N8AO
-                aoRadius={0.75}
-                distanceFalloff={0.45}
-                intensity={3.2}
-                quality="medium"
-                aoSamples={16}
-                denoiseSamples={4}
-                denoiseRadius={6}
-                color={ambientOcclusionColor}
-              />
-            </EffectComposer>
-          ) : null}
+            <WalkCameraControls
+              enabled={!navigationLocked}
+              headHeightEnabled={headHeightEnabled}
+              headHeightY={headHeightY}
+              isTransformingRef={isTransformingModelRef}
+              movementEnabled
+              navigationLocked={navigationLocked}
+              pickTargetsRef={pickTargetsRef}
+              selectedModelId={selectedModelId}
+            />
+            {renderOptions.ambientOcclusion ? (
+              <EffectComposer
+                multisampling={0}
+                resolutionScale={0.75}
+              >
+                <N8AO
+                  aoRadius={0.75}
+                  distanceFalloff={0.45}
+                  intensity={2.6}
+                  quality="low"
+                  aoSamples={8}
+                  denoiseSamples={2}
+                  denoiseRadius={4}
+                  color={ambientOcclusionColor}
+                />
+              </EffectComposer>
+            ) : null}
         </Canvas>
+        <div className="fps-indicator" aria-label="3D frames per second">
+          {fps > 0 ? fps : '--'} FPS
+        </div>
         <LightGimbal
           lightDirection={lightDirection}
           onLightDirectionChange={setLightDirection}

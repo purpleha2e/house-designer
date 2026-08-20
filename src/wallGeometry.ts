@@ -86,6 +86,10 @@ function hasAdditionalJoinContext(
       return false
     }
 
+    if (isExternalWall(sourceWall) && !isExternalWall(wall)) {
+      return false
+    }
+
     if (
       distance(point, wall.start) <= CONNECTION_EPSILON_METERS ||
       distance(point, wall.end) <= CONNECTION_EPSILON_METERS
@@ -118,6 +122,10 @@ function getJoinExtension(
 
   for (const wall of walls) {
     if (wall.id === sourceWall.id) {
+      continue
+    }
+
+    if (isExternalWall(sourceWall) && !isExternalWall(wall)) {
       continue
     }
 
@@ -158,11 +166,17 @@ function getJoinExtension(
     )
     const distanceToCenterline = distance(point, closestPointOnWall)
     const pointIsWithinWallBody =
-      t >= 0 &&
-      t <= 1 &&
+      t > CONNECTION_EPSILON_METERS &&
+      t < 1 - CONNECTION_EPSILON_METERS &&
+      distanceToCenterline <= wall.thickness / 2 + CONNECTION_EPSILON_METERS
+    const pointIsOnWallEndCap =
+      sourceWall.kind === 'internal' &&
+      isExternalWall(wall) &&
+      (t <= CONNECTION_EPSILON_METERS ||
+        t >= 1 - CONNECTION_EPSILON_METERS) &&
       distanceToCenterline <= wall.thickness / 2 + CONNECTION_EPSILON_METERS
 
-    if (pointIsWithinWallBody) {
+    if (pointIsWithinWallBody || pointIsOnWallEndCap) {
       const wallDirection = normalize(
         wall.end.x - wall.start.x,
         wall.end.y - wall.start.y,
@@ -174,6 +188,11 @@ function getJoinExtension(
       const sourceDirection = getWallDirectionAwayFromEndpoint(sourceWall, endpoint)
       const directionDotNormal =
         sourceDirection.x * wallNormal.x + sourceDirection.y * wallNormal.y
+
+      if (pointIsOnWallEndCap && Math.abs(directionDotNormal) < 0.35) {
+        continue
+      }
+
       const signedDistanceToCenterline =
         (point.x - closestPointOnWall.x) * wallNormal.x +
         (point.y - closestPointOnWall.y) * wallNormal.y
@@ -186,7 +205,7 @@ function getJoinExtension(
         .filter((faceDistance) => faceDistance >= 0)
       const abutmentDistance = Math.min(...faceDistances)
       const abutmentExtension = Number.isFinite(abutmentDistance)
-        ? -abutmentDistance
+        ? -Math.min(abutmentDistance, wall.thickness)
         : 0
 
       if (Math.abs(abutmentExtension) > Math.abs(extension)) {

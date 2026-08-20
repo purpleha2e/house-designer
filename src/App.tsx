@@ -8,23 +8,25 @@ import { ThreeDView } from './components/ThreeDView'
 import type {
   FloorLevel,
   PlacedModel,
-  Point,
   Room,
   Wall,
   WallKind,
-  WallOpening,
 } from './types'
 import { modelsById, type ModelDefinition } from './models/modelLibrary'
 import { buildWallTopology, type DetectedRoom } from './wallTopology'
+import {
+  createPlacedModel,
+  getWallMountForPoint,
+  normalizeFloor,
+  syncWallOpenings,
+  updateWallAttachedModels,
+} from './modelPlacement'
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
 const DEFAULT_ROOM_HEIGHT = 2.4
 const DEFAULT_SLAB_THICKNESS = 0.3
 const STORAGE_KEY = 'house-designer:project'
-const WINDOW_SILL_HEIGHT_METERS = 0.9
-const PATIO_DOOR_WIDTH_METERS = 1.62
-const PATIO_SIDE_LIGHT_BOTTOM_METERS = 1.02
 const ALL_FLOORS_VIEW_ID = 'all'
 
 type SavedProject = {
@@ -60,229 +62,6 @@ type SelectedRoom = {
 type SelectedModel = {
   definition: ModelDefinition
   model: PlacedModel
-}
-
-function getPlanCenter(walls: Wall[]): Point {
-  const points = walls.flatMap((wall) => [wall.start, wall.end])
-
-  if (points.length === 0) {
-    return { x: 3, y: 3 }
-  }
-
-  return {
-    x: points.reduce((total, point) => total + point.x, 0) / points.length,
-    y: points.reduce((total, point) => total + point.y, 0) / points.length,
-  }
-}
-
-function distance(start: Point, end: Point) {
-  return Math.hypot(end.x - start.x, end.y - start.y)
-}
-
-function getProjectionOnWall(point: Point, wall: Wall) {
-  const dx = wall.end.x - wall.start.x
-  const dy = wall.end.y - wall.start.y
-  const lengthSquared = dx * dx + dy * dy
-
-  if (lengthSquared === 0) {
-    return { point: wall.start, t: 0 }
-  }
-
-  const t = Math.max(
-    0,
-    Math.min(1, ((point.x - wall.start.x) * dx + (point.y - wall.start.y) * dy) / lengthSquared),
-  )
-
-  return {
-    point: {
-      x: wall.start.x + dx * t,
-      y: wall.start.y + dy * t,
-    },
-    t,
-  }
-}
-
-function getWallAngle(wall: Wall) {
-  return Math.atan2(wall.end.y - wall.start.y, wall.end.x - wall.start.x)
-}
-
-function getWallLength(wall: Wall) {
-  return distance(wall.start, wall.end)
-}
-
-function getWallMountForPoint(point: Point, walls: Wall[]) {
-  const candidates = walls
-    .map((wall) => {
-      const projection = getProjectionOnWall(point, wall)
-
-      return {
-        distance: distance(point, projection.point),
-        point: projection.point,
-        t: projection.t,
-        wall,
-      }
-    })
-    .filter((candidate) => candidate.distance <= 0.55)
-    .sort((firstCandidate, secondCandidate) => firstCandidate.distance - secondCandidate.distance)
-
-  const closest = candidates[0]
-
-  if (!closest) {
-    return null
-  }
-
-  return {
-    position: closest.point,
-    rotation: getWallAngle(closest.wall),
-    wallAttachment: {
-      wallId: closest.wall.id,
-      offset: closest.t * getWallLength(closest.wall),
-    },
-  }
-}
-
-function openingBelongsToModel(opening: WallOpening, modelIds: Set<string>) {
-  const [ownerId] = opening.id.split(':')
-  return modelIds.has(ownerId)
-}
-
-function getModelOpenings(model: PlacedModel, wall: Wall): WallOpening[] {
-  const definition = modelsById.get(model.modelId)
-
-  if (!definition?.wallMount || !model.wallAttachment) {
-    return []
-  }
-
-  const scale = model.scale ?? 1
-  const wallLength = getWallLength(wall)
-  const width = Math.min(
-    Math.max((definition.openingWidth ?? definition.width) * scale, 0.3),
-    Math.max(wallLength - 0.2, 0.3),
-  )
-  const bottom =
-    definition.wallMount === 'window'
-      ? Math.min(WINDOW_SILL_HEIGHT_METERS, Math.max(wall.height - 0.2, 0))
-      : 0
-  const height = Math.min(Math.max(definition.height * scale, 0.3), Math.max(wall.height - bottom, 0.3))
-
-  const opening: WallOpening = {
-    id: model.id,
-    modelId: model.modelId,
-    center: Math.max(width / 2, Math.min(wallLength - width / 2, model.wallAttachment.offset)),
-    width,
-    bottom,
-    height,
-  }
-
-  if (!model.modelId.includes('side-lights')) {
-    return [opening]
-  }
-
-  const centreDoorWidth = Math.min(
-    PATIO_DOOR_WIDTH_METERS * scale,
-    Math.max(wallLength - 0.2, 0.3),
-  )
-  const sideLightWidth = Math.max((definition.width * scale - centreDoorWidth) / 2, 0)
-  const sideLightBottom = Math.min(
-    PATIO_SIDE_LIGHT_BOTTOM_METERS * scale,
-    Math.max(wall.height - 0.2, 0),
-  )
-  const sideLightHeight = Math.min(
-    Math.max(definition.height * scale - sideLightBottom, 0.3),
-    Math.max(wall.height - sideLightBottom, 0.3),
-  )
-  const sideLightOffset = centreDoorWidth / 2 + sideLightWidth / 2
-
-  if (sideLightWidth <= 0.1) {
-    return [
-      {
-        ...opening,
-        width: centreDoorWidth,
-      },
-    ]
-  }
-
-  const clampCenter = (center: number, openingWidth: number) =>
-    Math.max(
-      openingWidth / 2,
-      Math.min(wallLength - openingWidth / 2, center),
-    )
-
-  return [
-    {
-      ...opening,
-      id: `${model.id}:left-side-light`,
-      center: clampCenter(model.wallAttachment.offset - sideLightOffset, sideLightWidth),
-      width: sideLightWidth,
-      bottom: sideLightBottom,
-      height: sideLightHeight,
-    },
-    {
-      ...opening,
-      id: `${model.id}:doors`,
-      center: clampCenter(model.wallAttachment.offset, centreDoorWidth),
-      width: centreDoorWidth,
-      bottom: 0,
-      height: Math.min(definition.height * scale, wall.height),
-    },
-    {
-      ...opening,
-      id: `${model.id}:right-side-light`,
-      center: clampCenter(model.wallAttachment.offset + sideLightOffset, sideLightWidth),
-      width: sideLightWidth,
-      bottom: sideLightBottom,
-      height: sideLightHeight,
-    },
-  ]
-}
-
-function syncWallOpenings(floor: FloorLevel): FloorLevel {
-  const modelIds = new Set((floor.models ?? []).map((model) => model.id))
-  const modelsByWallId = new Map<string, PlacedModel[]>()
-
-  for (const model of floor.models ?? []) {
-    if (!model.wallAttachment) {
-      continue
-    }
-
-    modelsByWallId.set(model.wallAttachment.wallId, [
-      ...(modelsByWallId.get(model.wallAttachment.wallId) ?? []),
-      model,
-    ])
-  }
-
-  return {
-    ...floor,
-    walls: floor.walls.map((wall) => {
-      const modelOpenings = (modelsByWallId.get(wall.id) ?? [])
-        .flatMap((model) => getModelOpenings(model, wall))
-      const manualOpenings = (wall.openings ?? []).filter((opening) =>
-        !openingBelongsToModel(opening, modelIds),
-      )
-      const openings = [...manualOpenings, ...modelOpenings].sort(
-        (firstOpening, secondOpening) => firstOpening.center - secondOpening.center,
-      )
-
-      return openings.length > 0
-        ? { ...wall, openings }
-        : { ...wall, openings: undefined }
-    }),
-  }
-}
-
-function normalizeFloor(floor: FloorLevel): FloorLevel {
-  return syncWallOpenings({
-    ...floor,
-    models: Array.isArray(floor.models)
-      ? floor.models.map((model) => ({
-          ...model,
-          scale:
-            typeof model.scale === 'number' && Number.isFinite(model.scale)
-              ? model.scale
-              : 1,
-        }))
-      : [],
-  })
 }
 
 function isSavedProject(value: unknown): value is SavedProject {
@@ -358,6 +137,10 @@ function App() {
   const historyPastRef = useRef<ProjectSnapshot[]>([])
   const historyFutureRef = useRef<ProjectSnapshot[]>([])
   const historyCoalesceRef = useRef<{ key: string; time: number } | null>(null)
+  const [historyAvailability, setHistoryAvailability] = useState({
+    canRedo: false,
+    canUndo: false,
+  })
   const [splitPercent, setSplitPercent] = useState(50)
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
@@ -377,7 +160,7 @@ function App() {
   })
 
   const restoreProjectSnapshot = (snapshot: ProjectSnapshot) => {
-    setFloors(snapshot.floors.map(normalizeFloor))
+    setFloors(snapshot.floors.map((floor) => normalizeFloor(floor, modelsById)))
     setActiveFloorId(snapshot.activeFloorId)
     setSelectedFloorViewId(snapshot.selectedFloorViewId)
     setSelectedModelId(snapshot.selectedModelId)
@@ -387,6 +170,13 @@ function App() {
     setSelectedWallIds(snapshot.selectedWallIds)
     setWallKind(snapshot.wallKind)
     setIsAddingWall(false)
+  }
+
+  const updateHistoryAvailability = () => {
+    setHistoryAvailability({
+      canRedo: historyFutureRef.current.length > 0,
+      canUndo: historyPastRef.current.length > 0,
+    })
   }
 
   const recordHistory = (coalesceKey?: string) => {
@@ -408,6 +198,7 @@ function App() {
     ]
     historyFutureRef.current = []
     historyCoalesceRef.current = coalesceKey ? { key: coalesceKey, time: now } : null
+    updateHistoryAvailability()
     setHistoryVersion((version) => version + 1)
   }
 
@@ -425,6 +216,7 @@ function App() {
     ]
     historyCoalesceRef.current = null
     restoreProjectSnapshot(previousSnapshot)
+    updateHistoryAvailability()
     setHistoryVersion((version) => version + 1)
   }
 
@@ -442,10 +234,14 @@ function App() {
     ]
     historyCoalesceRef.current = null
     restoreProjectSnapshot(nextSnapshot)
+    updateHistoryAvailability()
     setHistoryVersion((version) => version + 1)
   }
 
   useEffect(() => {
+    // Rooms are derived from wall topology, but room names are user metadata that
+    // must stay attached to the current floor state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFloors((currentFloors) => {
       let changed = false
 
@@ -661,32 +457,64 @@ function App() {
     setIsAddingWall(false)
   }
 
+  const deleteActiveFloor = () => {
+    if (floors.length <= 1) {
+      return
+    }
+
+    const activeFloorIndex = floors.findIndex((floor) => floor.id === activeFloorId)
+    const floorToDelete =
+      activeFloorIndex >= 0 ? floors[activeFloorIndex] : activeFloor
+    const shouldDelete = window.confirm(`Delete ${floorToDelete.name}?`)
+
+    if (!shouldDelete) {
+      return
+    }
+
+    recordHistory()
+    const fallbackFloor =
+      floors[activeFloorIndex - 1] ??
+      floors[activeFloorIndex + 1] ??
+      floors.find((floor) => floor.id !== floorToDelete.id)
+
+    if (!fallbackFloor) {
+      return
+    }
+
+    setFloors((currentFloors) =>
+      currentFloors.filter((floor) => floor.id !== floorToDelete.id),
+    )
+    setActiveFloorId(fallbackFloor.id)
+    setSelectedFloorViewId(fallbackFloor.id)
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setIsAddingWall(false)
+  }
+
   const addModel = (modelId: string) => {
     recordHistory()
     const activeFloorForPlacement =
       floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
-    const definition = modelsById.get(modelId)
-    const planCenter = getPlanCenter(activeFloorForPlacement.walls)
-    const wallMount =
-      definition?.wallMount
-        ? getWallMountForPoint(planCenter, activeFloorForPlacement.walls)
-        : null
-    const model: PlacedModel = {
+    const model = createPlacedModel({
       id: crypto.randomUUID(),
       modelId,
-      position: wallMount?.position ?? planCenter,
-      rotation: wallMount?.rotation ?? 0,
-      scale: 1,
-      wallAttachment: wallMount?.wallAttachment,
-    }
+      modelsById,
+      walls: activeFloorForPlacement.walls,
+    })
 
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
         floor.id === activeFloorId
-          ? syncWallOpenings({
-              ...floor,
-              models: [...(floor.models ?? []), model],
-            })
+          ? syncWallOpenings(
+              {
+                ...floor,
+                models: [...(floor.models ?? []), model],
+              },
+              modelsById,
+            )
           : floor,
       ),
     )
@@ -704,12 +532,38 @@ function App() {
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
         floor.id === activeFloorId
-          ? syncWallOpenings({
-              ...floor,
-              models: (floor.models ?? []).map((model) =>
-                model.id === modelId ? { ...model, ...updates, id: model.id } : model,
-              ),
-            })
+          ? syncWallOpenings(
+              {
+                ...floor,
+                models: (floor.models ?? []).map((model) => {
+                  if (model.id !== modelId) {
+                    return model
+                  }
+
+                  const nextModel = { ...model, ...updates, id: model.id }
+                  const definition = modelsById.get(model.modelId)
+                  const wallMount =
+                    definition?.wallMount && updates.position
+                      ? getWallMountForPoint(updates.position, floor.walls)
+                      : null
+
+                  return wallMount
+                    ? {
+                        ...nextModel,
+                        position: wallMount.position,
+                        rotation: wallMount.rotation,
+                        wallAttachment: wallMount.wallAttachment,
+                      }
+                    : definition?.wallMount && updates.position
+                      ? {
+                          ...nextModel,
+                          wallAttachment: undefined,
+                        }
+                      : nextModel
+                }),
+              },
+              modelsById,
+            )
           : floor,
       ),
     )
@@ -736,44 +590,16 @@ function App() {
           ...previousWall,
           ...updates,
         }
-        const nextWallLength = getWallLength(nextWall)
-        const nextWallAngle = getWallAngle(nextWall)
-        const nextWallDirection =
-          nextWallLength > 0
-            ? {
-                x: (nextWall.end.x - nextWall.start.x) / nextWallLength,
-                y: (nextWall.end.y - nextWall.start.y) / nextWallLength,
-              }
-            : { x: 0, y: 0 }
-        const nextModels = (floor.models ?? []).map((model) => {
-          if (model.wallAttachment?.wallId !== wallId) {
-            return model
-          }
+        const nextModels = updateWallAttachedModels(floor.models ?? [], nextWall)
 
-          const offset = Math.max(
-            0,
-            Math.min(nextWallLength, model.wallAttachment.offset),
-          )
-
-          return {
-            ...model,
-            position: {
-              x: nextWall.start.x + nextWallDirection.x * offset,
-              y: nextWall.start.y + nextWallDirection.y * offset,
-            },
-            rotation: nextWallAngle,
-            wallAttachment: {
-              ...model.wallAttachment,
-              offset,
-            },
-          }
-        })
-
-        return syncWallOpenings({
-          ...floor,
-          models: nextModels,
-          walls: floor.walls.map((wall) => (wall.id === wallId ? nextWall : wall)),
-        })
+        return syncWallOpenings(
+          {
+            ...floor,
+            models: nextModels,
+            walls: floor.walls.map((wall) => (wall.id === wallId ? nextWall : wall)),
+          },
+          modelsById,
+        )
       }),
     )
   }
@@ -782,17 +608,20 @@ function App() {
     recordHistory()
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
-        syncWallOpenings({
-          ...floor,
-          models: (floor.models ?? []).filter((model) => model.id !== modelId),
-          walls: floor.walls.map((wall) => ({
-            ...wall,
-            openings: (wall.openings ?? []).filter(
-              (opening) =>
-                opening.id !== modelId && !opening.id.startsWith(`${modelId}:`),
-            ),
-          })),
-        }),
+        syncWallOpenings(
+          {
+            ...floor,
+            models: (floor.models ?? []).filter((model) => model.id !== modelId),
+            walls: floor.walls.map((wall) => ({
+              ...wall,
+              openings: (wall.openings ?? []).filter(
+                (opening) =>
+                  opening.id !== modelId && !opening.id.startsWith(`${modelId}:`),
+              ),
+            })),
+          },
+          modelsById,
+        ),
       ),
     )
     setSelectedModelId((currentSelectedModelId) =>
@@ -829,7 +658,9 @@ function App() {
         return
       }
 
-      const loadedFloors = parsedProject.floors.map(normalizeFloor)
+      const loadedFloors = parsedProject.floors.map((floor) =>
+        normalizeFloor(floor, modelsById),
+      )
 
       recordHistory()
       setFloors(loadedFloors)
@@ -888,8 +719,8 @@ function App() {
     (wallCount, floor) => wallCount + floor.walls.length,
     0,
   )
-  const canUndo = historyPastRef.current.length > 0
-  const canRedo = historyFutureRef.current.length > 0
+  const canUndo = historyAvailability.canUndo
+  const canRedo = historyAvailability.canRedo
   const canCopy = Boolean(selectedModel || selectedWall)
   const canPaste = Boolean(clipboardItem)
 
@@ -1000,10 +831,13 @@ function App() {
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
         floor.id === activeFloorId
-          ? syncWallOpenings({
-              ...floor,
-              models: [...(floor.models ?? []), modelToPaste],
-            })
+          ? syncWallOpenings(
+              {
+                ...floor,
+                models: [...(floor.models ?? []), modelToPaste],
+              },
+              modelsById,
+            )
           : floor,
       ),
     )
@@ -1036,6 +870,30 @@ function App() {
       setSelectedModelIds([modelId])
     }
 
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setIsAddingWall(false)
+  }
+
+  const selectModelFromThreeD = (modelId: string, floorId: string) => {
+    setActiveFloorId(floorId)
+
+    if (selectedFloorViewId !== ALL_FLOORS_VIEW_ID) {
+      setSelectedFloorViewId(floorId)
+    }
+
+    setSelectedModelId(modelId)
+    setSelectedModelIds([modelId])
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setIsAddingWall(false)
+  }
+
+  const clearThreeDSelection = () => {
+    setSelectedModelId(null)
+    setSelectedModelIds([])
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1119,6 +977,7 @@ function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
           activeFloor,
           activeFloorId,
@@ -1138,23 +997,24 @@ function App() {
 
   return (
     <main className="app-shell">
-      <LeftToolRail onOpenModelSelector={() => setIsModelSelectorOpen(true)} />
-      <Toolbar
+      <LeftToolRail
         activeFloorId={activeFloor.id}
+        canCopy={canCopy}
+        canPaste={canPaste}
+        canRedo={canRedo}
+        canUndo={canUndo}
         floors={floors}
         isAddingWall={isAddingWall}
         selectedFloorViewId={selectedFloorViewId}
         wallCount={totalWallCount}
         wallKind={wallKind}
-        canCopy={canCopy}
-        canPaste={canPaste}
-        canRedo={canRedo}
-        canUndo={canUndo}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
         onCopy={copySelection}
         onCut={cutSelection}
+        onDeleteFloor={deleteActiveFloor}
         onLoadProject={loadProject}
+        onOpenModelSelector={() => setIsModelSelectorOpen(true)}
         onPaste={pasteClipboard}
         onRedo={redo}
         onSaveProject={saveProject}
@@ -1166,8 +1026,10 @@ function App() {
           }
 
           setSelectedWallId(null)
+          setSelectedWallIds([])
           setSelectedRoomSignature(null)
           setSelectedModelId(null)
+          setSelectedModelIds([])
           setIsAddingWall(false)
         }}
         onToggleAddWall={() => setIsAddingWall((value) => !value)}
@@ -1177,29 +1039,12 @@ function App() {
           setWallKind(nextWallKind)
         }}
       />
-      <ContextPanel
-        activeFloor={activeFloor}
-        selectedModel={selectedModel}
-        selectedRoom={selectedRoom}
-        selectedWall={selectedWall}
-        onDeleteModel={deleteModel}
-        onRenameRoom={(roomSignature, name) => {
-          recordHistory()
-          setFloors((currentFloors) =>
-            currentFloors.map((floor) =>
-              floor.id === activeFloor.id
-                ? {
-                    ...floor,
-                    rooms: (floor.rooms ?? []).map((room) =>
-                      room.signature === roomSignature ? { ...room, name } : room,
-                    ),
-                  }
-                : floor,
-            ),
-          )
-        }}
+      <Toolbar
+        floorCount={floors.length}
+        wallCount={totalWallCount}
+        onLoadProject={loadProject}
+        onSaveProject={saveProject}
       />
-
       <section
         ref={editorGridRef}
         className={isResizingSplit ? 'editor-grid resizing' : 'editor-grid'}
@@ -1234,7 +1079,30 @@ function App() {
           onSelectWall={selectWall}
           onUpdateModel={updateModel}
           onUpdateWall={updateWallGeometry}
-        />
+        >
+          <ContextPanel
+            activeFloor={activeFloor}
+            selectedModel={selectedModel}
+            selectedRoom={selectedRoom}
+            selectedWall={selectedWall}
+            onDeleteModel={deleteModel}
+            onRenameRoom={(roomSignature, name) => {
+              recordHistory()
+              setFloors((currentFloors) =>
+                currentFloors.map((floor) =>
+                  floor.id === activeFloor.id
+                    ? {
+                        ...floor,
+                        rooms: (floor.rooms ?? []).map((room) =>
+                          room.signature === roomSignature ? { ...room, name } : room,
+                        ),
+                      }
+                    : floor,
+                ),
+              )
+            }}
+          />
+        </FloorplanCanvas>
         <div
           className="view-splitter"
           role="separator"
@@ -1276,6 +1144,9 @@ function App() {
         <ThreeDView
           activeFloorId={activeFloor.id}
           floors={floors}
+          onClearSelection={clearThreeDSelection}
+          onSelectModel={selectModelFromThreeD}
+          onUpdateModel={updateModel}
           selectedModelId={selectedModelId}
           showAllFloors={selectedFloorViewId === ALL_FLOORS_VIEW_ID}
         />
