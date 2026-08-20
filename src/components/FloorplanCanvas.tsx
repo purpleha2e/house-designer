@@ -2878,7 +2878,7 @@ export function FloorplanCanvas({
             strokeWidth={isSelectedModel ? 3 : 1}
             width={width}
           />
-        ) : modelDefinition.shape === 'round' ? (
+        ) : modelDefinition.shape === 'round' || modelDefinition.shape === 'light' ? (
           <Circle
             x={0}
             y={0}

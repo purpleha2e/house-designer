@@ -36,7 +36,7 @@ export function ModelSelector({ onClose, onSelectModel }: ModelSelectorProps) {
             >
               <span
                 className={
-                  model.shape === 'round'
+                  model.shape === 'round' || model.shape === 'light'
                     ? 'model-option-preview round'
                     : 'model-option-preview'
                 }

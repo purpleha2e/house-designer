@@ -4,10 +4,13 @@ export type ModelDefinition = {
   category: string
   color: string
   height: number
+  isLight?: boolean
+  lightColor?: string
+  lightPower?: number
   openingWidth?: number
   wallMount?: 'interior-door' | 'patio-door' | 'window'
   sourceUrl?: string
-  shape: 'box' | 'round'
+  shape: 'box' | 'light' | 'round'
   width: number
   depth: number
 }
@@ -79,6 +82,22 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
   },
 )
 
+const builtInModels: ModelDefinition[] = [
+  {
+    id: 'point-light',
+    name: 'Point Light',
+    category: 'Lighting',
+    color: '#facc15',
+    depth: 0.25,
+    height: 0.25,
+    isLight: true,
+    lightColor: '#fff3c4',
+    lightPower: 450,
+    shape: 'light',
+    width: 0.25,
+  },
+]
+
 const fallbackModels: ModelDefinition[] = [
   {
     id: 'dining-table',
@@ -133,7 +152,9 @@ const fallbackModels: ModelDefinition[] = [
 ]
 
 export const modelLibrary =
-  discoveredModels.length > 0 ? discoveredModels : fallbackModels
+  discoveredModels.length > 0
+    ? [...builtInModels, ...discoveredModels]
+    : [...builtInModels, ...fallbackModels]
 
 export const modelsById = new Map(
   modelLibrary.map((model) => [model.id, model]),

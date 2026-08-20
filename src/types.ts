@@ -32,6 +32,9 @@ export type Room = {
 
 export type PlacedModel = {
   id: string
+  height?: number
+  lightColor?: string
+  lightPower?: number
   modelId: string
   position: Point
   rotation: number

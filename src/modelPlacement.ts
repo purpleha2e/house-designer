@@ -229,13 +229,32 @@ export function normalizeFloor(
   return syncWallOpenings({
     ...floor,
     models: Array.isArray(floor.models)
-      ? floor.models.map((model) => ({
-          ...model,
-          scale:
-            typeof model.scale === 'number' && Number.isFinite(model.scale)
-              ? model.scale
-              : 1,
-        }))
+      ? floor.models.map((model) => {
+          const definition = modelsById.get(model.modelId)
+
+          return {
+            ...model,
+            height:
+              definition?.isLight &&
+              (typeof model.height !== 'number' || !Number.isFinite(model.height))
+                ? Math.min(floor.roomHeight - 0.2, 1.8)
+                : model.height,
+            lightColor:
+              definition?.isLight && !model.lightColor
+                ? definition.lightColor
+                : model.lightColor,
+            lightPower:
+              definition?.isLight &&
+              (typeof model.lightPower !== 'number' ||
+                !Number.isFinite(model.lightPower))
+                ? definition.lightPower
+                : model.lightPower,
+            scale:
+              typeof model.scale === 'number' && Number.isFinite(model.scale)
+                ? model.scale
+                : 1,
+          }
+        })
       : [],
   }, modelsById)
 }
@@ -258,7 +277,10 @@ export function createPlacedModel({
     : null
 
   return {
+    height: definition?.isLight ? 1.8 : undefined,
     id,
+    lightColor: definition?.isLight ? definition.lightColor : undefined,
+    lightPower: definition?.isLight ? definition.lightPower : undefined,
     modelId,
     position: wallMount?.position ?? planCenter,
     rotation: wallMount?.rotation ?? 0,

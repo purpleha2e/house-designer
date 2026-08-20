@@ -15,6 +15,7 @@ type ContextPanelProps = {
   selectedWall: Wall | undefined
   onDeleteModel: (modelId: string) => void
   onRenameRoom: (roomSignature: string, name: string) => void
+  onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
 }
 
 function getWallLength(wall: Wall) {
@@ -28,7 +29,10 @@ export function ContextPanel({
   selectedWall,
   onDeleteModel,
   onRenameRoom,
+  onUpdateModel,
 }: ContextPanelProps) {
+  const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
+
   return (
     <aside className="context-panel" aria-label="Selection details">
       <div>
@@ -93,6 +97,8 @@ export function ContextPanel({
           <dd>
             {selectedWall
               ? `${getWallLength(selectedWall).toFixed(2)} m`
+              : selectedModelIsLight
+                ? '-'
               : selectedModel
                 ? `${(
                     selectedModel.definition.width * selectedModel.model.scale
@@ -105,6 +111,8 @@ export function ContextPanel({
           <dd>
             {selectedWall
               ? `${selectedWall.thickness.toFixed(2)} m`
+              : selectedModelIsLight
+                ? '-'
               : selectedModel
                 ? `${(
                     selectedModel.definition.depth * selectedModel.model.scale
@@ -117,6 +125,8 @@ export function ContextPanel({
           <dd>
             {selectedWall
               ? `${selectedWall.height.toFixed(2)} m`
+              : selectedModelIsLight && selectedModel
+                ? `${(selectedModel.model.height ?? selectedModel.definition.height).toFixed(2)} m`
               : selectedModel
                 ? `${(
                     selectedModel.definition.height * selectedModel.model.scale
@@ -126,14 +136,60 @@ export function ContextPanel({
         </div>
         {selectedModel ? (
           <>
-            <div>
-              <dt>Scale</dt>
-              <dd>{selectedModel.model.scale.toFixed(2)}x</dd>
-            </div>
-            <div>
-              <dt>Rotation</dt>
-              <dd>{Math.round((selectedModel.model.rotation * 180) / Math.PI)} deg</dd>
-            </div>
+            {selectedModelIsLight ? (
+              <>
+                <div className="context-field">
+                  <dt>Colour</dt>
+                  <dd>
+                    <input
+                      type="color"
+                      value={
+                        selectedModel.model.lightColor ??
+                        selectedModel.definition.lightColor ??
+                        selectedModel.definition.color
+                      }
+                      onChange={(event) =>
+                        onUpdateModel(selectedModel.model.id, {
+                          lightColor: event.target.value,
+                        })
+                      }
+                    />
+                  </dd>
+                </div>
+                <div className="context-field">
+                  <dt>Power</dt>
+                  <dd>
+                    <input
+                      type="number"
+                      min={0}
+                      max={5000}
+                      step={50}
+                      value={
+                        selectedModel.model.lightPower ??
+                        selectedModel.definition.lightPower ??
+                        450
+                      }
+                      onChange={(event) =>
+                        onUpdateModel(selectedModel.model.id, {
+                          lightPower: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </dd>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <dt>Scale</dt>
+                  <dd>{selectedModel.model.scale.toFixed(2)}x</dd>
+                </div>
+                <div>
+                  <dt>Rotation</dt>
+                  <dd>{Math.round((selectedModel.model.rotation * 180) / Math.PI)} deg</dd>
+                </div>
+              </>
+            )}
             <div className="context-actions">
               <dt>Actions</dt>
               <dd>

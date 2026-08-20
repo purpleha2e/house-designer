@@ -1101,6 +1101,7 @@ function App() {
                 ),
               )
             }}
+            onUpdateModel={updateModel}
           />
         </FloorplanCanvas>
         <div

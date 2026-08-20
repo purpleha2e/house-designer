@@ -53,8 +53,11 @@ type ThreeDViewProps = {
 
 type RenderOptions = {
   ambientOcclusion: boolean
+  daylight: boolean
   floorSlabs: boolean
   groundPlane: boolean
+  lightMarkers: boolean
+  lights: boolean
   referenceFloors: boolean
   shadows: boolean
   skybox: boolean
@@ -88,6 +91,10 @@ const MODEL_WALL_SNAP_DISTANCE_METERS = 0.75
 const SKIRTING_HEIGHT_METERS = 0.09
 const SKIRTING_DEPTH_METERS = 0.018
 const SKIRTING_MIN_SEGMENT_METERS = 0.05
+const SKIRTING_OPENING_FLOOR_TOLERANCE_METERS = 0.03
+const SKIRTING_OPENING_EDGE_CLEARANCE_METERS = 0.025
+const SKIRTING_WALL_MATCH_TOLERANCE_METERS = 0.08
+const SKIRTING_DOOR_PROJECTION_TOLERANCE_METERS = 0.18
 
 type AspectRatioMode = 'normal' | 'super-wide' | 'wide'
 type TransformMode = 'rotate' | 'scale' | 'translate'
@@ -146,6 +153,29 @@ class ModelLoadBoundary extends Component<
 
   componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
     console.warn('Failed to render model in 3D view.', error, errorInfo)
+  }
+
+  render() {
+    return this.state.hasError ? null : this.props.children
+  }
+}
+
+class FloorRenderBoundary extends Component<
+  { children: ReactNode; floorId: string },
+  { hasError: boolean }
+> {
+  state = { hasError: false }
+
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+
+  componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.warn(
+      `Failed to render floor ${this.props.floorId} in 3D view.`,
+      error,
+      errorInfo,
+    )
   }
 
   render() {
@@ -1519,44 +1549,469 @@ const WallMesh = memo(function WallMesh({
   )
 })
 
+type SkirtingWallFace = {
+  end: Point
+  length: number
+  renderedWall: RenderedWall
+  start: Point
+  unit: Point
+}
+
+function getDistanceToSegment(point: Point, segmentStart: Point, segmentEnd: Point) {
+  const dx = segmentEnd.x - segmentStart.x
+  const dy = segmentEnd.y - segmentStart.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - segmentStart.x, point.y - segmentStart.y)
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((point.x - segmentStart.x) * dx + (point.y - segmentStart.y) * dy) /
+        lengthSquared,
+    ),
+  )
+  const projection = {
+    x: segmentStart.x + dx * t,
+    y: segmentStart.y + dy * t,
+  }
+
+  return Math.hypot(point.x - projection.x, point.y - projection.y)
+}
+
+function pointAtDistanceOnSkirtingFace(face: SkirtingWallFace, distance: number) {
+  return {
+    x: face.start.x + face.unit.x * distance,
+    y: face.start.y + face.unit.y * distance,
+  }
+}
+
+function getDistanceAlongSkirtingFace(face: SkirtingWallFace, point: Point) {
+  return (
+    (point.x - face.start.x) * face.unit.x +
+    (point.y - face.start.y) * face.unit.y
+  )
+}
+
+function getSkirtingWallFace(
+  edgeStart: Point,
+  edgeEnd: Point,
+  renderedWalls: RenderedWall[],
+): SkirtingWallFace | null {
+  for (const renderedWall of renderedWalls) {
+    const polygon = getWallPolygon(renderedWall)
+    const faces = [
+      [polygon[0], polygon[1]],
+      [polygon[3], polygon[2]],
+    ] as const
+
+    for (const [faceStart, faceEnd] of faces) {
+      const faceDx = faceEnd.x - faceStart.x
+      const faceDy = faceEnd.y - faceStart.y
+      const faceLength = Math.hypot(faceDx, faceDy)
+
+      if (
+        faceLength < SKIRTING_MIN_SEGMENT_METERS ||
+        getDistanceToSegment(edgeStart, faceStart, faceEnd) >
+          SKIRTING_WALL_MATCH_TOLERANCE_METERS ||
+        getDistanceToSegment(edgeEnd, faceStart, faceEnd) >
+          SKIRTING_WALL_MATCH_TOLERANCE_METERS
+      ) {
+        continue
+      }
+
+      return {
+        end: faceEnd,
+        length: faceLength,
+        renderedWall,
+        start: faceStart,
+        unit: {
+          x: faceDx / faceLength,
+          y: faceDy / faceLength,
+        },
+      }
+    }
+  }
+
+  return null
+}
+
+function getSkirtingSegmentsAroundOpenings(
+  edgeStart: Point,
+  edgeEnd: Point,
+  face: SkirtingWallFace,
+  models: PlacedModel[],
+) {
+  const edgeStartDistance = getDistanceAlongSkirtingFace(face, edgeStart)
+  const edgeEndDistance = getDistanceAlongSkirtingFace(face, edgeEnd)
+  const startDistance = Math.max(0, Math.min(edgeStartDistance, edgeEndDistance))
+  const endDistance = Math.min(face.length, Math.max(edgeStartDistance, edgeEndDistance))
+  const { renderedWall } = face
+  const doorwayIntervals = (renderedWall.wall.openings ?? [])
+    .filter(
+      (opening) =>
+        opening.bottom <= SKIRTING_OPENING_FLOOR_TOLERANCE_METERS &&
+        opening.height > SKIRTING_HEIGHT_METERS,
+    )
+    .map((opening) => {
+      const openingCenter = renderedWall.startExtension + opening.center
+      return {
+        end: Math.min(
+          endDistance,
+          openingCenter + opening.width / 2 + SKIRTING_OPENING_EDGE_CLEARANCE_METERS,
+        ),
+        start: Math.max(
+          startDistance,
+          openingCenter - opening.width / 2 - SKIRTING_OPENING_EDGE_CLEARANCE_METERS,
+        ),
+      }
+    })
+    .concat(
+      models
+        .filter((model) => model.wallAttachment?.wallId === renderedWall.wall.id)
+        .flatMap((model) => {
+          const definition = modelsById.get(model.modelId)
+
+          if (!definition?.wallMount || definition.wallMount === 'window') {
+            return []
+          }
+
+          const scale = model.scale ?? 1
+          const width = Math.max(
+            (definition.openingWidth ?? definition.width) * scale,
+            0.3,
+          )
+          const openingCenter =
+            renderedWall.startExtension + (model.wallAttachment?.offset ?? 0)
+
+          return [
+            {
+              end: Math.min(
+                endDistance,
+                openingCenter + width / 2 + SKIRTING_OPENING_EDGE_CLEARANCE_METERS,
+              ),
+              start: Math.max(
+                startDistance,
+                openingCenter - width / 2 - SKIRTING_OPENING_EDGE_CLEARANCE_METERS,
+              ),
+            },
+          ]
+        }),
+    )
+    .filter((interval) => interval.end > interval.start)
+    .sort((firstInterval, secondInterval) => firstInterval.start - secondInterval.start)
+
+  if (doorwayIntervals.length === 0) {
+    return [{ end: edgeEnd, start: edgeStart }]
+  }
+
+  const segments: Array<{ end: Point; start: Point }> = []
+  let cursor = startDistance
+
+  for (const interval of doorwayIntervals) {
+    if (interval.start - cursor >= SKIRTING_MIN_SEGMENT_METERS) {
+      segments.push({
+        end: pointAtDistanceOnSkirtingFace(face, interval.start),
+        start: pointAtDistanceOnSkirtingFace(face, cursor),
+      })
+    }
+
+    cursor = Math.max(cursor, interval.end)
+  }
+
+  if (endDistance - cursor >= SKIRTING_MIN_SEGMENT_METERS) {
+    segments.push({
+      end: pointAtDistanceOnSkirtingFace(face, endDistance),
+      start: pointAtDistanceOnSkirtingFace(face, cursor),
+    })
+  }
+
+  return segments
+}
+
+function getPointAtSegmentDistance(start: Point, unit: Point, distance: number) {
+  return {
+    x: start.x + unit.x * distance,
+    y: start.y + unit.y * distance,
+  }
+}
+
+function getDistanceAlongSegment(start: Point, unit: Point, point: Point) {
+  return (point.x - start.x) * unit.x + (point.y - start.y) * unit.y
+}
+
+function getDoorwayClipIntervalsForSkirtingSegment(
+  segmentStart: Point,
+  segmentEnd: Point,
+  renderedWalls: RenderedWall[],
+  models: PlacedModel[],
+) {
+  const segmentDx = segmentEnd.x - segmentStart.x
+  const segmentDy = segmentEnd.y - segmentStart.y
+  const segmentLength = Math.hypot(segmentDx, segmentDy)
+
+  if (segmentLength < SKIRTING_MIN_SEGMENT_METERS) {
+    return []
+  }
+
+  const segmentUnit = {
+    x: segmentDx / segmentLength,
+    y: segmentDy / segmentLength,
+  }
+  const getProjectedInterval = (
+    wall: Wall,
+    centerDistance: number,
+    width: number,
+  ) => {
+    const wallLength = Math.hypot(
+      wall.end.x - wall.start.x,
+      wall.end.y - wall.start.y,
+    )
+
+    if (wallLength < SKIRTING_MIN_SEGMENT_METERS) {
+      return null
+    }
+
+    const wallUnit = {
+      x: (wall.end.x - wall.start.x) / wallLength,
+      y: (wall.end.y - wall.start.y) / wallLength,
+    }
+    const parallel = Math.abs(
+      wallUnit.x * segmentUnit.x + wallUnit.y * segmentUnit.y,
+    )
+
+    if (parallel < 0.94) {
+      return null
+    }
+
+    const centerPoint = getPointAtSegmentDistance(
+      wall.start,
+      wallUnit,
+      centerDistance,
+    )
+    const maxDistanceFromWallFace =
+      wall.thickness / 2 + SKIRTING_DOOR_PROJECTION_TOLERANCE_METERS
+
+    if (
+      getDistanceToSegment(centerPoint, segmentStart, segmentEnd) >
+      maxDistanceFromWallFace
+    ) {
+      return null
+    }
+
+    const openingStart = getPointAtSegmentDistance(
+      wall.start,
+      wallUnit,
+      centerDistance - width / 2 - SKIRTING_OPENING_EDGE_CLEARANCE_METERS,
+    )
+    const openingEnd = getPointAtSegmentDistance(
+      wall.start,
+      wallUnit,
+      centerDistance + width / 2 + SKIRTING_OPENING_EDGE_CLEARANCE_METERS,
+    )
+    const firstDistance = getDistanceAlongSegment(
+      segmentStart,
+      segmentUnit,
+      openingStart,
+    )
+    const secondDistance = getDistanceAlongSegment(
+      segmentStart,
+      segmentUnit,
+      openingEnd,
+    )
+
+    return {
+      end: Math.min(segmentLength, Math.max(firstDistance, secondDistance)),
+      start: Math.max(0, Math.min(firstDistance, secondDistance)),
+    }
+  }
+  const openingIntervals = renderedWalls.flatMap((renderedWall) =>
+    (renderedWall.wall.openings ?? []).flatMap((opening) => {
+      if (
+        opening.bottom > SKIRTING_OPENING_FLOOR_TOLERANCE_METERS ||
+        opening.height <= SKIRTING_HEIGHT_METERS
+      ) {
+        return []
+      }
+
+      const interval = getProjectedInterval(
+        renderedWall.wall,
+        opening.center,
+        opening.width,
+      )
+
+      return interval ? [interval] : []
+    }),
+  )
+  const modelIntervals = models.flatMap((model) => {
+    const definition = modelsById.get(model.modelId)
+
+    if (!definition?.wallMount || definition.wallMount === 'window') {
+      return []
+    }
+
+    const renderedWall = renderedWalls.find(
+      (candidateWall) =>
+        candidateWall.wall.id === model.wallAttachment?.wallId,
+    )
+
+    if (!renderedWall || !model.wallAttachment) {
+      return []
+    }
+
+    const scale = model.scale ?? 1
+    const width = Math.max(
+      (definition.openingWidth ?? definition.width) * scale,
+      0.3,
+    )
+    const interval = getProjectedInterval(
+      renderedWall.wall,
+      model.wallAttachment.offset,
+      width,
+    )
+
+    return interval ? [interval] : []
+  })
+
+  return [...openingIntervals, ...modelIntervals]
+    .filter((interval) => interval.end - interval.start >= SKIRTING_MIN_SEGMENT_METERS)
+    .sort((firstInterval, secondInterval) => firstInterval.start - secondInterval.start)
+}
+
+function clipSkirtingSegmentsForDoorways(
+  segments: Array<{ end: Point; start: Point }>,
+  renderedWalls: RenderedWall[],
+  models: PlacedModel[],
+) {
+  return segments.flatMap((segment) => {
+    const segmentDx = segment.end.x - segment.start.x
+    const segmentDy = segment.end.y - segment.start.y
+    const segmentLength = Math.hypot(segmentDx, segmentDy)
+
+    if (segmentLength < SKIRTING_MIN_SEGMENT_METERS) {
+      return []
+    }
+
+    const unit = {
+      x: segmentDx / segmentLength,
+      y: segmentDy / segmentLength,
+    }
+    const intervals = getDoorwayClipIntervalsForSkirtingSegment(
+      segment.start,
+      segment.end,
+      renderedWalls,
+      models,
+    )
+
+    if (intervals.length === 0) {
+      return [segment]
+    }
+
+    const clippedSegments: Array<{ end: Point; start: Point }> = []
+    let cursor = 0
+
+    for (const interval of intervals) {
+      if (interval.start - cursor >= SKIRTING_MIN_SEGMENT_METERS) {
+        clippedSegments.push({
+          end: getPointAtSegmentDistance(segment.start, unit, interval.start),
+          start: getPointAtSegmentDistance(segment.start, unit, cursor),
+        })
+      }
+
+      cursor = Math.max(cursor, interval.end)
+    }
+
+    if (segmentLength - cursor >= SKIRTING_MIN_SEGMENT_METERS) {
+      clippedSegments.push({
+        end: getPointAtSegmentDistance(segment.start, unit, segmentLength),
+        start: getPointAtSegmentDistance(segment.start, unit, cursor),
+      })
+    }
+
+    return clippedSegments
+  })
+}
+
 const SkirtingBoards = memo(function SkirtingBoards({
   elevation,
+  models,
+  renderedWalls,
   rooms,
   wireframe,
 }: {
   elevation: number
+  models: PlacedModel[]
+  renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
   wireframe: boolean
 }) {
-  return (
-    <group renderOrder={3}>
-      {rooms.flatMap((room, roomIndex) => {
+  const skirtingRuns = useMemo(
+    () =>
+      rooms.flatMap((room, roomIndex) => {
         const isCounterClockwise = getSignedArea(room.polygon) > 0
 
-        return room.polygon.map((start, edgeIndex) => {
+        return room.polygon.flatMap((start, edgeIndex) => {
           const end = room.polygon[(edgeIndex + 1) % room.polygon.length]
           const dx = end.x - start.x
           const dz = end.y - start.y
           const length = Math.hypot(dx, dz)
 
           if (length < SKIRTING_MIN_SEGMENT_METERS) {
-            return null
+            return []
           }
 
-          const unitX = dx / length
-          const unitZ = dz / length
           const inwardNormal = isCounterClockwise
-            ? { x: -unitZ, z: unitX }
-            : { x: unitZ, z: -unitX }
+            ? { x: -dz / length, z: dx / length }
+            : { x: dz / length, z: -dx / length }
+          const wallFace = getSkirtingWallFace(start, end, renderedWalls)
+          const baseSegments = wallFace
+            ? getSkirtingSegmentsAroundOpenings(start, end, wallFace, models)
+            : [{ end, start }]
+          const segments = clipSkirtingSegmentsForDoorways(
+            baseSegments,
+            renderedWalls,
+            models,
+          )
+
+          return segments
+            .filter(
+              (segment) =>
+                Math.hypot(
+                  segment.end.x - segment.start.x,
+                  segment.end.y - segment.start.y,
+                ) >= SKIRTING_MIN_SEGMENT_METERS,
+            )
+            .map((segment, segmentIndex) => ({
+              end: segment.end,
+              inwardNormal,
+              key: `${room.signature}-${roomIndex}-${edgeIndex}-${segmentIndex}`,
+              start: segment.start,
+            }))
+        })
+      }),
+    [models, renderedWalls, rooms],
+  )
+
+  return (
+    <group renderOrder={3}>
+      {skirtingRuns.map((run) => {
+          const dx = run.end.x - run.start.x
+          const dz = run.end.y - run.start.y
+          const length = Math.hypot(dx, dz)
           const centerX =
-            (start.x + end.x) / 2 + inwardNormal.x * (SKIRTING_DEPTH_METERS / 2)
+            (run.start.x + run.end.x) / 2 +
+            run.inwardNormal.x * (SKIRTING_DEPTH_METERS / 2)
           const centerZ =
-            (start.y + end.y) / 2 + inwardNormal.z * (SKIRTING_DEPTH_METERS / 2)
+            (run.start.y + run.end.y) / 2 +
+            run.inwardNormal.z * (SKIRTING_DEPTH_METERS / 2)
           const rotationY = -Math.atan2(dz, dx)
 
           return (
             <mesh
-              key={`${room.signature}-${roomIndex}-${edgeIndex}`}
+              key={run.key}
               position={[
                 centerX,
                 elevation + SKIRTING_HEIGHT_METERS / 2,
@@ -1575,7 +2030,6 @@ const SkirtingBoards = memo(function SkirtingBoards({
               />
             </mesh>
           )
-        })
       })}
     </group>
   )
@@ -1645,8 +2099,14 @@ function FloorSlab({
             roughness={0.82}
             wireframe={wireframe}
           />
-          <ExternalWallMaterial
+          <meshStandardMaterial
             attach="material-1"
+            color="#94a3b8"
+            depthWrite={isSolid}
+            opacity={isSolid ? 1 : 0.18}
+            roughness={0.82}
+            shadowSide={FrontSide}
+            transparent={!isSolid}
             wireframe={wireframe}
           />
         </mesh>
@@ -1802,11 +2262,14 @@ function ModelMesh({
   floorId,
   isActive,
   isSelected,
+  lightMarkersVisible,
+  lightsEnabled,
   model,
   pickTargetsRef,
   onRegisterPickTarget,
   onTransformActiveChange,
   onUpdateModel,
+  shadowsEnabled,
   transformEnabled,
   transformMode,
   walls,
@@ -1816,11 +2279,14 @@ function ModelMesh({
   floorId: string
   isActive: boolean
   isSelected: boolean
+  lightMarkersVisible: boolean
+  lightsEnabled: boolean
   model: PlacedModel
   pickTargetsRef: MutableRefObject<PickTarget[]>
   onRegisterPickTarget: (target: PickTarget) => () => void
   onTransformActiveChange: (isActive: boolean) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  shadowsEnabled: boolean
   transformEnabled: boolean
   transformMode: TransformMode
   walls: Wall[]
@@ -1837,16 +2303,21 @@ function ModelMesh({
   }
 
   const verticalOffset =
-    modelDefinition.wallMount === 'window' ? WINDOW_SILL_HEIGHT_METERS : 0
+    modelDefinition.isLight
+      ? model.height ?? modelDefinition.height
+      : modelDefinition.wallMount === 'window'
+        ? WINDOW_SILL_HEIGHT_METERS
+        : 0
   const castsShadow =
     isActive &&
+    !modelDefinition.isLight &&
     modelDefinition.wallMount !== 'window' &&
     modelDefinition.wallMount !== 'patio-door'
   const floorSnapY = elevation + verticalOffset
   const snapObjectToFloor = () => {
     const object = groupRef.current
 
-    if (object) {
+    if (object && !modelDefinition.isLight) {
       object.position.y = floorSnapY
     }
   }
@@ -1882,7 +2353,7 @@ function ModelMesh({
   const objectCollides = (ignoredWallId?: string) => {
     const object = groupRef.current
 
-    if (!object) {
+    if (!object || modelDefinition.isLight) {
       return false
     }
 
@@ -1941,7 +2412,7 @@ function ModelMesh({
       x: object.position.x,
       y: object.position.z,
     }
-    const wallSnap = modelDefinition.wallMount
+    const wallSnap = modelDefinition.wallMount || modelDefinition.isLight
       ? null
       : getModelWallSnap(
           transformedPosition,
@@ -1969,6 +2440,9 @@ function ModelMesh({
     updateLastValidTransform()
 
     return {
+      height: modelDefinition.isLight
+        ? Math.max(0.05, object.position.y - elevation)
+        : undefined,
       position: wallSnap?.position ?? transformedPosition,
       rotation: wallSnap?.rotation ?? -object.rotation.y,
       scale: uniformScale,
@@ -1982,6 +2456,7 @@ function ModelMesh({
     }
 
     onUpdateModel(model.id, {
+      height: snappedTransform.height,
       position: snappedTransform.position,
       rotation: snappedTransform.rotation,
       scale: snappedTransform.scale,
@@ -1996,7 +2471,18 @@ function ModelMesh({
       scale={model.scale}
       renderOrder={isActive ? 3 : 1}
     >
-      {modelDefinition.sourceUrl ? (
+      {modelDefinition.isLight ? (
+        <LightModelContent
+          floorId={floorId}
+          isActive={isActive}
+          isSelected={isSelected}
+          lightsEnabled={lightsEnabled}
+          markersVisible={lightMarkersVisible}
+          model={model}
+          onRegisterPickTarget={onRegisterPickTarget}
+          shadowsEnabled={shadowsEnabled}
+        />
+      ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
           castsShadow={castsShadow}
           floorId={floorId}
@@ -2049,6 +2535,87 @@ function ModelMesh({
   }
 
   return modelGroup
+}
+
+function SolidFloorScene({
+  floor,
+  isSelectedModel,
+  lightMarkersVisible,
+  lightsEnabled,
+  onRegisterPickTarget,
+  onTransformActiveChange,
+  onUpdateModel,
+  pickTargetsRef,
+  renderedWalls,
+  rooms,
+  shadowsEnabled,
+  transformEnabled,
+  transformMode,
+  wallPolygons,
+  wireframe,
+}: {
+  floor: FloorLevel
+  isSelectedModel: (modelId: string) => boolean
+  lightMarkersVisible: boolean
+  lightsEnabled: boolean
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  onTransformActiveChange: (isActive: boolean) => void
+  onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  pickTargetsRef: MutableRefObject<PickTarget[]>
+  renderedWalls: RenderedWall[]
+  rooms: DetectedRoom[]
+  shadowsEnabled: boolean
+  transformEnabled: boolean
+  transformMode: TransformMode
+  wallPolygons: Point[][]
+  wireframe: boolean
+}) {
+  return (
+    <>
+      {renderedWalls.map((renderedWall) => (
+        <WallMesh
+          key={renderedWall.wall.id}
+          castsShadow={shadowsEnabled}
+          elevation={floor.elevation}
+          externalWallPolygons={wallPolygons}
+          isActive
+          renderedWall={renderedWall}
+          wireframe={wireframe}
+        />
+      ))}
+      <SkirtingBoards
+        elevation={floor.elevation}
+        models={floor.models ?? []}
+        renderedWalls={renderedWalls}
+        rooms={rooms}
+        wireframe={wireframe}
+      />
+      <Suspense fallback={null}>
+        {(floor.models ?? []).map((model) => (
+          <ModelLoadBoundary key={model.id}>
+            <ModelMesh
+              elevation={floor.elevation}
+              floorId={floor.id}
+              isActive
+              isSelected={isSelectedModel(model.id)}
+              lightMarkersVisible={lightMarkersVisible}
+              lightsEnabled={lightsEnabled}
+              model={model}
+              pickTargetsRef={pickTargetsRef}
+              onRegisterPickTarget={onRegisterPickTarget}
+              onTransformActiveChange={onTransformActiveChange}
+              onUpdateModel={onUpdateModel}
+              shadowsEnabled={shadowsEnabled}
+              transformEnabled={transformEnabled}
+              transformMode={transformMode}
+              walls={floor.walls}
+              wireframe={wireframe}
+            />
+          </ModelLoadBoundary>
+        ))}
+      </Suspense>
+    </>
+  )
 }
 
 function SelectionBoundsBox({
@@ -2203,6 +2770,93 @@ function FallbackModelContent({
             Math.max(modelDefinition.depth, 0.35),
           ]}
         />
+        <meshBasicMaterial
+          color="#ffffff"
+          depthWrite={false}
+          opacity={0}
+          transparent
+        />
+      </mesh>
+    </>
+  )
+}
+
+function LightModelContent({
+  floorId,
+  isActive,
+  isSelected,
+  lightsEnabled,
+  markersVisible,
+  model,
+  onRegisterPickTarget,
+  shadowsEnabled,
+}: {
+  floorId: string
+  isActive: boolean
+  isSelected: boolean
+  lightsEnabled: boolean
+  markersVisible: boolean
+  model: PlacedModel
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  shadowsEnabled: boolean
+}) {
+  const hitboxRef = useRef<Object3D>(null!)
+  const modelDefinition = modelsById.get(model.modelId)
+  const lightColor =
+    model.lightColor ?? modelDefinition?.lightColor ?? modelDefinition?.color ?? '#fff3c4'
+  const lightPower = model.lightPower ?? modelDefinition?.lightPower ?? 450
+  const showMarker = isSelected || markersVisible
+
+  useEffect(() => {
+    const object = hitboxRef.current
+
+    if (!object) {
+      return
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      modelId: model.id,
+      object,
+    })
+  }, [floorId, model.id, onRegisterPickTarget])
+
+  return (
+    <>
+      {lightsEnabled ? (
+        <pointLight
+          castShadow={isActive && shadowsEnabled}
+          color={lightColor}
+          decay={2}
+          distance={18}
+          power={lightPower}
+          shadow-bias={-0.001}
+          shadow-camera-far={18}
+          shadow-camera-near={0.25}
+          shadow-mapSize-width={1024}
+          shadow-mapSize-height={1024}
+          shadow-normalBias={0.12}
+          shadow-radius={3}
+        />
+      ) : null}
+      {isSelected && isActive ? (
+        <SelectionBoundsBox center={[0, 0, 0]} size={[0.42, 0.42, 0.42]} />
+      ) : null}
+      {showMarker ? (
+        <>
+          <mesh>
+            <sphereGeometry args={[0.12, 24, 16]} />
+            <meshBasicMaterial color={lightColor} toneMapped={false} />
+          </mesh>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.18, 0.2, 32]} />
+            <meshBasicMaterial color={lightColor} toneMapped={false} />
+          </mesh>
+        </>
+      ) : null}
+      <mesh ref={hitboxRef}>
+        <sphereGeometry args={[0.3, 16, 12]} />
         <meshBasicMaterial
           color="#ffffff"
           depthWrite={false}
@@ -2926,8 +3580,11 @@ export function ThreeDView({
   })
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
     ambientOcclusion: false,
+    daylight: true,
     floorSlabs: true,
     groundPlane: true,
+    lightMarkers: false,
+    lights: true,
     referenceFloors: false,
     shadows: true,
     skybox: false,
@@ -2976,16 +3633,16 @@ export function ThreeDView({
       ),
     [renderedFloors],
   )
-  const visibleFloors = showAllFloors
-    ? floors
-    : renderOptions.referenceFloors
-      ? floors.filter(
-          (floor) => floor.id === activeFloorId || floor.id === floorBelowActive?.id,
-        )
-      : floors.filter((floor) => floor.id === activeFloorId)
-  const visibleRenderedFloors = visibleFloors
-    .map((floor) => renderedFloorsById.get(floor.id))
-    .filter((floor): floor is RenderedFloorData => Boolean(floor))
+  const visibleRenderedFloors = showAllFloors
+    ? renderedFloors
+    : (renderOptions.referenceFloors
+        ? floors.filter(
+            (floor) => floor.id === activeFloorId || floor.id === floorBelowActive?.id,
+          )
+        : floors.filter((floor) => floor.id === activeFloorId)
+      )
+        .map((floor) => renderedFloorsById.get(floor.id))
+        .filter((floor): floor is RenderedFloorData => Boolean(floor))
   const transformEnabled = true
   const navigationLocked = isTransformingModel
 
@@ -3093,6 +3750,30 @@ export function ThreeDView({
                 <label>
                   <input
                     type="checkbox"
+                    checked={renderOptions.daylight}
+                    onChange={() => updateRenderOption('daylight')}
+                  />
+                  Daylight
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.lights}
+                    onChange={() => updateRenderOption('lights')}
+                  />
+                  Lights
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.lightMarkers}
+                    onChange={() => updateRenderOption('lightMarkers')}
+                  />
+                  Light markers
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
                     checked={renderOptions.skybox}
                     onChange={() => updateRenderOption('skybox')}
                   />
@@ -3153,19 +3834,28 @@ export function ThreeDView({
           />
           <FpsCounter onFpsChange={updateFps} />
             <CameraFovController fov={cameraFov} />
-            <color attach="background" args={['#eef2f7']} />
-            {renderOptions.skybox ? <CountrysideSkybox /> : null}
-            <ambientLight intensity={0.55} />
-            <SunLight
-              lightDirection={lightDirection}
-              sceneBounds={sceneBounds}
-              shadows={renderOptions.shadows}
+            <color
+              attach="background"
+              args={[renderOptions.daylight ? '#eef2f7' : '#020617']}
             />
+            {renderOptions.daylight && renderOptions.skybox ? (
+              <CountrysideSkybox />
+            ) : null}
+            {renderOptions.daylight ? (
+              <>
+                <ambientLight intensity={0.55} />
+                <SunLight
+                  lightDirection={lightDirection}
+                  sceneBounds={sceneBounds}
+                  shadows={renderOptions.shadows}
+                />
+              </>
+            ) : null}
 
             {visibleRenderedFloors.map((renderedFloor) => {
               const { floor, renderedWalls, externalWallPolygons, rooms } = renderedFloor
-              const isActive = showAllFloors || floor.id === activeFloorId
-              const slabIsSolid = showAllFloors || floor.id === floorBelowActive?.id
+              const isActive = floor.id === activeFloorId
+              const slabIsSolid = floor.id === floorBelowActive?.id
               const floorIndex = floorsByElevation.findIndex(
                 (candidateFloor) => candidateFloor.id === floor.id,
               )
@@ -3173,14 +3863,48 @@ export function ThreeDView({
                 floorIndex >= 0 ? floorsByElevation[floorIndex + 1] ?? null : null
               const hasShadowSurface = renderOptions.shadows && isActive
               const floorPlane =
-                renderOptions.groundPlane && isActive
+                renderOptions.groundPlane && !showAllFloors && isActive
                   ? getFloorPlaneBounds(floor)
                   : null
               const shouldRenderSlab =
+                !showAllFloors &&
                 renderOptions.floorSlabs &&
-                (showAllFloors ||
-                  floor.id === activeFloorId ||
-                  floor.id === floorBelowActive?.id)
+                (floor.id === activeFloorId || floor.id === floorBelowActive?.id)
+
+              if (showAllFloors) {
+                return (
+                  <group key={floor.id}>
+                    <FloorRenderBoundary floorId={floor.id}>
+                      {renderOptions.floorSlabs ? (
+                        <FloorSlab
+                          floor={floor}
+                          floors={floors}
+                          isSolid
+                          upperFloor={upperFloor}
+                          wireframe={renderOptions.wireframe}
+                        />
+                      ) : null}
+                      <SolidFloorScene
+                        floor={floor}
+                        isSelectedModel={(modelId) => modelId === selectedModelId}
+                        lightMarkersVisible={renderOptions.lightMarkers}
+                        lightsEnabled={renderOptions.lights}
+                        onRegisterPickTarget={registerPickTarget}
+                        onTransformActiveChange={setTransformingModel}
+                        onUpdateModel={onUpdateModel}
+                        pickTargetsRef={pickTargetsRef}
+                        renderedWalls={renderedWalls}
+                        rooms={rooms}
+                        shadowsEnabled={false}
+                        transformEnabled={transformEnabled}
+                        transformMode={transformMode}
+                        wallPolygons={externalWallPolygons}
+                        wireframe={renderOptions.wireframe}
+                      />
+                    </FloorRenderBoundary>
+                  </group>
+                )
+              }
 
               return (
                 <group key={floor.id}>
@@ -3234,6 +3958,8 @@ export function ThreeDView({
                   {isActive ? (
                     <SkirtingBoards
                       elevation={floor.elevation}
+                      models={floor.models ?? []}
+                      renderedWalls={renderedWalls}
                       rooms={rooms}
                       wireframe={renderOptions.wireframe}
                     />
@@ -3247,11 +3973,14 @@ export function ThreeDView({
                             floorId={floor.id}
                             isActive={isActive}
                             isSelected={model.id === selectedModelId}
+                            lightMarkersVisible={renderOptions.lightMarkers}
+                            lightsEnabled={renderOptions.lights}
                             model={model}
                             pickTargetsRef={pickTargetsRef}
                             onRegisterPickTarget={registerPickTarget}
                             onTransformActiveChange={setTransformingModel}
                             onUpdateModel={onUpdateModel}
+                            shadowsEnabled={renderOptions.shadows}
                             transformEnabled={transformEnabled}
                             transformMode={transformMode}
                             walls={floor.walls}
