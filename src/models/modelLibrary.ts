@@ -6,7 +6,10 @@ export type ModelDefinition = {
   height: number
   isLight?: boolean
   lightColor?: string
+  lightKind?: 'point' | 'spot'
   lightPower?: number
+  lightSpread?: number
+  openingCenterOffset?: number
   openingWidth?: number
   wallMount?: 'interior-door' | 'patio-door' | 'window'
   sourceUrl?: string
@@ -36,6 +39,15 @@ function getModelId(fileName: string) {
     .toLowerCase()
 }
 
+const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
+  'panel-interior-door-closed': {
+    depth: 0.19917,
+    height: 2.124037,
+    openingWidth: 0.975141,
+    width: 0.975141,
+  },
+}
+
 const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles).map(
   ([path, sourceUrl], index) => {
     const fileName = path.split('/').pop() ?? `model-${index + 1}.glb`
@@ -48,7 +60,7 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
     const isOpenInteriorDoor = isInteriorDoor && modelId.includes('open')
     const isThreePaneWindow = isWindow && modelId.includes('three-pane')
 
-    return {
+    const baseDefinition: ModelDefinition = {
       id: modelId || `model-${index + 1}`,
       name: formatModelName(fileName),
       category: isPatioDoor || isInteriorDoor ? 'Doors' : isWindow ? 'Windows' : 'Imported',
@@ -79,6 +91,11 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
               : 1,
       depth: isInteriorDoor ? (isOpenInteriorDoor ? 0.84 : 0.13) : isPatioDoor || isWindow ? 0.08 : 1,
     }
+
+    return {
+      ...baseDefinition,
+      ...modelDefinitionOverrides[baseDefinition.id],
+    }
   },
 )
 
@@ -92,9 +109,25 @@ const builtInModels: ModelDefinition[] = [
     height: 0.25,
     isLight: true,
     lightColor: '#fff3c4',
+    lightKind: 'point',
     lightPower: 450,
     shape: 'light',
     width: 0.25,
+  },
+  {
+    id: 'spotlight',
+    name: 'Spotlight',
+    category: 'Lighting',
+    color: '#fde68a',
+    depth: 0.3,
+    height: 0.3,
+    isLight: true,
+    lightColor: '#fff7d6',
+    lightKind: 'spot',
+    lightPower: 650,
+    lightSpread: 36,
+    shape: 'light',
+    width: 0.3,
   },
 ]
 

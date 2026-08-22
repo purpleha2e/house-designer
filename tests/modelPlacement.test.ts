@@ -25,6 +25,21 @@ const modelsById = new Map<string, ModelDefinition>([
     },
   ],
   [
+    'panel-interior-door-closed',
+    {
+      id: 'panel-interior-door-closed',
+      name: 'Panel Interior Door Closed',
+      category: 'Doors',
+      color: '#2563eb',
+      depth: 0.19917,
+      height: 2.124037,
+      openingWidth: 0.975141,
+      shape: 'box',
+      wallMount: 'interior-door',
+      width: 0.975141,
+    },
+  ],
+  [
     'patio-doors-side-lights',
     {
       id: 'patio-doors-side-lights',
@@ -86,6 +101,31 @@ test('calculates window opening dimensions from model metadata', () => {
       width: 1.09,
       bottom: 0.9,
       height: 1.1,
+    },
+  ])
+})
+
+test('calculates panel door opening from model-specific bounds', () => {
+  const model: PlacedModel = {
+    id: 'panel-door-1',
+    modelId: 'panel-interior-door-closed',
+    position: { x: 2.5, y: 0 },
+    rotation: 0,
+    scale: 1,
+    wallAttachment: {
+      wallId: 'wall-1',
+      offset: 2.5,
+    },
+  }
+
+  assert.deepEqual(getModelOpenings(model, wall, modelsById), [
+    {
+      id: 'panel-door-1',
+      modelId: 'panel-interior-door-closed',
+      center: 2.5,
+      width: 0.975141,
+      bottom: 0,
+      height: 2.124037,
     },
   ])
 })

@@ -53,7 +53,6 @@ const ANGLE_WIDGET_RADIUS_METERS = 0.65
 const SNAP_MARKER_INNER_RADIUS = 3
 const SNAP_MARKER_OUTER_RADIUS = 9
 const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
-const DRAFT_INTERNAL_WALL_THICKNESS = 0.15
 const MIN_MODEL_SCALE = 0.2
 const MAX_MODEL_SCALE = 5
 const MODEL_ROTATION_SNAP_RADIANS = (5 * Math.PI) / 180
@@ -71,6 +70,7 @@ type FloorplanCanvasProps = {
   activeFloor: FloorLevel
   children?: ReactNode
   floors: FloorLevel[]
+  internalWallThickness: number
   isAddingWall: boolean
   selectedModelId: string | null
   selectedModelIds: string[]
@@ -370,10 +370,13 @@ function getAngleDegrees(start: Point, end: Point) {
     Math.PI
 }
 
-function getDraftWallThickness(wallKind: WallKind) {
+function getDraftWallThickness(
+  wallKind: WallKind,
+  internalWallThickness: number,
+) {
   return wallKind === 'external'
     ? DRAFT_EXTERNAL_WALL_THICKNESS
-    : DRAFT_INTERNAL_WALL_THICKNESS
+    : internalWallThickness
 }
 
 function normalize(dx: number, dy: number): Point {
@@ -942,6 +945,7 @@ function applyMeasuredLengthAndAngle(
   lengthInput: string | null,
   angleInput: string | null,
   wallKind: WallKind,
+  internalWallThickness: number,
   roomHeight: number,
   walls: Wall[],
 ) {
@@ -963,7 +967,7 @@ function applyMeasuredLengthAndAngle(
     kind: wallKind,
     start,
     end: initialEnd,
-    thickness: getDraftWallThickness(wallKind),
+    thickness: getDraftWallThickness(wallKind, internalWallThickness),
     height: roomHeight,
   }
   const centerlineLength = getCenterlineLengthForVisibleLength(
@@ -1949,6 +1953,7 @@ export function FloorplanCanvas({
   activeFloor,
   children,
   floors,
+  internalWallThickness,
   isAddingWall,
   selectedModelId,
   selectedModelIds,
@@ -2198,13 +2203,21 @@ export function FloorplanCanvas({
               draftLengthInput,
               draftAngleInput,
               wallKind,
+              internalWallThickness,
               activeFloor.roomHeight,
               snapWalls,
             ),
           }
         : currentDraftWall,
     )
-  }, [activeFloor.roomHeight, draftLengthInput, draftAngleInput, snapWalls, wallKind])
+  }, [
+    activeFloor.roomHeight,
+    draftLengthInput,
+    draftAngleInput,
+    internalWallThickness,
+    snapWalls,
+    wallKind,
+  ])
 
   useEffect(() => {
     if (!isAddingWall) {
@@ -2444,6 +2457,7 @@ export function FloorplanCanvas({
                       draftLengthInput,
                       draftAngleInput,
                       wallKind,
+                      internalWallThickness,
                       activeFloor.roomHeight,
                       snapWalls,
                     )
@@ -2545,6 +2559,7 @@ export function FloorplanCanvas({
               draftLengthInput,
               draftAngleInput,
               wallKind,
+              internalWallThickness,
               activeFloor.roomHeight,
               snapWalls,
             )

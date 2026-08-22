@@ -10,6 +10,7 @@ type LeftToolRailProps = {
   canRedo: boolean
   canUndo: boolean
   floors: FloorLevel[]
+  internalWallThickness: number
   isAddingWall: boolean
   selectedFloorViewId: string
   wallCount: number
@@ -19,6 +20,7 @@ type LeftToolRailProps = {
   onCopy: () => void
   onCut: () => void
   onDeleteFloor: () => void
+  onInternalWallThicknessChange: (thickness: number) => void
   onLoadProject: () => void
   onOpenModelSelector: () => void
   onPaste: () => void
@@ -65,6 +67,7 @@ export function LeftToolRail({
   canRedo,
   canUndo,
   floors,
+  internalWallThickness,
   isAddingWall,
   selectedFloorViewId,
   wallCount,
@@ -74,6 +77,7 @@ export function LeftToolRail({
   onCopy,
   onCut,
   onDeleteFloor,
+  onInternalWallThicknessChange,
   onLoadProject,
   onOpenModelSelector,
   onPaste,
@@ -86,6 +90,17 @@ export function LeftToolRail({
 }: LeftToolRailProps) {
   const [openPanel, setOpenPanel] = useState<RailPanel | null>(null)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId)
+  const updateInternalWallThickness = (value: string) => {
+    const parsedValue = Number.parseFloat(value)
+
+    if (!Number.isFinite(parsedValue)) {
+      return
+    }
+
+    onInternalWallThicknessChange(
+      Math.min(0.3, Math.max(0.05, parsedValue)),
+    )
+  }
   const togglePanel = (panel: RailPanel) => {
     setOpenPanel((currentPanel) => (currentPanel === panel ? null : panel))
   }
@@ -183,6 +198,22 @@ export function LeftToolRail({
                   Internal
                 </button>
               </div>
+              <label className="flyout-field">
+                <span>Internal thickness</span>
+                <div>
+                  <input
+                    type="number"
+                    min="0.05"
+                    max="0.3"
+                    step="0.005"
+                    value={internalWallThickness}
+                    onChange={(event) =>
+                      updateInternalWallThickness(event.target.value)
+                    }
+                  />
+                  <span>m</span>
+                </div>
+              </label>
             </>
           ) : null}
 

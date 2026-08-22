@@ -113,11 +113,13 @@ export function getModelOpenings(
       ? Math.min(WINDOW_SILL_HEIGHT_METERS, Math.max(wall.height - 0.2, 0))
       : 0
   const height = Math.min(Math.max(definition.height * scale, 0.3), Math.max(wall.height - bottom, 0.3))
+  const openingCenter =
+    model.wallAttachment.offset + (definition.openingCenterOffset ?? 0) * scale
 
   const opening: WallOpening = {
     id: model.id,
     modelId: model.modelId,
-    center: Math.max(width / 2, Math.min(wallLength - width / 2, model.wallAttachment.offset)),
+    center: Math.max(width / 2, Math.min(wallLength - width / 2, openingCenter)),
     width,
     bottom,
     height,
@@ -243,12 +245,22 @@ export function normalizeFloor(
               definition?.isLight && !model.lightColor
                 ? definition.lightColor
                 : model.lightColor,
+            lightEnabled:
+              definition?.isLight && typeof model.lightEnabled !== 'boolean'
+                ? true
+                : model.lightEnabled,
             lightPower:
               definition?.isLight &&
               (typeof model.lightPower !== 'number' ||
                 !Number.isFinite(model.lightPower))
                 ? definition.lightPower
                 : model.lightPower,
+            lightSpread:
+              definition?.lightKind === 'spot' &&
+              (typeof model.lightSpread !== 'number' ||
+                !Number.isFinite(model.lightSpread))
+                ? definition.lightSpread
+                : model.lightSpread,
             scale:
               typeof model.scale === 'number' && Number.isFinite(model.scale)
                 ? model.scale
@@ -280,7 +292,9 @@ export function createPlacedModel({
     height: definition?.isLight ? 1.8 : undefined,
     id,
     lightColor: definition?.isLight ? definition.lightColor : undefined,
+    lightEnabled: definition?.isLight ? true : undefined,
     lightPower: definition?.isLight ? definition.lightPower : undefined,
+    lightSpread: definition?.lightKind === 'spot' ? definition.lightSpread : undefined,
     modelId,
     position: wallMount?.position ?? planCenter,
     rotation: wallMount?.rotation ?? 0,

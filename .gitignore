@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Local recovery/export artifacts
+recovered-chrome-localstorage-*/
+recovered-house*.json
+springfield_01.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

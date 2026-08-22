@@ -9,9 +9,12 @@ import type {
   FloorLevel,
   PlacedModel,
   Room,
+  SurfaceMaterialAssignment,
+  SurfaceWallSide,
   Wall,
   WallKind,
 } from './types'
+import { surfaceMaterialCatalog } from './materials/materialCatalog'
 import { modelsById, type ModelDefinition } from './models/modelLibrary'
 import { buildWallTopology, type DetectedRoom } from './wallTopology'
 import {
@@ -24,16 +27,57 @@ import {
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
+const DEFAULT_INTERNAL_THICKNESS = 0.15
 const DEFAULT_ROOM_HEIGHT = 2.4
 const DEFAULT_SLAB_THICKNESS = 0.3
-const STORAGE_KEY = 'house-designer:project'
+const MAX_ENABLED_LIGHTS = 11
 const ALL_FLOORS_VIEW_ID = 'all'
+const PROJECT_FILE_EXTENSION = '.house.json'
+const PROJECT_FILE_NAME = `house-design${PROJECT_FILE_EXTENSION}`
+const PROJECT_FILE_MIME_TYPE = 'application/json'
 
 type SavedProject = {
   activeFloorId: string
   floors: FloorLevel[]
+  surfaceAssignments?: SurfaceMaterialAssignment[]
   wallKind: WallKind
 }
+
+type FilePickerFileType = {
+  accept: Record<string, string[]>
+  description: string
+}
+
+type FileSystemFileHandle = {
+  getFile: () => Promise<File>
+}
+
+type FileSystemWritableFileStream = {
+  close: () => Promise<void>
+  write: (data: BlobPart) => Promise<void>
+}
+
+type FileSystemSaveFilePickerOptions = {
+  suggestedName?: string
+  types?: FilePickerFileType[]
+}
+
+type FileSystemOpenFilePickerOptions = {
+  multiple?: boolean
+  types?: FilePickerFileType[]
+}
+
+type WindowWithFileSystemAccess = Window &
+  typeof globalThis & {
+    showOpenFilePicker?: (
+      options?: FileSystemOpenFilePickerOptions,
+    ) => Promise<FileSystemFileHandle[]>
+    showSaveFilePicker?: (
+      options?: FileSystemSaveFilePickerOptions,
+    ) => Promise<{
+      createWritable: () => Promise<FileSystemWritableFileStream>
+    }>
+  }
 
 type ProjectSnapshot = SavedProject & {
   selectedFloorViewId: string
@@ -77,6 +121,82 @@ function isSavedProject(value: unknown): value is SavedProject {
     project.floors.length > 0 &&
     (project.wallKind === 'external' || project.wallKind === 'internal')
   )
+}
+
+function getProjectFilePickerTypes(): FilePickerFileType[] {
+  return [
+    {
+      description: 'House Designer project',
+      accept: {
+        [PROJECT_FILE_MIME_TYPE]: [PROJECT_FILE_EXTENSION, '.json'],
+      },
+    },
+  ]
+}
+
+async function saveTextToLocalFile(fileName: string, contents: string) {
+  const browserWindow = window as WindowWithFileSystemAccess
+
+  if (browserWindow.showSaveFilePicker) {
+    const fileHandle = await browserWindow.showSaveFilePicker({
+      suggestedName: fileName,
+      types: getProjectFilePickerTypes(),
+    })
+    const writableFile = await fileHandle.createWritable()
+
+    await writableFile.write(contents)
+    await writableFile.close()
+    return
+  }
+
+  const blob = new Blob([contents], { type: PROJECT_FILE_MIME_TYPE })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function readTextFromInputFile() {
+  return new Promise<string | null>((resolve, reject) => {
+    const input = document.createElement('input')
+
+    input.type = 'file'
+    input.accept = `${PROJECT_FILE_EXTENSION},.json,${PROJECT_FILE_MIME_TYPE}`
+    input.onchange = () => {
+      const file = input.files?.[0]
+
+      if (!file) {
+        resolve(null)
+        return
+      }
+
+      file.text().then(resolve, reject)
+    }
+    input.oncancel = () => resolve(null)
+    input.click()
+  })
+}
+
+async function readTextFromLocalFile() {
+  const browserWindow = window as WindowWithFileSystemAccess
+
+  if (browserWindow.showOpenFilePicker) {
+    const [fileHandle] = await browserWindow.showOpenFilePicker({
+      multiple: false,
+      types: getProjectFilePickerTypes(),
+    })
+
+    if (!fileHandle) {
+      return null
+    }
+
+    return fileHandle.getFile().then((file) => file.text())
+  }
+
+  return readTextFromInputFile()
 }
 
 function cloneProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapshot {
@@ -123,6 +243,9 @@ function App() {
   const [selectedFloorViewId, setSelectedFloorViewId] =
     useState<string>(initialFloorId)
   const [wallKind, setWallKind] = useState<WallKind>('external')
+  const [internalWallThickness, setInternalWallThickness] = useState(
+    DEFAULT_INTERNAL_THICKNESS,
+  )
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [selectedWallId, setSelectedWallId] = useState<string | null>(
     initialWallId,
@@ -146,6 +269,9 @@ function App() {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
+  const [surfaceAssignments, setSurfaceAssignments] = useState<
+    SurfaceMaterialAssignment[]
+  >([])
 
   const getProjectSnapshot = (): ProjectSnapshot => ({
     activeFloorId,
@@ -156,11 +282,18 @@ function App() {
     selectedRoomSignature,
     selectedWallId,
     selectedWallIds,
+    surfaceAssignments,
     wallKind,
   })
 
   const restoreProjectSnapshot = (snapshot: ProjectSnapshot) => {
-    setFloors(snapshot.floors.map((floor) => normalizeFloor(floor, modelsById)))
+    setFloors(
+      enforceProjectLightEnabledLimit(
+        snapshot.floors.map((floor) => normalizeFloor(floor, modelsById)),
+        undefined,
+        snapshot.activeFloorId,
+      ),
+    )
     setActiveFloorId(snapshot.activeFloorId)
     setSelectedFloorViewId(snapshot.selectedFloorViewId)
     setSelectedModelId(snapshot.selectedModelId)
@@ -168,6 +301,7 @@ function App() {
     setSelectedRoomSignature(snapshot.selectedRoomSignature)
     setSelectedWallId(snapshot.selectedWallId)
     setSelectedWallIds(snapshot.selectedWallIds)
+    setSurfaceAssignments(snapshot.surfaceAssignments ?? [])
     setWallKind(snapshot.wallKind)
     setIsAddingWall(false)
   }
@@ -179,7 +313,84 @@ function App() {
     })
   }
 
+  const syncWallOpeningsForModelIfNeeded = (
+    floor: FloorLevel,
+    modelId: string,
+  ) => {
+    const definition = modelsById.get(modelId)
+
+    return definition?.wallMount ? syncWallOpenings(floor, modelsById) : floor
+  }
+
+  const enforceProjectLightEnabledLimit = (
+    floorsToClamp: FloorLevel[],
+    priorityModelId?: string,
+    priorityFloorId?: string,
+  ) => {
+    const enabledLights = floorsToClamp.flatMap((floor, floorIndex) =>
+      (floor.models ?? []).flatMap((model, modelIndex) => {
+        const definition = modelsById.get(model.modelId)
+
+        return definition?.isLight && model.lightEnabled !== false
+          ? [{ floorId: floor.id, floorIndex, model, modelIndex }]
+          : []
+      }),
+    )
+
+    if (enabledLights.length <= MAX_ENABLED_LIGHTS) {
+      return floorsToClamp
+    }
+
+    const enabledLightIds = new Set<string>()
+    const priorityLight = priorityModelId
+      ? enabledLights.find((light) => light.model.id === priorityModelId)
+      : null
+
+    if (priorityLight) {
+      enabledLightIds.add(priorityLight.model.id)
+    }
+
+    const orderedLights = enabledLights
+      .filter((light) => light.model.id !== priorityModelId)
+      .sort((firstLight, secondLight) => {
+        const firstFloorScore = firstLight.floorId === priorityFloorId ? 0 : 1
+        const secondFloorScore = secondLight.floorId === priorityFloorId ? 0 : 1
+
+        return (
+          firstFloorScore - secondFloorScore ||
+          firstLight.floorIndex - secondLight.floorIndex ||
+          firstLight.modelIndex - secondLight.modelIndex
+        )
+      })
+
+    for (const light of orderedLights) {
+      if (enabledLightIds.size >= MAX_ENABLED_LIGHTS) {
+        break
+      }
+
+      enabledLightIds.add(light.model.id)
+    }
+
+    return floorsToClamp.map((floor) => ({
+      ...floor,
+      models: (floor.models ?? []).map((model) => {
+        const definition = modelsById.get(model.modelId)
+
+        return definition?.isLight &&
+          model.lightEnabled !== false &&
+          !enabledLightIds.has(model.id)
+          ? {
+              ...model,
+              lightEnabled: false,
+            }
+          : model
+      }),
+    }))
+  }
+
   const recordHistory = (coalesceKey?: string) => {
+    // This helper is only invoked from event/update handlers, not during render.
+    // eslint-disable-next-line react-hooks/purity
     const now = Date.now()
     const previousCoalesce = historyCoalesceRef.current
 
@@ -329,7 +540,9 @@ function App() {
                   id,
                   kind: wallKind,
                   thickness:
-                    wallKind === 'external' ? DEFAULT_THICKNESS : DEFAULT_THICKNESS / 2,
+                    wallKind === 'external'
+                      ? DEFAULT_THICKNESS
+                      : internalWallThickness,
                   height: targetFloor.roomHeight,
                 },
               ],
@@ -506,16 +719,20 @@ function App() {
     })
 
     setFloors((currentFloors) =>
-      currentFloors.map((floor) =>
-        floor.id === activeFloorId
-          ? syncWallOpenings(
-              {
-                ...floor,
-                models: [...(floor.models ?? []), model],
-              },
-              modelsById,
-            )
-          : floor,
+      enforceProjectLightEnabledLimit(
+        currentFloors.map((floor) =>
+          floor.id === activeFloorId
+            ? syncWallOpeningsForModelIfNeeded(
+                {
+                  ...floor,
+                  models: [...(floor.models ?? []), model],
+                },
+                model.modelId,
+              )
+            : floor,
+        ),
+        model.id,
+        activeFloorId,
       ),
     )
     setSelectedWallId(null)
@@ -529,44 +746,57 @@ function App() {
 
   const updateModel = (modelId: string, updates: Partial<PlacedModel>) => {
     recordHistory(`model:${modelId}`)
-    setFloors((currentFloors) =>
-      currentFloors.map((floor) =>
-        floor.id === activeFloorId
-          ? syncWallOpenings(
-              {
-                ...floor,
-                models: (floor.models ?? []).map((model) => {
-                  if (model.id !== modelId) {
-                    return model
+    setFloors((currentFloors) => {
+      let updatedModelFloorId: string | undefined
+      const nextFloors = currentFloors.map((floor) => {
+        const modelOnFloor = (floor.models ?? []).find((model) => model.id === modelId)
+
+        if (!modelOnFloor) {
+          return floor
+        }
+
+        updatedModelFloorId = floor.id
+
+        return syncWallOpeningsForModelIfNeeded(
+          {
+            ...floor,
+            models: (floor.models ?? []).map((model) => {
+              if (model.id !== modelId) {
+                return model
+              }
+
+              const nextModel = { ...model, ...updates, id: model.id }
+              const definition = modelsById.get(model.modelId)
+              const wallMount =
+                definition?.wallMount && updates.position
+                  ? getWallMountForPoint(updates.position, floor.walls)
+                  : null
+
+              return wallMount
+                ? {
+                    ...nextModel,
+                    position: wallMount.position,
+                    rotation: wallMount.rotation,
+                    wallAttachment: wallMount.wallAttachment,
                   }
+                : definition?.wallMount && updates.position
+                  ? {
+                      ...nextModel,
+                      wallAttachment: undefined,
+                    }
+                  : nextModel
+            }),
+          },
+          modelOnFloor.modelId,
+        )
+      })
 
-                  const nextModel = { ...model, ...updates, id: model.id }
-                  const definition = modelsById.get(model.modelId)
-                  const wallMount =
-                    definition?.wallMount && updates.position
-                      ? getWallMountForPoint(updates.position, floor.walls)
-                      : null
-
-                  return wallMount
-                    ? {
-                        ...nextModel,
-                        position: wallMount.position,
-                        rotation: wallMount.rotation,
-                        wallAttachment: wallMount.wallAttachment,
-                      }
-                    : definition?.wallMount && updates.position
-                      ? {
-                          ...nextModel,
-                          wallAttachment: undefined,
-                        }
-                      : nextModel
-                }),
-              },
-              modelsById,
-            )
-          : floor,
-      ),
-    )
+      return enforceProjectLightEnabledLimit(
+        nextFloors,
+        updates.lightEnabled === true ? modelId : undefined,
+        updatedModelFloorId,
+      )
+    })
   }
 
   const updateWallGeometry = (
@@ -604,14 +834,133 @@ function App() {
     )
   }
 
+  const assignRoomFloorMaterial = (
+    roomSignature: string,
+    materialId: string | null,
+  ) => {
+    recordHistory()
+    setSurfaceAssignments((currentAssignments) => {
+      const nextAssignments = currentAssignments.filter(
+        (assignment) =>
+          !(
+            assignment.target.type === 'room-floor' &&
+            assignment.target.floorId === activeFloor.id &&
+            assignment.target.roomSignature === roomSignature
+          ),
+      )
+
+      if (!materialId) {
+        return nextAssignments
+      }
+
+      return [
+        ...nextAssignments,
+        {
+          id: crypto.randomUUID(),
+          materialId,
+          target: {
+            type: 'room-floor',
+            floorId: activeFloor.id,
+            roomSignature,
+          },
+        },
+      ]
+    })
+  }
+
+  const assignRoomCeilingMaterial = (
+    roomSignature: string,
+    materialId: string | null,
+  ) => {
+    recordHistory()
+    setSurfaceAssignments((currentAssignments) => {
+      const nextAssignments = currentAssignments.filter(
+        (assignment) =>
+          !(
+            assignment.target.type === 'ceiling' &&
+            assignment.target.floorId === activeFloor.id &&
+            assignment.target.roomSignature === roomSignature
+          ),
+      )
+
+      if (!materialId) {
+        return nextAssignments
+      }
+
+      return [
+        ...nextAssignments,
+        {
+          id: crypto.randomUUID(),
+          materialId,
+          target: {
+            type: 'ceiling',
+            floorId: activeFloor.id,
+            roomSignature,
+          },
+        },
+      ]
+    })
+  }
+
+  const assignWallMaterial = (
+    wallId: string,
+    materialId: string | null,
+    coverageHeight: number,
+    side: SurfaceWallSide,
+  ) => {
+    recordHistory()
+    setSurfaceAssignments((currentAssignments) => {
+      const nextAssignments = currentAssignments.filter(
+        (assignment) =>
+          !(
+            assignment.target.type === 'wall-face' &&
+            assignment.target.wallId === wallId
+          ),
+      )
+
+      if (!materialId) {
+        return nextAssignments
+      }
+
+      return [
+        ...nextAssignments,
+        {
+          coverageHeight,
+          id: crypto.randomUUID(),
+          materialId,
+          target: {
+            type: 'wall-face',
+            side,
+            wallId,
+          },
+        },
+      ]
+    })
+  }
+
   const deleteModel = (modelId: string) => {
     recordHistory()
+    const modelToDelete = floors
+      .flatMap((floor) => floor.models ?? [])
+      .find((model) => model.id === modelId)
+    const modelCutsOpenings = Boolean(
+      modelToDelete && modelsById.get(modelToDelete.modelId)?.wallMount,
+    )
+
     setFloors((currentFloors) =>
-      currentFloors.map((floor) =>
-        syncWallOpenings(
+      currentFloors.map((floor) => {
+        const nextFloor = {
+          ...floor,
+          models: (floor.models ?? []).filter((model) => model.id !== modelId),
+        }
+
+        if (!modelCutsOpenings) {
+          return nextFloor
+        }
+
+        return syncWallOpenings(
           {
-            ...floor,
-            models: (floor.models ?? []).filter((model) => model.id !== modelId),
+            ...nextFloor,
             walls: floor.walls.map((wall) => ({
               ...wall,
               openings: (wall.openings ?? []).filter(
@@ -621,8 +970,8 @@ function App() {
             })),
           },
           modelsById,
-        ),
-      ),
+        )
+      }),
     )
     setSelectedModelId((currentSelectedModelId) =>
       currentSelectedModelId === modelId ? null : currentSelectedModelId,
@@ -632,34 +981,47 @@ function App() {
     )
   }
 
-  const saveProject = () => {
+  const saveProject = async () => {
     const project: SavedProject = {
       activeFloorId,
       floors,
+      surfaceAssignments,
       wallKind,
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(project))
-  }
-
-  const loadProject = () => {
-    const savedProject = localStorage.getItem(STORAGE_KEY)
-
-    if (!savedProject) {
-      window.alert('No saved house design was found in this browser.')
-      return
-    }
-
     try {
-      const parsedProject: unknown = JSON.parse(savedProject)
-
-      if (!isSavedProject(parsedProject)) {
-        window.alert('The saved house design could not be loaded.')
+      await saveTextToLocalFile(
+        PROJECT_FILE_NAME,
+        `${JSON.stringify(project, null, 2)}\n`,
+      )
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
         return
       }
 
-      const loadedFloors = parsedProject.floors.map((floor) =>
-        normalizeFloor(floor, modelsById),
+      window.alert('The house design could not be saved to disk.')
+    }
+  }
+
+  const loadProject = async () => {
+    try {
+      const savedProject = await readTextFromLocalFile()
+
+      if (!savedProject) {
+        return
+      }
+
+      const parsedProject: unknown = JSON.parse(savedProject)
+
+      if (!isSavedProject(parsedProject)) {
+        window.alert('The selected house design could not be loaded.')
+        return
+      }
+
+      const loadedFloors = enforceProjectLightEnabledLimit(
+        parsedProject.floors.map((floor) => normalizeFloor(floor, modelsById)),
+        undefined,
+        parsedProject.activeFloorId,
       )
 
       recordHistory()
@@ -672,6 +1034,11 @@ function App() {
 
       setActiveFloorId(loadedActiveFloorId)
       setSelectedFloorViewId(loadedActiveFloorId)
+      setSurfaceAssignments(
+        Array.isArray(parsedProject.surfaceAssignments)
+          ? parsedProject.surfaceAssignments
+          : [],
+      )
       setWallKind(parsedProject.wallKind)
       setSelectedWallId(null)
       setSelectedWallIds([])
@@ -679,8 +1046,12 @@ function App() {
       setSelectedModelId(null)
       setSelectedModelIds([])
       setIsAddingWall(false)
-    } catch {
-      window.alert('The saved house design could not be loaded.')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
+      window.alert('The selected house design could not be loaded.')
     }
   }
 
@@ -715,6 +1086,68 @@ function App() {
         return detectedRoom && metadata ? { detectedRoom, metadata } : null
       })()
     : null
+  const selectedRoomFloorMaterialId = selectedRoom
+    ? surfaceAssignments.find(
+        (assignment) =>
+          assignment.target.type === 'room-floor' &&
+          assignment.target.floorId === activeFloor.id &&
+          assignment.target.roomSignature === selectedRoom.metadata.signature,
+      )?.materialId ?? null
+    : null
+  const selectedRoomCeilingMaterialId = selectedRoom
+    ? surfaceAssignments.find(
+        (assignment) =>
+          assignment.target.type === 'ceiling' &&
+          assignment.target.floorId === activeFloor.id &&
+          assignment.target.roomSignature === selectedRoom.metadata.signature,
+      )?.materialId ?? null
+    : null
+  const selectedWallAssignment = selectedWall
+    ? surfaceAssignments.find(
+        (assignment) =>
+          assignment.target.type === 'wall-face' &&
+          assignment.target.wallId === selectedWall.id,
+      )
+    : null
+  const selectedWallFinish = {
+    coverageHeight: Math.min(
+      selectedWall?.height ?? activeFloor.roomHeight,
+      selectedWallAssignment?.coverageHeight ?? 1.2,
+    ),
+    materialId: selectedWallAssignment?.materialId ?? null,
+    side:
+      selectedWallAssignment?.target.type === 'wall-face'
+        ? selectedWallAssignment.target.side
+        : ('both' as SurfaceWallSide),
+  }
+  const floorMaterialOptions = useMemo(
+    () =>
+      surfaceMaterialCatalog.filter(
+        (material) =>
+          material.category === 'flooring' || material.category === 'tile',
+      ),
+    [],
+  )
+  const ceilingMaterialOptions = useMemo(
+    () =>
+      surfaceMaterialCatalog.filter(
+        (material) =>
+          material.category === 'paint' ||
+          material.category === 'wall-covering' ||
+          material.category === 'ceiling',
+      ),
+    [],
+  )
+  const wallMaterialOptions = useMemo(
+    () =>
+      surfaceMaterialCatalog.filter(
+        (material) =>
+          material.category === 'paint' ||
+          material.category === 'tile' ||
+          material.category === 'wall-covering',
+      ),
+    [],
+  )
   const totalWallCount = floors.reduce(
     (wallCount, floor) => wallCount + floor.walls.length,
     0,
@@ -728,19 +1161,7 @@ function App() {
     if (selectedModel) {
       setClipboardItem({
         type: 'model',
-        model: cloneProjectSnapshot({
-          activeFloorId,
-          floors,
-          selectedFloorViewId,
-          selectedModelId,
-          selectedModelIds,
-          selectedRoomSignature,
-          selectedWallId,
-          selectedWallIds,
-          wallKind,
-        }).floors
-          .flatMap((floor) => floor.models)
-          .find((model) => model.id === selectedModel.model.id) ?? selectedModel.model,
+        model: structuredClone(selectedModel.model),
       })
       return
     }
@@ -829,16 +1250,20 @@ function App() {
     }
 
     setFloors((currentFloors) =>
-      currentFloors.map((floor) =>
-        floor.id === activeFloorId
-          ? syncWallOpenings(
-              {
-                ...floor,
-                models: [...(floor.models ?? []), modelToPaste],
-              },
-              modelsById,
-            )
-          : floor,
+      enforceProjectLightEnabledLimit(
+        currentFloors.map((floor) =>
+          floor.id === activeFloorId
+            ? syncWallOpeningsForModelIfNeeded(
+                {
+                  ...floor,
+                  models: [...(floor.models ?? []), modelToPaste],
+                },
+                modelToPaste.modelId,
+              )
+            : floor,
+        ),
+        modelToPaste.id,
+        activeFloorId,
       ),
     )
     setSelectedModelId(id)
@@ -1004,6 +1429,7 @@ function App() {
         canRedo={canRedo}
         canUndo={canUndo}
         floors={floors}
+        internalWallThickness={internalWallThickness}
         isAddingWall={isAddingWall}
         selectedFloorViewId={selectedFloorViewId}
         wallCount={totalWallCount}
@@ -1034,6 +1460,7 @@ function App() {
         }}
         onToggleAddWall={() => setIsAddingWall((value) => !value)}
         onUndo={undo}
+        onInternalWallThicknessChange={setInternalWallThickness}
         onWallKindChange={(nextWallKind) => {
           recordHistory()
           setWallKind(nextWallKind)
@@ -1057,6 +1484,7 @@ function App() {
         <FloorplanCanvas
           activeFloor={activeFloor}
           floors={floors}
+          internalWallThickness={internalWallThickness}
           isAddingWall={isAddingWall}
           selectedModelId={selectedModelId}
           selectedModelIds={selectedModelIds}
@@ -1082,9 +1510,18 @@ function App() {
         >
           <ContextPanel
             activeFloor={activeFloor}
+            ceilingMaterials={ceilingMaterialOptions}
+            floorMaterials={floorMaterialOptions}
             selectedModel={selectedModel}
             selectedRoom={selectedRoom}
+            selectedRoomCeilingMaterialId={selectedRoomCeilingMaterialId}
+            selectedRoomFloorMaterialId={selectedRoomFloorMaterialId}
+            selectedWallFinish={selectedWallFinish}
             selectedWall={selectedWall}
+            wallMaterials={wallMaterialOptions}
+            onAssignRoomCeilingMaterial={assignRoomCeilingMaterial}
+            onAssignRoomFloorMaterial={assignRoomFloorMaterial}
+            onAssignWallMaterial={assignWallMaterial}
             onDeleteModel={deleteModel}
             onRenameRoom={(roomSignature, name) => {
               recordHistory()
@@ -1150,6 +1587,7 @@ function App() {
           onUpdateModel={updateModel}
           selectedModelId={selectedModelId}
           showAllFloors={selectedFloorViewId === ALL_FLOORS_VIEW_ID}
+          surfaceAssignments={surfaceAssignments}
         />
       </section>
       {isModelSelectorOpen ? (

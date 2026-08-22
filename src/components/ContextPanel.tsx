@@ -1,9 +1,19 @@
-import type { FloorLevel, PlacedModel, Room, Wall } from '../types'
+import type {
+  FloorLevel,
+  PlacedModel,
+  Room,
+  SurfaceMaterialProduct,
+  SurfaceWallSide,
+  Wall,
+} from '../types'
+import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import type { ModelDefinition } from '../models/modelLibrary'
 import type { DetectedRoom } from '../wallTopology'
 
 type ContextPanelProps = {
   activeFloor: FloorLevel
+  ceilingMaterials: SurfaceMaterialProduct[]
+  floorMaterials: SurfaceMaterialProduct[]
   selectedModel: {
     definition: ModelDefinition
     model: PlacedModel
@@ -12,7 +22,29 @@ type ContextPanelProps = {
     detectedRoom: DetectedRoom
     metadata: Room
   } | null
+  selectedRoomCeilingMaterialId: string | null
+  selectedRoomFloorMaterialId: string | null
+  selectedWallFinish: {
+    coverageHeight: number
+    materialId: string | null
+    side: SurfaceWallSide
+  }
   selectedWall: Wall | undefined
+  wallMaterials: SurfaceMaterialProduct[]
+  onAssignRoomCeilingMaterial: (
+    roomSignature: string,
+    materialId: string | null,
+  ) => void
+  onAssignRoomFloorMaterial: (
+    roomSignature: string,
+    materialId: string | null,
+  ) => void
+  onAssignWallMaterial: (
+    wallId: string,
+    materialId: string | null,
+    coverageHeight: number,
+    side: SurfaceWallSide,
+  ) => void
   onDeleteModel: (modelId: string) => void
   onRenameRoom: (roomSignature: string, name: string) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
@@ -24,14 +56,24 @@ function getWallLength(wall: Wall) {
 
 export function ContextPanel({
   activeFloor,
+  ceilingMaterials,
+  floorMaterials,
   selectedModel,
   selectedRoom,
+  selectedRoomCeilingMaterialId,
+  selectedRoomFloorMaterialId,
+  selectedWallFinish,
   selectedWall,
+  wallMaterials,
+  onAssignRoomCeilingMaterial,
+  onAssignRoomFloorMaterial,
+  onAssignWallMaterial,
   onDeleteModel,
   onRenameRoom,
   onUpdateModel,
 }: ContextPanelProps) {
   const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
+  const selectedModelIsSpotlight = selectedModel?.definition.lightKind === 'spot'
 
   return (
     <aside className="context-panel" aria-label="Selection details">
@@ -92,6 +134,124 @@ export function ContextPanel({
             <dd>{selectedRoom.detectedRoom.area.toFixed(2)} m2</dd>
           </div>
         ) : null}
+        {selectedRoom ? (
+          <div className="context-field">
+            <dt>Floor</dt>
+            <dd>
+              <select
+                value={selectedRoomFloorMaterialId ?? ''}
+                onChange={(event) =>
+                  onAssignRoomFloorMaterial(
+                    selectedRoom.metadata.signature,
+                    event.target.value || null,
+                  )
+                }
+              >
+                <option value="">Default finish</option>
+                {floorMaterials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {getSurfaceMaterialLabel(material)}
+                  </option>
+                ))}
+              </select>
+            </dd>
+          </div>
+        ) : null}
+        {selectedRoom ? (
+          <div className="context-field">
+            <dt>Ceiling</dt>
+            <dd>
+              <select
+                value={selectedRoomCeilingMaterialId ?? ''}
+                onChange={(event) =>
+                  onAssignRoomCeilingMaterial(
+                    selectedRoom.metadata.signature,
+                    event.target.value || null,
+                  )
+                }
+              >
+                <option value="">Default finish</option>
+                {ceilingMaterials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {getSurfaceMaterialLabel(material)}
+                  </option>
+                ))}
+              </select>
+            </dd>
+          </div>
+        ) : null}
+        {selectedWall ? (
+          <>
+            <div className="context-field">
+              <dt>Finish</dt>
+              <dd>
+                <select
+                  value={selectedWallFinish.materialId ?? ''}
+                  onChange={(event) =>
+                    onAssignWallMaterial(
+                      selectedWall.id,
+                      event.target.value || null,
+                      selectedWallFinish.coverageHeight,
+                      selectedWallFinish.side,
+                    )
+                  }
+                >
+                  <option value="">Default finish</option>
+                  {wallMaterials.map((material) => (
+                    <option key={material.id} value={material.id}>
+                      {getSurfaceMaterialLabel(material)}
+                    </option>
+                  ))}
+                </select>
+              </dd>
+            </div>
+            <div className="context-field">
+              <dt>To height</dt>
+              <dd>
+                <input
+                  type="number"
+                  min={0.05}
+                  max={selectedWall.height}
+                  step={0.05}
+                  value={selectedWallFinish.coverageHeight}
+                  onChange={(event) =>
+                    onAssignWallMaterial(
+                      selectedWall.id,
+                      selectedWallFinish.materialId,
+                      Math.min(
+                        selectedWall.height,
+                        Math.max(0.05, Number(event.target.value)),
+                      ),
+                      selectedWallFinish.side,
+                    )
+                  }
+                />
+              </dd>
+            </div>
+            <div className="context-field">
+              <dt>Side</dt>
+              <dd>
+                <select
+                  value={selectedWallFinish.side}
+                  onChange={(event) =>
+                    onAssignWallMaterial(
+                      selectedWall.id,
+                      selectedWallFinish.materialId,
+                      selectedWallFinish.coverageHeight,
+                      event.target.value === 'both'
+                        ? 'both'
+                        : (Number(event.target.value) as SurfaceWallSide),
+                    )
+                  }
+                >
+                  <option value="both">Both</option>
+                  <option value="1">Side A</option>
+                  <option value="-1">Side B</option>
+                </select>
+              </dd>
+            </div>
+          </>
+        ) : null}
         <div>
           <dt>Length</dt>
           <dd>
@@ -139,6 +299,20 @@ export function ContextPanel({
             {selectedModelIsLight ? (
               <>
                 <div className="context-field">
+                  <dt>Enabled</dt>
+                  <dd>
+                    <input
+                      type="checkbox"
+                      checked={selectedModel.model.lightEnabled !== false}
+                      onChange={(event) =>
+                        onUpdateModel(selectedModel.model.id, {
+                          lightEnabled: event.target.checked,
+                        })
+                      }
+                    />
+                  </dd>
+                </div>
+                <div className="context-field">
                   <dt>Colour</dt>
                   <dd>
                     <input
@@ -177,6 +351,29 @@ export function ContextPanel({
                     />
                   </dd>
                 </div>
+                {selectedModelIsSpotlight ? (
+                  <div className="context-field">
+                    <dt>Spread</dt>
+                    <dd>
+                      <input
+                        type="number"
+                        min={5}
+                        max={120}
+                        step={1}
+                        value={
+                          selectedModel.model.lightSpread ??
+                          selectedModel.definition.lightSpread ??
+                          36
+                        }
+                        onChange={(event) =>
+                          onUpdateModel(selectedModel.model.id, {
+                            lightSpread: Number(event.target.value),
+                          })
+                        }
+                      />
+                    </dd>
+                  </div>
+                ) : null}
               </>
             ) : (
               <>
