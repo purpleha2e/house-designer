@@ -1,0 +1,15 @@
+{
+  "id": "farrow-ball-hague-blue",
+  "manufacturer": "Farrow & Ball",
+  "productName": "Hague Blue",
+  "category": "paint",
+  "materialType": "paint",
+  "finish": "matt",
+  "colourFamily": "blue",
+  "tags": ["wall", "paint"],
+  "pbr": {
+    "baseColor": "#2f3f46",
+    "roughness": 0.88,
+    "metalness": 0
+  }
+}

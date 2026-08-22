@@ -106,7 +106,26 @@ export type SurfaceMaterialAssignment = {
   id: string
   materialId: string
   target: SurfaceTarget
+  textureRotation?: number
+  textureScale?: number
 }
+
+export type SelectableSurface =
+  | {
+      floorId: string
+      roomSignature: string
+      type: 'room-floor'
+    }
+  | {
+      floorId: string
+      roomSignature: string
+      type: 'ceiling'
+    }
+  | {
+      floorId: string
+      wallId: string
+      type: 'wall-face'
+    }
 
 export type PlacedModel = {
   id: string

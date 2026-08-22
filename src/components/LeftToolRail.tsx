@@ -1,7 +1,15 @@
 import { useState } from 'react'
-import type { FloorLevel, WallKind } from '../types'
+import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
+import type {
+  FloorLevel,
+  SelectableSurface,
+  SurfaceMaterialProduct,
+  SurfaceWallSide,
+  WallKind,
+} from '../types'
 
-type RailPanel = 'floor' | 'project' | 'wall'
+type RailPanel = 'floor' | 'materials' | 'project' | 'wall'
+type WallMaterialMode = 'full' | 'lower'
 
 type LeftToolRailProps = {
   activeFloorId: string
@@ -12,11 +20,22 @@ type LeftToolRailProps = {
   floors: FloorLevel[]
   internalWallThickness: number
   isAddingWall: boolean
+  materials: SurfaceMaterialProduct[]
+  selectedSurface: SelectableSurface | null
   selectedFloorViewId: string
+  selectedWallHeight: number | null
   wallCount: number
   wallKind: WallKind
   onAddEmptyFloor: () => void
   onAddFloor: () => void
+  onApplyMaterial: (options: {
+    coverageHeight?: number
+    materialId: string
+    textureRotation: number
+    textureScale: number
+    wallMode?: WallMaterialMode
+    wallSide?: SurfaceWallSide
+  }) => void
   onCopy: () => void
   onCut: () => void
   onDeleteFloor: () => void
@@ -69,11 +88,15 @@ export function LeftToolRail({
   floors,
   internalWallThickness,
   isAddingWall,
+  materials,
+  selectedSurface,
   selectedFloorViewId,
+  selectedWallHeight,
   wallCount,
   wallKind,
   onAddEmptyFloor,
   onAddFloor,
+  onApplyMaterial,
   onCopy,
   onCut,
   onDeleteFloor,
@@ -89,6 +112,17 @@ export function LeftToolRail({
   onWallKindChange,
 }: LeftToolRailProps) {
   const [openPanel, setOpenPanel] = useState<RailPanel | null>(null)
+  const [materialManufacturer, setMaterialManufacturer] = useState('')
+  const [materialType, setMaterialType] = useState('')
+  const [materialFinish, setMaterialFinish] = useState('')
+  const [selectedMaterialId, setSelectedMaterialId] = useState('')
+  const [wallMaterialMode, setWallMaterialMode] =
+    useState<WallMaterialMode>('full')
+  const [wallMaterialSide, setWallMaterialSide] =
+    useState<SurfaceWallSide>('both')
+  const [wallCoverageHeight, setWallCoverageHeight] = useState(1.2)
+  const [textureScale, setTextureScale] = useState(1)
+  const [textureRotation, setTextureRotation] = useState(0)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId)
   const updateInternalWallThickness = (value: string) => {
     const parsedValue = Number.parseFloat(value)
@@ -103,6 +137,60 @@ export function LeftToolRail({
   }
   const togglePanel = (panel: RailPanel) => {
     setOpenPanel((currentPanel) => (currentPanel === panel ? null : panel))
+  }
+  const manufacturers = Array.from(
+    new Set(materials.map((material) => material.manufacturer)),
+  ).sort((first, second) => first.localeCompare(second))
+  const materialTypes = Array.from(
+    new Set(
+      materials.map((material) => material.materialType ?? material.category),
+    ),
+  ).sort((first, second) => first.localeCompare(second))
+  const finishes = Array.from(
+    new Set(materials.flatMap((material) => (material.finish ? [material.finish] : []))),
+  ).sort((first, second) => first.localeCompare(second))
+  const filteredMaterials = materials.filter((material) => {
+    const type = material.materialType ?? material.category
+
+    return (
+      (!materialManufacturer || material.manufacturer === materialManufacturer) &&
+      (!materialType || type === materialType) &&
+      (!materialFinish || material.finish === materialFinish)
+    )
+  })
+  const selectedMaterialIsVisible = filteredMaterials.some(
+    (material) => material.id === selectedMaterialId,
+  )
+  const materialToApply = selectedMaterialIsVisible
+    ? selectedMaterialId
+    : filteredMaterials[0]?.id ?? ''
+  const selectedSurfaceLabel =
+    selectedSurface?.type === 'room-floor'
+      ? 'Floor selected'
+      : selectedSurface?.type === 'ceiling'
+        ? 'Ceiling selected'
+        : selectedSurface?.type === 'wall-face'
+          ? 'Wall selected'
+          : 'Select a wall, floor or ceiling in 3D'
+  const applySelectedMaterial = () => {
+    if (!selectedSurface || !materialToApply) {
+      return
+    }
+
+    onApplyMaterial({
+      coverageHeight:
+        selectedSurface.type === 'wall-face' && wallMaterialMode === 'lower'
+          ? Math.min(
+              selectedWallHeight ?? wallCoverageHeight,
+              Math.max(0.05, wallCoverageHeight),
+            )
+          : selectedWallHeight ?? undefined,
+      materialId: materialToApply,
+      textureRotation,
+      textureScale,
+      wallMode: selectedSurface.type === 'wall-face' ? wallMaterialMode : undefined,
+      wallSide: selectedSurface.type === 'wall-face' ? wallMaterialSide : undefined,
+    })
   }
 
   return (
@@ -131,6 +219,13 @@ export function LeftToolRail({
         </IconButton>
         <IconButton label="Add model" onClick={onOpenModelSelector}>
           M
+        </IconButton>
+        <IconButton
+          active={openPanel === 'materials'}
+          label="Materials"
+          onClick={() => togglePanel('materials')}
+        >
+          A
         </IconButton>
         <div className="left-tool-rail-divider" />
         <IconButton disabled={!canUndo} label="Undo" onClick={onUndo}>
@@ -247,6 +342,172 @@ export function LeftToolRail({
               </button>
               <button type="button" disabled={floors.length <= 1} onClick={onDeleteFloor}>
                 Delete current floor
+              </button>
+            </>
+          ) : null}
+
+          {openPanel === 'materials' ? (
+            <>
+              <header>
+                <h2>Materials</h2>
+                <p>{selectedSurfaceLabel}</p>
+              </header>
+              <label className="flyout-select">
+                <span>Manufacturer</span>
+                <select
+                  value={materialManufacturer}
+                  onChange={(event) => setMaterialManufacturer(event.target.value)}
+                >
+                  <option value="">All</option>
+                  {manufacturers.map((manufacturer) => (
+                    <option key={manufacturer} value={manufacturer}>
+                      {manufacturer}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flyout-select">
+                <span>Type</span>
+                <select
+                  value={materialType}
+                  onChange={(event) => setMaterialType(event.target.value)}
+                >
+                  <option value="">All</option>
+                  {materialTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flyout-select">
+                <span>Finish</span>
+                <select
+                  value={materialFinish}
+                  onChange={(event) => setMaterialFinish(event.target.value)}
+                >
+                  <option value="">All</option>
+                  {finishes.map((finish) => (
+                    <option key={finish} value={finish}>
+                      {finish}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flyout-select">
+                <span>Product</span>
+                <select
+                  value={materialToApply}
+                  onChange={(event) => setSelectedMaterialId(event.target.value)}
+                >
+                  {filteredMaterials.length > 0 ? (
+                    filteredMaterials.map((material) => (
+                      <option key={material.id} value={material.id}>
+                        {getSurfaceMaterialLabel(material)}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No matches</option>
+                  )}
+                </select>
+              </label>
+              <label className="flyout-field">
+                <span>Texture scale</span>
+                <div>
+                  <input
+                    type="number"
+                    min="0.05"
+                    max="20"
+                    step="0.05"
+                    value={textureScale}
+                    onChange={(event) => {
+                      const parsedValue = Number.parseFloat(event.target.value)
+
+                      if (Number.isFinite(parsedValue)) {
+                        setTextureScale(Math.min(20, Math.max(0.05, parsedValue)))
+                      }
+                    }}
+                  />
+                  <span>x</span>
+                </div>
+              </label>
+              <label className="flyout-select">
+                <span>Orientation</span>
+                <select
+                  value={textureRotation}
+                  onChange={(event) => setTextureRotation(Number(event.target.value))}
+                >
+                  <option value={0}>0 deg</option>
+                  <option value={90}>90 deg</option>
+                  <option value={180}>180 deg</option>
+                  <option value={270}>270 deg</option>
+                </select>
+              </label>
+              {selectedSurface?.type === 'wall-face' ? (
+                <>
+                  <div className="flyout-segmented-control" aria-label="Wall finish area">
+                    <button
+                      type="button"
+                      className={wallMaterialMode === 'full' ? 'active' : ''}
+                      onClick={() => setWallMaterialMode('full')}
+                    >
+                      Wall
+                    </button>
+                    <button
+                      type="button"
+                      className={wallMaterialMode === 'lower' ? 'active' : ''}
+                      onClick={() => setWallMaterialMode('lower')}
+                    >
+                      Lower wall
+                    </button>
+                  </div>
+                  <label className="flyout-select">
+                    <span>Side</span>
+                    <select
+                      value={wallMaterialSide}
+                      onChange={(event) =>
+                        setWallMaterialSide(
+                          event.target.value === 'both'
+                            ? 'both'
+                            : (Number(event.target.value) as SurfaceWallSide),
+                        )
+                      }
+                    >
+                      <option value="both">Both sides</option>
+                      <option value="1">Side A</option>
+                      <option value="-1">Side B</option>
+                    </select>
+                  </label>
+                  {wallMaterialMode === 'lower' ? (
+                    <label className="flyout-field">
+                      <span>Height</span>
+                      <div>
+                        <input
+                          type="number"
+                          min="0.05"
+                          max={selectedWallHeight ?? 3}
+                          step="0.05"
+                          value={wallCoverageHeight}
+                          onChange={(event) => {
+                            const parsedValue = Number.parseFloat(event.target.value)
+
+                            if (Number.isFinite(parsedValue)) {
+                              setWallCoverageHeight(parsedValue)
+                            }
+                          }}
+                        />
+                        <span>m</span>
+                      </div>
+                    </label>
+                  ) : null}
+                </>
+              ) : null}
+              <button
+                type="button"
+                disabled={!selectedSurface || !materialToApply}
+                onClick={applySelectedMaterial}
+              >
+                Apply material
               </button>
             </>
           ) : null}

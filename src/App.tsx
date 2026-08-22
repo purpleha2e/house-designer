@@ -9,6 +9,7 @@ import type {
   FloorLevel,
   PlacedModel,
   Room,
+  SelectableSurface,
   SurfaceMaterialAssignment,
   SurfaceWallSide,
   Wall,
@@ -84,6 +85,7 @@ type ProjectSnapshot = SavedProject & {
   selectedModelId: string | null
   selectedModelIds: string[]
   selectedRoomSignature: string | null
+  selectedSurface: SelectableSurface | null
   selectedWallId: string | null
   selectedWallIds: string[]
 }
@@ -254,6 +256,8 @@ function App() {
     null,
   )
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
+  const [selectedSurface, setSelectedSurface] =
+    useState<SelectableSurface | null>(null)
   const [selectedWallIds, setSelectedWallIds] = useState<string[]>([initialWallId])
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const editorGridRef = useRef<HTMLElement>(null)
@@ -280,6 +284,7 @@ function App() {
     selectedModelId,
     selectedModelIds,
     selectedRoomSignature,
+    selectedSurface,
     selectedWallId,
     selectedWallIds,
     surfaceAssignments,
@@ -299,6 +304,7 @@ function App() {
     setSelectedModelId(snapshot.selectedModelId)
     setSelectedModelIds(snapshot.selectedModelIds)
     setSelectedRoomSignature(snapshot.selectedRoomSignature)
+    setSelectedSurface(snapshot.selectedSurface ?? null)
     setSelectedWallId(snapshot.selectedWallId)
     setSelectedWallIds(snapshot.selectedWallIds)
     setSurfaceAssignments(snapshot.surfaceAssignments ?? [])
@@ -837,6 +843,8 @@ function App() {
   const assignRoomFloorMaterial = (
     roomSignature: string,
     materialId: string | null,
+    textureScale = 1,
+    textureRotation = 0,
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
@@ -863,6 +871,8 @@ function App() {
             floorId: activeFloor.id,
             roomSignature,
           },
+          textureRotation,
+          textureScale,
         },
       ]
     })
@@ -871,6 +881,8 @@ function App() {
   const assignRoomCeilingMaterial = (
     roomSignature: string,
     materialId: string | null,
+    textureScale = 1,
+    textureRotation = 0,
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
@@ -897,6 +909,8 @@ function App() {
             floorId: activeFloor.id,
             roomSignature,
           },
+          textureRotation,
+          textureScale,
         },
       ]
     })
@@ -907,6 +921,8 @@ function App() {
     materialId: string | null,
     coverageHeight: number,
     side: SurfaceWallSide,
+    textureScale = 1,
+    textureRotation = 0,
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
@@ -933,6 +949,8 @@ function App() {
             side,
             wallId,
           },
+          textureRotation,
+          textureScale,
         },
       ]
     })
@@ -1086,68 +1104,61 @@ function App() {
         return detectedRoom && metadata ? { detectedRoom, metadata } : null
       })()
     : null
-  const selectedRoomFloorMaterialId = selectedRoom
-    ? surfaceAssignments.find(
-        (assignment) =>
-          assignment.target.type === 'room-floor' &&
-          assignment.target.floorId === activeFloor.id &&
-          assignment.target.roomSignature === selectedRoom.metadata.signature,
-      )?.materialId ?? null
+  const selectedSurfaceWall = selectedSurface?.type === 'wall-face'
+    ? activeFloor.walls.find((wall) => wall.id === selectedSurface.wallId) ?? null
     : null
-  const selectedRoomCeilingMaterialId = selectedRoom
-    ? surfaceAssignments.find(
-        (assignment) =>
-          assignment.target.type === 'ceiling' &&
-          assignment.target.floorId === activeFloor.id &&
-          assignment.target.roomSignature === selectedRoom.metadata.signature,
-      )?.materialId ?? null
-    : null
-  const selectedWallAssignment = selectedWall
-    ? surfaceAssignments.find(
-        (assignment) =>
-          assignment.target.type === 'wall-face' &&
-          assignment.target.wallId === selectedWall.id,
+  const applyMaterialToSelectedSurface = ({
+    coverageHeight,
+    materialId,
+    textureRotation,
+    textureScale,
+    wallMode,
+    wallSide,
+  }: {
+    coverageHeight?: number
+    materialId: string
+    textureRotation: number
+    textureScale: number
+    wallMode?: 'full' | 'lower'
+    wallSide?: SurfaceWallSide
+  }) => {
+    if (!selectedSurface) {
+      return
+    }
+
+    if (selectedSurface.type === 'room-floor') {
+      assignRoomFloorMaterial(
+        selectedSurface.roomSignature,
+        materialId,
+        textureScale,
+        textureRotation,
       )
-    : null
-  const selectedWallFinish = {
-    coverageHeight: Math.min(
-      selectedWall?.height ?? activeFloor.roomHeight,
-      selectedWallAssignment?.coverageHeight ?? 1.2,
-    ),
-    materialId: selectedWallAssignment?.materialId ?? null,
-    side:
-      selectedWallAssignment?.target.type === 'wall-face'
-        ? selectedWallAssignment.target.side
-        : ('both' as SurfaceWallSide),
+      return
+    }
+
+    if (selectedSurface.type === 'ceiling') {
+      assignRoomCeilingMaterial(
+        selectedSurface.roomSignature,
+        materialId,
+        textureScale,
+        textureRotation,
+      )
+      return
+    }
+
+    const wall = activeFloor.walls.find((candidateWall) =>
+      candidateWall.id === selectedSurface.wallId
+    )
+
+    assignWallMaterial(
+      selectedSurface.wallId,
+      materialId,
+      wallMode === 'lower' ? coverageHeight ?? 1.2 : wall?.height ?? activeFloor.roomHeight,
+      wallSide ?? 'both',
+      textureScale,
+      textureRotation,
+    )
   }
-  const floorMaterialOptions = useMemo(
-    () =>
-      surfaceMaterialCatalog.filter(
-        (material) =>
-          material.category === 'flooring' || material.category === 'tile',
-      ),
-    [],
-  )
-  const ceilingMaterialOptions = useMemo(
-    () =>
-      surfaceMaterialCatalog.filter(
-        (material) =>
-          material.category === 'paint' ||
-          material.category === 'wall-covering' ||
-          material.category === 'ceiling',
-      ),
-    [],
-  )
-  const wallMaterialOptions = useMemo(
-    () =>
-      surfaceMaterialCatalog.filter(
-        (material) =>
-          material.category === 'paint' ||
-          material.category === 'tile' ||
-          material.category === 'wall-covering',
-      ),
-    [],
-  )
   const totalWallCount = floors.reduce(
     (wallCount, floor) => wallCount + floor.walls.length,
     0,
@@ -1271,6 +1282,7 @@ function App() {
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
+    setSelectedSurface(null)
     setIsAddingWall(false)
   }
 
@@ -1313,6 +1325,7 @@ function App() {
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
+    setSelectedSurface(null)
     setIsAddingWall(false)
   }
 
@@ -1322,13 +1335,37 @@ function App() {
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
+    setSelectedSurface(null)
     setIsAddingWall(false)
+  }
+
+  const selectSurfaceFromThreeD = (surface: SelectableSurface) => {
+    setActiveFloorId(surface.floorId)
+
+    if (selectedFloorViewId !== ALL_FLOORS_VIEW_ID) {
+      setSelectedFloorViewId(surface.floorId)
+    }
+
+    setSelectedSurface(surface)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setSelectedWallIds([])
+
+    if (surface.type === 'wall-face') {
+      setSelectedWallId(surface.wallId)
+      setSelectedRoomSignature(null)
+      return
+    }
+
+    setSelectedWallId(null)
+    setSelectedRoomSignature(surface.roomSignature)
   }
 
   const selectWall = (wallId: string | null, additive = false) => {
     if (!wallId) {
       setSelectedWallId(null)
       setSelectedWallIds([])
+      setSelectedSurface(null)
       return
     }
 
@@ -1349,6 +1386,7 @@ function App() {
     setSelectedModelId(null)
     setSelectedModelIds([])
     setSelectedRoomSignature(null)
+    setSelectedSurface(null)
     setIsAddingWall(false)
   }
 
@@ -1431,11 +1469,15 @@ function App() {
         floors={floors}
         internalWallThickness={internalWallThickness}
         isAddingWall={isAddingWall}
+        materials={surfaceMaterialCatalog}
+        selectedSurface={selectedSurface}
         selectedFloorViewId={selectedFloorViewId}
+        selectedWallHeight={selectedSurfaceWall?.height ?? null}
         wallCount={totalWallCount}
         wallKind={wallKind}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
+        onApplyMaterial={applyMaterialToSelectedSurface}
         onCopy={copySelection}
         onCut={cutSelection}
         onDeleteFloor={deleteActiveFloor}
@@ -1503,6 +1545,7 @@ function App() {
             setSelectedWallIds([])
             setSelectedModelId(null)
             setSelectedModelIds([])
+            setSelectedSurface(null)
           }}
           onSelectWall={selectWall}
           onUpdateModel={updateModel}
@@ -1510,18 +1553,9 @@ function App() {
         >
           <ContextPanel
             activeFloor={activeFloor}
-            ceilingMaterials={ceilingMaterialOptions}
-            floorMaterials={floorMaterialOptions}
             selectedModel={selectedModel}
             selectedRoom={selectedRoom}
-            selectedRoomCeilingMaterialId={selectedRoomCeilingMaterialId}
-            selectedRoomFloorMaterialId={selectedRoomFloorMaterialId}
-            selectedWallFinish={selectedWallFinish}
             selectedWall={selectedWall}
-            wallMaterials={wallMaterialOptions}
-            onAssignRoomCeilingMaterial={assignRoomCeilingMaterial}
-            onAssignRoomFloorMaterial={assignRoomFloorMaterial}
-            onAssignWallMaterial={assignWallMaterial}
             onDeleteModel={deleteModel}
             onRenameRoom={(roomSignature, name) => {
               recordHistory()
@@ -1584,8 +1618,10 @@ function App() {
           floors={floors}
           onClearSelection={clearThreeDSelection}
           onSelectModel={selectModelFromThreeD}
+          onSelectSurface={selectSurfaceFromThreeD}
           onUpdateModel={updateModel}
           selectedModelId={selectedModelId}
+          selectedSurface={selectedSurface}
           showAllFloors={selectedFloorViewId === ALL_FLOORS_VIEW_ID}
           surfaceAssignments={surfaceAssignments}
         />

@@ -19,12 +19,17 @@ import {
   Object3D,
   PointLight,
   Raycaster,
+  RepeatWrapping,
   Shape,
   Box3,
+  SRGBColorSpace,
   Spherical,
   SpotLight,
+  TextureLoader,
   Vector2,
   Vector3,
+  type Side,
+  type Texture,
 } from 'three'
 import {
   Component,
@@ -44,7 +49,9 @@ import type {
   FloorLevel,
   PlacedModel,
   Point,
+  SelectableSurface,
   SurfaceMaterialAssignment,
+  SurfaceMaterialProduct,
   SurfaceWallSide,
   Wall,
   WallKind,
@@ -59,8 +66,10 @@ type ThreeDViewProps = {
   floors: FloorLevel[]
   onClearSelection: () => void
   onSelectModel: (modelId: string, floorId: string) => void
+  onSelectSurface: (surface: SelectableSurface) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
   selectedModelId: string | null
+  selectedSurface: SelectableSurface | null
   showAllFloors: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
 }
@@ -153,12 +162,21 @@ type PickGesture = {
 
 type LookGesture = PickGesture
 
-type PickTarget = {
-  blocksCollision: boolean
-  floorId: string
-  modelId: string
-  object: Object3D
-}
+type PickTarget =
+  | {
+      blocksCollision: boolean
+      floorId: string
+      kind: 'model'
+      modelId: string
+      object: Object3D
+    }
+  | {
+      blocksCollision: false
+      floorId: string
+      kind: 'surface'
+      object: Object3D
+      surface: SelectableSurface
+    }
 
 type ModelHorizontalBounds = {
   maxX: number
@@ -947,46 +965,6 @@ function getSceneBounds(floors: FloorLevel[]) {
   }
 }
 
-type FloorPlaneBounds = NonNullable<ReturnType<typeof getFloorPlaneBounds>>
-
-function GroundGrid({
-  floorPlane,
-  isActive,
-}: {
-  floorPlane: FloorPlaneBounds
-  isActive: boolean
-}) {
-  const geometry = useMemo(() => {
-    const halfSize = floorPlane.size / 2
-    const firstLine = Math.ceil(-halfSize)
-    const lastLine = Math.floor(halfSize)
-    const positions: number[] = []
-
-    for (let position = firstLine; position <= lastLine; position += 1) {
-      positions.push(position, 0, -halfSize, position, 0, halfSize)
-      positions.push(-halfSize, 0, position, halfSize, 0, position)
-    }
-
-    const gridGeometry = new BufferGeometry()
-    gridGeometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-    return gridGeometry
-  }, [floorPlane.size])
-
-  return (
-    <lineSegments
-      geometry={geometry}
-      position={[floorPlane.centerX, 0.006, floorPlane.centerZ]}
-    >
-      <lineBasicMaterial
-        color={isActive ? '#64748b' : '#94a3b8'}
-        depthWrite={false}
-        opacity={isActive ? 0.34 : 0.2}
-        transparent
-      />
-    </lineSegments>
-  )
-}
-
 function SunLight({
   enabled,
   lightDirection,
@@ -1496,6 +1474,182 @@ function getWallMaterialAssignment(
   )
 }
 
+type LoadedSurfaceTextures = {
+  aoMap?: Texture
+  displacementMap?: Texture
+  map?: Texture
+  metalnessMap?: Texture
+  normalMap?: Texture
+  roughnessMap?: Texture
+}
+
+function configureSurfaceTexture(
+  texture: Texture,
+  {
+    isColorMap = false,
+    repeatX,
+    repeatY,
+    rotationRadians,
+  }: {
+    isColorMap?: boolean
+    repeatX: number
+    repeatY: number
+    rotationRadians: number
+  },
+) {
+  texture.wrapS = RepeatWrapping
+  texture.wrapT = RepeatWrapping
+  texture.repeat.set(repeatX, repeatY)
+  texture.center.set(0.5, 0.5)
+  texture.rotation = rotationRadians
+
+  if (isColorMap) {
+    texture.colorSpace = SRGBColorSpace
+  }
+
+  texture.needsUpdate = true
+  return texture
+}
+
+function useSurfaceMaterialTextures(
+  material: SurfaceMaterialProduct,
+  assignment: SurfaceMaterialAssignment,
+) {
+  const [textures, setTextures] = useState<LoadedSurfaceTextures>({})
+  const {
+    ambientOcclusionTextureUrl,
+    baseColorTextureUrl,
+    displacementTextureUrl,
+    metalnessTextureUrl,
+    normalTextureUrl,
+    repeatX = 1,
+    repeatY = 1,
+    roughnessTextureUrl,
+  } = material.pbr
+  const textureScale = assignment.textureScale ?? 1
+  const rotationRadians = ((assignment.textureRotation ?? 0) * Math.PI) / 180
+  const effectiveRepeatX = repeatX / textureScale
+  const effectiveRepeatY = repeatY / textureScale
+
+  useEffect(() => {
+    let cancelled = false
+    const textureLoader = new TextureLoader()
+    const nextTextures: LoadedSurfaceTextures = {}
+    const textureEntries = [
+      ['map', baseColorTextureUrl, true],
+      ['normalMap', normalTextureUrl, false],
+      ['roughnessMap', roughnessTextureUrl, false],
+      ['metalnessMap', metalnessTextureUrl, false],
+      ['aoMap', ambientOcclusionTextureUrl, false],
+      ['displacementMap', displacementTextureUrl, false],
+    ] as const
+    const entriesToLoad = textureEntries.filter(
+      (entry): entry is typeof textureEntries[number] & [keyof LoadedSurfaceTextures, string, boolean] =>
+        Boolean(entry[1]),
+    )
+
+    if (entriesToLoad.length === 0) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setTextures({})
+        }
+      })
+      return
+    }
+
+    let remainingCount = entriesToLoad.length
+
+    entriesToLoad.forEach(([key, textureUrl, isColorMap]) => {
+      textureLoader.load(
+        textureUrl,
+        (texture) => {
+          nextTextures[key] = configureSurfaceTexture(texture, {
+            isColorMap,
+            repeatX: effectiveRepeatX,
+            repeatY: effectiveRepeatY,
+            rotationRadians,
+          })
+          remainingCount -= 1
+
+          if (!cancelled && remainingCount === 0) {
+            setTextures(nextTextures)
+          }
+        },
+        undefined,
+        () => {
+          remainingCount -= 1
+
+          if (!cancelled && remainingCount === 0) {
+            setTextures(nextTextures)
+          }
+        },
+      )
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    ambientOcclusionTextureUrl,
+    baseColorTextureUrl,
+    displacementTextureUrl,
+    material.id,
+    metalnessTextureUrl,
+    normalTextureUrl,
+    effectiveRepeatX,
+    effectiveRepeatY,
+    rotationRadians,
+    roughnessTextureUrl,
+  ])
+
+  return textures
+}
+
+function SurfaceMeshStandardMaterial({
+  material,
+  assignment,
+  polygonOffsetFactor,
+  polygonOffsetUnits,
+  side,
+  wireframe,
+}: {
+  material: SurfaceMaterialProduct
+  assignment: SurfaceMaterialAssignment
+  polygonOffsetFactor: number
+  polygonOffsetUnits: number
+  side?: Side
+  wireframe: boolean
+}) {
+  const textures = useSurfaceMaterialTextures(material, assignment)
+  const hasBaseColorTexture = Boolean(textures.map)
+  const materialKey = [
+    material.id,
+    textures.map?.uuid,
+    textures.normalMap?.uuid,
+    textures.roughnessMap?.uuid,
+    textures.displacementMap?.uuid,
+    assignment.textureScale ?? 1,
+    assignment.textureRotation ?? 0,
+    side ?? FrontSide,
+  ].join(':')
+
+  return (
+    <meshStandardMaterial
+      key={materialKey}
+      {...textures}
+      color={hasBaseColorTexture ? '#ffffff' : material.pbr.baseColor ?? '#e2e8f0'}
+      displacementScale={material.pbr.displacementScale ?? 0}
+      metalness={material.pbr.metalness ?? 0}
+      polygonOffset
+      polygonOffsetFactor={polygonOffsetFactor}
+      polygonOffsetUnits={polygonOffsetUnits}
+      roughness={material.pbr.roughness ?? 0.7}
+      side={side}
+      wireframe={wireframe}
+    />
+  )
+}
+
 function WallFinishOverlay({
   renderedLength,
   segments,
@@ -1555,13 +1709,11 @@ function WallFinishOverlay({
             renderOrder={4}
           >
             <planeGeometry args={[segment.length, finishHeight]} />
-            <meshStandardMaterial
-              color={material.pbr.baseColor ?? '#e2e8f0'}
-              metalness={material.pbr.metalness ?? 0}
-              polygonOffset
+            <SurfaceMeshStandardMaterial
+              assignment={assignment}
+              material={material}
               polygonOffsetFactor={-2}
               polygonOffsetUnits={-2}
-              roughness={material.pbr.roughness ?? 0.7}
               wireframe={wireframe}
             />
           </mesh>
@@ -1571,20 +1723,140 @@ function WallFinishOverlay({
   )
 }
 
+function WallSelectableFace({
+  floorId,
+  isSelected,
+  onRegisterPickTarget,
+  renderedLength,
+  side,
+  wall,
+  wallHeight,
+  wallThickness,
+}: {
+  floorId: string
+  isSelected: boolean
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  renderedLength: number
+  side: -1 | 1
+  wall: Wall
+  wallHeight: number
+  wallThickness: number
+}) {
+  const meshRef = useRef<Object3D>(null!)
+  const surface = useMemo<SelectableSurface>(
+    () => ({
+      floorId,
+      type: 'wall-face',
+      wallId: wall.id,
+    }),
+    [floorId, wall.id],
+  )
+
+  useEffect(() => {
+    const object = meshRef.current
+
+    if (!object) {
+      return
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      kind: 'surface',
+      object,
+      surface,
+    })
+  }, [floorId, onRegisterPickTarget, surface])
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={[0, 0, side * (wallThickness / 2 + 0.012)]}
+      rotation={[0, side === 1 ? 0 : Math.PI, 0]}
+      renderOrder={isSelected ? 7 : -1}
+    >
+      <planeGeometry args={[renderedLength, wallHeight]} />
+      <meshBasicMaterial
+        color="#f97316"
+        depthTest={false}
+        depthWrite={false}
+        opacity={isSelected ? 0.26 : 0}
+        side={DoubleSide}
+        transparent
+      />
+    </mesh>
+  )
+}
+
+function WallSelectionOverlay({
+  floorId,
+  onRegisterPickTarget,
+  renderedLength,
+  selectedSurface,
+  wall,
+  wallHeight,
+  wallThickness,
+}: {
+  floorId: string
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  renderedLength: number
+  selectedSurface: SelectableSurface | null
+  wall: Wall
+  wallHeight: number
+  wallThickness: number
+}) {
+  const isSelected = surfacesMatch(selectedSurface, {
+    floorId,
+    type: 'wall-face',
+    wallId: wall.id,
+  })
+
+  return (
+    <>
+      <WallSelectableFace
+        floorId={floorId}
+        isSelected={isSelected}
+        onRegisterPickTarget={onRegisterPickTarget}
+        renderedLength={renderedLength}
+        side={1}
+        wall={wall}
+        wallHeight={wallHeight}
+        wallThickness={wallThickness}
+      />
+      <WallSelectableFace
+        floorId={floorId}
+        isSelected={isSelected}
+        onRegisterPickTarget={onRegisterPickTarget}
+        renderedLength={renderedLength}
+        side={-1}
+        wall={wall}
+        wallHeight={wallHeight}
+        wallThickness={wallThickness}
+      />
+    </>
+  )
+}
+
 const WallMesh = memo(function WallMesh({
   castsShadow,
   elevation,
+  floorId,
   externalWallPolygons,
   isActive,
+  onRegisterPickTarget,
   renderedWall,
+  selectedSurface,
   surfaceAssignments,
   wireframe,
 }: {
   castsShadow: boolean
   elevation: number
+  floorId: string
   externalWallPolygons: Point[][]
   isActive: boolean
+  onRegisterPickTarget: (target: PickTarget) => () => void
   renderedWall: RenderedWall
+  selectedSurface: SelectableSurface | null
   surfaceAssignments: SurfaceMaterialAssignment[]
   wireframe: boolean
 }) {
@@ -1765,6 +2037,15 @@ const WallMesh = memo(function WallMesh({
             <Edges color="#64748b" threshold={15} />
           </mesh>
         )}
+        <WallSelectionOverlay
+          floorId={floorId}
+          onRegisterPickTarget={onRegisterPickTarget}
+          renderedLength={renderedLength}
+          selectedSurface={selectedSurface}
+          wall={wall}
+          wallHeight={wall.height}
+          wallThickness={wall.thickness}
+        />
       </group>
       {joinFillGeometries.map((geometry, index) => (
         <mesh
@@ -2316,43 +2597,46 @@ function FloorSlab({
   return (
     <group>
       {slabShapes.map((slabShape, index) => (
-        <mesh
-          key={index}
-          castShadow={isSolid}
-          position={[0, floor.elevation + floor.roomHeight, 0]}
-          rotation={[-Math.PI / 2, 0, 0]}
-          receiveShadow={isSolid}
-          renderOrder={isSolid ? 1 : 0}
-        >
-          <extrudeGeometry
-            args={[
-              slabShape,
-              {
-                bevelEnabled: false,
-                depth: floor.slabThickness,
-              },
-            ]}
-          />
-          <meshStandardMaterial
-            attach="material-0"
-            color="#e2e8f0"
-            opacity={isSolid ? 1 : 0.18}
-            transparent={!isSolid}
-            depthWrite={isSolid}
-            roughness={0.82}
-            wireframe={wireframe}
-          />
-          <meshStandardMaterial
-            attach="material-1"
-            color="#94a3b8"
-            depthWrite={isSolid}
-            opacity={isSolid ? 1 : 0.18}
-            roughness={0.82}
-            shadowSide={FrontSide}
-            transparent={!isSolid}
-            wireframe={wireframe}
-          />
-        </mesh>
+        <group key={index}>
+          <mesh
+            castShadow={isSolid}
+            position={[0, floor.elevation + floor.roomHeight, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={0}
+          >
+            <extrudeGeometry
+              args={[
+                slabShape,
+                {
+                  bevelEnabled: false,
+                  depth: floor.slabThickness,
+                },
+              ]}
+            />
+            <meshStandardMaterial
+              colorWrite={false}
+              depthWrite={false}
+              shadowSide={FrontSide}
+              wireframe={wireframe}
+            />
+          </mesh>
+          <mesh
+            position={[0, floor.elevation + floor.roomHeight - 0.002, 0]}
+            receiveShadow={isSolid}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={isSolid ? 1 : 0}
+          >
+            <shapeGeometry args={[slabShape]} />
+            <meshStandardMaterial
+              color="#e2e8f0"
+              opacity={isSolid ? 1 : 0.18}
+              roughness={0.82}
+              side={BackSide}
+              transparent={!isSolid}
+              wireframe={wireframe}
+            />
+          </mesh>
+        </group>
       ))}
     </group>
   )
@@ -2372,7 +2656,7 @@ function createPlanShape(points: Point[]) {
   return shape
 }
 
-function getRoomFloorMaterialId(
+function getRoomFloorMaterialAssignment(
   surfaceAssignments: SurfaceMaterialAssignment[],
   floorId: string,
   roomSignature: string,
@@ -2382,10 +2666,10 @@ function getRoomFloorMaterialId(
       assignment.target.type === 'room-floor' &&
       assignment.target.floorId === floorId &&
       assignment.target.roomSignature === roomSignature,
-  )?.materialId
+  )
 }
 
-function getRoomCeilingMaterialId(
+function getRoomCeilingMaterialAssignment(
   surfaceAssignments: SurfaceMaterialAssignment[],
   floorId: string,
   roomSignature: string,
@@ -2395,22 +2679,187 @@ function getRoomCeilingMaterialId(
       assignment.target.type === 'ceiling' &&
       assignment.target.floorId === floorId &&
       assignment.target.roomSignature === roomSignature,
-  )?.materialId
+  )
+}
+
+function surfacesMatch(
+  firstSurface: SelectableSurface | null,
+  secondSurface: SelectableSurface,
+) {
+  if (!firstSurface || firstSurface.type !== secondSurface.type) {
+    return false
+  }
+
+  if (firstSurface.type === 'wall-face' && secondSurface.type === 'wall-face') {
+    return (
+      firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.wallId === secondSurface.wallId
+    )
+  }
+
+  if (firstSurface.type !== 'wall-face' && secondSurface.type !== 'wall-face') {
+    return (
+      firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.roomSignature === secondSurface.roomSignature
+    )
+  }
+
+  return false
+}
+
+function SelectableRoomSurfaceMesh({
+  elevation,
+  floorId,
+  onRegisterPickTarget,
+  room,
+  roomHeight,
+  selectedSurface,
+  type,
+}: {
+  elevation: number
+  floorId: string
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  room: DetectedRoom
+  roomHeight: number
+  selectedSurface: SelectableSurface | null
+  type: 'ceiling' | 'room-floor'
+}) {
+  const meshRef = useRef<Object3D>(null!)
+  const shape = useMemo(() => createPlanShape(room.polygon), [room.polygon])
+  const surface: SelectableSurface = useMemo(
+    () => ({
+      floorId,
+      roomSignature: room.signature,
+      type,
+    }),
+    [floorId, room.signature, type],
+  )
+  const isSelected = surfacesMatch(selectedSurface, surface)
+  const y =
+    type === 'room-floor'
+      ? elevation + 0.03
+      : elevation + roomHeight - 0.03
+  useHorizontalSurfaceVisibility(
+    meshRef,
+    y,
+    type === 'room-floor' ? 'above' : 'below',
+  )
+
+  useEffect(() => {
+    const object = meshRef.current
+
+    if (!object) {
+      return
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      kind: 'surface',
+      object,
+      surface,
+    })
+  }, [floorId, onRegisterPickTarget, surface])
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={[0, y, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      renderOrder={isSelected ? 6 : -1}
+    >
+      <shapeGeometry args={[shape]} />
+      <meshBasicMaterial
+        color="#f97316"
+        depthTest={false}
+        depthWrite={false}
+        opacity={isSelected ? 0.28 : 0}
+        side={DoubleSide}
+        transparent
+      />
+    </mesh>
+  )
+}
+
+function SelectableRoomSurfaces({
+  elevation,
+  floorId,
+  onRegisterPickTarget,
+  roomHeight,
+  rooms,
+  selectedSurface,
+}: {
+  elevation: number
+  floorId: string
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  roomHeight: number
+  rooms: DetectedRoom[]
+  selectedSurface: SelectableSurface | null
+}) {
+  return (
+    <>
+      {rooms.flatMap((room) => [
+        <SelectableRoomSurfaceMesh
+          key={`${room.signature}:floor`}
+          elevation={elevation}
+          floorId={floorId}
+          onRegisterPickTarget={onRegisterPickTarget}
+          room={room}
+          roomHeight={roomHeight}
+          selectedSurface={selectedSurface}
+          type="room-floor"
+        />,
+        <SelectableRoomSurfaceMesh
+          key={`${room.signature}:ceiling`}
+          elevation={elevation}
+          floorId={floorId}
+          onRegisterPickTarget={onRegisterPickTarget}
+          room={room}
+          roomHeight={roomHeight}
+          selectedSurface={selectedSurface}
+          type="ceiling"
+        />,
+      ])}
+    </>
+  )
+}
+
+function useHorizontalSurfaceVisibility(
+  surfaceRef: MutableRefObject<Object3D>,
+  y: number,
+  visibleFrom: 'above' | 'below',
+) {
+  useFrame(({ camera }) => {
+    const surface = surfaceRef.current
+
+    if (!surface) {
+      return
+    }
+
+    surface.visible =
+      visibleFrom === 'above' ? camera.position.y >= y : camera.position.y <= y
+  })
 }
 
 function RoomFloorFinishMesh({
+  assignment,
   elevation,
   materialId,
   room,
   wireframe,
 }: {
+  assignment: SurfaceMaterialAssignment
   elevation: number
   materialId: string
   room: DetectedRoom
   wireframe: boolean
 }) {
+  const meshRef = useRef<Object3D>(null!)
   const material = surfaceMaterialsById.get(materialId)
   const shape = useMemo(() => createPlanShape(room.polygon), [room.polygon])
+  const y = elevation + 0.004
+
+  useHorizontalSurfaceVisibility(meshRef, y, 'above')
 
   if (!material) {
     return null
@@ -2418,19 +2867,19 @@ function RoomFloorFinishMesh({
 
   return (
     <mesh
-      position={[0, elevation + 0.004, 0]}
+      ref={meshRef}
+      position={[0, y, 0]}
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={2}
     >
       <shapeGeometry args={[shape]} />
-      <meshStandardMaterial
-        color={material.pbr.baseColor ?? '#e2e8f0'}
-        metalness={material.pbr.metalness ?? 0}
-        polygonOffset
+      <SurfaceMeshStandardMaterial
+        assignment={assignment}
+        material={material}
         polygonOffsetFactor={-1}
         polygonOffsetUnits={-1}
-        roughness={material.pbr.roughness ?? 0.78}
+        side={FrontSide}
         wireframe={wireframe}
       />
     </mesh>
@@ -2453,17 +2902,18 @@ function RoomFloorFinishes({
   return (
     <group>
       {rooms.map((room) => {
-        const materialId = getRoomFloorMaterialId(
+        const assignment = getRoomFloorMaterialAssignment(
           surfaceAssignments,
           floorId,
           room.signature,
         )
 
-        return materialId ? (
+        return assignment ? (
           <RoomFloorFinishMesh
             key={room.signature}
+            assignment={assignment}
             elevation={elevation}
-            materialId={materialId}
+            materialId={assignment.materialId}
             room={room}
             wireframe={wireframe}
           />
@@ -2474,20 +2924,26 @@ function RoomFloorFinishes({
 }
 
 function RoomCeilingFinishMesh({
+  assignment,
   elevation,
   materialId,
   room,
   roomHeight,
   wireframe,
 }: {
+  assignment: SurfaceMaterialAssignment
   elevation: number
   materialId: string
   room: DetectedRoom
   roomHeight: number
   wireframe: boolean
 }) {
+  const meshRef = useRef<Object3D>(null!)
   const material = surfaceMaterialsById.get(materialId)
   const shape = useMemo(() => createPlanShape(room.polygon), [room.polygon])
+  const y = elevation + roomHeight - 0.006
+
+  useHorizontalSurfaceVisibility(meshRef, y, 'below')
 
   if (!material) {
     return null
@@ -2495,20 +2951,19 @@ function RoomCeilingFinishMesh({
 
   return (
     <mesh
-      position={[0, elevation + roomHeight - 0.006, 0]}
+      ref={meshRef}
+      position={[0, y, 0]}
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={2}
     >
       <shapeGeometry args={[shape]} />
-      <meshStandardMaterial
-        color={material.pbr.baseColor ?? '#f8fafc'}
-        metalness={material.pbr.metalness ?? 0}
-        polygonOffset
+      <SurfaceMeshStandardMaterial
+        assignment={assignment}
+        material={material}
         polygonOffsetFactor={-1}
         polygonOffsetUnits={-1}
-        roughness={material.pbr.roughness ?? 0.82}
-        side={DoubleSide}
+        side={BackSide}
         wireframe={wireframe}
       />
     </mesh>
@@ -2533,17 +2988,18 @@ function RoomCeilingFinishes({
   return (
     <group>
       {rooms.map((room) => {
-        const materialId = getRoomCeilingMaterialId(
+        const assignment = getRoomCeilingMaterialAssignment(
           surfaceAssignments,
           floorId,
           room.signature,
         )
 
-        return materialId ? (
+        return assignment ? (
           <RoomCeilingFinishMesh
             key={room.signature}
+            assignment={assignment}
             elevation={elevation}
-            materialId={materialId}
+            materialId={assignment.materialId}
             room={room}
             roomHeight={roomHeight}
             wireframe={wireframe}
@@ -2800,7 +3256,9 @@ function ModelMesh({
     object.updateWorldMatrix(true, true)
 
     const collisionTarget =
-      pickTargetsRef.current.find((target) => target.modelId === model.id)
+      pickTargetsRef.current.find(
+        (target) => target.kind === 'model' && target.modelId === model.id,
+      )
         ?.object ?? object
     collisionTarget.updateWorldMatrix(true, false)
 
@@ -2824,6 +3282,7 @@ function ModelMesh({
     return pickTargetsRef.current.some((target) => {
       if (
         !target.blocksCollision ||
+        target.kind !== 'model' ||
         target.modelId === model.id ||
         target.floorId !== floorId
       ) {
@@ -2987,6 +3446,7 @@ function SolidFloorScene({
   pickTargetsRef,
   renderedWalls,
   rooms,
+  selectedSurface,
   shadowsEnabled,
   surfaceAssignments,
   transformEnabled,
@@ -3004,6 +3464,7 @@ function SolidFloorScene({
   pickTargetsRef: MutableRefObject<PickTarget[]>
   renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
+  selectedSurface: SelectableSurface | null
   shadowsEnabled: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
   transformEnabled: boolean
@@ -3018,9 +3479,12 @@ function SolidFloorScene({
           key={renderedWall.wall.id}
           castsShadow={shadowsEnabled}
           elevation={floor.elevation}
+          floorId={floor.id}
           externalWallPolygons={wallPolygons}
           isActive
+          onRegisterPickTarget={onRegisterPickTarget}
           renderedWall={renderedWall}
+          selectedSurface={selectedSurface}
           surfaceAssignments={surfaceAssignments}
           wireframe={wireframe}
         />
@@ -3141,6 +3605,7 @@ function FallbackModelContent({
     return onRegisterPickTarget({
       blocksCollision: !modelDefinition?.wallMount,
       floorId,
+      kind: 'model',
       modelId: model.id,
       object,
     })
@@ -3255,6 +3720,7 @@ function LightModelContent({
     return onRegisterPickTarget({
       blocksCollision: false,
       floorId,
+      kind: 'model',
       modelId: model.id,
       object,
     })
@@ -3364,6 +3830,7 @@ function ImportedModelContent({
     return onRegisterPickTarget({
       blocksCollision,
       floorId,
+      kind: 'model',
       modelId,
       object,
     })
@@ -4128,7 +4595,8 @@ function WalkCameraControls({
 
       if (event.ctrlKey && selectedModelId) {
         const pickTarget = pickTargetsRef.current.find(
-          (target) => target.modelId === selectedModelId,
+          (target) =>
+            target.kind === 'model' && target.modelId === selectedModelId,
         )
 
         if (pickTarget) {
@@ -4361,6 +4829,7 @@ function ModelPicker({
   lookMouseButton,
   onClearSelection,
   onSelectModel,
+  onSelectSurface,
   pickTargetsRef,
 }: {
   active: boolean
@@ -4368,6 +4837,7 @@ function ModelPicker({
   lookMouseButton: LookMouseButton
   onClearSelection: () => void
   onSelectModel: (modelId: string, floorId: string) => void
+  onSelectSurface: (surface: SelectableSurface) => void
   pickTargetsRef: MutableRefObject<PickTarget[]>
 }) {
   const { camera, gl } = useThree()
@@ -4436,7 +4906,11 @@ function ModelPicker({
       const pickedTarget = targets.find((target) => target.object === hit.object)
 
       if (pickedTarget) {
-        onSelectModel(pickedTarget.modelId, pickedTarget.floorId)
+        if (pickedTarget.kind === 'surface') {
+          onSelectSurface(pickedTarget.surface)
+        } else {
+          onSelectModel(pickedTarget.modelId, pickedTarget.floorId)
+        }
       }
     }
 
@@ -4455,6 +4929,7 @@ function ModelPicker({
     lookMouseButton,
     onClearSelection,
     onSelectModel,
+    onSelectSurface,
     pickTargetsRef,
     pointer,
     raycaster,
@@ -4468,8 +4943,10 @@ export function ThreeDView({
   floors,
   onClearSelection,
   onSelectModel,
+  onSelectSurface,
   onUpdateModel,
   selectedModelId,
+  selectedSurface,
   showAllFloors,
   surfaceAssignments,
 }: ThreeDViewProps) {
@@ -4831,6 +5308,7 @@ export function ThreeDView({
             lookMouseButton={lookMouseButton}
             onClearSelection={onClearSelection}
             onSelectModel={onSelectModel}
+            onSelectSurface={onSelectSurface}
             pickTargetsRef={pickTargetsRef}
           />
           <FpsCounter onFpsChange={updateFps} />
@@ -4879,7 +5357,6 @@ export function ThreeDView({
 
             {allFloorsPlane ? (
               <>
-                <GroundGrid floorPlane={allFloorsPlane} isActive />
                 <mesh
                   position={[
                     allFloorsPlane.centerX,
@@ -4947,6 +5424,14 @@ export function ThreeDView({
                         surfaceAssignments={surfaceAssignments}
                         wireframe={renderOptions.wireframe}
                       />
+                      <SelectableRoomSurfaces
+                        elevation={floor.elevation}
+                        floorId={floor.id}
+                        onRegisterPickTarget={registerPickTarget}
+                        roomHeight={floor.roomHeight}
+                        rooms={rooms}
+                        selectedSurface={selectedSurface}
+                      />
                       <SolidFloorScene
                         daylightEnabled={renderOptions.daylight}
                         floor={floor}
@@ -4958,6 +5443,7 @@ export function ThreeDView({
                         pickTargetsRef={pickTargetsRef}
                         renderedWalls={renderedWalls}
                         rooms={rooms}
+                        selectedSurface={selectedSurface}
                         shadowsEnabled={renderOptions.shadows}
                         surfaceAssignments={surfaceAssignments}
                         transformEnabled={transformEnabled}
@@ -4983,7 +5469,6 @@ export function ThreeDView({
                   ) : null}
                   {floorPlane ? (
                     <>
-                      <GroundGrid floorPlane={floorPlane} isActive={isActive} />
                       <mesh
                         position={[
                           floorPlane.centerX,
@@ -5025,6 +5510,14 @@ export function ThreeDView({
                         surfaceAssignments={surfaceAssignments}
                         wireframe={renderOptions.wireframe}
                       />
+                      <SelectableRoomSurfaces
+                        elevation={floor.elevation}
+                        floorId={floor.id}
+                        onRegisterPickTarget={registerPickTarget}
+                        roomHeight={floor.roomHeight}
+                        rooms={rooms}
+                        selectedSurface={selectedSurface}
+                      />
                     </>
                   ) : null}
                   {renderedWalls.map((renderedWall) => (
@@ -5032,9 +5525,12 @@ export function ThreeDView({
                       key={renderedWall.wall.id}
                       castsShadow={hasShadowSurface}
                       elevation={floor.elevation}
+                      floorId={floor.id}
                       externalWallPolygons={externalWallPolygons}
                       isActive={isActive}
+                      onRegisterPickTarget={registerPickTarget}
                       renderedWall={renderedWall}
+                      selectedSurface={selectedSurface}
                       surfaceAssignments={surfaceAssignments}
                       wireframe={renderOptions.wireframe}
                     />

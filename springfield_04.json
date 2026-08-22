@@ -1,0 +1,2216 @@
+{
+  "activeFloorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+  "floors": [
+    {
+      "id": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+      "name": "Floor 0",
+      "elevation": 0,
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "start": {
+            "x": 2.7596275818033105,
+            "y": 1.7369930114026033
+          },
+          "end": {
+            "x": 9.97962758180331,
+            "y": 1.7369930114026033
+          },
+          "id": "1048f345-692d-43b8-91f1-d9befed20cd3",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "70d6af8d-014c-4b33-b9ce-36aac931f905",
+              "modelId": "patio-doors",
+              "center": 1.7003034091729186,
+              "width": 1.62,
+              "bottom": 0,
+              "height": 2.08
+            },
+            {
+              "id": "04f5486f-372b-4c43-becd-9867602ffc61",
+              "modelId": "patio-doors",
+              "center": 5.133636742506251,
+              "width": 1.62,
+              "bottom": 0,
+              "height": 2.08
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 9.97962758180331,
+            "y": 1.1369930114026032
+          },
+          "end": {
+            "x": 14.74962758180331,
+            "y": 1.1369930114026032
+          },
+          "id": "32839949-b7c2-4d3e-a29a-d878395ebc51",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "12619881-a8b1-41d9-b0b8-94b859cc432b",
+              "modelId": "window-three-pane",
+              "center": 2.3636367425062517,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 14.74962758180331,
+            "y": 12.786993011402604
+          },
+          "end": {
+            "x": 11.539627581803309,
+            "y": 12.786993011402604
+          },
+          "id": "6031c6e0-1f5b-4f23-aeb6-096436c5a4d2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "60666a2a-bf53-433a-8857-473213fa72b2",
+              "modelId": "window-three-pane",
+              "center": 1.5896965908270815,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 11.539627581803309,
+            "y": 12.786993011402604
+          },
+          "end": {
+            "x": 11.539627581803309,
+            "y": 11.786993011402604
+          },
+          "id": "637b638d-1b06-40ee-8812-841c7e06bd15",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 2.7596275818033105,
+            "y": 1.7369930114026033
+          },
+          "end": {
+            "x": 2.759627581803311,
+            "y": 8.436993011402603
+          },
+          "id": "08975e9a-b667-425d-87d6-8536a19e8536",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 2.759627581803311,
+            "y": 8.436993011402603
+          },
+          "end": {
+            "x": 5.509627581803311,
+            "y": 8.436993011402603
+          },
+          "id": "8b16ae92-b686-49ee-b718-2e944c8cd857",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 8.436993011402603
+          },
+          "end": {
+            "x": 5.509627581803311,
+            "y": 11.786993011402604
+          },
+          "id": "a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "59438e69-9389-4b7a-9852-33deb6d2d667",
+              "modelId": "window-three-pane",
+              "center": 1.946401022791509,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 11.786993011402604
+          },
+          "end": {
+            "x": 11.539627581803309,
+            "y": 11.786993011402604
+          },
+          "id": "23132085-4594-4796-944d-a01b9ab8c0aa",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "40cd0180-362b-4e53-b636-44aae544cf3f",
+              "modelId": "window-three-pane",
+              "center": 1.850303409172917,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 9.97962758180331,
+            "y": 1.7369930114026033
+          },
+          "end": {
+            "x": 9.97962758180331,
+            "y": 1.1369930114026032
+          },
+          "id": "72b5c1f1-f09e-4851-8d05-7a271955455d",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 8.436993011402603
+          },
+          "end": {
+            "x": 5.509627581803311,
+            "y": 5.871680473745111
+          },
+          "id": "ad6be6e9-bee5-462e-afd3-bfa7ca58a686",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 11.614627581803308,
+            "y": 11.786993011402604
+          },
+          "end": {
+            "x": 11.614627581803308,
+            "y": 6.471680473745111
+          },
+          "id": "244916e6-6f68-435c-986f-a3dfabb6ead4",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "cbd5fa6a-f180-4b81-89c1-3cf83f07c1ad",
+              "modelId": "panel-interior-door-closed",
+              "center": 0.8437705706511806,
+              "width": 0.975141,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 10.593264324309562,
+            "y": 8.321680473745111
+          },
+          "end": {
+            "x": 11.539627581803309,
+            "y": 8.321680473745111
+          },
+          "id": "2e2a0e65-e2ce-4826-8293-03d698575a83",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 14.74962758180331,
+            "y": 1.1369930114026032
+          },
+          "end": {
+            "x": 14.74962758180331,
+            "y": 12.786993011402604
+          },
+          "id": "68b4b6ae-79ab-4835-8ceb-192482939bb9",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "ea0718f4-07bb-493b-ae2f-c346ab61c3a2",
+              "modelId": "interior-door-closed",
+              "center": 6.276493615384102,
+              "width": 0.97,
+              "bottom": 0,
+              "height": 2.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 10.593264324309562,
+            "y": 5.883333333333334
+          },
+          "end": {
+            "x": 10.593264324309562,
+            "y": 8.321680473745111
+          },
+          "id": "d13368b9-0005-4ee3-900f-f94a38f8db32",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "f34a7512-0679-499c-a4f4-8fe78eb66bd8",
+              "modelId": "panel-interior-door-closed",
+              "center": 1.5432224407514257,
+              "width": 0.975141,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 10.593264324309562,
+            "y": 6.476555774084759
+          },
+          "end": {
+            "x": 14.74962758180331,
+            "y": 6.476555774084759
+          },
+          "id": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "fde767d0-d0f5-4b95-9aa1-424c45ab3428",
+              "modelId": "panel-interior-door-closed",
+              "center": 2.916666666666666,
+              "width": 0.975141,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 9.393264324309563,
+            "y": 8.361993011402603
+          },
+          "end": {
+            "x": 9.393264324309563,
+            "y": 11.786993011402604
+          },
+          "id": "401541da-d0b7-4fd5-ba5b-bafb835d6878",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "3f0022f7-0986-4550-a2fe-38c8a8ee6213",
+              "modelId": "panel-interior-door-closed",
+              "center": 2.5145627626821554,
+              "width": 0.975141,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 11.614627581803308,
+            "y": 9.645473251028806
+          },
+          "end": {
+            "x": 14.74962758180331,
+            "y": 9.645473251028806
+          },
+          "id": "1d906202-22ea-41db-a4af-e3bad5b9617d",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 10.593264324309562,
+            "y": 5.883333333333334
+          },
+          "end": {
+            "x": 8.993264324309562,
+            "y": 5.883333333333334
+          },
+          "id": "d1e8e232-c604-48c2-add9-97d3397605f6",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "21ef1ec4-3f80-4cfd-88d1-101e12e8481a",
+              "modelId": "panel-interior-door-closed",
+              "center": 0.7666666666666657,
+              "width": 0.975141,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 5.871680473745111
+          },
+          "end": {
+            "x": 2.759627581803311,
+            "y": 5.871680473745111
+          },
+          "id": "fbda8fe0-e526-4913-a3e4-104dc8ebd4ba",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 8.993264324309562,
+            "y": 5.883333333333334
+          },
+          "end": {
+            "x": 8.993264324309562,
+            "y": 8.361993011402603
+          },
+          "id": "25a658fa-eb18-413b-81df-9ec3e00fdcbc",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 8.993264324309562,
+            "y": 5.883333333333334
+          },
+          "end": {
+            "x": 8.289435442386832,
+            "y": 5.883333333333334
+          },
+          "id": "82dac8ea-c7f5-44a6-a114-fa2204d3a996",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.659627581803312,
+            "y": 5.871680473745111
+          },
+          "end": {
+            "x": 6.38721493484225,
+            "y": 5.871680473745111
+          },
+          "id": "e510da98-f63a-4209-a956-19e00d93d740",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 8.87885588134431,
+            "y": 5.883333333333334
+          },
+          "end": {
+            "x": 9.393264324309563,
+            "y": 5.883333333333334
+          },
+          "id": "bc1e3d9f-4157-4bb6-90f7-6e7bb891d7e6",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.659627581803312,
+            "y": 5.871680473745111
+          },
+          "end": {
+            "x": 4.719423010973937,
+            "y": 5.871680473745111
+          },
+          "id": "e5c4813f-57af-4349-9e67-f747824807d0",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 8.993264324309562,
+            "y": 7.64212962962963
+          },
+          "end": {
+            "x": 5.509627581803311,
+            "y": 7.64212962962963
+          },
+          "id": "88c304de-9ed5-4b55-a134-2e21380d2e96",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 7.607407407407408
+          },
+          "end": {
+            "x": 9.227926851080513,
+            "y": 7.607407407407408
+          },
+          "id": "8e067269-181b-4dba-94d3-72f773fb2b63",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 8.993264324309562,
+            "y": 8.361993011402603
+          },
+          "end": {
+            "x": 9.393264324309563,
+            "y": 8.361993011402603
+          },
+          "id": "c4118826-1610-4292-b53a-cb99c4d1ed78",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        }
+      ],
+      "rooms": [
+        {
+          "id": "c2cdc90b-a7b8-430b-8a4b-1c4143d3cf34",
+          "name": "Room 1",
+          "signature": "157:193|179:193|189:193|189:198|189:251|213:193|213:198|276:194|276:199|296:194|296:199|297:199|297:251|300:194|313:194|328:63|338:43|338:53|338:63|351:194|356:194|356:199|356:213|385:213|390:213|487:213|487:43|97:193|97:63"
+        },
+        {
+          "id": "4f391643-f768-48d2-a143-6853c50df46f",
+          "name": "Room 2",
+          "signature": "157:198|179:198|179:276|97:198|97:276"
+        },
+        {
+          "id": "2bbb7284-4f09-4e67-95ae-cc01d6ea06cc",
+          "name": "Room 4",
+          "signature": "356:213|356:218|356:218|356:275|385:213|385:213|385:218|385:218|385:275|385:275|385:280|385:388|390:218|390:319|390:324|390:388"
+        },
+        {
+          "id": "227f6cb5-2b84-48db-857d-19aa7e032855",
+          "name": "Utility",
+          "signature": "390:218|390:319|487:218|487:319"
+        },
+        {
+          "id": "f8a23951-218b-424a-a844-72b058b3500b",
+          "name": "Room 5",
+          "signature": "302:199|302:251|302:256|302:276|308:251|308:256|311:276|313:199|316:276|316:281|316:388|351:199|351:275|351:280|356:280|380:388|385:280|385:388"
+        },
+        {
+          "id": "d6eb649a-8c5d-49f4-8571-54196cdc7d5f",
+          "name": "Room 6",
+          "signature": "189:257|189:276|189:286|189:388|297:257|297:276|297:281|302:281|311:281|311:388"
+        },
+        {
+          "id": "053ea821-f890-4b60-9762-4be9c5e7fd5f",
+          "name": "Office",
+          "signature": "390:324|390:388|390:398|390:421|487:324|487:421"
+        }
+      ],
+      "models": [
+        {
+          "id": "ea5dfaab-86ae-4746-9125-6639ddbfdf85",
+          "modelId": "kitchen-island",
+          "position": {
+            "x": 11.784806277386867,
+            "y": 3.7731710685156328
+          },
+          "rotation": -0.0012379362811902883,
+          "scale": 1
+        },
+        {
+          "id": "5b1f51c7-b7c8-45cb-ae93-4b0314d63970",
+          "modelId": "sofa",
+          "position": {
+            "x": 6.130704590814047,
+            "y": 3.798626532471818
+          },
+          "rotation": -1.5695465017118497,
+          "scale": 1
+        },
+        {
+          "id": "ad78e249-dbe1-47af-809f-766c7c30b7b3",
+          "modelId": "round-table",
+          "position": {
+            "x": 8.281828434096541,
+            "y": 3.8999420271036493
+          },
+          "rotation": 0,
+          "scale": 1
+        },
+        {
+          "id": "4789c7ed-f7ee-494a-9bf1-4188cf92ad2a",
+          "modelId": "simple-stairs",
+          "position": {
+            "x": 11.115161767429873,
+            "y": 9.058275360436983
+          },
+          "rotation": 3.1484205857356393,
+          "scale": 1
+        },
+        {
+          "id": "a9c70aa4-5923-486b-a43a-41d21f938090",
+          "modelId": "sofa",
+          "position": {
+            "x": 5.659627581803312,
+            "y": 9.99939278709336
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 0.8285761982086326
+        },
+        {
+          "id": "26db2a27-ce90-452b-9f0a-664be548ab48",
+          "modelId": "kitchen-table-1",
+          "position": {
+            "x": 8.528921767429877,
+            "y": 3.8347420271036508
+          },
+          "rotation": 3.141592653589793,
+          "scale": 0.9024332684214519
+        },
+        {
+          "id": "b2010793-2934-465c-9a6b-64240d631a72",
+          "modelId": "oven-hob",
+          "position": {
+            "x": 14.59962758180331,
+            "y": 3.5579605197235793
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "12619881-a8b1-41d9-b0b8-94b859cc432b",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 12.343264324309562,
+            "y": 1.1369930114026032
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "32839949-b7c2-4d3e-a29a-d878395ebc51",
+            "offset": 2.3636367425062517
+          }
+        },
+        {
+          "id": "40cd0180-362b-4e53-b636-44aae544cf3f",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 7.3599309909762285,
+            "y": 11.786993011402604
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "23132085-4594-4796-944d-a01b9ab8c0aa",
+            "offset": 1.850303409172917
+          }
+        },
+        {
+          "id": "60666a2a-bf53-433a-8857-473213fa72b2",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 13.159930990976228,
+            "y": 12.786993011402604
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "6031c6e0-1f5b-4f23-aeb6-096436c5a4d2",
+            "offset": 1.5896965908270815
+          }
+        },
+        {
+          "id": "04f5486f-372b-4c43-becd-9867602ffc61",
+          "modelId": "patio-doors",
+          "position": {
+            "x": 7.893264324309562,
+            "y": 1.7369930114026033
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "1048f345-692d-43b8-91f1-d9befed20cd3",
+            "offset": 5.133636742506251
+          }
+        },
+        {
+          "id": "70d6af8d-014c-4b33-b9ce-36aac931f905",
+          "modelId": "patio-doors",
+          "position": {
+            "x": 4.459930990976229,
+            "y": 1.7369930114026033
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "1048f345-692d-43b8-91f1-d9befed20cd3",
+            "offset": 1.7003034091729186
+          }
+        },
+        {
+          "id": "3934acac-cf0e-4541-87f2-96e9f72a7722",
+          "modelId": "double-fridge",
+          "position": {
+            "x": 11.271214425608123,
+            "y": 6.401555774084759
+          },
+          "rotation": 0,
+          "scale": 1
+        },
+        {
+          "id": "ea0718f4-07bb-493b-ae2f-c346ab61c3a2",
+          "modelId": "interior-door-closed",
+          "position": {
+            "x": 14.74962758180331,
+            "y": 7.413486626786705
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "68b4b6ae-79ab-4835-8ceb-192482939bb9",
+            "offset": 6.276493615384102
+          }
+        },
+        {
+          "id": "67b34788-63ad-42e7-b88d-32ecfdcdc495",
+          "modelId": "island",
+          "position": {
+            "x": 11.638705178372271,
+            "y": 3.8823785675274443
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "59438e69-9389-4b7a-9852-33deb6d2d667",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 5.509627581803311,
+            "y": 10.383394034194112
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b",
+            "offset": 1.946401022791509
+          }
+        },
+        {
+          "id": "c580ecbf-076a-4a38-baac-16948981bd41",
+          "modelId": "cabinet",
+          "position": {
+            "x": 14.59962758180331,
+            "y": 2.7770175772412324
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "f8cfb2fe-420a-49f5-8db9-1163d4589251",
+          "modelId": "cabinet",
+          "position": {
+            "x": 14.59962758180331,
+            "y": 4.381259893877669
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "93905c25-e241-4b37-aea7-834720f1efa9",
+          "modelId": "corner-cupboard",
+          "position": {
+            "x": 14.591539716696714,
+            "y": 1.2869930114026031
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "6a758ae6-e107-4929-83db-95304a474108",
+          "modelId": "cabinet",
+          "position": {
+            "x": 13.101236743371778,
+            "y": 1.2869930114026031
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "a8df87d2-7248-45ef-aac4-5853b9250fd5",
+          "modelId": "sink-unit",
+          "position": {
+            "x": 12.288773626869387,
+            "y": 1.2869930114026031
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "1a266d2a-1eeb-4695-bd92-1c113b817b79",
+          "modelId": "cabinet",
+          "position": {
+            "x": 11.500730341713547,
+            "y": 1.2869930114026031
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "3beb0a67-0a43-4466-911c-afe495fd78d7",
+          "modelId": "cabinet",
+          "position": {
+            "x": 10.700111062451501,
+            "y": 1.2869930114026031
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "01d92b9f-5db5-4645-b0e1-947739f739ae",
+          "modelId": "computer-desk",
+          "position": {
+            "x": 13.1190530054174,
+            "y": 12.636993011402604
+          },
+          "rotation": 0,
+          "scale": 1
+        },
+        {
+          "id": "cf690895-368d-449c-99ef-42b0f582dc14",
+          "modelId": "office-chair",
+          "position": {
+            "x": 13.223939933509556,
+            "y": 11.57582329972324
+          },
+          "rotation": 0,
+          "scale": 1
+        },
+        {
+          "id": "12daa49a-7d95-4bd2-ac98-0b3375ada2c6",
+          "modelId": "cabinet",
+          "position": {
+            "x": 14.59962758180331,
+            "y": 5.1824108734353285
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "height": 2.0794152591774036,
+          "id": "364f09c5-44a0-4169-9fb1-2b101f6cadb6",
+          "lightColor": "#ffffff",
+          "lightPower": 100,
+          "modelId": "point-light",
+          "position": {
+            "x": 12.611899059154474,
+            "y": 4.756031918800723
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 2.0794152591774036,
+          "id": "d6efca89-2c6e-4222-b2cd-1979e05ffba8",
+          "lightColor": "#f8f5e3",
+          "lightPower": 100,
+          "modelId": "point-light",
+          "position": {
+            "x": 4.809009614694835,
+            "y": 3.656732801308716
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 2.294704215403912,
+          "id": "784578ec-7694-4415-931a-845419ede42c",
+          "lightColor": "#ffffff",
+          "lightPower": 25,
+          "modelId": "point-light",
+          "position": {
+            "x": 7.239292886617942,
+            "y": 7.04502057062581
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 1.8212027273605849,
+          "id": "33a7b27a-1020-451a-9eba-befb141dae6c",
+          "lightColor": "#ffffff",
+          "lightPower": 25,
+          "modelId": "point-light",
+          "position": {
+            "x": 7.58560757193089,
+            "y": 10.09438586929304
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 1.8212027273605849,
+          "id": "04d995c9-4188-4e94-9bbe-f13e03af4bc5",
+          "lightColor": "#ffffff",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 10.401601857546476,
+            "y": 10.96302341380047
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 1.8212027273605849,
+          "id": "0ea1f9ac-83d3-44f1-8821-3389ea78ae39",
+          "lightColor": "#ffffff",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 13.148716337398684,
+            "y": 11.325511606005582
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 1.8212027273605849,
+          "id": "64e3c575-ddbf-4c5b-baf3-3608e00e03cb",
+          "lightColor": "#ffffff",
+          "lightPower": 15,
+          "modelId": "point-light",
+          "position": {
+            "x": 13.251666798996261,
+            "y": 8.030917218115771
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 2.0794152591774036,
+          "id": "05f00c8e-4bb6-4b03-9f16-624c85dae9c3",
+          "lightColor": "#ffffff",
+          "lightPower": 100,
+          "modelId": "point-light",
+          "position": {
+            "x": 12.647471081111576,
+            "y": 2.811009529258877
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 2.127419255240742,
+          "id": "6b994a32-4a8c-4114-97d2-4db97917b5cc",
+          "lightColor": "#ffffff",
+          "lightPower": 25,
+          "modelId": "point-light",
+          "position": {
+            "x": 9.83493519087981,
+            "y": 7.0463567471338004
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 1.7741453279408763,
+          "id": "9ea90e4c-eea0-4d61-8f25-9d6d83e48fef",
+          "lightColor": "#8f9178",
+          "lightPower": 10,
+          "modelId": "point-light",
+          "position": {
+            "x": 5.831847200281021,
+            "y": 1.3943373499720586
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": false
+        },
+        {
+          "id": "21ef1ec4-3f80-4cfd-88d1-101e12e8481a",
+          "modelId": "panel-interior-door-closed",
+          "position": {
+            "x": 9.826597657642896,
+            "y": 5.883333333333334
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6",
+            "offset": 0.7666666666666657
+          }
+        },
+        {
+          "id": "fde767d0-d0f5-4b95-9aa1-424c45ab3428",
+          "modelId": "panel-interior-door-closed",
+          "position": {
+            "x": 13.509930990976228,
+            "y": 6.476555774084759
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16",
+            "offset": 2.916666666666666
+          }
+        },
+        {
+          "id": "f34a7512-0679-499c-a4f4-8fe78eb66bd8",
+          "modelId": "panel-interior-door-closed",
+          "position": {
+            "x": 10.593264324309562,
+            "y": 7.426555774084759
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32",
+            "offset": 1.5432224407514257
+          }
+        },
+        {
+          "id": "3f0022f7-0986-4550-a2fe-38c8a8ee6213",
+          "modelId": "panel-interior-door-closed",
+          "position": {
+            "x": 9.393264324309563,
+            "y": 10.876555774084759
+          },
+          "rotation": -1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "401541da-d0b7-4fd5-ba5b-bafb835d6878",
+            "offset": 2.5145627626821554
+          }
+        },
+        {
+          "id": "cbd5fa6a-f180-4b81-89c1-3cf83f07c1ad",
+          "modelId": "panel-interior-door-closed",
+          "position": {
+            "x": 11.614627581803308,
+            "y": 10.943222440751423
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4",
+            "offset": 0.8437705706511806
+          }
+        }
+      ]
+    },
+    {
+      "id": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+      "name": "Floor 1",
+      "elevation": 2.6999999999999997,
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "start": {
+            "x": 9.97962758180331,
+            "y": 1.1369930114026032
+          },
+          "end": {
+            "x": 14.74962758180331,
+            "y": 1.1369930114026032
+          },
+          "id": "2e47ccce-fbcd-45b5-9e8d-9953a2ad0dc0",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "49578da5-5988-447a-9b29-37a9c2522486",
+              "modelId": "window-three-pane",
+              "center": 2.5103429507190054,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 14.74962758180331,
+            "y": 12.786993011402604
+          },
+          "end": {
+            "x": 11.539627581803309,
+            "y": 12.786993011402604
+          },
+          "id": "cc80963f-745f-4c74-bcef-e46c77cdfff4",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "9c1413d5-2099-4c4f-83dc-b516cf1d14ad",
+              "modelId": "window-three-pane",
+              "center": 1.6263237159476596,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 11.539627581803309,
+            "y": 12.786993011402604
+          },
+          "end": {
+            "x": 11.539627581803309,
+            "y": 11.786993011402604
+          },
+          "id": "ed9022a6-568f-4773-ab40-32d73ba6094d",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 11.786993011402604
+          },
+          "end": {
+            "x": 11.539627581803309,
+            "y": 11.786993011402604
+          },
+          "id": "cc68aecd-58eb-476d-a29b-996164b1c4a1",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "361f98a5-5c57-4db6-9359-930ad6ad96fd",
+              "modelId": "window-three-pane",
+              "center": 1.8303429507190045,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            },
+            {
+              "id": "34826819-89d4-4eac-b7ee-f39c16e5be32",
+              "modelId": "window-three-pane",
+              "center": 4.84700961738567,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 9.97962758180331,
+            "y": 1.7369930114026033
+          },
+          "end": {
+            "x": 9.97962758180331,
+            "y": 1.1369930114026032
+          },
+          "id": "08335ea1-2378-465b-8b45-642d9b6fa810",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 14.74962758180331,
+            "y": 1.1369930114026032
+          },
+          "end": {
+            "x": 14.74962758180331,
+            "y": 12.786993011402604
+          },
+          "id": "4f8220c8-6338-4c13-a8b5-9583cdafba6d",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 1.7369930114026033
+          },
+          "end": {
+            "x": 9.97962758180331,
+            "y": 1.7369930114026033
+          },
+          "id": "0a0e9ead-8795-4abc-a65e-da2c3d2e158e",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "9644a988-21df-4593-b829-b09cdd4634f3",
+              "modelId": "window-three-pane",
+              "center": 2.2970096173856707,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 11.614627581803308,
+            "y": 11.732855655902975
+          },
+          "end": {
+            "x": 11.614627581803308,
+            "y": 5.871680473745111
+          },
+          "id": "b1128cf4-e367-46eb-9a08-2f3f20e8fbf6",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "610fa1b8-c54b-41c9-a5f8-18646a156f8d",
+              "modelId": "interior-door-open",
+              "center": 0.8214748847807112,
+              "width": 0.97,
+              "bottom": 0,
+              "height": 2.1
+            },
+            {
+              "id": "1afc40d0-3ee1-4cc1-adb1-f1e2c3b90289",
+              "modelId": "interior-door-open",
+              "center": 4.988141551447376,
+              "width": 0.97,
+              "bottom": 0,
+              "height": 2.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 11.614627581803308,
+            "y": 9.114195265277976
+          },
+          "end": {
+            "x": 14.74962758180331,
+            "y": 9.114195265277976
+          },
+          "id": "b335375d-dded-47f9-9701-079c22b11938",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 14.74962758180331,
+            "y": 5.923792137686528
+          },
+          "end": {
+            "x": 5.47995321517023,
+            "y": 5.923792137686528
+          },
+          "id": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "f04f8ea2-945a-4631-b6e1-10acfb404a10",
+              "modelId": "interior-door-open",
+              "center": 3.8962311233550686,
+              "width": 0.97,
+              "bottom": 0,
+              "height": 2.1
+            },
+            {
+              "id": "b8d2a348-d948-46d7-b7df-563307213738",
+              "modelId": "interior-door-open",
+              "center": 5.447157049280994,
+              "width": 0.97,
+              "bottom": 0,
+              "height": 2.1
+            },
+            {
+              "id": "467ebb5e-e610-48f4-929e-94b9129f3ada",
+              "modelId": "interior-door-open",
+              "center": 8.13234223446618,
+              "width": 0.97,
+              "bottom": 0,
+              "height": 2.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 8.606997305305667,
+            "y": 7.614641207145533
+          },
+          "end": {
+            "x": 8.606997305305667,
+            "y": 5.923792137686528
+          },
+          "id": "c16b634f-9b2f-46cb-ab8d-b1cf2c807904",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 9.152926851080514,
+            "y": 7.614641207145533
+          },
+          "end": {
+            "x": 9.152926851080514,
+            "y": 11.786993011402604
+          },
+          "id": "25e28ed4-d08e-4500-a1eb-b0fb79e6d998",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "dda598a0-ebd7-4656-9d1a-053fc60b9001",
+              "modelId": "interior-door-open",
+              "center": 3.2504432676804367,
+              "width": 0.97,
+              "bottom": 0,
+              "height": 2.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 10.054627581803311,
+            "y": 1.8869930114026032
+          },
+          "end": {
+            "x": 10.054627581803311,
+            "y": 5.923792137686528
+          },
+          "id": "2a52eb1a-6834-48ca-b251-b5e2a172dfad",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 9.152926851080514,
+            "y": 7.614641207145533
+          },
+          "end": {
+            "x": 5.47995321517023,
+            "y": 7.614641207145533
+          },
+          "id": "bb5bb787-b044-420a-a03f-eef1d0b98e86",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.509627581803311,
+            "y": 1.7369930114026033
+          },
+          "end": {
+            "x": 5.509627581803311,
+            "y": 11.786993011402604
+          },
+          "id": "b0ebccfb-76de-40f2-a05f-ed79c4176ee0",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        }
+      ],
+      "rooms": [
+        {
+          "id": "88574e7c-53fd-434d-b103-e9dae211fa1a",
+          "name": "Room 1",
+          "signature": "189:195|189:63|328:63|333:195|333:63"
+        },
+        {
+          "id": "a3c22889-9971-479b-a5f1-caab11b31b9a",
+          "name": "Bedroom 2",
+          "signature": "338:195|338:43|338:53|338:63|385:195|390:195|487:195|487:43"
+        },
+        {
+          "id": "8fadf63d-b0c2-440d-b016-376210f4151d",
+          "name": "Room 3",
+          "signature": "189:200|189:251|284:200|284:251"
+        },
+        {
+          "id": "b34a4033-f1f0-4202-b417-6bf3faaf71ad",
+          "name": "Main bathroom",
+          "signature": "390:200|390:301|487:200|487:301"
+        },
+        {
+          "id": "e28dd93d-6aab-4454-80f7-c24fb6c9ea4e",
+          "name": "Room 5",
+          "signature": "189:195|189:200|284:200|289:200|289:200|289:251|303:251|308:251|308:256|308:388|333:195|338:195|380:388|385:195|385:195|385:200|385:200|385:388|385:388|390:200|390:301|390:306|390:388"
+        },
+        {
+          "id": "9d5346d7-d90e-488a-b041-9a6fd1895a30",
+          "name": "Room 6",
+          "signature": "189:256|189:388|303:256|303:388"
+        },
+        {
+          "id": "fcb01a1d-f2c6-416d-8c64-582183721d28",
+          "name": "Bedroom 4",
+          "signature": "390:306|390:388|390:398|390:421|487:306|487:421"
+        }
+      ],
+      "models": [
+        {
+          "id": "3d3195d1-7fb3-48c4-9a80-0b783b9afa43",
+          "modelId": "king-bed",
+          "position": {
+            "x": 5.659627581803312,
+            "y": 3.94022699848955
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "id": "3237bac3-8fc4-4ab4-8406-6334a66a1b9d",
+          "modelId": "king-bed",
+          "position": {
+            "x": 14.59962758180331,
+            "y": 3.4978986042458438
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "cff03fd2-e8a4-48af-877a-9914fafa427f",
+          "modelId": "king-bed",
+          "position": {
+            "x": 5.659627581803312,
+            "y": 9.769081339282938
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "id": "7b8adb16-e1fb-492e-88c0-01533526379d",
+          "modelId": "wardrobe",
+          "position": {
+            "x": 10.12962758180331,
+            "y": 2.124294272982272
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "id": "1fc65154-b662-4012-a3f3-9ce39d6f3f8e",
+          "modelId": "wardrobe",
+          "position": {
+            "x": 9.979627581803312,
+            "y": 2.5644540019840765
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "11894e3b-79b5-4376-a43c-6385fe802e89",
+          "modelId": "toilet",
+          "position": {
+            "x": 14.239970532522316,
+            "y": 7.189158548900047
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "712ccae4-c639-40f3-b2e3-5554e66751f9",
+          "modelId": "bath",
+          "position": {
+            "x": 13.851544606596395,
+            "y": 8.685454845196345
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "id": "9e8c9f05-01ad-4189-b2ac-b787f953cd52",
+          "modelId": "shower",
+          "position": {
+            "x": 12.116702711561137,
+            "y": 8.47329813534627
+          },
+          "rotation": 0,
+          "scale": 1
+        },
+        {
+          "id": "5aca1ef7-f800-4a4a-9815-33a02c78ea7f",
+          "modelId": "bedside-table",
+          "position": {
+            "x": 5.874507541625013,
+            "y": 2.5812752601541438
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "id": "0192b483-9181-45e8-aa37-443b13c38c84",
+          "modelId": "bedside-table",
+          "position": {
+            "x": 5.874507541625013,
+            "y": 5.132390883461209
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "id": "d2ab2ad7-c469-4d2c-98f0-6a6cf9a809ef",
+          "modelId": "bedside-table",
+          "position": {
+            "x": 14.384747621981608,
+            "y": 2.387046160782792
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "87554abe-887b-407d-80cb-9620a516435e",
+          "modelId": "bedside-table",
+          "position": {
+            "x": 14.384747621981608,
+            "y": 4.695171047880981
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "b28a77ae-0db8-4603-a648-92b3b85eb3c0",
+          "modelId": "bedside-table",
+          "position": {
+            "x": 5.874507541625013,
+            "y": 8.588490592624012
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "id": "13b56e67-4b0d-4b0f-b909-9562cc47bee4",
+          "modelId": "bedside-table",
+          "position": {
+            "x": 5.874507541625013,
+            "y": 11.024922566715915
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "id": "f5d6eaf6-cc3e-41c5-84f5-ccbd643e9fd3",
+          "modelId": "wardrobe",
+          "position": {
+            "x": 9.077926851080514,
+            "y": 8.898943113770647
+          },
+          "rotation": 4.71238898038469,
+          "scale": 1
+        },
+        {
+          "id": "9644a988-21df-4593-b829-b09cdd4634f3",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 7.806637199188982,
+            "y": 1.7369930114026033
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "0a0e9ead-8795-4abc-a65e-da2c3d2e158e",
+            "offset": 2.2970096173856707
+          }
+        },
+        {
+          "id": "49578da5-5988-447a-9b29-37a9c2522486",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 12.489970532522316,
+            "y": 1.1369930114026032
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "2e47ccce-fbcd-45b5-9e8d-9953a2ad0dc0",
+            "offset": 2.5103429507190054
+          }
+        },
+        {
+          "id": "361f98a5-5c57-4db6-9359-930ad6ad96fd",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 7.339970532522316,
+            "y": 11.786993011402604
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "cc68aecd-58eb-476d-a29b-996164b1c4a1",
+            "offset": 1.8303429507190045
+          }
+        },
+        {
+          "id": "9c1413d5-2099-4c4f-83dc-b516cf1d14ad",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 13.12330386585565,
+            "y": 12.786993011402604
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "cc80963f-745f-4c74-bcef-e46c77cdfff4",
+            "offset": 1.6263237159476596
+          }
+        },
+        {
+          "id": "34826819-89d4-4eac-b7ee-f39c16e5be32",
+          "modelId": "window-three-pane",
+          "position": {
+            "x": 10.356637199188981,
+            "y": 11.786993011402604
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "cc68aecd-58eb-476d-a29b-996164b1c4a1",
+            "offset": 4.84700961738567
+          }
+        },
+        {
+          "id": "f04f8ea2-945a-4631-b6e1-10acfb404a10",
+          "modelId": "interior-door-open",
+          "position": {
+            "x": 10.853396458448241,
+            "y": 5.923792137686528
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
+            "offset": 3.8962311233550686
+          }
+        },
+        {
+          "id": "b8d2a348-d948-46d7-b7df-563307213738",
+          "modelId": "interior-door-open",
+          "position": {
+            "x": 9.302470532522316,
+            "y": 5.923792137686528
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
+            "offset": 5.447157049280994
+          }
+        },
+        {
+          "id": "1afc40d0-3ee1-4cc1-adb1-f1e2c3b90289",
+          "modelId": "interior-door-open",
+          "position": {
+            "x": 11.614627581803308,
+            "y": 6.744714104455599
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "b1128cf4-e367-46eb-9a08-2f3f20e8fbf6",
+            "offset": 4.988141551447376
+          }
+        },
+        {
+          "id": "dda598a0-ebd7-4656-9d1a-053fc60b9001",
+          "modelId": "interior-door-open",
+          "position": {
+            "x": 9.152926851080514,
+            "y": 10.86508447482597
+          },
+          "rotation": -1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "25e28ed4-d08e-4500-a1eb-b0fb79e6d998",
+            "offset": 3.2504432676804367
+          }
+        },
+        {
+          "id": "610fa1b8-c54b-41c9-a5f8-18646a156f8d",
+          "modelId": "interior-door-open",
+          "position": {
+            "x": 11.614627581803308,
+            "y": 10.911380771122264
+          },
+          "rotation": 1.5707963267948966,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "b1128cf4-e367-46eb-9a08-2f3f20e8fbf6",
+            "offset": 0.8214748847807112
+          }
+        },
+        {
+          "id": "467ebb5e-e610-48f4-929e-94b9129f3ada",
+          "modelId": "interior-door-open",
+          "position": {
+            "x": 6.6172853473371305,
+            "y": 5.923792137686528
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
+            "offset": 8.13234223446618
+          }
+        },
+        {
+          "height": 2.126750921585908,
+          "id": "1206fd33-6da3-4c05-ad26-700029d4ccda",
+          "lightColor": "#fff3c4",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 12.302966639869231,
+            "y": 3.515794715583697
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 1.572887159909396,
+          "id": "d3a6009d-8599-4dec-bd62-d5862ec511b7",
+          "lightColor": "#ffffff",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 9.705936108813379,
+            "y": 3.803333424551017
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": true
+        },
+        {
+          "height": 2.126750921585908,
+          "id": "22f3ce24-ac73-4949-9ace-c219bd699a21",
+          "lightColor": "#fff3c4",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 7.437136524975028,
+            "y": 9.723781326273848
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": false
+        },
+        {
+          "height": 2.126750921585908,
+          "id": "fe1e15fb-4a03-4b91-9099-ec6be2192791",
+          "lightColor": "#fff3c4",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 13.175269955661573,
+            "y": 11.208055803443699
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": false
+        },
+        {
+          "height": 2.126750921585908,
+          "id": "da095855-fec2-43cd-b73b-2d645c5e0a2f",
+          "lightColor": "#aba9a0",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 10.32420692105272,
+            "y": 7.418375773151366
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": false
+        },
+        {
+          "height": 2.126750921585908,
+          "id": "52a541de-5284-403b-87da-f5eb2cea4844",
+          "lightColor": "#fff3c4",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 10.414112168096898,
+            "y": 10.562519687854376
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": false
+        },
+        {
+          "height": 2.126750921585908,
+          "id": "d32916fd-83f1-4cbf-92fe-61f4c96889bb",
+          "lightColor": "#9b883b",
+          "lightPower": 50,
+          "modelId": "point-light",
+          "position": {
+            "x": 13.323163162733664,
+            "y": 7.577219644935084
+          },
+          "rotation": 0,
+          "scale": 1,
+          "lightEnabled": false
+        }
+      ]
+    }
+  ],
+  "surfaceAssignments": [
+    {
+      "coverageHeight": 2.4,
+      "id": "1c3a6bbb-f2b4-495d-8bb6-a05beb2cd938",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "68b4b6ae-79ab-4835-8ceb-192482939bb9"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "4341f5ea-762c-4de4-8cee-7729a70699ec",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "32839949-b7c2-4d3e-a29a-d878395ebc51"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "6c3c9cef-b2a5-4468-92b7-7ff63b01a4fd",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "1048f345-692d-43b8-91f1-d9befed20cd3"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "87cce36c-4600-4006-a08f-460b29268322",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "08975e9a-b667-425d-87d6-8536a19e8536"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "a2fcaa00-036f-4208-bc2c-70a9005b45fd",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "e510da98-f63a-4209-a956-19e00d93d740"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "fa855039-66fe-4652-962c-895a4c4a8e60",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "82dac8ea-c7f5-44a6-a114-fa2204d3a996"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "ae110e40-70d6-400b-8e15-b633a0873367",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "22e35c3f-1982-4a80-b1f9-575a8982da9b",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "cbf51de2-3b8c-4396-a2f9-42c768e02188",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "72b5c1f1-f09e-4851-8d05-7a271955455d"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "966a223e-3377-481b-9b1b-1a6d6c7c216c",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "fbda8fe0-e526-4913-a3e4-104dc8ebd4ba"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "467a81b0-c04e-423d-94d8-a5a3530e0fea",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "e5c4813f-57af-4349-9e67-f747824807d0"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "928b1f64-fda9-4b9d-8815-ebba50fcfa22",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "3bcc5bea-a9bd-423d-9d5a-99186d6d5006"
+      }
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "489c843c-1ba8-4798-afd3-443242f786ed",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "ad6be6e9-bee5-462e-afd3-bfa7ca58a686"
+      }
+    },
+    {
+      "id": "9230af9c-2075-474c-bfae-887c7e831699",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "390:218|390:319|487:218|487:319"
+      },
+      "textureRotation": 180,
+      "textureScale": 2
+    },
+    {
+      "id": "d80483ac-318e-4bcd-b5a4-1ce15f00d69b",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "302:199|302:276|311:276|313:199|316:276|316:281|316:388|351:199|351:275|351:280|356:280|380:388|385:280|385:388"
+      },
+      "textureRotation": 180,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "ea4fef92-a465-4930-99c7-db246f7b6f4a",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "401541da-d0b7-4fd5-ba5b-bafb835d6878"
+      },
+      "textureRotation": 180,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "63c4b709-b4c8-49b5-a47d-e5704a372f17",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "2e2a0e65-e2ce-4826-8293-03d698575a83"
+      },
+      "textureRotation": 180,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "dd856247-210d-46ad-b8f7-82c0ac7c2440",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6"
+      },
+      "textureRotation": 180,
+      "textureScale": 2
+    },
+    {
+      "id": "c8ba9c9e-e0a5-4986-9fbf-421cead99f84",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "157:193|179:193|189:193|189:198|189:276|213:193|213:198|276:194|276:199|296:194|296:199|297:199|297:276|300:194|313:194|328:63|338:43|338:53|338:63|351:194|356:194|356:199|356:213|385:213|390:213|487:213|487:43|97:193|97:63"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "195d9bb9-850b-41bd-bbe7-f3f4a1a48c77",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "390:218|390:319|487:218|487:319"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "715ed69a-c765-43fe-8291-dfe5599d2bbc",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "157:193|179:193|189:193|189:198|189:276|213:193|213:198|276:194|276:199|296:194|296:199|297:199|297:276|300:194|313:194|328:63|338:43|338:53|338:63|351:194|356:194|356:199|356:213|385:213|390:213|487:213|487:43|97:193|97:63"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "787ac74e-9335-4ad0-9207-08d8277a349b",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+        "roomSignature": "338:195|338:43|338:53|338:63|385:195|390:195|487:195|487:43"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "ee70d227-0ae6-45c2-b397-a08cf1630890",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+        "roomSignature": "189:195|189:200|284:200|289:200|289:200|289:251|303:251|308:251|308:256|308:388|333:195|338:195|380:388|385:195|385:195|385:200|385:200|385:388|385:388|390:200|390:301|390:306|390:388"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "2b236181-2e67-4e39-8d38-bac8e70fa4ca",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+        "roomSignature": "390:200|390:301|487:200|487:301"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "f74ed1ab-4916-4c4a-bf55-bbc92adf932e",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+        "roomSignature": "390:306|390:388|390:398|390:421|487:306|487:421"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "71d20825-3f5f-45e9-83f7-ecc5b5d05283",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+        "roomSignature": "189:256|189:388|303:256|303:388"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "f36d9b9d-a259-449f-8eba-73903299be44",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+        "roomSignature": "189:200|189:251|284:200|284:251"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "108d0eec-d6e0-48b8-9eb0-82bf1e26f97f",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+        "roomSignature": "189:195|189:63|328:63|333:195|333:63"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "660d7264-8840-4208-8e67-0d3dc123b618",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-face",
+        "side": 1,
+        "wallId": "25a658fa-eb18-413b-81df-9ec3e00fdcbc"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "f2750ead-9919-4caf-9729-70081d57eba2",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "189:281|189:286|189:388|311:281|311:388"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "5af4b500-8815-4f45-be2b-defa495b5501",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "5941a0fa-dad4-4323-96c5-03b170a67750",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "23132085-4594-4796-944d-a01b9ab8c0aa"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "id": "09db6d8d-d04a-4864-819a-1c045421657e",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "189:281|189:286|189:388|311:281|311:388"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "04e2263a-6de9-44a9-a131-33c2491c798e",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "b0ebccfb-76de-40f2-a05f-ed79c4176ee0"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "ace2dac4-ab23-4a0d-8d52-e9ea8d8dffb5",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "0a0e9ead-8795-4abc-a65e-da2c3d2e158e"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "5b850552-c619-4ded-85da-c672cf0ae1df",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "ecf7ceb9-9110-448b-880f-502efeed735a",
+      "materialId": "dulux-blush-matt",
+      "target": {
+        "type": "wall-face",
+        "side": "both",
+        "wallId": "2a52eb1a-6834-48ca-b251-b5e2a172dfad"
+      },
+      "textureRotation": 180,
+      "textureScale": 2.5
+    }
+  ],
+  "wallKind": "internal"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "dulux-blush-matt",
+  "manufacturer": "Dulux",
+  "productName": "Blush",
+  "category": "paint",
+  "materialType": "paint",
+  "finish": "matt",
+  "colourFamily": "pink",
+  "tags": ["wall", "paint", "pink", "blush"],
+  "pbr": {
+    "baseColor": "#f8cecc", 
+    "roughness": 0.84,
+    "metalness": 0
+  }
+}

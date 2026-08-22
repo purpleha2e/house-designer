@@ -1,0 +1,20 @@
+{
+  "id": "metro-white-gloss-tile",
+  "manufacturer": "House Designer",
+  "productName": "Metro White",
+  "collection": "Core samples",
+  "category": "tile",
+  "materialType": "ceramic wall tile",
+  "finish": "gloss",
+  "colourFamily": "white",
+  "tags": ["wall", "tile", "kitchen", "bathroom"],
+  "pbr": {
+    "baseColor": "#f8fafc",
+    "roughness": 0.28,
+    "metalness": 0,
+    "realWorldWidthMeters": 0.2,
+    "realWorldHeightMeters": 0.1,
+    "repeatX": 6,
+    "repeatY": 6
+  }
+}

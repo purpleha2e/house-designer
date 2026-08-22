@@ -1,0 +1,20 @@
+{
+  "id": "amtico-spacia-warm-oak",
+  "manufacturer": "Amtico",
+  "productName": "Warm Oak",
+  "collection": "Spacia",
+  "category": "flooring",
+  "materialType": "luxury vinyl tile",
+  "finish": "textured",
+  "colourFamily": "warm wood",
+  "tags": ["floor", "lvt", "plank", "wood"],
+  "pbr": {
+    "baseColor": "#b68a5e",
+    "roughness": 0.72,
+    "metalness": 0,
+    "realWorldWidthMeters": 0.18,
+    "realWorldHeightMeters": 1.22,
+    "repeatX": 4,
+    "repeatY": 4
+  }
+}

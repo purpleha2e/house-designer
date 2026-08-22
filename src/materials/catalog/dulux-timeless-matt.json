@@ -1,0 +1,15 @@
+{
+  "id": "dulux-timeless-matt",
+  "manufacturer": "Dulux",
+  "productName": "Timeless",
+  "category": "paint",
+  "materialType": "paint",
+  "finish": "matt",
+  "colourFamily": "warm white",
+  "tags": ["wall", "paint"],
+  "pbr": {
+    "baseColor": "#eee9dc",
+    "roughness": 0.84,
+    "metalness": 0
+  }
+}
