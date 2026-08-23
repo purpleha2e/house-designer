@@ -1,0 +1,15 @@
+{
+  "id": "dulux-green-matt",
+  "manufacturer": "Dulux",
+  "productName": "Whatsapp Green",
+  "category": "paint",
+  "materialType": "paint",
+  "finish": "matt",
+  "colourFamily": "pink",
+  "tags": ["wall", "paint", "green", "whatsapp"],
+  "pbr": {
+    "baseColor": "#9cba71", 
+    "roughness": 0.84,
+    "metalness": 0
+  }
+}

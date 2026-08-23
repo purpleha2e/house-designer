@@ -845,6 +845,7 @@ function App() {
     materialId: string | null,
     textureScale = 1,
     textureRotation = 0,
+    customColor?: string,
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
@@ -864,6 +865,7 @@ function App() {
       return [
         ...nextAssignments,
         {
+          customColor,
           id: crypto.randomUUID(),
           materialId,
           target: {
@@ -883,6 +885,7 @@ function App() {
     materialId: string | null,
     textureScale = 1,
     textureRotation = 0,
+    customColor?: string,
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
@@ -902,6 +905,7 @@ function App() {
       return [
         ...nextAssignments,
         {
+          customColor,
           id: crypto.randomUUID(),
           materialId,
           target: {
@@ -923,6 +927,7 @@ function App() {
     side: SurfaceWallSide,
     textureScale = 1,
     textureRotation = 0,
+    customColor?: string,
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
@@ -930,7 +935,10 @@ function App() {
         (assignment) =>
           !(
             assignment.target.type === 'wall-face' &&
-            assignment.target.wallId === wallId
+            assignment.target.wallId === wallId &&
+            (side === 'both' ||
+              assignment.target.side === 'both' ||
+              assignment.target.side === side)
           ),
       )
 
@@ -942,6 +950,7 @@ function App() {
         ...nextAssignments,
         {
           coverageHeight,
+          customColor,
           id: crypto.randomUUID(),
           materialId,
           target: {
@@ -1109,6 +1118,7 @@ function App() {
     : null
   const applyMaterialToSelectedSurface = ({
     coverageHeight,
+    customColor,
     materialId,
     textureRotation,
     textureScale,
@@ -1116,6 +1126,7 @@ function App() {
     wallSide,
   }: {
     coverageHeight?: number
+    customColor?: string
     materialId: string
     textureRotation: number
     textureScale: number
@@ -1132,6 +1143,7 @@ function App() {
         materialId,
         textureScale,
         textureRotation,
+        customColor,
       )
       return
     }
@@ -1142,6 +1154,7 @@ function App() {
         materialId,
         textureScale,
         textureRotation,
+        customColor,
       )
       return
     }
@@ -1157,6 +1170,7 @@ function App() {
       wallSide ?? 'both',
       textureScale,
       textureRotation,
+      customColor,
     )
   }
   const totalWallCount = floors.reduce(

@@ -103,6 +103,7 @@ export type SurfaceMaterialProduct = {
 
 export type SurfaceMaterialAssignment = {
   coverageHeight?: number
+  customColor?: string
   id: string
   materialId: string
   target: SurfaceTarget
@@ -123,6 +124,7 @@ export type SelectableSurface =
     }
   | {
       floorId: string
+      side: Exclude<SurfaceWallSide, 'both'>
       wallId: string
       type: 'wall-face'
     }

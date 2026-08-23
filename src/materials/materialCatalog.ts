@@ -1,5 +1,10 @@
 import type { SurfaceMaterialProduct } from '../types'
 
+export const CUSTOM_PAINT_MATERIAL_IDS = new Set([
+  'house-designer-custom-paint-gloss',
+  'house-designer-custom-paint-matt',
+])
+
 const materialTextureModules = import.meta.glob<string>(
   './textures/**/*.{jpg,jpeg,png,webp}',
   {
@@ -102,4 +107,8 @@ export function getSurfaceMaterialLabel(material: SurfaceMaterialProduct) {
   ]
     .filter(Boolean)
     .join(' - ')
+}
+
+export function isCustomPaintMaterialId(materialId: string) {
+  return CUSTOM_PAINT_MATERIAL_IDS.has(materialId)
 }

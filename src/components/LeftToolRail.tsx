@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
+import {
+  getSurfaceMaterialLabel,
+  isCustomPaintMaterialId,
+} from '../materials/materialCatalog'
 import type {
   FloorLevel,
   SelectableSurface,
@@ -30,6 +33,7 @@ type LeftToolRailProps = {
   onAddFloor: () => void
   onApplyMaterial: (options: {
     coverageHeight?: number
+    customColor?: string
     materialId: string
     textureRotation: number
     textureScale: number
@@ -118,11 +122,10 @@ export function LeftToolRail({
   const [selectedMaterialId, setSelectedMaterialId] = useState('')
   const [wallMaterialMode, setWallMaterialMode] =
     useState<WallMaterialMode>('full')
-  const [wallMaterialSide, setWallMaterialSide] =
-    useState<SurfaceWallSide>('both')
   const [wallCoverageHeight, setWallCoverageHeight] = useState(1.2)
   const [textureScale, setTextureScale] = useState(1)
   const [textureRotation, setTextureRotation] = useState(0)
+  const [customPaintColor, setCustomPaintColor] = useState('#f4d7dd')
   const activeFloor = floors.find((floor) => floor.id === activeFloorId)
   const updateInternalWallThickness = (value: string) => {
     const parsedValue = Number.parseFloat(value)
@@ -164,6 +167,9 @@ export function LeftToolRail({
   const materialToApply = selectedMaterialIsVisible
     ? selectedMaterialId
     : filteredMaterials[0]?.id ?? ''
+  const materialIsCustomPaint = materialToApply
+    ? isCustomPaintMaterialId(materialToApply)
+    : false
   const selectedSurfaceLabel =
     selectedSurface?.type === 'room-floor'
       ? 'Floor selected'
@@ -185,11 +191,13 @@ export function LeftToolRail({
               Math.max(0.05, wallCoverageHeight),
             )
           : selectedWallHeight ?? undefined,
+      customColor: materialIsCustomPaint ? customPaintColor : undefined,
       materialId: materialToApply,
       textureRotation,
       textureScale,
       wallMode: selectedSurface.type === 'wall-face' ? wallMaterialMode : undefined,
-      wallSide: selectedSurface.type === 'wall-face' ? wallMaterialSide : undefined,
+      wallSide:
+        selectedSurface.type === 'wall-face' ? selectedSurface.side : undefined,
     })
   }
 
@@ -411,6 +419,23 @@ export function LeftToolRail({
                   )}
                 </select>
               </label>
+              {materialIsCustomPaint ? (
+                <label className="flyout-colour-field">
+                  <span>Paint colour</span>
+                  <div>
+                    <input
+                      type="color"
+                      value={customPaintColor}
+                      onChange={(event) => setCustomPaintColor(event.target.value)}
+                    />
+                    <input
+                      type="text"
+                      value={customPaintColor}
+                      onChange={(event) => setCustomPaintColor(event.target.value)}
+                    />
+                  </div>
+                </label>
+              ) : null}
               <label className="flyout-field">
                 <span>Texture scale</span>
                 <div>
@@ -461,23 +486,6 @@ export function LeftToolRail({
                       Lower wall
                     </button>
                   </div>
-                  <label className="flyout-select">
-                    <span>Side</span>
-                    <select
-                      value={wallMaterialSide}
-                      onChange={(event) =>
-                        setWallMaterialSide(
-                          event.target.value === 'both'
-                            ? 'both'
-                            : (Number(event.target.value) as SurfaceWallSide),
-                        )
-                      }
-                    >
-                      <option value="both">Both sides</option>
-                      <option value="1">Side A</option>
-                      <option value="-1">Side B</option>
-                    </select>
-                  </label>
                   {wallMaterialMode === 'lower' ? (
                     <label className="flyout-field">
                       <span>Height</span>

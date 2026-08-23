@@ -8,7 +8,6 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import {
   BackSide,
-  BoxGeometry,
   BufferGeometry,
   CanvasTexture,
   Color,
@@ -90,10 +89,17 @@ type RenderOptions = {
 }
 
 type RenderedFloorData = {
-  externalWallPolygons: Point[][]
   floor: FloorLevel
+  wallBodyOccluders: WallBodyOccluder[]
   renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
+}
+
+type WallBodyOccluder = {
+  kind: WallKind
+  polygon: Point[]
+  renderedWall: RenderedWall
+  wallId: string
 }
 
 type LocalLightSlot = {
@@ -133,6 +139,7 @@ const MODEL_OUTLINE_COLOR = '#f97316'
 const MODEL_BOUNDS_SCALE = 1.035
 const MODEL_BOUNDS_LINE_THICKNESS = 0.010
 const MODEL_WALL_SNAP_DISTANCE_METERS = 0.75
+const WALL_SELECTION_OFFSET_METERS = 0.008
 const FALLBACK_REALTIME_LOCAL_LIGHTS = 8
 const MAX_REALTIME_LOCAL_LIGHTS = 11
 const SKIRTING_HEIGHT_METERS = 0.09
@@ -196,6 +203,27 @@ type ObjectTransformSnapshot = {
   position: Vector3
   rotationY: number
   scale: Vector3
+}
+
+type WallRenderSegment = {
+  leftCapAssignment?: SurfaceMaterialAssignment
+  leftCapUvProjector?: WallCapUvProjector
+  center: number
+  height: number
+  length: number
+  rightCapAssignment?: SurfaceMaterialAssignment
+  rightCapUvProjector?: WallCapUvProjector
+  revealBottom: boolean
+  revealLeft: boolean
+  revealRight: boolean
+  skipLeftEndCap: boolean
+  skipRightEndCap: boolean
+  revealTop: boolean
+  y: number
+}
+
+type WallCapUvProjector = {
+  renderedWall: RenderedWall
 }
 
 class ModelLoadBoundary extends Component<
@@ -1045,24 +1073,6 @@ function ExternalWallMaterial({
   )
 }
 
-function getPolygonArea(points: Point[]) {
-  return points.reduce((area, point, index) => {
-    const nextPoint = points[(index + 1) % points.length]
-    return area + point.x * nextPoint.y - nextPoint.x * point.y
-  }, 0) / 2
-}
-
-function dedupePoints(points: Point[]) {
-  return points.filter(
-    (point, index) =>
-      points.findIndex(
-        (candidatePoint) =>
-          Math.hypot(candidatePoint.x - point.x, candidatePoint.y - point.y) <
-          0.0001,
-      ) === index,
-  )
-}
-
 function isPointOnSegment(
   point: Point,
   segmentStart: Point,
@@ -1129,282 +1139,399 @@ function isPointInsideOrOnPolygon(point: Point, polygon: Point[]) {
   )
 }
 
-function createWallPrismGeometry(footprint: Point[], height: number) {
-  const geometry = new BufferGeometry()
-  const points = getPolygonArea(footprint) > 0 ? [...footprint].reverse() : footprint
-  const positions: number[] = []
-  const normals: number[] = []
-  const pushTriangle = (
-    firstPoint: [number, number, number],
-    secondPoint: [number, number, number],
-    thirdPoint: [number, number, number],
-  ) => {
-    const firstEdge = [
-      secondPoint[0] - firstPoint[0],
-      secondPoint[1] - firstPoint[1],
-      secondPoint[2] - firstPoint[2],
-    ]
-    const secondEdge = [
-      thirdPoint[0] - firstPoint[0],
-      thirdPoint[1] - firstPoint[1],
-      thirdPoint[2] - firstPoint[2],
-    ]
-    const normal = [
-      firstEdge[1] * secondEdge[2] - firstEdge[2] * secondEdge[1],
-      firstEdge[2] * secondEdge[0] - firstEdge[0] * secondEdge[2],
-      firstEdge[0] * secondEdge[1] - firstEdge[1] * secondEdge[0],
-    ]
-    const normalLength = Math.hypot(normal[0], normal[1], normal[2]) || 1
-    const unitNormal = [
-      normal[0] / normalLength,
-      normal[1] / normalLength,
-      normal[2] / normalLength,
-    ]
-
-    positions.push(...firstPoint, ...secondPoint, ...thirdPoint)
-    normals.push(...unitNormal, ...unitNormal, ...unitNormal)
-  }
-  const bottomPoint = (point: Point): [number, number, number] => [
-    point.x,
-    0,
-    point.y,
-  ]
-  const topPoint = (point: Point): [number, number, number] => [
-    point.x,
-    height,
-    point.y,
-  ]
-
-  for (let index = 1; index < points.length - 1; index += 1) {
-    pushTriangle(bottomPoint(points[0]), bottomPoint(points[index + 1]), bottomPoint(points[index]))
-    pushTriangle(topPoint(points[0]), topPoint(points[index]), topPoint(points[index + 1]))
-  }
-
-  for (let index = 0; index < points.length; index += 1) {
-    const nextIndex = (index + 1) % points.length
-    pushTriangle(
-      bottomPoint(points[index]),
-      bottomPoint(points[nextIndex]),
-      topPoint(points[nextIndex]),
-    )
-    pushTriangle(
-      bottomPoint(points[index]),
-      topPoint(points[nextIndex]),
-      topPoint(points[index]),
-    )
-  }
-
-  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
-  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3))
-
-  return geometry
-}
-
-function getRaySegmentIntersection(
-  rayStart: Point,
-  rayDirection: Point,
-  segmentStart: Point,
-  segmentEnd: Point,
-) {
-  const segmentDx = segmentEnd.x - segmentStart.x
-  const segmentDy = segmentEnd.y - segmentStart.y
-  const denominator = rayDirection.x * segmentDy - rayDirection.y * segmentDx
-
-  if (Math.abs(denominator) < 0.000001) {
-    return null
-  }
-
-  const startDx = segmentStart.x - rayStart.x
-  const startDy = segmentStart.y - rayStart.y
-  const rayT = (startDx * segmentDy - startDy * segmentDx) / denominator
-  const segmentT = (startDx * rayDirection.y - startDy * rayDirection.x) / denominator
-
-  if (rayT < 0.0001 || segmentT < -0.0001 || segmentT > 1.0001) {
-    return null
-  }
-
-  return {
-    point: {
-      x: rayStart.x + rayDirection.x * rayT,
-      y: rayStart.y + rayDirection.y * rayT,
-    },
-    rayT,
-  }
-}
-
-function getNearestPolygonRayHit(
-  rayStart: Point,
-  rayDirection: Point,
-  polygon: Point[],
-) {
-  let nearestHit: { point: Point; rayT: number } | null = null
-
-  for (let index = 0; index < polygon.length; index += 1) {
-    const hit = getRaySegmentIntersection(
-      rayStart,
-      rayDirection,
-      polygon[index],
-      polygon[(index + 1) % polygon.length],
-    )
-
-    if (hit && (!nearestHit || hit.rayT < nearestHit.rayT)) {
-      nearestHit = hit
-    }
-  }
-
-  return nearestHit?.point ?? null
-}
-
-function getRenderedWallEndpointFace(
-  { wall, startExtension, endExtension }: RenderedWall,
-  endpoint: 'start' | 'end',
+function getRenderedWallLocalPoint(
+  { wall, startExtension }: RenderedWall,
+  distanceAlongWall: number,
 ) {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
   const length = Math.hypot(dx, dy)
 
   if (length === 0) {
-    return null
+    return wall.start
   }
 
-  const unit = { x: dx / length, y: dy / length }
-  const normal = { x: -unit.y, y: unit.x }
-  const center =
-    endpoint === 'start'
-      ? {
-          x: wall.start.x - unit.x * startExtension,
-          y: wall.start.y - unit.y * startExtension,
-        }
-      : {
-          x: wall.end.x + unit.x * endExtension,
-          y: wall.end.y + unit.y * endExtension,
-        }
-  const outwardDirection =
-    endpoint === 'start' ? { x: -unit.x, y: -unit.y } : unit
-  const halfThickness = wall.thickness / 2
+  const unit = {
+    x: dx / length,
+    y: dy / length,
+  }
 
   return {
-    corners: [
-      {
-        x: center.x + normal.x * halfThickness,
-        y: center.y + normal.y * halfThickness,
-      },
-      {
-        x: center.x - normal.x * halfThickness,
-        y: center.y - normal.y * halfThickness,
-      },
-    ] as [Point, Point],
-    outwardDirection,
+    x: wall.start.x + unit.x * (distanceAlongWall - startExtension),
+    y: wall.start.y + unit.y * (distanceAlongWall - startExtension),
   }
 }
 
-function getInternalWallJoinFillFootprints(
-  renderedWall: RenderedWall,
-  externalWallPolygons: Point[][],
-) {
-  if (renderedWall.wall.kind !== 'internal') {
-    return []
+function getDistanceAlongRenderedWall(renderedWall: RenderedWall, point: Point) {
+  const { wall, startExtension } = renderedWall
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return 0
   }
 
-  return (['start', 'end'] as const).flatMap((endpoint) => {
-    const endpointFace = getRenderedWallEndpointFace(renderedWall, endpoint)
+  const unit = {
+    x: dx / length,
+    y: dy / length,
+  }
+  const renderedStart = {
+    x: wall.start.x - unit.x * startExtension,
+    y: wall.start.y - unit.y * startExtension,
+  }
 
-    if (!endpointFace) {
+  return (point.x - renderedStart.x) * unit.x + (point.y - renderedStart.y) * unit.y
+}
+
+function wallBodyOccluderOwnsOverlap(wall: Wall, occluder: WallBodyOccluder) {
+  if (wall.kind !== 'internal' && occluder.kind === 'internal') {
+    return false
+  }
+
+  if (wall.kind === 'internal' && occluder.kind !== 'internal') {
+    return true
+  }
+
+  return occluder.wallId.localeCompare(wall.id) < 0
+}
+
+function getRenderedWallDirection({ wall }: RenderedWall) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+
+  return length === 0 ? { x: 1, y: 0 } : { x: dx / length, y: dy / length }
+}
+
+function getWallFaceNormal(renderedWall: RenderedWall, side: Exclude<SurfaceWallSide, 'both'>) {
+  const direction = getRenderedWallDirection(renderedWall)
+  const sideOneNormal = {
+    x: -direction.y,
+    y: direction.x,
+  }
+
+  return side === 1
+    ? sideOneNormal
+    : {
+        x: -sideOneNormal.x,
+        y: -sideOneNormal.y,
+      }
+}
+
+function getWallSideFacingDirection(
+  renderedWall: RenderedWall,
+  direction: Point,
+): Exclude<SurfaceWallSide, 'both'> {
+  const sideOneNormal = getWallFaceNormal(renderedWall, 1)
+  const sideTwoNormal = getWallFaceNormal(renderedWall, -1)
+  const sideOneDot = sideOneNormal.x * direction.x + sideOneNormal.y * direction.y
+  const sideTwoDot = sideTwoNormal.x * direction.x + sideTwoNormal.y * direction.y
+
+  return sideOneDot >= sideTwoDot ? 1 : -1
+}
+
+function getWallBodyOcclusionBreaks(
+  renderedWall: RenderedWall,
+  renderedLength: number,
+  wallBodyOccluders: WallBodyOccluder[],
+) {
+  const wallPolygon = getWallPolygon(renderedWall)
+
+  return wallBodyOccluders.flatMap((occluder) => {
+    if (
+      occluder.wallId === renderedWall.wall.id ||
+      !wallBodyOccluderOwnsOverlap(renderedWall.wall, occluder)
+    ) {
       return []
     }
 
-    return externalWallPolygons.flatMap((externalWallPolygon) => {
-      const cornerStates = endpointFace.corners.map((corner) => ({
-        corner,
-        hit: getNearestPolygonRayHit(
-          corner,
-          endpointFace.outwardDirection,
-          externalWallPolygon,
-        ),
-        inside: isPointInsideOrOnPolygon(corner, externalWallPolygon),
-      }))
-      const outsideStates = cornerStates.filter((state) => !state.inside && state.hit)
-      const insideStates = cornerStates.filter((state) => state.inside)
+    const intersectionFootprint = getIntersectionFootprint(
+      wallPolygon,
+      occluder.polygon,
+    )
 
-      if (outsideStates.length === 1 && insideStates.length === 1) {
-        const outsideState = outsideStates[0]
-        const insideState = insideStates[0]
-        const fillDepth = outsideState.hit
-          ? Math.hypot(
-              outsideState.hit.x - outsideState.corner.x,
-              outsideState.hit.y - outsideState.corner.y,
-            )
-          : 0
-        const footprint = outsideState.hit
-          ? dedupePoints([outsideState.corner, insideState.corner, outsideState.hit])
-          : []
+    if (!intersectionFootprint) {
+      return []
+    }
 
-        return footprint.length >= 3 && fillDepth <= renderedWall.wall.thickness * 3
-          ? [footprint]
-          : []
-      }
-
-      if (outsideStates.length !== 2 || !outsideStates[0].hit || !outsideStates[1].hit) {
-        return []
-      }
-
-      const fillDepth = Math.max(
-        ...outsideStates.map((state) =>
-          state.hit
-            ? Math.hypot(
-                state.hit.x - state.corner.x,
-                state.hit.y - state.corner.y,
-              )
-            : 0,
-        ),
+    return intersectionFootprint
+      .map((point) => getDistanceAlongRenderedWall(renderedWall, point))
+      .filter(
+        (distanceAlongWall) =>
+          distanceAlongWall > 0 && distanceAlongWall < renderedLength,
       )
-      const footprint = dedupePoints([
-        outsideStates[0].corner,
-        outsideStates[1].corner,
-        outsideStates[1].hit,
-        outsideStates[0].hit,
-      ])
-
-      return footprint.length >= 3 && fillDepth <= renderedWall.wall.thickness * 3
-        ? [footprint]
-        : []
-    })
   })
 }
 
+function isWallSegmentOccluded(
+  renderedWall: RenderedWall,
+  midpoint: number,
+  wallBodyOccluders: WallBodyOccluder[],
+) {
+  const midpointWorld = getRenderedWallLocalPoint(renderedWall, midpoint)
+
+  return wallBodyOccluders.some(
+    (occluder) =>
+      occluder.wallId !== renderedWall.wall.id &&
+      wallBodyOccluderOwnsOverlap(renderedWall.wall, occluder) &&
+      isPointInsideOrOnPolygon(midpointWorld, occluder.polygon),
+  )
+}
+
 function createWallSegmentGeometry({
+  centerX,
+  centerZ,
+  rotationY,
   segment,
+  wallTopMaterialSlot,
+  wallHeight,
   wallThickness,
 }: {
-  segment: { center: number; height: number; length: number; y: number }
+  centerX: number
+  centerZ: number
+  rotationY: number
+  segment: WallRenderSegment
+  wallTopMaterialSlot: 0 | 1 | 2
+  wallHeight: number
   wallThickness: number
 }) {
-  const geometry = new BoxGeometry(segment.length, segment.height, wallThickness)
-  const position = geometry.getAttribute('position')
-  const uv = geometry.getAttribute('uv')
-  const segmentLocalStart = segment.center - segment.length / 2
+  const geometry = new BufferGeometry()
+  const positions: number[] = []
+  const normals: number[] = []
+  const uvs: number[] = []
+  const halfLength = segment.length / 2
+  const halfHeight = segment.height / 2
+  const halfThickness = wallThickness / 2
+  const segmentLocalStart = segment.center - halfLength
+  const materialIndex = {
+    base: 0,
+    leftCap: 3,
+    rightCap: 4,
+    sideOne: 1,
+    sideTwo: 2,
+  } as const
+  const addQuad = (
+    corners: Array<[number, number, number]>,
+    normal: [number, number, number],
+    materialSlot: number,
+    uvCorners: Array<[number, number]>,
+  ) => {
+    const startVertex = positions.length / 3
+    const indices = [0, 1, 2, 0, 2, 3]
 
-  for (let index = 0; index < position.count; index += 1) {
-    const localX = position.getX(index)
-    const localY = position.getY(index)
-    const localZ = position.getZ(index)
-    const wallDistance = segmentLocalStart + localX + segment.length / 2
-    const wallHeight = segment.y + localY
-    const isEndCap =
-      Math.abs(Math.abs(localX) - segment.length / 2) < 0.0001
-    const isTopOrBottom =
-      Math.abs(Math.abs(localY) - segment.height / 2) < 0.0001
+    indices.forEach((cornerIndex) => {
+      positions.push(...corners[cornerIndex])
+      normals.push(...normal)
+      uvs.push(...uvCorners[cornerIndex])
+    })
+    geometry.addGroup(startVertex, 6, materialSlot)
+  }
+  const xToWallDistance = (x: number) => segmentLocalStart + x + halfLength
+  const yToWallHeight = (y: number) => segment.y + y
+  const zToDepth = (z: number) => z + halfThickness
+  const localToWorldPlan = (x: number, z: number) => {
+    const groupLocalX = segment.center - halfLength + x
+    const cos = Math.cos(rotationY)
+    const sin = Math.sin(rotationY)
 
-    if (isEndCap) {
-      uv.setXY(index, localZ + wallThickness / 2, wallHeight)
-    } else if (isTopOrBottom) {
-      uv.setXY(index, wallDistance, localZ + wallThickness / 2)
-    } else {
-      uv.setXY(index, wallDistance, wallHeight)
+    return {
+      x: centerX + groupLocalX * cos + z * sin,
+      y: centerZ - groupLocalX * sin + z * cos,
     }
   }
+  const getWallProjectedUv = (
+    projector: WallCapUvProjector | undefined,
+    localX: number,
+    localY: number,
+    localZ: number,
+    fallbackUv: [number, number],
+  ): [number, number] => {
+    if (!projector) {
+      return fallbackUv
+    }
 
-  uv.needsUpdate = true
+    return [
+      getDistanceAlongRenderedWall(
+        projector.renderedWall,
+        localToWorldPlan(localX, localZ),
+      ),
+      yToWallHeight(localY),
+    ]
+  }
+  const addRightFace = (zMin: number, zMax: number, materialSlot: number) =>
+    addQuad(
+      [
+        [halfLength, -halfHeight, zMax],
+        [halfLength, -halfHeight, zMin],
+        [halfLength, halfHeight, zMin],
+        [halfLength, halfHeight, zMax],
+      ],
+      [1, 0, 0],
+      materialSlot,
+      [
+        getWallProjectedUv(segment.rightCapUvProjector, halfLength, -halfHeight, zMax, [
+          zToDepth(zMax),
+          yToWallHeight(-halfHeight),
+        ]),
+        getWallProjectedUv(segment.rightCapUvProjector, halfLength, -halfHeight, zMin, [
+          zToDepth(zMin),
+          yToWallHeight(-halfHeight),
+        ]),
+        getWallProjectedUv(segment.rightCapUvProjector, halfLength, halfHeight, zMin, [
+          zToDepth(zMin),
+          yToWallHeight(halfHeight),
+        ]),
+        getWallProjectedUv(segment.rightCapUvProjector, halfLength, halfHeight, zMax, [
+          zToDepth(zMax),
+          yToWallHeight(halfHeight),
+        ]),
+      ],
+    )
+  const addLeftFace = (zMin: number, zMax: number, materialSlot: number) =>
+    addQuad(
+      [
+        [-halfLength, -halfHeight, zMin],
+        [-halfLength, -halfHeight, zMax],
+        [-halfLength, halfHeight, zMax],
+        [-halfLength, halfHeight, zMin],
+      ],
+      [-1, 0, 0],
+      materialSlot,
+      [
+        getWallProjectedUv(segment.leftCapUvProjector, -halfLength, -halfHeight, zMin, [
+          zToDepth(zMin),
+          yToWallHeight(-halfHeight),
+        ]),
+        getWallProjectedUv(segment.leftCapUvProjector, -halfLength, -halfHeight, zMax, [
+          zToDepth(zMax),
+          yToWallHeight(-halfHeight),
+        ]),
+        getWallProjectedUv(segment.leftCapUvProjector, -halfLength, halfHeight, zMax, [
+          zToDepth(zMax),
+          yToWallHeight(halfHeight),
+        ]),
+        getWallProjectedUv(segment.leftCapUvProjector, -halfLength, halfHeight, zMin, [
+          zToDepth(zMin),
+          yToWallHeight(halfHeight),
+        ]),
+      ],
+    )
+  const addTopFace = (zMin: number, zMax: number, materialSlot: number) =>
+    addQuad(
+      [
+        [-halfLength, halfHeight, zMax],
+        [halfLength, halfHeight, zMax],
+        [halfLength, halfHeight, zMin],
+        [-halfLength, halfHeight, zMin],
+      ],
+      [0, 1, 0],
+      materialSlot,
+      [
+        [xToWallDistance(-halfLength), zToDepth(zMax)],
+        [xToWallDistance(halfLength), zToDepth(zMax)],
+        [xToWallDistance(halfLength), zToDepth(zMin)],
+        [xToWallDistance(-halfLength), zToDepth(zMin)],
+      ],
+    )
+  const addBottomFace = (zMin: number, zMax: number, materialSlot: number) =>
+    addQuad(
+      [
+        [-halfLength, -halfHeight, zMin],
+        [halfLength, -halfHeight, zMin],
+        [halfLength, -halfHeight, zMax],
+        [-halfLength, -halfHeight, zMax],
+      ],
+      [0, -1, 0],
+      materialSlot,
+      [
+        [xToWallDistance(-halfLength), zToDepth(zMin)],
+        [xToWallDistance(halfLength), zToDepth(zMin)],
+        [xToWallDistance(halfLength), zToDepth(zMax)],
+        [xToWallDistance(-halfLength), zToDepth(zMax)],
+      ],
+    )
+  const addZSplitFace = (
+    addFace: (zMin: number, zMax: number, materialSlot: number) => void,
+    positiveMaterialSlot: number,
+    negativeMaterialSlot: number,
+  ) => {
+    addFace(0, halfThickness, positiveMaterialSlot)
+    addFace(-halfThickness, 0, negativeMaterialSlot)
+  }
+
+  if (segment.skipRightEndCap) {
+    // Artificial clip boundary: the adjacent wall owns this volume.
+  } else if (segment.revealRight) {
+    addZSplitFace(addRightFace, materialIndex.sideOne, materialIndex.sideTwo)
+  } else {
+    addRightFace(-halfThickness, halfThickness, materialIndex.rightCap)
+  }
+
+  if (segment.skipLeftEndCap) {
+    // Artificial clip boundary: the adjacent wall owns this volume.
+  } else if (segment.revealLeft) {
+    addZSplitFace(addLeftFace, materialIndex.sideOne, materialIndex.sideTwo)
+  } else {
+    addLeftFace(-halfThickness, halfThickness, materialIndex.leftCap)
+  }
+
+  const segmentTop = segment.y + halfHeight
+
+  if (segment.revealBottom) {
+    addZSplitFace(addTopFace, materialIndex.sideOne, materialIndex.sideTwo)
+  } else if (segmentTop >= wallHeight - 0.001) {
+    addTopFace(
+      -halfThickness,
+      halfThickness,
+      wallTopMaterialSlot,
+    )
+  } else {
+    addTopFace(-halfThickness, halfThickness, materialIndex.base)
+  }
+
+  if (segment.revealTop) {
+    addZSplitFace(addBottomFace, materialIndex.sideOne, materialIndex.sideTwo)
+  } else {
+    addBottomFace(-halfThickness, halfThickness, materialIndex.base)
+  }
+
+  addQuad(
+    [
+      [-halfLength, -halfHeight, halfThickness],
+      [halfLength, -halfHeight, halfThickness],
+      [halfLength, halfHeight, halfThickness],
+      [-halfLength, halfHeight, halfThickness],
+    ],
+    [0, 0, 1],
+    materialIndex.sideOne,
+    [
+      [xToWallDistance(-halfLength), yToWallHeight(-halfHeight)],
+      [xToWallDistance(halfLength), yToWallHeight(-halfHeight)],
+      [xToWallDistance(halfLength), yToWallHeight(halfHeight)],
+      [xToWallDistance(-halfLength), yToWallHeight(halfHeight)],
+    ],
+  )
+  addQuad(
+    [
+      [halfLength, -halfHeight, -halfThickness],
+      [-halfLength, -halfHeight, -halfThickness],
+      [-halfLength, halfHeight, -halfThickness],
+      [halfLength, halfHeight, -halfThickness],
+    ],
+    [0, 0, -1],
+    materialIndex.sideTwo,
+    [
+      [xToWallDistance(halfLength), yToWallHeight(-halfHeight)],
+      [xToWallDistance(-halfLength), yToWallHeight(-halfHeight)],
+      [xToWallDistance(-halfLength), yToWallHeight(halfHeight)],
+      [xToWallDistance(halfLength), yToWallHeight(halfHeight)],
+    ],
+  )
+
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+  geometry.setAttribute('normal', new Float32BufferAttribute(normals, 3))
+  geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
   geometry.computeBoundingBox()
   geometry.computeBoundingSphere()
 
@@ -1413,7 +1540,11 @@ function createWallSegmentGeometry({
 
 function WallSegmentMesh({
   castsShadow,
+  centerX,
+  centerZ,
+  wallMaterialAssignments,
   renderedLength,
+  rotationY,
   segment,
   wallHeight,
   wallKind,
@@ -1421,23 +1552,98 @@ function WallSegmentMesh({
   wireframe,
 }: {
   castsShadow: boolean
+  centerX: number
+  centerZ: number
+  wallMaterialAssignments: SurfaceMaterialAssignment[]
   renderedLength: number
-  segment: { center: number; height: number; length: number; y: number }
+  rotationY: number
+  segment: WallRenderSegment
   wallHeight: number
   wallKind: WallKind
   wallThickness: number
   wireframe: boolean
 }) {
+  const segmentTop = segment.y + segment.height / 2
+  const sideOneAssignment = getWallMaterialAssignmentForSide(
+    wallMaterialAssignments,
+    1,
+    segmentTop,
+  )
+  const sideTwoAssignment = getWallMaterialAssignmentForSide(
+    wallMaterialAssignments,
+    -1,
+    segmentTop,
+  )
+  const leftCapAssignment =
+    segment.leftCapAssignment ?? sideOneAssignment ?? sideTwoAssignment
+  const rightCapAssignment =
+    segment.rightCapAssignment ?? sideOneAssignment ?? sideTwoAssignment
+  const sideAssignmentsMatch = Boolean(
+    sideOneAssignment &&
+      sideTwoAssignment &&
+      wallMaterialAssignmentsMatch(sideOneAssignment, sideTwoAssignment),
+  )
+  const wallTopMaterialSlot = sideAssignmentsMatch ? 1 : 0
   const geometry = useMemo(
     () =>
       createWallSegmentGeometry({
+        centerX,
+        centerZ,
+        rotationY,
         segment,
+        wallTopMaterialSlot,
+        wallHeight,
         wallThickness,
       }),
-    [segment, wallThickness],
+    [
+      centerX,
+      centerZ,
+      rotationY,
+      segment,
+      wallHeight,
+      wallThickness,
+      wallTopMaterialSlot,
+    ],
   )
 
   useEffect(() => () => geometry.dispose(), [geometry])
+
+  const sideOneMaterial = sideOneAssignment
+    ? surfaceMaterialsById.get(sideOneAssignment.materialId)
+    : null
+  const sideTwoMaterial = sideTwoAssignment
+    ? surfaceMaterialsById.get(sideTwoAssignment.materialId)
+    : null
+  const leftCapMaterial = leftCapAssignment
+    ? surfaceMaterialsById.get(leftCapAssignment.materialId)
+    : null
+  const rightCapMaterial = rightCapAssignment
+    ? surfaceMaterialsById.get(rightCapAssignment.materialId)
+    : null
+  const renderBaseMaterial = (attach: string) =>
+    wallKind === 'external' ? (
+      <ExternalWallMaterial attach={attach} wireframe={wireframe} />
+    ) : (
+      <InternalWallMaterial attach={attach} wireframe={wireframe} />
+    )
+  const renderSurfaceMaterial = (
+    attach: string,
+    assignment: SurfaceMaterialAssignment | undefined,
+    material: SurfaceMaterialProduct | null | undefined,
+  ) =>
+    assignment && material ? (
+      <SurfaceMeshStandardMaterial
+        attach={attach}
+        assignment={assignment}
+        displacementEnabled={false}
+        material={material}
+        polygonOffsetFactor={0}
+        polygonOffsetUnits={0}
+        wireframe={wireframe}
+      />
+    ) : (
+      renderBaseMaterial(attach)
+    )
 
   return (
     <mesh
@@ -1450,27 +1656,66 @@ function WallSegmentMesh({
       ]}
       receiveShadow={castsShadow}
     >
-      {wallKind === 'external' ? (
-        <ExternalWallMaterial wireframe={wireframe} />
-      ) : (
-        <meshStandardMaterial
-          color="#cbd5e1"
-          roughness={0.72}
-          shadowSide={FrontSide}
-          wireframe={wireframe}
-        />
-      )}
+      {renderBaseMaterial('material-0')}
+      {renderSurfaceMaterial('material-1', sideOneAssignment, sideOneMaterial)}
+      {renderSurfaceMaterial('material-2', sideTwoAssignment, sideTwoMaterial)}
+      {renderSurfaceMaterial('material-3', leftCapAssignment, leftCapMaterial)}
+      {renderSurfaceMaterial('material-4', rightCapAssignment, rightCapMaterial)}
     </mesh>
   )
 }
 
-function getWallMaterialAssignment(
+function InternalWallMaterial({
+  attach,
+  wireframe,
+}: {
+  attach?: string
+  wireframe: boolean
+}) {
+  return (
+    <meshStandardMaterial
+      attach={attach}
+      color="#cbd5e1"
+      roughness={0.72}
+      shadowSide={FrontSide}
+      wireframe={wireframe}
+    />
+  )
+}
+
+function getWallMaterialAssignments(
   surfaceAssignments: SurfaceMaterialAssignment[],
   wallId: string,
 ) {
-  return surfaceAssignments.find(
+  return surfaceAssignments.filter(
     (assignment) =>
       assignment.target.type === 'wall-face' && assignment.target.wallId === wallId,
+  )
+}
+
+function getWallMaterialAssignmentForSide(
+  wallMaterialAssignments: SurfaceMaterialAssignment[],
+  side: Exclude<SurfaceWallSide, 'both'>,
+  height: number,
+) {
+  return wallMaterialAssignments.findLast(
+    (assignment) =>
+      assignment.target.type === 'wall-face' &&
+      (assignment.coverageHeight ?? Number.POSITIVE_INFINITY) >= height - 0.001 &&
+      (assignment.target.side === 'both' || assignment.target.side === side),
+  )
+}
+
+function wallMaterialAssignmentsMatch(
+  firstAssignment: SurfaceMaterialAssignment,
+  secondAssignment: SurfaceMaterialAssignment,
+) {
+  return (
+    firstAssignment.materialId === secondAssignment.materialId &&
+    (firstAssignment.customColor ?? '') === (secondAssignment.customColor ?? '') &&
+    (firstAssignment.textureRotation ?? 0) ===
+      (secondAssignment.textureRotation ?? 0) &&
+    (firstAssignment.textureScale ?? 1) === (secondAssignment.textureScale ?? 1)
   )
 }
 
@@ -1482,6 +1727,10 @@ type LoadedSurfaceTextures = {
   normalMap?: Texture
   roughnessMap?: Texture
 }
+
+const surfaceTextureCache = new Map<string, LoadedSurfaceTextures>()
+const surfaceTexturePromiseCache = new Map<string, Promise<LoadedSurfaceTextures>>()
+const sharedSurfaceTextureLoader = new TextureLoader()
 
 function configureSurfaceTexture(
   texture: Texture,
@@ -1511,6 +1760,38 @@ function configureSurfaceTexture(
   return texture
 }
 
+function loadSurfaceTexture(
+  textureUrl: string,
+  {
+    isColorMap,
+    repeatX,
+    repeatY,
+    rotationRadians,
+  }: {
+    isColorMap: boolean
+    repeatX: number
+    repeatY: number
+    rotationRadians: number
+  },
+) {
+  return new Promise<Texture>((resolve) => {
+    sharedSurfaceTextureLoader.load(
+      textureUrl,
+      (texture) =>
+        resolve(
+          configureSurfaceTexture(texture, {
+            isColorMap,
+            repeatX,
+            repeatY,
+            rotationRadians,
+          }),
+        ),
+      undefined,
+      () => resolve(undefined as unknown as Texture),
+    )
+  })
+}
+
 function useSurfaceMaterialTextures(
   material: SurfaceMaterialProduct,
   assignment: SurfaceMaterialAssignment,
@@ -1530,11 +1811,20 @@ function useSurfaceMaterialTextures(
   const rotationRadians = ((assignment.textureRotation ?? 0) * Math.PI) / 180
   const effectiveRepeatX = repeatX / textureScale
   const effectiveRepeatY = repeatY / textureScale
+  const textureCacheKey = [
+    ambientOcclusionTextureUrl ?? '',
+    baseColorTextureUrl ?? '',
+    displacementTextureUrl ?? '',
+    metalnessTextureUrl ?? '',
+    normalTextureUrl ?? '',
+    roughnessTextureUrl ?? '',
+    effectiveRepeatX,
+    effectiveRepeatY,
+    rotationRadians,
+  ].join('|')
 
   useEffect(() => {
     let cancelled = false
-    const textureLoader = new TextureLoader()
-    const nextTextures: LoadedSurfaceTextures = {}
     const textureEntries = [
       ['map', baseColorTextureUrl, true],
       ['normalMap', normalTextureUrl, false],
@@ -1557,33 +1847,48 @@ function useSurfaceMaterialTextures(
       return
     }
 
-    let remainingCount = entriesToLoad.length
+    const cachedTextures = surfaceTextureCache.get(textureCacheKey)
 
-    entriesToLoad.forEach(([key, textureUrl, isColorMap]) => {
-      textureLoader.load(
-        textureUrl,
-        (texture) => {
-          nextTextures[key] = configureSurfaceTexture(texture, {
+    if (cachedTextures) {
+      queueMicrotask(() => {
+        if (!cancelled) {
+          setTextures(cachedTextures)
+        }
+      })
+      return
+    }
+
+    const texturePromise =
+      surfaceTexturePromiseCache.get(textureCacheKey) ??
+      Promise.all(
+        entriesToLoad.map(async ([key, textureUrl, isColorMap]) => {
+          const texture = await loadSurfaceTexture(textureUrl, {
             isColorMap,
             repeatX: effectiveRepeatX,
             repeatY: effectiveRepeatY,
             rotationRadians,
           })
-          remainingCount -= 1
 
-          if (!cancelled && remainingCount === 0) {
-            setTextures(nextTextures)
-          }
-        },
-        undefined,
-        () => {
-          remainingCount -= 1
+          return [key, texture] as const
+        }),
+      ).then((loadedTextureEntries) => {
+        const nextTextures: LoadedSurfaceTextures = {}
 
-          if (!cancelled && remainingCount === 0) {
-            setTextures(nextTextures)
+        loadedTextureEntries.forEach(([key, texture]) => {
+          if (texture) {
+            nextTextures[key] = texture
           }
-        },
-      )
+        })
+        surfaceTextureCache.set(textureCacheKey, nextTextures)
+        surfaceTexturePromiseCache.delete(textureCacheKey)
+        return nextTextures
+      })
+
+    surfaceTexturePromiseCache.set(textureCacheKey, texturePromise)
+    texturePromise.then((nextTextures) => {
+      if (!cancelled) {
+        setTextures(nextTextures)
+      }
     })
 
     return () => {
@@ -1600,12 +1905,15 @@ function useSurfaceMaterialTextures(
     effectiveRepeatY,
     rotationRadians,
     roughnessTextureUrl,
+    textureCacheKey,
   ])
 
   return textures
 }
 
 function SurfaceMeshStandardMaterial({
+  attach,
+  displacementEnabled = true,
   material,
   assignment,
   polygonOffsetFactor,
@@ -1613,6 +1921,8 @@ function SurfaceMeshStandardMaterial({
   side,
   wireframe,
 }: {
+  attach?: string
+  displacementEnabled?: boolean
   material: SurfaceMaterialProduct
   assignment: SurfaceMaterialAssignment
   polygonOffsetFactor: number
@@ -1628,98 +1938,29 @@ function SurfaceMeshStandardMaterial({
     textures.normalMap?.uuid,
     textures.roughnessMap?.uuid,
     textures.displacementMap?.uuid,
+    assignment.customColor ?? '',
     assignment.textureScale ?? 1,
     assignment.textureRotation ?? 0,
     side ?? FrontSide,
   ].join(':')
+  const baseColor = assignment.customColor ?? material.pbr.baseColor ?? '#e2e8f0'
 
   return (
     <meshStandardMaterial
+      attach={attach}
       key={materialKey}
       {...textures}
-      color={hasBaseColorTexture ? '#ffffff' : material.pbr.baseColor ?? '#e2e8f0'}
-      displacementScale={material.pbr.displacementScale ?? 0}
+      color={hasBaseColorTexture ? '#ffffff' : baseColor}
+      displacementScale={displacementEnabled ? material.pbr.displacementScale ?? 0 : 0}
       metalness={material.pbr.metalness ?? 0}
       polygonOffset
       polygonOffsetFactor={polygonOffsetFactor}
       polygonOffsetUnits={polygonOffsetUnits}
       roughness={material.pbr.roughness ?? 0.7}
+      shadowSide={FrontSide}
       side={side}
       wireframe={wireframe}
     />
-  )
-}
-
-function WallFinishOverlay({
-  renderedLength,
-  segments,
-  surfaceAssignments,
-  wall,
-  wallHeight,
-  wallThickness,
-  wireframe,
-}: {
-  renderedLength: number
-  segments: Array<{ center: number; height: number; length: number; y: number }>
-  surfaceAssignments: SurfaceMaterialAssignment[]
-  wall: Wall
-  wallHeight: number
-  wallThickness: number
-  wireframe: boolean
-}) {
-  const assignment = getWallMaterialAssignment(surfaceAssignments, wall.id)
-  const material = assignment ? surfaceMaterialsById.get(assignment.materialId) : null
-
-  if (!assignment || !material || assignment.target.type !== 'wall-face') {
-    return null
-  }
-
-  const coverageHeight = Math.min(
-    wallHeight,
-    Math.max(0.01, assignment.coverageHeight ?? wallHeight),
-  )
-  const sides: Array<Exclude<SurfaceWallSide, 'both'>> =
-    assignment.target.side === 'both' ? [1, -1] : [assignment.target.side]
-
-  return (
-    <>
-      {segments.flatMap((segment, segmentIndex) => {
-        const segmentBottom = segment.y - segment.height / 2
-        const segmentTop = segment.y + segment.height / 2
-        const finishBottom = Math.max(0, segmentBottom)
-        const finishTop = Math.min(coverageHeight, segmentTop)
-        const finishHeight = finishTop - finishBottom
-
-        if (finishHeight <= 0.001) {
-          return []
-        }
-
-        const finishCenterY = (finishBottom + finishTop) / 2
-
-        return sides.map((side) => (
-          <mesh
-            key={`${segmentIndex}-${side}`}
-            position={[
-              segment.center - renderedLength / 2,
-              finishCenterY - wallHeight / 2,
-              side * (wallThickness / 2 + 0.006),
-            ]}
-            rotation={[0, side === 1 ? 0 : Math.PI, 0]}
-            receiveShadow
-            renderOrder={4}
-          >
-            <planeGeometry args={[segment.length, finishHeight]} />
-            <SurfaceMeshStandardMaterial
-              assignment={assignment}
-              material={material}
-              polygonOffsetFactor={-2}
-              polygonOffsetUnits={-2}
-              wireframe={wireframe}
-            />
-          </mesh>
-        ))
-      })}
-    </>
   )
 }
 
@@ -1746,10 +1987,11 @@ function WallSelectableFace({
   const surface = useMemo<SelectableSurface>(
     () => ({
       floorId,
+      side,
       type: 'wall-face',
       wallId: wall.id,
     }),
-    [floorId, wall.id],
+    [floorId, side, wall.id],
   )
 
   useEffect(() => {
@@ -1771,16 +2013,19 @@ function WallSelectableFace({
   return (
     <mesh
       ref={meshRef}
-      position={[0, 0, side * (wallThickness / 2 + 0.012)]}
+      position={[0, 0, side * (wallThickness / 2 + WALL_SELECTION_OFFSET_METERS)]}
       rotation={[0, side === 1 ? 0 : Math.PI, 0]}
       renderOrder={isSelected ? 7 : -1}
     >
       <planeGeometry args={[renderedLength, wallHeight]} />
       <meshBasicMaterial
         color="#f97316"
-        depthTest={false}
+        depthTest
         depthWrite={false}
-        opacity={isSelected ? 0.26 : 0}
+        opacity={isSelected ? 0.18 : 0}
+        polygonOffset
+        polygonOffsetFactor={-2}
+        polygonOffsetUnits={-2}
         side={DoubleSide}
         transparent
       />
@@ -1805,8 +2050,15 @@ function WallSelectionOverlay({
   wallHeight: number
   wallThickness: number
 }) {
-  const isSelected = surfacesMatch(selectedSurface, {
+  const sideOneIsSelected = surfacesMatch(selectedSurface, {
     floorId,
+    side: 1,
+    type: 'wall-face',
+    wallId: wall.id,
+  })
+  const sideTwoIsSelected = surfacesMatch(selectedSurface, {
+    floorId,
+    side: -1,
     type: 'wall-face',
     wallId: wall.id,
   })
@@ -1815,7 +2067,7 @@ function WallSelectionOverlay({
     <>
       <WallSelectableFace
         floorId={floorId}
-        isSelected={isSelected}
+        isSelected={sideOneIsSelected}
         onRegisterPickTarget={onRegisterPickTarget}
         renderedLength={renderedLength}
         side={1}
@@ -1825,7 +2077,7 @@ function WallSelectionOverlay({
       />
       <WallSelectableFace
         floorId={floorId}
-        isSelected={isSelected}
+        isSelected={sideTwoIsSelected}
         onRegisterPickTarget={onRegisterPickTarget}
         renderedLength={renderedLength}
         side={-1}
@@ -1841,23 +2093,23 @@ const WallMesh = memo(function WallMesh({
   castsShadow,
   elevation,
   floorId,
-  externalWallPolygons,
   isActive,
   onRegisterPickTarget,
   renderedWall,
   selectedSurface,
   surfaceAssignments,
+  wallBodyOccluders,
   wireframe,
 }: {
   castsShadow: boolean
   elevation: number
   floorId: string
-  externalWallPolygons: Point[][]
   isActive: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
   renderedWall: RenderedWall
   selectedSurface: SelectableSurface | null
   surfaceAssignments: SurfaceMaterialAssignment[]
+  wallBodyOccluders: WallBodyOccluder[]
   wireframe: boolean
 }) {
   const { wall, startExtension, endExtension } = renderedWall
@@ -1895,21 +2147,57 @@ const WallMesh = memo(function WallMesh({
       ): opening is { bottom: number; left: number; right: number; top: number } =>
         Boolean(opening),
     )
-  const activeWallSegments = (() => {
-    if (openings.length === 0) {
-      return [
-        {
-          center: renderedLength / 2,
-          height: wall.height,
-          length: renderedLength,
-          y: wall.height / 2,
-        },
-      ]
+  const wallMaterialAssignments = getWallMaterialAssignments(
+    surfaceAssignments,
+    wall.id,
+  )
+  const getCapMaterialReference = (
+    distanceAlongWall: number,
+    capDirection: Point,
+    height: number,
+  ) => {
+    const capPoint = getRenderedWallLocalPoint(renderedWall, distanceAlongWall)
+    const adjoiningWall = wallBodyOccluders.find(
+      (occluder) =>
+        occluder.wallId !== wall.id &&
+        isPointInsideOrOnPolygon(capPoint, occluder.polygon),
+    )
+
+    if (!adjoiningWall) {
+      return undefined
     }
 
+    const adjoiningSide = getWallSideFacingDirection(
+      adjoiningWall.renderedWall,
+      capDirection,
+    )
+
+    return {
+      assignment: getWallMaterialAssignmentForSide(
+        getWallMaterialAssignments(surfaceAssignments, adjoiningWall.wallId),
+        adjoiningSide,
+        height,
+      ),
+      uvProjector: {
+        renderedWall: adjoiningWall.renderedWall,
+      },
+    }
+  }
+  const activeWallSegments = (() => {
+    const tolerance = 0.001
+    const occlusionBreaks = getWallBodyOcclusionBreaks(
+      renderedWall,
+      renderedLength,
+      wallBodyOccluders,
+    )
+    const isOcclusionBreak = (position: number) =>
+      occlusionBreaks.some(
+        (occlusionBreak) => Math.abs(occlusionBreak - position) <= tolerance,
+      )
     const xBreaks = [
       0,
       renderedLength,
+      ...occlusionBreaks,
       ...openings.flatMap((opening) => [opening.left, opening.right]),
     ]
       .filter((position) => position >= 0 && position <= renderedLength)
@@ -1917,9 +2205,35 @@ const WallMesh = memo(function WallMesh({
     const uniqueBreaks = xBreaks.filter(
       (position, index) => index === 0 || Math.abs(position - xBreaks[index - 1]) > 0.001,
     )
+    const yBreaks = [
+      0,
+      wall.height,
+      ...openings.flatMap((opening) => [opening.bottom, opening.top]),
+      ...wallMaterialAssignments.flatMap((assignment) => {
+        const coverageHeight = assignment.coverageHeight ?? wall.height
 
-    return uniqueBreaks.slice(0, -1).flatMap((start, index) => {
-      const end = uniqueBreaks[index + 1]
+        return coverageHeight > tolerance && coverageHeight < wall.height - tolerance
+          ? [coverageHeight]
+          : []
+      }),
+    ]
+      .filter((position) => position >= 0 && position <= wall.height)
+      .sort((firstPosition, secondPosition) => firstPosition - secondPosition)
+    const uniqueYBreaks = yBreaks.filter(
+      (position, index) =>
+        index === 0 || Math.abs(position - yBreaks[index - 1]) > tolerance,
+    )
+    const overlaps = (
+      firstStart: number,
+      firstEnd: number,
+      secondStart: number,
+      secondEnd: number,
+    ) => firstStart < secondEnd - tolerance && firstEnd > secondStart + tolerance
+    const equals = (first: number, second: number) =>
+      Math.abs(first - second) <= tolerance
+
+    return uniqueBreaks.slice(0, -1).flatMap((start, xIndex) => {
+      const end = uniqueBreaks[xIndex + 1]
       const segmentLength = end - start
 
       if (segmentLength <= 0.001) {
@@ -1927,69 +2241,105 @@ const WallMesh = memo(function WallMesh({
       }
 
       const midpoint = (start + end) / 2
-      const opening = openings.find(
-        (candidateOpening) =>
-          midpoint >= candidateOpening.left && midpoint <= candidateOpening.right,
-      )
 
-      if (!opening) {
+      if (isWallSegmentOccluded(renderedWall, midpoint, wallBodyOccluders)) {
+        return []
+      }
+
+      const skipLeftEndCap =
+        start > tolerance &&
+        (isOcclusionBreak(start) ||
+          isWallSegmentOccluded(
+            renderedWall,
+            Math.max(0, start - tolerance * 2),
+            wallBodyOccluders,
+          ))
+      const skipRightEndCap =
+        end < renderedLength - tolerance &&
+        (isOcclusionBreak(end) ||
+          isWallSegmentOccluded(
+            renderedWall,
+            Math.min(renderedLength, end + tolerance * 2),
+            wallBodyOccluders,
+          ))
+      const leftCapReference = getCapMaterialReference(start, {
+        x: -unitX,
+        y: -unitZ,
+      }, wall.height)
+      const rightCapReference = getCapMaterialReference(end, {
+        x: unitX,
+        y: unitZ,
+      }, wall.height)
+
+      return uniqueYBreaks.slice(0, -1).flatMap((bottom, yIndex) => {
+        const top = uniqueYBreaks[yIndex + 1]
+        const segmentHeight = top - bottom
+
+        if (segmentHeight <= tolerance) {
+          return []
+        }
+
+        const verticalMidpoint = (bottom + top) / 2
+        const segmentTop = bottom + segmentHeight
+        const isOpeningVoid = openings.some(
+          (opening) =>
+            midpoint > opening.left + tolerance &&
+            midpoint < opening.right - tolerance &&
+            verticalMidpoint > opening.bottom + tolerance &&
+            verticalMidpoint < opening.top - tolerance,
+        )
+
+        if (isOpeningVoid) {
+          return []
+        }
+
         return [
           {
             center: midpoint,
-            height: wall.height,
+            height: segmentHeight,
+            leftCapAssignment:
+              leftCapReference?.assignment &&
+              (leftCapReference.assignment.coverageHeight ?? wall.height) >=
+                segmentTop - tolerance
+                ? leftCapReference.assignment
+                : undefined,
+            leftCapUvProjector: leftCapReference?.uvProjector,
             length: segmentLength,
-            y: wall.height / 2,
+            rightCapAssignment:
+              rightCapReference?.assignment &&
+              (rightCapReference.assignment.coverageHeight ?? wall.height) >=
+                segmentTop - tolerance
+                ? rightCapReference.assignment
+                : undefined,
+            rightCapUvProjector: rightCapReference?.uvProjector,
+            revealBottom: openings.some(
+              (opening) =>
+                equals(top, opening.bottom) &&
+                overlaps(start, end, opening.left, opening.right),
+            ),
+            revealLeft: openings.some(
+              (opening) =>
+                equals(start, opening.right) &&
+                overlaps(bottom, top, opening.bottom, opening.top),
+            ),
+            revealRight: openings.some(
+              (opening) =>
+                equals(end, opening.left) &&
+                overlaps(bottom, top, opening.bottom, opening.top),
+            ),
+            skipLeftEndCap,
+            skipRightEndCap,
+            revealTop: openings.some(
+              (opening) =>
+                equals(bottom, opening.top) &&
+                overlaps(start, end, opening.left, opening.right),
+            ),
+            y: bottom + segmentHeight / 2,
           },
         ]
-      }
-
-      return [
-        opening.bottom > 0.001
-          ? {
-              center: midpoint,
-              height: opening.bottom,
-              length: segmentLength,
-              y: opening.bottom / 2,
-            }
-          : null,
-        wall.height - opening.top > 0.001
-          ? {
-              center: midpoint,
-              height: wall.height - opening.top,
-              length: segmentLength,
-              y: opening.top + (wall.height - opening.top) / 2,
-            }
-          : null,
-      ].filter(
-        (segment): segment is { center: number; height: number; length: number; y: number } =>
-          Boolean(segment),
-      )
+      })
     })
   })()
-  const joinFillGeometries = useMemo(() => {
-    if (wall.kind !== 'internal' || wall.openings?.length) {
-      return []
-    }
-
-    return getInternalWallJoinFillFootprints(
-      renderedWall,
-      externalWallPolygons,
-    ).map((footprint) => createWallPrismGeometry(footprint, wall.height))
-  }, [
-    externalWallPolygons,
-    renderedWall,
-    wall.height,
-    wall.kind,
-    wall.openings?.length,
-  ])
-
-  useEffect(
-    () => () => {
-      joinFillGeometries.forEach((geometry) => geometry.dispose())
-    },
-    [joinFillGeometries],
-  )
-
   return (
     <>
       <group
@@ -2003,23 +2353,18 @@ const WallMesh = memo(function WallMesh({
               <WallSegmentMesh
                 key={index}
                 castsShadow={castsShadow}
+                centerX={centerX}
+                centerZ={centerZ}
                 renderedLength={renderedLength}
+                rotationY={rotationY}
                 segment={segment}
+                wallMaterialAssignments={wallMaterialAssignments}
                 wallHeight={wall.height}
                 wallKind={wall.kind}
                 wallThickness={wall.thickness}
                 wireframe={wireframe}
               />
             ))}
-            <WallFinishOverlay
-              renderedLength={renderedLength}
-              segments={activeWallSegments}
-              surfaceAssignments={surfaceAssignments}
-              wall={wall}
-              wallHeight={wall.height}
-              wallThickness={wall.thickness}
-              wireframe={wireframe}
-            />
           </>
         ) : (
           <mesh castShadow={castsShadow} receiveShadow={castsShadow}>
@@ -2047,25 +2392,6 @@ const WallMesh = memo(function WallMesh({
           wallThickness={wall.thickness}
         />
       </group>
-      {joinFillGeometries.map((geometry, index) => (
-        <mesh
-          key={`join-fill-${index}`}
-          castShadow={castsShadow}
-          geometry={geometry}
-          position={[0, elevation, 0]}
-          receiveShadow={castsShadow}
-          renderOrder={isActive ? 2 : 1}
-        >
-          <meshStandardMaterial
-            color={isActive ? '#cbd5e1' : '#94a3b8'}
-            opacity={isActive ? 1 : 0.18}
-            roughness={0.72}
-            shadowSide={FrontSide}
-            transparent={!isActive}
-            wireframe={wireframe}
-          />
-        </mesh>
-      ))}
     </>
   )
 })
@@ -2693,6 +3019,7 @@ function surfacesMatch(
   if (firstSurface.type === 'wall-face' && secondSurface.type === 'wall-face') {
     return (
       firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.side === secondSurface.side &&
       firstSurface.wallId === secondSurface.wallId
     )
   }
@@ -3451,7 +3778,7 @@ function SolidFloorScene({
   surfaceAssignments,
   transformEnabled,
   transformMode,
-  wallPolygons,
+  wallBodyOccluders,
   wireframe,
 }: {
   daylightEnabled: boolean
@@ -3469,7 +3796,7 @@ function SolidFloorScene({
   surfaceAssignments: SurfaceMaterialAssignment[]
   transformEnabled: boolean
   transformMode: TransformMode
-  wallPolygons: Point[][]
+  wallBodyOccluders: WallBodyOccluder[]
   wireframe: boolean
 }) {
   return (
@@ -3480,12 +3807,12 @@ function SolidFloorScene({
           castsShadow={shadowsEnabled}
           elevation={floor.elevation}
           floorId={floor.id}
-          externalWallPolygons={wallPolygons}
           isActive
           onRegisterPickTarget={onRegisterPickTarget}
           renderedWall={renderedWall}
           selectedSurface={selectedSurface}
           surfaceAssignments={surfaceAssignments}
+          wallBodyOccluders={wallBodyOccluders}
           wireframe={wireframe}
         />
       ))}
@@ -5011,14 +5338,18 @@ export function ThreeDView({
       floors.map((floor) => {
         const topology = buildWallTopology(floor.walls)
         const renderedWalls = getRenderedWalls(floor.walls)
+        const wallBodyOccluders = renderedWalls.map((renderedWall) => ({
+          kind: renderedWall.wall.kind,
+          polygon: getWallPolygon(renderedWall),
+          renderedWall,
+          wallId: renderedWall.wall.id,
+        }))
 
         return {
-          externalWallPolygons: renderedWalls
-            .filter((renderedWall) => renderedWall.wall.kind !== 'internal')
-            .map(getWallPolygon),
           floor,
           renderedWalls,
           rooms: topology.rooms,
+          wallBodyOccluders,
         }
       }),
     [floors],
@@ -5378,7 +5709,12 @@ export function ThreeDView({
             ) : null}
 
             {visibleRenderedFloors.map((renderedFloor) => {
-              const { floor, renderedWalls, externalWallPolygons, rooms } = renderedFloor
+              const {
+                floor,
+                renderedWalls,
+                rooms,
+                wallBodyOccluders,
+              } = renderedFloor
               const isActive = floor.id === activeFloorId
               const slabIsSolid = floor.id === floorBelowActive?.id
               const floorIndex = floorsByElevation.findIndex(
@@ -5441,16 +5777,16 @@ export function ThreeDView({
                         onTransformActiveChange={setTransformingModel}
                         onUpdateModel={onUpdateModel}
                         pickTargetsRef={pickTargetsRef}
-                        renderedWalls={renderedWalls}
-                        rooms={rooms}
-                        selectedSurface={selectedSurface}
-                        shadowsEnabled={renderOptions.shadows}
-                        surfaceAssignments={surfaceAssignments}
-                        transformEnabled={transformEnabled}
-                        transformMode={transformMode}
-                        wallPolygons={externalWallPolygons}
-                        wireframe={renderOptions.wireframe}
-                      />
+                      renderedWalls={renderedWalls}
+                      rooms={rooms}
+                      selectedSurface={selectedSurface}
+                      shadowsEnabled={renderOptions.shadows}
+                      surfaceAssignments={surfaceAssignments}
+                      transformEnabled={transformEnabled}
+                      transformMode={transformMode}
+                      wallBodyOccluders={wallBodyOccluders}
+                      wireframe={renderOptions.wireframe}
+                    />
                     </FloorRenderBoundary>
                   </group>
                 )
@@ -5526,12 +5862,12 @@ export function ThreeDView({
                       castsShadow={hasShadowSurface}
                       elevation={floor.elevation}
                       floorId={floor.id}
-                      externalWallPolygons={externalWallPolygons}
                       isActive={isActive}
                       onRegisterPickTarget={registerPickTarget}
                       renderedWall={renderedWall}
                       selectedSurface={selectedSurface}
                       surfaceAssignments={surfaceAssignments}
+                      wallBodyOccluders={wallBodyOccluders}
                       wireframe={renderOptions.wireframe}
                     />
                   ))}

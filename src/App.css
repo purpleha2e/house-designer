@@ -258,12 +258,14 @@
 }
 
 .flyout-field,
-.flyout-select {
+.flyout-select,
+.flyout-colour-field {
   display: grid;
   gap: 4px;
 }
 
-.flyout-field > div {
+.flyout-field > div,
+.flyout-colour-field > div {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
@@ -276,7 +278,8 @@
 }
 
 .flyout-field span,
-.flyout-select span {
+.flyout-select span,
+.flyout-colour-field span {
   color: #64748b;
   font-size: 12px;
   font-weight: 650;
@@ -285,6 +288,35 @@
 .flyout-select select {
   width: 100%;
   padding: 0 8px;
+}
+
+.flyout-colour-field input[type='color'] {
+  width: 42px;
+  min-height: 34px;
+  padding: 2px;
+  border: 1px solid #b9c4d4;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.flyout-colour-field input[type='text'] {
+  min-height: 34px;
+  width: 100%;
+  padding: 0 8px;
+  border: 1px solid #b9c4d4;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.flyout-colour-field input:focus-visible {
+  border-color: #2563eb;
+  background: #eff6ff;
+  outline: none;
 }
 
 .toolbar-select {
