@@ -1,0 +1,25 @@
+{
+  "id": "house-designer-standard-carpet",
+  "manufacturer": "House Designer",
+  "productName": "Standard Carpet",
+  "collection": "Core samples",
+  "category": "carpet",
+  "materialType": "carpet",
+  "finish": "textured",
+  "colourFamily": "neutral",
+  "tags": ["floor", "carpet", "bedroom", "living room"],
+  "pbr": {
+    "baseColor": "#b8aa93",
+    "baseColorTextureUrl": "../textures/standard_carpet/beige-carpet-worn1-albedo.png",
+    "normalTextureUrl": "../textures/standard_carpet/beige-carpet-worn1-Normal-ogl.png",
+    "roughnessTextureUrl": "../textures/standard_carpet/beige-carpet-worn1-Roughness.png",
+    "ambientOcclusionTextureUrl": "../textures/standard_carpet/beige-carpet-worn1-ao.png",
+    "metalnessTextureUrl": "../textures/standard_carpet/beige-carpet-worn1-Metallic.png",
+    "displacementTextureUrl": "../textures/standard_carpet/beige-carpet-worn1-Height.png",
+    "roughness": 0.9,
+    "metalness": 0,
+    "displacementScale": 0.003,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1
+  }
+}

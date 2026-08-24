@@ -1,5 +1,5 @@
 {
-  "activeFloorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+  "activeFloorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
   "floors": [
     {
       "id": "e85e2210-2517-4c3d-84a8-5c25883e8043",
@@ -793,7 +793,7 @@
           "height": 2.293921632516565,
           "id": "364f09c5-44a0-4169-9fb1-2b101f6cadb6",
           "lightColor": "#ffffff",
-          "lightPower": 400,
+          "lightPower": 200,
           "modelId": "point-light",
           "position": {
             "x": 12.611899059154474,
@@ -881,7 +881,7 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": true,
+          "lightEnabled": false,
           "lightDistance": 10,
           "lightFalloff": 1.35
         },
@@ -897,7 +897,7 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": true,
+          "lightEnabled": false,
           "lightDistance": 10,
           "lightFalloff": 1.35
         },
@@ -905,7 +905,7 @@
           "height": 2.267481190954011,
           "id": "05f00c8e-4bb6-4b03-9f16-624c85dae9c3",
           "lightColor": "#ffffff",
-          "lightPower": 400,
+          "lightPower": 200,
           "modelId": "point-light",
           "position": {
             "x": 12.647471081111576,
@@ -913,7 +913,7 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": true,
+          "lightEnabled": false,
           "lightDistance": 20,
           "lightFalloff": 0
         },
@@ -929,7 +929,7 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": true,
+          "lightEnabled": false,
           "lightDistance": 10,
           "lightFalloff": 1.35
         },
@@ -1245,12 +1245,12 @@
           "height": 2.4,
           "openings": [
             {
-              "id": "f04f8ea2-945a-4631-b6e1-10acfb404a10",
-              "modelId": "interior-door-open",
-              "center": 3.8962311233550686,
-              "width": 0.97,
+              "id": "95010c6e-2468-4c6c-8146-1ca65e4b5a0c",
+              "modelId": "panel-interior-door-closed",
+              "center": 3.917990382614328,
+              "width": 0.975141,
               "bottom": 0,
-              "height": 2.1
+              "height": 2.124037
             },
             {
               "id": "b8d2a348-d948-46d7-b7df-563307213738",
@@ -1423,18 +1423,18 @@
           "id": "7b8adb16-e1fb-492e-88c0-01533526379d",
           "modelId": "wardrobe",
           "position": {
-            "x": 10.683658456588903,
-            "y": 2.6369282710866697
+            "x": 10.129627581803309,
+            "y": 2.394809511969023
           },
-          "rotation": 1.5707963267948966,
+          "rotation": 1.5707963267948961,
           "scale": 1
         },
         {
           "id": "1fc65154-b662-4012-a3f3-9ce39d6f3f8e",
           "modelId": "wardrobe",
           "position": {
-            "x": 9.400602832967243,
-            "y": 3.0395781953491285
+            "x": 9.97962758180331,
+            "y": 2.74129645952658
           },
           "rotation": 4.71238898038469,
           "scale": 1
@@ -1610,20 +1610,6 @@
           }
         },
         {
-          "id": "f04f8ea2-945a-4631-b6e1-10acfb404a10",
-          "modelId": "interior-door-open",
-          "position": {
-            "x": 10.853396458448241,
-            "y": 5.923792137686528
-          },
-          "rotation": 0,
-          "scale": 1,
-          "wallAttachment": {
-            "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
-            "offset": 3.8962311233550686
-          }
-        },
-        {
           "id": "b8d2a348-d948-46d7-b7df-563307213738",
           "modelId": "interior-door-open",
           "position": {
@@ -1696,8 +1682,8 @@
         {
           "height": 2.126750921585908,
           "id": "1206fd33-6da3-4c05-ad26-700029d4ccda",
-          "lightColor": "#fff3c4",
-          "lightPower": 50,
+          "lightColor": "#fffdf5",
+          "lightPower": 200,
           "modelId": "point-light",
           "position": {
             "x": 12.302966639869231,
@@ -1706,30 +1692,30 @@
           "rotation": 0,
           "scale": 1,
           "lightEnabled": true,
-          "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightDistance": 15,
+          "lightFalloff": 0
         },
         {
-          "height": 1.572887159909396,
+          "height": 2.390567286704242,
           "id": "d3a6009d-8599-4dec-bd62-d5862ec511b7",
           "lightColor": "#ffffff",
-          "lightPower": 50,
+          "lightPower": 300,
           "modelId": "point-light",
           "position": {
-            "x": 9.705936108813379,
-            "y": 3.803333424551017
+            "x": 7.80593610881338,
+            "y": 3.820000091217684
           },
           "rotation": 0,
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 0
         },
         {
           "height": 2.126750921585908,
           "id": "22f3ce24-ac73-4949-9ace-c219bd699a21",
           "lightColor": "#fff3c4",
-          "lightPower": 50,
+          "lightPower": 250,
           "modelId": "point-light",
           "position": {
             "x": 7.437136524975028,
@@ -1737,15 +1723,15 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": false,
-          "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightEnabled": true,
+          "lightDistance": 15,
+          "lightFalloff": 1
         },
         {
           "height": 2.126750921585908,
           "id": "fe1e15fb-4a03-4b91-9099-ec6be2192791",
-          "lightColor": "#fff3c4",
-          "lightPower": 50,
+          "lightColor": "#ffffff",
+          "lightPower": 250,
           "modelId": "point-light",
           "position": {
             "x": 13.175269955661573,
@@ -1753,15 +1739,15 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": false,
-          "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightEnabled": true,
+          "lightDistance": 20,
+          "lightFalloff": 0
         },
         {
           "height": 2.126750921585908,
           "id": "da095855-fec2-43cd-b73b-2d645c5e0a2f",
-          "lightColor": "#aba9a0",
-          "lightPower": 50,
+          "lightColor": "#fffcf0",
+          "lightPower": 300,
           "modelId": "point-light",
           "position": {
             "x": 10.32420692105272,
@@ -1769,15 +1755,15 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": false,
-          "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightEnabled": true,
+          "lightDistance": 20,
+          "lightFalloff": 0
         },
         {
           "height": 2.126750921585908,
           "id": "52a541de-5284-403b-87da-f5eb2cea4844",
-          "lightColor": "#fff3c4",
-          "lightPower": 50,
+          "lightColor": "#fffcf0",
+          "lightPower": 300,
           "modelId": "point-light",
           "position": {
             "x": 10.414112168096898,
@@ -1785,9 +1771,9 @@
           },
           "rotation": 0,
           "scale": 1,
-          "lightEnabled": false,
-          "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightEnabled": true,
+          "lightDistance": 20,
+          "lightFalloff": 0
         },
         {
           "height": 2.126750921585908,
@@ -1817,6 +1803,20 @@
           "wallAttachment": {
             "wallId": "4f8220c8-6338-4c13-a8b5-9583cdafba6d",
             "offset": 6.366765778974028
+          }
+        },
+        {
+          "id": "95010c6e-2468-4c6c-8146-1ca65e4b5a0c",
+          "modelId": "panel-interior-door-closed",
+          "position": {
+            "x": 10.831637199188982,
+            "y": 5.923792137686528
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
+            "offset": 3.917990382614328
           }
         }
       ]
@@ -1926,17 +1926,6 @@
         "type": "room-floor",
         "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
         "roomSignature": "157:193|179:193|189:193|189:198|189:276|213:193|213:198|276:194|276:199|296:194|296:199|297:199|297:276|300:194|313:194|328:63|338:43|338:53|338:63|351:194|356:194|356:199|356:213|385:213|390:213|487:213|487:43|97:193|97:63"
-      },
-      "textureRotation": 180,
-      "textureScale": 2.5
-    },
-    {
-      "id": "195d9bb9-850b-41bd-bbe7-f3f4a1a48c77",
-      "materialId": "dulux-timeless-matt",
-      "target": {
-        "type": "ceiling",
-        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
-        "roomSignature": "390:218|390:319|487:218|487:319"
       },
       "textureRotation": 180,
       "textureScale": 2.5
@@ -2887,8 +2876,57 @@
       "textureScale": 1
     },
     {
-      "id": "2edd65b2-3546-4f0d-89bb-74b472d50aa7",
-      "materialId": "dulux-timeless-matt",
+      "customColor": "#ffffff",
+      "id": "900ac5cf-c97b-4b13-828c-f82f663a3356",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "302:199|302:276|311:276|313:199|316:276|316:281|316:388|351:199|351:275|351:280|356:280|380:388|385:280|385:388"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "4bbbc36f-ea84-4729-a8ab-d9bb19a351ed",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "189:256|189:276|189:286|189:388|297:256|297:276|297:281|302:281|311:281|311:388"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "fdb60e94-3cab-4754-ba44-2cdc252eb491",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "390:324|390:388|390:398|390:421|487:324|487:421"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "57a10593-b8a1-484c-b5ae-ac2b4054ca0f",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "390:218|390:319|487:218|487:319"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "676b91c1-136d-4bad-ace6-27eb320d9078",
+      "materialId": "house-designer-custom-paint-matt",
       "target": {
         "type": "ceiling",
         "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",

@@ -1,0 +1,23 @@
+{
+  "id": "house-designer-rounded-square-tiles",
+  "manufacturer": "House Designer",
+  "productName": "Rounded Square Tiles",
+  "collection": "Core samples",
+  "category": "tile",
+  "materialType": "ceramic wall tile",
+  "finish": "textured",
+  "colourFamily": "neutral",
+  "tags": ["wall", "tile", "kitchen", "bathroom", "ceramic"],
+  "pbr": {
+    "baseColor": "#c8c0b2",
+    "baseColorTextureUrl": "../textures/rounded_square_tiles/rounded_square_tiled_wall_diff_4k.jpg",
+    "normalTextureUrl": "../textures/rounded_square_tiles/rounded_square_tiled_wall_nor_gl_4k.png",
+    "roughnessTextureUrl": "../textures/rounded_square_tiles/rounded_square_tiled_wall_rough_4k.png",
+    "displacementTextureUrl": "../textures/rounded_square_tiles/rounded_square_tiled_wall_disp_4k.png",
+    "roughness": 0.64,
+    "metalness": 0,
+    "displacementScale": 0.004,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1
+  }
+}
