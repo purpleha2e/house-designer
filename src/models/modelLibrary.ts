@@ -198,3 +198,12 @@ export const modelLibrary =
 export const modelsById = new Map(
   modelLibrary.map((model) => [model.id, model]),
 )
+
+export function getModelAssetUrl(sourceUrl: string, version = 0) {
+  if (version <= 0) {
+    return sourceUrl
+  }
+
+  const separator = sourceUrl.includes('?') ? '&' : '?'
+  return `${sourceUrl}${separator}hdModelRefresh=${version}`
+}

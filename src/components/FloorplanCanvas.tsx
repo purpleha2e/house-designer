@@ -12,7 +12,11 @@ import {
 } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { FloorLevel, PlacedModel, Point, Wall, WallKind } from '../types'
-import { modelLibrary, modelsById } from '../models/modelLibrary'
+import {
+  getModelAssetUrl,
+  modelLibrary,
+  modelsById,
+} from '../models/modelLibrary'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
 import {
   buildWallTopology,
@@ -72,6 +76,7 @@ type FloorplanCanvasProps = {
   floors: FloorLevel[]
   internalWallThickness: number
   isAddingWall: boolean
+  modelAssetVersion: number
   selectedModelId: string | null
   selectedModelIds: string[]
   selectedRoomSignature: string | null
@@ -210,6 +215,11 @@ type ModelBounds = {
 
 const modelPreviewCache = new Map<string, HTMLCanvasElement>()
 const modelBoundsCache = new Map<string, ModelBounds>()
+
+export function clearFloorplanModelAssetCaches() {
+  modelPreviewCache.clear()
+  modelBoundsCache.clear()
+}
 
 function GLBModelPreview({
   height,
@@ -1962,6 +1972,7 @@ export function FloorplanCanvas({
   floors,
   internalWallThickness,
   isAddingWall,
+  modelAssetVersion,
   selectedModelId,
   selectedModelIds,
   selectedRoomSignature,
@@ -2045,7 +2056,7 @@ export function FloorplanCanvas({
         continue
       }
 
-      loader.load(modelDefinition.sourceUrl, (gltf) => {
+      loader.load(getModelAssetUrl(modelDefinition.sourceUrl, modelAssetVersion), (gltf) => {
         if (!isMounted) {
           return
         }
@@ -2075,7 +2086,7 @@ export function FloorplanCanvas({
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [modelAssetVersion])
 
   useEffect(() => {
     if (!import.meta.env.DEV || !selectedWallId) {
@@ -2357,23 +2368,23 @@ export function FloorplanCanvas({
   const snapToPreferredConnection = (point: Point) =>
     getPreferredSnapTarget(point)?.point ?? point
 
-  const getWallEndpointSnapTarget = (point: Point, wall: Wall) =>
-    getSnapTarget(
-      point,
-      getSnapSegments(
-        activeFloor.walls.filter((candidateWall) => candidateWall.id !== wall.id),
-        wall.kind,
-        wall.thickness,
-      ),
-    ) ??
-    getSnapTarget(
-      point,
-      getSnapSegments(
-        referenceFloors.flatMap((floor) => floor.walls),
-        wall.kind,
-        wall.thickness,
-      ),
+  const getWallEndpointSnapTarget = (point: Point, wall: Wall) => {
+    const activeWalls = activeFloor.walls.filter(
+      (candidateWall) => candidateWall.id !== wall.id,
     )
+    const referenceWalls = referenceFloors.flatMap((floor) => floor.walls)
+
+    return (
+      getSnapTarget(
+        point,
+        getSnapSegments(activeWalls, wall.kind, wall.thickness),
+      ) ??
+      getSnapTarget(
+        point,
+        getSnapSegments(referenceWalls, wall.kind, wall.thickness),
+      )
+    )
+  }
 
   const closeContextMenu = () => {
     setContextMenu(null)
@@ -2902,7 +2913,10 @@ export function FloorplanCanvas({
           <GLBModelPreview
             height={height}
             opacity={0.92}
-            sourceUrl={modelDefinition.sourceUrl}
+            sourceUrl={getModelAssetUrl(
+              modelDefinition.sourceUrl,
+              modelAssetVersion,
+            )}
             stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
             strokeWidth={isSelectedModel ? 3 : 1}
             width={width}

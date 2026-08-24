@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ContextPanel } from './components/ContextPanel'
-import { FloorplanCanvas } from './components/FloorplanCanvas'
+import {
+  FloorplanCanvas,
+  clearFloorplanModelAssetCaches,
+} from './components/FloorplanCanvas'
 import { LeftToolRail } from './components/LeftToolRail'
 import { ModelSelector } from './components/ModelSelector'
 import { Toolbar } from './components/Toolbar'
-import { ThreeDView } from './components/ThreeDView'
+import { ThreeDView, clearThreeDModelAssetCaches } from './components/ThreeDView'
 import type {
   FloorLevel,
   PlacedModel,
@@ -313,6 +316,7 @@ function App() {
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
+  const [modelAssetVersion, setModelAssetVersion] = useState(0)
   const [surfaceAssignments, setSurfaceAssignments] = useState<
     SurfaceMaterialAssignment[]
   >([])
@@ -805,6 +809,12 @@ function App() {
     setSelectedModelIds([model.id])
     setIsAddingWall(false)
     setIsModelSelectorOpen(false)
+  }
+
+  const refreshModelAssets = () => {
+    clearFloorplanModelAssetCaches()
+    clearThreeDModelAssetCaches()
+    setModelAssetVersion((currentVersion) => currentVersion + 1)
   }
 
   const updateModel = (modelId: string, updates: Partial<PlacedModel>) => {
@@ -1666,6 +1676,7 @@ function App() {
           floors={floors}
           internalWallThickness={internalWallThickness}
           isAddingWall={isAddingWall}
+          modelAssetVersion={modelAssetVersion}
           selectedModelId={selectedModelId}
           selectedModelIds={selectedModelIds}
           selectedWallId={selectedWallId}
@@ -1754,6 +1765,7 @@ function App() {
         <ThreeDView
           activeFloorId={activeFloor.id}
           floors={floors}
+          modelAssetVersion={modelAssetVersion}
           onClearSelection={clearThreeDSelection}
           onSelectModel={selectModelFromThreeD}
           onSelectSurface={selectSurfaceFromThreeD}
@@ -1767,6 +1779,7 @@ function App() {
       {isModelSelectorOpen ? (
         <ModelSelector
           onClose={() => setIsModelSelectorOpen(false)}
+          onRefreshModels={refreshModelAssets}
           onSelectModel={addModel}
         />
       ) : null}

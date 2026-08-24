@@ -1,5 +1,5 @@
 import type { Point, Wall } from './types'
-import { getRenderedWalls, getWallPolygon, type RenderedWall } from './wallGeometry'
+import { getRenderedWalls, getWallPolygon, type RenderedWall } from './wallGeometry.ts'
 
 const NODE_EPSILON_METERS = 0.25
 const GRAPH_EPSILON_METERS = 0.03
@@ -392,8 +392,41 @@ function createNodeId(point: Point) {
   )}`
 }
 
-function findNode(nodes: WallNode[], point: Point) {
-  return nodes.find((node) => distance(node.point, point) <= NODE_EPSILON_METERS)
+function endpointNodeMergeDistance(wall: Wall, node: WallNode) {
+  const nodeHasExternalWall = node.connections.some(
+    (connection) => connection.wall.kind !== 'internal',
+  )
+  const nodeHasInternalWall = node.connections.some(
+    (connection) => connection.wall.kind === 'internal',
+  )
+  const wallIsExternal = wall.kind !== 'internal'
+  const wallIsInternal = wall.kind === 'internal'
+
+  if (
+    (wallIsInternal && nodeHasExternalWall) ||
+    (wallIsExternal && nodeHasInternalWall)
+  ) {
+    return GRAPH_EPSILON_METERS
+  }
+
+  return NODE_EPSILON_METERS
+}
+
+function findNode(nodes: WallNode[], point: Point, wall: Wall) {
+  return nodes.find(
+    (node) => distance(node.point, point) <= endpointNodeMergeDistance(wall, node),
+  )
+}
+
+function getTopologySnappedWalls(
+  walls: Wall[],
+  nodesByEndpoint: Map<string, WallNode>,
+) {
+  return walls.map((wall) => ({
+    ...wall,
+    start: nodesByEndpoint.get(getEndpointKey(wall.id, 'start'))?.point ?? wall.start,
+    end: nodesByEndpoint.get(getEndpointKey(wall.id, 'end'))?.point ?? wall.end,
+  }))
 }
 
 export function buildWallTopology(walls: Wall[]): WallTopology {
@@ -403,7 +436,7 @@ export function buildWallTopology(walls: Wall[]): WallTopology {
   for (const wall of walls) {
     for (const endpoint of ['start', 'end'] as const) {
       const point = wall[endpoint]
-      const existingNode = findNode(nodes, point)
+      const existingNode = findNode(nodes, point, wall)
       const node =
         existingNode ??
         ({
@@ -421,7 +454,8 @@ export function buildWallTopology(walls: Wall[]): WallTopology {
     }
   }
 
-  const renderedWalls = getRenderedWalls(walls)
+  const topologyWalls = getTopologySnappedWalls(walls, nodesByEndpoint)
+  const renderedWalls = getRenderedWalls(topologyWalls)
   const renderedWallsById = new Map(
     renderedWalls.map((renderedWall) => [renderedWall.wall.id, renderedWall]),
   )
@@ -434,7 +468,7 @@ export function buildWallTopology(walls: Wall[]): WallTopology {
 
   return {
     nodes,
-    rooms: buildDetectedRooms(walls),
+    rooms: buildDetectedRooms(topologyWalls),
     nodesByEndpoint,
     renderedWallsById,
     wallPolygonsById,

@@ -339,7 +339,7 @@ test('mitered external angled joins can trim side intersections', () => {
   assert.equal(hasUntrimmedEndCapStep, false)
 })
 
-test('clipped internal wall footprints stop at external wall body', () => {
+test('internal walls ending at external walls use render extensions instead of footprint CSG', () => {
   const external = wall({
     id: 'external',
     kind: 'external',
@@ -354,13 +354,15 @@ test('clipped internal wall footprints stop at external wall body', () => {
     thickness: 0.15,
   })
 
-  const [group] = getClippedInternalWallFootprints([external, internal])
-  const minY = Math.min(...group.footprints.flatMap((footprint) =>
-    footprint.outline.map((point) => point.y),
-  ))
+  const groups = getClippedInternalWallFootprints([external, internal])
+  const extensions = getClippedInternalWallRenderExtensions(internal, [
+    external,
+    internal,
+  ])
 
-  assert.equal(group.wallId, internal.id)
-  assert.ok(minY >= external.thickness / 2 - 0.001)
+  assert.deepEqual(groups, [])
+  assert.ok(extensions.startExtension < 0)
+  assert.equal(extensions.endExtension, 0)
 })
 
 test('internal opening walls expose clipped render extensions for legacy aperture mesh', () => {
@@ -590,7 +592,7 @@ test('plain internal CSG walls use opening internal walls as clipping owners', (
   assert.ok(minY >= openingOwner.thickness / 2 - 0.001)
 })
 
-test('plain internal CSG walls clip against external walls with openings', () => {
+test('plain internal walls clip against external walls with openings using render extensions', () => {
   const openingExternal = wall({
     id: 'opening-external',
     kind: 'external',
@@ -615,16 +617,18 @@ test('plain internal CSG walls clip against external walls with openings', () =>
     thickness: 0.15,
   })
 
-  const [group] = getClippedInternalWallFootprints([internal], [
+  const groups = getClippedInternalWallFootprints([internal], [
     openingExternal,
     internal,
   ])
-  const minY = Math.min(...group.footprints.flatMap((footprint) =>
-    footprint.outline.map((point) => point.y),
-  ))
+  const extensions = getClippedInternalWallRenderExtensions(internal, [
+    openingExternal,
+    internal,
+  ])
 
-  assert.equal(group.wallId, internal.id)
-  assert.ok(minY >= openingExternal.thickness / 2 - 0.001)
+  assert.deepEqual(groups, [])
+  assert.ok(extensions.startExtension < 0)
+  assert.equal(extensions.endExtension, 0)
 })
 
 test('internal opening walls clip against internal walls without changing owner wall', () => {

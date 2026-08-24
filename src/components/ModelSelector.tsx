@@ -3,10 +3,15 @@ import { modelLibrary } from '../models/modelLibrary'
 
 type ModelSelectorProps = {
   onClose: () => void
+  onRefreshModels: () => void
   onSelectModel: (modelId: string) => void
 }
 
-export function ModelSelector({ onClose, onSelectModel }: ModelSelectorProps) {
+export function ModelSelector({
+  onClose,
+  onRefreshModels,
+  onSelectModel,
+}: ModelSelectorProps) {
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <section
@@ -21,9 +26,14 @@ export function ModelSelector({ onClose, onSelectModel }: ModelSelectorProps) {
             <h2 id="model-selector-title">Add Model</h2>
             <p>Choose a model to place on the active floor.</p>
           </div>
-          <button type="button" aria-label="Close model selector" onClick={onClose}>
-            x
-          </button>
+          <div className="model-selector-actions">
+            <button type="button" onClick={onRefreshModels}>
+              Refresh
+            </button>
+            <button type="button" aria-label="Close model selector" onClick={onClose}>
+              x
+            </button>
+          </div>
         </header>
 
         <div className="model-grid">

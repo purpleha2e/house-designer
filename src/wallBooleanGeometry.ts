@@ -424,6 +424,21 @@ function wallTouchesClippingContext(wall: Wall, contextWalls: Wall[]) {
   })
 }
 
+function wallTouchesInternalClippingContext(wall: Wall, contextWalls: Wall[]) {
+  return contextWalls.some((otherWall) => {
+    if (otherWall.id === wall.id || otherWall.kind !== 'internal') {
+      return false
+    }
+
+    return (
+      pointTouchesWallBody(wall.start, otherWall) ||
+      pointTouchesWallBody(wall.end, otherWall) ||
+      pointTouchesWallBody(otherWall.start, wall) ||
+      pointTouchesWallBody(otherWall.end, wall)
+    )
+  })
+}
+
 function getEndpointConnectedWallComponents(walls: Wall[]) {
   const visitedWallIds = new Set<string>()
   const components: Wall[][] = []
@@ -771,10 +786,18 @@ export function getClippedInternalWallFootprints(
       footprints.length === 0 ||
       Math.abs(originalArea - clippedArea) > Math.max(0.0001, originalArea * 0.001)
     const hasJoinContext = wallTouchesClippingContext(wall, contextWalls)
+    const hasInternalJoinContext = wallTouchesInternalClippingContext(
+      wall,
+      contextWalls,
+    )
 
     earlierInternalWallPolygons.push(wallPolygon)
 
-    return (clippingChangedWall || hasJoinContext) && footprints.length > 0
+    return (
+      (clippingChangedWall || hasJoinContext) &&
+        hasInternalJoinContext &&
+        footprints.length > 0
+    )
       ? [
           {
             footprints,

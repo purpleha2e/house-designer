@@ -1184,7 +1184,13 @@
   font-size: 13px;
 }
 
-.model-selector header > button {
+.model-selector-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-selector-actions button {
   width: 32px;
   height: 32px;
   border: 1px solid #cbd5e1;
@@ -1197,8 +1203,15 @@
   cursor: pointer;
 }
 
-.model-selector header > button:hover,
-.model-selector header > button:focus-visible {
+.model-selector-actions button:first-child {
+  width: auto;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.model-selector-actions button:hover,
+.model-selector-actions button:focus-visible {
   background: #eff6ff;
   outline: none;
 }
