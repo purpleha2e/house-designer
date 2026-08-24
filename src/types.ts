@@ -67,6 +67,10 @@ export type SurfaceTarget =
       floorId: string
       roomSignature?: string
     }
+  | {
+      type: 'floor-slab-edge'
+      floorId: string
+    }
 
 export type SurfaceMaterialPbr = {
   ambientOcclusionTextureUrl?: string
@@ -127,6 +131,10 @@ export type SelectableSurface =
       side: Exclude<SurfaceWallSide, 'both'>
       wallId: string
       type: 'wall-face'
+    }
+  | {
+      floorId: string
+      type: 'floor-slab-edge'
     }
 
 export type PlacedModel = {

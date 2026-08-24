@@ -177,6 +177,8 @@ export function LeftToolRail({
         ? 'Ceiling selected'
         : selectedSurface?.type === 'wall-face'
           ? 'Wall selected'
+          : selectedSurface?.type === 'floor-slab-edge'
+            ? 'Slab edge selected'
           : 'Select a wall, floor or ceiling in 3D'
   const applySelectedMaterial = () => {
     if (!selectedSurface || !materialToApply) {

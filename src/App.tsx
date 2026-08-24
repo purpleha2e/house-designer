@@ -920,6 +920,44 @@ function App() {
     })
   }
 
+  const assignFloorSlabEdgeMaterial = (
+    floorId: string,
+    materialId: string | null,
+    textureScale = 1,
+    textureRotation = 0,
+    customColor?: string,
+  ) => {
+    recordHistory()
+    setSurfaceAssignments((currentAssignments) => {
+      const nextAssignments = currentAssignments.filter(
+        (assignment) =>
+          !(
+            assignment.target.type === 'floor-slab-edge' &&
+            assignment.target.floorId === floorId
+          ),
+      )
+
+      if (!materialId) {
+        return nextAssignments
+      }
+
+      return [
+        ...nextAssignments,
+        {
+          customColor,
+          id: crypto.randomUUID(),
+          materialId,
+          target: {
+            type: 'floor-slab-edge',
+            floorId,
+          },
+          textureRotation,
+          textureScale,
+        },
+      ]
+    })
+  }
+
   const assignWallMaterial = (
     wallId: string,
     materialId: string | null,
@@ -1159,6 +1197,17 @@ function App() {
       return
     }
 
+    if (selectedSurface.type === 'floor-slab-edge') {
+      assignFloorSlabEdgeMaterial(
+        selectedSurface.floorId,
+        materialId,
+        textureScale,
+        textureRotation,
+        customColor,
+      )
+      return
+    }
+
     const wall = activeFloor.walls.find((candidateWall) =>
       candidateWall.id === selectedSurface.wallId
     )
@@ -1367,12 +1416,15 @@ function App() {
 
     if (surface.type === 'wall-face') {
       setSelectedWallId(surface.wallId)
+      setSelectedWallIds([surface.wallId])
       setSelectedRoomSignature(null)
       return
     }
 
     setSelectedWallId(null)
-    setSelectedRoomSignature(surface.roomSignature)
+    setSelectedRoomSignature(
+      surface.type === 'floor-slab-edge' ? null : surface.roomSignature,
+    )
   }
 
   const selectWall = (wallId: string | null, additive = false) => {

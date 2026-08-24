@@ -777,6 +777,28 @@
   margin: 0;
 }
 
+.pick-buffer-download-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #172033;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pick-buffer-download-link:hover,
+.pick-buffer-download-link:focus-visible {
+  background: #eff6ff;
+  outline: none;
+}
+
 .zoom-controls {
   position: absolute;
   top: 8px;
@@ -896,6 +918,32 @@
   gap: 8px;
   max-width: calc(100% - 160px);
   pointer-events: none;
+}
+
+.viewport-engine-status {
+  position: absolute;
+  left: 14px;
+  bottom: 52px;
+  z-index: 3;
+  max-width: min(360px, calc(100% - 160px));
+  padding: 7px 10px;
+  border: 1px solid rgba(249, 115, 22, 0.38);
+  border-radius: 6px;
+  background: rgba(124, 45, 18, 0.84);
+  color: #fff7ed;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+}
+
+.viewport-engine-status.is-idle {
+  border-color: rgba(15, 23, 42, 0.16);
+  background: rgba(15, 23, 42, 0.62);
+  color: #e2e8f0;
 }
 
 .viewport-indicator {

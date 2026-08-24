@@ -15,10 +15,14 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   FrontSide,
+  Material,
+  NearestFilter,
+  NoColorSpace,
   Object3D,
   Path,
   PointLight,
   Raycaster,
+  RawShaderMaterial,
   RepeatWrapping,
   Shape,
   ShapeUtils,
@@ -27,10 +31,16 @@ import {
   Spherical,
   SpotLight,
   TextureLoader,
+  RGBAFormat,
+  UnsignedByteType,
   Vector2,
   Vector3,
+  Vector4,
+  WebGLRenderTarget,
+  type Camera,
   type Side,
   type Texture,
+  type WebGLRenderer,
 } from 'three'
 import {
   Component,
@@ -136,6 +146,26 @@ type RendererStats = {
   triangles: number
 }
 
+type EngineActivityMessage = {
+  message: string
+  minimumVisibleMs?: number
+}
+
+type EngineLogEntry = {
+  detail?: string
+  index: number
+  snapshot?: string
+  timeMs: number
+  type: string
+}
+
+type HouseDesignerEngineLogApi = {
+  clear: () => void
+  entries: EngineLogEntry[]
+  recent: (count?: number) => EngineLogEntry[]
+  table: (count?: number) => void
+}
+
 const ambientOcclusionColor = new Color('black')
 const FLOOR_PLANE_MARGIN = 5
 const SHADOW_MARGIN = 8
@@ -153,9 +183,9 @@ const MODEL_OUTLINE_COLOR = '#f97316'
 const MODEL_BOUNDS_SCALE = 1.035
 const MODEL_BOUNDS_LINE_THICKNESS = 0.010
 const MODEL_WALL_SNAP_DISTANCE_METERS = 0.75
-const WALL_SELECTION_OFFSET_METERS = 0.008
 const FALLBACK_REALTIME_LOCAL_LIGHTS = 8
 const MAX_REALTIME_LOCAL_LIGHTS = 11
+const MAIN_THREAD_STALL_THRESHOLD_MS = 450
 const SKIRTING_HEIGHT_METERS = 0.09
 const SKIRTING_DEPTH_METERS = 0.018
 const SKIRTING_MIN_SEGMENT_METERS = 0.05
@@ -189,6 +219,13 @@ type PickTarget =
       floorId: string
       kind: 'model'
       modelId: string
+      object: Object3D
+    }
+  | {
+      blocksCollision: false
+      floorId: string
+      groupTargets: Map<number, SelectableSurface>
+      kind: 'material-groups'
       object: Object3D
     }
   | {
@@ -1604,10 +1641,15 @@ function WallSegmentMesh({
   castsShadow,
   centerX,
   centerZ,
+  floorId,
+  onRegisterPickTarget,
+  selectedSurface,
   wallMaterialAssignments,
   renderedLength,
   rotationY,
   segment,
+  wall,
+  wallId,
   wallHeight,
   wallKind,
   wallThickness,
@@ -1616,15 +1658,21 @@ function WallSegmentMesh({
   castsShadow: boolean
   centerX: number
   centerZ: number
+  floorId: string
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  selectedSurface: SelectableSurface | null
   wallMaterialAssignments: SurfaceMaterialAssignment[]
   renderedLength: number
   rotationY: number
   segment: WallRenderSegment
+  wall: Wall
+  wallId: string
   wallHeight: number
   wallKind: WallKind
   wallThickness: number
   wireframe: boolean
 }) {
+  const meshRef = useRef<Object3D>(null!)
   const segmentTop = segment.y + segment.height / 2
   const sideOneAssignment = getWallMaterialAssignmentForSide(
     wallMaterialAssignments,
@@ -1669,6 +1717,64 @@ function WallSegmentMesh({
   )
 
   useEffect(() => () => geometry.dispose(), [geometry])
+  const pickGroupTargets = useMemo(
+    () =>
+      new Map<number, SelectableSurface>([
+        [
+          1,
+          {
+            floorId,
+            side: 1,
+            type: 'wall-face',
+            wallId,
+          },
+        ],
+        [
+          2,
+          {
+            floorId,
+            side: -1,
+            type: 'wall-face',
+            wallId,
+          },
+        ],
+        [
+          3,
+          {
+            floorId,
+            side: 1,
+            type: 'wall-face',
+            wallId,
+          },
+        ],
+        [
+          4,
+          {
+            floorId,
+            side: -1,
+            type: 'wall-face',
+            wallId,
+          },
+        ],
+      ]),
+    [floorId, wallId],
+  )
+
+  useEffect(() => {
+    const object = meshRef.current
+
+    if (!object) {
+      return undefined
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      groupTargets: pickGroupTargets,
+      kind: 'material-groups',
+      object,
+    })
+  }, [floorId, onRegisterPickTarget, pickGroupTargets])
 
   const sideOneMaterial = sideOneAssignment
     ? surfaceMaterialsById.get(sideOneAssignment.materialId)
@@ -1713,10 +1819,15 @@ function WallSegmentMesh({
     segment.y - wallHeight / 2,
     0,
   ] as const
+  const selectedWallSide =
+    selectedSurface?.type === 'wall-face' && selectedSurface.wallId === wallId
+      ? selectedSurface.side
+      : null
 
   if (wireframe) {
     return (
       <mesh
+        ref={meshRef}
         castShadow={false}
         geometry={geometry}
         position={meshPosition}
@@ -1734,18 +1845,30 @@ function WallSegmentMesh({
   }
 
   return (
-    <mesh
-      castShadow={castsShadow}
-      geometry={geometry}
-      position={meshPosition}
-      receiveShadow={castsShadow}
-    >
-      {renderBaseMaterial('material-0')}
-      {renderSurfaceMaterial('material-1', sideOneAssignment, sideOneMaterial)}
-      {renderSurfaceMaterial('material-2', sideTwoAssignment, sideTwoMaterial)}
-      {renderSurfaceMaterial('material-3', leftCapAssignment, leftCapMaterial)}
-      {renderSurfaceMaterial('material-4', rightCapAssignment, rightCapMaterial)}
-    </mesh>
+    <>
+      <mesh
+        ref={meshRef}
+        castShadow={castsShadow}
+        geometry={geometry}
+        position={meshPosition}
+        receiveShadow={castsShadow}
+      >
+        {renderBaseMaterial('material-0')}
+        {renderSurfaceMaterial('material-1', sideOneAssignment, sideOneMaterial)}
+        {renderSurfaceMaterial('material-2', sideTwoAssignment, sideTwoMaterial)}
+        {renderSurfaceMaterial('material-3', leftCapAssignment, leftCapMaterial)}
+        {renderSurfaceMaterial('material-4', rightCapAssignment, rightCapMaterial)}
+      </mesh>
+      {selectedWallSide ? (
+        <mesh geometry={geometry} position={meshPosition} renderOrder={9}>
+          <WallSideHighlightMaterial
+            opacity={0.26}
+            side={selectedWallSide}
+            wall={wall}
+          />
+        </mesh>
+      ) : null}
+    </>
   )
 }
 
@@ -1821,6 +1944,82 @@ const surfaceTextureCache = new Map<string, LoadedSurfaceTextures>()
 const surfaceTexturePromiseCache = new Map<string, Promise<LoadedSurfaceTextures>>()
 const sharedSurfaceTextureLoader = new TextureLoader()
 const WALL_TEXTURE_MAX_SIZE = 1024
+const engineActivityListeners = new Set<
+  (activity: EngineActivityMessage) => void
+>()
+const ENGINE_LOG_LIMIT = 600
+const engineLogEntries: EngineLogEntry[] = []
+let engineLogSequence = 0
+let surfaceTextureLoadsInFlight = 0
+
+declare global {
+  interface Window {
+    houseDesignerEngineLog?: HouseDesignerEngineLogApi
+    houseDesignerLastPickPng?: string
+  }
+}
+
+function getEngineLogApi(): HouseDesignerEngineLogApi {
+  return {
+    clear: () => {
+      engineLogEntries.length = 0
+    },
+    entries: engineLogEntries,
+    recent: (count = 80) => engineLogEntries.slice(-count),
+    table: (count = 80) => {
+      console.table(engineLogEntries.slice(-count))
+    },
+  }
+}
+
+function ensureEngineLogApi() {
+  if (typeof window === 'undefined' || window.houseDesignerEngineLog) {
+    return
+  }
+
+  window.houseDesignerEngineLog = getEngineLogApi()
+}
+
+function recordEngineLog(
+  type: string,
+  detail?: string,
+  snapshot?: string,
+) {
+  const entry: EngineLogEntry = {
+    detail,
+    index: ++engineLogSequence,
+    snapshot,
+    timeMs: Math.round(performance.now()),
+    type,
+  }
+
+  engineLogEntries.push(entry)
+
+  if (engineLogEntries.length > ENGINE_LOG_LIMIT) {
+    engineLogEntries.splice(0, engineLogEntries.length - ENGINE_LOG_LIMIT)
+  }
+
+  return entry
+}
+
+function emitEngineActivity(activity: EngineActivityMessage) {
+  recordEngineLog('activity', activity.message)
+  engineActivityListeners.forEach((listener) => listener(activity))
+}
+
+function subscribeEngineActivity(
+  listener: (activity: EngineActivityMessage) => void,
+) {
+  engineActivityListeners.add(listener)
+
+  return () => {
+    engineActivityListeners.delete(listener)
+  }
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`
+}
 
 function getWallSurfaceTextureQuality(material: SurfaceMaterialProduct) {
   const detailedWallCategories = new Set<SurfaceMaterialProduct['category']>([
@@ -2023,8 +2222,9 @@ function useSurfaceMaterialTextures(
       return
     }
 
+    const cachedTexturePromise = surfaceTexturePromiseCache.get(textureCacheKey)
     const texturePromise =
-      surfaceTexturePromiseCache.get(textureCacheKey) ??
+      cachedTexturePromise ??
       Promise.all(
         entriesToLoad.map(async ([key, textureUrl, isColorMap]) => {
           const texture = await loadSurfaceTexture(textureUrl, {
@@ -2050,7 +2250,26 @@ function useSurfaceMaterialTextures(
         return nextTextures
       })
 
-    surfaceTexturePromiseCache.set(textureCacheKey, texturePromise)
+    if (!cachedTexturePromise) {
+      surfaceTextureLoadsInFlight += entriesToLoad.length
+      emitEngineActivity({
+        message: `Loading ${pluralize(surfaceTextureLoadsInFlight, 'texture')}...`,
+      })
+      texturePromise.finally(() => {
+        surfaceTextureLoadsInFlight = Math.max(
+          0,
+          surfaceTextureLoadsInFlight - entriesToLoad.length,
+        )
+
+        if (surfaceTextureLoadsInFlight > 0) {
+          emitEngineActivity({
+            message: `Loading ${pluralize(surfaceTextureLoadsInFlight, 'texture')}...`,
+          })
+        }
+      })
+      surfaceTexturePromiseCache.set(textureCacheKey, texturePromise)
+    }
+
     texturePromise.then((nextTextures) => {
       if (!cancelled) {
         setTextures(nextTextures)
@@ -2164,252 +2383,105 @@ function getSurfaceRepeatForDimensions(
   }
 }
 
-function WallSelectableFace({
-  floorId,
-  isSelected,
-  onRegisterPickTarget,
-  renderedLength,
+function WallSideHighlightMaterial({
+  opacity,
   side,
   wall,
-  wallHeight,
-  wallThickness,
 }: {
-  floorId: string
-  isSelected: boolean
-  onRegisterPickTarget: (target: PickTarget) => () => void
-  renderedLength: number
-  side: -1 | 1
+  opacity: number
+  side: Exclude<SurfaceWallSide, 'both'>
   wall: Wall
-  wallHeight: number
-  wallThickness: number
 }) {
-  const meshRef = useRef<Object3D>(null!)
-  const surface = useMemo<SelectableSurface>(
+  const { length, normal, unit } = getWallBasis(wall)
+  const uniforms = useMemo(
     () => ({
-      floorId,
-      side,
-      type: 'wall-face',
-      wallId: wall.id,
+      highlightColor: { value: new Color(MODEL_OUTLINE_COLOR) },
+      highlightOpacity: { value: opacity },
+      halfThickness: { value: wall.thickness / 2 },
+      selectedSide: { value: side },
+      wallLength: { value: length },
+      wallNormal: { value: new Vector2(normal.x, normal.y) },
+      wallStart: { value: new Vector2(wall.start.x, wall.start.y) },
+      wallUnit: { value: new Vector2(unit.x, unit.y) },
     }),
-    [floorId, side, wall.id],
+    [
+      length,
+      normal.x,
+      normal.y,
+      opacity,
+      side,
+      unit.x,
+      unit.y,
+      wall.start.x,
+      wall.start.y,
+      wall.thickness,
+    ],
   )
 
-  useEffect(() => {
-    const object = meshRef.current
-
-    if (!object) {
-      return
-    }
-
-    return onRegisterPickTarget({
-      blocksCollision: false,
-      floorId,
-      kind: 'surface',
-      object,
-      surface,
-    })
-  }, [floorId, onRegisterPickTarget, surface])
-
   return (
-    <mesh
-      ref={meshRef}
-      position={[0, 0, side * (wallThickness / 2 + WALL_SELECTION_OFFSET_METERS)]}
-      rotation={[0, side === 1 ? 0 : Math.PI, 0]}
-      renderOrder={isSelected ? 7 : -1}
-    >
-      <planeGeometry args={[renderedLength, wallHeight]} />
-      <meshBasicMaterial
-        color="#f97316"
-        depthTest
-        depthWrite={false}
-        opacity={isSelected ? 0.18 : 0}
-        polygonOffset
-        polygonOffsetFactor={-2}
-        polygonOffsetUnits={-2}
-        side={DoubleSide}
-        transparent
-      />
-    </mesh>
-  )
-}
+    <shaderMaterial
+      depthTest
+      depthWrite={false}
+      fragmentShader={`
+        precision highp float;
+        uniform vec3 highlightColor;
+        uniform float highlightOpacity;
+        uniform float halfThickness;
+        uniform float selectedSide;
+        uniform float wallLength;
+        uniform vec2 wallNormal;
+        uniform vec2 wallStart;
+        uniform vec2 wallUnit;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPosition;
 
-function WallSelectionOverlay({
-  floorId,
-  onRegisterPickTarget,
-  renderedLength,
-  selectedSurface,
-  wall,
-  wallHeight,
-  wallThickness,
-}: {
-  floorId: string
-  onRegisterPickTarget: (target: PickTarget) => () => void
-  renderedLength: number
-  selectedSurface: SelectableSurface | null
-  wall: Wall
-  wallHeight: number
-  wallThickness: number
-}) {
-  const sideOneIsSelected = surfacesMatch(selectedSurface, {
-    floorId,
-    side: 1,
-    type: 'wall-face',
-    wallId: wall.id,
-  })
-  const sideTwoIsSelected = surfacesMatch(selectedSurface, {
-    floorId,
-    side: -1,
-    type: 'wall-face',
-    wallId: wall.id,
-  })
+        void main() {
+          vec2 worldPlan = vWorldPosition.xz;
+          vec2 delta = worldPlan - wallStart;
+          float alongWall = dot(delta, wallUnit);
+          float sideDistance = dot(delta, wallNormal);
+          vec2 selectedNormal = wallNormal * selectedSide;
+          vec2 normalPlan = vWorldNormal.xz;
+          float normalPlanLength = length(normalPlan);
+          float targetSideDistance = selectedSide * halfThickness;
 
-  return (
-    <>
-      <WallSelectableFace
-        floorId={floorId}
-        isSelected={sideOneIsSelected}
-        onRegisterPickTarget={onRegisterPickTarget}
-        renderedLength={renderedLength}
-        side={1}
-        wall={wall}
-        wallHeight={wallHeight}
-        wallThickness={wallThickness}
-      />
-      <WallSelectableFace
-        floorId={floorId}
-        isSelected={sideTwoIsSelected}
-        onRegisterPickTarget={onRegisterPickTarget}
-        renderedLength={renderedLength}
-        side={-1}
-        wall={wall}
-        wallHeight={wallHeight}
-        wallThickness={wallThickness}
-      />
-    </>
-  )
-}
+          if (normalPlanLength < 0.3) {
+            discard;
+          }
 
-function UnionedExternalWallSelectionOverlays({
-  elevation,
-  floorId,
-  onRegisterPickTarget,
-  renderedWalls,
-  selectedSurface,
-  wallIds,
-}: {
-  elevation: number
-  floorId: string
-  onRegisterPickTarget: (target: PickTarget) => () => void
-  renderedWalls: RenderedWall[]
-  selectedSurface: SelectableSurface | null
-  wallIds: ReadonlySet<string>
-}) {
-  return (
-    <>
-      {renderedWalls
-        .filter(
-          (renderedWall) =>
-            renderedWall.wall.kind === 'external' &&
-            wallIds.has(renderedWall.wall.id),
-        )
-        .map((renderedWall) => {
-          const { wall, startExtension, endExtension } = renderedWall
-          const dx = wall.end.x - wall.start.x
-          const dz = wall.end.y - wall.start.y
-          const length = Math.hypot(dx, dz)
-          const renderedLength = Math.max(
-            0.01,
-            length + startExtension + endExtension,
-          )
-          const unitX = length === 0 ? 0 : dx / length
-          const unitZ = length === 0 ? 0 : dz / length
-          const centerX =
-            (wall.start.x + wall.end.x) / 2 +
-            unitX * ((endExtension - startExtension) / 2)
-          const centerZ =
-            (wall.start.y + wall.end.y) / 2 +
-            unitZ * ((endExtension - startExtension) / 2)
-          const rotationY = -Math.atan2(dz, dx)
+          float facing = dot(normalPlan / normalPlanLength, selectedNormal);
 
-          return (
-            <group
-              key={wall.id}
-              position={[centerX, elevation + wall.height / 2, centerZ]}
-              rotation={[0, rotationY, 0]}
-            >
-              <WallSelectionOverlay
-                floorId={floorId}
-                onRegisterPickTarget={onRegisterPickTarget}
-                renderedLength={renderedLength}
-                selectedSurface={selectedSurface}
-                wall={wall}
-                wallHeight={wall.height}
-                wallThickness={wall.thickness}
-              />
-            </group>
-          )
-        })}
-    </>
-  )
-}
+          if (
+            alongWall < -0.08 ||
+            alongWall > wallLength + 0.08 ||
+            abs(sideDistance - targetSideDistance) > 0.08 ||
+            facing < 0.45
+          ) {
+            discard;
+          }
 
-function WallSelectionOverlaysForIds({
-  elevation,
-  floorId,
-  onRegisterPickTarget,
-  renderedWalls,
-  selectedSurface,
-  wallIds,
-}: {
-  elevation: number
-  floorId: string
-  onRegisterPickTarget: (target: PickTarget) => () => void
-  renderedWalls: RenderedWall[]
-  selectedSurface: SelectableSurface | null
-  wallIds: ReadonlySet<string>
-}) {
-  return (
-    <>
-      {renderedWalls
-        .filter((renderedWall) => wallIds.has(renderedWall.wall.id))
-        .map((renderedWall) => {
-          const { wall, startExtension, endExtension } = renderedWall
-          const dx = wall.end.x - wall.start.x
-          const dz = wall.end.y - wall.start.y
-          const length = Math.hypot(dx, dz)
-          const renderedLength = Math.max(
-            0.01,
-            length + startExtension + endExtension,
-          )
-          const unitX = length === 0 ? 0 : dx / length
-          const unitZ = length === 0 ? 0 : dz / length
-          const centerX =
-            (wall.start.x + wall.end.x) / 2 +
-            unitX * ((endExtension - startExtension) / 2)
-          const centerZ =
-            (wall.start.y + wall.end.y) / 2 +
-            unitZ * ((endExtension - startExtension) / 2)
-          const rotationY = -Math.atan2(dz, dx)
+          gl_FragColor = vec4(highlightColor, highlightOpacity);
+        }
+      `}
+      polygonOffset
+      polygonOffsetFactor={-4}
+      polygonOffsetUnits={-4}
+      side={DoubleSide}
+      transparent
+      uniforms={uniforms}
+      vertexShader={`
+        precision highp float;
+        varying vec3 vWorldNormal;
+        varying vec3 vWorldPosition;
 
-          return (
-            <group
-              key={wall.id}
-              position={[centerX, elevation + wall.height / 2, centerZ]}
-              rotation={[0, rotationY, 0]}
-            >
-              <WallSelectionOverlay
-                floorId={floorId}
-                onRegisterPickTarget={onRegisterPickTarget}
-                renderedLength={renderedLength}
-                selectedSurface={selectedSurface}
-                wall={wall}
-                wallHeight={wall.height}
-                wallThickness={wall.thickness}
-              />
-            </group>
-          )
-        })}
-    </>
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          vWorldNormal = normalize(mat3(modelMatrix) * normal);
+          gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+      `}
+    />
   )
 }
 
@@ -2679,9 +2751,14 @@ const WallMesh = memo(function WallMesh({
                 castsShadow={castsShadow}
                 centerX={centerX}
                 centerZ={centerZ}
+                floorId={floorId}
+                onRegisterPickTarget={onRegisterPickTarget}
                 renderedLength={renderedLength}
                 rotationY={rotationY}
+                selectedSurface={selectedSurface}
                 segment={segment}
+                wall={wall}
+                wallId={wall.id}
                 wallMaterialAssignments={wallMaterialAssignments}
                 wallHeight={wall.height}
                 wallKind={wall.kind}
@@ -2706,15 +2783,6 @@ const WallMesh = memo(function WallMesh({
             <Edges color="#64748b" threshold={15} />
           </mesh>
         )}
-        <WallSelectionOverlay
-          floorId={floorId}
-          onRegisterPickTarget={onRegisterPickTarget}
-          renderedLength={renderedLength}
-          selectedSurface={selectedSurface}
-          wall={wall}
-          wallHeight={wall.height}
-          wallThickness={wall.thickness}
-        />
       </group>
     </>
   )
@@ -3302,20 +3370,155 @@ const SkirtingBoards = memo(function SkirtingBoards({
   )
 })
 
+function FloorSlabEdgeFace({
+  assignment,
+  edgeIndex,
+  floorId,
+  floor,
+  isSelected,
+  material,
+  onRegisterPickTarget,
+  point,
+  nextPoint,
+  wireframe,
+}: {
+  assignment?: SurfaceMaterialAssignment
+  edgeIndex: number
+  floorId: string
+  floor: FloorLevel
+  isSelected: boolean
+  material?: SurfaceMaterialProduct
+  nextPoint: Point
+  onRegisterPickTarget?: (target: PickTarget) => () => void
+  point: Point
+  wireframe: boolean
+}) {
+  const meshRef = useRef<Object3D>(null!)
+  const dx = nextPoint.x - point.x
+  const dz = nextPoint.y - point.y
+  const length = Math.hypot(dx, dz)
+  const centerX = (point.x + nextPoint.x) / 2
+  const centerZ = (point.y + nextPoint.y) / 2
+  const rotationY = -Math.atan2(dz, dx)
+  const y = floor.elevation + floor.roomHeight - floor.slabThickness / 2
+  const surface: SelectableSurface = useMemo(
+    () => ({
+      floorId,
+      type: 'floor-slab-edge',
+    }),
+    [floorId],
+  )
+
+  useEffect(() => {
+    const object = meshRef.current
+
+    if (!object || !onRegisterPickTarget) {
+      return undefined
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      kind: 'surface',
+      object,
+      surface,
+    })
+  }, [floorId, onRegisterPickTarget, surface])
+
+  if (length <= 0.001) {
+    return null
+  }
+
+  return (
+    <group
+      key={edgeIndex}
+      position={[centerX, y, centerZ]}
+      rotation={[0, rotationY, 0]}
+      renderOrder={isSelected ? 7 : assignment ? 4 : -1}
+    >
+      <mesh ref={meshRef}>
+        <planeGeometry args={[length, floor.slabThickness]} />
+        {assignment && material ? (
+          <SurfaceMeshStandardMaterial
+            assignment={assignment}
+            displacementEnabled={false}
+            material={material}
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
+            repeatOverride={getSurfaceRepeatForDimensions(
+              material,
+              length,
+              floor.slabThickness,
+            )}
+            side={DoubleSide}
+            textureQuality={getWallSurfaceTextureQuality(material)}
+            wireframe={wireframe}
+          />
+        ) : (
+          <meshBasicMaterial
+            color="#f97316"
+            depthTest={false}
+            depthWrite={false}
+            opacity={isSelected ? 0.3 : 0}
+            side={DoubleSide}
+            transparent
+          />
+        )}
+      </mesh>
+      {assignment && material && isSelected ? (
+        <mesh position={[0, 0, 0.004]}>
+          <planeGeometry args={[length, floor.slabThickness]} />
+          <meshBasicMaterial
+            color="#f97316"
+            depthTest={false}
+            depthWrite={false}
+            opacity={0.22}
+            side={DoubleSide}
+            transparent
+          />
+        </mesh>
+      ) : null}
+    </group>
+  )
+}
+
 function FloorSlab({
+  castsShadow,
   floor,
   floors,
   isSolid,
+  onRegisterPickTarget,
+  selectedSurface,
+  surfaceAssignments,
   upperFloor,
   wireframe,
 }: {
+  castsShadow: boolean
   floor: FloorLevel
   floors: FloorLevel[]
   isSolid: boolean
+  onRegisterPickTarget?: (target: PickTarget) => () => void
+  selectedSurface?: SelectableSurface | null
+  surfaceAssignments?: SurfaceMaterialAssignment[]
   upperFloor: FloorLevel | null
   wireframe: boolean
 }) {
   const footprints = getSlabFootprints(floor, upperFloor, floors)
+  const edgeAssignment = getFloorSlabEdgeMaterialAssignment(
+    surfaceAssignments ?? [],
+    floor.id,
+  )
+  const edgeMaterial = edgeAssignment
+    ? surfaceMaterialsById.get(edgeAssignment.materialId)
+    : undefined
+  const edgeSurface = useMemo<SelectableSurface>(
+    () => ({
+      floorId: floor.id,
+      type: 'floor-slab-edge',
+    }),
+    [floor.id],
+  )
+  const edgeIsSelected = surfacesMatch(selectedSurface ?? null, edgeSurface)
   const slabShapes = useMemo(
     () =>
       footprints.map((footprint) => {
@@ -3342,7 +3545,8 @@ function FloorSlab({
       {slabShapes.map((slabShape, index) => (
         <group key={index}>
           <mesh
-            castShadow={isSolid}
+            castShadow={castsShadow}
+            receiveShadow={isSolid}
             position={[0, floor.elevation + floor.roomHeight, 0]}
             rotation={[-Math.PI / 2, 0, 0]}
             renderOrder={0}
@@ -3356,12 +3560,22 @@ function FloorSlab({
                 },
               ]}
             />
-            <meshStandardMaterial
-              colorWrite={false}
-              depthWrite={false}
-              shadowSide={FrontSide}
-              wireframe={wireframe}
-            />
+            {isSolid ? (
+              <meshStandardMaterial
+                color="#cbd5e1"
+                roughness={0.82}
+                shadowSide={DoubleSide}
+                side={DoubleSide}
+                wireframe={wireframe}
+              />
+            ) : (
+              <meshStandardMaterial
+                colorWrite={false}
+                depthWrite={false}
+                shadowSide={DoubleSide}
+                wireframe={wireframe}
+              />
+            )}
           </mesh>
           <mesh
             position={[0, floor.elevation + floor.roomHeight - 0.002, 0]}
@@ -3374,11 +3588,29 @@ function FloorSlab({
               color="#e2e8f0"
               opacity={isSolid ? 1 : 0.18}
               roughness={0.82}
-              side={BackSide}
+              side={isSolid ? DoubleSide : BackSide}
               transparent={!isSolid}
               wireframe={wireframe}
             />
           </mesh>
+          {slabShape.getPoints().map((point, edgeIndex, points) => (
+            <FloorSlabEdgeFace
+              key={edgeIndex}
+              assignment={edgeAssignment}
+              edgeIndex={edgeIndex}
+              floor={floor}
+              floorId={floor.id}
+              isSelected={edgeIsSelected}
+              material={edgeMaterial}
+              nextPoint={{
+                x: points[(edgeIndex + 1) % points.length].x,
+                y: -points[(edgeIndex + 1) % points.length].y,
+              }}
+              onRegisterPickTarget={onRegisterPickTarget}
+              point={{ x: point.x, y: -point.y }}
+              wireframe={wireframe}
+            />
+          ))}
         </group>
       ))}
     </group>
@@ -3533,53 +3765,55 @@ function getWallBasis(wall: Wall) {
   return { length, normal, unit }
 }
 
-function getWallSidePointAtDistance(
-  wall: Wall,
-  distanceAlongWall: number,
-  side: Exclude<SurfaceWallSide, 'both'>,
-) {
-  const { normal, unit } = getWallBasis(wall)
-  const offset = side * wall.thickness / 2
-
-  return {
-    x: wall.start.x + unit.x * distanceAlongWall + normal.x * offset,
-    y: wall.start.y + unit.y * distanceAlongWall + normal.y * offset,
-  }
-}
-
 function getOpeningRectanglesForEdge({
   edge,
   edgeLength,
   edgeUnit,
   height,
-  side,
   wall,
 }: {
   edge: PlanFootprintEdge
   edgeLength: number
   edgeUnit: Point
   height: number
-  side: Exclude<SurfaceWallSide, 'both'>
   wall: Wall
 }) {
+  const wallBasis = getWallBasis(wall)
+  const edgeStartWallDistance =
+    (edge.start.x - wall.start.x) * wallBasis.unit.x +
+    (edge.start.y - wall.start.y) * wallBasis.unit.y
+  const edgeEndWallDistance =
+    (edge.end.x - wall.start.x) * wallBasis.unit.x +
+    (edge.end.y - wall.start.y) * wallBasis.unit.y
+  const edgeWallDistanceDelta = edgeEndWallDistance - edgeStartWallDistance
+  const edgeRunsWithWall = edgeUnit.x * wallBasis.unit.x + edgeUnit.y * wallBasis.unit.y >= 0
+  const wallDistanceToEdgeDistance = (wallDistance: number) => {
+    if (Math.abs(edgeWallDistanceDelta) > 0.001) {
+      return (
+        ((wallDistance - edgeStartWallDistance) / edgeWallDistanceDelta) *
+        edgeLength
+      )
+    }
+
+    return edgeRunsWithWall
+      ? wallDistance - edgeStartWallDistance
+      : edgeStartWallDistance - wallDistance
+  }
+  const edgeWallMin = Math.min(edgeStartWallDistance, edgeEndWallDistance)
+  const edgeWallMax = Math.max(edgeStartWallDistance, edgeEndWallDistance)
   const openings = (wall.openings ?? [])
     .map((opening) => {
-      const leftPoint = getWallSidePointAtDistance(
-        wall,
-        opening.center - opening.width / 2,
-        side,
-      )
-      const rightPoint = getWallSidePointAtDistance(
-        wall,
-        opening.center + opening.width / 2,
-        side,
-      )
-      const left =
-        (leftPoint.x - edge.start.x) * edgeUnit.x +
-        (leftPoint.y - edge.start.y) * edgeUnit.y
-      const right =
-        (rightPoint.x - edge.start.x) * edgeUnit.x +
-        (rightPoint.y - edge.start.y) * edgeUnit.y
+      const openingWallLeft = opening.center - opening.width / 2
+      const openingWallRight = opening.center + opening.width / 2
+      const clippedWallLeft = Math.max(edgeWallMin, openingWallLeft)
+      const clippedWallRight = Math.min(edgeWallMax, openingWallRight)
+
+      if (clippedWallRight <= clippedWallLeft) {
+        return null
+      }
+
+      const leftDistance = wallDistanceToEdgeDistance(clippedWallLeft)
+      const rightDistance = wallDistanceToEdgeDistance(clippedWallRight)
       const bottom = Math.max(0, Math.min(height, opening.bottom))
       const top = Math.max(
         bottom,
@@ -3588,15 +3822,29 @@ function getOpeningRectanglesForEdge({
 
       return {
         bottom,
-        left: Math.max(0, Math.min(left, right)),
-        right: Math.min(edgeLength, Math.max(left, right)),
+        left: Math.max(0, Math.min(leftDistance, rightDistance)),
+        right: Math.min(edgeLength, Math.max(leftDistance, rightDistance)),
         top,
       }
     })
     .filter(
-      (opening) =>
-        opening.right - opening.left > 0.001 &&
-        opening.top - opening.bottom > 0.001,
+      (
+        opening,
+      ): opening is {
+        bottom: number
+        left: number
+        right: number
+        top: number
+      } => {
+        if (!opening) {
+          return false
+        }
+
+        return (
+          opening.right - opening.left > 0.001 &&
+          opening.top - opening.bottom > 0.001
+        )
+      },
     )
 
   if (openings.length === 0) {
@@ -3670,8 +3918,11 @@ function UnionFootprintWireframe({
 function WallFootprintMeshes({
   castsShadow,
   elevation,
+  floorId,
   footprints,
   height,
+  onRegisterPickTarget,
+  selectedSurface,
   sourceWalls,
   surfaceAssignments = [],
   wallKind,
@@ -3679,13 +3930,17 @@ function WallFootprintMeshes({
 }: {
   castsShadow: boolean
   elevation: number
+  floorId: string
   footprints: WallUnionFootprint[]
   height: number
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  selectedSurface: SelectableSurface | null
   sourceWalls?: Wall[]
   surfaceAssignments?: SurfaceMaterialAssignment[]
   wallKind: WallKind
   wireframe: boolean
 }) {
+  const explicitMeshRef = useRef<Object3D>(null!)
   const wallFaceMaterialIndices = useMemo(() => {
     const materialIndices = new Map<string, number>()
 
@@ -3730,13 +3985,36 @@ function WallFootprintMeshes({
         ),
     [wallFaceMaterialIndices, sourceWalls, surfaceAssignments],
   )
+  const pickGroupTargets = useMemo(() => {
+    const targets = new Map<number, SelectableSurface>()
+
+    wallFaceMaterialIndices.forEach((materialIndex, slotKey) => {
+      const [wallId, sideText] = slotKey.split(':')
+      const side = Number(sideText) as Exclude<SurfaceWallSide, 'both'>
+
+      targets.set(materialIndex, {
+        floorId,
+        side,
+        type: 'wall-face',
+        wallId,
+      })
+    })
+
+    return targets
+  }, [floorId, wallFaceMaterialIndices])
+  const selectedWallForHighlight =
+    selectedSurface?.type === 'wall-face'
+      ? (sourceWalls ?? []).find((wall) => wall.id === selectedSurface.wallId) ?? null
+      : null
   const hasExternalWallFaceAssignments =
     wallKind === 'external' &&
     (sourceWalls ?? []).some((wall) =>
       getWallMaterialAssignments(surfaceAssignments, wall.id).length > 0,
     )
+  const hasSourceWalls = (sourceWalls ?? []).length > 0
   const useExplicitGeometry =
     wallKind === 'internal' ||
+    hasSourceWalls ||
     (wallKind === 'external' &&
       ((sourceWalls ?? []).some(hasWallOpenings) || hasExternalWallFaceAssignments))
   const explicitGeometry = useMemo(
@@ -3776,11 +4054,33 @@ function WallFootprintMeshes({
     },
     [explicitGeometry],
   )
+  useEffect(() => {
+    const object = explicitMeshRef.current
+
+    if (!useExplicitGeometry || !explicitGeometry || pickGroupTargets.size === 0) {
+      return undefined
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      groupTargets: pickGroupTargets,
+      kind: 'material-groups',
+      object,
+    })
+  }, [
+    explicitGeometry,
+    floorId,
+    onRegisterPickTarget,
+    pickGroupTargets,
+    useExplicitGeometry,
+  ])
 
   if (useExplicitGeometry && explicitGeometry) {
     return (
       <group>
         <mesh
+          ref={explicitMeshRef}
           castShadow={castsShadow}
           geometry={explicitGeometry}
           position={[0, elevation, 0]}
@@ -3821,13 +4121,51 @@ function WallFootprintMeshes({
               )}
             </>
           ) : (
-            <InternalWallMaterial
-              attach="material-0"
-              side={DoubleSide}
-              wireframe={false}
-            />
+            <>
+              <InternalWallMaterial
+                attach="material-0"
+                side={DoubleSide}
+                wireframe={false}
+              />
+              {wallFaceMaterialSlots.map((slot) =>
+                slot.assignment && slot.material ? (
+                  <SurfaceMeshStandardMaterial
+                    key={slot.key}
+                    attach={`material-${slot.materialIndex}`}
+                    assignment={slot.assignment}
+                    displacementEnabled={false}
+                    material={slot.material}
+                    polygonOffsetFactor={0}
+                    polygonOffsetUnits={0}
+                    side={FrontSide}
+                    textureQuality={getWallSurfaceTextureQuality(slot.material)}
+                    wireframe={wireframe}
+                  />
+                ) : (
+                  <InternalWallMaterial
+                    key={slot.key}
+                    attach={`material-${slot.materialIndex}`}
+                    side={FrontSide}
+                    wireframe={false}
+                  />
+                ),
+              )}
+            </>
           )}
         </mesh>
+        {selectedSurface?.type === 'wall-face' && selectedWallForHighlight ? (
+          <mesh
+            geometry={explicitGeometry}
+            position={[0, elevation, 0]}
+            renderOrder={9}
+          >
+            <WallSideHighlightMaterial
+              opacity={0.26}
+              side={selectedSurface.side}
+              wall={selectedWallForHighlight}
+            />
+          </mesh>
+        ) : null}
         {wireframe
           ? footprints.map((footprint, index) => (
               <UnionFootprintWireframe
@@ -3928,80 +4266,6 @@ function getEdgeMetrics(edge: PlanFootprintEdge) {
     : null
 }
 
-function getWallSideFootprintEdges(
-  wall: Wall,
-  side: Exclude<SurfaceWallSide, 'both'>,
-  footprints: WallUnionFootprint[],
-) {
-  const wallDx = wall.end.x - wall.start.x
-  const wallDy = wall.end.y - wall.start.y
-  const wallLength = Math.hypot(wallDx, wallDy)
-
-  if (wallLength < 0.001) {
-    return []
-  }
-
-  const wallUnit = {
-    x: wallDx / wallLength,
-    y: wallDy / wallLength,
-  }
-  const wallNormal = {
-    x: -wallUnit.y,
-    y: wallUnit.x,
-  }
-  const targetSideOffset = side * wall.thickness / 2
-  const distanceTolerance = Math.max(0.02, wall.thickness * 0.2)
-  const extensionTolerance = Math.max(0.02, wall.thickness * 1.5)
-
-  return getFootprintEdges(footprints)
-    .map((edge) => {
-      const metrics = getEdgeMetrics(edge)
-
-      if (!metrics || metrics.length < 0.03) {
-        return null
-      }
-
-      const parallel = Math.abs(
-        metrics.unit.x * wallUnit.x + metrics.unit.y * wallUnit.y,
-      )
-
-      if (parallel < 0.94) {
-        return null
-      }
-
-      const midpoint = {
-        x: (edge.start.x + edge.end.x) / 2,
-        y: (edge.start.y + edge.end.y) / 2,
-      }
-      const sideOffset =
-        (midpoint.x - wall.start.x) * wallNormal.x +
-        (midpoint.y - wall.start.y) * wallNormal.y
-
-      if (Math.abs(sideOffset - targetSideOffset) > distanceTolerance) {
-        return null
-      }
-
-      const startDistance =
-        (edge.start.x - wall.start.x) * wallUnit.x +
-        (edge.start.y - wall.start.y) * wallUnit.y
-      const endDistance =
-        (edge.end.x - wall.start.x) * wallUnit.x +
-        (edge.end.y - wall.start.y) * wallUnit.y
-      const minDistance = Math.min(startDistance, endDistance)
-      const maxDistance = Math.max(startDistance, endDistance)
-
-      if (
-        maxDistance < -extensionTolerance ||
-        minDistance > wallLength + extensionTolerance
-      ) {
-        return null
-      }
-
-      return edge
-    })
-    .filter((edge): edge is PlanFootprintEdge => Boolean(edge))
-}
-
 function footprintEdgeMatchesWallSide(
   edge: PlanFootprintEdge,
   wall: Wall,
@@ -4073,10 +4337,6 @@ function getFootprintEdgeWallSideContext(
   walls: Wall[],
 ) {
   for (const wall of walls) {
-    if (wall.kind !== 'external') {
-      continue
-    }
-
     for (const side of [1, -1] as const) {
       if (footprintEdgeMatchesWallSide(edge, wall, side)) {
         return { side, wall }
@@ -4268,7 +4528,6 @@ function createWallFootprintGeometryWithOpenings(
               edgeLength: metrics.length,
               edgeUnit: metrics.unit,
               height,
-              side: openingContext.side,
               wall: openingContext.wall,
             })
           : [{ bottom: 0, left: 0, right: metrics.length, top: height }]
@@ -4296,20 +4555,11 @@ function createWallFootprintGeometryWithOpenings(
 
           uniqueYBreaks.slice(0, -1).forEach((bottom, yIndex) => {
             const top = uniqueYBreaks[yIndex + 1]
-            const segmentTop = top
-            const assignment = wallSideContext
-              ? getWallMaterialAssignmentForSide(
-                  wallMaterialAssignments,
-                  wallSideContext.side,
-                  segmentTop,
-                )
-              : undefined
-            const materialIndex =
-              assignment && wallSideContext
-                ? wallFaceMaterialIndices.get(
-                    `${wallSideContext.wall.id}:${wallSideContext.side}`,
-                  ) ?? 0
-                : 0
+            const materialIndex = wallSideContext
+              ? wallFaceMaterialIndices.get(
+                  `${wallSideContext.wall.id}:${wallSideContext.side}`,
+                ) ?? 0
+              : 0
             const leftBottom = {
               x: start.x + metrics.unit.x * rectangle.left,
               y: start.y + metrics.unit.y * rectangle.left,
@@ -4428,196 +4678,6 @@ function createWallFootprintGeometryWithOpenings(
   return geometry
 }
 
-function WallMaterialOverlayForIds({
-  elevation,
-  footprints,
-  renderedWalls,
-  surfaceAssignments,
-  wallIds,
-  wireframe,
-}: {
-  elevation: number
-  footprints?: WallUnionFootprint[]
-  renderedWalls: RenderedWall[]
-  surfaceAssignments: SurfaceMaterialAssignment[]
-  wallIds: ReadonlySet<string>
-  wireframe: boolean
-}) {
-  return (
-    <>
-      {renderedWalls
-        .filter((renderedWall) => wallIds.has(renderedWall.wall.id))
-        .flatMap((renderedWall) => {
-          const { wall, startExtension, endExtension } = renderedWall
-          const assignments = getWallMaterialAssignments(surfaceAssignments, wall.id)
-
-          if (assignments.length === 0) {
-            return []
-          }
-
-          const dx = wall.end.x - wall.start.x
-          const dz = wall.end.y - wall.start.y
-          const length = Math.hypot(dx, dz)
-          const useFootprintEdges =
-            wall.kind === 'external' && footprints && footprints.length > 0
-          const renderedLength = Math.max(
-            0.01,
-            wall.kind === 'external'
-              ? length - wall.thickness * 2
-              : length + startExtension + endExtension,
-          )
-          const unitX = length === 0 ? 0 : dx / length
-          const unitZ = length === 0 ? 0 : dz / length
-          const centerOffset = wall.kind === 'external'
-            ? 0
-            : (endExtension - startExtension) / 2
-          const centerX =
-            (wall.start.x + wall.end.x) / 2 +
-            unitX * centerOffset
-          const centerZ =
-            (wall.start.y + wall.end.y) / 2 +
-            unitZ * centerOffset
-          const rotationY = -Math.atan2(dz, dx)
-
-          return assignments.flatMap((assignment) => {
-            const material = surfaceMaterialsById.get(assignment.materialId)
-
-            if (!material || assignment.target.type !== 'wall-face') {
-              return []
-            }
-
-            const coverageHeight = Math.min(
-              wall.height,
-              assignment.coverageHeight ?? wall.height,
-            )
-            const sides =
-              assignment.target.side === 'both'
-                ? ([1, -1] as const)
-                : ([assignment.target.side] as const)
-
-            return sides.flatMap((side) => {
-              if (useFootprintEdges) {
-                return getWallSideFootprintEdges(wall, side, footprints).flatMap(
-                  (edge, edgeIndex) => {
-                    const metrics = getEdgeMetrics(edge)
-
-                    if (!metrics) {
-                      return null
-                    }
-
-                    const leftNormal = {
-                      x: -metrics.unit.y,
-                      y: metrics.unit.x,
-                    }
-                    const sideNormal = {
-                      x: -unitZ * side,
-                      y: unitX * side,
-                    }
-                    const normalFacesSide =
-                      leftNormal.x * sideNormal.x + leftNormal.y * sideNormal.y >= 0
-                    const edgeRotationY =
-                      -Math.atan2(metrics.dy, metrics.dx) +
-                      (normalFacesSide ? 0 : Math.PI)
-                    const overlayRectangles = getOpeningRectanglesForEdge({
-                      edge,
-                      edgeLength: metrics.length,
-                      edgeUnit: metrics.unit,
-                      height: coverageHeight,
-                      side,
-                      wall,
-                    })
-
-                    return overlayRectangles.map((rectangle, rectangleIndex) => (
-                      <group
-                        key={`${wall.id}:${assignment.id}:${side}:${edgeIndex}:${rectangleIndex}`}
-                        position={[
-                          edge.start.x +
-                            metrics.unit.x * ((rectangle.left + rectangle.right) / 2) +
-                            sideNormal.x * 0.003,
-                          elevation,
-                          edge.start.y +
-                            metrics.unit.y * ((rectangle.left + rectangle.right) / 2) +
-                            sideNormal.y * 0.003,
-                        ]}
-                        rotation={[0, edgeRotationY, 0]}
-                        renderOrder={4}
-                      >
-                        <mesh
-                          position={[
-                            0,
-                            (rectangle.bottom + rectangle.top) / 2,
-                            0,
-                          ]}
-                        >
-                          <planeGeometry
-                            args={[
-                              rectangle.right - rectangle.left,
-                              rectangle.top - rectangle.bottom,
-                            ]}
-                          />
-                          <SurfaceMeshStandardMaterial
-                            assignment={assignment}
-                            displacementEnabled={false}
-                            material={material}
-                            polygonOffsetFactor={-2}
-                            polygonOffsetUnits={-2}
-                            repeatOverride={getSurfaceRepeatForDimensions(
-                              material,
-                              rectangle.right - rectangle.left,
-                              rectangle.top - rectangle.bottom,
-                            )}
-                            side={FrontSide}
-                            textureQuality={getWallSurfaceTextureQuality(material)}
-                            wireframe={wireframe}
-                          />
-                        </mesh>
-                      </group>
-                    ))
-                  },
-                )
-              }
-
-              return (
-                <group
-                  key={`${wall.id}:${assignment.id}:${side}`}
-                  position={[centerX, elevation, centerZ]}
-                  rotation={[0, rotationY, 0]}
-                  renderOrder={4}
-                >
-                  <mesh
-                    position={[
-                      0,
-                      coverageHeight / 2,
-                      side * (wall.thickness / 2 + 0.003),
-                    ]}
-                    rotation={[0, side === 1 ? 0 : Math.PI, 0]}
-                  >
-                    <planeGeometry args={[renderedLength, coverageHeight]} />
-                    <SurfaceMeshStandardMaterial
-                      assignment={assignment}
-                      displacementEnabled={false}
-                      material={material}
-                      polygonOffsetFactor={-2}
-                      polygonOffsetUnits={-2}
-                      repeatOverride={getSurfaceRepeatForDimensions(
-                        material,
-                        renderedLength,
-                        coverageHeight,
-                      )}
-                      side={FrontSide}
-                      textureQuality={getWallSurfaceTextureQuality(material)}
-                      wireframe={wireframe}
-                    />
-                  </mesh>
-                </group>
-              )
-            })
-          })
-        })}
-    </>
-  )
-}
-
 function getRoomFloorMaterialAssignment(
   surfaceAssignments: SurfaceMaterialAssignment[],
   floorId: string,
@@ -4644,6 +4704,17 @@ function getRoomCeilingMaterialAssignment(
   )
 }
 
+function getFloorSlabEdgeMaterialAssignment(
+  surfaceAssignments: SurfaceMaterialAssignment[],
+  floorId: string,
+) {
+  return surfaceAssignments.find(
+    (assignment) =>
+      assignment.target.type === 'floor-slab-edge' &&
+      assignment.target.floorId === floorId,
+  )
+}
+
 function surfacesMatch(
   firstSurface: SelectableSurface | null,
   secondSurface: SelectableSurface,
@@ -4660,7 +4731,21 @@ function surfacesMatch(
     )
   }
 
+  if (
+    firstSurface.type === 'floor-slab-edge' &&
+    secondSurface.type === 'floor-slab-edge'
+  ) {
+    return firstSurface.floorId === secondSurface.floorId
+  }
+
   if (firstSurface.type !== 'wall-face' && secondSurface.type !== 'wall-face') {
+    if (
+      firstSurface.type === 'floor-slab-edge' ||
+      secondSurface.type === 'floor-slab-edge'
+    ) {
+      return false
+    }
+
     return (
       firstSurface.floorId === secondSurface.floorId &&
       firstSurface.roomSignature === secondSurface.roomSignature
@@ -4702,11 +4787,6 @@ function SelectableRoomSurfaceMesh({
     type === 'room-floor'
       ? elevation + 0.03
       : elevation + roomHeight - 0.03
-  useHorizontalSurfaceVisibility(
-    meshRef,
-    y,
-    type === 'room-floor' ? 'above' : 'below',
-  )
 
   useEffect(() => {
     const object = meshRef.current
@@ -5452,6 +5532,10 @@ function SolidFloorScene({
     () => new Set(internalWallFootprintGroups.map((group) => group.wallId)),
     [internalWallFootprintGroups],
   )
+  const wallsById = useMemo(
+    () => new Map(floor.walls.map((wall) => [wall.id, wall])),
+    [floor.walls],
+  )
   const visibleRenderedWalls = usesExternalWallUnion
     ? renderedWalls.filter(
         (renderedWall) =>
@@ -5469,20 +5553,15 @@ function SolidFloorScene({
           <WallFootprintMeshes
             castsShadow={shadowsEnabled}
             elevation={floor.elevation}
+            floorId={floor.id}
             footprints={externalWallUnionFootprints}
             height={floor.roomHeight}
+            onRegisterPickTarget={onRegisterPickTarget}
+            selectedSurface={selectedSurface}
             sourceWalls={externalWallUnionWalls}
             surfaceAssignments={surfaceAssignments}
             wallKind="external"
             wireframe={wireframe}
-          />
-          <UnionedExternalWallSelectionOverlays
-            elevation={floor.elevation}
-            floorId={floor.id}
-            onRegisterPickTarget={onRegisterPickTarget}
-            renderedWalls={renderedWalls}
-            selectedSurface={selectedSurface}
-            wallIds={externalWallUnionWallIdSet}
           />
         </>
       ) : null}
@@ -5491,31 +5570,17 @@ function SolidFloorScene({
           key={group.wallId}
           castsShadow={shadowsEnabled}
           elevation={floor.elevation}
+          floorId={floor.id}
           footprints={group.footprints}
           height={floor.roomHeight}
+          onRegisterPickTarget={onRegisterPickTarget}
+          selectedSurface={selectedSurface}
+          sourceWalls={wallsById.get(group.wallId) ? [wallsById.get(group.wallId)!] : []}
+          surfaceAssignments={surfaceAssignments}
           wallKind="internal"
           wireframe={wireframe}
         />
       ))}
-      {clippedInternalWallIds.size > 0 ? (
-        <WallMaterialOverlayForIds
-          elevation={floor.elevation}
-          renderedWalls={renderedWalls}
-          surfaceAssignments={surfaceAssignments}
-          wallIds={clippedInternalWallIds}
-          wireframe={wireframe}
-        />
-      ) : null}
-      {clippedInternalWallIds.size > 0 ? (
-        <WallSelectionOverlaysForIds
-          elevation={floor.elevation}
-          floorId={floor.id}
-          onRegisterPickTarget={onRegisterPickTarget}
-          renderedWalls={renderedWalls}
-          selectedSurface={selectedSurface}
-          wallIds={clippedInternalWallIds}
-        />
-      ) : null}
       {visibleRenderedWalls.map((renderedWall) => (
         <WallMesh
           key={renderedWall.wall.id}
@@ -5635,11 +5700,11 @@ function FallbackModelContent({
   onRegisterPickTarget: (target: PickTarget) => () => void
   wireframe: boolean
 }) {
-  const hitboxRef = useRef<Object3D>(null!)
+  const modelMeshRef = useRef<Object3D>(null!)
   const modelDefinition = modelsById.get(model.modelId)
 
   useEffect(() => {
-    const object = hitboxRef.current
+    const object = modelMeshRef.current
 
     if (!object) {
       return
@@ -5675,6 +5740,7 @@ function FallbackModelContent({
         />
       ) : null}
       <mesh
+        ref={modelMeshRef}
         position={[
           0,
           modelDefinition.height / 2,
@@ -5709,24 +5775,6 @@ function FallbackModelContent({
           wireframe={wireframe}
         />
       </mesh>
-      <mesh
-        ref={hitboxRef}
-        position={[0, modelDefinition.height / 2, modelDefinition.depth / 2]}
-      >
-        <boxGeometry
-          args={[
-            Math.max(modelDefinition.width, 0.35),
-            Math.max(modelDefinition.height, 0.35),
-            Math.max(modelDefinition.depth, 0.35),
-          ]}
-        />
-        <meshBasicMaterial
-          color="#ffffff"
-          depthWrite={false}
-          opacity={0}
-          transparent
-        />
-      </mesh>
     </>
   )
 }
@@ -5746,7 +5794,7 @@ function LightModelContent({
   model: PlacedModel
   onRegisterPickTarget: (target: PickTarget) => () => void
 }) {
-  const hitboxRef = useRef<Object3D>(null!)
+  const markerRef = useRef<Object3D>(null!)
   const modelDefinition = modelsById.get(model.modelId)
   const lightColor =
     model.lightColor ?? modelDefinition?.lightColor ?? modelDefinition?.color ?? '#fff3c4'
@@ -5754,10 +5802,10 @@ function LightModelContent({
   const showMarker = isSelected || markersVisible
 
   useEffect(() => {
-    const object = hitboxRef.current
+    const object = markerRef.current
 
-    if (!object) {
-      return
+    if (!showMarker || !object) {
+      return undefined
     }
 
     return onRegisterPickTarget({
@@ -5767,7 +5815,7 @@ function LightModelContent({
       modelId: model.id,
       object,
     })
-  }, [floorId, model.id, onRegisterPickTarget])
+  }, [floorId, model.id, onRegisterPickTarget, showMarker])
 
   return (
     <>
@@ -5775,7 +5823,7 @@ function LightModelContent({
         <SelectionBoundsBox center={[0, 0, 0]} size={[0.42, 0.42, 0.42]} />
       ) : null}
       {showMarker ? (
-        <>
+        <group ref={markerRef}>
           <mesh>
             <sphereGeometry args={[0.12, 24, 16]} />
             <meshBasicMaterial color={lightColor} toneMapped={false} />
@@ -5796,17 +5844,8 @@ function LightModelContent({
               />
             </mesh>
           ) : null}
-        </>
+        </group>
       ) : null}
-      <mesh ref={hitboxRef}>
-        <sphereGeometry args={[0.3, 16, 12]} />
-        <meshBasicMaterial
-          color="#ffffff"
-          depthWrite={false}
-          opacity={0}
-          transparent
-        />
-      </mesh>
     </>
   )
 }
@@ -5836,7 +5875,6 @@ function ImportedModelContent({
   sourceUrl: string
   wireframe: boolean
 }) {
-  const hitboxRef = useRef<Object3D>(null!)
   const gltf = useGLTF(sourceUrl)
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
   const bounds = useMemo(() => {
@@ -5864,20 +5902,14 @@ function ImportedModelContent({
   }, [bounds, onBoundsChange])
 
   useEffect(() => {
-    const object = hitboxRef.current
-
-    if (!object) {
-      return
-    }
-
     return onRegisterPickTarget({
       blocksCollision,
       floorId,
       kind: 'model',
       modelId,
-      object,
+      object: scene,
     })
-  }, [blocksCollision, floorId, modelId, onRegisterPickTarget])
+  }, [blocksCollision, floorId, modelId, onRegisterPickTarget, scene])
 
   useEffect(() => {
     scene.traverse((object) => {
@@ -5992,24 +6024,6 @@ function ImportedModelContent({
         />
       ) : null}
       <primitive object={scene} />
-      <mesh
-        ref={hitboxRef}
-        position={[bounds.center.x, bounds.center.y, bounds.center.z]}
-      >
-        <boxGeometry
-          args={[
-            Math.max(bounds.size.x, 0.35),
-            Math.max(bounds.size.y, 0.35),
-            Math.max(bounds.size.z, 0.35),
-          ]}
-        />
-        <meshBasicMaterial
-          color="#ffffff"
-          depthWrite={false}
-          opacity={0}
-          transparent
-        />
-      </mesh>
     </>
   )
 }
@@ -6380,12 +6394,46 @@ function FpsCounter({ onFpsChange }: { onFpsChange: (fps: number) => void }) {
   return null
 }
 
+function getGeometryTriangleCount(geometry: BufferGeometry) {
+  if (geometry.index) {
+    return geometry.index.count / 3
+  }
+
+  const position = geometry.getAttribute('position')
+  return position ? position.count / 3 : 0
+}
+
+function estimateVisibleSceneTriangles(scene: Object3D) {
+  let triangles = 0
+
+  scene.traverseVisible((object) => {
+    const mesh = object as Object3D & {
+      geometry?: BufferGeometry
+      isInstancedMesh?: boolean
+      isMesh?: boolean
+      count?: number
+    }
+
+    if (!mesh.isMesh || !(mesh.geometry instanceof BufferGeometry)) {
+      return
+    }
+
+    const instanceCount =
+      mesh.isInstancedMesh && typeof mesh.count === 'number'
+        ? mesh.count
+        : 1
+    triangles += getGeometryTriangleCount(mesh.geometry) * instanceCount
+  })
+
+  return Math.round(triangles)
+}
+
 function RendererStatsSampler({
   onStatsChange,
 }: {
   onStatsChange: (stats: RendererStats) => void
 }) {
-  const { gl } = useThree()
+  const { gl, scene } = useThree()
   const elapsedRef = useRef(0)
 
   useFrame((_, delta) => {
@@ -6400,10 +6448,53 @@ function RendererStatsSampler({
       geometries: gl.info.memory.geometries,
       programs: gl.info.programs?.length ?? 0,
       textures: gl.info.memory.textures,
-      triangles: gl.info.render.triangles,
+      triangles: estimateVisibleSceneTriangles(scene),
     })
     elapsedRef.current = 0
   })
+
+  return null
+}
+
+function ShaderWarmup({ warmupKey }: { warmupKey: string }) {
+  const { camera, gl, scene } = useThree()
+
+  useEffect(() => {
+    let cancelled = false
+    let compileTimeoutId: number | null = window.setTimeout(() => {
+      compileTimeoutId = null
+      recordEngineLog(
+        'shader-warmup-start',
+        `key ${warmupKey.length} chars`,
+      )
+      emitEngineActivity({
+        message: 'Compiling scene shaders...',
+        minimumVisibleMs: 1200,
+      })
+
+      gl.compileAsync(scene, camera)
+        .catch(() => {
+          gl.compile(scene, camera)
+        })
+        .finally(() => {
+          if (!cancelled) {
+            recordEngineLog('shader-warmup-complete')
+            emitEngineActivity({
+              message: 'Scene shaders ready',
+              minimumVisibleMs: 700,
+            })
+          }
+        })
+    }, 120)
+
+    return () => {
+      cancelled = true
+
+      if (compileTimeoutId !== null) {
+        window.clearTimeout(compileTimeoutId)
+      }
+    }
+  }, [camera, gl, scene, warmupKey])
 
   return null
 }
@@ -6866,6 +6957,644 @@ function WalkCameraControls({
   return null
 }
 
+type PickRenderableObject = Object3D & {
+  geometry?: BufferGeometry
+  isMesh?: boolean
+  material?: Material | Material[] | null
+}
+
+function getPickTargetPriority(target: PickTarget) {
+  if (target.kind === 'model') {
+    return 4
+  }
+
+  if (target.kind === 'material-groups') {
+    return 2
+  }
+
+  if (target.surface.type === 'floor-slab-edge') {
+    return 3
+  }
+
+  if (target.surface.type === 'wall-face') {
+    return 2
+  }
+
+  return 1
+}
+
+function getSurfacePickKey(surface: SelectableSurface) {
+  if (surface.type === 'wall-face') {
+    return `${surface.floorId}:wall:${surface.wallId}:${surface.side}`
+  }
+
+  if (surface.type === 'room-floor' || surface.type === 'ceiling') {
+    return `${surface.floorId}:${surface.type}:${surface.roomSignature}`
+  }
+
+  return `${surface.floorId}:${surface.type}`
+}
+
+function getPickMaterialSide(target: PickTarget) {
+  if (target.kind === 'model') {
+    return DoubleSide
+  }
+
+  return FrontSide
+}
+
+function collectRenderableObjects(object: Object3D) {
+  const renderables: PickRenderableObject[] = []
+
+  object.traverse((candidateObject) => {
+    const renderableObject = candidateObject as PickRenderableObject
+
+    if (renderableObject.isMesh && renderableObject.material) {
+      renderables.push(renderableObject)
+    }
+  })
+
+  return renderables
+}
+
+function materialIsVisibleInViewport(material: Material | null | undefined) {
+  if (!material || !material.visible) {
+    return false
+  }
+
+  if ('opacity' in material && material.opacity <= 0.001) {
+    return false
+  }
+
+  return true
+}
+
+function renderableIsVisibleInViewport(object: PickRenderableObject) {
+  const materials = Array.isArray(object.material)
+    ? object.material
+    : object.material
+      ? [object.material]
+      : []
+
+  return materials.some(materialIsVisibleInViewport)
+}
+
+function objectIsVisibleInHierarchy(object: Object3D) {
+  let currentObject: Object3D | null = object
+
+  while (currentObject) {
+    if (!currentObject.visible) {
+      return false
+    }
+
+    currentObject = currentObject.parent
+  }
+
+  return true
+}
+
+function createPickMaterial(colorId: number, side: Side) {
+  return new RawShaderMaterial({
+    depthTest: true,
+    depthWrite: true,
+    fragmentShader: `
+      precision highp float;
+      uniform vec3 pickColor;
+      void main() {
+        gl_FragColor = vec4(pickColor, 1.0);
+      }
+    `,
+    side,
+    toneMapped: false,
+    uniforms: {
+      pickColor: {
+        value: new Vector3(
+          ((colorId >> 16) & 255) / 255,
+          ((colorId >> 8) & 255) / 255,
+          (colorId & 255) / 255,
+        ),
+      },
+    },
+    vertexShader: `
+      precision highp float;
+      uniform mat4 modelViewMatrix;
+      uniform mat4 projectionMatrix;
+      attribute vec3 position;
+      void main() {
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+  })
+}
+
+function getDebugPickColorId(colorId: number) {
+  if (colorId === 0) {
+    return 0
+  }
+
+  const color = new Color().setHSL(((colorId * 137) % 360) / 360, 0.78, 0.55)
+
+  return (
+    (Math.round(color.r * 255) << 16) +
+    (Math.round(color.g * 255) << 8) +
+    Math.round(color.b * 255)
+  )
+}
+
+function downloadPngFile(dataUrl: string, filename: string) {
+  const link = document.createElement('a')
+
+  link.href = dataUrl
+  link.download = filename
+  link.style.display = 'none'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  recordEngineLog('color-pick-buffer-download-requested', filename)
+}
+
+type PickRenderCamera = Camera & {
+  clearViewOffset?: () => void
+  setViewOffset?: (
+    fullWidth: number,
+    fullHeight: number,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => void
+}
+
+function withColorPickRender<T>({
+  camera,
+  debugColors = false,
+  gl,
+  pickTarget,
+  scene,
+  read,
+}: {
+  camera: PickRenderCamera
+  debugColors?: boolean
+  gl: WebGLRenderer
+  pickTarget: MutableRefObject<PickTarget[]>
+  read: (context: {
+    renderTarget: WebGLRenderTarget
+    targetByColorId: Map<number, PickTarget>
+    width: number
+    height: number
+  }) => T
+  scene: Object3D
+}) {
+  const targets = pickTarget.current.slice(0, 0xfffffe)
+
+  if (targets.length === 0) {
+    return null
+  }
+
+  const drawingBufferSize = new Vector2()
+  gl.getDrawingBufferSize(drawingBufferSize)
+  const width = Math.max(1, Math.floor(drawingBufferSize.x))
+  const height = Math.max(1, Math.floor(drawingBufferSize.y))
+  const renderables = new Set<PickRenderableObject>()
+  const originalStates: Array<{
+    material?: Material | Material[] | null
+    materialVisible: boolean
+    object: PickRenderableObject
+    renderOrder: number
+    visible: boolean
+    visibleInHierarchy: boolean
+  }> = []
+  const originalStatesByObject = new Map<
+    PickRenderableObject,
+    { materialVisible: boolean; visible: boolean; visibleInHierarchy: boolean }
+  >()
+  const targetByColorId = new Map<number, PickTarget>()
+  const pickMaterials: Material[] = []
+  const renderTarget = new WebGLRenderTarget(
+    width,
+    height,
+    {
+      depthBuffer: true,
+      format: RGBAFormat,
+      magFilter: NearestFilter,
+      minFilter: NearestFilter,
+      samples: 0,
+      stencilBuffer: false,
+      type: UnsignedByteType,
+    },
+  )
+  renderTarget.texture.colorSpace = NoColorSpace
+  const previousRenderTarget = gl.getRenderTarget()
+  const previousClearColor = new Color()
+  const previousClearAlpha = gl.getClearAlpha()
+  const previousScissorTest = gl.getScissorTest()
+  const previousViewport = new Vector4()
+  const previousScissor = new Vector4()
+
+  gl.getClearColor(previousClearColor)
+  gl.getViewport(previousViewport)
+  gl.getScissor(previousScissor)
+
+  scene.traverse((object) => {
+    const renderableObject = object as PickRenderableObject
+
+    if (!renderableObject.isMesh || !renderableObject.material) {
+      return
+    }
+
+    renderables.add(renderableObject)
+  })
+
+  renderables.forEach((object) => {
+    originalStates.push({
+      material: object.material,
+      materialVisible: renderableIsVisibleInViewport(object),
+      object,
+      renderOrder: object.renderOrder,
+      visible: object.visible,
+      visibleInHierarchy: objectIsVisibleInHierarchy(object),
+    })
+    object.visible = false
+  })
+  originalStates.forEach((state) => {
+    originalStatesByObject.set(state.object, {
+      materialVisible: state.materialVisible,
+      visible: state.visible,
+      visibleInHierarchy: state.visibleInHierarchy,
+    })
+  })
+
+  let nextColorId = 1
+  const surfacePickMaterials = new Map<string, Material>()
+  const allocatePickMaterial = (target: PickTarget, side: Side) => {
+    const colorId = nextColorId
+    nextColorId += 1
+
+    if (colorId > 0xfffffe) {
+      return null
+    }
+
+    const material = createPickMaterial(
+      debugColors ? getDebugPickColorId(colorId) : colorId,
+      side,
+    )
+
+    pickMaterials.push(material)
+    targetByColorId.set(colorId, target)
+
+    return material
+  }
+  const getSurfacePickMaterial = (surfaceTarget: PickTarget, side: Side) => {
+    if (surfaceTarget.kind !== 'surface') {
+      return allocatePickMaterial(surfaceTarget, side)
+    }
+
+    const key = getSurfacePickKey(surfaceTarget.surface)
+    const existingMaterial = surfacePickMaterials.get(key)
+
+    if (existingMaterial) {
+      return existingMaterial
+    }
+
+    const material = allocatePickMaterial(surfaceTarget, side)
+
+    if (material) {
+      surfacePickMaterials.set(key, material)
+    }
+
+    return material
+  }
+  const missMaterial = createPickMaterial(0, DoubleSide)
+
+  pickMaterials.push(missMaterial)
+
+  targets.forEach((target) => {
+    const renderOrder = getPickTargetPriority(target) * 100
+
+    collectRenderableObjects(target.object).forEach((object) => {
+      const originalState = originalStatesByObject.get(object)
+      const shouldRender =
+        originalState?.visible &&
+        originalState.visibleInHierarchy &&
+        (target.kind === 'surface' || originalState.materialVisible)
+
+      object.visible = Boolean(shouldRender)
+      object.renderOrder = renderOrder
+
+      if (!shouldRender) {
+        return
+      }
+
+      if (target.kind !== 'material-groups') {
+        const material = allocatePickMaterial(target, getPickMaterialSide(target))
+
+        if (material) {
+          object.material = material
+        }
+
+        return
+      }
+
+      const groups = object.geometry?.groups ?? []
+      const materialCount = Math.max(
+        1,
+        ...groups.map((group) => group.materialIndex ?? 0),
+      ) + 1
+      const groupMaterials = Array.from({ length: materialCount }, (_, index) => {
+        const surface = target.groupTargets.get(index)
+
+        if (!surface) {
+          return missMaterial
+        }
+
+        return getSurfacePickMaterial(
+          {
+            blocksCollision: false,
+            floorId: target.floorId,
+            kind: 'surface',
+            object: target.object,
+            surface,
+          },
+          getPickMaterialSide(target),
+        ) ?? missMaterial
+      })
+
+      object.material = groupMaterials
+    })
+  })
+
+  try {
+    gl.setRenderTarget(renderTarget)
+    gl.setScissorTest(false)
+    gl.setViewport(0, 0, width, height)
+    gl.setClearColor(0x000000, 0)
+    gl.clear()
+    gl.render(scene, camera)
+    return read({
+      height,
+      renderTarget,
+      targetByColorId,
+      width,
+    })
+  } finally {
+    gl.setRenderTarget(previousRenderTarget)
+    gl.setClearColor(previousClearColor, previousClearAlpha)
+    gl.setScissorTest(previousScissorTest)
+    gl.setViewport(previousViewport)
+    gl.setScissor(previousScissor)
+    originalStates.forEach(({ material, object, renderOrder, visible }) => {
+      object.material = material
+      object.renderOrder = renderOrder
+      object.visible = visible
+    })
+    pickMaterials.forEach((material) => material.dispose())
+    renderTarget.dispose()
+  }
+}
+
+function performColorPick({
+  camera,
+  clientX,
+  clientY,
+  element,
+  gl,
+  pickTarget,
+  scene,
+}: {
+  camera: PickRenderCamera
+  clientX: number
+  clientY: number
+  element: HTMLCanvasElement
+  gl: WebGLRenderer
+  pickTarget: MutableRefObject<PickTarget[]>
+  scene: Object3D
+}) {
+  const bounds = element.getBoundingClientRect()
+
+  if (bounds.width <= 0 || bounds.height <= 0) {
+    return null
+  }
+
+  const pickResult = withColorPickRender({
+    camera,
+    gl,
+    pickTarget,
+    scene,
+    read: ({ height, renderTarget, targetByColorId, width }) => {
+      const pixelX = Math.max(
+        0,
+        Math.min(
+          width - 1,
+          Math.floor(((clientX - bounds.left) / bounds.width) * width),
+        ),
+      )
+      const pixelY = Math.max(
+        0,
+        Math.min(
+          height - 1,
+          Math.floor(((bounds.bottom - clientY) / bounds.height) * height),
+        ),
+      )
+      const pixel = new Uint8Array(4)
+
+      gl.readRenderTargetPixels(renderTarget, pixelX, pixelY, 1, 1, pixel)
+
+      const colorId = pixel[0] * 65536 + pixel[1] * 256 + pixel[2]
+
+      return {
+        colorId,
+        pixel,
+        target: targetByColorId.get(colorId) ?? null,
+      }
+    },
+  })
+
+  if (!pickResult) {
+    return null
+  }
+
+  const { colorId, pixel, target } = pickResult
+
+  recordEngineLog(
+    'color-pick',
+    target
+      ? `${colorId} -> ${target.kind}${
+          target.kind === 'surface'
+            ? target.surface.type === 'wall-face'
+              ? `:${target.surface.type}:${target.surface.wallId}:${target.surface.side}`
+              : `:${target.surface.type}`
+            : target.kind === 'model'
+              ? `:${target.modelId}`
+              : ''
+        }`
+      : `miss color ${colorId} rgb(${pixel[0]},${pixel[1]},${pixel[2]}) targets ${pickTarget.current.length}`,
+  )
+
+  return target
+}
+
+function performGeometryPickFallback({
+  camera,
+  clientX,
+  clientY,
+  element,
+  pickTarget,
+}: {
+  camera: PickRenderCamera
+  clientX: number
+  clientY: number
+  element: HTMLCanvasElement
+  pickTarget: MutableRefObject<PickTarget[]>
+}) {
+  const bounds = element.getBoundingClientRect()
+
+  if (bounds.width <= 0 || bounds.height <= 0) {
+    return null
+  }
+
+  const pointer = new Vector2(
+    ((clientX - bounds.left) / bounds.width) * 2 - 1,
+    -(((clientY - bounds.top) / bounds.height) * 2 - 1),
+  )
+  const raycaster = new Raycaster()
+
+  raycaster.setFromCamera(pointer, camera)
+
+  const candidates = pickTarget.current
+    .flatMap((target) =>
+      raycaster.intersectObject(target.object, true).map((intersection) => ({
+        intersection,
+        target,
+      })),
+    )
+    .sort((first, second) => {
+      const distanceDelta = first.intersection.distance - second.intersection.distance
+
+      if (Math.abs(distanceDelta) > 0.0001) {
+        return distanceDelta
+      }
+
+      return getPickTargetPriority(second.target) - getPickTargetPriority(first.target)
+    })
+
+  for (const candidate of candidates) {
+    const { target } = candidate
+
+    if (target.kind === 'model' || target.kind === 'surface') {
+      recordEngineLog(
+        'geometry-pick-fallback',
+        target.kind === 'model'
+          ? `model:${target.modelId}`
+          : `surface:${target.surface.type}`,
+      )
+      return target
+    }
+
+    const materialIndex = candidate.intersection.face?.materialIndex ?? -1
+    const surface = target.groupTargets.get(materialIndex)
+
+    if (surface) {
+      recordEngineLog(
+        'geometry-pick-fallback',
+        surface.type === 'wall-face'
+          ? `surface:${surface.type}:${surface.wallId}:${surface.side}:mat${materialIndex}`
+          : `surface:${surface.type}`,
+      )
+      return {
+        blocksCollision: false,
+        floorId: target.floorId,
+        kind: 'surface',
+        object: target.object,
+        surface,
+      } satisfies PickTarget
+    }
+  }
+
+  recordEngineLog(
+    'geometry-pick-fallback',
+    `miss targets ${pickTarget.current.length}`,
+  )
+
+  return null
+}
+
+function downloadColorPickBuffer({
+  camera,
+  gl,
+  onImage,
+  pickTarget,
+  scene,
+}: {
+  camera: PickRenderCamera
+  gl: WebGLRenderer
+  onImage?: (image: { dataUrl: string; filename: string }) => void
+  pickTarget: MutableRefObject<PickTarget[]>
+  scene: Object3D
+}) {
+  try {
+    const exported = withColorPickRender({
+      camera,
+      debugColors: true,
+      gl,
+      pickTarget,
+      scene,
+      read: ({ height, renderTarget, width }) => {
+        const pixels = new Uint8Array(width * height * 4)
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+
+        if (!context) {
+          return false
+        }
+
+        gl.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixels)
+
+        canvas.width = width
+        canvas.height = height
+
+        const imageData = context.createImageData(width, height)
+
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const sourceIndex = ((height - 1 - y) * width + x) * 4
+            const targetIndex = (y * width + x) * 4
+
+            imageData.data[targetIndex] = pixels[sourceIndex]
+            imageData.data[targetIndex + 1] = pixels[sourceIndex + 1]
+            imageData.data[targetIndex + 2] = pixels[sourceIndex + 2]
+            imageData.data[targetIndex + 3] = 255
+          }
+        }
+
+        context.putImageData(imageData, 0, 0)
+
+        const dataUrl = canvas.toDataURL('image/png')
+        const filename = `house-designer-pick-buffer-${Date.now()}.png`
+
+        window.houseDesignerLastPickPng = dataUrl
+        onImage?.({ dataUrl, filename })
+        downloadPngFile(dataUrl, filename)
+
+        recordEngineLog(
+          'color-pick-buffer-exported',
+          `${width}x${height}, ${pickTarget.current.length} targets`,
+        )
+
+        return true
+      },
+    })
+
+    if (!exported) {
+      recordEngineLog('color-pick-buffer-export-failed')
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+
+    console.error('[HouseDesigner] Pick PNG export failed', error)
+    recordEngineLog('color-pick-buffer-export-failed', message)
+  }
+}
+
 function ModelPicker({
   active,
   isTransformingRef,
@@ -6883,10 +7612,8 @@ function ModelPicker({
   onSelectSurface: (surface: SelectableSurface) => void
   pickTargetsRef: MutableRefObject<PickTarget[]>
 }) {
-  const { camera, gl } = useThree()
+  const { camera, gl, scene } = useThree()
   const pickGestureRef = useRef<PickGesture | null>(null)
-  const pointer = useMemo(() => new Vector2(), [])
-  const raycaster = useMemo(() => new Raycaster(), [])
 
   useEffect(() => {
     const element = gl.domElement
@@ -6895,7 +7622,6 @@ function ModelPicker({
       if (
         !active ||
         event.button !== 0 ||
-        lookMouseButton === 'left' ||
         isTransformingRef.current
       ) {
         return
@@ -6915,7 +7641,6 @@ function ModelPicker({
 
       if (
         !active ||
-        lookMouseButton === 'left' ||
         isTransformingRef.current ||
         !pickGesture ||
         pickGesture.pointerId !== event.pointerId
@@ -6924,58 +7649,61 @@ function ModelPicker({
       }
 
       if (event.clientX !== pickGesture.x || event.clientY !== pickGesture.y) {
+        recordEngineLog(
+          'pick-skipped',
+          `pointer moved ${event.clientX - pickGesture.x},${event.clientY - pickGesture.y}`,
+        )
         return
       }
 
-      const bounds = element.getBoundingClientRect()
-      pointer.set(
-        ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
-        -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
-      )
-      raycaster.setFromCamera(pointer, camera)
-
-      const targets = pickTargetsRef.current
-      const hits = raycaster.intersectObjects(
-        targets.map((target) => target.object),
-        false,
-      )
-      const prioritizedHits = hits
-        .map((hit) => {
-          const target = targets.find((candidateTarget) => candidateTarget.object === hit.object)
-          const priority =
-            target?.kind === 'model'
-              ? 0
-              : target?.kind === 'surface' && target.surface.type === 'wall-face'
-                ? 1
-                : 2
-
-          return target ? { hit, priority, target } : null
-        })
-        .filter(
-          (
-            prioritizedHit,
-          ): prioritizedHit is {
-            hit: typeof hits[number]
-            priority: number
-            target: PickTarget
-          } => Boolean(prioritizedHit),
-        )
-        .sort(
-          (firstHit, secondHit) =>
-            firstHit.priority - secondHit.priority ||
-            firstHit.hit.distance - secondHit.hit.distance,
-        )
-      const pickedTarget = prioritizedHits[0]?.target
+      const pickedTarget =
+        performColorPick({
+          camera,
+          clientX: event.clientX,
+          clientY: event.clientY,
+          element,
+          gl,
+          pickTarget: pickTargetsRef,
+          scene,
+        }) ??
+        performGeometryPickFallback({
+        camera,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        element,
+        pickTarget: pickTargetsRef,
+      })
 
       if (!pickedTarget) {
+        emitEngineActivity({
+          message: 'Pick missed',
+          minimumVisibleMs: 900,
+        })
         onClearSelection()
         return
       }
 
       if (pickedTarget.kind === 'surface') {
+        emitEngineActivity({
+          message:
+            pickedTarget.surface.type === 'wall-face'
+              ? `Picked wall ${pickedTarget.surface.side === 1 ? 'side A' : 'side B'}`
+              : `Picked ${pickedTarget.surface.type}`,
+          minimumVisibleMs: 900,
+        })
         onSelectSurface(pickedTarget.surface)
-      } else {
+      } else if (pickedTarget.kind === 'model') {
+        emitEngineActivity({
+          message: 'Picked object',
+          minimumVisibleMs: 900,
+        })
         onSelectModel(pickedTarget.modelId, pickedTarget.floorId)
+      } else {
+        emitEngineActivity({
+          message: 'Pick missed',
+          minimumVisibleMs: 900,
+        })
+        onClearSelection()
       }
     }
 
@@ -6989,6 +7717,8 @@ function ModelPicker({
   }, [
     camera,
     gl.domElement,
+    gl,
+    scene,
     active,
     isTransformingRef,
     lookMouseButton,
@@ -6996,9 +7726,36 @@ function ModelPicker({
     onSelectModel,
     onSelectSurface,
     pickTargetsRef,
-    pointer,
-    raycaster,
   ])
+
+  return null
+}
+
+function PickBufferExporter({
+  onImage,
+  onReady,
+  pickTargetsRef,
+}: {
+  onImage: (image: { dataUrl: string; filename: string }) => void
+  onReady: (capture: () => void) => void
+  pickTargetsRef: MutableRefObject<PickTarget[]>
+}) {
+  const { camera, gl, scene } = useThree()
+  const capture = useCallback(() => {
+    downloadColorPickBuffer({
+      camera,
+      gl,
+      onImage,
+      pickTarget: pickTargetsRef,
+      scene,
+    })
+  }, [camera, gl, onImage, pickTargetsRef, scene])
+
+  useEffect(() => {
+    onReady(capture)
+
+    return () => onReady(() => undefined)
+  }, [capture, onReady])
 
   return null
 }
@@ -7019,7 +7776,24 @@ export function ThreeDView({
   const [transformMode, setTransformMode] = useState<TransformMode>('translate')
   const [lookMouseButton, setLookMouseButton] =
     useState<LookMouseButton>('right')
+  const [pickBufferDownload, setPickBufferDownload] = useState<{
+    dataUrl: string
+    filename: string
+  } | null>(null)
+  const pickBufferCaptureRef = useRef<(() => void) | null>(null)
   const [isTransformingModel, setIsTransformingModel] = useState(false)
+  const engineStatusRef = useRef<HTMLDivElement>(null)
+  const engineStatusTimerRef = useRef<number | null>(null)
+  const latestEngineActivityIdRef = useRef(0)
+  const lastEngineActivityRef = useRef({
+    message: 'startup',
+    time: 0,
+  })
+  const latestRendererStatsRef = useRef<RendererStats | null>(null)
+  const lastLoggedRendererStatsRef = useRef<RendererStats | null>(null)
+  const previousShaderProgramCountRef = useRef<number | null>(null)
+  const renderOptionFrameIdsRef = useRef<number[]>([])
+  const stallSnapshotRef = useRef('')
   const fpsIndicatorRef = useRef<HTMLDivElement>(null)
   const shaderIndicatorRef = useRef<HTMLDivElement>(null)
   const callsIndicatorRef = useRef<HTMLDivElement>(null)
@@ -7169,6 +7943,74 @@ export function ThreeDView({
         : null,
     [renderOptions.groundPlane, showAllFloors, visibleRenderedFloors],
   )
+  const floorGeometryStatusKey = useMemo(
+    () =>
+      JSON.stringify(
+        floors.map((floor) => ({
+          elevation: floor.elevation,
+          id: floor.id,
+          roomHeight: floor.roomHeight,
+          slabThickness: floor.slabThickness,
+          walls: floor.walls.map((wall) => ({
+            end: wall.end,
+            height: wall.height,
+            id: wall.id,
+            kind: wall.kind,
+            openings: wall.openings,
+            start: wall.start,
+            thickness: wall.thickness,
+          })),
+        })),
+      ),
+    [floors],
+  )
+  const shaderWarmupKey = useMemo(
+    () =>
+      JSON.stringify({
+        activeFloorId,
+        cameraFov,
+        floors: visibleRenderedFloors.map(({ floor }) => ({
+          elevation: floor.elevation,
+          id: floor.id,
+          models: (floor.models ?? []).map((model) => ({
+            color: model.lightColor,
+            enabled: model.lightEnabled,
+            id: model.id,
+            kind: modelsById.get(model.modelId)?.lightKind,
+            modelId: model.modelId,
+            power: model.lightPower,
+            scale: model.scale,
+          })),
+          roomHeight: floor.roomHeight,
+          walls: floor.walls.map((wall) => ({
+            height: wall.height,
+            id: wall.id,
+            kind: wall.kind,
+            openings: wall.openings?.length ?? 0,
+            thickness: wall.thickness,
+          })),
+        })),
+        localLightIds: Array.from(localLightIds).sort(),
+        renderOptions,
+        showAllFloors,
+        surfaceAssignments: surfaceAssignments.map((assignment) => ({
+          customColor: assignment.customColor,
+          materialId: assignment.materialId,
+          target: assignment.target,
+          textureRotation: assignment.textureRotation,
+          textureScale: assignment.textureScale,
+        })),
+      }),
+    [
+      activeFloorId,
+      cameraFov,
+      localLightIds,
+      renderOptions,
+      showAllFloors,
+      surfaceAssignments,
+      visibleRenderedFloors,
+    ],
+  )
   const lightIndicator = useMemo(() => {
     const scopedFloors = showAllFloors
       ? floors
@@ -7186,14 +8028,130 @@ export function ThreeDView({
       total: scopedLightModels.length,
     }
   }, [activeFloorId, floors, localLightIds, showAllFloors])
+  useEffect(() => {
+    const latestStats = latestRendererStatsRef.current
+
+    stallSnapshotRef.current = [
+      `lights ${lightIndicator.contributing}/${lightIndicator.total}`,
+      `limit ${localLightLimit}`,
+      `floors ${visibleRenderedFloors.length}`,
+      renderOptions.shadows ? 'scene shadows on' : 'scene shadows off',
+      renderOptions.lightShadows ? 'light shadows on' : 'light shadows off',
+      renderOptions.ambientOcclusion ? 'AO on' : 'AO off',
+      renderOptions.lights ? 'lights on' : 'lights off',
+      latestStats
+        ? `${latestStats.programs} shaders, ${latestStats.calls} calls, ${latestStats.textures} tex`
+        : 'stats pending',
+    ].join(' | ')
+  }, [
+    lightIndicator.contributing,
+    lightIndicator.total,
+    localLightLimit,
+    renderOptions.ambientOcclusion,
+    renderOptions.lightShadows,
+    renderOptions.lights,
+    renderOptions.shadows,
+    visibleRenderedFloors.length,
+  ])
   const transformEnabled = true
   const navigationLocked = isTransformingModel
 
+  const showEngineStatus = useCallback(
+    (message: string, minimumVisibleMs = 1100) => {
+      latestEngineActivityIdRef.current += 1
+      const activityId = latestEngineActivityIdRef.current
+      const indicator = engineStatusRef.current
+
+      if (message !== 'Engine idle') {
+        lastEngineActivityRef.current = {
+          message,
+          time: performance.now(),
+        }
+      }
+
+      recordEngineLog('status', message, stallSnapshotRef.current)
+
+      if (indicator) {
+        indicator.textContent = message
+        indicator.classList.toggle('is-idle', message === 'Engine idle')
+      }
+
+      if (engineStatusTimerRef.current !== null) {
+        window.clearTimeout(engineStatusTimerRef.current)
+      }
+
+      engineStatusTimerRef.current = window.setTimeout(() => {
+        if (latestEngineActivityIdRef.current === activityId) {
+          const currentIndicator = engineStatusRef.current
+
+          if (currentIndicator) {
+            currentIndicator.textContent = 'Engine idle'
+            currentIndicator.classList.add('is-idle')
+          }
+
+          engineStatusTimerRef.current = null
+        }
+      }, minimumVisibleMs)
+    },
+    [],
+  )
   const updateRenderOption = (option: keyof RenderOptions) => {
-    setRenderOptions((currentOptions) => ({
-      ...currentOptions,
-      [option]: !currentOptions[option],
-    }))
+    const nextEnabled = !renderOptions[option]
+    const activityMessage =
+      option === 'lightShadows'
+        ? nextEnabled
+          ? 'Preparing light shadow maps...'
+          : 'Disabling light shadow maps...'
+        : option === 'shadows'
+          ? nextEnabled
+            ? 'Preparing scene shadows...'
+            : 'Disabling scene shadows...'
+          : option === 'ambientOcclusion'
+            ? nextEnabled
+              ? 'Preparing ambient occlusion pass...'
+              : 'Disabling ambient occlusion pass...'
+            : option === 'lights'
+              ? nextEnabled
+                ? 'Preparing local lights...'
+                : 'Disabling local lights...'
+              : null
+
+    const applyRenderOptionUpdate = () => {
+      renderOptionFrameIdsRef.current = []
+      recordEngineLog(
+        'render-option-applied',
+        `${option} -> ${nextEnabled ? 'on' : 'off'}`,
+        stallSnapshotRef.current,
+      )
+      setRenderOptions((currentOptions) => ({
+        ...currentOptions,
+        [option]: !currentOptions[option],
+      }))
+    }
+
+    renderOptionFrameIdsRef.current.forEach((frameId) => {
+      window.cancelAnimationFrame(frameId)
+    })
+    renderOptionFrameIdsRef.current = []
+
+    if (!activityMessage) {
+      applyRenderOptionUpdate()
+      return
+    }
+
+    recordEngineLog(
+      'render-option-requested',
+      `${option} -> ${nextEnabled ? 'on' : 'off'}`,
+      stallSnapshotRef.current,
+    )
+
+    showEngineStatus(activityMessage, 2500)
+
+    const firstFrameId = window.requestAnimationFrame(() => {
+      const secondFrameId = window.requestAnimationFrame(applyRenderOptionUpdate)
+      renderOptionFrameIdsRef.current = [secondFrameId]
+    })
+    renderOptionFrameIdsRef.current = [firstFrameId]
   }
   const setTransformingModel = useCallback((isTransforming: boolean) => {
     isTransformingModelRef.current = isTransforming
@@ -7206,25 +8164,64 @@ export function ThreeDView({
       indicator.textContent = `${nextFps} FPS`
     }
   }, [])
-  const updateRendererStats = useCallback((nextStats: RendererStats) => {
-    if (shaderIndicatorRef.current) {
-      shaderIndicatorRef.current.textContent = `${nextStats.programs} shaders`
-    }
+  const updateRendererStats = useCallback(
+    (nextStats: RendererStats) => {
+      latestRendererStatsRef.current = nextStats
+      const lastLoggedRendererStats = lastLoggedRendererStatsRef.current
 
-    if (callsIndicatorRef.current) {
-      callsIndicatorRef.current.textContent = `${nextStats.calls} calls`
-    }
+      if (
+        !lastLoggedRendererStats ||
+        Math.abs(nextStats.programs - lastLoggedRendererStats.programs) > 0 ||
+        Math.abs(nextStats.textures - lastLoggedRendererStats.textures) >= 2 ||
+        Math.abs(nextStats.geometries - lastLoggedRendererStats.geometries) >= 3 ||
+        Math.abs(nextStats.calls - lastLoggedRendererStats.calls) >= 8
+      ) {
+        recordEngineLog(
+          'renderer-stats',
+          `${nextStats.programs} shaders, ${nextStats.calls} calls, ${nextStats.geometries} geo, ${nextStats.textures} tex, ${nextStats.triangles.toLocaleString()} tris`,
+          stallSnapshotRef.current,
+        )
+        lastLoggedRendererStatsRef.current = nextStats
+      }
 
-    if (resourcesIndicatorRef.current) {
-      resourcesIndicatorRef.current.textContent =
-        `${nextStats.geometries} geo / ${nextStats.textures} tex`
-    }
+      const previousShaderProgramCount = previousShaderProgramCountRef.current
 
-    if (trianglesIndicatorRef.current) {
-      trianglesIndicatorRef.current.textContent =
-        `${nextStats.triangles.toLocaleString()} tris`
-    }
-  }, [])
+      if (
+        previousShaderProgramCount !== null &&
+        nextStats.programs > previousShaderProgramCount
+      ) {
+        const addedPrograms = nextStats.programs - previousShaderProgramCount
+
+        recordEngineLog(
+          'shader-programs-added',
+          `${addedPrograms} added; total ${nextStats.programs}`,
+          stallSnapshotRef.current,
+        )
+        showEngineStatus(`Compiling ${pluralize(addedPrograms, 'shader')}...`, 1400)
+      }
+
+      previousShaderProgramCountRef.current = nextStats.programs
+
+      if (shaderIndicatorRef.current) {
+        shaderIndicatorRef.current.textContent = `${nextStats.programs} shaders`
+      }
+
+      if (callsIndicatorRef.current) {
+        callsIndicatorRef.current.textContent = `${nextStats.calls} calls`
+      }
+
+      if (resourcesIndicatorRef.current) {
+        resourcesIndicatorRef.current.textContent =
+          `${nextStats.geometries} geo / ${nextStats.textures} tex`
+      }
+
+      if (trianglesIndicatorRef.current) {
+        trianglesIndicatorRef.current.textContent =
+          `${nextStats.triangles.toLocaleString()} tris`
+      }
+    },
+    [showEngineStatus],
+  )
   const updateLocalLightIds = useCallback((nextLightIds: ReadonlySet<string>) => {
     setLocalLightIds((currentLightIds) =>
       setIdsEqual(currentLightIds, nextLightIds) ? currentLightIds : nextLightIds,
@@ -7244,6 +8241,116 @@ export function ThreeDView({
       )
     }
   }, [])
+
+  useEffect(() => {
+    ensureEngineLogApi()
+    recordEngineLog('engine-log-ready', 'Use window.houseDesignerEngineLog.table()')
+  }, [])
+
+  useEffect(
+    () =>
+      subscribeEngineActivity(({ message, minimumVisibleMs }) => {
+        showEngineStatus(message, minimumVisibleMs)
+      }),
+    [showEngineStatus],
+  )
+
+  useEffect(() => {
+    let frameId = 0
+    let lastFrameTime = performance.now()
+
+    const detectStall = (frameTime: number) => {
+      const stalledMs = frameTime - lastFrameTime
+
+      if (stalledMs >= MAIN_THREAD_STALL_THRESHOLD_MS) {
+        const lastActivity = lastEngineActivityRef.current
+        const lastActivityAgeSeconds = Math.max(
+          0,
+          (performance.now() - lastActivity.time) / 1000,
+        )
+        const stallSeconds = (stalledMs / 1000).toFixed(1)
+        const activityContext =
+          lastActivityAgeSeconds < 12
+            ? ` after ${lastActivity.message.replace(/\.\.\.$/, '')}`
+            : ''
+
+        recordEngineLog(
+          'main-thread-stall',
+          `${stallSeconds}s${activityContext}`,
+          stallSnapshotRef.current,
+        )
+        console.warn(
+          `[HouseDesigner] Main thread stalled for ${stallSeconds}s${activityContext}. ${stallSnapshotRef.current}`,
+        )
+        showEngineStatus(
+          `Main thread stalled for ${stallSeconds}s${activityContext}`,
+          4200,
+        )
+      }
+
+      lastFrameTime = frameTime
+      frameId = window.requestAnimationFrame(detectStall)
+    }
+
+    frameId = window.requestAnimationFrame(detectStall)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [showEngineStatus])
+
+  useEffect(() => {
+    if (typeof PerformanceObserver === 'undefined') {
+      return undefined
+    }
+
+    const observer = new PerformanceObserver((list) => {
+      list.getEntries().forEach((entry) => {
+        if (entry.duration < MAIN_THREAD_STALL_THRESHOLD_MS) {
+          return
+        }
+
+        const duration = `${entry.duration.toFixed(0)}ms`
+
+        recordEngineLog('browser-long-task', duration, stallSnapshotRef.current)
+        console.warn(`[HouseDesigner] Browser long task ${duration}. ${stallSnapshotRef.current}`)
+      })
+    })
+
+    try {
+      observer.observe({ entryTypes: ['longtask'] })
+    } catch {
+      return undefined
+    }
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (engineStatusTimerRef.current !== null) {
+        window.clearTimeout(engineStatusTimerRef.current)
+      }
+
+      renderOptionFrameIdsRef.current.forEach((frameId) => {
+        window.cancelAnimationFrame(frameId)
+      })
+      renderOptionFrameIdsRef.current = []
+    },
+    [],
+  )
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      showEngineStatus('Constructing geometry...', 900)
+    }, 0)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [floorGeometryStatusKey, showEngineStatus])
 
   return (
     <section className="editor-pane">
@@ -7313,6 +8420,35 @@ export function ThreeDView({
             />
             Head height
           </label>
+          <button
+            type="button"
+            onClick={() => {
+              const capturePickBuffer = pickBufferCaptureRef.current
+
+              if (!capturePickBuffer) {
+                showEngineStatus('Pick capture not ready', 1800)
+                recordEngineLog('color-pick-buffer-export-failed', 'capture not ready')
+                return
+              }
+
+              showEngineStatus(
+                `Exporting pick buffer (${pickTargetsRef.current.length} targets)...`,
+                1800,
+              )
+              capturePickBuffer()
+            }}
+          >
+            Pick PNG
+          </button>
+          {pickBufferDownload ? (
+            <a
+              className="pick-buffer-download-link"
+              href={pickBufferDownload.dataUrl}
+              download={pickBufferDownload.filename}
+            >
+              Download PNG
+            </a>
+          ) : null}
           <div className="render-options">
             <button
               type="button"
@@ -7442,8 +8578,16 @@ export function ThreeDView({
             onSelectSurface={onSelectSurface}
             pickTargetsRef={pickTargetsRef}
           />
+          <PickBufferExporter
+            onImage={setPickBufferDownload}
+            onReady={(capture) => {
+              pickBufferCaptureRef.current = capture
+            }}
+            pickTargetsRef={pickTargetsRef}
+          />
           <FpsCounter onFpsChange={updateFps} />
           <RendererStatsSampler onStatsChange={updateRendererStats} />
+          <ShaderWarmup warmupKey={shaderWarmupKey} />
           <CameraFovController fov={cameraFov} />
             <RendererLightCapabilities
               onLocalLightLimitChange={updateLocalLightLimit}
@@ -7525,6 +8669,9 @@ export function ThreeDView({
               const externalWallUnionWallIdSet = new Set(
                 externalWallUnionWallIds,
               )
+              const wallsByIdForFloor = new Map(
+                floor.walls.map((wall) => [wall.id, wall]),
+              )
               const clippedInternalWallIds = isActive
                 ? new Set(internalWallFootprintGroups.map((group) => group.wallId))
                 : new Set<string>()
@@ -7563,9 +8710,13 @@ export function ThreeDView({
                     >
                       {renderOptions.floorSlabs ? (
                         <FloorSlab
+                          castsShadow={renderOptions.shadows}
                           floor={floor}
                           floors={floors}
                           isSolid
+                          onRegisterPickTarget={registerPickTarget}
+                          selectedSurface={selectedSurface}
+                          surfaceAssignments={surfaceAssignments}
                           upperFloor={upperFloor}
                           wireframe={renderOptions.wireframe}
                         />
@@ -7629,9 +8780,13 @@ export function ThreeDView({
                   >
                     {shouldRenderSlab ? (
                       <FloorSlab
+                        castsShadow={renderOptions.shadows}
                         floor={floor}
                         floors={floors}
                         isSolid={slabIsSolid}
+                        onRegisterPickTarget={registerPickTarget}
+                        selectedSurface={selectedSurface}
+                        surfaceAssignments={surfaceAssignments}
                         upperFloor={upperFloor}
                         wireframe={renderOptions.wireframe}
                       />
@@ -7694,20 +8849,15 @@ export function ThreeDView({
                         <WallFootprintMeshes
                           castsShadow={hasShadowSurface}
                           elevation={floor.elevation}
+                          floorId={floor.id}
                           footprints={externalWallUnionFootprints}
                           height={floor.roomHeight}
+                          onRegisterPickTarget={registerPickTarget}
+                          selectedSurface={selectedSurface}
                           sourceWalls={externalWallUnionWalls}
                           surfaceAssignments={surfaceAssignments}
                           wallKind="external"
                           wireframe={renderOptions.wireframe}
-                        />
-                        <UnionedExternalWallSelectionOverlays
-                          elevation={floor.elevation}
-                          floorId={floor.id}
-                          onRegisterPickTarget={registerPickTarget}
-                          renderedWalls={renderedWalls}
-                          selectedSurface={selectedSurface}
-                          wallIds={externalWallUnionWallIdSet}
                         />
                       </>
                     ) : null}
@@ -7717,32 +8867,22 @@ export function ThreeDView({
                             key={group.wallId}
                             castsShadow={hasShadowSurface}
                             elevation={floor.elevation}
+                            floorId={floor.id}
                             footprints={group.footprints}
                             height={floor.roomHeight}
+                            onRegisterPickTarget={registerPickTarget}
+                            selectedSurface={selectedSurface}
+                            sourceWalls={
+                              wallsByIdForFloor.get(group.wallId)
+                                ? [wallsByIdForFloor.get(group.wallId)!]
+                                : []
+                            }
+                            surfaceAssignments={surfaceAssignments}
                             wallKind="internal"
                             wireframe={renderOptions.wireframe}
                           />
                         ))
                       : null}
-                    {isActive && clippedInternalWallIds.size > 0 ? (
-                      <WallMaterialOverlayForIds
-                        elevation={floor.elevation}
-                        renderedWalls={renderedWalls}
-                        surfaceAssignments={surfaceAssignments}
-                        wallIds={clippedInternalWallIds}
-                        wireframe={renderOptions.wireframe}
-                      />
-                    ) : null}
-                    {isActive && clippedInternalWallIds.size > 0 ? (
-                      <WallSelectionOverlaysForIds
-                        elevation={floor.elevation}
-                        floorId={floor.id}
-                        onRegisterPickTarget={registerPickTarget}
-                        renderedWalls={renderedWalls}
-                        selectedSurface={selectedSurface}
-                        wallIds={clippedInternalWallIds}
-                      />
-                    ) : null}
                     {visibleRenderedWallsForFloor.map((renderedWall) => (
                       <WallMesh
                         key={renderedWall.wall.id}
@@ -7828,6 +8968,14 @@ export function ThreeDView({
               </EffectComposer>
             ) : null}
         </Canvas>
+        <div
+          ref={engineStatusRef}
+          className="viewport-engine-status is-idle"
+          aria-live="polite"
+          aria-label="3D engine status"
+        >
+          Engine idle
+        </div>
         <div className="viewport-indicators">
           <div
             ref={fpsIndicatorRef}
