@@ -14,6 +14,20 @@ import type {
 type RailPanel = 'floor' | 'materials' | 'project' | 'wall'
 type WallMaterialMode = 'full' | 'lower'
 
+const MIN_INTERNAL_WALL_THICKNESS = 0.05
+const MAX_INTERNAL_WALL_THICKNESS = 0.3
+
+const clampInternalWallThickness = (thickness: number) =>
+  Math.min(
+    MAX_INTERNAL_WALL_THICKNESS,
+    Math.max(MIN_INTERNAL_WALL_THICKNESS, thickness),
+  )
+
+const formatMetresInputValue = (value: number) =>
+  Number.isFinite(value)
+    ? value.toFixed(3).replace(/\.?0+$/, '')
+    : ''
+
 type LeftToolRailProps = {
   activeFloorId: string
   canCopy: boolean
@@ -126,17 +140,43 @@ export function LeftToolRail({
   const [textureScale, setTextureScale] = useState(1)
   const [textureRotation, setTextureRotation] = useState(0)
   const [customPaintColor, setCustomPaintColor] = useState('#f4d7dd')
+  const [internalWallThicknessDraft, setInternalWallThicknessDraft] = useState<
+    string | null
+  >(null)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId)
+  const internalWallThicknessInputValue =
+    internalWallThicknessDraft ?? formatMetresInputValue(internalWallThickness)
+
   const updateInternalWallThickness = (value: string) => {
+    setInternalWallThicknessDraft(value)
+
     const parsedValue = Number.parseFloat(value)
 
-    if (!Number.isFinite(parsedValue)) {
+    if (
+      !Number.isFinite(parsedValue) ||
+      parsedValue < MIN_INTERNAL_WALL_THICKNESS ||
+      parsedValue > MAX_INTERNAL_WALL_THICKNESS
+    ) {
       return
     }
 
-    onInternalWallThicknessChange(
-      Math.min(0.3, Math.max(0.05, parsedValue)),
-    )
+    onInternalWallThicknessChange(parsedValue)
+  }
+  const commitInternalWallThickness = () => {
+    if (internalWallThicknessDraft === null) {
+      return
+    }
+
+    const parsedValue = Number.parseFloat(internalWallThicknessDraft)
+
+    if (!Number.isFinite(parsedValue)) {
+      setInternalWallThicknessDraft(null)
+      return
+    }
+
+    const clampedValue = clampInternalWallThickness(parsedValue)
+    onInternalWallThicknessChange(clampedValue)
+    setInternalWallThicknessDraft(null)
   }
   const togglePanel = (panel: RailPanel) => {
     setOpenPanel((currentPanel) => (currentPanel === panel ? null : panel))
@@ -307,14 +347,23 @@ export function LeftToolRail({
                 <span>Internal thickness</span>
                 <div>
                   <input
-                    type="number"
-                    min="0.05"
-                    max="0.3"
-                    step="0.005"
-                    value={internalWallThickness}
+                    type="text"
+                    inputMode="decimal"
+                    value={internalWallThicknessInputValue}
                     onChange={(event) =>
                       updateInternalWallThickness(event.target.value)
                     }
+                    onBlur={commitInternalWallThickness}
+                    onFocus={() =>
+                      setInternalWallThicknessDraft(
+                        formatMetresInputValue(internalWallThickness),
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.currentTarget.blur()
+                      }
+                    }}
                   />
                   <span>m</span>
                 </div>

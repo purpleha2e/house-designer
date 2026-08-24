@@ -893,6 +893,22 @@
   margin: 0;
 }
 
+.render-options-menu .render-options-slider {
+  display: grid;
+  grid-template-columns: 1fr 92px 34px;
+  gap: 8px;
+}
+
+.render-options-menu .render-options-slider input {
+  width: 92px;
+}
+
+.render-options-menu .render-options-slider span:last-child {
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .canvas-host,
 .three-host {
   min-height: 0;

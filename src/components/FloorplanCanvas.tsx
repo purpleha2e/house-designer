@@ -1767,6 +1767,7 @@ function getInternalToExternalSnapPoints(
   wall: Wall,
   startExtension: number,
   endExtension: number,
+  movingWallThickness: number,
 ): SnapSegment[] {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
@@ -1780,8 +1781,9 @@ function getInternalToExternalSnapPoints(
   const unitY = dy / length
   const normalX = -dy / length
   const normalY = dx / length
-  const quarterThickness = wall.thickness / 4
+  const endFaceQuarterThickness = wall.thickness / 4
   const halfThickness = wall.thickness / 2
+  const flushInset = movingWallThickness / 2
   const renderedStart = {
     x: wall.start.x - unitX * startExtension,
     y: wall.start.y - unitY * startExtension,
@@ -1793,20 +1795,20 @@ function getInternalToExternalSnapPoints(
 
   return ([-1, 1] as const).flatMap((side) => {
     const endEdgeStartPoint = {
-      x: renderedStart.x + normalX * side * quarterThickness,
-      y: renderedStart.y + normalY * side * quarterThickness,
+      x: renderedStart.x + normalX * side * endFaceQuarterThickness,
+      y: renderedStart.y + normalY * side * endFaceQuarterThickness,
     }
     const endEdgeFinishPoint = {
-      x: renderedEnd.x + normalX * side * quarterThickness,
-      y: renderedEnd.y + normalY * side * quarterThickness,
+      x: renderedEnd.x + normalX * side * endFaceQuarterThickness,
+      y: renderedEnd.y + normalY * side * endFaceQuarterThickness,
     }
     const sideStartPoint = {
-      x: renderedStart.x + unitX * quarterThickness + normalX * side * halfThickness,
-      y: renderedStart.y + unitY * quarterThickness + normalY * side * halfThickness,
+      x: renderedStart.x + unitX * flushInset + normalX * side * halfThickness,
+      y: renderedStart.y + unitY * flushInset + normalY * side * halfThickness,
     }
     const sideFinishPoint = {
-      x: renderedEnd.x - unitX * quarterThickness + normalX * side * halfThickness,
-      y: renderedEnd.y - unitY * quarterThickness + normalY * side * halfThickness,
+      x: renderedEnd.x - unitX * flushInset + normalX * side * halfThickness,
+      y: renderedEnd.y - unitY * flushInset + normalY * side * halfThickness,
     }
 
     return [endEdgeStartPoint, endEdgeFinishPoint, sideStartPoint, sideFinishPoint].map(
@@ -1820,7 +1822,11 @@ function getInternalToExternalSnapPoints(
   })
 }
 
-function getSnapSegments(walls: Wall[], wallKind: WallKind): SnapSegment[] {
+function getSnapSegments(
+  walls: Wall[],
+  wallKind: WallKind,
+  movingWallThickness?: number,
+): SnapSegment[] {
   return getRenderedWalls(walls).flatMap(({ wall, startExtension, endExtension }) => {
     const centerSegment = getOffsetSegment(wall, 0, startExtension, endExtension)
 
@@ -1834,6 +1840,7 @@ function getSnapSegments(walls: Wall[], wallKind: WallKind): SnapSegment[] {
         wall,
         startExtension,
         endExtension,
+        movingWallThickness ?? wall.thickness,
       ),
     ]
   })
@@ -1980,9 +1987,13 @@ export function FloorplanCanvas({
     () => floors.flatMap((floor) => floor.walls),
     [floors],
   )
+  const draftWallThickness = getDraftWallThickness(
+    wallKind,
+    internalWallThickness,
+  )
   const activeSnapSegments = useMemo(
-    () => getSnapSegments(walls, wallKind),
-    [walls, wallKind],
+    () => getSnapSegments(walls, wallKind, draftWallThickness),
+    [draftWallThickness, walls, wallKind],
   )
   const wallTopology = useMemo(() => buildWallTopology(walls), [walls])
   const referenceSnapSegments = useMemo(
@@ -1990,8 +2001,9 @@ export function FloorplanCanvas({
       getSnapSegments(
         referenceFloors.flatMap((floor) => floor.walls),
         wallKind,
+        draftWallThickness,
       ),
-    [referenceFloors, wallKind],
+    [draftWallThickness, referenceFloors, wallKind],
   )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
@@ -2351,6 +2363,7 @@ export function FloorplanCanvas({
       getSnapSegments(
         activeFloor.walls.filter((candidateWall) => candidateWall.id !== wall.id),
         wall.kind,
+        wall.thickness,
       ),
     ) ??
     getSnapTarget(
@@ -2358,6 +2371,7 @@ export function FloorplanCanvas({
       getSnapSegments(
         referenceFloors.flatMap((floor) => floor.walls),
         wall.kind,
+        wall.thickness,
       ),
     )
 

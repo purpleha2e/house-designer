@@ -6,6 +6,8 @@ export type ModelDefinition = {
   height: number
   isLight?: boolean
   lightColor?: string
+  lightDistance?: number
+  lightFalloff?: number
   lightKind?: 'point' | 'spot'
   lightPower?: number
   lightSpread?: number
@@ -109,8 +111,10 @@ const builtInModels: ModelDefinition[] = [
     height: 0.25,
     isLight: true,
     lightColor: '#fff3c4',
+    lightDistance: 10,
+    lightFalloff: 1.35,
     lightKind: 'point',
-    lightPower: 450,
+    lightPower: 120,
     shape: 'light',
     width: 0.25,
   },
@@ -123,8 +127,10 @@ const builtInModels: ModelDefinition[] = [
     height: 0.3,
     isLight: true,
     lightColor: '#fff7d6',
+    lightDistance: 9,
+    lightFalloff: 1.35,
     lightKind: 'spot',
-    lightPower: 650,
+    lightPower: 180,
     lightSpread: 36,
     shape: 'light',
     width: 0.3,

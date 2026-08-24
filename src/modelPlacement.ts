@@ -245,10 +245,22 @@ export function normalizeFloor(
               definition?.isLight && !model.lightColor
                 ? definition.lightColor
                 : model.lightColor,
+            lightDistance:
+              definition?.isLight &&
+              (typeof model.lightDistance !== 'number' ||
+                !Number.isFinite(model.lightDistance))
+                ? definition.lightDistance
+                : model.lightDistance,
             lightEnabled:
               definition?.isLight && typeof model.lightEnabled !== 'boolean'
                 ? true
                 : model.lightEnabled,
+            lightFalloff:
+              definition?.isLight &&
+              (typeof model.lightFalloff !== 'number' ||
+                !Number.isFinite(model.lightFalloff))
+                ? definition.lightFalloff
+                : model.lightFalloff,
             lightPower:
               definition?.isLight &&
               (typeof model.lightPower !== 'number' ||
@@ -292,7 +304,9 @@ export function createPlacedModel({
     height: definition?.isLight ? 1.8 : undefined,
     id,
     lightColor: definition?.isLight ? definition.lightColor : undefined,
+    lightDistance: definition?.isLight ? definition.lightDistance : undefined,
     lightEnabled: definition?.isLight ? true : undefined,
+    lightFalloff: definition?.isLight ? definition.lightFalloff : undefined,
     lightPower: definition?.isLight ? definition.lightPower : undefined,
     lightSpread: definition?.lightKind === 'spot' ? definition.lightSpread : undefined,
     modelId,

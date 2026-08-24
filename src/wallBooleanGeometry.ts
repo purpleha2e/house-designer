@@ -11,6 +11,7 @@ export type WallUnionFootprint = {
 export type WallFootprintRenderGroup = {
   footprints: WallUnionFootprint[]
   wallId: string
+  wallIds?: string[]
 }
 
 export type WallRenderExtensions = {
@@ -118,6 +119,37 @@ function endpointTouchesWallEndpoint(endpoint: Point, wall: Wall) {
   )
 }
 
+function wallsShareEndpoint(firstWall: Wall, secondWall: Wall) {
+  return (
+    endpointTouchesWallEndpoint(firstWall.start, secondWall) ||
+    endpointTouchesWallEndpoint(firstWall.end, secondWall)
+  )
+}
+
+function getNormalizedJoinPoint(endpointPoint: Point, adjoiningWalls: Wall[]) {
+  const connectedPoints = adjoiningWalls.flatMap((wall) =>
+    [
+      distance(endpointPoint, wall.start) <= MITER_JOIN_EPSILON_METERS
+        ? wall.start
+        : null,
+      distance(endpointPoint, wall.end) <= MITER_JOIN_EPSILON_METERS
+        ? wall.end
+        : null,
+    ].filter((point): point is Point => Boolean(point)),
+  )
+
+  if (connectedPoints.length === 0) {
+    return endpointPoint
+  }
+
+  const points = [endpointPoint, ...connectedPoints]
+
+  return {
+    x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
+    y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
+  }
+}
+
 function getEndpointOutwardDirection(wall: Wall, endpoint: 'start' | 'end') {
   const direction = getWallDirection(wall)
 
@@ -164,6 +196,10 @@ function getMatchingAdjoiningSide(wall: Wall, side: -1 | 1, adjoiningWall: Wall)
   return sideOneDot >= sideTwoDot ? 1 : -1
 }
 
+function canMiterAgainstWall(wall: Wall, adjoiningWall: Wall) {
+  return wall.kind === 'external' ? adjoiningWall.kind === 'external' : true
+}
+
 function getSideMiteredWallBodyPoints(wall: Wall, walls: Wall[]) {
   const polygon = [...getWallBodyPoints(wall)] as [Point, Point, Point, Point]
   const wallDirection = getWallDirection(wall)
@@ -174,12 +210,22 @@ function getSideMiteredWallBodyPoints(wall: Wall, walls: Wall[]) {
     const adjoiningWalls = walls.filter(
       (otherWall) =>
         otherWall.id !== wall.id &&
-        otherWall.kind === 'external' &&
+        canMiterAgainstWall(wall, otherWall) &&
         endpointTouchesWallEndpoint(endpointPoint, otherWall),
     )
 
     if (adjoiningWalls.length === 0) {
       continue
+    }
+
+    const joinPoint = getNormalizedJoinPoint(endpointPoint, adjoiningWalls)
+    for (const side of [1, -1] as const) {
+      const cornerIndex = getEndpointCornerIndex(endpoint, side)
+
+      polygon[cornerIndex] = {
+        x: joinPoint.x + wallNormal.x * (wall.thickness / 2) * side,
+        y: joinPoint.y + wallNormal.y * (wall.thickness / 2) * side,
+      }
     }
 
     const outwardDirection = getEndpointOutwardDirection(wall, endpoint)
@@ -326,6 +372,94 @@ function getWallLength(wall: Wall) {
   return distance(wall.start, wall.end)
 }
 
+function getProjectionOnWall(point: Point, wall: Wall) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared === 0) {
+    return {
+      distance: distance(point, wall.start),
+      t: 0,
+    }
+  }
+
+  const rawT =
+    ((point.x - wall.start.x) * dx + (point.y - wall.start.y) * dy) /
+    lengthSquared
+  const t = Math.max(0, Math.min(1, rawT))
+  const projection = {
+    x: wall.start.x + dx * t,
+    y: wall.start.y + dy * t,
+  }
+
+  return {
+    distance: distance(point, projection),
+    t,
+  }
+}
+
+function pointTouchesWallBody(point: Point, wall: Wall) {
+  const projection = getProjectionOnWall(point, wall)
+
+  return (
+    projection.t >= -MITER_JOIN_EPSILON_METERS &&
+    projection.t <= 1 + MITER_JOIN_EPSILON_METERS &&
+    projection.distance <= wall.thickness / 2 + MITER_JOIN_EPSILON_METERS
+  )
+}
+
+function wallTouchesClippingContext(wall: Wall, contextWalls: Wall[]) {
+  return contextWalls.some((otherWall) => {
+    if (otherWall.id === wall.id) {
+      return false
+    }
+
+    return (
+      pointTouchesWallBody(wall.start, otherWall) ||
+      pointTouchesWallBody(wall.end, otherWall) ||
+      pointTouchesWallBody(otherWall.start, wall) ||
+      pointTouchesWallBody(otherWall.end, wall)
+    )
+  })
+}
+
+function getEndpointConnectedWallComponents(walls: Wall[]) {
+  const visitedWallIds = new Set<string>()
+  const components: Wall[][] = []
+
+  for (const wall of walls) {
+    if (visitedWallIds.has(wall.id)) {
+      continue
+    }
+
+    const component: Wall[] = []
+    const pendingWalls = [wall]
+    visitedWallIds.add(wall.id)
+
+    while (pendingWalls.length > 0) {
+      const currentWall = pendingWalls.pop()!
+      component.push(currentWall)
+
+      for (const candidateWall of walls) {
+        if (
+          visitedWallIds.has(candidateWall.id) ||
+          !wallsShareEndpoint(currentWall, candidateWall)
+        ) {
+          continue
+        }
+
+        visitedWallIds.add(candidateWall.id)
+        pendingWalls.push(candidateWall)
+      }
+    }
+
+    components.push(component)
+  }
+
+  return components
+}
+
 function getDistanceAlongWall(wall: Wall, point: Point) {
   const direction = getWallDirection(wall)
 
@@ -451,7 +585,15 @@ function getConvergedMiterRing(points: Point[], maxMiterDistance: number) {
     index += 2
   }
 
-  return convergedPoints
+  return removeConsecutiveDuplicatePoints(convergedPoints)
+}
+
+function removeConsecutiveDuplicatePoints(points: Point[]) {
+  return points.filter((point, index) => {
+    const previousPoint = points[(index - 1 + points.length) % points.length]
+
+    return distance(point, previousPoint) > 0.00001
+  })
 }
 
 function convergeMiteredFootprintChamfers(
@@ -495,6 +637,44 @@ function differencePolygonFootprints(
   )
 }
 
+function differenceMultiPolygonFootprints(
+  subjectMultiPolygon: MultiPolygon,
+  clippingPolygons: Polygon[],
+): WallUnionFootprint[] {
+  if (clippingPolygons.length === 0) {
+    return toWallUnionFootprints(subjectMultiPolygon)
+  }
+
+  return toWallUnionFootprints(
+    differencePolygons(subjectMultiPolygon, ...clippingPolygons),
+  )
+}
+
+function getRingArea(points: Point[]) {
+  return (
+    Math.abs(
+      points.reduce((area, point, index) => {
+        const nextPoint = points[(index + 1) % points.length]
+
+        return area + point.x * nextPoint.y - nextPoint.x * point.y
+      }, 0),
+    ) / 2
+  )
+}
+
+function getFootprintsArea(footprints: WallUnionFootprint[]) {
+  return footprints.reduce(
+    (area, footprint) =>
+      area +
+      getRingArea(footprint.outline) -
+      footprint.holes.reduce(
+        (holesArea, hole) => holesArea + getRingArea(hole),
+        0,
+      ),
+    0,
+  )
+}
+
 export function unionRenderedWallFootprints(
   renderedWalls: RenderedWall[],
 ): WallUnionFootprint[] {
@@ -518,16 +698,60 @@ export function getClippedInternalWallFootprints(
   walls: Wall[],
   contextWalls = walls,
 ): WallFootprintRenderGroup[] {
+  const getMiteredWallPolygon = (wall: Wall) =>
+    toSideMiteredWallBodyPolygon(wall, contextWalls)
   const externalWallPolygons = contextWalls
     .filter((wall) => wall.kind === 'external')
-    .map(toWallBodyPolygon)
+    .map(getMiteredWallPolygon)
   const earlierInternalWallPolygons: Polygon[] = []
   const internalWalls = walls
     .filter((wall) => wall.kind === 'internal')
     .sort((firstWall, secondWall) => firstWall.id.localeCompare(secondWall.id))
+  const endpointConnectedComponents = getEndpointConnectedWallComponents(internalWalls)
 
-  return internalWalls.flatMap((wall) => {
-    const wallPolygon = toWallBodyPolygon(wall)
+  return endpointConnectedComponents.flatMap((component) => {
+    if (component.length > 1) {
+      const componentPolygons = component.map(getMiteredWallPolygon)
+      const componentUnion = unionPolygons(
+        componentPolygons[0],
+        ...componentPolygons.slice(1),
+      )
+      const earlierContextInternalWallPolygons = contextWalls
+        .filter(
+          (otherWall) =>
+            otherWall.kind === 'internal' &&
+            !component.some((wall) => wall.id === otherWall.id) &&
+            otherWall.id.localeCompare(component[0].id) < 0,
+        )
+        .map(getMiteredWallPolygon)
+      const clippedFootprints = differenceMultiPolygonFootprints(componentUnion, [
+        ...externalWallPolygons,
+        ...earlierContextInternalWallPolygons,
+        ...earlierInternalWallPolygons,
+      ])
+      const footprints = convergeMiteredFootprintChamfers(
+        clippedFootprints,
+        contextWalls,
+      )
+      const hasJoinContext = component.some((wall) =>
+        wallTouchesClippingContext(wall, contextWalls),
+      )
+
+      earlierInternalWallPolygons.push(...componentPolygons)
+
+      return hasJoinContext && footprints.length > 0
+        ? [
+            {
+              footprints,
+              wallId: component[0].id,
+              wallIds: component.map((wall) => wall.id),
+            },
+          ]
+        : []
+    }
+
+    const [wall] = component
+    const wallPolygon = getMiteredWallPolygon(wall)
     const earlierContextInternalWallPolygons = contextWalls
       .filter(
         (otherWall) =>
@@ -535,16 +759,22 @@ export function getClippedInternalWallFootprints(
           otherWall.id !== wall.id &&
           otherWall.id.localeCompare(wall.id) < 0,
       )
-      .map(toWallBodyPolygon)
+      .map(getMiteredWallPolygon)
     const footprints = differencePolygonFootprints(wallPolygon, [
       ...externalWallPolygons,
       ...earlierContextInternalWallPolygons,
       ...earlierInternalWallPolygons,
     ])
+    const originalArea = getRingArea(getSideMiteredWallBodyPoints(wall, contextWalls))
+    const clippedArea = getFootprintsArea(footprints)
+    const clippingChangedWall =
+      footprints.length === 0 ||
+      Math.abs(originalArea - clippedArea) > Math.max(0.0001, originalArea * 0.001)
+    const hasJoinContext = wallTouchesClippingContext(wall, contextWalls)
 
     earlierInternalWallPolygons.push(wallPolygon)
 
-    return footprints.length > 0
+    return (clippingChangedWall || hasJoinContext) && footprints.length > 0
       ? [
           {
             footprints,

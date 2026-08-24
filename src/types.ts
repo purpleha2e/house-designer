@@ -141,7 +141,9 @@ export type PlacedModel = {
   id: string
   height?: number
   lightColor?: string
+  lightDistance?: number
   lightEnabled?: boolean
+  lightFalloff?: number
   lightPower?: number
   lightSpread?: number
   modelId: string

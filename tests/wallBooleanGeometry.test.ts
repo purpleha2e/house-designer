@@ -414,13 +414,108 @@ test('clipped internal wall footprints remove deterministic internal overlaps', 
   })
 
   const groups = getClippedInternalWallFootprints([secondInternal, firstInternal])
+  const retainedOwner = groups.find((group) => group.wallId === firstInternal.id)
   const clippedSecond = groups.find((group) => group.wallId === secondInternal.id)
   const minY = Math.min(...(clippedSecond?.footprints ?? []).flatMap((footprint) =>
     footprint.outline.map((point) => point.y),
   ))
 
+  assert.ok(retainedOwner)
   assert.ok(clippedSecond)
   assert.ok(minY >= firstInternal.thickness / 2 - 0.001)
+})
+
+test('unclipped internal wall does not use footprint renderer', () => {
+  const internal = wall({
+    id: 'internal',
+    kind: 'internal',
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+    thickness: 0.15,
+  })
+
+  assert.deepEqual(getClippedInternalWallFootprints([internal]), [])
+})
+
+test('internal wall footprints use rendered endpoint extensions', () => {
+  const horizontal = wall({
+    id: 'a-internal',
+    kind: 'internal',
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+    thickness: 0.15,
+  })
+  const vertical = wall({
+    id: 'b-internal',
+    kind: 'internal',
+    start: { x: 4, y: 0 },
+    end: { x: 4, y: 3 },
+    thickness: 0.15,
+  })
+
+  const groups = getClippedInternalWallFootprints([horizontal, vertical])
+  const horizontalFootprints = groups.find(
+    (group) => group.wallId === horizontal.id,
+  )?.footprints
+
+  assert.ok(horizontalFootprints)
+
+  const maxX = Math.max(
+    ...horizontalFootprints.flatMap((footprint) =>
+      footprint.outline.map((point) => point.x),
+    ),
+  )
+
+  assert.ok(maxX > horizontal.end.x + vertical.thickness / 2 - 0.001)
+})
+
+test('angled internal wall footprints converge joined side edges', () => {
+  const horizontal = wall({
+    id: 'a-internal',
+    kind: 'internal',
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+    thickness: 0.15,
+  })
+  const angled = wall({
+    id: 'b-internal',
+    kind: 'internal',
+    start: { x: 4, y: 0 },
+    end: { x: 4.8, y: 3 },
+    thickness: 0.15,
+  })
+
+  const groups = getClippedInternalWallFootprints([horizontal, angled])
+  const horizontalFootprints = groups.find(
+    (group) => group.wallId === horizontal.id,
+  )?.footprints
+  const group = groups.find((candidateGroup) => candidateGroup.wallId === horizontal.id)
+  const maxX = Math.max(
+    ...(horizontalFootprints ?? []).flatMap((footprint) =>
+      footprint.outline.map((point) => point.x),
+    ),
+  )
+  const hasShortJoinedEndCap = (horizontalFootprints ?? []).some((footprint) =>
+    footprint.outline.some((point, index) => {
+      const nextPoint = footprint.outline[(index + 1) % footprint.outline.length]
+      const midpoint = {
+        x: (point.x + nextPoint.x) / 2,
+        y: (point.y + nextPoint.y) / 2,
+      }
+      const edgeLength = Math.hypot(point.x - nextPoint.x, point.y - nextPoint.y)
+      const midpointDistanceToJoin = Math.hypot(
+        midpoint.x - horizontal.end.x,
+        midpoint.y - horizontal.end.y,
+      )
+
+      return edgeLength < 0.25 && midpointDistanceToJoin < 0.15
+    }),
+  )
+
+  assert.deepEqual(group?.wallIds, [horizontal.id, angled.id])
+  assert.ok(horizontalFootprints)
+  assert.ok(maxX > horizontal.end.x + horizontal.thickness / 3)
+  assert.equal(hasShortJoinedEndCap, false)
 })
 
 test('internal opening walls expose deterministic internal owner clipping', () => {

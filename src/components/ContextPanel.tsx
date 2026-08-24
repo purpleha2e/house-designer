@@ -183,7 +183,7 @@ export function ContextPanel({
                       type="number"
                       min={0}
                       max={5000}
-                      step={50}
+                      step={10}
                       value={
                         selectedModel.model.lightPower ??
                         selectedModel.definition.lightPower ??
@@ -192,6 +192,48 @@ export function ContextPanel({
                       onChange={(event) =>
                         onUpdateModel(selectedModel.model.id, {
                           lightPower: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </dd>
+                </div>
+                <div className="context-field">
+                  <dt>Range</dt>
+                  <dd>
+                    <input
+                      type="number"
+                      min={0.5}
+                      max={30}
+                      step={0.5}
+                      value={
+                        selectedModel.model.lightDistance ??
+                        selectedModel.definition.lightDistance ??
+                        10
+                      }
+                      onChange={(event) =>
+                        onUpdateModel(selectedModel.model.id, {
+                          lightDistance: Number(event.target.value),
+                        })
+                      }
+                    />
+                  </dd>
+                </div>
+                <div className="context-field">
+                  <dt>Falloff</dt>
+                  <dd>
+                    <input
+                      type="number"
+                      min={0.5}
+                      max={2}
+                      step={0.05}
+                      value={
+                        selectedModel.model.lightFalloff ??
+                        selectedModel.definition.lightFalloff ??
+                        1.35
+                      }
+                      onChange={(event) =>
+                        onUpdateModel(selectedModel.model.id, {
+                          lightFalloff: Number(event.target.value),
                         })
                       }
                     />

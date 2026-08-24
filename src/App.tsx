@@ -110,6 +110,46 @@ type SelectedModel = {
   model: PlacedModel
 }
 
+function selectableSurfacesMatch(
+  firstSurface: SelectableSurface | null,
+  secondSurface: SelectableSurface,
+) {
+  if (!firstSurface || firstSurface.type !== secondSurface.type) {
+    return false
+  }
+
+  if (firstSurface.type === 'wall-face' && secondSurface.type === 'wall-face') {
+    return (
+      firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.wallId === secondSurface.wallId &&
+      firstSurface.side === secondSurface.side
+    )
+  }
+
+  if (
+    firstSurface.type === 'floor-slab-edge' &&
+    secondSurface.type === 'floor-slab-edge'
+  ) {
+    return firstSurface.floorId === secondSurface.floorId
+  }
+
+  if (firstSurface.type === 'wall-face' || secondSurface.type === 'wall-face') {
+    return false
+  }
+
+  if (
+    firstSurface.type === 'floor-slab-edge' ||
+    secondSurface.type === 'floor-slab-edge'
+  ) {
+    return false
+  }
+
+  return (
+    firstSurface.floorId === secondSurface.floorId &&
+    firstSurface.roomSignature === secondSurface.roomSignature
+  )
+}
+
 function isSavedProject(value: unknown): value is SavedProject {
   if (!value || typeof value !== 'object') {
     return false
@@ -600,8 +640,12 @@ function App() {
         )
         .map((floor) => ({
           ...floor,
+          models: (floor.models ?? []).filter(
+            (model) => model.wallAttachment?.wallId !== wallId,
+          ),
           walls: floor.walls.filter((wall) => wall.id !== wallId),
-        })),
+        }))
+        .map((floor) => syncWallOpenings(floor, modelsById)),
     )
     if (
       shouldDeleteFloorsAbove &&
@@ -630,6 +674,19 @@ function App() {
       currentSelectedWallIds.filter((selectedId) => selectedId !== wallId),
     )
     setSelectedRoomSignature(null)
+    setSelectedSurface((currentSelectedSurface) =>
+      currentSelectedSurface?.type === 'wall-face' &&
+      currentSelectedSurface.wallId === wallId
+        ? null
+        : currentSelectedSurface,
+    )
+    setSurfaceAssignments((currentSurfaceAssignments) =>
+      currentSurfaceAssignments.filter(
+        (assignment) =>
+          assignment.target.type !== 'wall-face' ||
+          assignment.target.wallId !== wallId,
+      ),
+    )
     setSelectedModelId(null)
     setSelectedModelIds([])
   }
@@ -1366,8 +1423,13 @@ function App() {
         return nextSelectedIds
       })
     } else {
-      setSelectedModelId(modelId)
-      setSelectedModelIds([modelId])
+      const shouldDeselect =
+        selectedModelId === modelId &&
+        selectedModelIds.length === 1 &&
+        selectedModelIds[0] === modelId
+
+      setSelectedModelId(shouldDeselect ? null : modelId)
+      setSelectedModelIds(shouldDeselect ? [] : [modelId])
     }
 
     setSelectedWallId(null)
@@ -1383,8 +1445,13 @@ function App() {
       setSelectedFloorViewId(floorId)
     }
 
-    setSelectedModelId(modelId)
-    setSelectedModelIds([modelId])
+    const shouldDeselect =
+      selectedModelId === modelId &&
+      selectedModelIds.length === 1 &&
+      selectedModelIds[0] === modelId
+
+    setSelectedModelId(shouldDeselect ? null : modelId)
+    setSelectedModelIds(shouldDeselect ? [] : [modelId])
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1407,6 +1474,11 @@ function App() {
 
     if (selectedFloorViewId !== ALL_FLOORS_VIEW_ID) {
       setSelectedFloorViewId(surface.floorId)
+    }
+
+    if (selectableSurfacesMatch(selectedSurface, surface)) {
+      clearThreeDSelection()
+      return
     }
 
     setSelectedSurface(surface)

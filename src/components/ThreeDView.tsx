@@ -7,6 +7,7 @@ import {
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import {
+  ACESFilmicToneMapping,
   BackSide,
   BufferGeometry,
   CanvasTexture,
@@ -16,6 +17,7 @@ import {
   Float32BufferAttribute,
   FrontSide,
   Material,
+  Matrix3,
   NearestFilter,
   NoColorSpace,
   Object3D,
@@ -95,6 +97,7 @@ type ThreeDViewProps = {
 
 type RenderOptions = {
   ambientOcclusion: boolean
+  ambientTerm: number
   daylight: boolean
   floorSlabs: boolean
   groundPlane: boolean
@@ -107,6 +110,8 @@ type RenderOptions = {
   skybox: boolean
   wireframe: boolean
 }
+
+type RenderToggleOption = Exclude<keyof RenderOptions, 'ambientTerm'>
 
 type RenderedFloorData = {
   externalWallUnionFootprints: WallUnionFootprint[]
@@ -130,6 +135,7 @@ type LocalLightSlot = {
   angle: number
   color: string
   distance: number
+  falloff: number
   id: string
   kind: 'point' | 'spot'
   penumbra: number
@@ -185,6 +191,11 @@ const MODEL_BOUNDS_LINE_THICKNESS = 0.010
 const MODEL_WALL_SNAP_DISTANCE_METERS = 0.75
 const FALLBACK_REALTIME_LOCAL_LIGHTS = 8
 const MAX_REALTIME_LOCAL_LIGHTS = 11
+const LOCAL_LIGHT_RENDER_POWER_SCALE = 0.08
+const DEFAULT_LOCAL_LIGHT_DISTANCE = 10
+const DEFAULT_LOCAL_LIGHT_FALLOFF = 1.35
+const RENDERER_TONE_MAPPING_EXPOSURE = 0.82
+const PICK_CLICK_TOLERANCE_PIXELS = 3
 const MAIN_THREAD_STALL_THRESHOLD_MS = 450
 const SKIRTING_HEIGHT_METERS = 0.09
 const SKIRTING_DEPTH_METERS = 0.018
@@ -233,6 +244,7 @@ type PickTarget =
       floorId: string
       kind: 'surface'
       object: Object3D
+      pickSide?: Side
       surface: SelectableSurface
     }
 
@@ -1940,6 +1952,26 @@ type LoadedSurfaceTextures = {
 
 type SurfaceTextureQuality = 'base-only' | 'pbr'
 
+type SurfaceTextureEntry = readonly [
+  keyof LoadedSurfaceTextures,
+  string | undefined,
+  boolean,
+]
+type LoadedSurfaceTextureEntry = readonly [
+  keyof LoadedSurfaceTextures,
+  string,
+  boolean,
+]
+
+type SurfaceTextureRequest = {
+  entriesToLoad: LoadedSurfaceTextureEntry[]
+  maxTextureSize?: number
+  repeatX: number
+  repeatY: number
+  rotationRadians: number
+  textureCacheKey: string
+}
+
 const surfaceTextureCache = new Map<string, LoadedSurfaceTextures>()
 const surfaceTexturePromiseCache = new Map<string, Promise<LoadedSurfaceTextures>>()
 const sharedSurfaceTextureLoader = new TextureLoader()
@@ -2141,15 +2173,15 @@ function loadSurfaceTexture(
   })
 }
 
-function useSurfaceMaterialTextures(
+function getSurfaceTextureRequest(
   material: SurfaceMaterialProduct,
   assignment: SurfaceMaterialAssignment,
   displacementEnabled: boolean,
   textureQuality: SurfaceTextureQuality,
   repeatOverride?: { repeatX: number; repeatY: number },
-) {
-  const [textures, setTextures] = useState<LoadedSurfaceTextures>({})
+): SurfaceTextureRequest {
   const {
+    ambientOcclusionTextureUrl,
     baseColorTextureUrl,
     displacementTextureUrl,
     metalnessTextureUrl,
@@ -2162,7 +2194,8 @@ function useSurfaceMaterialTextures(
   const rotationRadians = ((assignment.textureRotation ?? 0) * Math.PI) / 180
   const effectiveRepeatX = (repeatOverride?.repeatX ?? repeatX) / textureScale
   const effectiveRepeatY = (repeatOverride?.repeatY ?? repeatY) / textureScale
-  const activeAmbientOcclusionTextureUrl = undefined
+  const activeAmbientOcclusionTextureUrl =
+    textureQuality === 'pbr' ? ambientOcclusionTextureUrl : undefined
   const activeDisplacementTextureUrl = displacementEnabled
     ? displacementTextureUrl
     : undefined
@@ -2174,6 +2207,17 @@ function useSurfaceMaterialTextures(
     textureQuality === 'pbr' ? roughnessTextureUrl : undefined
   const maxTextureSize =
     textureQuality === 'base-only' ? WALL_TEXTURE_MAX_SIZE : undefined
+  const textureEntries: SurfaceTextureEntry[] = [
+    ['map', baseColorTextureUrl, true],
+    ['normalMap', activeNormalTextureUrl, false],
+    ['roughnessMap', activeRoughnessTextureUrl, false],
+    ['metalnessMap', activeMetalnessTextureUrl, false],
+    ['aoMap', activeAmbientOcclusionTextureUrl, false],
+    ['displacementMap', activeDisplacementTextureUrl, false],
+  ]
+  const entriesToLoad = textureEntries.filter(
+    (entry): entry is LoadedSurfaceTextureEntry => Boolean(entry[1]),
+  )
   const textureCacheKey = [
     activeAmbientOcclusionTextureUrl ?? '',
     baseColorTextureUrl ?? '',
@@ -2187,22 +2231,88 @@ function useSurfaceMaterialTextures(
     rotationRadians,
   ].join('|')
 
+  return {
+    entriesToLoad,
+    maxTextureSize,
+    repeatX: effectiveRepeatX,
+    repeatY: effectiveRepeatY,
+    rotationRadians,
+    textureCacheKey,
+  }
+}
+
+function getOrLoadSurfaceTextures(request: SurfaceTextureRequest) {
+  const cachedTextures = surfaceTextureCache.get(request.textureCacheKey)
+
+  if (cachedTextures) {
+    return Promise.resolve(cachedTextures)
+  }
+
+  const cachedTexturePromise = surfaceTexturePromiseCache.get(request.textureCacheKey)
+
+  if (cachedTexturePromise) {
+    return cachedTexturePromise
+  }
+
+  const texturePromise = Promise.all(
+    request.entriesToLoad.map(async ([key, textureUrl, isColorMap]) => {
+      const texture = await loadSurfaceTexture(textureUrl, {
+        isColorMap,
+        maxSize: request.maxTextureSize,
+        repeatX: request.repeatX,
+        repeatY: request.repeatY,
+        rotationRadians: request.rotationRadians,
+      })
+
+      return [key, texture] as const
+    }),
+  ).then((loadedTextureEntries) => {
+    const nextTextures: LoadedSurfaceTextures = {}
+
+    loadedTextureEntries.forEach(([key, texture]) => {
+      if (texture) {
+        nextTextures[key] = texture
+      }
+    })
+    surfaceTextureCache.set(request.textureCacheKey, nextTextures)
+    surfaceTexturePromiseCache.delete(request.textureCacheKey)
+    return nextTextures
+  })
+
+  surfaceTexturePromiseCache.set(request.textureCacheKey, texturePromise)
+  return texturePromise
+}
+
+function useSurfaceMaterialTextures(
+  material: SurfaceMaterialProduct,
+  assignment: SurfaceMaterialAssignment,
+  displacementEnabled: boolean,
+  textureQuality: SurfaceTextureQuality,
+  repeatOverride?: { repeatX: number; repeatY: number },
+) {
+  const [textures, setTextures] = useState<LoadedSurfaceTextures>({})
+  const textureRequest = useMemo(
+    () =>
+      getSurfaceTextureRequest(
+        material,
+        assignment,
+        displacementEnabled,
+        textureQuality,
+        repeatOverride,
+      ),
+    [
+      assignment,
+      displacementEnabled,
+      material,
+      repeatOverride,
+      textureQuality,
+    ],
+  )
+
   useEffect(() => {
     let cancelled = false
-    const textureEntries = [
-      ['map', baseColorTextureUrl, true],
-      ['normalMap', activeNormalTextureUrl, false],
-      ['roughnessMap', activeRoughnessTextureUrl, false],
-      ['metalnessMap', activeMetalnessTextureUrl, false],
-      ['aoMap', activeAmbientOcclusionTextureUrl, false],
-      ['displacementMap', activeDisplacementTextureUrl, false],
-    ] as const
-    const entriesToLoad = textureEntries.filter(
-      (entry): entry is typeof textureEntries[number] & [keyof LoadedSurfaceTextures, string, boolean] =>
-        Boolean(entry[1]),
-    )
 
-    if (entriesToLoad.length === 0) {
+    if (textureRequest.entriesToLoad.length === 0) {
       queueMicrotask(() => {
         if (!cancelled) {
           setTextures({})
@@ -2211,7 +2321,7 @@ function useSurfaceMaterialTextures(
       return
     }
 
-    const cachedTextures = surfaceTextureCache.get(textureCacheKey)
+    const cachedTextures = surfaceTextureCache.get(textureRequest.textureCacheKey)
 
     if (cachedTextures) {
       queueMicrotask(() => {
@@ -2222,43 +2332,20 @@ function useSurfaceMaterialTextures(
       return
     }
 
-    const cachedTexturePromise = surfaceTexturePromiseCache.get(textureCacheKey)
-    const texturePromise =
-      cachedTexturePromise ??
-      Promise.all(
-        entriesToLoad.map(async ([key, textureUrl, isColorMap]) => {
-          const texture = await loadSurfaceTexture(textureUrl, {
-            isColorMap,
-            maxSize: maxTextureSize,
-            repeatX: effectiveRepeatX,
-            repeatY: effectiveRepeatY,
-            rotationRadians,
-          })
-
-          return [key, texture] as const
-        }),
-      ).then((loadedTextureEntries) => {
-        const nextTextures: LoadedSurfaceTextures = {}
-
-        loadedTextureEntries.forEach(([key, texture]) => {
-          if (texture) {
-            nextTextures[key] = texture
-          }
-        })
-        surfaceTextureCache.set(textureCacheKey, nextTextures)
-        surfaceTexturePromiseCache.delete(textureCacheKey)
-        return nextTextures
-      })
+    const cachedTexturePromise = surfaceTexturePromiseCache.get(
+      textureRequest.textureCacheKey,
+    )
+    const texturePromise = getOrLoadSurfaceTextures(textureRequest)
 
     if (!cachedTexturePromise) {
-      surfaceTextureLoadsInFlight += entriesToLoad.length
+      surfaceTextureLoadsInFlight += textureRequest.entriesToLoad.length
       emitEngineActivity({
         message: `Loading ${pluralize(surfaceTextureLoadsInFlight, 'texture')}...`,
       })
       texturePromise.finally(() => {
         surfaceTextureLoadsInFlight = Math.max(
           0,
-          surfaceTextureLoadsInFlight - entriesToLoad.length,
+          surfaceTextureLoadsInFlight - textureRequest.entriesToLoad.length,
         )
 
         if (surfaceTextureLoadsInFlight > 0) {
@@ -2267,7 +2354,7 @@ function useSurfaceMaterialTextures(
           })
         }
       })
-      surfaceTexturePromiseCache.set(textureCacheKey, texturePromise)
+      surfaceTexturePromiseCache.set(textureRequest.textureCacheKey, texturePromise)
     }
 
     texturePromise.then((nextTextures) => {
@@ -2280,20 +2367,7 @@ function useSurfaceMaterialTextures(
       cancelled = true
     }
   }, [
-    activeAmbientOcclusionTextureUrl,
-    activeDisplacementTextureUrl,
-    activeMetalnessTextureUrl,
-    activeNormalTextureUrl,
-    activeRoughnessTextureUrl,
-    baseColorTextureUrl,
-    material.id,
-    maxTextureSize,
-    repeatOverride?.repeatX,
-    repeatOverride?.repeatY,
-    effectiveRepeatX,
-    effectiveRepeatY,
-    rotationRadians,
-    textureCacheKey,
+    textureRequest,
   ])
 
   return textures
@@ -2381,6 +2455,164 @@ function getSurfaceRepeatForDimensions(
     repeatX: Math.max(width / realWorldWidth, 0.001),
     repeatY: Math.max(height / realWorldHeight, 0.001),
   }
+}
+
+function SceneResourcePreloader({
+  floors,
+  renderedFloors,
+  surfaceAssignments,
+}: {
+  floors: FloorLevel[]
+  renderedFloors: RenderedFloorData[]
+  surfaceAssignments: SurfaceMaterialAssignment[]
+}) {
+  useEffect(() => {
+    const modelUrls = new Set(
+      floors.flatMap((floor) =>
+        (floor.models ?? []).flatMap((model) => {
+          const sourceUrl = modelsById.get(model.modelId)?.sourceUrl
+
+          return sourceUrl ? [sourceUrl] : []
+        }),
+      ),
+    )
+
+    modelUrls.forEach((sourceUrl) => {
+      useGLTF.preload(sourceUrl)
+    })
+  }, [floors])
+
+  useEffect(() => {
+    const textureRequests = new Map<string, SurfaceTextureRequest>()
+    const addRequest = (
+      assignment: SurfaceMaterialAssignment,
+      material: SurfaceMaterialProduct | undefined,
+      {
+        displacementEnabled,
+        repeatOverride,
+        textureQuality,
+      }: {
+        displacementEnabled: boolean
+        repeatOverride?: { repeatX: number; repeatY: number }
+        textureQuality: SurfaceTextureQuality
+      },
+    ) => {
+      if (!material) {
+        return
+      }
+
+      const request = getSurfaceTextureRequest(
+        material,
+        assignment,
+        displacementEnabled,
+        textureQuality,
+        repeatOverride,
+      )
+
+      if (
+        request.entriesToLoad.length > 0 &&
+        !surfaceTextureCache.has(request.textureCacheKey)
+      ) {
+        textureRequests.set(request.textureCacheKey, request)
+      }
+    }
+
+    surfaceAssignments.forEach((assignment) => {
+      const material = surfaceMaterialsById.get(assignment.materialId)
+
+      if (!material) {
+        return
+      }
+
+      if (assignment.target.type === 'wall-face') {
+        addRequest(assignment, material, {
+          displacementEnabled: false,
+          textureQuality: getWallSurfaceTextureQuality(material),
+        })
+        return
+      }
+
+      if (
+        assignment.target.type === 'room-floor' ||
+        assignment.target.type === 'ceiling'
+      ) {
+        addRequest(assignment, material, {
+          displacementEnabled: true,
+          textureQuality: 'pbr',
+        })
+        return
+      }
+
+      if (assignment.target.type === 'floor-slab-edge') {
+        const floorSlabEdgeTarget = assignment.target
+
+        addRequest(assignment, material, {
+          displacementEnabled: false,
+          textureQuality: getWallSurfaceTextureQuality(material),
+        })
+
+        const renderedFloor = renderedFloors.find(
+          ({ floor }) => floor.id === floorSlabEdgeTarget.floorId,
+        )
+
+        if (!renderedFloor) {
+          return
+        }
+
+        const floorIndex = renderedFloors.findIndex(
+          ({ floor }) => floor.id === renderedFloor.floor.id,
+        )
+        const upperFloor = renderedFloors[floorIndex + 1]?.floor ?? null
+        const slabFootprints = getSlabFootprints(
+          renderedFloor.floor,
+          upperFloor,
+          floors,
+        )
+
+        slabFootprints.forEach((footprint) => {
+          footprint.forEach((point, pointIndex) => {
+            const nextPoint = footprint[(pointIndex + 1) % footprint.length]
+            const length = Math.hypot(nextPoint.x - point.x, nextPoint.y - point.y)
+
+            addRequest(assignment, material, {
+              displacementEnabled: false,
+              repeatOverride: getSurfaceRepeatForDimensions(
+                material,
+                length,
+                renderedFloor.floor.slabThickness,
+              ),
+              textureQuality: getWallSurfaceTextureQuality(material),
+            })
+          })
+        })
+      }
+    })
+
+    const uncachedRequests = [...textureRequests.values()].filter(
+      (request) => !surfaceTexturePromiseCache.has(request.textureCacheKey),
+    )
+    const textureCount = uncachedRequests.reduce(
+      (count, request) => count + request.entriesToLoad.length,
+      0,
+    )
+
+    if (textureCount === 0) {
+      return
+    }
+
+    emitEngineActivity({
+      message: `Preloading ${pluralize(textureCount, 'texture')}...`,
+      minimumVisibleMs: 1400,
+    })
+    Promise.all(uncachedRequests.map(getOrLoadSurfaceTextures)).then(() => {
+      emitEngineActivity({
+        message: 'Scene textures ready',
+        minimumVisibleMs: 900,
+      })
+    })
+  }, [floors, renderedFloors, surfaceAssignments])
+
+  return null
 }
 
 function WallSideHighlightMaterial({
@@ -3707,7 +3939,9 @@ function getExternalWallUnionWalls(walls: Wall[]) {
       }
     }
 
-    unionWalls.push(...component)
+    if (component.length > 1) {
+      unionWalls.push(...component)
+    }
   }
 
   return unionWalls
@@ -3920,6 +4154,7 @@ function WallFootprintMeshes({
   elevation,
   floorId,
   footprints,
+  geometryContextWalls,
   height,
   onRegisterPickTarget,
   selectedSurface,
@@ -3932,6 +4167,7 @@ function WallFootprintMeshes({
   elevation: number
   floorId: string
   footprints: WallUnionFootprint[]
+  geometryContextWalls?: Wall[]
   height: number
   onRegisterPickTarget: (target: PickTarget) => () => void
   selectedSurface: SelectableSurface | null
@@ -3941,24 +4177,29 @@ function WallFootprintMeshes({
   wireframe: boolean
 }) {
   const explicitMeshRef = useRef<Object3D>(null!)
+  const contextWalls = useMemo(
+    () => geometryContextWalls ?? sourceWalls ?? [],
+    [geometryContextWalls, sourceWalls],
+  )
+  const revealContextWalls = useMemo(() => sourceWalls ?? [], [sourceWalls])
   const wallFaceMaterialIndices = useMemo(() => {
     const materialIndices = new Map<string, number>()
 
-    ;(sourceWalls ?? []).forEach((wall) => {
+    contextWalls.forEach((wall) => {
       ;([1, -1] as const).forEach((side) => {
         materialIndices.set(`${wall.id}:${side}`, materialIndices.size + 1)
       })
     })
 
     return materialIndices
-  }, [sourceWalls])
+  }, [contextWalls])
   const wallFaceMaterialSlots = useMemo(
     () =>
       Array.from(wallFaceMaterialIndices.entries())
         .map(([slotKey, materialIndex]) => {
           const [wallId, sideText] = slotKey.split(':')
           const side = Number(sideText) as Exclude<SurfaceWallSide, 'both'>
-          const wall = (sourceWalls ?? []).find(
+          const wall = contextWalls.find(
             (candidateWall) => candidateWall.id === wallId,
           )
           const assignment = wall
@@ -3983,7 +4224,7 @@ function WallFootprintMeshes({
           (firstSlot, secondSlot) =>
             firstSlot.materialIndex - secondSlot.materialIndex,
         ),
-    [wallFaceMaterialIndices, sourceWalls, surfaceAssignments],
+    [contextWalls, wallFaceMaterialIndices, surfaceAssignments],
   )
   const pickGroupTargets = useMemo(() => {
     const targets = new Map<number, SelectableSurface>()
@@ -4004,7 +4245,7 @@ function WallFootprintMeshes({
   }, [floorId, wallFaceMaterialIndices])
   const selectedWallForHighlight =
     selectedSurface?.type === 'wall-face'
-      ? (sourceWalls ?? []).find((wall) => wall.id === selectedSurface.wallId) ?? null
+      ? contextWalls.find((wall) => wall.id === selectedSurface.wallId) ?? null
       : null
   const hasExternalWallFaceAssignments =
     wallKind === 'external' &&
@@ -4023,16 +4264,18 @@ function WallFootprintMeshes({
         ? createWallFootprintGeometryWithOpenings(
             footprints,
             height,
-            sourceWalls ?? [],
+            contextWalls,
             wallFaceMaterialIndices,
             surfaceAssignments,
+            revealContextWalls,
           )
         : null,
     [
       footprints,
       height,
+      contextWalls,
+      revealContextWalls,
       surfaceAssignments,
-      sourceWalls,
       useExplicitGeometry,
       wallFaceMaterialIndices,
     ],
@@ -4237,6 +4480,13 @@ type PlanFootprintEdge = {
   start: Point
 }
 
+type FootprintEdgeWallSideMatch = {
+  coverage: number
+  offsetError: number
+  side: Exclude<SurfaceWallSide, 'both'>
+  wall: Wall
+}
+
 function getFootprintEdges(footprints: WallUnionFootprint[]) {
   return footprints.flatMap((footprint) =>
     [footprint.outline, ...footprint.holes].flatMap((ring) =>
@@ -4266,7 +4516,7 @@ function getEdgeMetrics(edge: PlanFootprintEdge) {
     : null
 }
 
-function footprintEdgeMatchesWallSide(
+function getFootprintEdgeWallSideMatch(
   edge: PlanFootprintEdge,
   wall: Wall,
   side: Exclude<SurfaceWallSide, 'both'>,
@@ -4275,13 +4525,13 @@ function footprintEdgeMatchesWallSide(
   const { length: wallLength, normal, unit } = getWallBasis(wall)
 
   if (!metrics || wallLength < 0.001) {
-    return false
+    return null
   }
 
   const parallel = Math.abs(metrics.unit.x * unit.x + metrics.unit.y * unit.y)
 
   if (parallel < 0.94) {
-    return false
+    return null
   }
 
   const midpoint = {
@@ -4292,9 +4542,10 @@ function footprintEdgeMatchesWallSide(
     (midpoint.x - wall.start.x) * normal.x +
     (midpoint.y - wall.start.y) * normal.y
   const targetSideOffset = side * wall.thickness / 2
+  const offsetError = Math.abs(sideOffset - targetSideOffset)
 
-  if (Math.abs(sideOffset - targetSideOffset) > Math.max(0.02, wall.thickness * 0.2)) {
-    return false
+  if (offsetError > Math.max(0.02, wall.thickness * 0.2)) {
+    return null
   }
 
   const startDistance =
@@ -4306,11 +4557,29 @@ function footprintEdgeMatchesWallSide(
   const minDistance = Math.min(startDistance, endDistance)
   const maxDistance = Math.max(startDistance, endDistance)
   const extensionTolerance = Math.max(0.02, wall.thickness * 1.5)
+  const overlapStart = Math.max(minDistance, -extensionTolerance)
+  const overlapEnd = Math.min(maxDistance, wallLength + extensionTolerance)
+  const overlapLength = Math.max(0, overlapEnd - overlapStart)
+  const coverage = overlapLength / metrics.length
 
-  return (
-    maxDistance >= -extensionTolerance &&
-    minDistance <= wallLength + extensionTolerance
-  )
+  if (coverage < 0.55) {
+    return null
+  }
+
+  return {
+    coverage,
+    offsetError,
+    side,
+    wall,
+  }
+}
+
+function footprintEdgeMatchesWallSide(
+  edge: PlanFootprintEdge,
+  wall: Wall,
+  side: Exclude<SurfaceWallSide, 'both'>,
+) {
+  return Boolean(getFootprintEdgeWallSideMatch(edge, wall, side))
 }
 
 function getFootprintEdgeOpeningContext(
@@ -4318,7 +4587,7 @@ function getFootprintEdgeOpeningContext(
   walls: Wall[],
 ) {
   for (const wall of walls) {
-    if (wall.kind !== 'external' || !hasWallOpenings(wall)) {
+    if (!hasWallOpenings(wall)) {
       continue
     }
 
@@ -4336,15 +4605,28 @@ function getFootprintEdgeWallSideContext(
   edge: PlanFootprintEdge,
   walls: Wall[],
 ) {
+  let bestMatch: FootprintEdgeWallSideMatch | null = null
+
   for (const wall of walls) {
     for (const side of [1, -1] as const) {
-      if (footprintEdgeMatchesWallSide(edge, wall, side)) {
-        return { side, wall }
+      const match = getFootprintEdgeWallSideMatch(edge, wall, side)
+
+      if (!match) {
+        continue
+      }
+
+      if (
+        !bestMatch ||
+        match.coverage > bestMatch.coverage + 0.001 ||
+        (Math.abs(match.coverage - bestMatch.coverage) <= 0.001 &&
+          match.offsetError < bestMatch.offsetError)
+      ) {
+        bestMatch = match
       }
     }
   }
 
-  return null
+  return bestMatch
 }
 
 function isPointInsideFootprintSolid(point: Point, footprint: WallUnionFootprint) {
@@ -4382,6 +4664,7 @@ function createWallFootprintGeometryWithOpenings(
   walls: Wall[],
   wallFaceMaterialIndices = new Map<string, number>(),
   surfaceAssignments: SurfaceMaterialAssignment[] = [],
+  revealWalls = walls,
 ) {
   const geometry = new BufferGeometry()
   const positions: number[] = []
@@ -4591,8 +4874,8 @@ function createWallFootprintGeometryWithOpenings(
     })
   }
 
-  walls
-    .filter((wall) => wall.kind === 'external' && hasWallOpenings(wall))
+  revealWalls
+    .filter(hasWallOpenings)
     .forEach((wall) => {
       const { normal, unit } = getWallBasis(wall)
       const halfThickness = wall.thickness / 2
@@ -4800,9 +5083,10 @@ function SelectableRoomSurfaceMesh({
       floorId,
       kind: 'surface',
       object,
+      pickSide: type === 'ceiling' ? BackSide : FrontSide,
       surface,
     })
-  }, [floorId, onRegisterPickTarget, surface])
+  }, [floorId, onRegisterPickTarget, surface, type])
 
   return (
     <mesh
@@ -5529,7 +5813,10 @@ function SolidFloorScene({
     [externalWallUnionWallIds],
   )
   const clippedInternalWallIds = useMemo(
-    () => new Set(internalWallFootprintGroups.map((group) => group.wallId)),
+    () =>
+      new Set(
+        internalWallFootprintGroups.flatMap((group) => group.wallIds ?? [group.wallId]),
+      ),
     [internalWallFootprintGroups],
   )
   const wallsById = useMemo(
@@ -5572,10 +5859,13 @@ function SolidFloorScene({
           elevation={floor.elevation}
           floorId={floor.id}
           footprints={group.footprints}
+          geometryContextWalls={floor.walls}
           height={floor.roomHeight}
           onRegisterPickTarget={onRegisterPickTarget}
           selectedSurface={selectedSurface}
-          sourceWalls={wallsById.get(group.wallId) ? [wallsById.get(group.wallId)!] : []}
+          sourceWalls={(group.wallIds ?? [group.wallId])
+            .map((wallId) => wallsById.get(wallId))
+            .filter((wall): wall is Wall => Boolean(wall))}
           surfaceAssignments={surfaceAssignments}
           wallKind="internal"
           wireframe={wireframe}
@@ -6208,12 +6498,31 @@ function getLocalLightSlots({
       slots.push({
         angle: (spreadDegrees * Math.PI) / 360,
         color: model.lightColor ?? modelDefinition.lightColor ?? modelDefinition.color,
-        distance: lightKind === 'spot' ? 12 : 18,
+        distance: Math.max(
+          0.5,
+          Math.min(
+            30,
+            model.lightDistance ??
+              modelDefinition.lightDistance ??
+              DEFAULT_LOCAL_LIGHT_DISTANCE,
+          ),
+        ),
+        falloff: Math.max(
+          0.5,
+          Math.min(
+            2,
+            model.lightFalloff ??
+              modelDefinition.lightFalloff ??
+              DEFAULT_LOCAL_LIGHT_FALLOFF,
+          ),
+        ),
         id: model.id,
         kind: lightKind,
         penumbra: lightKind === 'spot' ? 0.45 : 0.75,
         position: [model.position.x, y, model.position.y],
-        power: model.lightPower ?? modelDefinition.lightPower ?? 450,
+        power:
+          (model.lightPower ?? modelDefinition.lightPower ?? 450) *
+          LOCAL_LIGHT_RENDER_POWER_SCALE,
         target: [model.position.x, y - 1, model.position.y],
       })
     }
@@ -6249,7 +6558,7 @@ function PooledLocalSpotLight({
         angle={slot?.angle ?? Math.PI / 3}
         castShadow={isActiveSlot && castShadow}
         color={slot?.color ?? '#ffffff'}
-        decay={2}
+        decay={slot?.falloff ?? DEFAULT_LOCAL_LIGHT_FALLOFF}
         distance={slot?.distance ?? 1}
         penumbra={slot?.penumbra ?? 0.75}
         position={position}
@@ -6284,7 +6593,7 @@ function PooledLocalPointLight({
       ref={lightRef}
       castShadow={isActiveSlot && castShadow}
       color={slot?.color ?? '#ffffff'}
-      decay={2}
+      decay={slot?.falloff ?? DEFAULT_LOCAL_LIGHT_FALLOFF}
       distance={slot?.distance ?? 1}
       position={position}
       power={slot ? slot.power : 0}
@@ -6495,6 +6804,25 @@ function ShaderWarmup({ warmupKey }: { warmupKey: string }) {
       }
     }
   }, [camera, gl, scene, warmupKey])
+
+  return null
+}
+
+function RendererToneMapping() {
+  const { gl } = useThree()
+
+  useEffect(() => {
+    const previousToneMapping = gl.toneMapping
+    const previousExposure = gl.toneMappingExposure
+
+    gl.toneMapping = ACESFilmicToneMapping
+    gl.toneMappingExposure = RENDERER_TONE_MAPPING_EXPOSURE
+
+    return () => {
+      gl.toneMapping = previousToneMapping
+      gl.toneMappingExposure = previousExposure
+    }
+  }, [gl])
 
   return null
 }
@@ -7000,6 +7328,10 @@ function getPickMaterialSide(target: PickTarget) {
     return DoubleSide
   }
 
+  if (target.kind === 'surface' && target.pickSide !== undefined) {
+    return target.pickSide
+  }
+
   return FrontSide
 }
 
@@ -7459,13 +7791,40 @@ function performGeometryPickFallback({
   const raycaster = new Raycaster()
 
   raycaster.setFromCamera(pointer, camera)
+  const intersectionMatchesPickSide = (
+    intersection: ReturnType<Raycaster['intersectObject']>[number],
+    side: Side,
+  ) => {
+    if (side === DoubleSide || !intersection.face) {
+      return true
+    }
+
+    const normalMatrix = new Matrix3().getNormalMatrix(
+      intersection.object.matrixWorld,
+    )
+    const worldNormal = intersection.face.normal
+      .clone()
+      .applyMatrix3(normalMatrix)
+      .normalize()
+    const facing = raycaster.ray.direction.dot(worldNormal)
+
+    return side === FrontSide ? facing < 0 : facing > 0
+  }
 
   const candidates = pickTarget.current
     .flatMap((target) =>
-      raycaster.intersectObject(target.object, true).map((intersection) => ({
-        intersection,
-        target,
-      })),
+      raycaster
+        .intersectObject(target.object, true)
+        .filter((intersection) =>
+          intersectionMatchesPickSide(
+            intersection,
+            getPickMaterialSide(target),
+          ),
+        )
+        .map((intersection) => ({
+          intersection,
+          target,
+        })),
     )
     .sort((first, second) => {
       const distanceDelta = first.intersection.distance - second.intersection.distance
@@ -7648,10 +8007,16 @@ function ModelPicker({
         return
       }
 
-      if (event.clientX !== pickGesture.x || event.clientY !== pickGesture.y) {
+      const pointerDeltaX = event.clientX - pickGesture.x
+      const pointerDeltaY = event.clientY - pickGesture.y
+
+      if (
+        Math.abs(pointerDeltaX) > PICK_CLICK_TOLERANCE_PIXELS ||
+        Math.abs(pointerDeltaY) > PICK_CLICK_TOLERANCE_PIXELS
+      ) {
         recordEngineLog(
           'pick-skipped',
-          `pointer moved ${event.clientX - pickGesture.x},${event.clientY - pickGesture.y}`,
+          `pointer moved ${pointerDeltaX},${pointerDeltaY}`,
         )
         return
       }
@@ -7659,8 +8024,8 @@ function ModelPicker({
       const pickedTarget =
         performColorPick({
           camera,
-          clientX: event.clientX,
-          clientY: event.clientY,
+          clientX: pickGesture.x,
+          clientY: pickGesture.y,
           element,
           gl,
           pickTarget: pickTargetsRef,
@@ -7668,8 +8033,8 @@ function ModelPicker({
         }) ??
         performGeometryPickFallback({
         camera,
-        clientX: event.clientX,
-        clientY: event.clientY,
+        clientX: pickGesture.x,
+        clientY: pickGesture.y,
         element,
         pickTarget: pickTargetsRef,
       })
@@ -7814,6 +8179,7 @@ export function ThreeDView({
   })
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
     ambientOcclusion: false,
+    ambientTerm: 0.22,
     daylight: true,
     floorSlabs: true,
     groundPlane: true,
@@ -7876,11 +8242,7 @@ export function ThreeDView({
           floor.walls,
         )
         const internalWallFootprintGroups = getClippedInternalWallFootprints(
-          floor.walls.filter(
-            (wall) =>
-              wall.kind === 'internal' &&
-              !hasWallOpenings(wall),
-          ),
+          floor.walls.filter((wall) => wall.kind === 'internal'),
           floor.walls,
         )
         const wallBodyOccluders = renderedWalls.map((renderedWall) => ({
@@ -7974,7 +8336,9 @@ export function ThreeDView({
           id: floor.id,
           models: (floor.models ?? []).map((model) => ({
             color: model.lightColor,
+            distance: model.lightDistance,
             enabled: model.lightEnabled,
+            falloff: model.lightFalloff,
             id: model.id,
             kind: modelsById.get(model.modelId)?.lightKind,
             modelId: model.modelId,
@@ -7991,7 +8355,17 @@ export function ThreeDView({
           })),
         })),
         localLightIds: Array.from(localLightIds).sort(),
-        renderOptions,
+        renderOptions: {
+          ambientOcclusion: renderOptions.ambientOcclusion,
+          floorSlabs: renderOptions.floorSlabs,
+          lightMarkers: renderOptions.lightMarkers,
+          lightShadows: renderOptions.lightShadows,
+          lights: renderOptions.lights,
+          referenceFloors: renderOptions.referenceFloors,
+          shadows: renderOptions.shadows,
+          skybox: renderOptions.skybox,
+          wireframe: renderOptions.wireframe,
+        },
         showAllFloors,
         surfaceAssignments: surfaceAssignments.map((assignment) => ({
           customColor: assignment.customColor,
@@ -8038,6 +8412,7 @@ export function ThreeDView({
       renderOptions.shadows ? 'scene shadows on' : 'scene shadows off',
       renderOptions.lightShadows ? 'light shadows on' : 'light shadows off',
       renderOptions.ambientOcclusion ? 'AO on' : 'AO off',
+      `ambient ${renderOptions.ambientTerm.toFixed(2)}`,
       renderOptions.lights ? 'lights on' : 'lights off',
       latestStats
         ? `${latestStats.programs} shaders, ${latestStats.calls} calls, ${latestStats.textures} tex`
@@ -8048,6 +8423,7 @@ export function ThreeDView({
     lightIndicator.total,
     localLightLimit,
     renderOptions.ambientOcclusion,
+    renderOptions.ambientTerm,
     renderOptions.lightShadows,
     renderOptions.lights,
     renderOptions.shadows,
@@ -8095,7 +8471,7 @@ export function ThreeDView({
     },
     [],
   )
-  const updateRenderOption = (option: keyof RenderOptions) => {
+  const updateRenderOption = (option: RenderToggleOption) => {
     const nextEnabled = !renderOptions[option]
     const activityMessage =
       option === 'lightShadows'
@@ -8152,6 +8528,19 @@ export function ThreeDView({
       renderOptionFrameIdsRef.current = [secondFrameId]
     })
     renderOptionFrameIdsRef.current = [firstFrameId]
+  }
+  const updateAmbientTerm = (ambientTerm: number) => {
+    const clampedAmbientTerm = Math.max(0, Math.min(0.65, ambientTerm))
+
+    recordEngineLog(
+      'render-option-applied',
+      `ambientTerm -> ${clampedAmbientTerm.toFixed(2)}`,
+      stallSnapshotRef.current,
+    )
+    setRenderOptions((currentOptions) => ({
+      ...currentOptions,
+      ambientTerm: clampedAmbientTerm,
+    }))
   }
   const setTransformingModel = useCallback((isTransforming: boolean) => {
     isTransformingModelRef.current = isTransforming
@@ -8491,6 +8880,20 @@ export function ThreeDView({
                   />
                   Night fill
                 </label>
+                <label className="render-options-slider">
+                  <span>Ambient term</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="0.65"
+                    step="0.01"
+                    value={renderOptions.ambientTerm}
+                    onChange={(event) =>
+                      updateAmbientTerm(Number(event.currentTarget.value))
+                    }
+                  />
+                  <span>{renderOptions.ambientTerm.toFixed(2)}</span>
+                </label>
                 <label>
                   <input
                     type="checkbox"
@@ -8587,7 +8990,13 @@ export function ThreeDView({
           />
           <FpsCounter onFpsChange={updateFps} />
           <RendererStatsSampler onStatsChange={updateRendererStats} />
+          <RendererToneMapping />
           <ShaderWarmup warmupKey={shaderWarmupKey} />
+          <SceneResourcePreloader
+            floors={floors}
+            renderedFloors={renderedFloors}
+            surfaceAssignments={surfaceAssignments}
+          />
           <CameraFovController fov={cameraFov} />
             <RendererLightCapabilities
               onLocalLightLimitChange={updateLocalLightLimit}
@@ -8610,9 +9019,9 @@ export function ThreeDView({
             <ambientLight
               intensity={
                 renderOptions.daylight
-                  ? 0.55
+                  ? 0.45 + renderOptions.ambientTerm
                   : renderOptions.nightFill
-                    ? 0.14
+                    ? renderOptions.ambientTerm
                     : 0
               }
             />
@@ -8673,7 +9082,11 @@ export function ThreeDView({
                 floor.walls.map((wall) => [wall.id, wall]),
               )
               const clippedInternalWallIds = isActive
-                ? new Set(internalWallFootprintGroups.map((group) => group.wallId))
+                ? new Set(
+                    internalWallFootprintGroups.flatMap(
+                      (group) => group.wallIds ?? [group.wallId],
+                    ),
+                  )
                 : new Set<string>()
               const visibleRenderedWallsForFloor = usesExternalWallUnion
                 ? renderedWalls.filter(
@@ -8869,14 +9282,13 @@ export function ThreeDView({
                             elevation={floor.elevation}
                             floorId={floor.id}
                             footprints={group.footprints}
+                            geometryContextWalls={floor.walls}
                             height={floor.roomHeight}
                             onRegisterPickTarget={registerPickTarget}
                             selectedSurface={selectedSurface}
-                            sourceWalls={
-                              wallsByIdForFloor.get(group.wallId)
-                                ? [wallsByIdForFloor.get(group.wallId)!]
-                                : []
-                            }
+                            sourceWalls={(group.wallIds ?? [group.wallId])
+                              .map((wallId) => wallsByIdForFloor.get(wallId))
+                              .filter((wall): wall is Wall => Boolean(wall))}
                             surfaceAssignments={surfaceAssignments}
                             wallKind="internal"
                             wireframe={renderOptions.wireframe}
