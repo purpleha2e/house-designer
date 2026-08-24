@@ -229,7 +229,7 @@ export function ContextPanel({
                       value={
                         selectedModel.model.lightFalloff ??
                         selectedModel.definition.lightFalloff ??
-                        1.35
+                        1.15
                       }
                       onChange={(event) =>
                         onUpdateModel(selectedModel.model.id, {

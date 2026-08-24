@@ -7,7 +7,6 @@ import {
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import {
-  ACESFilmicToneMapping,
   BackSide,
   BufferGeometry,
   CanvasTexture,
@@ -105,6 +104,7 @@ type RenderOptions = {
   lightShadows: boolean
   lights: boolean
   nightFill: boolean
+  occlusionCulling: boolean
   referenceFloors: boolean
   shadows: boolean
   skybox: boolean
@@ -119,9 +119,23 @@ type RenderedFloorData = {
   externalWallUnionWalls: Wall[]
   floor: FloorLevel
   internalWallFootprintGroups: WallFootprintRenderGroup[]
+  roomPortals: RoomPortal[]
   wallBodyOccluders: WallBodyOccluder[]
   renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
+}
+
+type RoomPortal = {
+  fromRoomSignature: string
+  openingId: string
+  toRoomSignature: string
+  wallId: string
+}
+
+type FloorVisibilityState = {
+  currentRoomSignature: string | null
+  floorId: string
+  visibleRoomSignatures: string[]
 }
 
 type WallBodyOccluder = {
@@ -193,8 +207,8 @@ const FALLBACK_REALTIME_LOCAL_LIGHTS = 8
 const MAX_REALTIME_LOCAL_LIGHTS = 11
 const LOCAL_LIGHT_RENDER_POWER_SCALE = 0.08
 const DEFAULT_LOCAL_LIGHT_DISTANCE = 10
-const DEFAULT_LOCAL_LIGHT_FALLOFF = 1.35
-const RENDERER_TONE_MAPPING_EXPOSURE = 0.82
+const DEFAULT_LOCAL_LIGHT_FALLOFF = 1.15
+const LOCAL_LIGHT_CEILING_CLEARANCE_METERS = 0.55
 const PICK_CLICK_TOLERANCE_PIXELS = 3
 const MAIN_THREAD_STALL_THRESHOLD_MS = 450
 const SKIRTING_HEIGHT_METERS = 0.09
@@ -206,7 +220,6 @@ const SKIRTING_WALL_MATCH_TOLERANCE_METERS = 0.08
 const SKIRTING_DOOR_PROJECTION_TOLERANCE_METERS = 0.18
 
 type AspectRatioMode = 'normal' | 'super-wide' | 'wide'
-type LookMouseButton = 'left' | 'right'
 type TransformMode = 'rotate' | 'scale' | 'translate'
 
 type LightDirection = {
@@ -1244,6 +1257,151 @@ function isPointInsideOrOnPolygon(point: Point, polygon: Point[]) {
       ),
     ) || isPointInsidePolygon(point, polygon)
   )
+}
+
+function getRoomContainingPoint(rooms: DetectedRoom[], point: Point) {
+  return (
+    rooms.find((room) => isPointInsideOrOnPolygon(point, room.polygon)) ?? null
+  )
+}
+
+function getWallPointAtDistance(wall: Wall, distanceAlongWall: number) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const wallLength = Math.hypot(dx, dy)
+
+  if (wallLength === 0) {
+    return wall.start
+  }
+
+  const t = Math.max(0, Math.min(1, distanceAlongWall / wallLength))
+
+  return {
+    x: wall.start.x + dx * t,
+    y: wall.start.y + dy * t,
+  }
+}
+
+function getWallNormal(wall: Wall) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const wallLength = Math.hypot(dx, dy)
+
+  if (wallLength === 0) {
+    return { x: 0, y: 1 }
+  }
+
+  return {
+    x: -dy / wallLength,
+    y: dx / wallLength,
+  }
+}
+
+function buildRoomPortals(floor: FloorLevel, rooms: DetectedRoom[]) {
+  const portals: RoomPortal[] = []
+  const portalKeys = new Set<string>()
+
+  for (const wall of floor.walls) {
+    if (!wall.openings?.length) {
+      continue
+    }
+
+    const normal = getWallNormal(wall)
+    const sampleOffset = wall.thickness / 2 + 0.12
+
+    for (const opening of wall.openings) {
+      const center = getWallPointAtDistance(wall, opening.center)
+      const firstRoom = getRoomContainingPoint(rooms, {
+        x: center.x + normal.x * sampleOffset,
+        y: center.y + normal.y * sampleOffset,
+      })
+      const secondRoom = getRoomContainingPoint(rooms, {
+        x: center.x - normal.x * sampleOffset,
+        y: center.y - normal.y * sampleOffset,
+      })
+
+      if (
+        !firstRoom ||
+        !secondRoom ||
+        firstRoom.signature === secondRoom.signature
+      ) {
+        continue
+      }
+
+      const key = [
+        wall.id,
+        opening.id,
+        firstRoom.signature,
+        secondRoom.signature,
+      ]
+        .sort()
+        .join(':')
+
+      if (portalKeys.has(key)) {
+        continue
+      }
+
+      portalKeys.add(key)
+      portals.push({
+        fromRoomSignature: firstRoom.signature,
+        openingId: opening.id,
+        toRoomSignature: secondRoom.signature,
+        wallId: wall.id,
+      })
+      portals.push({
+        fromRoomSignature: secondRoom.signature,
+        openingId: opening.id,
+        toRoomSignature: firstRoom.signature,
+        wallId: wall.id,
+      })
+    }
+  }
+
+  return portals
+}
+
+function getVisibleRoomSignatures(
+  currentRoomSignature: string | null,
+  rooms: DetectedRoom[],
+  roomPortals: RoomPortal[],
+) {
+  if (!currentRoomSignature) {
+    return new Set(rooms.map((room) => room.signature))
+  }
+
+  const visibleRoomSignatures = new Set([currentRoomSignature])
+  const frontier = [currentRoomSignature]
+
+  while (frontier.length > 0) {
+    const roomSignature = frontier.shift()!
+
+    for (const portal of roomPortals) {
+      if (portal.fromRoomSignature !== roomSignature) {
+        continue
+      }
+
+      if (!visibleRoomSignatures.has(portal.toRoomSignature)) {
+        visibleRoomSignatures.add(portal.toRoomSignature)
+        frontier.push(portal.toRoomSignature)
+      }
+    }
+  }
+
+  return visibleRoomSignatures
+}
+
+function modelIsInVisibleRooms(
+  model: PlacedModel,
+  rooms: DetectedRoom[],
+  visibleRoomSignatures: ReadonlySet<string> | null | undefined,
+) {
+  if (!visibleRoomSignatures) {
+    return true
+  }
+
+  const room = getRoomContainingPoint(rooms, model.position)
+
+  return !room || visibleRoomSignatures.has(room.signature)
 }
 
 function getRenderedWallLocalPoint(
@@ -5115,6 +5273,7 @@ function SelectableRoomSurfaces({
   roomHeight,
   rooms,
   selectedSurface,
+  visibleRoomSignatures,
 }: {
   elevation: number
   floorId: string
@@ -5122,31 +5281,38 @@ function SelectableRoomSurfaces({
   roomHeight: number
   rooms: DetectedRoom[]
   selectedSurface: SelectableSurface | null
+  visibleRoomSignatures?: ReadonlySet<string> | null
 }) {
   return (
     <>
-      {rooms.flatMap((room) => [
-        <SelectableRoomSurfaceMesh
-          key={`${room.signature}:floor`}
-          elevation={elevation}
-          floorId={floorId}
-          onRegisterPickTarget={onRegisterPickTarget}
-          room={room}
-          roomHeight={roomHeight}
-          selectedSurface={selectedSurface}
-          type="room-floor"
-        />,
-        <SelectableRoomSurfaceMesh
-          key={`${room.signature}:ceiling`}
-          elevation={elevation}
-          floorId={floorId}
-          onRegisterPickTarget={onRegisterPickTarget}
-          room={room}
-          roomHeight={roomHeight}
-          selectedSurface={selectedSurface}
-          type="ceiling"
-        />,
-      ])}
+      {rooms
+        .filter(
+          (room) =>
+            !visibleRoomSignatures ||
+            visibleRoomSignatures.has(room.signature),
+        )
+        .flatMap((room) => [
+          <SelectableRoomSurfaceMesh
+            key={`${room.signature}:floor`}
+            elevation={elevation}
+            floorId={floorId}
+            onRegisterPickTarget={onRegisterPickTarget}
+            room={room}
+            roomHeight={roomHeight}
+            selectedSurface={selectedSurface}
+            type="room-floor"
+          />,
+          <SelectableRoomSurfaceMesh
+            key={`${room.signature}:ceiling`}
+            elevation={elevation}
+            floorId={floorId}
+            onRegisterPickTarget={onRegisterPickTarget}
+            room={room}
+            roomHeight={roomHeight}
+            selectedSurface={selectedSurface}
+            type="ceiling"
+          />,
+        ])}
     </>
   )
 }
@@ -5218,17 +5384,25 @@ function RoomFloorFinishes({
   floorId,
   rooms,
   surfaceAssignments,
+  visibleRoomSignatures,
   wireframe,
 }: {
   elevation: number
   floorId: string
   rooms: DetectedRoom[]
   surfaceAssignments: SurfaceMaterialAssignment[]
+  visibleRoomSignatures?: ReadonlySet<string> | null
   wireframe: boolean
 }) {
   return (
     <group>
-      {rooms.map((room) => {
+      {rooms
+        .filter(
+          (room) =>
+            !visibleRoomSignatures ||
+            visibleRoomSignatures.has(room.signature),
+        )
+        .map((room) => {
         const assignment = getRoomFloorMaterialAssignment(
           surfaceAssignments,
           floorId,
@@ -5303,6 +5477,7 @@ function RoomCeilingFinishes({
   roomHeight,
   rooms,
   surfaceAssignments,
+  visibleRoomSignatures,
   wireframe,
 }: {
   elevation: number
@@ -5310,11 +5485,18 @@ function RoomCeilingFinishes({
   roomHeight: number
   rooms: DetectedRoom[]
   surfaceAssignments: SurfaceMaterialAssignment[]
+  visibleRoomSignatures?: ReadonlySet<string> | null
   wireframe: boolean
 }) {
   return (
     <group>
-      {rooms.map((room) => {
+      {rooms
+        .filter(
+          (room) =>
+            !visibleRoomSignatures ||
+            visibleRoomSignatures.has(room.signature),
+        )
+        .map((room) => {
         const assignment = getRoomCeilingMaterialAssignment(
           surfaceAssignments,
           floorId,
@@ -5782,6 +5964,7 @@ function SolidFloorScene({
   surfaceAssignments,
   transformEnabled,
   transformMode,
+  visibleRoomSignatures,
   wallBodyOccluders,
   wireframe,
 }: {
@@ -5804,6 +5987,7 @@ function SolidFloorScene({
   surfaceAssignments: SurfaceMaterialAssignment[]
   transformEnabled: boolean
   transformMode: TransformMode
+  visibleRoomSignatures?: ReadonlySet<string> | null
   wallBodyOccluders: WallBodyOccluder[]
   wireframe: boolean
 }) {
@@ -5832,6 +6016,22 @@ function SolidFloorScene({
     : renderedWalls.filter(
         (renderedWall) => !clippedInternalWallIds.has(renderedWall.wall.id),
       )
+  const visibleModels = useMemo(
+    () =>
+      (floor.models ?? []).filter((model) => {
+        if (!visibleRoomSignatures || isSelectedModel(model.id)) {
+          return true
+        }
+
+        return modelIsInVisibleRooms(model, rooms, visibleRoomSignatures)
+      }),
+    [
+      floor.models,
+      isSelectedModel,
+      rooms,
+      visibleRoomSignatures,
+    ],
+  )
 
   return (
     <>
@@ -5889,13 +6089,13 @@ function SolidFloorScene({
       <SkirtingBoards
         elevation={floor.elevation}
         externalWallUnionFootprints={externalWallUnionFootprints}
-        models={floor.models ?? []}
+        models={visibleModels}
         renderedWalls={renderedWalls}
         rooms={rooms}
         wireframe={wireframe}
       />
       <Suspense fallback={null}>
-        {(floor.models ?? []).map((model) => (
+        {visibleModels.map((model) => (
           <ModelLoadBoundary key={model.id}>
             <ModelMesh
               daylightEnabled={daylightEnabled}
@@ -6377,11 +6577,13 @@ function getStableLocalLightIds({
   activeFloorId,
   limit,
   selectedModelId,
+  visibleRoomSignatures,
   visibleRenderedFloors,
 }: {
   activeFloorId: string
   limit: number
   selectedModelId?: string | null
+  visibleRoomSignatures?: ReadonlySet<string> | null
   visibleRenderedFloors: RenderedFloorData[]
 }) {
   const selectedLightIds: string[] = []
@@ -6397,7 +6599,12 @@ function getStableLocalLightIds({
     for (const model of floor.models ?? []) {
       const modelDefinition = modelsById.get(model.modelId)
 
-      if (!modelDefinition?.isLight || model.lightEnabled === false) {
+      if (
+        !modelDefinition?.isLight ||
+        model.lightEnabled === false ||
+        (model.id !== selectedModelId &&
+          !modelIsInVisibleRooms(model, renderedFloor.rooms, visibleRoomSignatures))
+      ) {
         continue
       }
 
@@ -6421,6 +6628,7 @@ function LocalLightBudgetController({
   localLightLimit,
   onLocalLightIdsChange,
   selectedModelId,
+  visibleRoomSignatures,
   visibleRenderedFloors,
 }: {
   activeFloorId: string
@@ -6428,6 +6636,7 @@ function LocalLightBudgetController({
   localLightLimit: number
   onLocalLightIdsChange: (lightIds: ReadonlySet<string>) => void
   selectedModelId: string | null
+  visibleRoomSignatures?: ReadonlySet<string> | null
   visibleRenderedFloors: RenderedFloorData[]
 }) {
   const lastIdsRef = useRef<ReadonlySet<string>>(new Set())
@@ -6438,6 +6647,7 @@ function LocalLightBudgetController({
           activeFloorId,
           limit: localLightLimit,
           selectedModelId,
+          visibleRoomSignatures,
           visibleRenderedFloors,
         })
       : new Set<string>()
@@ -6452,6 +6662,7 @@ function LocalLightBudgetController({
     localLightLimit,
     onLocalLightIdsChange,
     selectedModelId,
+    visibleRoomSignatures,
     visibleRenderedFloors,
   ])
 
@@ -6461,10 +6672,14 @@ function LocalLightBudgetController({
 function getLocalLightSlots({
   activeFloorId,
   localLightIds,
+  selectedModelId,
+  visibleRoomSignatures,
   visibleRenderedFloors,
 }: {
   activeFloorId: string
   localLightIds: ReadonlySet<string>
+  selectedModelId?: string | null
+  visibleRoomSignatures?: ReadonlySet<string> | null
   visibleRenderedFloors: RenderedFloorData[]
 }) {
   const slots: LocalLightSlot[] = []
@@ -6482,7 +6697,9 @@ function getLocalLightSlots({
       if (
         !modelDefinition?.isLight ||
         model.lightEnabled === false ||
-        !localLightIds.has(model.id)
+        !localLightIds.has(model.id) ||
+        (model.id !== selectedModelId &&
+          !modelIsInVisibleRooms(model, renderedFloor.rooms, visibleRoomSignatures))
       ) {
         continue
       }
@@ -6493,7 +6710,11 @@ function getLocalLightSlots({
         lightKind === 'spot'
           ? Math.max(5, Math.min(120, model.lightSpread ?? modelDefinition.lightSpread ?? 36))
           : 120
-      const y = floor.elevation + height
+      const lightY = floor.elevation + height
+      const maxLightY =
+        floor.elevation +
+        Math.max(0.2, floor.roomHeight - LOCAL_LIGHT_CEILING_CLEARANCE_METERS)
+      const y = Math.min(lightY, maxLightY)
 
       slots.push({
         angle: (spreadDegrees * Math.PI) / 360,
@@ -6613,13 +6834,17 @@ function FixedLocalLightPool({
   activeFloorId,
   localLightIds,
   lightShadowsEnabled,
+  selectedModelId,
   shadowsEnabled,
+  visibleRoomSignatures,
   visibleRenderedFloors,
 }: {
   activeFloorId: string
   localLightIds: ReadonlySet<string>
   lightShadowsEnabled: boolean
+  selectedModelId?: string | null
   shadowsEnabled: boolean
+  visibleRoomSignatures?: ReadonlySet<string> | null
   visibleRenderedFloors: RenderedFloorData[]
 }) {
   const slots = useMemo(
@@ -6627,9 +6852,17 @@ function FixedLocalLightPool({
       getLocalLightSlots({
         activeFloorId,
         localLightIds,
+        selectedModelId,
+        visibleRoomSignatures,
         visibleRenderedFloors,
       }),
-    [activeFloorId, localLightIds, visibleRenderedFloors],
+    [
+      activeFloorId,
+      localLightIds,
+      selectedModelId,
+      visibleRoomSignatures,
+      visibleRenderedFloors,
+    ],
   )
   const pointSlots = useMemo(
     () =>
@@ -6808,25 +7041,6 @@ function ShaderWarmup({ warmupKey }: { warmupKey: string }) {
   return null
 }
 
-function RendererToneMapping() {
-  const { gl } = useThree()
-
-  useEffect(() => {
-    const previousToneMapping = gl.toneMapping
-    const previousExposure = gl.toneMappingExposure
-
-    gl.toneMapping = ACESFilmicToneMapping
-    gl.toneMappingExposure = RENDERER_TONE_MAPPING_EXPOSURE
-
-    return () => {
-      gl.toneMapping = previousToneMapping
-      gl.toneMappingExposure = previousExposure
-    }
-  }, [gl])
-
-  return null
-}
-
 function CountrysideSkybox() {
   const { camera } = useThree()
   const groupRef = useRef<Object3D>(null)
@@ -6957,12 +7171,76 @@ function isTextEntryElement(target: EventTarget | null) {
   return !['button', 'checkbox', 'radio', 'range'].includes(target.type)
 }
 
+function roomVisibilityStatesMatch(
+  firstState: FloorVisibilityState | null,
+  secondState: FloorVisibilityState,
+) {
+  if (
+    !firstState ||
+    firstState.floorId !== secondState.floorId ||
+    firstState.currentRoomSignature !== secondState.currentRoomSignature ||
+    firstState.visibleRoomSignatures.length !== secondState.visibleRoomSignatures.length
+  ) {
+    return false
+  }
+
+  return firstState.visibleRoomSignatures.every(
+    (roomSignature, index) =>
+      roomSignature === secondState.visibleRoomSignatures[index],
+  )
+}
+
+function CameraRoomVisibilityTracker({
+  activeFloor,
+  enabled,
+  onVisibilityChange,
+  renderedFloor,
+}: {
+  activeFloor: FloorLevel | null
+  enabled: boolean
+  onVisibilityChange: (visibilityState: FloorVisibilityState) => void
+  renderedFloor: RenderedFloorData | null
+}) {
+  const { camera } = useThree()
+  const lastStateRef = useRef<FloorVisibilityState | null>(null)
+
+  useFrame(() => {
+    if (!enabled || !activeFloor || !renderedFloor) {
+      return
+    }
+
+    const cameraPoint = {
+      x: camera.position.x,
+      y: camera.position.z,
+    }
+    const currentRoom = getRoomContainingPoint(renderedFloor.rooms, cameraPoint)
+    const visibleRoomSignatures = [
+      ...getVisibleRoomSignatures(
+        currentRoom?.signature ?? null,
+        renderedFloor.rooms,
+        renderedFloor.roomPortals,
+      ),
+    ].sort()
+    const nextState: FloorVisibilityState = {
+      currentRoomSignature: currentRoom?.signature ?? null,
+      floorId: activeFloor.id,
+      visibleRoomSignatures,
+    }
+
+    if (!roomVisibilityStatesMatch(lastStateRef.current, nextState)) {
+      lastStateRef.current = nextState
+      onVisibilityChange(nextState)
+    }
+  })
+
+  return null
+}
+
 function WalkCameraControls({
   enabled,
   headHeightEnabled,
   headHeightY,
   isTransformingRef,
-  lookMouseButton,
   movementEnabled,
   navigationLocked,
   pickTargetsRef,
@@ -6972,7 +7250,6 @@ function WalkCameraControls({
   headHeightEnabled: boolean
   headHeightY: number
   isTransformingRef: MutableRefObject<boolean>
-  lookMouseButton: LookMouseButton
   movementEnabled: boolean
   navigationLocked: boolean
   pickTargetsRef: MutableRefObject<PickTarget[]>
@@ -7004,12 +7281,68 @@ function WalkCameraControls({
       isShiftPressedRef.current = false
     }
 
+    const focusCanvas = () => {
+      gl.domElement.focus({ preventScroll: true })
+    }
+    const beginLooking = (ctrlKey: boolean) => {
+      if (navigationLocked || isTransformingRef.current) {
+        return
+      }
+
+      focusCanvas()
+      navigationModeRef.current = 'look'
+
+      if (ctrlKey && selectedModelId) {
+        const pickTarget = pickTargetsRef.current.find(
+          (target) =>
+            target.kind === 'model' && target.modelId === selectedModelId,
+        )
+
+        if (pickTarget) {
+          pickTarget.object.updateWorldMatrix(true, false)
+          pickTarget.object.getWorldPosition(orbitTargetRef.current)
+          navigationModeRef.current = 'orbit'
+        }
+      }
+
+      if (document.pointerLockElement !== gl.domElement) {
+        gl.domElement.requestPointerLock()
+      }
+
+      pendingLookGestureRef.current = null
+      isLookingRef.current = true
+      ignoreNextLookMoveRef.current = true
+    }
+    const stopLooking = () => {
+      if (document.pointerLockElement === gl.domElement) {
+        document.exitPointerLock()
+      }
+
+      isLookingRef.current = false
+      ignoreNextLookMoveRef.current = false
+      navigationModeRef.current = 'look'
+      pendingLookGestureRef.current = null
+    }
+    const isAltKey = (event: KeyboardEvent) =>
+      event.key === 'Alt' ||
+      event.code === 'AltLeft' ||
+      event.code === 'AltRight'
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!movementEnabled) {
         return
       }
 
       if (isTextEntryElement(event.target)) {
+        return
+      }
+
+      if (isAltKey(event)) {
+        event.preventDefault()
+
+        if (!event.repeat) {
+          beginLooking(event.ctrlKey)
+        }
+
         return
       }
 
@@ -7032,18 +7365,21 @@ function WalkCameraControls({
 
       keysRef.current.delete(event.code)
 
+      if (isAltKey(event)) {
+        event.preventDefault()
+        stopLooking()
+        return
+      }
+
       if (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
         isShiftPressedRef.current = false
       }
     }
-    const focusCanvas = () => {
-      gl.domElement.focus({ preventScroll: true })
-    }
+    const isLookPointerButton = (event: globalThis.PointerEvent) =>
+      event.button === 2
     const startLooking = (event: globalThis.PointerEvent) => {
-      const lookButton = lookMouseButton === 'left' ? 0 : 2
-
       if (
-        event.button !== lookButton ||
+        !isLookPointerButton(event) ||
         navigationLocked ||
         isTransformingRef.current
       ) {
@@ -7052,26 +7388,7 @@ function WalkCameraControls({
 
       event.preventDefault()
       event.stopImmediatePropagation()
-      focusCanvas()
-      navigationModeRef.current = 'look'
-
-      if (event.ctrlKey && selectedModelId) {
-        const pickTarget = pickTargetsRef.current.find(
-          (target) =>
-            target.kind === 'model' && target.modelId === selectedModelId,
-        )
-
-        if (pickTarget) {
-          pickTarget.object.updateWorldMatrix(true, false)
-          pickTarget.object.getWorldPosition(orbitTargetRef.current)
-          navigationModeRef.current = 'orbit'
-        }
-      }
-
-      gl.domElement.requestPointerLock()
-      pendingLookGestureRef.current = null
-      isLookingRef.current = true
-      ignoreNextLookMoveRef.current = true
+      beginLooking(event.ctrlKey)
     }
     const maybeLockForLook = (event: globalThis.PointerEvent) => {
       const pendingLookGesture = pendingLookGestureRef.current
@@ -7141,16 +7458,6 @@ function WalkCameraControls({
       )
       camera.rotation.z = 0
     }
-    const stopLooking = () => {
-      if (document.pointerLockElement === gl.domElement) {
-        document.exitPointerLock()
-      }
-
-      isLookingRef.current = false
-      ignoreNextLookMoveRef.current = false
-      navigationModeRef.current = 'look'
-      pendingLookGestureRef.current = null
-    }
     const handlePointerLockChange = () => {
       const isLocked = document.pointerLockElement === gl.domElement
 
@@ -7212,7 +7519,6 @@ function WalkCameraControls({
     enabled,
     gl.domElement,
     isTransformingRef,
-    lookMouseButton,
     movementEnabled,
     navigationLocked,
     pickTargetsRef,
@@ -7957,7 +8263,6 @@ function downloadColorPickBuffer({
 function ModelPicker({
   active,
   isTransformingRef,
-  lookMouseButton,
   onClearSelection,
   onSelectModel,
   onSelectSurface,
@@ -7965,7 +8270,6 @@ function ModelPicker({
 }: {
   active: boolean
   isTransformingRef: MutableRefObject<boolean>
-  lookMouseButton: LookMouseButton
   onClearSelection: () => void
   onSelectModel: (modelId: string, floorId: string) => void
   onSelectSurface: (surface: SelectableSurface) => void
@@ -7981,6 +8285,7 @@ function ModelPicker({
       if (
         !active ||
         event.button !== 0 ||
+        event.altKey ||
         isTransformingRef.current
       ) {
         return
@@ -8086,7 +8391,6 @@ function ModelPicker({
     scene,
     active,
     isTransformingRef,
-    lookMouseButton,
     onClearSelection,
     onSelectModel,
     onSelectSurface,
@@ -8139,8 +8443,6 @@ export function ThreeDView({
 }: ThreeDViewProps) {
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
   const [transformMode, setTransformMode] = useState<TransformMode>('translate')
-  const [lookMouseButton, setLookMouseButton] =
-    useState<LookMouseButton>('right')
   const [pickBufferDownload, setPickBufferDownload] = useState<{
     dataUrl: string
     filename: string
@@ -8177,9 +8479,11 @@ export function ThreeDView({
     azimuth: Math.atan2(6, 4),
     elevation: 0.78,
   })
+  const [roomVisibilityState, setRoomVisibilityState] =
+    useState<FloorVisibilityState | null>(null)
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
     ambientOcclusion: false,
-    ambientTerm: 0.22,
+    ambientTerm: 0.32,
     daylight: true,
     floorSlabs: true,
     groundPlane: true,
@@ -8187,6 +8491,7 @@ export function ThreeDView({
     lightShadows: false,
     lights: true,
     nightFill: true,
+    occlusionCulling: true,
     referenceFloors: false,
     shadows: true,
     skybox: false,
@@ -8251,6 +8556,7 @@ export function ThreeDView({
           renderedWall,
           wallId: renderedWall.wall.id,
         }))
+        const roomPortals = buildRoomPortals(floor, topology.rooms)
 
         return {
           externalWallUnionFootprints,
@@ -8258,6 +8564,7 @@ export function ThreeDView({
           externalWallUnionWalls,
           floor,
           internalWallFootprintGroups,
+          roomPortals,
           renderedWalls,
           rooms: topology.rooms,
           wallBodyOccluders,
@@ -8275,6 +8582,23 @@ export function ThreeDView({
       ),
     [renderedFloors],
   )
+  const activeRenderedFloor = renderedFloorsById.get(activeFloorId) ?? null
+  const occlusionCullingEnabled =
+    renderOptions.occlusionCulling && !showAllFloors && !renderOptions.wireframe
+  const visibleRoomSignatures = useMemo(() => {
+    if (
+      !occlusionCullingEnabled ||
+      roomVisibilityState?.floorId !== activeFloorId
+    ) {
+      return null
+    }
+
+    return new Set(roomVisibilityState.visibleRoomSignatures)
+  }, [
+    activeFloorId,
+    occlusionCullingEnabled,
+    roomVisibilityState,
+  ])
   const visibleRenderedFloors = useMemo(
     () =>
       showAllFloors
@@ -8361,6 +8685,7 @@ export function ThreeDView({
           lightMarkers: renderOptions.lightMarkers,
           lightShadows: renderOptions.lightShadows,
           lights: renderOptions.lights,
+          occlusionCulling: renderOptions.occlusionCulling,
           referenceFloors: renderOptions.referenceFloors,
           shadows: renderOptions.shadows,
           skybox: renderOptions.skybox,
@@ -8412,6 +8737,9 @@ export function ThreeDView({
       renderOptions.shadows ? 'scene shadows on' : 'scene shadows off',
       renderOptions.lightShadows ? 'light shadows on' : 'light shadows off',
       renderOptions.ambientOcclusion ? 'AO on' : 'AO off',
+      occlusionCullingEnabled && visibleRoomSignatures
+        ? `culling ${visibleRoomSignatures.size}/${activeRenderedFloor?.rooms.length ?? 0} rooms`
+        : 'culling off',
       `ambient ${renderOptions.ambientTerm.toFixed(2)}`,
       renderOptions.lights ? 'lights on' : 'lights off',
       latestStats
@@ -8426,7 +8754,10 @@ export function ThreeDView({
     renderOptions.ambientTerm,
     renderOptions.lightShadows,
     renderOptions.lights,
+    occlusionCullingEnabled,
     renderOptions.shadows,
+    activeRenderedFloor?.rooms.length,
+    visibleRoomSignatures,
     visibleRenderedFloors.length,
   ])
   const transformEnabled = true
@@ -8530,7 +8861,7 @@ export function ThreeDView({
     renderOptionFrameIdsRef.current = [firstFrameId]
   }
   const updateAmbientTerm = (ambientTerm: number) => {
-    const clampedAmbientTerm = Math.max(0, Math.min(0.65, ambientTerm))
+    const clampedAmbientTerm = Math.max(0, Math.min(0.85, ambientTerm))
 
     recordEngineLog(
       'render-option-applied',
@@ -8782,22 +9113,6 @@ export function ThreeDView({
               Scale
             </button>
           </div>
-          <div className="segmented-control compact" aria-label="Look mouse button">
-            <button
-              type="button"
-              className={lookMouseButton === 'left' ? 'active' : ''}
-              onClick={() => setLookMouseButton('left')}
-            >
-              Left
-            </button>
-            <button
-              type="button"
-              className={lookMouseButton === 'right' ? 'active' : ''}
-              onClick={() => setLookMouseButton('right')}
-            >
-              Right
-            </button>
-          </div>
           <label className="head-height-toggle">
             <input
               type="checkbox"
@@ -8885,7 +9200,7 @@ export function ThreeDView({
                   <input
                     type="range"
                     min="0"
-                    max="0.65"
+                    max="0.85"
                     step="0.01"
                     value={renderOptions.ambientTerm}
                     onChange={(event) =>
@@ -8901,6 +9216,14 @@ export function ThreeDView({
                     onChange={() => updateRenderOption('lights')}
                   />
                   Lights
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.occlusionCulling}
+                    onChange={() => updateRenderOption('occlusionCulling')}
+                  />
+                  Occlusion culling
                 </label>
                 <label>
                   <input
@@ -8975,7 +9298,6 @@ export function ThreeDView({
           <ModelPicker
             active
             isTransformingRef={isTransformingModelRef}
-            lookMouseButton={lookMouseButton}
             onClearSelection={onClearSelection}
             onSelectModel={onSelectModel}
             onSelectSurface={onSelectSurface}
@@ -8990,7 +9312,12 @@ export function ThreeDView({
           />
           <FpsCounter onFpsChange={updateFps} />
           <RendererStatsSampler onStatsChange={updateRendererStats} />
-          <RendererToneMapping />
+          <CameraRoomVisibilityTracker
+            activeFloor={activeFloor}
+            enabled={occlusionCullingEnabled}
+            onVisibilityChange={setRoomVisibilityState}
+            renderedFloor={activeRenderedFloor}
+          />
           <ShaderWarmup warmupKey={shaderWarmupKey} />
           <SceneResourcePreloader
             floors={floors}
@@ -9007,6 +9334,7 @@ export function ThreeDView({
               localLightLimit={localLightLimit}
               onLocalLightIdsChange={updateLocalLightIds}
               selectedModelId={selectedModelId}
+              visibleRoomSignatures={visibleRoomSignatures}
               visibleRenderedFloors={visibleRenderedFloors}
             />
             <color
@@ -9035,7 +9363,9 @@ export function ThreeDView({
               activeFloorId={activeFloorId}
               localLightIds={localLightIds}
               lightShadowsEnabled={renderOptions.lightShadows}
+              selectedModelId={selectedModelId}
               shadowsEnabled={renderOptions.shadows}
+              visibleRoomSignatures={visibleRoomSignatures}
               visibleRenderedFloors={visibleRenderedFloors}
             />
 
@@ -9105,6 +9435,27 @@ export function ThreeDView({
               const upperFloor =
                 floorIndex >= 0 ? floorsByElevation[floorIndex + 1] ?? null : null
               const hasShadowSurface = renderOptions.shadows && isActive
+              const activeVisibleRoomSignatures =
+                isActive ? visibleRoomSignatures : null
+              const visibleRoomsForFloor = activeVisibleRoomSignatures
+                ? rooms.filter((room) =>
+                    activeVisibleRoomSignatures.has(room.signature),
+                  )
+                : rooms
+              const visibleModelsForFloor =
+                activeVisibleRoomSignatures && isActive
+                  ? (floor.models ?? []).filter((model) => {
+                      if (model.id === selectedModelId) {
+                        return true
+                      }
+
+                      return modelIsInVisibleRooms(
+                        model,
+                        rooms,
+                        activeVisibleRoomSignatures,
+                      )
+                    })
+                  : floor.models ?? []
               const floorPlane =
                 renderOptions.groundPlane && !showAllFloors && isActive
                   ? getFloorPlaneBounds(floor)
@@ -9139,6 +9490,7 @@ export function ThreeDView({
                         floorId={floor.id}
                         rooms={rooms}
                         surfaceAssignments={surfaceAssignments}
+                        visibleRoomSignatures={null}
                         wireframe={renderOptions.wireframe}
                       />
                       <RoomCeilingFinishes
@@ -9147,6 +9499,7 @@ export function ThreeDView({
                         roomHeight={floor.roomHeight}
                         rooms={rooms}
                         surfaceAssignments={surfaceAssignments}
+                        visibleRoomSignatures={null}
                         wireframe={renderOptions.wireframe}
                       />
                       <SelectableRoomSurfaces
@@ -9156,6 +9509,7 @@ export function ThreeDView({
                         roomHeight={floor.roomHeight}
                         rooms={rooms}
                         selectedSurface={selectedSurface}
+                        visibleRoomSignatures={null}
                       />
                       <SolidFloorScene
                         daylightEnabled={renderOptions.daylight}
@@ -9177,6 +9531,7 @@ export function ThreeDView({
                         surfaceAssignments={surfaceAssignments}
                         transformEnabled={transformEnabled}
                         transformMode={transformMode}
+                        visibleRoomSignatures={null}
                         wallBodyOccluders={wallBodyOccluders}
                         wireframe={renderOptions.wireframe}
                       />
@@ -9237,6 +9592,7 @@ export function ThreeDView({
                           floorId={floor.id}
                           rooms={rooms}
                           surfaceAssignments={surfaceAssignments}
+                          visibleRoomSignatures={visibleRoomSignatures}
                           wireframe={renderOptions.wireframe}
                         />
                         <RoomCeilingFinishes
@@ -9245,6 +9601,7 @@ export function ThreeDView({
                           roomHeight={floor.roomHeight}
                           rooms={rooms}
                           surfaceAssignments={surfaceAssignments}
+                          visibleRoomSignatures={visibleRoomSignatures}
                           wireframe={renderOptions.wireframe}
                         />
                         <SelectableRoomSurfaces
@@ -9254,6 +9611,7 @@ export function ThreeDView({
                           roomHeight={floor.roomHeight}
                           rooms={rooms}
                           selectedSurface={selectedSurface}
+                          visibleRoomSignatures={visibleRoomSignatures}
                         />
                       </>
                     ) : null}
@@ -9314,15 +9672,15 @@ export function ThreeDView({
                       <SkirtingBoards
                         elevation={floor.elevation}
                         externalWallUnionFootprints={externalWallUnionFootprints}
-                        models={floor.models ?? []}
+                        models={visibleModelsForFloor}
                         renderedWalls={renderedWalls}
-                        rooms={rooms}
+                        rooms={visibleRoomsForFloor}
                         wireframe={renderOptions.wireframe}
                       />
                     ) : null}
                     {isActive ? (
                       <Suspense fallback={null}>
-                        {(floor.models ?? []).map((model) => (
+                        {visibleModelsForFloor.map((model) => (
                           <ModelLoadBoundary key={model.id}>
                             <ModelMesh
                               daylightEnabled={renderOptions.daylight}
@@ -9356,7 +9714,6 @@ export function ThreeDView({
               headHeightEnabled={headHeightEnabled}
               headHeightY={headHeightY}
               isTransformingRef={isTransformingModelRef}
-              lookMouseButton={lookMouseButton}
               movementEnabled
               navigationLocked={navigationLocked}
               pickTargetsRef={pickTargetsRef}
@@ -9368,13 +9725,13 @@ export function ThreeDView({
                 resolutionScale={0.75}
               >
                 <N8AO
-                  aoRadius={0.75}
-                  distanceFalloff={0.45}
-                  intensity={2.6}
+                  aoRadius={0.28}
+                  distanceFalloff={1}
+                  intensity={0.85}
                   quality="low"
-                  aoSamples={8}
-                  denoiseSamples={2}
-                  denoiseRadius={4}
+                  aoSamples={6}
+                  denoiseSamples={3}
+                  denoiseRadius={3}
                   color={ambientOcclusionColor}
                 />
               </EffectComposer>
