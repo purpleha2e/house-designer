@@ -156,6 +156,7 @@ export type PlacedModel = {
 export type WallAttachment = {
   wallId: string
   offset: number
+  side?: -1 | 1
 }
 
 export type FloorLevel = {

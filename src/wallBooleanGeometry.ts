@@ -218,6 +218,10 @@ function getSideMiteredWallBodyPoints(wall: Wall, walls: Wall[]) {
       continue
     }
 
+    if (wall.kind === 'internal' && adjoiningWalls.length > 1) {
+      continue
+    }
+
     const joinPoint = getNormalizedJoinPoint(endpointPoint, adjoiningWalls)
     for (const side of [1, -1] as const) {
       const cornerIndex = getEndpointCornerIndex(endpoint, side)
@@ -439,6 +443,21 @@ function wallTouchesInternalClippingContext(wall: Wall, contextWalls: Wall[]) {
   })
 }
 
+function internalWallOwnsOverlap(ownerWall: Wall, clippedWall: Wall) {
+  const clippedEndpointTouchesOwner =
+    pointTouchesWallBody(clippedWall.start, ownerWall) ||
+    pointTouchesWallBody(clippedWall.end, ownerWall)
+  const ownerEndpointTouchesClipped =
+    pointTouchesWallBody(ownerWall.start, clippedWall) ||
+    pointTouchesWallBody(ownerWall.end, clippedWall)
+
+  if (clippedEndpointTouchesOwner !== ownerEndpointTouchesClipped) {
+    return clippedEndpointTouchesOwner
+  }
+
+  return ownerWall.id.localeCompare(clippedWall.id) < 0
+}
+
 function getEndpointConnectedWallComponents(walls: Wall[]) {
   const visitedWallIds = new Set<string>()
   const components: Wall[][] = []
@@ -475,6 +494,21 @@ function getEndpointConnectedWallComponents(walls: Wall[]) {
   return components
 }
 
+function componentHasMultiWayEndpointJoin(component: Wall[], walls: Wall[]) {
+  return component.some((wall) =>
+    (['start', 'end'] as const).some((endpoint) => {
+      const endpointPoint = wall[endpoint]
+      const adjoiningEndpointWalls = walls.filter(
+        (otherWall) =>
+          otherWall.id !== wall.id &&
+          endpointTouchesWallEndpoint(endpointPoint, otherWall),
+      )
+
+      return adjoiningEndpointWalls.length > 1
+    }),
+  )
+}
+
 function getDistanceAlongWall(wall: Wall, point: Point) {
   const direction = getWallDirection(wall)
 
@@ -500,7 +534,8 @@ export function getClippedInternalWallRenderExtensions(
       (otherWall) =>
         otherWall.id !== wall.id &&
         (otherWall.kind === 'external' ||
-          (otherWall.kind === 'internal' && otherWall.id.localeCompare(wall.id) < 0)),
+          (otherWall.kind === 'internal' &&
+            internalWallOwnsOverlap(otherWall, wall))),
     )
     .map(toWallBodyPolygon)
   const footprints = differencePolygonFootprints(
@@ -725,6 +760,10 @@ export function getClippedInternalWallFootprints(
   const endpointConnectedComponents = getEndpointConnectedWallComponents(internalWalls)
 
   return endpointConnectedComponents.flatMap((component) => {
+    if (componentHasMultiWayEndpointJoin(component, internalWalls)) {
+      return []
+    }
+
     if (component.length > 1) {
       const componentPolygons = component.map(getMiteredWallPolygon)
       const componentUnion = unionPolygons(
@@ -733,10 +772,10 @@ export function getClippedInternalWallFootprints(
       )
       const earlierContextInternalWallPolygons = contextWalls
         .filter(
-          (otherWall) =>
-            otherWall.kind === 'internal' &&
-            !component.some((wall) => wall.id === otherWall.id) &&
-            otherWall.id.localeCompare(component[0].id) < 0,
+        (otherWall) =>
+          otherWall.kind === 'internal' &&
+          !component.some((wall) => wall.id === otherWall.id) &&
+          component.some((wall) => internalWallOwnsOverlap(otherWall, wall)),
         )
         .map(getMiteredWallPolygon)
       const clippedFootprints = differenceMultiPolygonFootprints(componentUnion, [
@@ -772,7 +811,7 @@ export function getClippedInternalWallFootprints(
         (otherWall) =>
           otherWall.kind === 'internal' &&
           otherWall.id !== wall.id &&
-          otherWall.id.localeCompare(wall.id) < 0,
+          internalWallOwnsOverlap(otherWall, wall),
       )
       .map(getMiteredWallPolygon)
     const footprints = differencePolygonFootprints(wallPolygon, [

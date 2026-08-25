@@ -1772,6 +1772,7 @@ function App() {
           onUpdateModel={updateModel}
           selectedModelId={selectedModelId}
           selectedSurface={selectedSurface}
+          selectedWallId={selectedWallId}
           showAllFloors={selectedFloorViewId === ALL_FLOORS_VIEW_ID}
           surfaceAssignments={surfaceAssignments}
         />

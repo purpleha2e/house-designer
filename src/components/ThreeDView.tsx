@@ -81,10 +81,16 @@ import {
 } from '../wallBooleanGeometry'
 import { getRenderedWalls, getWallPolygon, type RenderedWall } from '../wallGeometry'
 import { buildWallTopology, type DetectedRoom } from '../wallTopology'
+import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
+import { buildWallMeshFaces } from '../wallEngine/wallMesh'
+import { createWallBufferGeometry } from '../wallEngine/wallThreeGeometry'
+import type { WallSide } from '../wallEngine/wallGraph'
 
 export function clearThreeDModelAssetCaches() {
   ;(useGLTF as unknown as { clear?: () => void }).clear?.()
 }
+
+const WALL_ENGINE_RENDERER_ENABLED = true
 
 type ThreeDViewProps = {
   activeFloorId: string
@@ -96,6 +102,7 @@ type ThreeDViewProps = {
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
   selectedModelId: string | null
   selectedSurface: SelectableSurface | null
+  selectedWallId: string | null
   showAllFloors: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
 }
@@ -197,9 +204,24 @@ type EngineLogEntry = {
 
 type HouseDesignerEngineLogApi = {
   clear: () => void
+  current?: () => EngineLogEntry[]
   entries: EngineLogEntry[]
   recent: (count?: number) => EngineLogEntry[]
+  routes?: () => WallRenderRouteDebugEntry[]
+  summary?: () => Array<{ detail?: string; type: string }>
+  tableCurrent?: () => void
+  tableRoutes?: () => void
   table: (count?: number) => void
+}
+
+type HouseDesignerWallRenderDebugApi = HouseDesignerEngineLogApi
+
+type WallRenderRouteDebugEntry = {
+  engineExclusionReasons?: string[]
+  floorId?: string
+  kind?: WallKind
+  route: string
+  wallId: string
 }
 
 const ambientOcclusionColor = new Color('black')
@@ -392,6 +414,8 @@ class FloorRenderBoundary extends Component<
 function getFloorRenderResetKey(
   floor: FloorLevel,
   surfaceAssignments: SurfaceMaterialAssignment[],
+  selectedSurface: SelectableSurface | null,
+  selectedWallId: string | null,
 ) {
   const topology = buildWallTopology(floor.walls)
   const wallKey = floor.walls
@@ -462,7 +486,15 @@ function getFloorRenderResetKey(
     )
     .join('|')
 
-  return `${floor.id}:${wallKey}:${modelKey}:${materialKey}`
+  const selectionKey = selectedSurface
+    ? selectedSurface.type === 'wall-face'
+      ? `wall-face:${selectedSurface.wallId}:${selectedSurface.side}`
+      : selectedSurface.type === 'floor-slab-edge'
+        ? `floor-slab-edge:${selectedSurface.floorId}`
+        : `${selectedSurface.type}:${selectedSurface.floorId}:${selectedSurface.roomSignature}`
+    : `wall:${selectedWallId ?? ''}`
+
+  return `${floor.id}:${wallKey}:${modelKey}:${materialKey}:${selectionKey}`
 }
 
 function getCameraFov(aspectRatioMode: AspectRatioMode) {
@@ -1673,6 +1705,48 @@ function getDistanceAlongRenderedWall(renderedWall: RenderedWall, point: Point) 
   return (point.x - renderedStart.x) * unit.x + (point.y - renderedStart.y) * unit.y
 }
 
+function pointTouchesWallBodyForOverlap(point: Point, wall: Wall) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - wall.start.x, point.y - wall.start.y) <=
+      wall.thickness / 2 + 0.02
+  }
+
+  const rawT =
+    ((point.x - wall.start.x) * dx + (point.y - wall.start.y) * dy) /
+    lengthSquared
+  const t = Math.max(0, Math.min(1, rawT))
+  const projection = {
+    x: wall.start.x + dx * t,
+    y: wall.start.y + dy * t,
+  }
+
+  return (
+    rawT >= -0.02 &&
+    rawT <= 1 + 0.02 &&
+    Math.hypot(point.x - projection.x, point.y - projection.y) <=
+      wall.thickness / 2 + 0.02
+  )
+}
+
+function internalWallOwnsOverlap(ownerWall: Wall, clippedWall: Wall) {
+  const clippedEndpointTouchesOwner =
+    pointTouchesWallBodyForOverlap(clippedWall.start, ownerWall) ||
+    pointTouchesWallBodyForOverlap(clippedWall.end, ownerWall)
+  const ownerEndpointTouchesClipped =
+    pointTouchesWallBodyForOverlap(ownerWall.start, clippedWall) ||
+    pointTouchesWallBodyForOverlap(ownerWall.end, clippedWall)
+
+  if (clippedEndpointTouchesOwner !== ownerEndpointTouchesClipped) {
+    return clippedEndpointTouchesOwner
+  }
+
+  return ownerWall.id.localeCompare(clippedWall.id) < 0
+}
+
 function wallBodyOccluderOwnsOverlap(wall: Wall, occluder: WallBodyOccluder) {
   if (wall.kind !== 'internal' && occluder.kind !== 'internal') {
     return false
@@ -1686,7 +1760,7 @@ function wallBodyOccluderOwnsOverlap(wall: Wall, occluder: WallBodyOccluder) {
     return true
   }
 
-  return occluder.wallId.localeCompare(wall.id) < 0
+  return internalWallOwnsOverlap(occluder.renderedWall.wall, wall)
 }
 
 function getRenderedWallDirection({ wall }: RenderedWall) {
@@ -2037,6 +2111,7 @@ function WallSegmentMesh({
   centerZ,
   floorId,
   onRegisterPickTarget,
+  selectedWallId,
   selectedSurface,
   wallMaterialAssignments,
   renderedLength,
@@ -2054,6 +2129,7 @@ function WallSegmentMesh({
   centerZ: number
   floorId: string
   onRegisterPickTarget: (target: PickTarget) => () => void
+  selectedWallId: string | null
   selectedSurface: SelectableSurface | null
   wallMaterialAssignments: SurfaceMaterialAssignment[]
   renderedLength: number
@@ -2215,9 +2291,12 @@ function WallSegmentMesh({
     0,
   ] as const
   const selectedWallSide =
-    selectedSurface?.type === 'wall-face' && selectedSurface.wallId === wallId
+    selectedSurface?.type === 'wall-face' &&
+    selectedSurface.wallId === wallId &&
+    (!selectedWallId || selectedWallId === wallId)
       ? selectedSurface.side
       : null
+  const wallIsSelected = selectedWallSide !== null || selectedWallId === wallId
 
   if (wireframe) {
     return (
@@ -2254,12 +2333,17 @@ function WallSegmentMesh({
         {renderSurfaceMaterial('material-3', leftCapAssignment, leftCapMaterial)}
         {renderSurfaceMaterial('material-4', rightCapAssignment, rightCapMaterial)}
       </mesh>
-      {selectedWallSide ? (
+      {wallIsSelected ? (
         <mesh geometry={geometry} position={meshPosition} renderOrder={9}>
-          <WallSideHighlightMaterial
-            opacity={0.26}
-            side={selectedWallSide}
-            wall={wall}
+          <FootprintMaterialGroupHighlight
+            materialCount={5}
+            selectedMaterialIndices={
+              selectedWallSide === 1
+                ? [1, 3]
+                : selectedWallSide === -1
+                  ? [2, 4]
+                  : [1, 2, 3, 4]
+            }
           />
         </mesh>
       ) : null}
@@ -2285,6 +2369,195 @@ function InternalWallMaterial({
       side={side}
       wireframe={wireframe}
     />
+  )
+}
+
+function WallEngineWallMeshes({
+  castsShadow,
+  elevation,
+  floorId,
+  onRegisterPickTarget,
+  renderedWalls,
+  selectedSurface,
+  selectedWallId,
+  surfaceAssignments,
+  wireframe,
+}: {
+  castsShadow: boolean
+  elevation: number
+  floorId: string
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  renderedWalls: RenderedWall[]
+  selectedSurface: SelectableSurface | null
+  selectedWallId: string | null
+  surfaceAssignments: SurfaceMaterialAssignment[]
+  wireframe: boolean
+}) {
+  const meshRef = useRef<Object3D>(null!)
+  const walls = useMemo(
+    () => renderedWalls.map((renderedWall) => renderedWall.wall),
+    [renderedWalls],
+  )
+  const wallsById = useMemo(
+    () => new Map(walls.map((wall) => [wall.id, wall])),
+    [walls],
+  )
+  const faces = useMemo(() => buildWallMeshFaces(walls), [walls])
+  const payload = useMemo(
+    () =>
+      buildWallBufferGeometryPayload(faces, {
+        floorId,
+      }),
+    [faces, floorId],
+  )
+  const geometry = useMemo(() => createWallBufferGeometry(payload), [payload])
+  const selectedMaterialIndices = useMemo(() => {
+    if (selectedWallId) {
+      return payload.materialSlots
+        .filter((slot) => slot.source.wallId === selectedWallId)
+        .map((slot) => slot.index)
+    }
+
+    if (selectedSurface?.type !== 'wall-face') {
+      return []
+    }
+
+    return payload.materialSlots
+      .filter(
+        (slot) =>
+          slot.source.wallId === selectedSurface.wallId &&
+          slot.source.side === selectedSurface.side,
+      )
+      .map((slot) => slot.index)
+  }, [payload.materialSlots, selectedSurface, selectedWallId])
+
+  useEffect(() => () => geometry.dispose(), [geometry])
+  useEffect(() => {
+    recordWallRenderDebug(
+      'wall-renderer:engine',
+      `floor=${floorId} walls=${walls.map((wall) => wall.id).join(',')}`,
+      WALL_RENDER_DEBUG_SNAPSHOTS_ENABLED
+        ? JSON.stringify({
+            faceCount: faces.length,
+            faces: faces.map((face) => ({
+              id: face.faceId,
+              kind: face.kind,
+              wallId: face.wallId,
+              vertices: face.vertices.map((vertex) =>
+                vertex.position.map((value) => Number(value.toFixed(3))),
+              ),
+            })),
+            materialSlots: payload.materialSlots.map((slot) => slot.source),
+          })
+        : JSON.stringify({
+            faceCount: faces.length,
+            materialSlotCount: payload.materialSlots.length,
+            wallCount: walls.length,
+          }),
+    )
+  }, [faces, floorId, payload.materialSlots, walls])
+  useEffect(() => {
+    const object = meshRef.current
+
+    if (!object || payload.pickTargets.size === 0) {
+      return undefined
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      groupTargets: payload.pickTargets,
+      kind: 'material-groups',
+      object,
+    })
+  }, [floorId, geometry, onRegisterPickTarget, payload.pickTargets])
+
+  if (payload.materialSlots.length === 0) {
+    return null
+  }
+
+  return (
+    <>
+      <mesh
+        ref={meshRef}
+        castShadow={castsShadow}
+        geometry={geometry}
+        position={[0, elevation, 0]}
+        receiveShadow={castsShadow}
+        renderOrder={2}
+      >
+        {payload.materialSlots.map((slot) => (
+          <WallEngineMaterialSlot
+            key={slot.index}
+            attach={`material-${slot.index}`}
+            source={slot.source}
+            surfaceAssignments={surfaceAssignments}
+            wallsById={wallsById}
+            wireframe={wireframe}
+          />
+        ))}
+      </mesh>
+      {selectedMaterialIndices.length > 0 && !wireframe ? (
+        <mesh geometry={geometry} position={[0, elevation, 0]} renderOrder={9}>
+          <FootprintMaterialGroupHighlight
+            materialCount={payload.materialSlots.length}
+            selectedMaterialIndices={selectedMaterialIndices}
+          />
+        </mesh>
+      ) : null}
+    </>
+  )
+}
+
+function WallEngineMaterialSlot({
+  attach,
+  source,
+  surfaceAssignments,
+  wallsById,
+  wireframe,
+}: {
+  attach: string
+  source: { side?: WallSide; wallId: string }
+  surfaceAssignments: SurfaceMaterialAssignment[]
+  wallsById: Map<string, Wall>
+  wireframe: boolean
+}) {
+  const wall = wallsById.get(source.wallId)
+  const wallMaterialAssignments = wall
+    ? getWallMaterialAssignments(surfaceAssignments, wall.id)
+    : []
+  const assignment =
+    wall && typeof source.side === 'number'
+      ? getWallMaterialAssignmentForSide(
+          wallMaterialAssignments,
+          source.side,
+          wall.height,
+        )
+      : undefined
+  const material = assignment
+    ? surfaceMaterialsById.get(assignment.materialId)
+    : undefined
+
+  if (assignment && material) {
+    return (
+      <SurfaceMeshStandardMaterial
+        attach={attach}
+        assignment={assignment}
+        displacementEnabled={false}
+        material={material}
+        polygonOffsetFactor={0}
+        polygonOffsetUnits={0}
+        side={DoubleSide}
+        textureQuality={getWallSurfaceTextureQuality(material)}
+        wireframe={wireframe}
+      />
+    )
+  }
+
+  return wall?.kind === 'external' ? (
+    <ExternalWallMaterial attach={attach} side={DoubleSide} wireframe={wireframe} />
+  ) : (
+    <InternalWallMaterial attach={attach} side={DoubleSide} wireframe={wireframe} />
   )
 }
 
@@ -2363,13 +2636,18 @@ const engineActivityListeners = new Set<
   (activity: EngineActivityMessage) => void
 >()
 const ENGINE_LOG_LIMIT = 600
+const WALL_RENDER_DEBUG_LIMIT = 300
+const WALL_RENDER_DEBUG_SNAPSHOTS_ENABLED = false
 const engineLogEntries: EngineLogEntry[] = []
+const wallRenderDebugEntries: EngineLogEntry[] = []
+const wallRenderDebugCurrentEntries = new Map<string, EngineLogEntry>()
 let engineLogSequence = 0
 let surfaceTextureLoadsInFlight = 0
 
 declare global {
   interface Window {
     houseDesignerEngineLog?: HouseDesignerEngineLogApi
+    houseDesignerWallRenderDebug?: HouseDesignerWallRenderDebugApi
     houseDesignerLastPickPng?: string
   }
 }
@@ -2387,12 +2665,135 @@ function getEngineLogApi(): HouseDesignerEngineLogApi {
   }
 }
 
+function getDebugDetailValue(detail: string | undefined, key: string) {
+  return detail
+    ?.split(' ')
+    .find((part) => part.startsWith(`${key}=`))
+    ?.slice(key.length + 1)
+}
+
+function getWallRenderRouteEntries(): WallRenderRouteDebugEntry[] {
+  const routeEntries = new Map<string, WallRenderRouteDebugEntry>()
+  const exclusionEntries = new Map<
+    string,
+    {
+      kind?: WallKind
+      reasons: string[]
+    }
+  >()
+
+  Array.from(wallRenderDebugCurrentEntries.values()).forEach((entry) => {
+    const floorId = getDebugDetailValue(entry.detail, 'floor')
+    const wallId = getDebugDetailValue(entry.detail, 'wall')
+    const wallIds =
+      getDebugDetailValue(entry.detail, 'walls') ??
+      getDebugDetailValue(entry.detail, 'sourceWalls')
+    const route = entry.type.replace(/^wall-renderer:/, '')
+    const addRouteEntry = (candidateWallId: string) => {
+      routeEntries.set(`${floorId ?? ''}:${candidateWallId}`, {
+        floorId,
+        route,
+        wallId: candidateWallId,
+      })
+    }
+
+    if (wallId) {
+      if (route === 'engine-excluded') {
+        const snapshot =
+          entry.snapshot
+            ? JSON.parse(entry.snapshot) as {
+                kind?: WallKind
+                reasons?: string[]
+              }
+            : {}
+
+        exclusionEntries.set(`${floorId ?? ''}:${wallId}`, {
+          kind: snapshot.kind,
+          reasons: snapshot.reasons ?? [],
+        })
+      } else {
+        addRouteEntry(wallId)
+      }
+
+      return
+    }
+
+    if (wallIds) {
+      wallIds.split(',').filter(Boolean).forEach(addRouteEntry)
+    }
+  })
+
+  exclusionEntries.forEach((exclusion, key) => {
+    const existingEntry = routeEntries.get(key)
+
+    if (!existingEntry) {
+      const [, wallId] = key.split(':')
+
+      routeEntries.set(key, {
+        engineExclusionReasons: exclusion.reasons,
+        floorId: key.split(':')[0] || undefined,
+        kind: exclusion.kind,
+        route: 'not-rendered',
+        wallId,
+      })
+      return
+    }
+
+    existingEntry.engineExclusionReasons = exclusion.reasons
+    existingEntry.kind = exclusion.kind
+  })
+
+  return Array.from(routeEntries.values()).sort(
+    (first, second) =>
+      (first.floorId ?? '').localeCompare(second.floorId ?? '') ||
+      first.wallId.localeCompare(second.wallId) ||
+      first.route.localeCompare(second.route),
+  )
+}
+
+function getWallRenderDebugApi(): HouseDesignerWallRenderDebugApi {
+  return {
+    clear: () => {
+      wallRenderDebugEntries.length = 0
+      wallRenderDebugCurrentEntries.clear()
+    },
+    current: () => Array.from(wallRenderDebugCurrentEntries.values()),
+    entries: wallRenderDebugEntries,
+    recent: (count = 80) => wallRenderDebugEntries.slice(-count),
+    routes: getWallRenderRouteEntries,
+    summary: () =>
+      Array.from(wallRenderDebugCurrentEntries.values()).map((entry) => ({
+        detail: entry.detail,
+        type: entry.type,
+      })),
+    tableCurrent: () => {
+      console.table(Array.from(wallRenderDebugCurrentEntries.values()))
+    },
+    tableRoutes: () => {
+      console.table(getWallRenderRouteEntries())
+    },
+    table: (count = 80) => {
+      console.table(wallRenderDebugEntries.slice(-count))
+    },
+  }
+}
+
 function ensureEngineLogApi() {
-  if (typeof window === 'undefined' || window.houseDesignerEngineLog) {
+  if (typeof window === 'undefined') {
     return
   }
 
-  window.houseDesignerEngineLog = getEngineLogApi()
+  if (!window.houseDesignerEngineLog) {
+    window.houseDesignerEngineLog = getEngineLogApi()
+  }
+
+  if (
+    !window.houseDesignerWallRenderDebug ||
+    typeof window.houseDesignerWallRenderDebug.summary !== 'function' ||
+    typeof window.houseDesignerWallRenderDebug.routes !== 'function'
+  ) {
+    window.houseDesignerWallRenderDebug = getWallRenderDebugApi()
+  }
 }
 
 function recordEngineLog(
@@ -2412,6 +2813,27 @@ function recordEngineLog(
 
   if (engineLogEntries.length > ENGINE_LOG_LIMIT) {
     engineLogEntries.splice(0, engineLogEntries.length - ENGINE_LOG_LIMIT)
+  }
+
+  return entry
+}
+
+function recordWallRenderDebug(
+  type: string,
+  detail?: string,
+  snapshot?: string,
+) {
+  ensureEngineLogApi()
+  const entry = recordEngineLog(type, detail, snapshot)
+
+  wallRenderDebugCurrentEntries.set(`${type}:${detail ?? ''}`, entry)
+  wallRenderDebugEntries.push(entry)
+
+  if (wallRenderDebugEntries.length > WALL_RENDER_DEBUG_LIMIT) {
+    wallRenderDebugEntries.splice(
+      0,
+      wallRenderDebugEntries.length - WALL_RENDER_DEBUG_LIMIT,
+    )
   }
 
   return entry
@@ -3000,108 +3422,6 @@ function SceneResourcePreloader({
   return null
 }
 
-function WallSideHighlightMaterial({
-  opacity,
-  side,
-  wall,
-}: {
-  opacity: number
-  side: Exclude<SurfaceWallSide, 'both'>
-  wall: Wall
-}) {
-  const { length, normal, unit } = getWallBasis(wall)
-  const uniforms = useMemo(
-    () => ({
-      highlightColor: { value: new Color(MODEL_OUTLINE_COLOR) },
-      highlightOpacity: { value: opacity },
-      halfThickness: { value: wall.thickness / 2 },
-      selectedSide: { value: side },
-      wallLength: { value: length },
-      wallNormal: { value: new Vector2(normal.x, normal.y) },
-      wallStart: { value: new Vector2(wall.start.x, wall.start.y) },
-      wallUnit: { value: new Vector2(unit.x, unit.y) },
-    }),
-    [
-      length,
-      normal.x,
-      normal.y,
-      opacity,
-      side,
-      unit.x,
-      unit.y,
-      wall.start.x,
-      wall.start.y,
-      wall.thickness,
-    ],
-  )
-
-  return (
-    <shaderMaterial
-      depthTest
-      depthWrite={false}
-      fragmentShader={`
-        precision highp float;
-        uniform vec3 highlightColor;
-        uniform float highlightOpacity;
-        uniform float halfThickness;
-        uniform float selectedSide;
-        uniform float wallLength;
-        uniform vec2 wallNormal;
-        uniform vec2 wallStart;
-        uniform vec2 wallUnit;
-        varying vec3 vWorldNormal;
-        varying vec3 vWorldPosition;
-
-        void main() {
-          vec2 worldPlan = vWorldPosition.xz;
-          vec2 delta = worldPlan - wallStart;
-          float alongWall = dot(delta, wallUnit);
-          float sideDistance = dot(delta, wallNormal);
-          vec2 selectedNormal = wallNormal * selectedSide;
-          vec2 normalPlan = vWorldNormal.xz;
-          float normalPlanLength = length(normalPlan);
-          float targetSideDistance = selectedSide * halfThickness;
-
-          if (normalPlanLength < 0.3) {
-            discard;
-          }
-
-          float facing = dot(normalPlan / normalPlanLength, selectedNormal);
-
-          if (
-            alongWall < -0.08 ||
-            alongWall > wallLength + 0.08 ||
-            abs(sideDistance - targetSideDistance) > 0.08 ||
-            facing < 0.45
-          ) {
-            discard;
-          }
-
-          gl_FragColor = vec4(highlightColor, highlightOpacity);
-        }
-      `}
-      polygonOffset
-      polygonOffsetFactor={-4}
-      polygonOffsetUnits={-4}
-      side={DoubleSide}
-      transparent
-      uniforms={uniforms}
-      vertexShader={`
-        precision highp float;
-        varying vec3 vWorldNormal;
-        varying vec3 vWorldPosition;
-
-        void main() {
-          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-          vWorldPosition = worldPosition.xyz;
-          vWorldNormal = normalize(mat3(modelMatrix) * normal);
-          gl_Position = projectionMatrix * viewMatrix * worldPosition;
-        }
-      `}
-    />
-  )
-}
-
 const WallMesh = memo(function WallMesh({
   castsShadow,
   elevation,
@@ -3109,6 +3429,7 @@ const WallMesh = memo(function WallMesh({
   isActive,
   onRegisterPickTarget,
   renderedWall,
+  selectedWallId,
   selectedSurface,
   surfaceAssignments,
   wallBodyOccluders,
@@ -3120,6 +3441,7 @@ const WallMesh = memo(function WallMesh({
   isActive: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
   renderedWall: RenderedWall
+  selectedWallId: string | null
   selectedSurface: SelectableSurface | null
   surfaceAssignments: SurfaceMaterialAssignment[]
   wallBodyOccluders: WallBodyOccluder[]
@@ -3164,6 +3486,42 @@ const WallMesh = memo(function WallMesh({
     surfaceAssignments,
     wall.id,
   )
+  useEffect(() => {
+    recordWallRenderDebug(
+      'wall-renderer:legacy-wall',
+      `floor=${floorId} wall=${wall.id}`,
+      JSON.stringify({
+        center: [Number(centerX.toFixed(3)), Number(centerZ.toFixed(3))],
+        end: [
+          Number(wall.end.x.toFixed(3)),
+          Number(wall.end.y.toFixed(3)),
+        ],
+        endExtension: Number(endExtension.toFixed(3)),
+        kind: wall.kind,
+        openings: openings.length,
+        renderedLength: Number(renderedLength.toFixed(3)),
+        start: [
+          Number(wall.start.x.toFixed(3)),
+          Number(wall.start.y.toFixed(3)),
+        ],
+        startExtension: Number(startExtension.toFixed(3)),
+      }),
+    )
+  }, [
+    centerX,
+    centerZ,
+    endExtension,
+    floorId,
+    openings.length,
+    renderedLength,
+    startExtension,
+    wall.end.x,
+    wall.end.y,
+    wall.id,
+    wall.kind,
+    wall.start.x,
+    wall.start.y,
+  ])
   const getCapMaterialReference = (
     distanceAlongWall: number,
     capDirection: Point,
@@ -3389,6 +3747,7 @@ const WallMesh = memo(function WallMesh({
                 onRegisterPickTarget={onRegisterPickTarget}
                 renderedLength={renderedLength}
                 rotationY={rotationY}
+                selectedWallId={selectedWallId}
                 selectedSurface={selectedSurface}
                 segment={segment}
                 wall={wall}
@@ -3559,7 +3918,7 @@ function getSkirtingSegmentsAroundOpenings(
           )
           const openingCenter =
             renderedWall.startExtension +
-            (model.wallAttachment?.offset ?? 0) +
+            getProjectedModelOffsetOnWall(model, renderedWall.wall) +
             (definition.openingCenterOffset ?? 0) * scale
 
           return [
@@ -3616,6 +3975,28 @@ function getPointAtSegmentDistance(start: Point, unit: Point, distance: number) 
 
 function getDistanceAlongSegment(start: Point, unit: Point, point: Point) {
   return (point.x - start.x) * unit.x + (point.y - start.y) * unit.y
+}
+
+function getProjectedModelOffsetOnWall(model: PlacedModel, wall: Wall) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared <= 0.000001) {
+    return 0
+  }
+
+  const t = Math.max(
+    0,
+    Math.min(
+      1,
+      ((model.position.x - wall.start.x) * dx +
+        (model.position.y - wall.start.y) * dy) /
+        lengthSquared,
+    ),
+  )
+
+  return Math.sqrt(lengthSquared) * t
 }
 
 function getDoorwayClipIntervalsForSkirtingSegment(
@@ -3744,7 +4125,7 @@ function getDoorwayClipIntervalsForSkirtingSegment(
     )
     const interval = getProjectedInterval(
       renderedWall.wall,
-      model.wallAttachment.offset +
+      getProjectedModelOffsetOnWall(model, renderedWall.wall) +
         (definition.openingCenterOffset ?? 0) * scale,
       width,
     )
@@ -4300,6 +4681,106 @@ function hasWallOpenings(wall: Wall) {
   return (wall.openings ?? []).length > 0
 }
 
+function getWallEngineCandidateRenderedWalls(
+  renderedWalls: RenderedWall[],
+  surfaceAssignments: SurfaceMaterialAssignment[],
+) {
+  if (!WALL_ENGINE_RENDERER_ENABLED) {
+    return []
+  }
+
+  return renderedWalls.filter(
+    (renderedWall) =>
+      (renderedWall.wall.kind === 'internal' ||
+        renderedWall.wall.kind === 'external') &&
+      getBaseWallEngineExclusionReasons(
+        renderedWall.wall,
+        surfaceAssignments,
+      ).length === 0,
+  )
+}
+
+function getUnsupportedWallEngineMaterialAssignments(
+  wall: Wall,
+  surfaceAssignments: SurfaceMaterialAssignment[],
+) {
+  return getWallMaterialAssignments(surfaceAssignments, wall.id).filter(
+    (assignment) => (assignment.coverageHeight ?? wall.height) < wall.height - 0.001,
+  )
+}
+
+function getBaseWallEngineExclusionReasons(
+  wall: Wall,
+  surfaceAssignments: SurfaceMaterialAssignment[],
+) {
+  const reasons: string[] = []
+
+  if (!WALL_ENGINE_RENDERER_ENABLED) {
+    reasons.push('engine-disabled')
+  }
+
+  if (
+    getUnsupportedWallEngineMaterialAssignments(wall, surfaceAssignments).length > 0
+  ) {
+    reasons.push('has-partial-material-assignments')
+  }
+
+  return reasons
+}
+
+function wallCanUseEngineRenderer(
+  wall: Wall,
+  surfaceAssignments: SurfaceMaterialAssignment[],
+) {
+  return getBaseWallEngineExclusionReasons(wall, surfaceAssignments).length === 0
+}
+
+function getWallIdsForEngineHandledInternalFootprintGroups(
+  internalWallFootprintGroups: WallFootprintRenderGroup[],
+  wallEngineCandidateWallIds: Set<string>,
+) {
+  return new Set(
+    internalWallFootprintGroups.flatMap((group) => {
+      const wallIds = group.wallIds && group.wallIds.length > 1 ? group.wallIds : []
+
+      return wallIds.length > 0 &&
+        wallIds.every((wallId) => wallEngineCandidateWallIds.has(wallId))
+        ? wallIds
+        : []
+    }),
+  )
+}
+
+function getWallIdsForLegacyInternalFootprintGroups(
+  internalWallFootprintGroups: WallFootprintRenderGroup[],
+  wallEngineCandidateWallIds: Set<string>,
+) {
+  return new Set(
+    internalWallFootprintGroups.flatMap((group) => {
+      const wallIds = group.wallIds && group.wallIds.length > 1 ? group.wallIds : []
+
+      return wallIds.length > 0 &&
+        !wallIds.every((wallId) => wallEngineCandidateWallIds.has(wallId))
+        ? wallIds
+        : []
+    }),
+  )
+}
+
+function internalFootprintGroupUsesWallEngine(
+  group: WallFootprintRenderGroup,
+  wallEngineHandledInternalFootprintWallIds: Set<string>,
+) {
+  const wallIds = group.wallIds && group.wallIds.length > 1 ? group.wallIds : []
+
+  return (
+    wallIds.length > 0 &&
+    wallIds.every((wallId) =>
+      wallEngineHandledInternalFootprintWallIds.has(wallId),
+    )
+  )
+}
+
 function getPointDistance(firstPoint: Point, secondPoint: Point) {
   return Math.hypot(firstPoint.x - secondPoint.x, firstPoint.y - secondPoint.y)
 }
@@ -4317,7 +4798,10 @@ function externalWallsAreConnected(firstWall: Wall, secondWall: Wall) {
   )
 }
 
-function getExternalWallUnionWalls(walls: Wall[]) {
+function getExternalWallUnionWalls(
+  walls: Wall[],
+  surfaceAssignments: SurfaceMaterialAssignment[],
+) {
   const externalWalls = walls.filter((wall) => wall.kind === 'external')
   const visitedWallIds = new Set<string>()
   const unionWalls: Wall[] = []
@@ -4349,7 +4833,12 @@ function getExternalWallUnionWalls(walls: Wall[]) {
     }
 
     if (component.length > 1) {
-      unionWalls.push(...component)
+      unionWalls.push(
+        ...component.filter(
+          (componentWall) =>
+            !wallCanUseEngineRenderer(componentWall, surfaceAssignments),
+        ),
+      )
     }
   }
 
@@ -4406,6 +4895,15 @@ function getWallBasis(wall: Wall) {
   const normal = { x: -unit.y, y: unit.x }
 
   return { length, normal, unit }
+}
+
+function getDistanceAlongWall(wall: Wall, point: Point) {
+  const { unit } = getWallBasis(wall)
+
+  return (
+    (point.x - wall.start.x) * unit.x +
+    (point.y - wall.start.y) * unit.y
+  )
 }
 
 function getOpeningRectanglesForEdge({
@@ -4563,9 +5061,12 @@ function WallFootprintMeshes({
   elevation,
   floorId,
   footprints,
+  geometryContextRenderedWalls,
   geometryContextWalls,
   height,
+  includeVerticalFaces,
   onRegisterPickTarget,
+  selectedWallId,
   selectedSurface,
   sourceWalls,
   surfaceAssignments = [],
@@ -4576,9 +5077,12 @@ function WallFootprintMeshes({
   elevation: number
   floorId: string
   footprints: WallUnionFootprint[]
+  geometryContextRenderedWalls?: RenderedWall[]
   geometryContextWalls?: Wall[]
   height: number
+  includeVerticalFaces?: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
+  selectedWallId: string | null
   selectedSurface: SelectableSurface | null
   sourceWalls?: Wall[]
   surfaceAssignments?: SurfaceMaterialAssignment[]
@@ -4589,6 +5093,16 @@ function WallFootprintMeshes({
   const contextWalls = useMemo(
     () => geometryContextWalls ?? sourceWalls ?? [],
     [geometryContextWalls, sourceWalls],
+  )
+  const contextRenderedWallsById = useMemo(
+    () =>
+      new Map(
+        (geometryContextRenderedWalls ?? []).map((renderedWall) => [
+          renderedWall.wall.id,
+          renderedWall,
+        ]),
+      ),
+    [geometryContextRenderedWalls],
   )
   const revealContextWalls = useMemo(() => sourceWalls ?? [], [sourceWalls])
   const wallFaceMaterialIndices = useMemo(() => {
@@ -4653,9 +5167,18 @@ function WallFootprintMeshes({
     return targets
   }, [floorId, wallFaceMaterialIndices])
   const selectedWallForHighlight =
+    selectedWallId
+      ? contextWalls.find((wall) => wall.id === selectedWallId) ?? null
+      : selectedSurface?.type === 'wall-face'
+        ? contextWalls.find((wall) => wall.id === selectedSurface.wallId) ?? null
+        : null
+  const selectedMaterialIndex =
     selectedSurface?.type === 'wall-face'
-      ? contextWalls.find((wall) => wall.id === selectedSurface.wallId) ?? null
+      ? wallFaceMaterialIndices.get(
+          `${selectedSurface.wallId}:${selectedSurface.side}`,
+        ) ?? null
       : null
+  const materialGroupCount = Math.max(1, 1 + Math.max(0, ...wallFaceMaterialIndices.values()))
   const hasExternalWallFaceAssignments =
     wallKind === 'external' &&
     (sourceWalls ?? []).some((wall) =>
@@ -4674,22 +5197,61 @@ function WallFootprintMeshes({
             footprints,
             height,
             contextWalls,
+            contextRenderedWallsById,
             wallFaceMaterialIndices,
             surfaceAssignments,
             revealContextWalls,
-            wallKind !== 'internal',
+            includeVerticalFaces ?? wallKind !== 'internal',
           )
         : null,
     [
       footprints,
       height,
       contextWalls,
+      contextRenderedWallsById,
       revealContextWalls,
       surfaceAssignments,
+      includeVerticalFaces,
       useExplicitGeometry,
       wallFaceMaterialIndices,
     ],
   )
+  const selectedHighlightMaterialIndices = useMemo(() => {
+    const presentMaterialIndices = new Set(
+      explicitGeometry?.groups.map((group) => group.materialIndex ?? 0) ?? [],
+    )
+
+    if (
+      selectedSurface?.type === 'wall-face' &&
+      (!selectedWallId || selectedSurface.wallId === selectedWallId) &&
+      selectedMaterialIndex !== null &&
+      presentMaterialIndices.has(selectedMaterialIndex)
+    ) {
+      return [selectedMaterialIndex]
+    }
+
+    const wallId =
+      selectedWallId ??
+      (selectedSurface?.type === 'wall-face' ? selectedSurface.wallId : null)
+
+    if (!wallId) {
+      return []
+    }
+
+    return Array.from(wallFaceMaterialIndices.entries())
+      .filter(
+        ([slotKey, materialIndex]) =>
+          slotKey.startsWith(`${wallId}:`) &&
+          presentMaterialIndices.has(materialIndex),
+      )
+      .map(([, materialIndex]) => materialIndex)
+  }, [
+    explicitGeometry,
+    selectedMaterialIndex,
+    selectedSurface,
+    selectedWallId,
+    wallFaceMaterialIndices,
+  ])
   const unionMeshes = useMemo(
     () =>
       footprints
@@ -4707,6 +5269,33 @@ function WallFootprintMeshes({
     },
     [explicitGeometry],
   )
+  useEffect(() => {
+    recordWallRenderDebug(
+      'wall-renderer:footprint',
+      `floor=${floorId} kind=${wallKind} sourceWalls=${(sourceWalls ?? []).map((wall) => wall.id).join(',')}`,
+      JSON.stringify({
+        groupCount: explicitGeometry?.groups.length ?? 0,
+        includeVerticalFaces: includeVerticalFaces ?? wallKind !== 'internal',
+        materialGroupCount,
+        outlines: footprints.map((footprint) =>
+          footprint.outline.map((point) => [
+            Number(point.x.toFixed(3)),
+            Number(point.y.toFixed(3)),
+          ]),
+        ),
+        useExplicitGeometry,
+      }),
+    )
+  }, [
+    explicitGeometry,
+    floorId,
+    footprints,
+    includeVerticalFaces,
+    materialGroupCount,
+    sourceWalls,
+    useExplicitGeometry,
+    wallKind,
+  ])
   useEffect(() => {
     const object = explicitMeshRef.current
 
@@ -4811,16 +5400,15 @@ function WallFootprintMeshes({
             </>
           )}
         </mesh>
-        {selectedSurface?.type === 'wall-face' && selectedWallForHighlight ? (
+        {selectedWallForHighlight && selectedHighlightMaterialIndices.length > 0 ? (
           <mesh
             geometry={explicitGeometry}
             position={[0, elevation, 0]}
             renderOrder={9}
           >
-            <WallSideHighlightMaterial
-              opacity={0.26}
-              side={selectedSurface.side}
-              wall={selectedWallForHighlight}
+            <FootprintMaterialGroupHighlight
+              materialCount={materialGroupCount}
+              selectedMaterialIndices={selectedHighlightMaterialIndices}
             />
           </mesh>
         ) : null}
@@ -4898,8 +5486,58 @@ type PlanFootprintEdge = {
 type FootprintEdgeWallSideMatch = {
   coverage: number
   offsetError: number
+  projectUvFromWall?: boolean
   side: Exclude<SurfaceWallSide, 'both'>
   wall: Wall
+}
+
+type FootprintEdgeWallSideSegment = {
+  left: number
+  match: FootprintEdgeWallSideMatch | null
+  right: number
+}
+
+function FootprintMaterialGroupHighlight({
+  materialCount,
+  selectedMaterialIndices,
+}: {
+  materialCount: number
+  selectedMaterialIndices: number[]
+}) {
+  const selectedMaterialIndexSet = new Set(selectedMaterialIndices)
+
+  return (
+    <>
+      {Array.from({ length: materialCount }).map((_, index) =>
+        selectedMaterialIndexSet.has(index) ? (
+          <meshBasicMaterial
+            key={index}
+            attach={`material-${index}`}
+            color={MODEL_OUTLINE_COLOR}
+            colorWrite
+            depthWrite={false}
+            opacity={0.26}
+            polygonOffset
+            polygonOffsetFactor={-4}
+            polygonOffsetUnits={-4}
+            side={DoubleSide}
+            transparent
+          />
+        ) : (
+          <meshBasicMaterial
+            key={index}
+            attach={`material-${index}`}
+            color="#000000"
+            colorWrite={false}
+            depthWrite={false}
+            opacity={0}
+            side={DoubleSide}
+            transparent
+          />
+        ),
+      )}
+    </>
+  )
 }
 
 function getFootprintEdges(footprints: WallUnionFootprint[]) {
@@ -5045,6 +5683,165 @@ function getFootprintEdgeWallSideContext(
   return bestMatch
 }
 
+function getFootprintEdgeWallSideSegments(
+  edge: PlanFootprintEdge,
+  walls: Wall[],
+): FootprintEdgeWallSideSegment[] {
+  const metrics = getEdgeMetrics(edge)
+
+  if (!metrics || metrics.length < 0.001) {
+    return []
+  }
+
+  const edgeNormal = { x: -metrics.unit.y, y: metrics.unit.x }
+  const candidates: Array<FootprintEdgeWallSideMatch & {
+    left: number
+    right: number
+  }> = []
+
+  const collectCandidates = (allowAbuttingEndpointExtension: boolean) => {
+    for (const wall of walls) {
+      const { length: wallLength, normal, unit } = getWallBasis(wall)
+
+      if (wallLength < 0.001) {
+        continue
+      }
+
+      const parallel = Math.abs(metrics.unit.x * unit.x + metrics.unit.y * unit.y)
+
+      if (parallel < 0.94) {
+        continue
+      }
+
+      for (const side of [1, -1] as const) {
+        const sideOffset = side * wall.thickness / 2
+        const sideStart = {
+          x: wall.start.x + normal.x * sideOffset,
+          y: wall.start.y + normal.y * sideOffset,
+        }
+        const sideEnd = {
+          x: wall.end.x + normal.x * sideOffset,
+          y: wall.end.y + normal.y * sideOffset,
+        }
+        const offsetError = Math.abs(
+          (sideStart.x - edge.start.x) * edgeNormal.x +
+            (sideStart.y - edge.start.y) * edgeNormal.y,
+        )
+
+        if (offsetError > Math.max(0.02, wall.thickness * 0.2)) {
+          continue
+        }
+
+        const startDistance =
+          (sideStart.x - edge.start.x) * metrics.unit.x +
+          (sideStart.y - edge.start.y) * metrics.unit.y
+        const endDistance =
+          (sideEnd.x - edge.start.x) * metrics.unit.x +
+          (sideEnd.y - edge.start.y) * metrics.unit.y
+        const endpointDistances = [sideStart, sideEnd].map((point) => ({
+          along:
+            (point.x - edge.start.x) * metrics.unit.x +
+            (point.y - edge.start.y) * metrics.unit.y,
+          offset: Math.abs(
+            (point.x - edge.start.x) * edgeNormal.x +
+              (point.y - edge.start.y) * edgeNormal.y,
+          ),
+        }))
+        const endpointTouchesEdge = endpointDistances.some(
+          (endpointDistance) =>
+            endpointDistance.offset <= Math.max(0.02, wall.thickness * 0.2) &&
+            endpointDistance.along >= -wall.thickness &&
+            endpointDistance.along <= metrics.length + wall.thickness,
+        )
+        const extensionTolerance =
+          allowAbuttingEndpointExtension && endpointTouchesEdge
+            ? Math.max(0.02, wall.thickness)
+            : Math.max(0.005, wall.thickness * 0.05)
+        const left = Math.max(
+          0,
+          Math.min(startDistance, endDistance) - extensionTolerance,
+        )
+        const right = Math.min(
+          metrics.length,
+          Math.max(startDistance, endDistance) + extensionTolerance,
+        )
+        const overlapLength = right - left
+
+        if (overlapLength <= 0.001) {
+          continue
+        }
+
+        candidates.push({
+          coverage: overlapLength / metrics.length,
+          left,
+          offsetError,
+          projectUvFromWall: allowAbuttingEndpointExtension && endpointTouchesEdge,
+          right,
+          side,
+          wall,
+        })
+      }
+    }
+  }
+
+  collectCandidates(false)
+
+  if (candidates.length === 0) {
+    collectCandidates(true)
+  }
+
+  if (candidates.length === 0) {
+    return [
+      {
+        left: 0,
+        match: null,
+        right: metrics.length,
+      },
+    ]
+  }
+
+  const breaks = [0, metrics.length, ...candidates.flatMap((candidate) => [
+    candidate.left,
+    candidate.right,
+  ])]
+    .filter((value) => value >= 0 && value <= metrics.length)
+    .sort((first, second) => first - second)
+  const uniqueBreaks = breaks.filter(
+    (value, index) => index === 0 || Math.abs(value - breaks[index - 1]) > 0.001,
+  )
+
+  return uniqueBreaks.slice(0, -1).flatMap((left, index) => {
+    const right = uniqueBreaks[index + 1]
+
+    if (right - left <= 0.001) {
+      return []
+    }
+
+    const midpoint = (left + right) / 2
+    const match =
+      candidates
+        .filter(
+          (candidate) =>
+            midpoint >= candidate.left - 0.001 &&
+            midpoint <= candidate.right + 0.001,
+        )
+        .sort(
+          (first, second) =>
+            first.offsetError - second.offsetError ||
+            second.coverage - first.coverage ||
+            first.wall.id.localeCompare(second.wall.id),
+        )[0] ?? null
+
+    return [
+      {
+        left,
+        match,
+        right,
+      },
+    ]
+  })
+}
+
 function isPointInsideFootprintSolid(point: Point, footprint: WallUnionFootprint) {
   return (
     isPointInsidePolygon(point, footprint.outline) &&
@@ -5078,6 +5875,7 @@ function createWallFootprintGeometryWithOpenings(
   footprints: WallUnionFootprint[],
   height: number,
   walls: Wall[],
+  renderedWallsById = new Map<string, RenderedWall>(),
   wallFaceMaterialIndices = new Map<string, number>(),
   surfaceAssignments: SurfaceMaterialAssignment[] = [],
   revealWalls = walls,
@@ -5194,19 +5992,6 @@ function createWallFootprintGeometryWithOpenings(
           [third.x, third.y],
         ],
       )
-      addTriangle(
-        [
-          [first.x, 0, first.y],
-          [second.x, 0, second.y],
-          [third.x, 0, third.y],
-        ],
-        [0, -1, 0],
-        [
-          [first.x, first.y],
-          [second.x, second.y],
-          [third.x, third.y],
-        ],
-      )
     })
 
     if (includeVerticalFaces) {
@@ -5221,72 +6006,116 @@ function createWallFootprintGeometryWithOpenings(
           }
 
           const outward = getFootprintEdgeOutwardNormal(edge, metrics, footprint)
-          const wallSideContext = getFootprintEdgeWallSideContext(edge, walls)
-          const openingContext = getFootprintEdgeOpeningContext(edge, walls)
-          const rectangles = openingContext
-            ? getOpeningRectanglesForEdge({
-                edge,
-                edgeLength: metrics.length,
-                edgeUnit: metrics.unit,
-                height,
-                wall: openingContext.wall,
-              })
-            : [{ bottom: 0, left: 0, right: metrics.length, top: height }]
-          const wallMaterialAssignments = wallSideContext
-            ? getWallMaterialAssignments(surfaceAssignments, wallSideContext.wall.id)
-            : []
+          const edgeSegments = getFootprintEdgeWallSideSegments(edge, walls)
 
-          rectangles.forEach((rectangle) => {
-            const yBreaks = [
-              rectangle.bottom,
-              rectangle.top,
-              ...wallMaterialAssignments.flatMap((assignment) => {
-                const coverageHeight = assignment.coverageHeight ?? height
+          edgeSegments.forEach((edgeSegment) => {
+            const segmentLength = edgeSegment.right - edgeSegment.left
 
-                return coverageHeight > rectangle.bottom + 0.001 &&
-                  coverageHeight < rectangle.top - 0.001
-                  ? [coverageHeight]
-                  : []
-              }),
-            ].sort((firstBreak, secondBreak) => firstBreak - secondBreak)
-            const uniqueYBreaks = yBreaks.filter(
-              (value, valueIndex) =>
-                valueIndex === 0 ||
-                Math.abs(value - yBreaks[valueIndex - 1]) > 0.001,
-            )
+            if (segmentLength <= 0.001) {
+              return
+            }
 
-            uniqueYBreaks.slice(0, -1).forEach((bottom, yIndex) => {
-              const top = uniqueYBreaks[yIndex + 1]
-              const materialIndex = wallSideContext
-                ? wallFaceMaterialIndices.get(
-                    `${wallSideContext.wall.id}:${wallSideContext.side}`,
-                  ) ?? 0
-                : 0
-              const leftBottom = {
-                x: start.x + metrics.unit.x * rectangle.left,
-                y: start.y + metrics.unit.y * rectangle.left,
-              }
-              const rightBottom = {
-                x: start.x + metrics.unit.x * rectangle.right,
-                y: start.y + metrics.unit.y * rectangle.right,
-              }
+            const segmentEdge = {
+              start: {
+                x: start.x + metrics.unit.x * edgeSegment.left,
+                y: start.y + metrics.unit.y * edgeSegment.left,
+              },
+              end: {
+                x: start.x + metrics.unit.x * edgeSegment.right,
+                y: start.y + metrics.unit.y * edgeSegment.right,
+              },
+            }
+            const wallSideContext =
+              edgeSegment.match ?? getFootprintEdgeWallSideContext(segmentEdge, walls)
+            const openingContext =
+              wallSideContext && hasWallOpenings(wallSideContext.wall)
+                ? { side: wallSideContext.side, wall: wallSideContext.wall }
+                : getFootprintEdgeOpeningContext(segmentEdge, walls)
+            const rectangles = openingContext
+              ? getOpeningRectanglesForEdge({
+                  edge: segmentEdge,
+                  edgeLength: segmentLength,
+                  edgeUnit: metrics.unit,
+                  height,
+                  wall: openingContext.wall,
+                })
+              : [{ bottom: 0, left: 0, right: segmentLength, top: height }]
+            const wallMaterialAssignments = wallSideContext
+              ? getWallMaterialAssignments(surfaceAssignments, wallSideContext.wall.id)
+              : []
 
-              addQuad(
-                [
-                  [leftBottom.x, bottom, leftBottom.y],
-                  [rightBottom.x, bottom, rightBottom.y],
-                  [rightBottom.x, top, rightBottom.y],
-                  [leftBottom.x, top, leftBottom.y],
-                ],
-                [outward.x, 0, outward.y],
-                [
-                  [rectangle.left, bottom],
-                  [rectangle.right, bottom],
-                  [rectangle.right, top],
-                  [rectangle.left, top],
-                ],
-                materialIndex,
+            rectangles.forEach((rectangle) => {
+              const yBreaks = [
+                rectangle.bottom,
+                rectangle.top,
+                ...wallMaterialAssignments.flatMap((assignment) => {
+                  const coverageHeight = assignment.coverageHeight ?? height
+
+                  return coverageHeight > rectangle.bottom + 0.001 &&
+                    coverageHeight < rectangle.top - 0.001
+                    ? [coverageHeight]
+                    : []
+                }),
+              ].sort((firstBreak, secondBreak) => firstBreak - secondBreak)
+              const uniqueYBreaks = yBreaks.filter(
+                (value, valueIndex) =>
+                  valueIndex === 0 ||
+                  Math.abs(value - yBreaks[valueIndex - 1]) > 0.001,
               )
+
+              uniqueYBreaks.slice(0, -1).forEach((bottom, yIndex) => {
+                const top = uniqueYBreaks[yIndex + 1]
+                const materialIndex = wallSideContext
+                  ? wallFaceMaterialIndices.get(
+                      `${wallSideContext.wall.id}:${wallSideContext.side}`,
+                    ) ?? 0
+                  : 0
+                const uvLeft = edgeSegment.left + rectangle.left
+                const uvRight = edgeSegment.left + rectangle.right
+                const leftBottom = {
+                  x: start.x + metrics.unit.x * uvLeft,
+                  y: start.y + metrics.unit.y * uvLeft,
+                }
+                const rightBottom = {
+                  x: start.x + metrics.unit.x * uvRight,
+                  y: start.y + metrics.unit.y * uvRight,
+                }
+                const getWallSideUvCoordinate = (
+                  point: Point,
+                  fallbackUv: number,
+                ) => {
+                  if (!wallSideContext) {
+                    return fallbackUv
+                  }
+
+                  const renderedWall = renderedWallsById.get(
+                    wallSideContext.wall.id,
+                  )
+
+                  return renderedWall
+                    ? getDistanceAlongRenderedWall(renderedWall, point)
+                    : getDistanceAlongWall(wallSideContext.wall, point)
+                }
+                const uvLeftCoordinate = getWallSideUvCoordinate(leftBottom, uvLeft)
+                const uvRightCoordinate = getWallSideUvCoordinate(rightBottom, uvRight)
+
+                addQuad(
+                  [
+                    [leftBottom.x, bottom, leftBottom.y],
+                    [rightBottom.x, bottom, rightBottom.y],
+                    [rightBottom.x, top, rightBottom.y],
+                    [leftBottom.x, top, leftBottom.y],
+                  ],
+                  [outward.x, 0, outward.y],
+                  [
+                    [uvLeftCoordinate, bottom],
+                    [uvRightCoordinate, bottom],
+                    [uvRightCoordinate, top],
+                    [uvLeftCoordinate, top],
+                  ],
+                  materialIndex,
+                )
+              })
             })
           })
         })
@@ -5357,17 +6186,19 @@ function createWallFootprintGeometryWithOpenings(
             [[left, 0], [right, 0], [right, revealDepth], [left, revealDepth]],
             materialIndex,
           )
-          addQuad(
-            [
-              toPosition(left, bottom, depthStart),
-              toPosition(right, bottom, depthStart),
-              toPosition(right, bottom, depthEnd),
-              toPosition(left, bottom, depthEnd),
-            ],
-            [0, 1, 0],
-            [[left, 0], [right, 0], [right, revealDepth], [left, revealDepth]],
-            materialIndex,
-          )
+          if (bottom > SKIRTING_OPENING_FLOOR_TOLERANCE_METERS) {
+            addQuad(
+              [
+                toPosition(left, bottom, depthStart),
+                toPosition(right, bottom, depthStart),
+                toPosition(right, bottom, depthEnd),
+                toPosition(left, bottom, depthEnd),
+              ],
+              [0, 1, 0],
+              [[left, 0], [right, 0], [right, revealDepth], [left, revealDepth]],
+              materialIndex,
+            )
+          }
         })
       })
     })
@@ -6309,6 +7140,63 @@ function ModelMesh({
   return modelGroup
 }
 
+function WallEngineExclusionDebugRecorder({
+  externalWallUnionWallIds,
+  floorId,
+  legacyInternalWallFootprintWallIds,
+  renderedWalls,
+  surfaceAssignments,
+}: {
+  externalWallUnionWallIds: string[]
+  floorId: string
+  legacyInternalWallFootprintWallIds: string[]
+  renderedWalls: RenderedWall[]
+  surfaceAssignments: SurfaceMaterialAssignment[]
+}) {
+  useEffect(() => {
+    const externalWallUnionWallIdSet = new Set(externalWallUnionWallIds)
+    const legacyInternalWallFootprintWallIdSet = new Set(
+      legacyInternalWallFootprintWallIds,
+    )
+
+    renderedWalls.forEach((renderedWall) => {
+      const reasons = getBaseWallEngineExclusionReasons(
+        renderedWall.wall,
+        surfaceAssignments,
+      )
+
+      if (externalWallUnionWallIdSet.has(renderedWall.wall.id)) {
+        reasons.push('external-union-footprint')
+      }
+
+      if (legacyInternalWallFootprintWallIdSet.has(renderedWall.wall.id)) {
+        reasons.push('legacy-internal-footprint-group')
+      }
+
+      if (reasons.length === 0) {
+        return
+      }
+
+      recordWallRenderDebug(
+        'wall-renderer:engine-excluded',
+        `floor=${floorId} wall=${renderedWall.wall.id}`,
+        JSON.stringify({
+          kind: renderedWall.wall.kind,
+          reasons,
+        }),
+      )
+    })
+  }, [
+    externalWallUnionWallIds,
+    floorId,
+    legacyInternalWallFootprintWallIds,
+    renderedWalls,
+    surfaceAssignments,
+  ])
+
+  return null
+}
+
 function SolidFloorScene({
   daylightEnabled,
   externalWallUnionFootprints,
@@ -6326,6 +7214,7 @@ function SolidFloorScene({
   pickTargetsRef,
   renderedWalls,
   rooms,
+  selectedWallId,
   selectedSurface,
   shadowsEnabled,
   surfaceAssignments,
@@ -6351,6 +7240,7 @@ function SolidFloorScene({
   pickTargetsRef: MutableRefObject<PickTarget[]>
   renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
+  selectedWallId: string | null
   selectedSurface: SelectableSurface | null
   shadowsEnabled: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
@@ -6373,11 +7263,80 @@ function SolidFloorScene({
     () => new Map(geometryContextWalls.map((wall) => [wall.id, wall])),
     [geometryContextWalls],
   )
-  const visibleRenderedWalls = usesExternalWallUnion
+  const externalUnionFilteredRenderedWalls = usesExternalWallUnion
     ? renderedWalls.filter(
-        (renderedWall) => !externalWallUnionWallIdSet.has(renderedWall.wall.id),
+        (renderedWall) =>
+          !externalWallUnionWallIdSet.has(renderedWall.wall.id),
       )
     : renderedWalls
+  const wallEngineCandidateRenderedWalls = getWallEngineCandidateRenderedWalls(
+    externalUnionFilteredRenderedWalls,
+    surfaceAssignments,
+  )
+  const wallEngineCandidateWallIds = new Set(
+    wallEngineCandidateRenderedWalls.map((renderedWall) => renderedWall.wall.id),
+  )
+  const wallEngineHandledInternalFootprintWallIds =
+    getWallIdsForEngineHandledInternalFootprintGroups(
+      internalWallFootprintGroups,
+      wallEngineCandidateWallIds,
+    )
+  const legacyInternalWallFootprintWallIdSet =
+    getWallIdsForLegacyInternalFootprintGroups(
+      internalWallFootprintGroups,
+      wallEngineCandidateWallIds,
+    )
+  const visibleRenderedWalls = externalUnionFilteredRenderedWalls.filter(
+    (renderedWall) =>
+      !legacyInternalWallFootprintWallIdSet.has(renderedWall.wall.id),
+  )
+  const wallEngineRenderedWalls = wallEngineCandidateRenderedWalls.filter(
+    (renderedWall) =>
+      !legacyInternalWallFootprintWallIdSet.has(renderedWall.wall.id),
+  )
+  const wallEngineRenderedWallIds = new Set(
+    wallEngineRenderedWalls.map((renderedWall) => renderedWall.wall.id),
+  )
+  const legacyVisibleRenderedWalls = wallEngineRenderedWalls.length > 0
+    ? visibleRenderedWalls.filter(
+        (renderedWall) => !wallEngineRenderedWallIds.has(renderedWall.wall.id),
+      )
+    : visibleRenderedWalls
+  useEffect(() => {
+    renderedWalls.forEach((renderedWall) => {
+      const reasons = getBaseWallEngineExclusionReasons(
+        renderedWall.wall,
+        surfaceAssignments,
+      )
+
+      if (externalWallUnionWallIdSet.has(renderedWall.wall.id)) {
+        reasons.push('external-union-footprint')
+      }
+
+      if (legacyInternalWallFootprintWallIdSet.has(renderedWall.wall.id)) {
+        reasons.push('legacy-internal-footprint-group')
+      }
+
+      if (reasons.length === 0) {
+        return
+      }
+
+      recordWallRenderDebug(
+        'wall-renderer:engine-excluded',
+        `floor=${floor.id} wall=${renderedWall.wall.id}`,
+        JSON.stringify({
+          kind: renderedWall.wall.kind,
+          reasons,
+        }),
+      )
+    })
+  }, [
+    externalWallUnionWallIdSet,
+    floor.id,
+    legacyInternalWallFootprintWallIdSet,
+    renderedWalls,
+    surfaceAssignments,
+  ])
   const visibleModels = useMemo(
     () =>
       (floor.models ?? []).filter((model) => {
@@ -6404,8 +7363,11 @@ function SolidFloorScene({
             elevation={floor.elevation}
             floorId={floor.id}
             footprints={externalWallUnionFootprints}
+            geometryContextRenderedWalls={renderedWalls}
+            geometryContextWalls={geometryContextWalls}
             height={floor.roomHeight}
             onRegisterPickTarget={onRegisterPickTarget}
+            selectedWallId={selectedWallId}
             selectedSurface={selectedSurface}
             sourceWalls={externalWallUnionWalls}
             surfaceAssignments={surfaceAssignments}
@@ -6414,16 +7376,28 @@ function SolidFloorScene({
           />
         </>
       ) : null}
-      {internalWallFootprintGroups.map((group) => (
+      {internalWallFootprintGroups
+        .filter((group) => group.wallIds && group.wallIds.length > 1)
+        .filter(
+          (group) =>
+            !internalFootprintGroupUsesWallEngine(
+              group,
+              wallEngineHandledInternalFootprintWallIds,
+            ),
+        )
+        .map((group) => (
         <WallFootprintMeshes
           key={group.wallId}
           castsShadow={shadowsEnabled}
           elevation={floor.elevation}
           floorId={floor.id}
           footprints={group.footprints}
+          geometryContextRenderedWalls={renderedWalls}
           geometryContextWalls={geometryContextWalls}
           height={floor.roomHeight}
+          includeVerticalFaces={Boolean(group.wallIds && group.wallIds.length > 1)}
           onRegisterPickTarget={onRegisterPickTarget}
+          selectedWallId={selectedWallId}
           selectedSurface={selectedSurface}
           sourceWalls={(group.wallIds ?? [group.wallId])
             .map((wallId) => wallsById.get(wallId))
@@ -6433,7 +7407,20 @@ function SolidFloorScene({
           wireframe={wireframe}
         />
       ))}
-      {visibleRenderedWalls.map((renderedWall) => (
+      {wallEngineRenderedWalls.length > 0 ? (
+        <WallEngineWallMeshes
+          castsShadow={shadowsEnabled}
+          elevation={floor.elevation}
+          floorId={floor.id}
+          onRegisterPickTarget={onRegisterPickTarget}
+          renderedWalls={wallEngineRenderedWalls}
+          selectedSurface={selectedSurface}
+          selectedWallId={selectedWallId}
+          surfaceAssignments={surfaceAssignments}
+          wireframe={wireframe}
+        />
+      ) : null}
+      {legacyVisibleRenderedWalls.map((renderedWall) => (
         <WallMesh
           key={renderedWall.wall.id}
           castsShadow={shadowsEnabled}
@@ -6442,6 +7429,7 @@ function SolidFloorScene({
           isActive
           onRegisterPickTarget={onRegisterPickTarget}
           renderedWall={renderedWall}
+          selectedWallId={selectedWallId}
           selectedSurface={selectedSurface}
           surfaceAssignments={surfaceAssignments}
           wallBodyOccluders={wallBodyOccluders}
@@ -9033,6 +10021,7 @@ export function ThreeDView({
   onUpdateModel,
   selectedModelId,
   selectedSurface,
+  selectedWallId,
   showAllFloors,
   surfaceAssignments,
 }: ThreeDViewProps) {
@@ -9144,7 +10133,10 @@ export function ThreeDView({
             ...getExternalWallRenderExtensions(renderedWall.wall, topologyWalls),
           }
         })
-        const externalWallUnionWalls = getExternalWallUnionWalls(topologyWalls)
+        const externalWallUnionWalls = getExternalWallUnionWalls(
+          topologyWalls,
+          surfaceAssignments,
+        )
         const externalWallUnionFootprints = unionMiteredWallFootprints(
           externalWallUnionWalls,
           topologyWalls,
@@ -9174,7 +10166,7 @@ export function ThreeDView({
           wallBodyOccluders,
         }
       }),
-    [floors],
+    [floors, surfaceAssignments],
   )
   const renderedFloorsById = useMemo(
     () =>
@@ -9597,7 +10589,10 @@ export function ThreeDView({
 
   useEffect(() => {
     ensureEngineLogApi()
-    recordEngineLog('engine-log-ready', 'Use window.houseDesignerEngineLog.table()')
+    recordEngineLog(
+      'engine-log-ready',
+      'Use window.houseDesignerEngineLog.table() or window.houseDesignerWallRenderDebug.table()',
+    )
   }, [])
 
   useEffect(
@@ -10082,7 +11077,7 @@ export function ThreeDView({
                 geometryContextWalls.map((wall) => [wall.id, wall]),
               )
               const activeVisibleRoomSignatures: ReadonlySet<string> | null = null
-              const visibleRenderedWallsForFloor = usesExternalWallUnion
+              const externalUnionFilteredRenderedWallsForFloor = usesExternalWallUnion
                 ? renderedWalls.filter(
                     (renderedWall) =>
                       !externalWallUnionWallIdSet.has(renderedWall.wall.id) &&
@@ -10100,6 +11095,47 @@ export function ThreeDView({
                         activeVisibleRoomSignatures,
                       ),
                   )
+              const wallEngineCandidateRenderedWalls =
+                getWallEngineCandidateRenderedWalls(
+                  externalUnionFilteredRenderedWallsForFloor,
+                  surfaceAssignments,
+                )
+              const wallEngineCandidateWallIds = new Set(
+                wallEngineCandidateRenderedWalls.map(
+                  (renderedWall) => renderedWall.wall.id,
+                ),
+              )
+              const wallEngineHandledInternalFootprintWallIds =
+                getWallIdsForEngineHandledInternalFootprintGroups(
+                  internalWallFootprintGroups,
+                  wallEngineCandidateWallIds,
+                )
+              const legacyInternalWallFootprintWallIdSet =
+                getWallIdsForLegacyInternalFootprintGroups(
+                  internalWallFootprintGroups,
+                  wallEngineCandidateWallIds,
+                )
+              const visibleRenderedWallsForFloor =
+                externalUnionFilteredRenderedWallsForFloor.filter(
+                  (renderedWall) =>
+                    !legacyInternalWallFootprintWallIdSet.has(
+                      renderedWall.wall.id,
+                    ),
+                )
+              const wallEngineRenderedWalls = wallEngineCandidateRenderedWalls.filter(
+                (renderedWall) =>
+                  !legacyInternalWallFootprintWallIdSet.has(renderedWall.wall.id),
+              )
+              const wallEngineRenderedWallIds = new Set(
+                wallEngineRenderedWalls.map((renderedWall) => renderedWall.wall.id),
+              )
+              const legacyVisibleRenderedWallsForFloor =
+                wallEngineRenderedWalls.length > 0
+                  ? visibleRenderedWallsForFloor.filter(
+                      (renderedWall) =>
+                        !wallEngineRenderedWallIds.has(renderedWall.wall.id),
+                    )
+                  : visibleRenderedWallsForFloor
               const slabIsSolid = floor.id === floorBelowActive?.id
               const floorIndex = floorsByElevation.findIndex(
                 (candidateFloor) => candidateFloor.id === floor.id,
@@ -10125,10 +11161,15 @@ export function ThreeDView({
               if (showAllFloors) {
                 return (
                   <group key={floor.id}>
-                    <FloorRenderBoundary
-                      floorId={floor.id}
-                      resetKey={getFloorRenderResetKey(floor, surfaceAssignments)}
-                    >
+                      <FloorRenderBoundary
+                        floorId={floor.id}
+                        resetKey={getFloorRenderResetKey(
+                          floor,
+                          surfaceAssignments,
+                          selectedSurface,
+                          selectedWallId,
+                        )}
+                      >
                       {renderOptions.floorSlabs ? (
                         <FloorSlab
                           castsShadow={renderOptions.shadows}
@@ -10186,6 +11227,7 @@ export function ThreeDView({
                         pickTargetsRef={pickTargetsRef}
                         renderedWalls={renderedWalls}
                         rooms={rooms}
+                        selectedWallId={selectedWallId}
                         selectedSurface={selectedSurface}
                         shadowsEnabled={renderOptions.shadows}
                         surfaceAssignments={surfaceAssignments}
@@ -10204,7 +11246,12 @@ export function ThreeDView({
                 <group key={floor.id}>
                   <FloorRenderBoundary
                     floorId={floor.id}
-                    resetKey={getFloorRenderResetKey(floor, surfaceAssignments)}
+                    resetKey={getFloorRenderResetKey(
+                      floor,
+                      surfaceAssignments,
+                      selectedSurface,
+                      selectedWallId,
+                    )}
                   >
                     {shouldRenderSlab ? (
                       <FloorSlab
@@ -10277,6 +11324,17 @@ export function ThreeDView({
                         />
                       </>
                     ) : null}
+                    <WallEngineExclusionDebugRecorder
+                      externalWallUnionWallIds={
+                        usesExternalWallUnion ? externalWallUnionWallIds : []
+                      }
+                      floorId={floor.id}
+                      legacyInternalWallFootprintWallIds={Array.from(
+                        legacyInternalWallFootprintWallIdSet,
+                      )}
+                      renderedWalls={renderedWalls}
+                      surfaceAssignments={surfaceAssignments}
+                    />
                     {usesExternalWallUnion ? (
                       <>
                         <WallFootprintMeshes
@@ -10284,8 +11342,11 @@ export function ThreeDView({
                           elevation={floor.elevation}
                           floorId={floor.id}
                           footprints={externalWallUnionFootprints}
+                          geometryContextRenderedWalls={renderedWalls}
+                          geometryContextWalls={geometryContextWalls}
                           height={floor.roomHeight}
                           onRegisterPickTarget={registerPickTarget}
+                          selectedWallId={selectedWallId}
                           selectedSurface={selectedSurface}
                           sourceWalls={externalWallUnionWalls}
                           surfaceAssignments={surfaceAssignments}
@@ -10296,6 +11357,14 @@ export function ThreeDView({
                     ) : null}
                     {isActive
                       ? internalWallFootprintGroups
+                          .filter((group) => group.wallIds && group.wallIds.length > 1)
+                          .filter(
+                            (group) =>
+                              !internalFootprintGroupUsesWallEngine(
+                                group,
+                                wallEngineHandledInternalFootprintWallIds,
+                              ),
+                          )
                           .map((group) => ({
                             group,
                             sourceWalls: (group.wallIds ?? [group.wallId])
@@ -10318,9 +11387,14 @@ export function ThreeDView({
                               elevation={floor.elevation}
                               floorId={floor.id}
                               footprints={group.footprints}
+                              geometryContextRenderedWalls={renderedWalls}
                               geometryContextWalls={geometryContextWalls}
                               height={floor.roomHeight}
+                              includeVerticalFaces={Boolean(
+                                group.wallIds && group.wallIds.length > 1,
+                              )}
                               onRegisterPickTarget={registerPickTarget}
+                              selectedWallId={selectedWallId}
                               selectedSurface={selectedSurface}
                               sourceWalls={sourceWalls}
                               surfaceAssignments={surfaceAssignments}
@@ -10329,7 +11403,20 @@ export function ThreeDView({
                             />
                           ))
                       : null}
-                    {visibleRenderedWallsForFloor.map((renderedWall) => (
+                    {wallEngineRenderedWalls.length > 0 ? (
+                      <WallEngineWallMeshes
+                        castsShadow={hasShadowSurface}
+                        elevation={floor.elevation}
+                        floorId={floor.id}
+                        onRegisterPickTarget={registerPickTarget}
+                        renderedWalls={wallEngineRenderedWalls}
+                        selectedSurface={selectedSurface}
+                        selectedWallId={selectedWallId}
+                        surfaceAssignments={surfaceAssignments}
+                        wireframe={renderOptions.wireframe}
+                      />
+                    ) : null}
+                    {legacyVisibleRenderedWallsForFloor.map((renderedWall) => (
                       <WallMesh
                         key={renderedWall.wall.id}
                         castsShadow={hasShadowSurface}
@@ -10338,6 +11425,7 @@ export function ThreeDView({
                         isActive={isActive}
                         onRegisterPickTarget={registerPickTarget}
                         renderedWall={renderedWall}
+                        selectedWallId={selectedWallId}
                         selectedSurface={selectedSurface}
                         surfaceAssignments={surfaceAssignments}
                         wallBodyOccluders={wallBodyOccluders}

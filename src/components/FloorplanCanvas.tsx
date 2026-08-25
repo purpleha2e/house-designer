@@ -17,6 +17,10 @@ import {
   modelLibrary,
   modelsById,
 } from '../models/modelLibrary'
+import {
+  endpointSnapRespectsMinimumJoinAngle,
+  wallRespectsMinimumEndpointJoinAngles,
+} from '../wallJoinConstraints'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
 import {
   buildWallTopology,
@@ -2368,13 +2372,18 @@ export function FloorplanCanvas({
   const snapToPreferredConnection = (point: Point) =>
     getPreferredSnapTarget(point)?.point ?? point
 
-  const getWallEndpointSnapTarget = (point: Point, wall: Wall) => {
+  const getWallEndpointSnapTarget = (
+    point: Point,
+    wall: Wall,
+    endpoint: 'end' | 'start',
+    oppositeEndpoint: Point,
+  ) => {
     const activeWalls = activeFloor.walls.filter(
       (candidateWall) => candidateWall.id !== wall.id,
     )
     const referenceWalls = referenceFloors.flatMap((floor) => floor.walls)
-
-    return (
+    const allSnapWalls = [...activeWalls, ...referenceWalls]
+    const snapTarget =
       getSnapTarget(
         point,
         getSnapSegments(activeWalls, wall.kind, wall.thickness),
@@ -2383,7 +2392,49 @@ export function FloorplanCanvas({
         point,
         getSnapSegments(referenceWalls, wall.kind, wall.thickness),
       )
-    )
+
+    if (
+      snapTarget?.kind === 'endpoint' &&
+      !endpointSnapRespectsMinimumJoinAngle({
+        endpoint,
+        movingWall: {
+          id: wall.id,
+          start: endpoint === 'start' ? snapTarget.point : oppositeEndpoint,
+          end: endpoint === 'end' ? snapTarget.point : oppositeEndpoint,
+        },
+        snapPoint: snapTarget.point,
+        tolerance: CONNECTION_SNAP_METERS,
+        walls: allSnapWalls,
+      })
+    ) {
+      return null
+    }
+
+    return snapTarget
+  }
+
+  const wallUpdateRespectsMinimumJoinAngles = (
+    wallId: string,
+    nextWall: Pick<Wall, 'end' | 'start'>,
+  ) => {
+    const currentWall = activeFloor.walls.find((wall) => wall.id === wallId)
+
+    if (!currentWall) {
+      return true
+    }
+
+    return wallRespectsMinimumEndpointJoinAngles({
+      movingWall: {
+        id: wallId,
+        start: nextWall.start,
+        end: nextWall.end,
+      },
+      tolerance: CONNECTION_SNAP_METERS,
+      walls: [
+        ...activeFloor.walls.filter((wall) => wall.id !== wallId),
+        ...referenceFloors.flatMap((floor) => floor.walls),
+      ],
+    })
   }
 
   const closeContextMenu = () => {
@@ -3582,19 +3633,35 @@ export function FloorplanCanvas({
                       const snapTarget = getWallEndpointSnapTarget(
                         lockedPoint,
                         renderedWall.wall,
+                        endpoint,
+                        oppositeEndpoint,
                       )
                       const nextPoint = snapTarget?.point ?? lockedPoint
-
-                      setHoverSnapTarget(snapTarget)
-                      event.target.position(toCanvasPoint(nextPoint))
-                      onUpdateWall(dragState.wallId, {
+                      const nextWall = {
                         start:
                           endpoint === 'start'
                             ? nextPoint
                             : dragState.startWall.start,
                         end:
                           endpoint === 'end' ? nextPoint : dragState.startWall.end,
-                      })
+                      }
+
+                      if (
+                        !wallUpdateRespectsMinimumJoinAngles(
+                          dragState.wallId,
+                          nextWall,
+                        )
+                      ) {
+                        setHoverSnapTarget(null)
+                        event.target.position(
+                          toCanvasPoint(renderedWall.wall[endpoint]),
+                        )
+                        return
+                      }
+
+                      setHoverSnapTarget(snapTarget)
+                      event.target.position(toCanvasPoint(nextPoint))
+                      onUpdateWall(dragState.wallId, nextWall)
                     }}
                     onDragEnd={(event) => {
                       event.cancelBubble = true

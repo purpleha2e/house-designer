@@ -520,6 +520,80 @@ test('angled internal wall footprints converge joined side edges', () => {
   assert.equal(hasShortJoinedEndCap, false)
 })
 
+test('internal T-junction footprints keep branch end square', () => {
+  const trunk = wall({
+    id: 'b-trunk',
+    kind: 'internal',
+    start: { x: 0, y: -2 },
+    end: { x: 0, y: 2 },
+    thickness: 0.15,
+  })
+  const branch = wall({
+    id: 'a-branch',
+    kind: 'internal',
+    start: { x: 0, y: 0 },
+    end: { x: 2, y: 0 },
+    thickness: 0.15,
+  })
+
+  const groups = getClippedInternalWallFootprints([trunk, branch])
+  const branchFootprints = groups.find(
+    (group) => group.wallId === branch.id,
+  )?.footprints
+
+  assert.ok(branchFootprints)
+
+  const branchStartPoints = branchFootprints.flatMap((footprint) =>
+    footprint.outline.filter(
+      (point) => Math.abs(point.x - trunk.thickness / 2) <= 0.001,
+    ),
+  )
+  const branchStartYValues = branchStartPoints
+    .map((point) => point.y)
+    .sort((first, second) => first - second)
+
+  assert.deepEqual(
+    branchStartYValues.map((value) => Number(value.toFixed(3))),
+    [-0.075, 0.075],
+  )
+
+  assert.deepEqual(
+    getClippedInternalWallRenderExtensions(branch, [trunk, branch]),
+    {
+      endExtension: 0,
+      startExtension: -trunk.thickness / 2,
+    },
+  )
+})
+
+test('internal multi-way joins use standalone wall rendering', () => {
+  const upper = wall({
+    id: 'a-upper',
+    kind: 'internal',
+    start: { x: 0, y: -2 },
+    end: { x: 0, y: 0 },
+    thickness: 0.15,
+  })
+  const lower = wall({
+    id: 'b-lower',
+    kind: 'internal',
+    start: { x: 0, y: 0 },
+    end: { x: 0, y: 2 },
+    thickness: 0.15,
+  })
+  const diagonal = wall({
+    id: 'c-diagonal',
+    kind: 'internal',
+    start: { x: -2, y: -2 },
+    end: { x: 0, y: 0 },
+    thickness: 0.15,
+  })
+
+  const groups = getClippedInternalWallFootprints([upper, lower, diagonal])
+
+  assert.deepEqual(groups, [])
+})
+
 test('internal opening walls expose deterministic internal owner clipping', () => {
   const firstInternal = wall({
     id: 'a-internal',

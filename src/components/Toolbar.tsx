@@ -33,19 +33,7 @@ export function Toolbar({
           <div className="project-menu-dropdown">
             <div>
               <h1>House Designer</h1>
-              <p>
-                {wallCount} walls across {floorCount} floors
-              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                onSaveProject()
-                setIsProjectMenuOpen(false)
-              }}
-            >
-              Save
-            </button>
             <button
               type="button"
               onClick={() => {
@@ -54,6 +42,15 @@ export function Toolbar({
               }}
             >
               Load
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onSaveProject()
+                setIsProjectMenuOpen(false)
+              }}
+            >
+              Save
             </button>
           </div>
         ) : null}

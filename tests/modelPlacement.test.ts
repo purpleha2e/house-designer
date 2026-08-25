@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   createPlacedModel,
+  getWallMountForPoint,
   getModelOpenings,
   syncWallOpenings,
   updateWallAttachedModels,
@@ -77,7 +78,26 @@ test('creates a wall-mounted model from the plan center', () => {
   assert.deepEqual(model.wallAttachment, {
     wallId: 'wall-1',
     offset: 2.5,
+    side: 1,
   })
+})
+
+test('wall-mounted models remember the side of the wall they were placed from', () => {
+  const positiveSideMount = getWallMountForPoint({ x: 2.5, y: 0.2 }, [wall])
+  const negativeSideMount = getWallMountForPoint({ x: 2.5, y: -0.2 }, [wall])
+
+  assert.deepEqual(positiveSideMount?.wallAttachment, {
+    wallId: 'wall-1',
+    offset: 2.5,
+    side: 1,
+  })
+  assert.equal(positiveSideMount?.rotation, 0)
+  assert.deepEqual(negativeSideMount?.wallAttachment, {
+    wallId: 'wall-1',
+    offset: 2.5,
+    side: -1,
+  })
+  assert.equal(negativeSideMount?.rotation, Math.PI)
 })
 
 test('calculates window opening dimensions from model metadata', () => {
@@ -123,6 +143,31 @@ test('calculates panel door opening from model-specific bounds', () => {
       id: 'panel-door-1',
       modelId: 'panel-interior-door-closed',
       center: 2.5,
+      width: 0.975141,
+      bottom: 0,
+      height: 2.124037,
+    },
+  ])
+})
+
+test('calculates wall-mounted openings from the model position when attachment offset is stale', () => {
+  const model: PlacedModel = {
+    id: 'panel-door-1',
+    modelId: 'panel-interior-door-closed',
+    position: { x: 3.25, y: 0 },
+    rotation: 0,
+    scale: 1,
+    wallAttachment: {
+      wallId: 'wall-1',
+      offset: 1,
+    },
+  }
+
+  assert.deepEqual(getModelOpenings(model, wall, modelsById), [
+    {
+      id: 'panel-door-1',
+      modelId: 'panel-interior-door-closed',
+      center: 3.25,
       width: 0.975141,
       bottom: 0,
       height: 2.124037,

@@ -301,15 +301,12 @@ export function LeftToolRail({
             <>
               <header>
                 <h2>Project</h2>
-                <p>
-                  {wallCount} walls, {floors.length} floors
-                </p>
               </header>
-              <button type="button" onClick={onSaveProject}>
-                Save project
-              </button>
               <button type="button" onClick={onLoadProject}>
                 Load project
+              </button>
+              <button type="button" onClick={onSaveProject}>
+                Save project
               </button>
             </>
           ) : null}

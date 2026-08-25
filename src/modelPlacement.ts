@@ -59,10 +59,27 @@ export function getWallMountForPoint(point: Point, walls: Wall[]) {
   const candidates = walls
     .map((wall) => {
       const projection = getProjectionOnWall(point, wall)
+      const wallLength = getWallLength(wall)
+      const unit =
+        wallLength > 0
+          ? {
+              x: (wall.end.x - wall.start.x) / wallLength,
+              y: (wall.end.y - wall.start.y) / wallLength,
+            }
+          : { x: 1, y: 0 }
+      const normal = {
+        x: -unit.y,
+        y: unit.x,
+      }
+      const signedDistance =
+        (point.x - projection.point.x) * normal.x +
+        (point.y - projection.point.y) * normal.y
+      const side: -1 | 1 = signedDistance < 0 ? -1 : 1
 
       return {
         distance: distance(point, projection.point),
         point: projection.point,
+        side,
         t: projection.t,
         wall,
       }
@@ -78,10 +95,11 @@ export function getWallMountForPoint(point: Point, walls: Wall[]) {
 
   return {
     position: closest.point,
-    rotation: getWallAngle(closest.wall),
+    rotation: getWallAngle(closest.wall) + (closest.side < 0 ? Math.PI : 0),
     wallAttachment: {
       wallId: closest.wall.id,
       offset: closest.t * getWallLength(closest.wall),
+      side: closest.side,
     },
   }
 }
@@ -89,6 +107,10 @@ export function getWallMountForPoint(point: Point, walls: Wall[]) {
 function openingBelongsToModel(opening: WallOpening, modelIds: Set<string>) {
   const [ownerId] = opening.id.split(':')
   return modelIds.has(ownerId)
+}
+
+function getModelOffsetOnWall(model: PlacedModel, wall: Wall) {
+  return getProjectionOnWall(model.position, wall).t * getWallLength(wall)
 }
 
 export function getModelOpenings(
@@ -113,8 +135,9 @@ export function getModelOpenings(
       ? Math.min(WINDOW_SILL_HEIGHT_METERS, Math.max(wall.height - 0.2, 0))
       : 0
   const height = Math.min(Math.max(definition.height * scale, 0.3), Math.max(wall.height - bottom, 0.3))
+  const modelOffset = getModelOffsetOnWall(model, wall)
   const openingCenter =
-    model.wallAttachment.offset + (definition.openingCenterOffset ?? 0) * scale
+    modelOffset + (definition.openingCenterOffset ?? 0) * scale
 
   const opening: WallOpening = {
     id: model.id,
@@ -163,7 +186,7 @@ export function getModelOpenings(
     {
       ...opening,
       id: `${model.id}:left-side-light`,
-      center: clampCenter(model.wallAttachment.offset - sideLightOffset, sideLightWidth),
+      center: clampCenter(modelOffset - sideLightOffset, sideLightWidth),
       width: sideLightWidth,
       bottom: sideLightBottom,
       height: sideLightHeight,
@@ -171,7 +194,7 @@ export function getModelOpenings(
     {
       ...opening,
       id: `${model.id}:doors`,
-      center: clampCenter(model.wallAttachment.offset, centreDoorWidth),
+      center: clampCenter(modelOffset, centreDoorWidth),
       width: centreDoorWidth,
       bottom: 0,
       height: Math.min(definition.height * scale, wall.height),
@@ -179,7 +202,7 @@ export function getModelOpenings(
     {
       ...opening,
       id: `${model.id}:right-side-light`,
-      center: clampCenter(model.wallAttachment.offset + sideLightOffset, sideLightWidth),
+      center: clampCenter(modelOffset + sideLightOffset, sideLightWidth),
       width: sideLightWidth,
       bottom: sideLightBottom,
       height: sideLightHeight,
@@ -347,7 +370,7 @@ export function updateWallAttachedModels(
         x: wall.start.x + wallDirection.x * offset,
         y: wall.start.y + wallDirection.y * offset,
       },
-      rotation: wallAngle,
+      rotation: wallAngle + ((model.wallAttachment.side ?? 1) < 0 ? Math.PI : 0),
       wallAttachment: {
         ...model.wallAttachment,
         offset,
