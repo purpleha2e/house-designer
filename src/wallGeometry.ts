@@ -37,6 +37,14 @@ function getProjectionOnSegment(point: Point, start: Point, end: Point) {
   }
 }
 
+function pointIsOnWallSnapLine(distanceToCenterline: number, wall: Wall) {
+  return (
+    distanceToCenterline <= CONNECTION_EPSILON_METERS ||
+    Math.abs(distanceToCenterline - wall.thickness / 2) <=
+      CONNECTION_EPSILON_METERS
+  )
+}
+
 function normalize(dx: number, dy: number): Point {
   const length = Math.hypot(dx, dy)
 
@@ -106,8 +114,7 @@ function hasAdditionalJoinContext(
     return (
       t >= 0 &&
       t <= 1 &&
-      distance(point, closestPointOnWall) <=
-        wall.thickness / 2 + CONNECTION_EPSILON_METERS
+      pointIsOnWallSnapLine(distance(point, closestPointOnWall), wall)
     )
   })
 }
@@ -168,7 +175,7 @@ function getJoinExtension(
     const pointIsWithinWallBody =
       t > CONNECTION_EPSILON_METERS &&
       t < 1 - CONNECTION_EPSILON_METERS &&
-      distanceToCenterline <= wall.thickness / 2 + CONNECTION_EPSILON_METERS
+      pointIsOnWallSnapLine(distanceToCenterline, wall)
     const pointIsOnWallEndCap =
       sourceWall.kind === 'internal' &&
       isExternalWall(wall) &&

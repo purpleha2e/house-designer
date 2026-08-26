@@ -134,6 +134,13 @@ export type SelectableSurface =
     }
   | {
       floorId: string
+      fragmentId: string
+      side: Exclude<SurfaceWallSide, 'both'>
+      wallId: string
+      type: 'wall-surface-fragment'
+    }
+  | {
+      floorId: string
       type: 'floor-slab-edge'
     }
 

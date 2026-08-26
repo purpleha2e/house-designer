@@ -85,7 +85,7 @@ type Projection = {
 }
 
 const DEFAULT_ENDPOINT_SNAP_TOLERANCE = 0.03
-const DEFAULT_SIDE_SNAP_TOLERANCE = 0.04
+const DEFAULT_SIDE_SNAP_TOLERANCE = 0.01
 const CROSSING_EPSILON = 0.001
 
 function distance(first: Point, second: Point) {
@@ -154,6 +154,18 @@ function getProjectionOnWall(point: Point, wall: Wall): Projection {
     point: projectionPoint,
     rawT,
   }
+}
+
+function projectionIsOnSideAttachmentSnapLine(
+  projection: Projection,
+  targetWall: Wall,
+  sideSnapTolerance: number,
+) {
+  return (
+    projection.distance <= sideSnapTolerance ||
+    Math.abs(projection.distance - targetWall.thickness / 2) <=
+      sideSnapTolerance
+  )
 }
 
 function endpointsMatch(
@@ -284,7 +296,11 @@ function buildSideAttachments({
           ({ projection, targetWall }) =>
             projection.rawT > 0.001 &&
             projection.rawT < 1 - 0.001 &&
-            projection.distance <= targetWall.thickness / 2 + sideSnapTolerance,
+            projectionIsOnSideAttachmentSnapLine(
+              projection,
+              targetWall,
+              sideSnapTolerance,
+            ),
         )
         .sort(
           (first, second) =>

@@ -17,6 +17,7 @@ export type WallMeshVertex = {
 export type WallMeshFaceKind = 'bottom' | 'cap' | 'side' | 'top'
 
 export type WallMeshSource = {
+  role?: 'cap' | 'room-surface'
   side?: WallSide
   wallId: string
 }
@@ -35,6 +36,8 @@ export type WallMeshFace = {
 
 export type WallMeshBuildOptions = WallGraphOptions & {
   chamferThreshold?: number
+  omitSideAttachmentCapsForRenderedTargetWallIds?: ReadonlySet<string>
+  omitSideAttachmentCapsForTargetWallIds?: ReadonlySet<string>
 }
 
 function distance(first: Point, second: Point) {
@@ -436,6 +439,7 @@ function addCapFace({
   endpoint,
   faces,
   negativeSidePoint,
+  options,
   plan,
   positiveSidePoint,
   wall,
@@ -443,11 +447,20 @@ function addCapFace({
   endpoint: 'end' | 'start'
   faces: WallMeshFace[]
   negativeSidePoint: Point
+  options: WallMeshBuildOptions
   plan: WallEndpointPlan
   positiveSidePoint: Point
   wall: Wall
 }) {
   if (plan.type === 'endpoint-join') {
+    return
+  }
+
+  if (
+    plan.type === 'side-attachment' &&
+    (options.omitSideAttachmentCapsForTargetWallIds?.has(plan.targetWallId) ||
+      options.omitSideAttachmentCapsForRenderedTargetWallIds?.has(plan.targetWallId))
+  ) {
     return
   }
 
@@ -461,13 +474,63 @@ function addCapFace({
       ? plan.capUvSource
       : fallbackSource
   const capWidth = distance(positiveSidePoint, negativeSidePoint)
+  const normal = getEndpointNormal(wall, endpoint)
+
+  if (plan.type !== 'side-attachment') {
+    const centerPoint = {
+      x: (negativeSidePoint.x + positiveSidePoint.x) / 2,
+      y: (negativeSidePoint.y + positiveSidePoint.y) / 2,
+    }
+
+    ;([
+      {
+        firstPoint: negativeSidePoint,
+        secondPoint: centerPoint,
+        side: -1,
+        uvEnd: capWidth / 2,
+        uvStart: 0,
+      },
+      {
+        firstPoint: centerPoint,
+        secondPoint: positiveSidePoint,
+        side: 1,
+        uvEnd: capWidth,
+        uvStart: capWidth / 2,
+      },
+    ] as const).forEach((capPart) => {
+      const materialSource = {
+        role: 'cap' as const,
+        side: capPart.side,
+        wallId: wall.id,
+      }
+      const sideSource = { side: capPart.side, wallId: wall.id }
+
+      faces.push({
+        endpoint,
+        faceId: `${wall.id}:cap:${endpoint}:${capPart.side}`,
+        kind: 'cap',
+        materialSource,
+        normal,
+        pickSource: sideSource,
+        uvSource: sideSource,
+        vertices: [
+          toVertex(capPart.firstPoint, 0, [capPart.uvStart, 0]),
+          toVertex(capPart.secondPoint, 0, [capPart.uvEnd, 0]),
+          toVertex(capPart.secondPoint, wall.height, [capPart.uvEnd, wall.height]),
+          toVertex(capPart.firstPoint, wall.height, [capPart.uvStart, wall.height]),
+        ],
+        wallId: wall.id,
+      })
+    })
+    return
+  }
 
   faces.push({
     endpoint,
     faceId: `${wall.id}:cap:${endpoint}`,
     kind: 'cap',
     materialSource: inheritedSource,
-    normal: getEndpointNormal(wall, endpoint),
+    normal,
     pickSource: { wallId: wall.id },
     uvSource,
     vertices: [
@@ -884,6 +947,7 @@ function buildWallFaces(
     endpoint: 'start',
     faces,
     negativeSidePoint: negativeStart,
+    options,
     plan: plan.start,
     positiveSidePoint: positiveStart,
     wall,
@@ -892,6 +956,7 @@ function buildWallFaces(
     endpoint: 'end',
     faces,
     negativeSidePoint: negativeEnd,
+    options,
     plan: plan.end,
     positiveSidePoint: positiveEnd,
     wall,
@@ -930,10 +995,15 @@ export function buildWallMeshFaces(
 ) {
   const plans = buildWallGeometryPlans(walls, options)
   const wallsById = new Map(walls.map((wall) => [wall.id, wall]))
+  const buildOptions = {
+    ...options,
+    omitSideAttachmentCapsForRenderedTargetWallIds:
+      options.omitSideAttachmentCapsForRenderedTargetWallIds ?? new Set(wallsById.keys()),
+  }
   const faces = plans.flatMap((plan) => {
     const wall = wallsById.get(plan.wallId)
 
-    return wall ? buildWallFaces(wall, plan, options) : []
+    return wall ? buildWallFaces(wall, plan, buildOptions) : []
   })
 
   addEndpointTopCaps({

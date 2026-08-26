@@ -5,6 +5,8 @@ import {
   endpointSnapRespectsMinimumJoinAngle,
   getEndpointJoinAngleRadians,
   MIN_WALL_JOIN_ANGLE_DEGREES,
+  wallDoesNotCrossOtherWalls,
+  wallRespectsMinimumJoinAngles,
   wallRespectsMinimumEndpointJoinAngles,
 } from '../src/wallJoinConstraints.ts'
 
@@ -152,6 +154,134 @@ test('wall join constraint allows straight continuation through a snapped endpoi
       movingWall: {
         id: 'moving',
         start: snappedPoint,
+        end: { x: 0, y: 1 },
+      },
+      tolerance: 0.03,
+      walls,
+    }),
+    true,
+  )
+})
+
+test('wall join constraint allows side-attached wall to rotate toward perpendicular', () => {
+  const walls = [
+    wall({
+      id: 'fixed',
+      end: { x: 0, y: 4 },
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      thickness: 0.3,
+    }),
+  ]
+
+  assert.equal(
+    wallRespectsMinimumJoinAngles({
+      movingWall: {
+        id: 'moving',
+        start: { x: 0, y: 2 },
+        end: { x: 1, y: 2 },
+      },
+      tolerance: 0.03,
+      walls,
+    }),
+    true,
+  )
+})
+
+test('wall join constraint rejects side-attached wall below 45 degrees to adjoining side', () => {
+  const walls = [
+    wall({
+      id: 'fixed',
+      end: { x: 0, y: 4 },
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      thickness: 0.3,
+    }),
+  ]
+
+  assert.equal(
+    wallRespectsMinimumJoinAngles({
+      movingWall: {
+        id: 'moving',
+        start: { x: 0, y: 2 },
+        end: { x: 0.2, y: 3 },
+      },
+      tolerance: 0.03,
+      walls,
+    }),
+    false,
+  )
+})
+
+test('wall join constraint allows wall between two side-attached vertical walls to move parallel', () => {
+  const walls = [
+    wall({
+      id: 'left',
+      end: { x: 0, y: 4 },
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'right',
+      end: { x: 3, y: 4 },
+      kind: 'external',
+      start: { x: 3, y: 0 },
+      thickness: 0.3,
+    }),
+  ]
+
+  assert.equal(
+    wallRespectsMinimumJoinAngles({
+      movingWall: {
+        id: 'moving',
+        start: { x: 0, y: 2.2 },
+        end: { x: 3, y: 2.2 },
+      },
+      tolerance: 0.03,
+      walls,
+    }),
+    true,
+  )
+})
+
+test('wall crossing constraint rejects interior wall crossings', () => {
+  const walls = [
+    wall({
+      id: 'fixed',
+      end: { x: 2, y: 0 },
+      start: { x: -2, y: 0 },
+    }),
+  ]
+
+  assert.equal(
+    wallDoesNotCrossOtherWalls({
+      movingWall: {
+        id: 'moving',
+        start: { x: 0, y: -1 },
+        end: { x: 0, y: 1 },
+      },
+      tolerance: 0.03,
+      walls,
+    }),
+    false,
+  )
+})
+
+test('wall crossing constraint allows endpoint-to-side attachment', () => {
+  const walls = [
+    wall({
+      id: 'fixed',
+      end: { x: 2, y: 0 },
+      start: { x: -2, y: 0 },
+    }),
+  ]
+
+  assert.equal(
+    wallDoesNotCrossOtherWalls({
+      movingWall: {
+        id: 'moving',
+        start: { x: 0, y: 0 },
         end: { x: 0, y: 1 },
       },
       tolerance: 0.03,

@@ -90,6 +90,7 @@ export type WallGeometryPlanOptions = WallGraphOptions & {
 }
 
 const DEFAULT_CHAMFER_THRESHOLD = 1
+const MIN_SIDE_ATTACHMENT_ANGLE_RADIANS = Math.PI / 4
 
 function distance(first: Point, second: Point) {
   return Math.hypot(first.x - second.x, first.y - second.y)
@@ -117,6 +118,17 @@ function getWallNormal(wall: Wall) {
     x: -direction.y,
     y: direction.x,
   }
+}
+
+function wallMeetsSideAttachmentAngle(sourceWall: Wall, targetWall: Wall) {
+  const sourceDirection = getWallDirection(sourceWall)
+  const targetDirection = getWallDirection(targetWall)
+  const absoluteDot = Math.abs(
+    sourceDirection.x * targetDirection.x +
+      sourceDirection.y * targetDirection.y,
+  )
+
+  return absoluteDot <= Math.cos(MIN_SIDE_ATTACHMENT_ANGLE_RADIANS)
 }
 
 function getWallSideNormal(wall: Wall, side: WallSide) {
@@ -341,6 +353,14 @@ function buildEndpointPlan({
 
   if (attachment) {
     const targetWall = wallsById.get(attachment.targetWallId)
+
+    if (targetWall && !wallMeetsSideAttachmentAngle(wall, targetWall)) {
+      return {
+        endpoint,
+        type: 'free',
+      }
+    }
+
     const targetFacePoint =
       targetWall
         ? {
@@ -434,47 +454,20 @@ function buildEndpointPlan({
 }
 
 function getFaceIntervals({
-  crossings,
   endDistance,
-  length,
   startDistance,
 }: {
-  crossings: WallCrossingPlan[]
   endDistance: number
-  length: number
   startDistance: number
 }) {
-  const cuts = crossings
-    .filter((crossing) => crossing.role === 'cut-around-leader')
-    .flatMap((crossing) => [
-      Math.max(startDistance, crossing.distance - 0.001),
-      Math.min(endDistance, crossing.distance + 0.001),
-    ])
-  const breaks = [startDistance, endDistance, ...cuts]
-    .filter((value) => value >= startDistance && value <= endDistance)
-    .sort((first, second) => first - second)
-  const uniqueBreaks = breaks.filter(
-    (value, index) => index === 0 || Math.abs(value - breaks[index - 1]) > 0.0001,
-  )
-
-  return uniqueBreaks.slice(0, -1).flatMap((start, index) => {
-    const end = uniqueBreaks[index + 1]
-    const midpoint = (start + end) / 2
-    const insideCut = crossings.some(
-      (crossing) =>
-        crossing.role === 'cut-around-leader' &&
-        Math.abs(midpoint - crossing.distance) <= 0.001,
-    )
-
-    return end - start > 0.0001 && !insideCut
-      ? [
-          {
-            end,
-            start,
-          },
-        ]
-      : []
-  })
+  return endDistance > startDistance + 0.0001
+    ? [
+        {
+          end: endDistance,
+          start: startDistance,
+        },
+      ]
+    : []
 }
 
 function getEndpointTrimDistance(plan: WallEndpointPlan) {
@@ -549,9 +542,7 @@ export function buildWallGeometryPlans(
       length - getEndpointTrimDistance(end),
     )
     const intervals = getFaceIntervals({
-      crossings,
       endDistance,
-      length,
       startDistance,
     })
 

@@ -113,6 +113,24 @@ test('wall geometry plan records side attachment caps with adjoining wall materi
   assert.equal(Number(branch.start.targetDistance.toFixed(3)), 2)
 })
 
+test('wall geometry plan treats shallow side attachments as free endpoints', () => {
+  const plans = buildWallGeometryPlans([
+    wall({
+      id: 'target',
+      start: { x: -2, y: 0 },
+      end: { x: 2, y: 0 },
+    }),
+    wall({
+      id: 'branch',
+      start: { x: 0, y: 0 },
+      end: { x: 3, y: 0.5 },
+    }),
+  ])
+  const branch = plans.find((plan) => plan.wallId === 'branch')
+
+  assert.equal(branch?.start.type, 'free')
+})
+
 test('wall geometry plan supports up to four snapped endpoints at one node', () => {
   const plans = buildWallGeometryPlans([
     wall({
@@ -143,7 +161,7 @@ test('wall geometry plan supports up to four snapped endpoints at one node', () 
   )
 })
 
-test('wall geometry plan marks crossing leader and subordinate cut intervals', () => {
+test('wall geometry plan records crossings without splitting wall faces', () => {
   const plans = buildWallGeometryPlans([
     wall({
       id: 'leader',
@@ -163,8 +181,5 @@ test('wall geometry plan marks crossing leader and subordinate cut intervals', (
 
   assert.equal(leader?.crossings[0].role, 'leader')
   assert.equal(subordinate?.crossings[0].role, 'cut-around-leader')
-  assert.deepEqual(subordinate?.faces[0].intervals, [
-    { end: 0.999, start: 0 },
-    { end: 2, start: 1.001 },
-  ])
+  assert.deepEqual(subordinate?.faces[0].intervals, [{ end: 2, start: 0 }])
 })

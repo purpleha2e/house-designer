@@ -924,6 +924,33 @@
   background: #dbe3ee;
 }
 
+.three-host.is-preparing canvas {
+  filter: grayscale(0.35) brightness(0.72);
+}
+
+.viewport-preparing-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  background: rgba(100, 116, 139, 0.5);
+  pointer-events: auto;
+  backdrop-filter: blur(2px);
+}
+
+.viewport-preparing-panel {
+  padding: 10px 14px;
+  border: 1px solid rgba(248, 250, 252, 0.28);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.28);
+}
+
 .viewport-indicators {
   position: absolute;
   left: 14px;

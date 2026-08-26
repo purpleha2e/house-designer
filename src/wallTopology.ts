@@ -103,10 +103,26 @@ function pointIsInPolygon(point: Point, polygon: Point[]) {
   return isInside
 }
 
-function getPolygonEdges(polygon: Point[]) {
+type WallPolygonEdgeSide = -1 | 1 | null
+
+function getPolygonEdgeSide(index: number): WallPolygonEdgeSide {
+  if (index === 0) {
+    return 1
+  }
+
+  if (index === 2) {
+    return -1
+  }
+
+  return null
+}
+
+function getPolygonEdges(polygon: Point[], wallId: string) {
   return polygon.map((start, index) => ({
     end: polygon[(index + 1) % polygon.length],
+    side: getPolygonEdgeSide(index),
     start,
+    wallId,
   }))
 }
 
@@ -179,13 +195,25 @@ function getSegmentIntersection(
 
 type GraphEdge = {
   from: string
+  side: WallPolygonEdgeSide
+  wallId: string
   to: string
+}
+
+function loopUsesBothSidesOfAnyWall(
+  wallSidesByWallId: Map<string, Set<WallPolygonEdgeSide>>,
+) {
+  return [...wallSidesByWallId.values()].some(
+    (sides) => sides.has(1) && sides.has(-1),
+  )
 }
 
 function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
   const renderedWalls = getRenderedWalls(walls)
   const wallPolygons = renderedWalls.map(getWallPolygon)
-  const sourceSegments = wallPolygons.flatMap(getPolygonEdges)
+  const sourceSegments = renderedWalls.flatMap((renderedWall) =>
+    getPolygonEdges(getWallPolygon(renderedWall), renderedWall.wall.id),
+  )
   const splitPointsBySegment = sourceSegments.map((segment) => [
     { ...segment.start, t: 0 },
     { ...segment.end, t: 1 },
@@ -274,8 +302,18 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
       edgeKeys.add(edgeKey)
       pointsByKey.set(startKey, { x: start.x, y: start.y })
       pointsByKey.set(endKey, { x: end.x, y: end.y })
-      edges.push({ from: startKey, to: endKey })
-      edges.push({ from: endKey, to: startKey })
+      edges.push({
+        from: startKey,
+        side: sourceSegments[segmentIndex].side,
+        to: endKey,
+        wallId: sourceSegments[segmentIndex].wallId,
+      })
+      edges.push({
+        from: endKey,
+        side: sourceSegments[segmentIndex].side,
+        to: startKey,
+        wallId: sourceSegments[segmentIndex].wallId,
+      })
     }
   }
 
@@ -311,6 +349,8 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
     }
 
     const loop: Point[] = []
+    const loopWallIds = new Set<string>()
+    const loopWallSidesByWallId = new Map<string, Set<WallPolygonEdgeSide>>()
     let currentEdge = edge
 
     for (let step = 0; step < edges.length + 1; step += 1) {
@@ -322,6 +362,12 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
 
       visited.add(state)
       loop.push(pointsByKey.get(currentEdge.from)!)
+      loopWallIds.add(currentEdge.wallId)
+      loopWallSidesByWallId.set(
+        currentEdge.wallId,
+        loopWallSidesByWallId.get(currentEdge.wallId) ?? new Set(),
+      )
+      loopWallSidesByWallId.get(currentEdge.wallId)!.add(currentEdge.side)
 
       const outgoingEdges = outgoingEdgesByPoint.get(currentEdge.to) ?? []
       const reverseEdgeIndex = outgoingEdges.findIndex(
@@ -341,7 +387,11 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
         const area = getSignedArea(loop)
         const absoluteArea = Math.abs(area)
 
-        if (absoluteArea >= MIN_ROOM_AREA_SQUARE_METERS) {
+        if (
+          absoluteArea >= MIN_ROOM_AREA_SQUARE_METERS &&
+          loopWallIds.size >= 3 &&
+          !loopUsesBothSidesOfAnyWall(loopWallSidesByWallId)
+        ) {
           const roomKey = getRoomKey(loop)
 
           if (!roomsByKey.has(roomKey)) {

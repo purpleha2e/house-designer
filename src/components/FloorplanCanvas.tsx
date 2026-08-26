@@ -19,7 +19,7 @@ import {
 } from '../models/modelLibrary'
 import {
   endpointSnapRespectsMinimumJoinAngle,
-  wallRespectsMinimumEndpointJoinAngles,
+  wallRespectsMinimumJoinAngles,
 } from '../wallJoinConstraints'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
 import {
@@ -115,6 +115,7 @@ type FloorplanRenderOptions = {
   internalDimensions: boolean
   roomAreas: boolean
   roomHighlights: boolean
+  snapToReferenceFloors: boolean
 }
 
 type ContextMenuState = {
@@ -131,6 +132,7 @@ type PanState = {
 
 type WallDragState =
   | {
+      pendingWall?: Pick<Wall, 'end' | 'start'>
       type: 'wall'
       wallId: string
       startPointer: Point
@@ -139,6 +141,7 @@ type WallDragState =
   | {
       type: 'endpoint'
       endpoint: 'start' | 'end'
+      pendingWall?: Pick<Wall, 'end' | 'start'>
       wallId: string
       startPointer: Point
       startWall: Pick<Wall, 'end' | 'start'>
@@ -1998,9 +2001,9 @@ export function FloorplanCanvas({
     () => floors.filter((floor) => floor.id !== activeFloor.id),
     [activeFloor.id, floors],
   )
-  const snapWalls = useMemo(
-    () => floors.flatMap((floor) => floor.walls),
-    [floors],
+  const referenceWalls = useMemo(
+    () => referenceFloors.flatMap((floor) => floor.walls),
+    [referenceFloors],
   )
   const draftWallThickness = getDraftWallThickness(
     wallKind,
@@ -2011,15 +2014,6 @@ export function FloorplanCanvas({
     [draftWallThickness, walls, wallKind],
   )
   const wallTopology = useMemo(() => buildWallTopology(walls), [walls])
-  const referenceSnapSegments = useMemo(
-    () =>
-      getSnapSegments(
-        referenceFloors.flatMap((floor) => floor.walls),
-        wallKind,
-        draftWallThickness,
-      ),
-    [draftWallThickness, referenceFloors, wallKind],
-  )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
@@ -2030,7 +2024,27 @@ export function FloorplanCanvas({
     internalDimensions: true,
     roomAreas: true,
     roomHighlights: true,
+    snapToReferenceFloors: false,
   })
+  const snapWalls = useMemo(
+    () =>
+      renderOptions.snapToReferenceFloors
+        ? [...walls, ...referenceWalls]
+        : walls,
+    [referenceWalls, renderOptions.snapToReferenceFloors, walls],
+  )
+  const referenceSnapSegments = useMemo(
+    () =>
+      renderOptions.snapToReferenceFloors
+        ? getSnapSegments(referenceWalls, wallKind, draftWallThickness)
+        : [],
+    [
+      draftWallThickness,
+      referenceWalls,
+      renderOptions.snapToReferenceFloors,
+      wallKind,
+    ],
+  )
   const [draftWall, setDraftWall] = useState<{ start: Point; end: Point } | null>(
     null,
   )
@@ -2043,6 +2057,10 @@ export function FloorplanCanvas({
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
   const [isDraggingModel, setIsDraggingModel] = useState(false)
   const [isDraggingWall, setIsDraggingWall] = useState(false)
+  const [wallDragPreview, setWallDragPreview] = useState<{
+    wall: Pick<Wall, 'end' | 'start'>
+    wallId: string
+  } | null>(null)
   const [isAxisLocked, setIsAxisLocked] = useState(true)
   const [modelBoundsById, setModelBoundsById] = useState<Record<string, ModelBounds>>(
     {},
@@ -2290,7 +2308,18 @@ export function FloorplanCanvas({
       }
 
       if (event.key === 'Enter') {
-        if (distance(draftWall.start, draftWall.end) >= MIN_WALL_LENGTH_METERS) {
+        if (
+          distance(draftWall.start, draftWall.end) >= MIN_WALL_LENGTH_METERS &&
+          wallRespectsMinimumJoinAngles({
+            movingWall: {
+              id: '__draft-wall__',
+              start: draftWall.start,
+              end: draftWall.end,
+            },
+            tolerance: WALL_JOIN_EPSILON_METERS,
+            walls: activeFloor.walls,
+          })
+        ) {
           onAddWall(draftWall)
         }
 
@@ -2313,7 +2342,7 @@ export function FloorplanCanvas({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [draftWall, isAddingWall, onAddWall, onExitAddWall])
+  }, [activeFloor.walls, draftWall, isAddingWall, onAddWall, onExitAddWall])
 
   const getPointerPoint = (
     event: KonvaEventObject<DragEvent> | KonvaEventObject<PointerEvent>,
@@ -2381,16 +2410,10 @@ export function FloorplanCanvas({
     const activeWalls = activeFloor.walls.filter(
       (candidateWall) => candidateWall.id !== wall.id,
     )
-    const referenceWalls = referenceFloors.flatMap((floor) => floor.walls)
-    const allSnapWalls = [...activeWalls, ...referenceWalls]
     const snapTarget =
       getSnapTarget(
         point,
         getSnapSegments(activeWalls, wall.kind, wall.thickness),
-      ) ??
-      getSnapTarget(
-        point,
-        getSnapSegments(referenceWalls, wall.kind, wall.thickness),
       )
 
     if (
@@ -2404,7 +2427,7 @@ export function FloorplanCanvas({
         },
         snapPoint: snapTarget.point,
         tolerance: CONNECTION_SNAP_METERS,
-        walls: allSnapWalls,
+        walls: activeWalls,
       })
     ) {
       return null
@@ -2423,18 +2446,35 @@ export function FloorplanCanvas({
       return true
     }
 
-    return wallRespectsMinimumEndpointJoinAngles({
+    return wallRespectsMinimumJoinAngles({
       movingWall: {
         id: wallId,
         start: nextWall.start,
         end: nextWall.end,
       },
-      tolerance: CONNECTION_SNAP_METERS,
-      walls: [
-        ...activeFloor.walls.filter((wall) => wall.id !== wallId),
-        ...referenceFloors.flatMap((floor) => floor.walls),
-      ],
+      tolerance: WALL_JOIN_EPSILON_METERS,
+      walls: activeFloor.walls.filter((wall) => wall.id !== wallId),
     })
+  }
+
+  const draftWallCanBePlaced = (nextWall: Pick<Wall, 'end' | 'start'>) =>
+    wallRespectsMinimumJoinAngles({
+      movingWall: {
+        id: '__draft-wall__',
+        start: nextWall.start,
+        end: nextWall.end,
+      },
+      tolerance: WALL_JOIN_EPSILON_METERS,
+      walls: activeFloor.walls,
+    })
+
+  const commitDraftWall = (nextWall: Pick<Wall, 'end' | 'start'>) => {
+    if (
+      distance(nextWall.start, nextWall.end) >= MIN_WALL_LENGTH_METERS &&
+      draftWallCanBePlaced(nextWall)
+    ) {
+      onAddWall(nextWall)
+    }
   }
 
   const closeContextMenu = () => {
@@ -2543,9 +2583,7 @@ export function FloorplanCanvas({
           })()
         : draftWall
 
-      if (distance(wallToAdd.start, wallToAdd.end) >= MIN_WALL_LENGTH_METERS) {
-        onAddWall(wallToAdd)
-      }
+      commitDraftWall(wallToAdd)
 
       resetDraftWall()
       return
@@ -2704,7 +2742,18 @@ export function FloorplanCanvas({
     { length: Math.max(0, Math.round((lastGridY - firstGridY) / METERS_TO_PIXELS) + 1) },
     (_, index) => firstGridY + index * METERS_TO_PIXELS,
   )
-  const renderedWalls = getRenderedWalls(walls)
+  const previewWalls = useMemo(
+    () =>
+      wallDragPreview
+        ? walls.map((wall) =>
+            wall.id === wallDragPreview.wallId
+              ? { ...wall, ...wallDragPreview.wall }
+              : wall,
+          )
+        : walls,
+    [wallDragPreview, walls],
+  )
+  const renderedWalls = getRenderedWalls(previewWalls)
   const draftWallLength = draftWall ? distance(draftWall.start, draftWall.end) : null
   const angleWidget =
     draftWall && !isAxisLocked ? getAngleWidget(draftWall.start, draftWall.end) : null
@@ -3338,6 +3387,14 @@ export function FloorplanCanvas({
                   />
                   Internal dimensions
                 </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.snapToReferenceFloors}
+                    onChange={() => updateRenderOption('snapToReferenceFloors')}
+                  />
+                  Snap to other floors
+                </label>
               </div>
             ) : null}
           </div>
@@ -3490,6 +3547,10 @@ export function FloorplanCanvas({
                       ? {
                           type: 'wall',
                           wallId: renderedWall.wall.id,
+                          pendingWall: {
+                            start: { ...renderedWall.wall.start },
+                            end: { ...renderedWall.wall.end },
+                          },
                           startPointer: pointerPoint,
                           startWall: {
                             start: { ...renderedWall.wall.start },
@@ -3497,6 +3558,17 @@ export function FloorplanCanvas({
                           },
                         }
                       : null
+                    setWallDragPreview(
+                      pointerPoint
+                        ? {
+                            wallId: renderedWall.wall.id,
+                            wall: {
+                              start: { ...renderedWall.wall.start },
+                              end: { ...renderedWall.wall.end },
+                            },
+                          }
+                        : null,
+                    )
                     setIsDraggingWall(true)
                     if (!selectedWallIds.includes(renderedWall.wall.id)) {
                       onSelectWall(renderedWall.wall.id)
@@ -3528,8 +3600,7 @@ export function FloorplanCanvas({
                           ? { x: 0, y: rawDelta.y }
                           : rawDelta
 
-                    event.target.position({ x: 0, y: 0 })
-                    onUpdateWall(dragState.wallId, {
+                    const nextWall = {
                       start: {
                         x: dragState.startWall.start.x + delta.x,
                         y: dragState.startWall.start.y + delta.y,
@@ -3538,12 +3609,43 @@ export function FloorplanCanvas({
                         x: dragState.startWall.end.x + delta.x,
                         y: dragState.startWall.end.y + delta.y,
                       },
+                    }
+
+                    if (
+                      !wallUpdateRespectsMinimumJoinAngles(
+                        dragState.wallId,
+                        nextWall,
+                      )
+                    ) {
+                      event.target.position({ x: 0, y: 0 })
+                      return
+                    }
+
+                    dragState.pendingWall = nextWall
+                    event.target.position({ x: 0, y: 0 })
+                    setWallDragPreview({
+                      wallId: dragState.wallId,
+                      wall: nextWall,
                     })
                   }}
                   onDragEnd={(event) => {
                     event.cancelBubble = true
+                    const dragState = wallDragRef.current
+
+                    if (
+                      dragState?.type === 'wall' &&
+                      dragState.pendingWall &&
+                      wallUpdateRespectsMinimumJoinAngles(
+                        dragState.wallId,
+                        dragState.pendingWall,
+                      )
+                    ) {
+                      onUpdateWall(dragState.wallId, dragState.pendingWall)
+                    }
+
                     wallDragRef.current = null
                     event.target.position({ x: 0, y: 0 })
+                    setWallDragPreview(null)
                     setIsDraggingWall(false)
                   }}
                 />
@@ -3582,6 +3684,10 @@ export function FloorplanCanvas({
                             type: 'endpoint',
                             endpoint,
                             wallId: renderedWall.wall.id,
+                            pendingWall: {
+                              start: { ...renderedWall.wall.start },
+                              end: { ...renderedWall.wall.end },
+                            },
                             startPointer: pointerPoint,
                             startWall: {
                               start: { ...renderedWall.wall.start },
@@ -3589,6 +3695,17 @@ export function FloorplanCanvas({
                             },
                           }
                         : null
+                      setWallDragPreview(
+                        pointerPoint
+                          ? {
+                              wallId: renderedWall.wall.id,
+                              wall: {
+                                start: { ...renderedWall.wall.start },
+                                end: { ...renderedWall.wall.end },
+                              },
+                            }
+                          : null,
+                      )
                       setIsDraggingWall(true)
                     }}
                     onDragMove={(event) => {
@@ -3660,13 +3777,24 @@ export function FloorplanCanvas({
                       }
 
                       setHoverSnapTarget(snapTarget)
+                      dragState.pendingWall = nextWall
                       event.target.position(toCanvasPoint(nextPoint))
-                      onUpdateWall(dragState.wallId, nextWall)
+                      setWallDragPreview({
+                        wallId: dragState.wallId,
+                        wall: nextWall,
+                      })
                     }}
                     onDragEnd={(event) => {
                       event.cancelBubble = true
+                      const dragState = wallDragRef.current
+
+                      if (dragState?.type === 'endpoint' && dragState.pendingWall) {
+                        onUpdateWall(dragState.wallId, dragState.pendingWall)
+                      }
+
                       wallDragRef.current = null
                       setHoverSnapTarget(null)
+                      setWallDragPreview(null)
                       setIsDraggingWall(false)
                     }}
                   />
@@ -3885,7 +4013,7 @@ export function FloorplanCanvas({
                       distance(draftWall.start, draftWall.end) >=
                         MIN_WALL_LENGTH_METERS
                     ) {
-                      onAddWall(draftWall)
+                      commitDraftWall(draftWall)
                     }
                     resetDraftWall()
                   }
@@ -3923,7 +4051,7 @@ export function FloorplanCanvas({
                       distance(draftWall.start, draftWall.end) >=
                         MIN_WALL_LENGTH_METERS
                     ) {
-                      onAddWall(draftWall)
+                      commitDraftWall(draftWall)
                     }
                     resetDraftWall()
                   }

@@ -67,3 +67,52 @@ test('internal side snap near external endpoint preserves snapped point', () => 
   assert.equal(renderedInternal?.wall.start.x, internal.start.x)
   assert.equal(renderedInternal?.wall.start.y, internal.start.y)
 })
+
+test('room detection ignores side-attached two-wall loops', () => {
+  const topology = buildWallTopology([
+    wall({
+      id: 'horizontal',
+      kind: 'external',
+      start: { x: 1.5, y: 1.5 },
+      end: { x: 6.5, y: 1.5 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'angled',
+      kind: 'external',
+      start: { x: 4.819, y: 4.95 },
+      end: { x: 4.516, y: 1.5 },
+      thickness: 0.3,
+    }),
+  ])
+
+  assert.equal(topology.rooms.length, 0)
+})
+
+test('room detection ignores side-attached internal wall wrapping both wall faces', () => {
+  const topology = buildWallTopology([
+    wall({
+      id: 'horizontal-external',
+      kind: 'external',
+      start: { x: 3.05, y: 4.411 },
+      end: { x: 6.231, y: 4.411 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'side-attached-internal',
+      kind: 'internal',
+      start: { x: 4.34, y: 9.117 },
+      end: { x: 4.34, y: 4.411 },
+      thickness: 0.15,
+    }),
+    wall({
+      id: 'vertical-external',
+      kind: 'external',
+      start: { x: 6.231, y: 1.894 },
+      end: { x: 6.231, y: 4.411 },
+      thickness: 0.3,
+    }),
+  ])
+
+  assert.equal(topology.rooms.length, 0)
+})

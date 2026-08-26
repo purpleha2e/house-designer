@@ -15,6 +15,7 @@ export type WallBufferMaterialSlot = {
 
 export type WallBufferBuildOptions = {
   floorId: string
+  groupBy?: 'face' | 'material' | 'pick'
 }
 
 export type WallBufferGeometryPayload = {
@@ -30,14 +31,14 @@ const QUAD_TRIANGLE_INDICES = [0, 1, 2, 0, 2, 3] as const
 const REVERSED_QUAD_TRIANGLE_INDICES = [0, 2, 1, 0, 3, 2] as const
 
 function sourceKey(source: WallMeshSource) {
-  return `${source.wallId}:${source.side ?? 'body'}`
+  return `${source.wallId}:${source.side ?? 'body'}:${source.role ?? 'surface'}`
 }
 
 function getOrCreateMaterialIndex(
   materialSlots: WallBufferMaterialSlot[],
   source: WallMeshSource,
+  key = sourceKey(source),
 ) {
-  const key = sourceKey(source)
   const existingSlot = materialSlots.find(
     (slot) => sourceKey(slot.source) === key,
   )
@@ -68,6 +69,28 @@ function pickTargetFromSource(
     side: source.side,
     type: 'wall-face',
     wallId: source.wallId,
+  }
+}
+
+function pickTargetFromFace(
+  face: WallMeshFace,
+  floorId: string,
+  groupBy: NonNullable<WallBufferBuildOptions['groupBy']>,
+): SelectableSurface | null {
+  if (typeof face.pickSource.side !== 'number') {
+    return null
+  }
+
+  if (groupBy !== 'face') {
+    return pickTargetFromSource(face.pickSource, floorId)
+  }
+
+  return {
+    floorId,
+    fragmentId: face.faceId,
+    side: face.pickSource.side,
+    type: 'wall-surface-fragment',
+    wallId: face.pickSource.wallId,
   }
 }
 
@@ -128,7 +151,7 @@ function pushFaceBuffers({
 
 export function buildWallBufferGeometryPayload(
   faces: WallMeshFace[],
-  { floorId }: WallBufferBuildOptions,
+  { floorId, groupBy = 'material' }: WallBufferBuildOptions,
 ): WallBufferGeometryPayload {
   const groups: WallBufferGroup[] = []
   const materialSlots: WallBufferMaterialSlot[] = []
@@ -138,7 +161,11 @@ export function buildWallBufferGeometryPayload(
   const uvs: number[] = []
   const faceEntries = faces.map((face, order) => ({
     face,
-    materialIndex: getOrCreateMaterialIndex(materialSlots, face.materialSource),
+    materialIndex: getOrCreateMaterialIndex(
+      materialSlots,
+      groupBy === 'pick' ? face.pickSource : face.materialSource,
+      groupBy === 'face' ? face.faceId : undefined,
+    ),
     order,
   }))
 
@@ -154,7 +181,7 @@ export function buildWallBufferGeometryPayload(
         positions,
         uvs,
       })
-      const pickTarget = pickTargetFromSource(face.pickSource, floorId)
+      const pickTarget = pickTargetFromFace(face, floorId, groupBy)
       const previousGroup = groups[groups.length - 1]
 
       if (

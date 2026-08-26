@@ -93,6 +93,23 @@ test('wall graph records wall endpoint to wall side attachments', () => {
   assert.equal(Number(graph.sideAttachments[0].targetDistance.toFixed(3)), 2)
 })
 
+test('wall graph ignores endpoints merely inside another wall thickness band', () => {
+  const graph = buildWallGraph([
+    wall({
+      id: 'target',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 4 },
+    }),
+    wall({
+      id: 'branch',
+      start: { x: 0.05, y: 2 },
+      end: { x: 2, y: 2 },
+    }),
+  ])
+
+  assert.equal(graph.sideAttachments.length, 0)
+})
+
 test('wall graph records crossing walls and chooses a deterministic leader', () => {
   const graph = buildWallGraph([
     wall({

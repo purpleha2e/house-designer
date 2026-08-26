@@ -130,13 +130,28 @@ function selectableSurfacesMatch(
   }
 
   if (
+    firstSurface.type === 'wall-surface-fragment' &&
+    secondSurface.type === 'wall-surface-fragment'
+  ) {
+    return (
+      firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.fragmentId === secondSurface.fragmentId
+    )
+  }
+
+  if (
     firstSurface.type === 'floor-slab-edge' &&
     secondSurface.type === 'floor-slab-edge'
   ) {
     return firstSurface.floorId === secondSurface.floorId
   }
 
-  if (firstSurface.type === 'wall-face' || secondSurface.type === 'wall-face') {
+  if (
+    firstSurface.type === 'wall-face' ||
+    secondSurface.type === 'wall-face' ||
+    firstSurface.type === 'wall-surface-fragment' ||
+    secondSurface.type === 'wall-surface-fragment'
+  ) {
     return false
   }
 
@@ -317,6 +332,7 @@ function App() {
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
   const [modelAssetVersion, setModelAssetVersion] = useState(0)
+  const [sceneRevision, setSceneRevision] = useState(0)
   const [surfaceAssignments, setSurfaceAssignments] = useState<
     SurfaceMaterialAssignment[]
   >([])
@@ -679,7 +695,8 @@ function App() {
     )
     setSelectedRoomSignature(null)
     setSelectedSurface((currentSelectedSurface) =>
-      currentSelectedSurface?.type === 'wall-face' &&
+      (currentSelectedSurface?.type === 'wall-face' ||
+        currentSelectedSurface?.type === 'wall-surface-fragment') &&
       currentSelectedSurface.wallId === wallId
         ? null
         : currentSelectedSurface,
@@ -815,6 +832,7 @@ function App() {
     clearFloorplanModelAssetCaches()
     clearThreeDModelAssetCaches()
     setModelAssetVersion((currentVersion) => currentVersion + 1)
+    setSceneRevision((currentRevision) => currentRevision + 1)
   }
 
   const updateModel = (modelId: string, updates: Partial<PlacedModel>) => {
@@ -1178,6 +1196,7 @@ function App() {
       setSelectedModelId(null)
       setSelectedModelIds([])
       setIsAddingWall(false)
+      setSceneRevision((currentRevision) => currentRevision + 1)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return
@@ -1218,7 +1237,9 @@ function App() {
         return detectedRoom && metadata ? { detectedRoom, metadata } : null
       })()
     : null
-  const selectedSurfaceWall = selectedSurface?.type === 'wall-face'
+  const selectedSurfaceWall =
+    selectedSurface?.type === 'wall-face' ||
+    selectedSurface?.type === 'wall-surface-fragment'
     ? activeFloor.walls.find((wall) => wall.id === selectedSurface.wallId) ?? null
     : null
   const applyMaterialToSelectedSurface = ({
@@ -1496,7 +1517,7 @@ function App() {
     setSelectedModelIds([])
     setSelectedWallIds([])
 
-    if (surface.type === 'wall-face') {
+    if (surface.type === 'wall-face' || surface.type === 'wall-surface-fragment') {
       setSelectedWallId(surface.wallId)
       setSelectedWallIds([surface.wallId])
       setSelectedRoomSignature(null)
@@ -1773,6 +1794,7 @@ function App() {
           selectedModelId={selectedModelId}
           selectedSurface={selectedSurface}
           selectedWallId={selectedWallId}
+          sceneRevision={sceneRevision}
           showAllFloors={selectedFloorViewId === ALL_FLOORS_VIEW_ID}
           surfaceAssignments={surfaceAssignments}
         />

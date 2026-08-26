@@ -215,7 +215,8 @@ export function LeftToolRail({
       ? 'Floor selected'
       : selectedSurface?.type === 'ceiling'
         ? 'Ceiling selected'
-        : selectedSurface?.type === 'wall-face'
+        : selectedSurface?.type === 'wall-face' ||
+            selectedSurface?.type === 'wall-surface-fragment'
           ? 'Wall selected'
           : selectedSurface?.type === 'floor-slab-edge'
             ? 'Slab edge selected'
@@ -227,7 +228,9 @@ export function LeftToolRail({
 
     onApplyMaterial({
       coverageHeight:
-        selectedSurface.type === 'wall-face' && wallMaterialMode === 'lower'
+        (selectedSurface.type === 'wall-face' ||
+          selectedSurface.type === 'wall-surface-fragment') &&
+        wallMaterialMode === 'lower'
           ? Math.min(
               selectedWallHeight ?? wallCoverageHeight,
               Math.max(0.05, wallCoverageHeight),
@@ -237,9 +240,16 @@ export function LeftToolRail({
       materialId: materialToApply,
       textureRotation,
       textureScale,
-      wallMode: selectedSurface.type === 'wall-face' ? wallMaterialMode : undefined,
+      wallMode:
+        selectedSurface.type === 'wall-face' ||
+        selectedSurface.type === 'wall-surface-fragment'
+          ? wallMaterialMode
+          : undefined,
       wallSide:
-        selectedSurface.type === 'wall-face' ? selectedSurface.side : undefined,
+        selectedSurface.type === 'wall-face' ||
+        selectedSurface.type === 'wall-surface-fragment'
+          ? selectedSurface.side
+          : undefined,
     })
   }
 
@@ -516,7 +526,8 @@ export function LeftToolRail({
                   <option value={270}>270 deg</option>
                 </select>
               </label>
-              {selectedSurface?.type === 'wall-face' ? (
+              {selectedSurface?.type === 'wall-face' ||
+              selectedSurface?.type === 'wall-surface-fragment' ? (
                 <>
                   <div className="flyout-segmented-control" aria-label="Wall finish area">
                     <button

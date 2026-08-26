@@ -26,13 +26,25 @@ test('wall mesh builder creates stable faces for a plain wall', () => {
 
   assert.deepEqual(
     faces.map((face) => face.kind).sort(),
-    ['bottom', 'cap', 'cap', 'side', 'side', 'top'],
+    ['bottom', 'cap', 'cap', 'cap', 'cap', 'side', 'side', 'top'],
   )
   assert.equal(
     faces.filter((face) => face.kind === 'side').every(
       (face) => face.materialSource.wallId === 'plain' && face.uvSource.wallId === 'plain',
     ),
     true,
+  )
+  assert.deepEqual(
+    faces
+      .filter((face) => face.kind === 'cap')
+      .map((face) => face.materialSource)
+      .sort((first, second) => (first.side ?? 0) - (second.side ?? 0)),
+    [
+      { role: 'cap', side: -1, wallId: 'plain' },
+      { role: 'cap', side: -1, wallId: 'plain' },
+      { role: 'cap', side: 1, wallId: 'plain' },
+      { role: 'cap', side: 1, wallId: 'plain' },
+    ],
   )
 })
 
@@ -53,23 +65,31 @@ test('wall mesh builder omits caps at snapped endpoint joins', () => {
     (face) => face.wallId === 'horizontal' && face.kind === 'cap',
   )
 
-  assert.deepEqual(horizontalCaps.map((face) => face.endpoint), ['start'])
+  assert.deepEqual(
+    horizontalCaps.map((face) => `${face.endpoint}:${face.materialSource.side}`).sort(),
+    ['start:-1', 'start:1'],
+  )
   assert.equal(faces.some((face) => face.faceId.startsWith('join:')), false)
 })
 
-test('wall mesh builder assigns side attachment cap material and uv source', () => {
-  const faces = buildWallMeshFaces([
-    wall({
-      id: 'target',
-      start: { x: 0, y: 0 },
-      end: { x: 0, y: 4 },
-    }),
-    wall({
-      id: 'branch',
-      start: { x: 0.1, y: 2 },
-      end: { x: 2, y: 2 },
-    }),
-  ])
+test('wall mesh builder assigns side attachment cap material and uv source when caps are emitted', () => {
+  const faces = buildWallMeshFaces(
+    [
+      wall({
+        id: 'target',
+        start: { x: 0, y: 0 },
+        end: { x: 0, y: 4 },
+      }),
+      wall({
+        id: 'branch',
+        start: { x: 0.1, y: 2 },
+        end: { x: 2, y: 2 },
+      }),
+    ],
+    {
+      omitSideAttachmentCapsForRenderedTargetWallIds: new Set(),
+    },
+  )
   const branchStartCap = faces.find(
     (face) =>
       face.wallId === 'branch' &&
@@ -85,6 +105,64 @@ test('wall mesh builder assigns side attachment cap material and uv source', () 
     side: -1,
     wallId: 'target',
   })
+})
+
+test('wall mesh builder omits side attachment caps when target wall is rendered', () => {
+  const faces = buildWallMeshFaces([
+    wall({
+      id: 'target',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 4 },
+    }),
+    wall({
+      id: 'branch',
+      start: { x: 0.1, y: 2 },
+      end: { x: 2, y: 2 },
+    }),
+  ])
+
+  assert.equal(
+    faces.some(
+      (face) =>
+        face.wallId === 'branch' &&
+        face.kind === 'cap' &&
+        face.endpoint === 'start',
+    ),
+    false,
+  )
+})
+
+test('wall mesh builder can omit side attachment caps covered by footprint walls', () => {
+  const faces = buildWallMeshFaces(
+    [
+      wall({
+        id: 'external',
+        kind: 'external',
+        start: { x: -2, y: 0 },
+        end: { x: 2, y: 0 },
+        thickness: 0.3,
+      }),
+      wall({
+        id: 'branch',
+        start: { x: 0, y: -1.5 },
+        end: { x: 0, y: -0.15 },
+        thickness: 0.2,
+      }),
+    ],
+    {
+      omitSideAttachmentCapsForTargetWallIds: new Set(['external']),
+    },
+  )
+
+  assert.equal(
+    faces.some(
+      (face) =>
+        face.wallId === 'branch' &&
+        face.kind === 'cap' &&
+        face.endpoint === 'end',
+    ),
+    false,
+  )
 })
 
 test('wall mesh builder trims side attachments to the target wall face', () => {
@@ -500,7 +578,7 @@ test('wall mesh builder keeps the wall body rectangular when both endpoints are 
   )
 })
 
-test('wall mesh builder splits subordinate crossing side faces', () => {
+test('wall mesh builder keeps crossing walls unsplit because editing disallows crossings', () => {
   const faces = buildWallMeshFaces([
     wall({
       id: 'leader',
@@ -519,10 +597,10 @@ test('wall mesh builder splits subordinate crossing side faces', () => {
     (face) => face.wallId === 'subordinate' && face.kind === 'side',
   )
 
-  assert.equal(subordinateSideFaces.length, 4)
+  assert.equal(subordinateSideFaces.length, 2)
   assert.deepEqual(
     subordinateSideFaces.map((face) => face.vertices[0].uv[0]),
-    [0, 1.001, 0, 1.001],
+    [0, 0],
   )
 })
 
