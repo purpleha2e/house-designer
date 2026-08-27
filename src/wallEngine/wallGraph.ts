@@ -163,8 +163,17 @@ function projectionIsOnSideAttachmentSnapLine(
 ) {
   return (
     projection.distance <= sideSnapTolerance ||
+    Math.abs(projection.distance - targetWall.thickness / 4) <=
+      sideSnapTolerance ||
     Math.abs(projection.distance - targetWall.thickness / 2) <=
       sideSnapTolerance
+  )
+}
+
+function projectionIsOnWallSpan(projection: Projection, sideSnapTolerance: number) {
+  return (
+    projection.rawT >= -sideSnapTolerance &&
+    projection.rawT <= 1 + sideSnapTolerance
   )
 }
 
@@ -294,8 +303,7 @@ function buildSideAttachments({
         }))
         .filter(
           ({ projection, targetWall }) =>
-            projection.rawT > 0.001 &&
-            projection.rawT < 1 - 0.001 &&
+            projectionIsOnWallSpan(projection, sideSnapTolerance) &&
             projectionIsOnSideAttachmentSnapLine(
               projection,
               targetWall,

@@ -93,6 +93,62 @@ test('wall graph records wall endpoint to wall side attachments', () => {
   assert.equal(Number(graph.sideAttachments[0].targetDistance.toFixed(3)), 2)
 })
 
+test('wall graph records internal endpoint snapped to external quarter line as side attachment', () => {
+  const graph = buildWallGraph([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 4 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'branch',
+      kind: 'internal',
+      start: { x: -0.075, y: 2 },
+      end: { x: -2, y: 2 },
+    }),
+  ])
+
+  assert.equal(graph.endpointNodes.length, 0)
+  assert.equal(graph.sideAttachments.length, 1)
+  assert.deepEqual(graph.sideAttachments[0].attachedEndpoint, {
+    endpoint: 'start',
+    wallId: 'branch',
+  })
+  assert.equal(graph.sideAttachments[0].targetWallId, 'external')
+  assert.equal(graph.sideAttachments[0].side, 1)
+  assert.equal(Number(graph.sideAttachments[0].targetDistance.toFixed(3)), 2)
+})
+
+test('wall graph records internal endpoint snapped to external end-face quarter point', () => {
+  const graph = buildWallGraph([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 3, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'branch',
+      kind: 'internal',
+      start: { x: 3, y: 0.075 },
+      end: { x: 2, y: 1 },
+    }),
+  ])
+
+  assert.equal(graph.endpointNodes.length, 0)
+  assert.equal(graph.sideAttachments.length, 1)
+  assert.deepEqual(graph.sideAttachments[0].attachedEndpoint, {
+    endpoint: 'start',
+    wallId: 'branch',
+  })
+  assert.equal(graph.sideAttachments[0].targetWallId, 'external')
+  assert.equal(graph.sideAttachments[0].side, 1)
+  assert.equal(Number(graph.sideAttachments[0].targetDistance.toFixed(3)), 3)
+})
+
 test('wall graph ignores endpoints merely inside another wall thickness band', () => {
   const graph = buildWallGraph([
     wall({

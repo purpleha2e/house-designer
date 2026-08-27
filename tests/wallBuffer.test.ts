@@ -313,6 +313,60 @@ test('wall buffer adapter can expose individual wall fragments as pick targets',
   })
 })
 
+test('wall buffer adapter keeps fragment material sources in separate render slots', () => {
+  const faces: WallMeshFace[] = [
+    {
+      faceId: 'wall-a:fragment:0',
+      kind: 'side',
+      materialSource: {
+        fragmentId: 'wall-a:fragment:0',
+        role: 'room-surface',
+        side: 1,
+        wallId: 'wall-a',
+      },
+      normal: [0, 0, 1],
+      pickSource: { side: 1, wallId: 'wall-a' },
+      uvSource: { side: 1, wallId: 'wall-a' },
+      vertices: [
+        { position: [0, 0, 0], uv: [0, 0] },
+        { position: [1, 0, 0], uv: [1, 0] },
+        { position: [1, 2, 0], uv: [1, 2] },
+        { position: [0, 2, 0], uv: [0, 2] },
+      ],
+      wallId: 'wall-a',
+    },
+    {
+      faceId: 'wall-a:fragment:1',
+      kind: 'side',
+      materialSource: {
+        fragmentId: 'wall-a:fragment:1',
+        role: 'room-surface',
+        side: 1,
+        wallId: 'wall-a',
+      },
+      normal: [0, 0, 1],
+      pickSource: { side: 1, wallId: 'wall-a' },
+      uvSource: { side: 1, wallId: 'wall-a' },
+      vertices: [
+        { position: [1, 0, 0], uv: [1, 0] },
+        { position: [2, 0, 0], uv: [2, 0] },
+        { position: [2, 2, 0], uv: [2, 2] },
+        { position: [1, 2, 0], uv: [1, 2] },
+      ],
+      wallId: 'wall-a',
+    },
+  ]
+  const renderPayload = buildWallBufferGeometryPayload(faces, {
+    floorId: 'floor-1',
+  })
+
+  assert.equal(renderPayload.materialSlots.length, 2)
+  assert.deepEqual(
+    renderPayload.materialSlots.map((slot) => slot.source.fragmentId),
+    ['wall-a:fragment:0', 'wall-a:fragment:1'],
+  )
+})
+
 test('wall buffer adapter gives side attachment caps the adjoining material slot', () => {
   const faces = buildWallMeshFaces(
     [

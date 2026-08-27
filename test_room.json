@@ -1,0 +1,111 @@
+{
+  "activeFloorId": "ae01f31a-0f01-4d88-b66a-63910d1f41e6",
+  "floors": [
+    {
+      "id": "ae01f31a-0f01-4d88-b66a-63910d1f41e6",
+      "name": "Floor 0",
+      "elevation": 0,
+      "models": [],
+      "rooms": [
+        {
+          "id": "f9b7e001-2f65-4ec9-addc-afc496b615da",
+          "name": "Room 1",
+          "signature": "350:294|350:55|55:138|55:55|56:135"
+        },
+        {
+          "id": "bc4722a5-d624-43b9-8a25-3ac37dde42a5",
+          "name": "Room 2",
+          "signature": "349:299|350:297|350:379|55:141|55:379"
+        }
+      ],
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "45c9613d-ae27-40f1-b276-d3e9ca36eda9",
+          "kind": "external",
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 10.65,
+            "y": 1.5
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 10.65,
+            "y": 1.5
+          },
+          "end": {
+            "x": 10.65,
+            "y": 11.516666666666667
+          },
+          "id": "698fecb6-e526-4bfb-a205-e1955ec07516",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 10.65,
+            "y": 11.516666666666667
+          },
+          "end": {
+            "x": 1.5,
+            "y": 11.516666666666667
+          },
+          "id": "1cc6cc20-c855-44f0-b4dc-2bbd8840ff21",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5,
+            "y": 11.516666666666667
+          },
+          "end": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "id": "8df3f378-0fb5-4a6c-ad9c-526944062dda",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5,
+            "y": 4.049999999999999
+          },
+          "end": {
+            "x": 10.65,
+            "y": 8.983333333333333
+          },
+          "id": "dfe11efa-3020-4679-ad7d-ba23e2a207bf",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4
+        }
+      ]
+    }
+  ],
+  "surfaceAssignments": [
+    {
+      "id": "0e662056-e2df-469b-b9fb-8fb68a3eed5d",
+      "materialId": "herringbone",
+      "target": {
+        "type": "room-floor",
+        "floorId": "ae01f31a-0f01-4d88-b66a-63910d1f41e6",
+        "roomSignature": "349:299|350:297|350:379|55:141|55:379"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    }
+  ],
+  "wallKind": "internal"
+}

@@ -1,5 +1,13 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   Circle,
   Group,
@@ -2068,6 +2076,33 @@ export function FloorplanCanvas({
   const lengthInputRef = useRef<HTMLInputElement>(null)
   const middlePanRef = useRef<PanState | null>(null)
   const wallDragRef = useRef<WallDragState | null>(null)
+  const wallDragPreviewFrameRef = useRef<number | null>(null)
+  const pendingWallDragPreviewRef = useRef<typeof wallDragPreview>(null)
+  const scheduleWallDragPreview = useCallback(
+    (preview: typeof wallDragPreview) => {
+      pendingWallDragPreviewRef.current = preview
+
+      if (wallDragPreviewFrameRef.current !== null) {
+        return
+      }
+
+      wallDragPreviewFrameRef.current = window.requestAnimationFrame(() => {
+        wallDragPreviewFrameRef.current = null
+        setWallDragPreview(pendingWallDragPreviewRef.current)
+      })
+    },
+    [],
+  )
+
+  useEffect(
+    () => () => {
+      if (wallDragPreviewFrameRef.current !== null) {
+        window.cancelAnimationFrame(wallDragPreviewFrameRef.current)
+        wallDragPreviewFrameRef.current = null
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     let isMounted = true
@@ -2753,7 +2788,7 @@ export function FloorplanCanvas({
         : walls,
     [wallDragPreview, walls],
   )
-  const renderedWalls = getRenderedWalls(previewWalls)
+  const renderedWalls = useMemo(() => getRenderedWalls(previewWalls), [previewWalls])
   const draftWallLength = draftWall ? distance(draftWall.start, draftWall.end) : null
   const angleWidget =
     draftWall && !isAxisLocked ? getAngleWidget(draftWall.start, draftWall.end) : null
@@ -2814,9 +2849,10 @@ export function FloorplanCanvas({
     [activeFloor.id, floors, wallTopology.rooms],
   )
 
-  const roomRegions =
-    renderOptions.roomAreas || renderOptions.roomHighlights
-      ? wallTopology.rooms.map((room, index) => {
+  const roomRegions = useMemo(
+    () =>
+      renderOptions.roomAreas || renderOptions.roomHighlights
+        ? wallTopology.rooms.map((room, index) => {
           const polygonPoints = room.polygon.flatMap((point) => {
             const canvasPoint = toCanvasPoint(point)
             return [canvasPoint.x, canvasPoint.y]
@@ -2858,9 +2894,18 @@ export function FloorplanCanvas({
               ) : null}
             </Fragment>
           )
-        })
-      : []
-  const wallOpeningMarkers = renderedWalls.flatMap((renderedWall) => {
+          })
+        : [],
+    [
+      onSelectRoom,
+      renderOptions.roomAreas,
+      renderOptions.roomHighlights,
+      roomMetadataBySignature,
+      selectedRoomSignature,
+      wallTopology.rooms,
+    ],
+  )
+  const wallOpeningMarkers = useMemo(() => renderedWalls.flatMap((renderedWall) => {
     const { wall } = renderedWall
     const wallLength = getWallLength(wall)
 
@@ -2910,7 +2955,7 @@ export function FloorplanCanvas({
         </Group>
       )
     })
-  })
+  }), [renderedWalls])
   const modelFootprints = (activeFloor.models ?? []).flatMap((model) => {
     const modelDefinition = modelsById.get(model.modelId)
 
@@ -3169,11 +3214,13 @@ export function FloorplanCanvas({
     )
   })
 
-  const dimensionRulers = walls.flatMap((wall) =>
-    (wall.kind === 'internal'
-      ? renderOptions.internalDimensions
-      : renderOptions.externalDimensions)
-      ? getDimensionGuides(wall, walls, wallTopology).map((guide, index) => {
+  const dimensionRulers = useMemo(
+    () =>
+      walls.flatMap((wall) =>
+        (wall.kind === 'internal'
+          ? renderOptions.internalDimensions
+          : renderOptions.externalDimensions)
+          ? getDimensionGuides(wall, walls, wallTopology).map((guide, index) => {
       const measurementTextScale =
         viewport.scale > MEASUREMENT_TEXT_SCALE_THRESHOLD
           ? MEASUREMENT_TEXT_SCALE_THRESHOLD / viewport.scale
@@ -3321,8 +3368,16 @@ export function FloorplanCanvas({
           />
         </Fragment>
       )
-    })
-      : [],
+        })
+          : [],
+      ),
+    [
+      renderOptions.externalDimensions,
+      renderOptions.internalDimensions,
+      viewport.scale,
+      wallTopology,
+      walls,
+    ],
   )
 
   return (
@@ -3623,7 +3678,7 @@ export function FloorplanCanvas({
 
                     dragState.pendingWall = nextWall
                     event.target.position({ x: 0, y: 0 })
-                    setWallDragPreview({
+                    scheduleWallDragPreview({
                       wallId: dragState.wallId,
                       wall: nextWall,
                     })
@@ -3645,6 +3700,11 @@ export function FloorplanCanvas({
 
                     wallDragRef.current = null
                     event.target.position({ x: 0, y: 0 })
+                    if (wallDragPreviewFrameRef.current !== null) {
+                      window.cancelAnimationFrame(wallDragPreviewFrameRef.current)
+                      wallDragPreviewFrameRef.current = null
+                    }
+                    pendingWallDragPreviewRef.current = null
                     setWallDragPreview(null)
                     setIsDraggingWall(false)
                   }}
@@ -3779,7 +3839,7 @@ export function FloorplanCanvas({
                       setHoverSnapTarget(snapTarget)
                       dragState.pendingWall = nextWall
                       event.target.position(toCanvasPoint(nextPoint))
-                      setWallDragPreview({
+                      scheduleWallDragPreview({
                         wallId: dragState.wallId,
                         wall: nextWall,
                       })
@@ -3794,6 +3854,11 @@ export function FloorplanCanvas({
 
                       wallDragRef.current = null
                       setHoverSnapTarget(null)
+                      if (wallDragPreviewFrameRef.current !== null) {
+                        window.cancelAnimationFrame(wallDragPreviewFrameRef.current)
+                        wallDragPreviewFrameRef.current = null
+                      }
+                      pendingWallDragPreviewRef.current = null
                       setWallDragPreview(null)
                       setIsDraggingWall(false)
                     }}

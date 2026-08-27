@@ -107,7 +107,7 @@ test('wall mesh builder assigns side attachment cap material and uv source when 
   })
 })
 
-test('wall mesh builder omits side attachment caps when target wall is rendered', () => {
+test('wall mesh builder keeps side attachment caps when target wall is rendered', () => {
   const faces = buildWallMeshFaces([
     wall({
       id: 'target',
@@ -128,8 +128,37 @@ test('wall mesh builder omits side attachment caps when target wall is rendered'
         face.kind === 'cap' &&
         face.endpoint === 'start',
     ),
-    false,
+    true,
   )
+})
+
+test('wall mesh builder keeps diagonal side attachment caps visible', () => {
+  const faces = buildWallMeshFaces([
+    wall({
+      id: 'target',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 4 },
+    }),
+    wall({
+      id: 'diagonal',
+      start: { x: 0.1, y: 2 },
+      end: { x: 2, y: 2.9 },
+    }),
+  ])
+  const diagonalStartCap = faces.find(
+    (face) =>
+      face.wallId === 'diagonal' &&
+      face.kind === 'cap' &&
+      face.endpoint === 'start',
+  )
+
+  assert.ok(diagonalStartCap)
+  assert.deepEqual(diagonalStartCap.materialSource, {
+    side: -1,
+    wallId: 'target',
+  })
+  assert.ok(Math.abs(diagonalStartCap.normal[0] + 1) < 0.001)
+  assert.ok(Math.abs(diagonalStartCap.normal[2]) < 0.001)
 })
 
 test('wall mesh builder can omit side attachment caps covered by footprint walls', () => {
@@ -162,6 +191,39 @@ test('wall mesh builder can omit side attachment caps covered by footprint walls
         face.endpoint === 'end',
     ),
     false,
+  )
+})
+
+test('wall mesh builder keeps diagonal side attachment caps against footprint walls', () => {
+  const faces = buildWallMeshFaces(
+    [
+      wall({
+        id: 'external',
+        kind: 'external',
+        start: { x: -2, y: 0 },
+        end: { x: 2, y: 0 },
+        thickness: 0.3,
+      }),
+      wall({
+        id: 'diagonal',
+        start: { x: -0.7, y: -1.5 },
+        end: { x: 0, y: -0.15 },
+        thickness: 0.2,
+      }),
+    ],
+    {
+      omitSideAttachmentCapsForTargetWallIds: new Set(['external']),
+    },
+  )
+
+  assert.equal(
+    faces.some(
+      (face) =>
+        face.wallId === 'diagonal' &&
+        face.kind === 'cap' &&
+        face.endpoint === 'end',
+    ),
+    true,
   )
 })
 
@@ -244,27 +306,16 @@ test('wall mesh builder converges snapped endpoint joins on the wall body', () =
       face.faceId === 'horizontal:join-side:end:1',
   )
   const bodyEndVertex = horizontalPositiveBodySide?.vertices[1].position
-  const joinEndVertex = horizontalPositiveJoinSide?.vertices[1].position
   const joinTopFaceIds = faces
     .filter((face) => face.faceId.startsWith('join-top:'))
     .map((face) => face.faceId)
     .sort()
 
   assert.ok(bodyEndVertex)
-  assert.ok(joinEndVertex)
-  assert.deepEqual(
-    joinTopFaceIds,
-    [
-      'join-top:endpoint:0:horizontal:end:-1',
-      'join-top:endpoint:0:horizontal:end:1',
-      'join-top:endpoint:0:vertical:start:-1',
-      'join-top:endpoint:0:vertical:start:1',
-    ],
-  )
+  assert.equal(horizontalPositiveJoinSide, undefined)
+  assert.deepEqual(joinTopFaceIds, [])
   assert.equal(Number(bodyEndVertex[0].toFixed(3)), 2)
   assert.equal(Number(bodyEndVertex[2].toFixed(3)), 0.1)
-  assert.equal(Number(joinEndVertex[0].toFixed(3)), 2.1)
-  assert.equal(Number(joinEndVertex[2].toFixed(3)), 0.1)
 })
 
 test('wall mesh builder supports external snapped endpoint joins', () => {
@@ -291,7 +342,7 @@ test('wall mesh builder supports external snapped endpoint joins', () => {
         face.faceId === 'external-horizontal:join-side:end:1' &&
         face.kind === 'side',
     ),
-    true,
+    false,
   )
   assert.equal(
     faces.some(
@@ -299,29 +350,49 @@ test('wall mesh builder supports external snapped endpoint joins', () => {
         face.faceId === 'external-vertical:join-side:start:-1' &&
         face.kind === 'side',
     ),
-    true,
+    false,
   )
   assert.equal(
     faces.some((face) => face.faceId.startsWith('join-top:')),
-    true,
+    false,
   )
   assert.deepEqual(
     faces
       .filter((face) => face.faceId.startsWith('join-top:'))
       .map((face) => face.faceId)
       .sort(),
-    [
-      'join-top:endpoint:0:external-horizontal:end:-1',
-      'join-top:endpoint:0:external-horizontal:end:1',
-      'join-top:endpoint:0:external-vertical:start:-1',
-      'join-top:endpoint:0:external-vertical:start:1',
-    ],
+    [],
   )
   assert.equal(
     faces.some((face) =>
       face.vertices.some((vertex) => Number.isNaN(vertex.position[0])),
     ),
     false,
+  )
+})
+
+test('wall mesh builder keeps convergence strips for angled endpoint joins', () => {
+  const faces = buildWallMeshFaces([
+    wall({
+      id: 'horizontal',
+      start: { x: 0, y: 0 },
+      end: { x: 2, y: 0 },
+    }),
+    wall({
+      id: 'angled',
+      start: { x: 2, y: 0 },
+      end: { x: 3, y: 1 },
+    }),
+  ])
+
+  assert.equal(
+    faces.some(
+      (face) =>
+        face.wallId === 'horizontal' &&
+        face.kind === 'side' &&
+        face.faceId.startsWith('horizontal:join-side:end:'),
+    ),
+    true,
   )
 })
 

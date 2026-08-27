@@ -17,6 +17,7 @@ export type WallMeshVertex = {
 export type WallMeshFaceKind = 'bottom' | 'cap' | 'side' | 'top'
 
 export type WallMeshSource = {
+  fragmentId?: string
   role?: 'cap' | 'room-surface'
   side?: WallSide
   wallId: string
@@ -36,8 +37,14 @@ export type WallMeshFace = {
 
 export type WallMeshBuildOptions = WallGraphOptions & {
   chamferThreshold?: number
+  omitEndpointJoinSideFacesForWallIds?: ReadonlySet<string>
   omitSideAttachmentCapsForRenderedTargetWallIds?: ReadonlySet<string>
   omitSideAttachmentCapsForTargetWallIds?: ReadonlySet<string>
+}
+
+type EndpointJoinContext = {
+  endpointPlan: Extract<WallEndpointPlan, { type: 'endpoint-join' }>
+  plan: WallGeometryPlan
 }
 
 function distance(first: Point, second: Point) {
@@ -184,6 +191,28 @@ function getEndpointNormal(
   const sign = endpoint === 'start' ? -1 : 1
 
   return [direction.x * sign, 0, direction.y * sign]
+}
+
+function getVerticalFaceNormalFromEdge(
+  firstPoint: Point,
+  secondPoint: Point,
+  preferredNormal: [number, number, number],
+): [number, number, number] {
+  const dx = secondPoint.x - firstPoint.x
+  const dy = secondPoint.y - firstPoint.y
+  const length = Math.hypot(dx, dy)
+
+  if (length <= 0.000001) {
+    return preferredNormal
+  }
+
+  const firstCandidate: [number, number, number] = [dy / length, 0, -dx / length]
+  const secondCandidate: [number, number, number] = [-dy / length, 0, dx / length]
+  const firstDot =
+    firstCandidate[0] * preferredNormal[0] +
+    firstCandidate[2] * preferredNormal[2]
+
+  return firstDot >= 0 ? firstCandidate : secondCandidate
 }
 
 function getWallOpeningRects(wall: Wall) {
@@ -435,6 +464,91 @@ function addEndpointJoinSideFace({
   })
 }
 
+function getEndpointJoinContexts(plans: WallGeometryPlan[]) {
+  const contextsByJoinNodeId = new Map<string, EndpointJoinContext[]>()
+
+  plans.forEach((plan) => {
+    ;([plan.start, plan.end] as const).forEach((endpointPlan) => {
+      if (endpointPlan.type !== 'endpoint-join') {
+        return
+      }
+
+      const contexts = contextsByJoinNodeId.get(endpointPlan.joinNodeId) ?? []
+
+      contexts.push({
+        endpointPlan,
+        plan,
+      })
+      contextsByJoinNodeId.set(endpointPlan.joinNodeId, contexts)
+    })
+  })
+
+  return contextsByJoinNodeId
+}
+
+function wallDirectionsArePerpendicular(firstWall: Wall, secondWall: Wall) {
+  const firstLength = wallLength(firstWall)
+  const secondLength = wallLength(secondWall)
+
+  if (firstLength <= 0.000001 || secondLength <= 0.000001) {
+    return false
+  }
+
+  const firstDirection = {
+    x: (firstWall.end.x - firstWall.start.x) / firstLength,
+    y: (firstWall.end.y - firstWall.start.y) / firstLength,
+  }
+  const secondDirection = {
+    x: (secondWall.end.x - secondWall.start.x) / secondLength,
+    y: (secondWall.end.y - secondWall.start.y) / secondLength,
+  }
+
+  return Math.abs(
+    firstDirection.x * secondDirection.x +
+      firstDirection.y * secondDirection.y,
+  ) <= 0.08
+}
+
+function shouldOmitEndpointJoinSideFace({
+  endpointPlan,
+  endpointSidePlan,
+  joinContextsByNodeId,
+  options,
+  wall,
+  wallsById,
+}: {
+  endpointPlan: WallEndpointPlan
+  endpointSidePlan?: WallEndpointSidePlan | null
+  joinContextsByNodeId: Map<string, EndpointJoinContext[]>
+  options: WallMeshBuildOptions
+  wall: Wall
+  wallsById: Map<string, Wall>
+}) {
+  if (
+    endpointPlan.type !== 'endpoint-join' ||
+    endpointSidePlan?.type !== 'converge'
+  ) {
+    return false
+  }
+
+  if (options.omitEndpointJoinSideFacesForWallIds?.has(wall.id)) {
+    return true
+  }
+
+  const joinContexts = joinContextsByNodeId.get(endpointPlan.joinNodeId) ?? []
+
+  if (joinContexts.length !== 2) {
+    return false
+  }
+
+  const otherContext = joinContexts.find(
+    (context) => context.plan.wallId !== wall.id,
+  )
+  const otherWall = otherContext ? wallsById.get(otherContext.plan.wallId) : null
+
+  return Boolean(otherWall && wallDirectionsArePerpendicular(wall, otherWall))
+}
+
 function addCapFace({
   endpoint,
   faces,
@@ -458,8 +572,8 @@ function addCapFace({
 
   if (
     plan.type === 'side-attachment' &&
-    (options.omitSideAttachmentCapsForTargetWallIds?.has(plan.targetWallId) ||
-      options.omitSideAttachmentCapsForRenderedTargetWallIds?.has(plan.targetWallId))
+    plan.capCoveredByRenderedTarget &&
+    options.omitSideAttachmentCapsForTargetWallIds?.has(plan.targetWallId)
   ) {
     return
   }
@@ -474,7 +588,15 @@ function addCapFace({
       ? plan.capUvSource
       : fallbackSource
   const capWidth = distance(positiveSidePoint, negativeSidePoint)
-  const normal = getEndpointNormal(wall, endpoint)
+  const endpointNormal = getEndpointNormal(wall, endpoint)
+  const normal =
+    plan.type === 'side-attachment'
+      ? getVerticalFaceNormalFromEdge(
+          negativeSidePoint,
+          positiveSidePoint,
+          endpointNormal,
+        )
+      : endpointNormal
 
   if (plan.type !== 'side-attachment') {
     const centerPoint = {
@@ -814,7 +936,7 @@ function addEndpointTopCaps({
   })
 
   plansByJoinNode.forEach((entries, joinNodeId) => {
-    if (entries.length < 2) {
+    if (entries.length < 3) {
       return
     }
 
@@ -875,6 +997,8 @@ function buildWallFaces(
   wall: Wall,
   plan: WallGeometryPlan,
   options: WallMeshBuildOptions,
+  joinContextsByNodeId: Map<string, EndpointJoinContext[]>,
+  wallsById: Map<string, Wall>,
 ) {
   const faces: WallMeshFace[] = []
   const positiveStart = getEndpointBodySidePoint(wall, plan.start, 1)
@@ -907,42 +1031,86 @@ function buildWallFaces(
     )
   })
 
-  addEndpointJoinSideFace({
-    endpoint: 'start',
-    faces,
-    joinedSidePoint: joinedPositiveStart,
-    joinKind: joinedPositiveStartPlan?.type,
-    side: 1,
-    sidePoint: positiveStart,
-    wall,
-  })
-  addEndpointJoinSideFace({
-    endpoint: 'start',
-    faces,
-    joinedSidePoint: joinedNegativeStart,
-    joinKind: joinedNegativeStartPlan?.type,
-    side: -1,
-    sidePoint: negativeStart,
-    wall,
-  })
-  addEndpointJoinSideFace({
-    endpoint: 'end',
-    faces,
-    joinedSidePoint: joinedPositiveEnd,
-    joinKind: joinedPositiveEndPlan?.type,
-    side: 1,
-    sidePoint: positiveEnd,
-    wall,
-  })
-  addEndpointJoinSideFace({
-    endpoint: 'end',
-    faces,
-    joinedSidePoint: joinedNegativeEnd,
-    joinKind: joinedNegativeEndPlan?.type,
-    side: -1,
-    sidePoint: negativeEnd,
-    wall,
-  })
+  if (
+    !shouldOmitEndpointJoinSideFace({
+      endpointPlan: plan.start,
+      endpointSidePlan: joinedPositiveStartPlan,
+      joinContextsByNodeId,
+      options,
+      wall,
+      wallsById,
+    })
+  ) {
+    addEndpointJoinSideFace({
+      endpoint: 'start',
+      faces,
+      joinedSidePoint: joinedPositiveStart,
+      joinKind: joinedPositiveStartPlan?.type,
+      side: 1,
+      sidePoint: positiveStart,
+      wall,
+    })
+  }
+  if (
+    !shouldOmitEndpointJoinSideFace({
+      endpointPlan: plan.start,
+      endpointSidePlan: joinedNegativeStartPlan,
+      joinContextsByNodeId,
+      options,
+      wall,
+      wallsById,
+    })
+  ) {
+    addEndpointJoinSideFace({
+      endpoint: 'start',
+      faces,
+      joinedSidePoint: joinedNegativeStart,
+      joinKind: joinedNegativeStartPlan?.type,
+      side: -1,
+      sidePoint: negativeStart,
+      wall,
+    })
+  }
+  if (
+    !shouldOmitEndpointJoinSideFace({
+      endpointPlan: plan.end,
+      endpointSidePlan: joinedPositiveEndPlan,
+      joinContextsByNodeId,
+      options,
+      wall,
+      wallsById,
+    })
+  ) {
+    addEndpointJoinSideFace({
+      endpoint: 'end',
+      faces,
+      joinedSidePoint: joinedPositiveEnd,
+      joinKind: joinedPositiveEndPlan?.type,
+      side: 1,
+      sidePoint: positiveEnd,
+      wall,
+    })
+  }
+  if (
+    !shouldOmitEndpointJoinSideFace({
+      endpointPlan: plan.end,
+      endpointSidePlan: joinedNegativeEndPlan,
+      joinContextsByNodeId,
+      options,
+      wall,
+      wallsById,
+    })
+  ) {
+    addEndpointJoinSideFace({
+      endpoint: 'end',
+      faces,
+      joinedSidePoint: joinedNegativeEnd,
+      joinKind: joinedNegativeEndPlan?.type,
+      side: -1,
+      sidePoint: negativeEnd,
+      wall,
+    })
+  }
   addCapFace({
     endpoint: 'start',
     faces,
@@ -995,6 +1163,7 @@ export function buildWallMeshFaces(
 ) {
   const plans = buildWallGeometryPlans(walls, options)
   const wallsById = new Map(walls.map((wall) => [wall.id, wall]))
+  const joinContextsByNodeId = getEndpointJoinContexts(plans)
   const buildOptions = {
     ...options,
     omitSideAttachmentCapsForRenderedTargetWallIds:
@@ -1003,7 +1172,15 @@ export function buildWallMeshFaces(
   const faces = plans.flatMap((plan) => {
     const wall = wallsById.get(plan.wallId)
 
-    return wall ? buildWallFaces(wall, plan, buildOptions) : []
+    return wall
+      ? buildWallFaces(
+          wall,
+          plan,
+          buildOptions,
+          joinContextsByNodeId,
+          wallsById,
+        )
+      : []
   })
 
   addEndpointTopCaps({

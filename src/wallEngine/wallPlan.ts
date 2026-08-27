@@ -35,6 +35,7 @@ export type WallSideAttachmentEndpointPlan = {
     side: WallSide
     wallId: string
   }
+  capCoveredByRenderedTarget: boolean
   capUvSource: {
     side: WallSide
     wallId: string
@@ -91,6 +92,7 @@ export type WallGeometryPlanOptions = WallGraphOptions & {
 
 const DEFAULT_CHAMFER_THRESHOLD = 1
 const MIN_SIDE_ATTACHMENT_ANGLE_RADIANS = Math.PI / 4
+const SIDE_ATTACHMENT_CUT_EXTENSION_FACTOR = 1.5
 
 function distance(first: Point, second: Point) {
   return Math.hypot(first.x - second.x, first.y - second.y)
@@ -131,12 +133,54 @@ function wallMeetsSideAttachmentAngle(sourceWall: Wall, targetWall: Wall) {
   return absoluteDot <= Math.cos(MIN_SIDE_ATTACHMENT_ANGLE_RADIANS)
 }
 
+function wallIsPerpendicularToTarget(sourceWall: Wall, targetWall: Wall) {
+  const sourceDirection = getWallDirection(sourceWall)
+  const targetDirection = getWallDirection(targetWall)
+  const absoluteDot = Math.abs(
+    sourceDirection.x * targetDirection.x +
+      sourceDirection.y * targetDirection.y,
+  )
+
+  return absoluteDot <= 0.08
+}
+
 function getWallSideNormal(wall: Wall, side: WallSide) {
   const normal = getWallNormal(wall)
 
   return {
     x: normal.x * side,
     y: normal.y * side,
+  }
+}
+
+function clampPointToTargetAttachmentSpan({
+  attachmentPoint,
+  point,
+  targetWall,
+  wall,
+}: {
+  attachmentPoint: Point
+  point: Point
+  targetWall: Wall
+  wall: Wall
+}) {
+  const targetDirection = getWallDirection(targetWall)
+  const projectedDistance =
+    (point.x - attachmentPoint.x) * targetDirection.x +
+    (point.y - attachmentPoint.y) * targetDirection.y
+  const maximumDistance =
+    Math.max(wall.thickness, targetWall.thickness) *
+    SIDE_ATTACHMENT_CUT_EXTENSION_FACTOR
+
+  if (Math.abs(projectedDistance) <= maximumDistance) {
+    return point
+  }
+
+  const clampedDistance = Math.sign(projectedDistance) * maximumDistance
+
+  return {
+    x: attachmentPoint.x + targetDirection.x * clampedDistance,
+    y: attachmentPoint.y + targetDirection.y * clampedDistance,
   }
 }
 
@@ -199,6 +243,55 @@ function getProjectedDistanceAlongWall(wall: Wall, point: Point) {
     (point.x - wall.start.x) * direction.x +
     (point.y - wall.start.y) * direction.y
   )
+}
+
+function getPointAlongWall(wall: Wall, distanceAlongWall: number) {
+  const direction = getWallDirection(wall)
+
+  return {
+    x: wall.start.x + direction.x * distanceAlongWall,
+    y: wall.start.y + direction.y * distanceAlongWall,
+  }
+}
+
+function getDistanceAlongTargetWall(targetWall: Wall, point: Point) {
+  const direction = getWallDirection(targetWall)
+
+  return (
+    (point.x - targetWall.start.x) * direction.x +
+    (point.y - targetWall.start.y) * direction.y
+  )
+}
+
+function shiftPointAlongWall(wall: Wall, point: Point, distanceAlongWall: number) {
+  const direction = getWallDirection(wall)
+
+  return {
+    x: point.x + direction.x * distanceAlongWall,
+    y: point.y + direction.y * distanceAlongWall,
+  }
+}
+
+function getSideAttachmentTargetSpanShift(
+  targetWall: Wall,
+  sidePoints: WallEndpointSidePlan[],
+) {
+  const targetLength = wallLength(targetWall)
+  const targetDistances = sidePoints.map((sidePoint) =>
+    getDistanceAlongTargetWall(targetWall, sidePoint.point),
+  )
+  const minimumDistance = Math.min(...targetDistances)
+  const maximumDistance = Math.max(...targetDistances)
+
+  if (minimumDistance < 0) {
+    return -minimumDistance
+  }
+
+  if (maximumDistance > targetLength) {
+    return targetLength - maximumDistance
+  }
+
+  return 0
 }
 
 function getEndpointDistance(
@@ -380,9 +473,7 @@ function buildEndpointPlan({
         getWallSideLinePoint(targetWall, attachment.side, 'start'),
         getWallDirection(targetWall),
       )
-    const trimPoint = targetFaceIntersection?.point ?? targetFacePoint
-    const trimDistance = getProjectedDistanceAlongWall(wall, trimPoint)
-    const sidePoints = ([1, -1] as const).map((side): WallEndpointSidePlan => {
+    const rawSidePoints = ([1, -1] as const).map((side): WallEndpointSidePlan => {
       const sideLinePoint = getWallSideLinePoint(wall, side, endpoint)
       const intersection =
         targetWall &&
@@ -392,36 +483,105 @@ function buildEndpointPlan({
           getWallSideLinePoint(targetWall, attachment.side, 'start'),
           getWallDirection(targetWall),
         )
+      const unclampedPoint =
+        intersection?.point ?? getWallSideLinePoint(wall, side, endpoint)
+      const point =
+        targetWall && intersection
+          ? clampPointToTargetAttachmentSpan({
+              attachmentPoint: targetFacePoint,
+              point: unclampedPoint,
+              targetWall,
+              wall,
+            })
+          : unclampedPoint
 
       return {
         distanceFromEndpoint: Math.abs(
           getEndpointDistance(
             wall,
             endpoint,
-            intersection?.point ?? getWallSideLinePoint(wall, side, endpoint),
+            point,
           ),
         ),
-        point: intersection?.point ?? getWallSideLinePoint(wall, side, endpoint),
+        point,
         side,
         type: 'converge',
       }
     })
+    const targetSpanShift = targetWall && targetWall.kind === 'external' && wall.kind === 'internal'
+      ? getSideAttachmentTargetSpanShift(targetWall, rawSidePoints)
+      : 0
+    const sidePoints =
+      targetWall && Math.abs(targetSpanShift) > 0.000001
+        ? rawSidePoints.map((sidePoint) => ({
+            ...sidePoint,
+            distanceFromEndpoint: Math.abs(
+              getEndpointDistance(
+                wall,
+                endpoint,
+                shiftPointAlongWall(targetWall, sidePoint.point, targetSpanShift),
+              ),
+            ),
+            point: shiftPointAlongWall(targetWall, sidePoint.point, targetSpanShift),
+          }))
+        : rawSidePoints
+    const adjustedTargetFacePoint =
+      targetWall && Math.abs(targetSpanShift) > 0.000001
+        ? shiftPointAlongWall(targetWall, targetFacePoint, targetSpanShift)
+        : targetFacePoint
+    const adjustedTargetFaceIntersectionPoint =
+      targetWall &&
+      targetFaceIntersection &&
+      Math.abs(targetSpanShift) > 0.000001
+        ? shiftPointAlongWall(targetWall, targetFaceIntersection.point, targetSpanShift)
+        : targetFaceIntersection?.point
+    const sideTrimDistances = sidePoints.map((sidePoint) =>
+      getProjectedDistanceAlongWall(wall, sidePoint.point),
+    )
+    const trimDistanceAlongWall =
+      endpoint === 'start'
+        ? Math.max(
+            0,
+            Math.max(
+              adjustedTargetFaceIntersectionPoint
+                ? getProjectedDistanceAlongWall(wall, adjustedTargetFaceIntersectionPoint)
+                : getProjectedDistanceAlongWall(wall, adjustedTargetFacePoint),
+              ...sideTrimDistances,
+            ),
+          )
+        : Math.min(
+            wallLength(wall),
+            Math.min(
+              adjustedTargetFaceIntersectionPoint
+                ? getProjectedDistanceAlongWall(wall, adjustedTargetFaceIntersectionPoint)
+                : getProjectedDistanceAlongWall(wall, adjustedTargetFacePoint),
+              ...sideTrimDistances,
+            ),
+          )
 
     return {
       capMaterialSource: {
         side: attachment.side,
         wallId: attachment.targetWallId,
       },
+      capCoveredByRenderedTarget: targetWall
+        ? wallIsPerpendicularToTarget(wall, targetWall)
+        : true,
       capUvSource: {
         side: attachment.side,
         wallId: attachment.targetWallId,
       },
       endpoint,
-      point: trimPoint,
+      point: getPointAlongWall(wall, trimDistanceAlongWall),
       sidePoints,
-      targetDistance: attachment.targetDistance,
+      targetDistance: targetWall
+        ? Math.max(0, Math.min(wallLength(targetWall), attachment.targetDistance + targetSpanShift))
+        : attachment.targetDistance,
       targetWallId: attachment.targetWallId,
-      trimDistance: endpoint === 'start' ? trimDistance : wallLength(wall) - trimDistance,
+      trimDistance:
+        endpoint === 'start'
+          ? trimDistanceAlongWall
+          : wallLength(wall) - trimDistanceAlongWall,
       type: 'side-attachment',
     }
   }

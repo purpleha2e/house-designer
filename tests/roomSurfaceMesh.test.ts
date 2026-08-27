@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Wall } from '../src/types.ts'
 import { getRenderedWalls } from '../src/wallGeometry.ts'
-import type { DetectedRoom } from '../src/wallTopology.ts'
+import { buildWallTopology, type DetectedRoom } from '../src/wallTopology.ts'
 import {
   buildRoomWallSurfaceRenderPlans,
   buildRoomWallSurfacePlans,
   buildRoomSurfaceWallFaces,
+  buildRoomSurfaceFloorPolygons,
   getRoomSurfaceKey,
 } from '../src/wallEngine/roomSurfaceMesh.ts'
 
@@ -55,11 +56,16 @@ test('room surface mesh builder emits wall side faces from room boundary edges',
   })
 
   assert.equal(faces.length, 1)
-  assert.deepEqual(faces[0].materialSource, {
+  assert.deepEqual({
+    role: faces[0].materialSource.role,
+    side: faces[0].materialSource.side,
+    wallId: faces[0].materialSource.wallId,
+  }, {
     role: 'room-surface',
     side: 1,
     wallId: 'north',
   })
+  assert.equal(faces[0].materialSource.fragmentId, undefined)
   assert.deepEqual(faces[0].pickSource, {
     side: 1,
     wallId: 'north',
@@ -577,6 +583,41 @@ test('room wall surface render planner suppresses duplicate bookkeeping gaps', (
   assert.equal(plan.suppressedDuplicates.length, 1)
 })
 
+test('room wall surface render planner emits one-sided duplicate endpoint transitions', () => {
+  const renderedWalls = getRenderedWalls([
+    wall({
+      id: 'side',
+      start: { x: 0.3, y: -0.15 },
+      end: { x: 1, y: -0.15 },
+      thickness: 0.3,
+    }),
+  ])
+  const [plan] = buildRoomWallSurfaceRenderPlans({
+    renderedWalls,
+    rooms: [
+      room({
+        polygon: [
+          { x: 0, y: 0 },
+          { x: 0.3, y: 0 },
+          { x: 0, y: 0 },
+          { x: 1, y: 0 },
+          { x: 1, y: 1 },
+          { x: 0, y: 1 },
+        ],
+      }),
+    ],
+  })
+  const duplicateTransition = plan.entries.find(
+    (entry) =>
+      entry.type === 'corner' &&
+      entry.gap.reason === 'duplicate' &&
+      entry.materialSegment.wall.id === 'side',
+  )
+
+  assert.ok(duplicateTransition)
+  assert.equal(plan.suppressedDuplicates.length, 0)
+})
+
 test('room wall surface render planner keeps true gaps as problems', () => {
   const renderedWalls = getRenderedWalls([
     wall({
@@ -659,22 +700,39 @@ test('room surface mesh builder merges coplanar render plan entries into selecta
     [...facesByWallId.keys()].sort(),
     ['bottom', 'left', 'right', 'top'],
   )
-  assert.deepEqual(facesByWallId.get('bottom')?.materialSource, {
+  assert.deepEqual({
+    role: facesByWallId.get('bottom')?.materialSource.role,
+    side: facesByWallId.get('bottom')?.materialSource.side,
+    wallId: facesByWallId.get('bottom')?.materialSource.wallId,
+  }, {
     role: 'room-surface',
     side: 1,
     wallId: 'bottom',
   })
-  assert.deepEqual(facesByWallId.get('right')?.materialSource, {
+  assert.equal(facesByWallId.get('bottom')?.materialSource.fragmentId, undefined)
+  assert.deepEqual({
+    role: facesByWallId.get('right')?.materialSource.role,
+    side: facesByWallId.get('right')?.materialSource.side,
+    wallId: facesByWallId.get('right')?.materialSource.wallId,
+  }, {
     role: 'room-surface',
     side: 1,
     wallId: 'right',
   })
-  assert.deepEqual(facesByWallId.get('top')?.materialSource, {
+  assert.deepEqual({
+    role: facesByWallId.get('top')?.materialSource.role,
+    side: facesByWallId.get('top')?.materialSource.side,
+    wallId: facesByWallId.get('top')?.materialSource.wallId,
+  }, {
     role: 'room-surface',
     side: 1,
     wallId: 'top',
   })
-  assert.deepEqual(facesByWallId.get('left')?.materialSource, {
+  assert.deepEqual({
+    role: facesByWallId.get('left')?.materialSource.role,
+    side: facesByWallId.get('left')?.materialSource.side,
+    wallId: facesByWallId.get('left')?.materialSource.wallId,
+  }, {
     role: 'room-surface',
     side: -1,
     wallId: 'left',
@@ -860,6 +918,17 @@ test('room surface mesh builder splits visible wall faces at side attachments', 
 
   assert.equal(targetFaces.length, 2)
   assert.deepEqual(
+    targetFaces.map((face) => face.materialSource.fragmentId),
+    [undefined, undefined],
+  )
+  assert.deepEqual(
+    targetFaces.map((face) => face.pickSource),
+    [
+      { side: 1, wallId: 'target' },
+      { side: 1, wallId: 'target' },
+    ],
+  )
+  assert.deepEqual(
     targetFaces.map((face) =>
       face.vertices.map((vertex) => [
         Number(vertex.position[0].toFixed(3)),
@@ -950,6 +1019,212 @@ test('room surface mesh builder splits visible wall faces where another wall cro
   const targetFaces = faces.filter((face) => face.wallId === 'target')
 
   assert.equal(targetFaces.length, 2)
+})
+
+test('room surface mesh builder keeps diagonal side-attached walls clean', () => {
+  ;(['external', 'internal'] as const).forEach((kind) => {
+    const thickness = kind === 'external' ? 0.3 : 0.2
+    const inset = thickness / 2
+    const walls = [
+      wall({
+        id: `${kind}-bottom`,
+        kind,
+        start: { x: 0, y: 0 },
+        end: { x: 5.3, y: 0 },
+        thickness,
+      }),
+      wall({
+        id: `${kind}-right`,
+        kind,
+        start: { x: 5.3, y: 0 },
+        end: { x: 5.3, y: 8.17 },
+        thickness,
+      }),
+      wall({
+        id: `${kind}-top`,
+        kind,
+        start: { x: 5.3, y: 8.17 },
+        end: { x: 0, y: 8.17 },
+        thickness,
+      }),
+      wall({
+        id: `${kind}-left`,
+        kind,
+        start: { x: 0, y: 8.17 },
+        end: { x: 0, y: 0 },
+        thickness,
+      }),
+      wall({
+        id: `${kind}-diagonal`,
+        kind,
+        start: { x: inset, y: 5.45 },
+        end: { x: 5.3 - inset, y: 3.95 },
+        thickness,
+      }),
+    ]
+    const renderedWalls = getRenderedWalls(walls)
+    const topology = buildWallTopology(walls)
+    const plans = buildRoomWallSurfaceRenderPlans({
+      renderedWalls,
+      rooms: topology.rooms,
+    })
+    const faces = buildRoomSurfaceWallFaces({
+      renderedWalls,
+      rooms: topology.rooms,
+    })
+    const diagonalFaces = faces.filter((face) => face.wallId === `${kind}-diagonal`)
+    const veryNarrowFaces = faces.filter((face) => {
+      const xs = face.vertices.map((vertex) => vertex.position[0])
+      const ys = face.vertices.map((vertex) => vertex.position[2])
+      const width = Math.max(...xs) - Math.min(...xs)
+      const depth = Math.max(...ys) - Math.min(...ys)
+
+      return Math.min(width, depth) > 0 && Math.min(width, depth) < 0.05
+    })
+
+    assert.equal(topology.rooms.length, 2)
+    assert.equal(plans.flatMap((plan) => plan.problems).length, 0)
+    assert.equal(diagonalFaces.length, 2)
+    assert.equal(veryNarrowFaces.length, 0)
+  })
+})
+
+test('room surface floor polygons follow composed diagonal side attachments', () => {
+  const walls = [
+    wall({
+      id: 'bottom',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 5.3, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'right',
+      kind: 'external',
+      start: { x: 5.3, y: 0 },
+      end: { x: 5.3, y: 8.17 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'top',
+      kind: 'external',
+      start: { x: 5.3, y: 8.17 },
+      end: { x: 0, y: 8.17 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'left',
+      kind: 'external',
+      start: { x: 0, y: 8.17 },
+      end: { x: 0, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'diagonal',
+      kind: 'internal',
+      start: { x: 0.15, y: 5.45 },
+      end: { x: 5.15, y: 3.95 },
+      thickness: 0.2,
+    }),
+  ]
+  const renderedWalls = getRenderedWalls(walls)
+  const topology = buildWallTopology(walls)
+  const floorPolygons = buildRoomSurfaceFloorPolygons({
+    renderedWalls,
+    rooms: topology.rooms,
+  })
+  const polygons = topology.rooms.map((room) =>
+    floorPolygons.get(room.signature) ?? [],
+  )
+
+  assert.equal(polygons.length, 2)
+  assert.equal(polygons.every((polygon) => polygon.length === 4), true)
+  assert.ok(
+    polygons.some((polygon) =>
+      polygon.some(
+        (point) =>
+          Math.abs(point.x - 0.15) < 0.001 &&
+          Math.abs(point.y - 5.346) < 0.001,
+      ),
+    ),
+  )
+  assert.ok(
+    polygons.some((polygon) =>
+      polygon.some(
+        (point) =>
+          Math.abs(point.x - 5.15) < 0.001 &&
+          Math.abs(point.y - 4.054) < 0.001,
+      ),
+    ),
+  )
+})
+
+test('room surface mesh extends side-attached spans to wall plan side endpoints', () => {
+  const walls = [
+    wall({
+      id: 'bottom',
+      kind: 'external',
+      start: { x: 1.5, y: 1.5 },
+      end: { x: 10.65, y: 1.5 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'right',
+      kind: 'external',
+      start: { x: 10.65, y: 1.5 },
+      end: { x: 10.65, y: 11.517 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'top',
+      kind: 'external',
+      start: { x: 10.65, y: 11.517 },
+      end: { x: 1.5, y: 11.517 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'left',
+      kind: 'external',
+      start: { x: 1.5, y: 11.517 },
+      end: { x: 1.5, y: 1.5 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'diagonal',
+      kind: 'internal',
+      start: { x: 1.5, y: 4.05 },
+      end: { x: 10.65, y: 8.983 },
+      thickness: 0.15,
+    }),
+  ]
+  const renderedWalls = getRenderedWalls(walls)
+  const topology = buildWallTopology(walls)
+  const faces = buildRoomSurfaceWallFaces({
+    renderedWalls,
+    rooms: topology.rooms,
+  })
+  const diagonalFaces = faces.filter((face) => face.wallId === 'diagonal')
+  const startFace = diagonalFaces.find(
+    (face) => face.materialSource.side === -1,
+  )
+  const endFace = diagonalFaces.find(
+    (face) => face.materialSource.side === 1,
+  )
+
+  assert.ok(startFace)
+  assert.ok(endFace)
+  assert.deepEqual(
+    startFace.vertices[0].position
+      .filter((_, index) => index !== 1)
+      .map((value) => Number(value.toFixed(3))),
+    [1.65, 4.046],
+  )
+  assert.deepEqual(
+    endFace.vertices[1].position
+      .filter((_, index) => index !== 1)
+      .map((value) => Number(value.toFixed(3))),
+    [10.5, 8.987],
+  )
 })
 
 test('room surface mesh keys identify replaceable wall sides', () => {

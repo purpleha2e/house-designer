@@ -1,9 +1,19 @@
+import * as polygonClipping from 'polygon-clipping'
 import type { Point, Wall } from './types'
 import { getRenderedWalls, getWallPolygon, type RenderedWall } from './wallGeometry.ts'
 
 const NODE_EPSILON_METERS = 0.25
 const GRAPH_EPSILON_METERS = 0.03
 const MIN_ROOM_AREA_SQUARE_METERS = 0.5
+type ClippingPoint = [number, number]
+type ClippingRing = ClippingPoint[]
+type ClippingPolygon = ClippingRing[]
+type ClippingMultiPolygon = ClippingPolygon[]
+const polygonClippingRuntime = polygonClipping as typeof polygonClipping & {
+  default?: typeof polygonClipping
+}
+const polygonUnion =
+  polygonClippingRuntime.union ?? polygonClippingRuntime.default?.union
 
 export type WallEndpoint = 'start' | 'end'
 
@@ -153,6 +163,69 @@ function getRoomKey(points: Point[]) {
     .join('|')
 }
 
+function pointsAreClose(firstPoint: Point, secondPoint: Point) {
+  return distance(firstPoint, secondPoint) <= GRAPH_EPSILON_METERS
+}
+
+function getOpenRingPoints(ring: ClippingRing) {
+  const points = ring.map(([x, y]) => ({ x, y }))
+  const firstPoint = points[0]
+  const lastPoint = points[points.length - 1]
+
+  return firstPoint && lastPoint && pointsAreClose(firstPoint, lastPoint)
+    ? points.slice(0, -1)
+    : points
+}
+
+function buildDetectedRoomsFromWallUnion(
+  renderedWalls: RenderedWall[],
+): DetectedRoom[] {
+  if (!polygonUnion) {
+    return []
+  }
+
+  const wallPolygons: ClippingPolygon[] = renderedWalls.map((renderedWall) => [
+    getWallPolygon(renderedWall).map((point) => [point.x, point.y]),
+  ])
+
+  if (wallPolygons.length === 0) {
+    return []
+  }
+
+  const union = (
+    polygonUnion as unknown as (
+      ...polygons: ClippingPolygon[]
+    ) => ClippingMultiPolygon
+  )(...wallPolygons)
+  const roomsByKey = new Map<string, DetectedRoom>()
+
+  union.forEach((polygon) => {
+    polygon.slice(1).forEach((ring) => {
+      const roomPolygon = getOpenRingPoints(ring)
+      const area = Math.abs(getSignedArea(roomPolygon))
+
+      if (area < MIN_ROOM_AREA_SQUARE_METERS) {
+        return
+      }
+
+      const roomKey = getRoomKey(roomPolygon)
+
+      if (roomsByKey.has(roomKey)) {
+        return
+      }
+
+      roomsByKey.set(roomKey, {
+        area,
+        id: `room-${roomsByKey.size + 1}`,
+        polygon: roomPolygon,
+        signature: roomKey,
+      })
+    })
+  })
+
+  return [...roomsByKey.values()]
+}
+
 function getSegmentIntersection(
   firstStart: Point,
   firstEnd: Point,
@@ -208,8 +281,28 @@ function loopUsesBothSidesOfAnyWall(
   )
 }
 
+function normalizeDetectedRooms(rooms: DetectedRoom[]) {
+  return rooms
+    .sort((firstRoom, secondRoom) => {
+      const firstCentroid = getPolygonCentroid(firstRoom.polygon)
+      const secondCentroid = getPolygonCentroid(secondRoom.polygon)
+
+      return firstCentroid.y - secondCentroid.y || firstCentroid.x - secondCentroid.x
+    })
+    .map((room, index) => ({
+      ...room,
+      id: `room-${index + 1}`,
+    }))
+}
+
 function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
   const renderedWalls = getRenderedWalls(walls)
+  const unionRooms = buildDetectedRoomsFromWallUnion(renderedWalls)
+
+  if (unionRooms.length > 0) {
+    return normalizeDetectedRooms(unionRooms)
+  }
+
   const wallPolygons = renderedWalls.map(getWallPolygon)
   const sourceSegments = renderedWalls.flatMap((renderedWall) =>
     getPolygonEdges(getWallPolygon(renderedWall), renderedWall.wall.id),
@@ -352,15 +445,18 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
     const loopWallIds = new Set<string>()
     const loopWallSidesByWallId = new Map<string, Set<WallPolygonEdgeSide>>()
     let currentEdge = edge
+    const pathStates: string[] = []
+    const pathStateSet = new Set<string>()
 
     for (let step = 0; step < edges.length + 1; step += 1) {
       const state = `${currentEdge.from}>${currentEdge.to}`
 
-      if (visited.has(state)) {
+      if (visited.has(state) || pathStateSet.has(state)) {
         break
       }
 
-      visited.add(state)
+      pathStates.push(state)
+      pathStateSet.add(state)
       loop.push(pointsByKey.get(currentEdge.from)!)
       loopWallIds.add(currentEdge.wallId)
       loopWallSidesByWallId.set(
@@ -384,6 +480,7 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
       currentEdge = nextEdge
 
       if (currentEdge.from === edge.from && currentEdge.to === edge.to) {
+        pathStates.forEach((pathState) => visited.add(pathState))
         const area = getSignedArea(loop)
         const absoluteArea = Math.abs(area)
 
@@ -419,17 +516,7 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
       ? rooms.filter((room) => room.area < largestArea - GRAPH_EPSILON_METERS)
       : rooms
 
-  return roomsWithoutOutsideFace
-    .sort((firstRoom, secondRoom) => {
-      const firstCentroid = getPolygonCentroid(firstRoom.polygon)
-      const secondCentroid = getPolygonCentroid(secondRoom.polygon)
-
-      return firstCentroid.y - secondCentroid.y || firstCentroid.x - secondCentroid.x
-    })
-    .map((room, index) => ({
-      ...room,
-      id: `room-${index + 1}`,
-    }))
+  return normalizeDetectedRooms(roomsWithoutOutsideFace)
 }
 
 function getEndpointKey(wallId: string, endpoint: WallEndpoint) {

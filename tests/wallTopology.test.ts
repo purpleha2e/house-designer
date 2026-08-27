@@ -116,3 +116,59 @@ test('room detection ignores side-attached internal wall wrapping both wall face
 
   assert.equal(topology.rooms.length, 0)
 })
+
+test('room detection keeps adjacent rooms after rejected exploratory loops', () => {
+  const topology = buildWallTopology([
+    wall({
+      id: 'bottom-external',
+      kind: 'external',
+      start: { x: 4.55, y: 2.333 },
+      end: { x: 13.317, y: 2.333 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'left-external',
+      kind: 'external',
+      start: { x: 4.55, y: 2.333 },
+      end: { x: 4.55, y: 13.783 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'top-external',
+      kind: 'external',
+      start: { x: 4.55, y: 13.783 },
+      end: { x: 13.317, y: 13.783 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'right-external',
+      kind: 'external',
+      start: { x: 13.317, y: 13.783 },
+      end: { x: 13.317, y: 2.333 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'horizontal-internal',
+      kind: 'internal',
+      start: { x: 4.55, y: 4.95 },
+      end: { x: 13.317, y: 4.95 },
+      thickness: 0.15,
+    }),
+    wall({
+      id: 'left-divider',
+      kind: 'internal',
+      start: { x: 7.3, y: 4.95 },
+      end: { x: 7.3, y: 13.783 },
+      thickness: 0.15,
+    }),
+    wall({
+      id: 'right-divider',
+      kind: 'internal',
+      start: { x: 10.617, y: 4.95 },
+      end: { x: 10.617, y: 13.783 },
+      thickness: 0.15,
+    }),
+  ])
+
+  assert.equal(topology.rooms.length, 4)
+})

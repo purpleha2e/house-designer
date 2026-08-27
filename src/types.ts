@@ -63,6 +63,12 @@ export type SurfaceTarget =
       wallId: string
     }
   | {
+      type: 'wall-surface-fragment'
+      fragmentId: string
+      side: SurfaceWallSide
+      wallId: string
+    }
+  | {
       type: 'ceiling'
       floorId: string
       roomSignature?: string

@@ -1,6 +1,11 @@
 import type { Point, Wall } from '../types.ts'
 import type { RenderedWall } from '../wallGeometry.ts'
 import type { DetectedRoom } from '../wallTopology.ts'
+import {
+  buildWallGeometryPlans,
+  type WallEndpointPlan,
+  type WallGeometryPlan,
+} from './wallPlan.ts'
 import { buildWallGraph } from './wallGraph.ts'
 import type { WallMeshFace, WallMeshVertex } from './wallMesh.ts'
 import type { WallSide } from './wallGraph.ts'
@@ -41,8 +46,8 @@ export type RoomWallSurfacePlan = {
 
 export type RoomWallSurfaceRenderEntry =
   | {
-      afterSegment: RoomWallSurfaceSegment
-      beforeSegment: RoomWallSurfaceSegment
+      afterSegment?: RoomWallSurfaceSegment
+      beforeSegment?: RoomWallSurfaceSegment
       edgeEndDistance: number
       edgeIndex: number
       edgeStartDistance: number
@@ -223,6 +228,23 @@ function getDistanceAlongWall(wall: Wall, point: Point) {
     (point.x - wall.start.x) * direction.x +
     (point.y - wall.start.y) * direction.y
   )
+}
+
+function projectPointOntoWallSideLine(wall: Wall, side: WallSide, point: Point) {
+  const direction = getWallDirection(wall)
+  const normal = getWallNormal(wall)
+  const sideLineStart = {
+    x: wall.start.x + normal.x * wall.thickness * side / 2,
+    y: wall.start.y + normal.y * wall.thickness * side / 2,
+  }
+  const distanceAlongSide =
+    (point.x - sideLineStart.x) * direction.x +
+    (point.y - sideLineStart.y) * direction.y
+
+  return {
+    x: sideLineStart.x + direction.x * distanceAlongSide,
+    y: sideLineStart.y + direction.y * distanceAlongSide,
+  }
 }
 
 function getWorldUvDirection(wall: Wall) {
@@ -546,6 +568,10 @@ function classifyDuplicatePhysicalGaps(gaps: RoomWallSurfaceGap[]) {
 }
 
 export function getRoomSurfaceKey(face: WallMeshFace) {
+  if (face.kind !== 'side') {
+    return null
+  }
+
   return face.materialSource.side
     ? `${face.wallId}:${face.materialSource.side}`
     : null
@@ -731,20 +757,66 @@ export function buildRoomWallSurfaceRenderPlans(options: {
             },
           ]
         })
+      const duplicateTransitionEntries = plan.gaps
+        .filter((gap) => gap.reason === 'duplicate')
+        .flatMap((gap): RoomWallSurfaceRenderEntry[] => {
+          const beforeSegment = findPreviousSegmentForGap(gap, plan.segments)
+          const afterSegment = findNextSegmentForGap(gap, plan.segments)
+          const materialSegment = afterSegment ?? beforeSegment
+          const wrapsToSameSegment =
+            beforeSegment &&
+            afterSegment &&
+            beforeSegment.wall.id === afterSegment.wall.id &&
+            beforeSegment.side === afterSegment.side
+
+          if (!materialSegment || (beforeSegment && afterSegment && !wrapsToSameSegment)) {
+            return []
+          }
+
+          const gapLength = gap.edgeEndDistance - gap.edgeStartDistance
+          const maxTransitionLength =
+            Math.max(CORNER_GAP_MIN_MAX_LENGTH_METERS, materialSegment.wall.thickness) +
+            MATCH_EPSILON_METERS
+
+          if (gapLength > maxTransitionLength) {
+            return []
+          }
+
+          return [
+            {
+              afterSegment,
+              beforeSegment,
+              edgeEndDistance: gap.edgeEndDistance,
+              edgeIndex: gap.edgeIndex,
+              edgeStartDistance: gap.edgeStartDistance,
+              gap,
+              materialSegment,
+              type: 'corner',
+            },
+          ]
+        })
 
       return {
-        entries: [...segmentEntries, ...cornerEntries].sort(compareRenderEntries),
+        entries: [
+          ...segmentEntries,
+          ...cornerEntries,
+          ...duplicateTransitionEntries,
+        ].sort(compareRenderEntries),
         problems: plan.gaps.filter((gap) => gap.reason === 'unmatched'),
         room: plan.room,
         suppressedDuplicates: plan.gaps.filter(
-          (gap) => gap.reason === 'duplicate',
+          (gap) =>
+            gap.reason === 'duplicate' &&
+            !duplicateTransitionEntries.some(
+              (entry) => entry.type === 'corner' && entry.gap === gap,
+            ),
         ),
       }
     },
   )
 }
 
-type RoomSurfaceFaceSpan = {
+export type RoomSurfaceFaceSpan = {
   edgeEndDistance: number
   edgeIndex: number
   edgeStartDistance: number
@@ -857,19 +929,74 @@ function getWallSideSplitDistances(walls: Wall[]) {
   return splitDistances
 }
 
+function getSideAttachmentEndpointPoint(
+  endpointPlan: WallEndpointPlan,
+  side: WallSide,
+) {
+  return endpointPlan.type === 'side-attachment'
+    ? endpointPlan.sidePoints.find((sidePoint) => sidePoint.side === side)?.point ??
+        null
+    : null
+}
+
+function snapRoomSurfaceSegmentEndpointToWallPlan({
+  plan,
+  point,
+  side,
+  wall,
+}: {
+  plan?: WallGeometryPlan
+  point: Point
+  side: WallSide
+  wall: Wall
+}) {
+  const distanceAlongWall = getDistanceAlongWall(wall, point)
+  const wallLength = getWallLength(wall)
+  const snapDistance = Math.max(wall.thickness * 2, MATCH_EPSILON_METERS)
+  const startSideAttachmentPoint = plan?.start
+    ? getSideAttachmentEndpointPoint(plan.start, side)
+    : null
+  const endSideAttachmentPoint = plan?.end
+    ? getSideAttachmentEndpointPoint(plan.end, side)
+    : null
+
+  if (startSideAttachmentPoint && distanceAlongWall <= snapDistance) {
+    return startSideAttachmentPoint
+  }
+
+  if (endSideAttachmentPoint && wallLength - distanceAlongWall <= snapDistance) {
+    return endSideAttachmentPoint
+  }
+
+  return point
+}
+
 function getRoomSurfaceFaceSpan(
   entry: RoomWallSurfaceRenderEntry,
+  wallPlansById?: Map<string, WallGeometryPlan>,
 ): RoomSurfaceFaceSpan {
   if (entry.type === 'segment') {
+    const plan = wallPlansById?.get(entry.segment.wall.id)
+
     return {
       edgeEndDistance: entry.edgeEndDistance,
       edgeIndex: entry.edgeIndex,
       edgeStartDistance: entry.edgeStartDistance,
-      endPoint: entry.segment.endPoint,
+      endPoint: snapRoomSurfaceSegmentEndpointToWallPlan({
+        plan,
+        point: entry.segment.endPoint,
+        side: entry.segment.side,
+        wall: entry.segment.wall,
+      }),
       normal: entry.segment.normal,
       roomSignature: entry.segment.roomSignature,
       sourceSegment: entry.segment,
-      startPoint: entry.segment.startPoint,
+      startPoint: snapRoomSurfaceSegmentEndpointToWallPlan({
+        plan,
+        point: entry.segment.startPoint,
+        side: entry.segment.side,
+        wall: entry.segment.wall,
+      }),
     }
   }
 
@@ -877,12 +1004,110 @@ function getRoomSurfaceFaceSpan(
     edgeEndDistance: entry.edgeEndDistance,
     edgeIndex: entry.edgeIndex,
     edgeStartDistance: entry.edgeStartDistance,
-    endPoint: entry.gap.endPoint,
+    endPoint: projectPointOntoWallSideLine(
+      entry.materialSegment.wall,
+      entry.materialSegment.side,
+      entry.gap.endPoint,
+    ),
     normal: entry.materialSegment.normal,
     roomSignature: entry.gap.roomSignature,
     sourceSegment: entry.materialSegment,
-    startPoint: entry.gap.startPoint,
+    startPoint: projectPointOntoWallSideLine(
+      entry.materialSegment.wall,
+      entry.materialSegment.side,
+      entry.gap.startPoint,
+    ),
   }
+}
+
+function appendFloorPolygonPoint(points: Point[], point: Point) {
+  const previousPoint = points[points.length - 1]
+
+  if (previousPoint && distance(previousPoint, point) <= MATCH_EPSILON_METERS) {
+    return
+  }
+
+  points.push(point)
+}
+
+function pointIsCollinear(previousPoint: Point, point: Point, nextPoint: Point) {
+  const previousDistance = distance(previousPoint, point)
+  const nextDistance = distance(point, nextPoint)
+
+  if (
+    previousDistance <= MATCH_EPSILON_METERS ||
+    nextDistance <= MATCH_EPSILON_METERS
+  ) {
+    return true
+  }
+
+  const area =
+    (point.x - previousPoint.x) * (nextPoint.y - previousPoint.y) -
+    (point.y - previousPoint.y) * (nextPoint.x - previousPoint.x)
+
+  return Math.abs(area) / Math.max(previousDistance, nextDistance) <=
+    MATCH_EPSILON_METERS
+}
+
+function cleanFloorPolygon(points: Point[]) {
+  const openPoints = [...points]
+
+  if (
+    openPoints.length > 1 &&
+    distance(openPoints[0], openPoints[openPoints.length - 1]) <=
+      MATCH_EPSILON_METERS
+  ) {
+    openPoints.pop()
+  }
+
+  return openPoints.filter((point, index) => {
+    if (openPoints.length <= 3) {
+      return true
+    }
+
+    const previousPoint =
+      openPoints[(index - 1 + openPoints.length) % openPoints.length]
+    const nextPoint = openPoints[(index + 1) % openPoints.length]
+
+    return !pointIsCollinear(previousPoint, point, nextPoint)
+  })
+}
+
+export function buildRoomSurfaceFloorPolygons(options: {
+  renderedWalls: RenderedWall[]
+  rooms: DetectedRoom[]
+}) {
+  const polygonsByRoomSignature = new Map<string, Point[]>()
+  const wallPlansById = new Map(
+    buildWallGeometryPlans(
+      options.renderedWalls.map((renderedWall) => renderedWall.wall),
+    ).map((plan) => [plan.wallId, plan]),
+  )
+
+  buildRoomWallSurfaceRenderPlans(options).forEach((plan) => {
+    if (plan.problems.length > 0) {
+      polygonsByRoomSignature.set(plan.room.signature, plan.room.polygon)
+      return
+    }
+
+    const points: Point[] = []
+
+    plan.entries.forEach((entry) => {
+      const span = getRoomSurfaceFaceSpan(entry, wallPlansById)
+
+      appendFloorPolygonPoint(points, span.startPoint)
+      appendFloorPolygonPoint(points, span.endPoint)
+    })
+
+    const polygon = cleanFloorPolygon(points)
+
+    polygonsByRoomSignature.set(
+      plan.room.signature,
+      polygon.length >= 3 ? polygon : plan.room.polygon,
+    )
+  })
+
+  return polygonsByRoomSignature
 }
 
 function canMergeRoomSurfaceFaceSpans(
@@ -1171,16 +1396,39 @@ export function buildRoomSurfaceWallFaces(options: {
   renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
 }) {
+  return buildRoomSurfaceWallFacesFromSpans({
+    renderedWalls: options.renderedWalls,
+    spans: buildRoomSurfaceFaceSpans(options),
+  })
+}
+
+export function buildRoomSurfaceWallFacesFromSpans(options: {
+  renderedWalls: RenderedWall[]
+  spans: RoomSurfaceFaceSpan[]
+}) {
   const splitDistancesByWallSide = getWallSideSplitDistances(
     options.renderedWalls.map((renderedWall) => renderedWall.wall),
   )
+
+  return options.spans.flatMap((span, index) =>
+    buildRoomSurfaceFacesFromSpan(span, index, splitDistancesByWallSide),
+  )
+}
+
+export function buildRoomSurfaceFaceSpans(options: {
+  renderedWalls: RenderedWall[]
+  rooms: DetectedRoom[]
+}) {
+  const wallPlansById = new Map(
+    buildWallGeometryPlans(
+      options.renderedWalls.map((renderedWall) => renderedWall.wall),
+    ).map((plan) => [plan.wallId, plan]),
+  )
   const spans = buildRoomWallSurfaceRenderPlans(options).flatMap((plan) =>
     plan.entries.map((entry) =>
-      getRoomSurfaceFaceSpan(entry),
+      getRoomSurfaceFaceSpan(entry, wallPlansById),
     ),
   )
 
-  return mergeRoomSurfaceFaceSpans(spans).flatMap((span, index) =>
-    buildRoomSurfaceFacesFromSpan(span, index, splitDistancesByWallSide),
-  )
+  return mergeRoomSurfaceFaceSpans(spans)
 }

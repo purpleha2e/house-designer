@@ -704,8 +704,11 @@ function App() {
     setSurfaceAssignments((currentSurfaceAssignments) =>
       currentSurfaceAssignments.filter(
         (assignment) =>
-          assignment.target.type !== 'wall-face' ||
-          assignment.target.wallId !== wallId,
+          !(
+            (assignment.target.type === 'wall-face' ||
+              assignment.target.type === 'wall-surface-fragment') &&
+            assignment.target.wallId === wallId
+          ),
       ),
     )
     setSelectedModelId(null)
@@ -1088,6 +1091,54 @@ function App() {
     })
   }
 
+  const assignWallFragmentMaterial = (
+    wallId: string,
+    fragmentId: string,
+    materialId: string | null,
+    coverageHeight: number,
+    side: SurfaceWallSide,
+    textureScale = 1,
+    textureRotation = 0,
+    customColor?: string,
+  ) => {
+    recordHistory()
+    setSurfaceAssignments((currentAssignments) => {
+      const nextAssignments = currentAssignments.filter(
+        (assignment) =>
+          !(
+            assignment.target.type === 'wall-surface-fragment' &&
+            assignment.target.wallId === wallId &&
+            assignment.target.fragmentId === fragmentId &&
+            (side === 'both' ||
+              assignment.target.side === 'both' ||
+              assignment.target.side === side)
+          ),
+      )
+
+      if (!materialId) {
+        return nextAssignments
+      }
+
+      return [
+        ...nextAssignments,
+        {
+          coverageHeight,
+          customColor,
+          id: crypto.randomUUID(),
+          materialId,
+          target: {
+            type: 'wall-surface-fragment',
+            fragmentId,
+            side,
+            wallId,
+          },
+          textureRotation,
+          textureScale,
+        },
+      ]
+    })
+  }
+
   const deleteModel = (modelId: string) => {
     recordHistory()
     const modelToDelete = floors
@@ -1296,9 +1347,23 @@ function App() {
       return
     }
 
-    const wall = activeFloor.walls.find((candidateWall) =>
-      candidateWall.id === selectedSurface.wallId
+    const wall = activeFloor.walls.find(
+      (candidateWall) => candidateWall.id === selectedSurface.wallId,
     )
+
+    if (selectedSurface.type === 'wall-surface-fragment') {
+      assignWallFragmentMaterial(
+        selectedSurface.wallId,
+        selectedSurface.fragmentId,
+        materialId,
+        wallMode === 'lower' ? coverageHeight ?? 1.2 : wall?.height ?? activeFloor.roomHeight,
+        wallSide ?? 'both',
+        textureScale,
+        textureRotation,
+        customColor,
+      )
+      return
+    }
 
     assignWallMaterial(
       selectedSurface.wallId,
@@ -1517,9 +1582,16 @@ function App() {
     setSelectedModelIds([])
     setSelectedWallIds([])
 
-    if (surface.type === 'wall-face' || surface.type === 'wall-surface-fragment') {
+    if (surface.type === 'wall-face') {
       setSelectedWallId(surface.wallId)
       setSelectedWallIds([surface.wallId])
+      setSelectedRoomSignature(null)
+      return
+    }
+
+    if (surface.type === 'wall-surface-fragment') {
+      setSelectedWallId(null)
+      setSelectedWallIds([])
       setSelectedRoomSignature(null)
       return
     }

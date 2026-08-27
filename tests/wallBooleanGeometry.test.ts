@@ -191,6 +191,45 @@ test('plain external CSG walls use opening external walls as miter context', () 
   assert.ok(minX < plainWall.start.x)
 })
 
+test('external footprint union ignores external context walls outside the union', () => {
+  const bottom = wall({
+    id: 'bottom',
+    kind: 'external',
+    start: { x: 0, y: 0 },
+    end: { x: 5.3, y: 0 },
+  })
+  const right = wall({
+    id: 'right',
+    kind: 'external',
+    start: { x: 5.3, y: 0 },
+    end: { x: 5.3, y: 8.17 },
+  })
+  const diagonal = wall({
+    id: 'diagonal',
+    kind: 'external',
+    start: { x: 5.3, y: 0 },
+    end: { x: 3.2, y: 2.4 },
+  })
+
+  const [footprint] = unionMiteredWallFootprints(
+    [bottom, right],
+    [bottom, right, diagonal],
+  )
+  const outline = footprint.outline.map((point) => [
+    Number(point.x.toFixed(3)),
+    Number(point.y.toFixed(3)),
+  ])
+
+  assert.deepEqual(outline, [
+    [0, -0.15],
+    [5.45, -0.15],
+    [5.45, 8.17],
+    [5.15, 8.17],
+    [5.15, 0.15],
+    [0, 0.15],
+  ])
+})
+
 test('external CSG supports three external walls meeting at one endpoint', () => {
   const left = wall({
     id: 'left',

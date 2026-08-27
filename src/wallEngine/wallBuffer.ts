@@ -31,7 +31,7 @@ const QUAD_TRIANGLE_INDICES = [0, 1, 2, 0, 2, 3] as const
 const REVERSED_QUAD_TRIANGLE_INDICES = [0, 2, 1, 0, 3, 2] as const
 
 function sourceKey(source: WallMeshSource) {
-  return `${source.wallId}:${source.side ?? 'body'}:${source.role ?? 'surface'}`
+  return `${source.wallId}:${source.side ?? 'body'}:${source.role ?? 'surface'}:${source.fragmentId ?? 'whole'}`
 }
 
 function getOrCreateMaterialIndex(

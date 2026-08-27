@@ -113,6 +113,85 @@ test('wall geometry plan records side attachment caps with adjoining wall materi
   assert.equal(Number(branch.start.targetDistance.toFixed(3)), 2)
 })
 
+test('wall geometry plan pulls external quarter side snaps to the external face', () => {
+  const plans = buildWallGeometryPlans([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 4 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'branch',
+      kind: 'internal',
+      start: { x: -0.075, y: 2 },
+      end: { x: -2, y: 2 },
+      thickness: 0.15,
+    }),
+  ])
+  const branch = plans.find((plan) => plan.wallId === 'branch')
+
+  assert.equal(branch?.start.type, 'side-attachment')
+
+  if (branch?.start.type !== 'side-attachment') {
+    throw new Error('Expected side attachment')
+  }
+
+  assert.equal(Number(branch.start.trimDistance.toFixed(3)), 0.075)
+  assert.deepEqual(
+    branch.start.sidePoints.map((sidePoint) => ({
+      side: sidePoint.side,
+      x: Number(sidePoint.point.x.toFixed(3)),
+      y: Number(sidePoint.point.y.toFixed(3)),
+    })),
+    [
+      { side: 1, x: -0.15, y: 1.925 },
+      { side: -1, x: -0.15, y: 2.075 },
+    ],
+  )
+})
+
+test('wall geometry plan pulls external end-face quarter snaps to the external face', () => {
+  const plans = buildWallGeometryPlans([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 3, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'branch',
+      kind: 'internal',
+      start: { x: 3, y: 0.075 },
+      end: { x: 2, y: 1.2 },
+      thickness: 0.15,
+    }),
+  ])
+  const branch = plans.find((plan) => plan.wallId === 'branch')
+
+  assert.equal(branch?.start.type, 'side-attachment')
+
+  if (branch?.start.type !== 'side-attachment') {
+    throw new Error('Expected side attachment')
+  }
+
+  assert.equal(Number(branch.start.targetDistance.toFixed(3)), 2.966)
+  assert.equal(Number(branch.start.trimDistance.toFixed(3)), 0.189)
+  assert.deepEqual(
+    branch.start.sidePoints.map((sidePoint) => ({
+      side: sidePoint.side,
+      x: Number(sidePoint.point.x.toFixed(3)),
+      y: Number(sidePoint.point.y.toFixed(3)),
+    })),
+    [
+      { side: 1, x: 2.799, y: 0.15 },
+      { side: -1, x: 3, y: 0.15 },
+    ],
+  )
+})
+
 test('wall geometry plan treats shallow side attachments as free endpoints', () => {
   const plans = buildWallGeometryPlans([
     wall({

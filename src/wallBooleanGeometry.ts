@@ -736,11 +736,16 @@ export function unionWallFootprints(walls: Wall[]) {
 }
 
 export function unionMiteredWallFootprints(walls: Wall[], contextWalls = walls) {
+  const unionWallIds = new Set(walls.map((wall) => wall.id))
+  const miterContextWalls = contextWalls.filter(
+    (wall) => wall.kind !== 'external' || unionWallIds.has(wall.id),
+  )
+
   return convergeMiteredFootprintChamfers(
     unionPolygonFootprints(
-      walls.map((wall) => toSideMiteredWallBodyPolygon(wall, contextWalls)),
+      walls.map((wall) => toSideMiteredWallBodyPolygon(wall, miterContextWalls)),
     ),
-    contextWalls,
+    miterContextWalls,
   )
 }
 
