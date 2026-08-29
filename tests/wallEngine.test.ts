@@ -149,6 +149,91 @@ test('wall graph records internal endpoint snapped to external end-face quarter 
   assert.equal(Number(graph.sideAttachments[0].targetDistance.toFixed(3)), 3)
 })
 
+test('wall graph retains an external quarter attachment shared by two branch endpoints', () => {
+  const graph = buildWallGraph([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 3, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'left-branch',
+      kind: 'internal',
+      start: { x: 3, y: 0.075 },
+      end: { x: 2, y: 1 },
+    }),
+    wall({
+      id: 'right-branch',
+      kind: 'internal',
+      start: { x: 3, y: 0.075 },
+      end: { x: 4, y: 1 },
+    }),
+  ])
+
+  assert.equal(graph.endpointNodes.length, 1)
+  assert.deepEqual(
+    graph.sideAttachments.map((attachment) => ({
+      endpoint: attachment.attachedEndpoint.endpoint,
+      targetWallId: attachment.targetWallId,
+      wallId: attachment.attachedEndpoint.wallId,
+    })),
+    [
+      { endpoint: 'start', targetWallId: 'external', wallId: 'left-branch' },
+      { endpoint: 'start', targetWallId: 'external', wallId: 'right-branch' },
+    ],
+  )
+})
+
+test('wall graph retains separate external quarter attachments at one wall end', () => {
+  const graph = buildWallGraph([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 3, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'outer-branch',
+      kind: 'internal',
+      start: { x: 3, y: 0.15 },
+      end: { x: 3, y: 1 },
+    }),
+    wall({
+      id: 'quarter-branch',
+      kind: 'internal',
+      start: { x: 3, y: 0.075 },
+      end: { x: 4, y: 0.075 },
+    }),
+  ])
+
+  assert.equal(graph.endpointNodes.length, 0)
+  assert.deepEqual(
+    graph.sideAttachments.map((attachment) => ({
+      side: attachment.side,
+      targetDistance: Number(attachment.targetDistance.toFixed(3)),
+      targetWallId: attachment.targetWallId,
+      wallId: attachment.attachedEndpoint.wallId,
+    })),
+    [
+      {
+        side: 1,
+        targetDistance: 3,
+        targetWallId: 'external',
+        wallId: 'outer-branch',
+      },
+      {
+        side: 1,
+        targetDistance: 3,
+        targetWallId: 'external',
+        wallId: 'quarter-branch',
+      },
+    ],
+  )
+})
+
 test('wall graph ignores endpoints merely inside another wall thickness band', () => {
   const graph = buildWallGraph([
     wall({

@@ -1,0 +1,183 @@
+{
+  "activeFloorId": "ca57851c-acb8-4bc5-8101-855e1bc0593f",
+  "floors": [
+    {
+      "id": "ca57851c-acb8-4bc5-8101-855e1bc0593f",
+      "name": "Floor 0",
+      "elevation": 0,
+      "models": [],
+      "rooms": [
+        {
+          "id": "8189c821-5ab4-4a57-b2e3-41e3465d8d04",
+          "name": "Room 1",
+          "signature": "159:-109|159:-13|404:-109|404:-13"
+        },
+        {
+          "id": "ed169868-53c2-477f-87f8-cf1d59d88863",
+          "name": "Room 2",
+          "signature": "414:147|414:3|488:73"
+        },
+        {
+          "id": "161e1fdd-f53a-45d8-81ac-bf93c0c48a92",
+          "name": "Room 1",
+          "signature": "159:-3|159:154|404:-3|404:154"
+        }
+      ],
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "1f610f7d-7305-47ee-ac0a-70e331ec8087",
+          "kind": "external",
+          "start": {
+            "x": 4.633333333333334,
+            "y": 4.766666666666667
+          },
+          "end": {
+            "x": 12.267395440393372,
+            "y": 4.766666666666667
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "id": "d757eaed-9c66-4ca8-bb74-2d5e9f3775ea",
+          "kind": "external",
+          "start": {
+            "x": 4.633333333333335,
+            "y": -0.2500000000000027
+          },
+          "end": {
+            "x": 12.267395440393372,
+            "y": -0.2500000000000018
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 4.633333333333335,
+            "y": -0.2333333333333361
+          },
+          "end": {
+            "x": 4.633333333333334,
+            "y": 4.766666666666667
+          },
+          "id": "f9ecebcc-232c-4bc0-8078-f880f8c7a3af",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 12.267395440393372,
+            "y": 4.766666666666667
+          },
+          "end": {
+            "x": 12.267395440393372,
+            "y": -0.2500000000000018
+          },
+          "id": "27e06f86-01e4-4861-a2c4-14989340f57b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 4.633333333333334,
+            "y": -3.427520842666665
+          },
+          "end": {
+            "x": 12.267395440393372,
+            "y": -3.427520842666665
+          },
+          "id": "6201f4d2-352f-4955-bd4f-997041571f49",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 4.633333333333334,
+            "y": -3.427520842666665
+          },
+          "end": {
+            "x": 4.633333333333334,
+            "y": -0.38333333333333597
+          },
+          "id": "e0d1b0f8-3635-44f3-a16e-accd70096e42",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 12.267395440393372,
+            "y": -3.427520842666665
+          },
+          "end": {
+            "x": 12.267395440393372,
+            "y": -0.4000000000000017
+          },
+          "id": "3b1f62fe-d06f-444f-a3b3-0f04956aa51f",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 12.417395440393372,
+            "y": -0.2500000000000018
+          },
+          "end": {
+            "x": 14.850728773726706,
+            "y": 2.183333333333332
+          },
+          "id": "b9d3fd5f-c6de-4dce-a768-19e409e98c41",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 14.850728773726706,
+            "y": 2.183333333333332
+          },
+          "end": {
+            "x": 12.267395440393372,
+            "y": 4.766666666666667
+          },
+          "id": "d2cdae92-6783-4eff-a473-96113ec9d059",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        }
+      ]
+    }
+  ],
+  "surfaceAssignments": [
+    {
+      "id": "2f81a163-c0a6-4449-a070-bd1f09ab5aec",
+      "materialId": "herringbone",
+      "target": {
+        "type": "ceiling",
+        "floorId": "ca57851c-acb8-4bc5-8101-855e1bc0593f",
+        "roomSignature": "159:-3|159:154|404:-3|404:154"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "id": "a19ce1a3-05af-49c5-8066-e6a22791bec3",
+      "materialId": "herringbone",
+      "target": {
+        "type": "ceiling",
+        "floorId": "ca57851c-acb8-4bc5-8101-855e1bc0593f",
+        "roomSignature": "159:-109|159:-13|404:-109|404:-13"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    }
+  ],
+  "wallKind": "external"
+}

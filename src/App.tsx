@@ -135,6 +135,8 @@ function selectableSurfacesMatch(
   ) {
     return (
       firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.wallId === secondSurface.wallId &&
+      firstSurface.side === secondSurface.side &&
       firstSurface.fragmentId === secondSurface.fragmentId
     )
   }

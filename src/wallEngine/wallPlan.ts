@@ -153,6 +153,41 @@ function getWallSideNormal(wall: Wall, side: WallSide) {
   }
 }
 
+function getEndpointSideHandedness(
+  wall: Wall,
+  endpoint: WallEndpointKey,
+  side: WallSide,
+) {
+  const inward = {
+    x: -getEndpointOutwardDirection(wall, endpoint).x,
+    y: -getEndpointOutwardDirection(wall, endpoint).y,
+  }
+  const sideNormal = getWallSideNormal(wall, side)
+  const turn = inward.x * sideNormal.y - inward.y * sideNormal.x
+
+  return turn >= 0 ? 1 : -1
+}
+
+function getOppositeEndpointSide(
+  sourceWall: Wall,
+  sourceEndpoint: WallEndpointKey,
+  sourceSide: WallSide,
+  targetWall: Wall,
+  targetEndpoint: WallEndpointKey,
+) {
+  const sourceHandedness = getEndpointSideHandedness(
+    sourceWall,
+    sourceEndpoint,
+    sourceSide,
+  )
+
+  return ([1, -1] as const).find(
+    (targetSide) =>
+      getEndpointSideHandedness(targetWall, targetEndpoint, targetSide) ===
+      -sourceHandedness,
+  ) ?? sourceSide
+}
+
 function clampPointToTargetAttachmentSpan({
   attachmentPoint,
   point,
@@ -251,6 +286,67 @@ function getPointAlongWall(wall: Wall, distanceAlongWall: number) {
   return {
     x: wall.start.x + direction.x * distanceAlongWall,
     y: wall.start.y + direction.y * distanceAlongWall,
+  }
+}
+
+function getTargetEndpointFromAttachment(
+  attachment: WallGraph['sideAttachments'][number],
+  targetWall: Wall,
+) {
+  const targetLength = wallLength(targetWall)
+  const endpointTolerance = Math.max(0.03, targetWall.thickness / 2 + 0.03)
+
+  if (attachment.targetDistance <= endpointTolerance) {
+    return 'start' as const
+  }
+
+  if (attachment.targetDistance >= targetLength - endpointTolerance) {
+    return 'end' as const
+  }
+
+  return null
+}
+
+function sideAttachmentUsesTargetEndCap({
+  attachment,
+  targetWall,
+  wall,
+}: {
+  attachment: WallGraph['sideAttachments'][number]
+  targetWall: Wall
+  wall: Wall
+}) {
+  return (
+    wall.kind === 'internal' &&
+    targetWall.kind === 'external' &&
+    Boolean(getTargetEndpointFromAttachment(attachment, targetWall)) &&
+    !wallMeetsSideAttachmentAngle(wall, targetWall)
+  )
+}
+
+function getSideAttachmentTargetLine({
+  attachment,
+  targetWall,
+  wall,
+}: {
+  attachment: WallGraph['sideAttachments'][number]
+  targetWall: Wall
+  wall: Wall
+}) {
+  if (sideAttachmentUsesTargetEndCap({ attachment, targetWall, wall })) {
+    const targetEndpoint = getTargetEndpointFromAttachment(attachment, targetWall)
+
+    if (targetEndpoint) {
+      return {
+        direction: getWallNormal(targetWall),
+        point: getEndpointPoint(targetWall, targetEndpoint),
+      }
+    }
+  }
+
+  return {
+    direction: getWallDirection(targetWall),
+    point: getWallSideLinePoint(targetWall, attachment.side, 'start'),
   }
 }
 
@@ -365,8 +461,22 @@ function buildEndpointSidePlans({
           wallDirection.x * otherDirection.x +
             wallDirection.y * otherDirection.y,
         )
-        const otherSides =
-          directionDot > 0.8
+        const shouldUseOppositeLocalSide =
+          wall.kind === 'internal' &&
+          otherWall.kind === 'internal' &&
+          (node.endpoints.length >= 3 || directionDot > 0.08) &&
+          directionDot <= 0.8
+        const otherSides = shouldUseOppositeLocalSide
+            ? [
+                getOppositeEndpointSide(
+                  wall,
+                  endpoint,
+                  side,
+                  otherWall,
+                  otherEndpoint,
+                ),
+              ]
+          : directionDot > 0.8
             ? ([1, -1] as const)
                 .map((otherSide) => ({
                   dot:
@@ -391,17 +501,30 @@ function buildEndpointSidePlans({
             sideLinePoint,
             wallOutward,
             otherSideLinePoint,
-            getEndpointOutwardDirection(otherWall, otherEndpoint),
+            shouldUseOppositeLocalSide
+              ? {
+                  x: -getEndpointOutwardDirection(otherWall, otherEndpoint).x,
+                  y: -getEndpointOutwardDirection(otherWall, otherEndpoint).y,
+                }
+              : getEndpointOutwardDirection(otherWall, otherEndpoint),
           )
 
-          if (!intersection || intersection.t < 0.001) {
+          if (
+            !intersection ||
+            (shouldUseOppositeLocalSide
+              ? Math.abs(intersection.t) < 0.001
+              : intersection.t < 0.001)
+          ) {
             return []
           }
 
           return [intersection]
         })
       })
-      .sort((first, second) => first.t - second.t)[0]
+      .sort(
+        (first, second) =>
+          Math.abs(first.t) - Math.abs(second.t),
+      )[0]
 
     if (!bestIntersection || bestIntersection.t > chamferThreshold) {
       return {
@@ -416,7 +539,7 @@ function buildEndpointSidePlans({
     }
 
     return {
-      distanceFromEndpoint: bestIntersection.t,
+      distanceFromEndpoint: Math.abs(bestIntersection.t),
       point: bestIntersection.point,
       side,
       type: 'converge',
@@ -447,7 +570,11 @@ function buildEndpointPlan({
   if (attachment) {
     const targetWall = wallsById.get(attachment.targetWallId)
 
-    if (targetWall && !wallMeetsSideAttachmentAngle(wall, targetWall)) {
+    if (
+      targetWall &&
+      !wallMeetsSideAttachmentAngle(wall, targetWall) &&
+      !sideAttachmentUsesTargetEndCap({ attachment, targetWall, wall })
+    ) {
       return {
         endpoint,
         type: 'free',
@@ -465,23 +592,26 @@ function buildEndpointPlan({
               getWallNormal(targetWall).y * targetWall.thickness * attachment.side / 2,
           }
         : attachment.point
+    const targetAttachmentLine = targetWall
+      ? getSideAttachmentTargetLine({ attachment, targetWall, wall })
+      : null
     const targetFaceIntersection =
-      targetWall &&
+      targetAttachmentLine &&
       lineIntersection(
         wall.start,
         getWallDirection(wall),
-        getWallSideLinePoint(targetWall, attachment.side, 'start'),
-        getWallDirection(targetWall),
+        targetAttachmentLine.point,
+        targetAttachmentLine.direction,
       )
     const rawSidePoints = ([1, -1] as const).map((side): WallEndpointSidePlan => {
       const sideLinePoint = getWallSideLinePoint(wall, side, endpoint)
       const intersection =
-        targetWall &&
+        targetAttachmentLine &&
         lineIntersection(
           sideLinePoint,
           getWallDirection(wall),
-          getWallSideLinePoint(targetWall, attachment.side, 'start'),
-          getWallDirection(targetWall),
+          targetAttachmentLine.point,
+          targetAttachmentLine.direction,
         )
       const unclampedPoint =
         intersection?.point ?? getWallSideLinePoint(wall, side, endpoint)

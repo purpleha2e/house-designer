@@ -1,6 +1,7 @@
 import type { Point, Wall } from '../types.ts'
 import type { RenderedWall } from '../wallGeometry.ts'
 import type { DetectedRoom } from '../wallTopology.ts'
+import { unionRenderedWallFootprints } from '../wallBooleanGeometry.ts'
 import {
   buildWallGeometryPlans,
   type WallEndpointPlan,
@@ -1415,7 +1416,100 @@ export function buildRoomSurfaceWallFacesFromSpans(options: {
   )
 }
 
+export function buildWallPerimeterSurfaceFaceSpans(options: {
+  renderedWalls: RenderedWall[]
+}) {
+  const spans: RoomSurfaceFaceSpan[] = []
+  const footprints = unionRenderedWallFootprints(options.renderedWalls)
+
+  footprints.forEach((footprint, footprintIndex) => {
+    const rings = [
+      {
+        points: footprint.outline,
+        signature: `wall-perimeter:${footprintIndex}:outline`,
+      },
+      ...footprint.holes.map((hole, holeIndex) => ({
+        points: hole,
+        signature: `wall-perimeter:${footprintIndex}:hole:${holeIndex}`,
+      })),
+    ]
+
+    rings.forEach(({ points, signature }) => {
+      if (points.length < 2) {
+        return
+      }
+
+      points.forEach((startPoint, edgeIndex) => {
+        const endPoint = points[(edgeIndex + 1) % points.length]
+        const edgeLength = distance(startPoint, endPoint)
+
+        if (edgeLength <= MIN_FACE_LENGTH_METERS) {
+          return
+        }
+
+        findMatchingWallSideSegments(
+          startPoint,
+          endPoint,
+          options.renderedWalls,
+        ).forEach((match) => {
+          const edgeStartDistance = Math.max(
+            0,
+            Math.min(match.edgeStartDistance, match.edgeEndDistance),
+          )
+          const edgeEndDistance = Math.min(
+            edgeLength,
+            Math.max(match.edgeStartDistance, match.edgeEndDistance),
+          )
+
+          if (edgeEndDistance <= edgeStartDistance + MIN_FACE_LENGTH_METERS) {
+            return
+          }
+
+          const sourceSegment: RoomWallSurfaceSegment = {
+            edgeEndDistance,
+            edgeIndex,
+            edgeStartDistance,
+            endPoint: getPointAtDistance(startPoint, endPoint, edgeEndDistance),
+            normal: getWallSideNormal(match.renderedWall.wall, match.side),
+            roomSignature: signature,
+            side: match.side,
+            startPoint: getPointAtDistance(
+              startPoint,
+              endPoint,
+              edgeStartDistance,
+            ),
+            wall: match.renderedWall.wall,
+          }
+
+          spans.push({
+            edgeEndDistance,
+            edgeIndex,
+            edgeStartDistance,
+            endPoint: sourceSegment.endPoint,
+            normal: sourceSegment.normal,
+            roomSignature: signature,
+            sourceSegment,
+            startPoint: sourceSegment.startPoint,
+          })
+        })
+      })
+    })
+  })
+
+  return mergeRoomSurfaceFaceSpans(spans)
+}
+
+export function buildWallPerimeterSurfaceWallFaces(options: {
+  renderedWalls: RenderedWall[]
+}) {
+  return buildRoomSurfaceWallFacesFromSpans({
+    renderedWalls: options.renderedWalls,
+    spans: buildWallPerimeterSurfaceFaceSpans(options),
+  })
+}
+
 export function buildRoomSurfaceFaceSpans(options: {
+  requireCompleteRoomPlans?: boolean
   renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
 }) {
@@ -1425,9 +1519,11 @@ export function buildRoomSurfaceFaceSpans(options: {
     ).map((plan) => [plan.wallId, plan]),
   )
   const spans = buildRoomWallSurfaceRenderPlans(options).flatMap((plan) =>
-    plan.entries.map((entry) =>
-      getRoomSurfaceFaceSpan(entry, wallPlansById),
-    ),
+    !options.requireCompleteRoomPlans || plan.problems.length === 0
+      ? plan.entries.map((entry) =>
+          getRoomSurfaceFaceSpan(entry, wallPlansById),
+        )
+      : [],
   )
 
   return mergeRoomSurfaceFaceSpans(spans)

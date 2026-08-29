@@ -19,6 +19,7 @@ import {
   Text,
 } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
+import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import type { FloorLevel, PlacedModel, Point, Wall, WallKind } from '../types'
 import {
   getModelAssetUrl,
@@ -52,6 +53,7 @@ const MIN_WALL_LENGTH_METERS = 0.15
 const CONNECTION_SNAP_METERS = 0.25
 const WALL_JOIN_EPSILON_METERS = 0.03
 const ALIGNMENT_GUIDE_TOLERANCE_METERS = 0.5
+const WALL_DIRECTION_SNAP_TOLERANCE_METERS = 0.04
 const DIMENSION_OFFSET_METERS = 0.28
 const DIMENSION_CHEVRON_LENGTH_METERS = 0.09
 const DIMENSION_CHEVRON_MAX_SCREEN_PIXELS = 9
@@ -72,6 +74,7 @@ const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
 const MIN_MODEL_SCALE = 0.2
 const MAX_MODEL_SCALE = 5
 const MODEL_ROTATION_SNAP_RADIANS = (5 * Math.PI) / 180
+const WALL_DIRECTION_SNAP_RADIANS = Math.PI / 4
 const WALL_MODEL_SNAP_DISTANCE_METERS = 0.65
 const ROOM_HIGHLIGHT_COLORS = [
   'rgba(14, 165, 233, 0.12)',
@@ -159,6 +162,9 @@ type SnapTarget = {
   point: Point
   kind: 'endpoint' | 'junction'
   label?: string
+  snapPointRole?: 'external-end-quarter' | 'external-side-quarter' | 'wall-endpoint'
+  snapSide?: -1 | 1
+  snapWall?: Wall
 }
 
 type SnapSegment = {
@@ -167,6 +173,9 @@ type SnapSegment = {
   endpointsOnly?: boolean
   includeEndpoints?: boolean
   label?: string
+  snapPointRole?: 'external-end-quarter' | 'external-side-quarter' | 'wall-endpoint'
+  snapSide?: -1 | 1
+  snapWall?: Wall
 }
 
 type EndpointGuide = {
@@ -176,13 +185,11 @@ type EndpointGuide = {
   crossDistance: number
 }
 
-type AlignmentAxis = 'x' | 'y'
+type AlignmentAxis = 'diagonal-down' | 'diagonal-up' | 'x' | 'y'
 
 type AlignmentGuide = EndpointGuide & {
   axis: AlignmentAxis
 }
-
-type Axis = 'horizontal' | 'vertical'
 
 type DimensionGuide = {
   start: Point
@@ -370,6 +377,10 @@ function toPlanPoint(point: Point): Point {
 
 function distance(start: Point, end: Point) {
   return Math.hypot(end.x - start.x, end.y - start.y)
+}
+
+function dot(first: Point, second: Point) {
+  return first.x * second.x + first.y * second.y
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -1552,15 +1563,36 @@ function getDimensionGuides(
   return candidates
 }
 
-function snapToAxis(start: Point, end: Point): Point {
+function snapToWallDirection(start: Point, end: Point): Point {
   const dx = end.x - start.x
   const dy = end.y - start.y
+  const length = Math.hypot(dx, dy)
 
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return { x: end.x, y: start.y }
+  if (length === 0) {
+    return end
   }
 
-  return { x: start.x, y: end.y }
+  const snappedAngle =
+    Math.round(Math.atan2(dy, dx) / WALL_DIRECTION_SNAP_RADIANS) *
+    WALL_DIRECTION_SNAP_RADIANS
+
+  return {
+    x: start.x + Math.cos(snappedAngle) * length,
+    y: start.y + Math.sin(snappedAngle) * length,
+  }
+}
+
+function getDistanceFromPointToRay(point: Point, rayStart: Point, rayEnd: Point) {
+  const dx = rayEnd.x - rayStart.x
+  const dy = rayEnd.y - rayStart.y
+  const length = Math.hypot(dx, dy)
+
+  if (length === 0) {
+    return distance(point, rayStart)
+  }
+
+  return Math.abs((point.x - rayStart.x) * dy - (point.y - rayStart.y) * dx) /
+    length
 }
 
 function rotateVector(vector: Point, angle: number) {
@@ -1629,12 +1661,6 @@ function getDimensionEndTick(
       y: point.y + normal.y * tickLengthMeters,
     },
   ]
-}
-
-function getDraftAxis(start: Point, end: Point): Axis {
-  return Math.abs(end.x - start.x) >= Math.abs(end.y - start.y)
-    ? 'horizontal'
-    : 'vertical'
 }
 
 function normalizeAngle(angle: number) {
@@ -1836,14 +1862,20 @@ function getInternalToExternalSnapPoints(
       y: renderedEnd.y - unitY * flushInset + normalY * side * halfThickness,
     }
 
-    return [endEdgeStartPoint, endEdgeFinishPoint, sideStartPoint, sideFinishPoint].map(
-      (point) => ({
+    return [
+      { point: endEdgeStartPoint, role: 'external-end-quarter' as const },
+      { point: endEdgeFinishPoint, role: 'external-end-quarter' as const },
+      { point: sideStartPoint, role: 'external-side-quarter' as const },
+      { point: sideFinishPoint, role: 'external-side-quarter' as const },
+    ].map(({ point, role }) => ({
         start: point,
         end: point,
         endpointsOnly: true,
         label: '1/4',
-      }),
-    )
+        snapPointRole: role,
+        snapSide: side,
+        snapWall: wall,
+      }))
   })
 }
 
@@ -1856,7 +1888,23 @@ function getSnapSegments(
     const centerSegment = getOffsetSegment(wall, 0, startExtension, endExtension)
 
     if (wallKind !== 'internal' || wall.kind !== 'external') {
-      return [centerSegment]
+      return [
+        {
+          start: wall.start,
+          end: wall.start,
+          endpointsOnly: true,
+          snapPointRole: 'wall-endpoint',
+          snapWall: wall,
+        },
+        {
+          start: wall.end,
+          end: wall.end,
+          endpointsOnly: true,
+          snapPointRole: 'wall-endpoint',
+          snapWall: wall,
+        },
+        centerSegment,
+      ]
     }
 
     return [
@@ -1871,24 +1919,50 @@ function getSnapSegments(
   })
 }
 
+function getEndpointSnapPriority(candidate: SnapTarget) {
+  return candidate.snapPointRole === 'wall-endpoint' ? 0 : 1
+}
+
 function getSnapTarget(point: Point, segments: SnapSegment[]): SnapTarget | null {
   let closestEndpointTarget: SnapTarget | null = null
   let closestEndpointDistance = CONNECTION_SNAP_METERS
+  let closestEndpointPriority = Number.POSITIVE_INFINITY
   let closestJunctionTarget: SnapTarget | null = null
   let closestJunctionDistance = CONNECTION_SNAP_METERS
 
   for (const segment of segments) {
     if (segment.includeEndpoints !== false) {
       const endpointCandidates: SnapTarget[] = [
-        { point: segment.start, kind: 'endpoint', label: segment.label },
-        { point: segment.end, kind: 'endpoint', label: segment.label },
+        {
+          point: segment.start,
+          kind: 'endpoint',
+          label: segment.label,
+          snapPointRole: segment.snapPointRole,
+          snapSide: segment.snapSide,
+          snapWall: segment.snapWall,
+        },
+        {
+          point: segment.end,
+          kind: 'endpoint',
+          label: segment.label,
+          snapPointRole: segment.snapPointRole,
+          snapSide: segment.snapSide,
+          snapWall: segment.snapWall,
+        },
       ]
 
       for (const candidate of endpointCandidates) {
         const candidateDistance = distance(point, candidate.point)
+        const candidatePriority = getEndpointSnapPriority(candidate)
 
-        if (candidateDistance < closestEndpointDistance) {
+        if (
+          candidateDistance < CONNECTION_SNAP_METERS &&
+          (candidatePriority < closestEndpointPriority ||
+            (candidatePriority === closestEndpointPriority &&
+              candidateDistance < closestEndpointDistance))
+        ) {
           closestEndpointDistance = candidateDistance
+          closestEndpointPriority = candidatePriority
           closestEndpointTarget = candidate
         }
       }
@@ -1902,12 +1976,182 @@ function getSnapTarget(point: Point, segments: SnapSegment[]): SnapTarget | null
       point: getClosestPointOnSegment(point, segment.start, segment.end),
       kind: 'junction',
       label: segment.label,
+      snapPointRole: segment.snapPointRole,
+      snapSide: segment.snapSide,
+      snapWall: segment.snapWall,
     }
     const junctionDistance = distance(point, junctionCandidate.point)
 
     if (junctionDistance < closestJunctionDistance) {
       closestJunctionDistance = junctionDistance
       closestJunctionTarget = junctionCandidate
+    }
+  }
+
+  return closestEndpointTarget ?? closestJunctionTarget
+}
+
+function externalSideSnapMatchesMovingWallSide({
+  oppositeEndpoint,
+  snapTarget,
+}: {
+  oppositeEndpoint: Point
+  snapTarget: SnapTarget
+}) {
+  if (
+    snapTarget.kind !== 'endpoint' ||
+    snapTarget.label !== '1/4' ||
+    snapTarget.snapSide === undefined ||
+    snapTarget.snapWall?.kind !== 'external'
+  ) {
+    return true
+  }
+
+  const wallDx = snapTarget.snapWall.end.x - snapTarget.snapWall.start.x
+  const wallDy = snapTarget.snapWall.end.y - snapTarget.snapWall.start.y
+  const wallLength = Math.hypot(wallDx, wallDy)
+
+  if (wallLength <= 0.000001) {
+    return true
+  }
+
+  const movingDirection = {
+    x: oppositeEndpoint.x - snapTarget.point.x,
+    y: oppositeEndpoint.y - snapTarget.point.y,
+  }
+  const movingLength = Math.hypot(movingDirection.x, movingDirection.y)
+
+  if (movingLength <= 0.000001) {
+    return true
+  }
+
+  if (snapTarget.snapPointRole === 'external-end-quarter') {
+    const unitWall = {
+      x: wallDx / wallLength,
+      y: wallDy / wallLength,
+    }
+    const unitMoving = {
+      x: movingDirection.x / movingLength,
+      y: movingDirection.y / movingLength,
+    }
+
+    return Math.abs(dot(unitMoving, unitWall)) >= Math.cos(Math.PI / 12)
+  }
+
+  const normal = {
+    x: -wallDy / wallLength * snapTarget.snapSide,
+    y: wallDx / wallLength * snapTarget.snapSide,
+  }
+
+  return dot(movingDirection, normal) > 0
+}
+
+function getDirectionalSnapTarget({
+  point,
+  rayEnd,
+  rayStart,
+  segments,
+}: {
+  point: Point
+  rayEnd: Point
+  rayStart: Point
+  segments: SnapSegment[]
+}): SnapTarget | null {
+  const rayDx = rayEnd.x - rayStart.x
+  const rayDy = rayEnd.y - rayStart.y
+  const rayLengthSquared = rayDx * rayDx + rayDy * rayDy
+
+  if (rayLengthSquared <= 0.000001) {
+    return getSnapTarget(point, segments)
+  }
+
+  let closestEndpointTarget: SnapTarget | null = null
+  let closestEndpointDistance = CONNECTION_SNAP_METERS
+  let closestEndpointPriority = Number.POSITIVE_INFINITY
+  let closestJunctionTarget: SnapTarget | null = null
+  let closestJunctionDistance = CONNECTION_SNAP_METERS
+
+  for (const segment of segments) {
+    if (segment.includeEndpoints !== false) {
+      const endpointCandidates: SnapTarget[] = [
+        {
+          point: segment.start,
+          kind: 'endpoint',
+          label: segment.label,
+          snapPointRole: segment.snapPointRole,
+          snapSide: segment.snapSide,
+          snapWall: segment.snapWall,
+        },
+        {
+          point: segment.end,
+          kind: 'endpoint',
+          label: segment.label,
+          snapPointRole: segment.snapPointRole,
+          snapSide: segment.snapSide,
+          snapWall: segment.snapWall,
+        },
+      ]
+
+      for (const candidate of endpointCandidates) {
+        const candidateRayDistance = getDistanceFromPointToRay(
+          candidate.point,
+          rayStart,
+          rayEnd,
+        )
+        const candidateDistance = distance(point, candidate.point)
+        const candidatePriority = getEndpointSnapPriority(candidate)
+
+        if (
+          candidateRayDistance <= WALL_DIRECTION_SNAP_TOLERANCE_METERS &&
+          candidateDistance < CONNECTION_SNAP_METERS &&
+          (candidatePriority < closestEndpointPriority ||
+            (candidatePriority === closestEndpointPriority &&
+              candidateDistance < closestEndpointDistance))
+        ) {
+          closestEndpointDistance = candidateDistance
+          closestEndpointPriority = candidatePriority
+          closestEndpointTarget = candidate
+        }
+      }
+    }
+
+    if (segment.endpointsOnly) {
+      continue
+    }
+
+    const segmentDx = segment.end.x - segment.start.x
+    const segmentDy = segment.end.y - segment.start.y
+    const denominator = rayDx * segmentDy - rayDy * segmentDx
+
+    if (Math.abs(denominator) <= 0.000001) {
+      continue
+    }
+
+    const startDx = segment.start.x - rayStart.x
+    const startDy = segment.start.y - rayStart.y
+    const rayT = (startDx * segmentDy - startDy * segmentDx) / denominator
+    const segmentT = (startDx * rayDy - startDy * rayDx) / denominator
+
+    if (rayT < 0 || segmentT < 0 || segmentT > 1) {
+      continue
+    }
+
+    const candidatePoint = {
+      x: rayStart.x + rayDx * rayT,
+      y: rayStart.y + rayDy * rayT,
+    }
+    const candidateDistance = distance(point, candidatePoint)
+
+    if (candidateDistance < closestJunctionDistance) {
+      closestJunctionDistance = candidateDistance
+      closestJunctionTarget = {
+        point: candidatePoint,
+        kind: 'junction',
+        label: segment.label,
+        snapPointRole: segment.snapPointRole,
+        snapSide: segment.snapSide,
+        snapWall: segment.snapWall,
+      }
     }
   }
 
@@ -1970,6 +2214,76 @@ function getClosestAlignmentGuide(
       if (candidate.distance <= closestDistance && candidateScore < closestScore) {
         closestDistance = candidate.distance
         closestGuide = candidate
+      }
+    }
+  }
+
+  return closestGuide
+}
+
+function getClosestDirectionalAlignmentGuide({
+  directionEnd,
+  directionStart,
+  point,
+  walls,
+}: {
+  directionEnd: Point
+  directionStart: Point
+  point: Point
+  walls: Wall[]
+}): AlignmentGuide | null {
+  const dx = directionEnd.x - directionStart.x
+  const dy = directionEnd.y - directionStart.y
+  const length = Math.hypot(dx, dy)
+
+  if (length <= 0.000001) {
+    return null
+  }
+
+  const unit = {
+    x: dx / length,
+    y: dy / length,
+  }
+  const axis: AlignmentAxis =
+    Math.abs(unit.x) > 0.98
+      ? 'x'
+      : Math.abs(unit.y) > 0.98
+        ? 'y'
+        : unit.x * unit.y >= 0
+          ? 'diagonal-down'
+          : 'diagonal-up'
+  let closestGuide: AlignmentGuide | null = null
+  let closestDistance = ALIGNMENT_GUIDE_TOLERANCE_METERS
+
+  for (const endpoint of walls.flatMap((wall) => [wall.start, wall.end])) {
+    const endpointFromStart = {
+      x: endpoint.x - directionStart.x,
+      y: endpoint.y - directionStart.y,
+    }
+    const alongDistance =
+      endpointFromStart.x * unit.x + endpointFromStart.y * unit.y
+    const projection = {
+      x: directionStart.x + unit.x * alongDistance,
+      y: directionStart.y + unit.y * alongDistance,
+    }
+    const guideDistance = distance(point, projection)
+    const crossDistance = distance(endpoint, projection)
+
+    if (guideDistance <= closestDistance) {
+      const closestScore = closestGuide
+        ? closestGuide.distance * 2 + closestGuide.crossDistance
+        : Number.POSITIVE_INFINITY
+      const candidateScore = guideDistance * 2 + crossDistance
+
+      if (candidateScore < closestScore) {
+        closestDistance = guideDistance
+        closestGuide = {
+          axis,
+          crossDistance,
+          distance: guideDistance,
+          endpoint,
+          projection,
+        }
       }
     }
   }
@@ -2074,6 +2388,7 @@ export function FloorplanCanvas({
     {},
   )
   const lengthInputRef = useRef<HTMLInputElement>(null)
+  const stageRef = useRef<KonvaStage | null>(null)
   const middlePanRef = useRef<PanState | null>(null)
   const wallDragRef = useRef<WallDragState | null>(null)
   const wallDragPreviewFrameRef = useRef<number | null>(null)
@@ -2093,7 +2408,6 @@ export function FloorplanCanvas({
     },
     [],
   )
-
   useEffect(
     () => () => {
       if (wallDragPreviewFrameRef.current !== null) {
@@ -2400,34 +2714,77 @@ export function FloorplanCanvas({
     setIsAxisLocked(true)
   }
 
+  useEffect(() => {
+    if (!isAddingWall) {
+      resetDraftWall()
+    }
+  }, [isAddingWall])
+
   const getDraftEndPoint = (
     start: Point,
     point: Point,
     event: PointerEvent,
   ) => {
-    const basePoint = event.ctrlKey ? point : snapToAxis(start, point)
+    const basePoint = event.ctrlKey ? point : snapToWallDirection(start, point)
 
     if (event.shiftKey) {
       return basePoint
     }
 
-    const axis = getDraftAxis(start, point)
     const alignmentGuide = event.ctrlKey
       ? null
-      : getClosestAlignmentGuide(
-          basePoint,
-          snapWalls,
-          axis === 'horizontal' ? 'x' : 'y',
-        )
+      : getClosestDirectionalAlignmentGuide({
+          directionEnd: basePoint,
+          directionStart: start,
+          point: basePoint,
+          walls: snapWalls,
+        })
     const alignedPoint = applyAlignmentGuide(basePoint, alignmentGuide)
-    const snappedPoint = snapToPreferredConnection(alignedPoint)
+    const preferredSnapTarget = event.ctrlKey
+      ? getPreferredSnapTarget(alignedPoint)
+      : getPreferredDirectionalSnapTarget({
+          point: alignedPoint,
+          rayEnd: basePoint,
+          rayStart: start,
+        })
+    const validSnapTarget =
+      preferredSnapTarget &&
+      externalSideSnapMatchesMovingWallSide({
+        oppositeEndpoint: start,
+        snapTarget: preferredSnapTarget,
+      })
+        ? preferredSnapTarget
+        : null
+    const snappedPoint = validSnapTarget?.point ?? alignedPoint
 
-    return event.ctrlKey ? snappedPoint : snapToAxis(start, snappedPoint)
+    return event.ctrlKey ? snappedPoint : snapToWallDirection(start, snappedPoint)
   }
 
   const getPreferredSnapTarget = (point: Point) =>
     getSnapTarget(point, activeSnapSegments) ??
     getSnapTarget(point, referenceSnapSegments)
+
+  const getPreferredDirectionalSnapTarget = ({
+    point,
+    rayEnd,
+    rayStart,
+  }: {
+    point: Point
+    rayEnd: Point
+    rayStart: Point
+  }) =>
+    getDirectionalSnapTarget({
+      point,
+      rayEnd,
+      rayStart,
+      segments: activeSnapSegments,
+    }) ??
+    getDirectionalSnapTarget({
+      point,
+      rayEnd,
+      rayStart,
+      segments: referenceSnapSegments,
+    })
 
   const getPreferredSnapPreviewTarget = (point: Point) =>
     getSnapPreviewTarget(point, activeSnapSegments) ??
@@ -2435,6 +2792,38 @@ export function FloorplanCanvas({
 
   const snapToPreferredConnection = (point: Point) =>
     getPreferredSnapTarget(point)?.point ?? point
+
+  const wallEndpointSnapIsValid = ({
+    activeWalls,
+    endpoint,
+    oppositeEndpoint,
+    snapTarget,
+    wall,
+  }: {
+    activeWalls: Wall[]
+    endpoint: 'end' | 'start'
+    oppositeEndpoint: Point
+    snapTarget: SnapTarget | null
+    wall: Wall
+  }) =>
+    !(
+      snapTarget?.kind === 'endpoint' &&
+      (!externalSideSnapMatchesMovingWallSide({
+        oppositeEndpoint,
+        snapTarget,
+      }) ||
+        !endpointSnapRespectsMinimumJoinAngle({
+          endpoint,
+          movingWall: {
+            id: wall.id,
+            start: endpoint === 'start' ? snapTarget.point : oppositeEndpoint,
+            end: endpoint === 'end' ? snapTarget.point : oppositeEndpoint,
+          },
+          snapPoint: snapTarget.point,
+          tolerance: CONNECTION_SNAP_METERS,
+          walls: activeWalls,
+        }))
+    )
 
   const getWallEndpointSnapTarget = (
     point: Point,
@@ -2445,30 +2834,46 @@ export function FloorplanCanvas({
     const activeWalls = activeFloor.walls.filter(
       (candidateWall) => candidateWall.id !== wall.id,
     )
-    const snapTarget =
-      getSnapTarget(
-        point,
-        getSnapSegments(activeWalls, wall.kind, wall.thickness),
-      )
+    const snapSegments = getSnapSegments(activeWalls, wall.kind, wall.thickness)
+    const snapTarget = getSnapTarget(point, snapSegments)
 
-    if (
-      snapTarget?.kind === 'endpoint' &&
-      !endpointSnapRespectsMinimumJoinAngle({
-        endpoint,
-        movingWall: {
-          id: wall.id,
-          start: endpoint === 'start' ? snapTarget.point : oppositeEndpoint,
-          end: endpoint === 'end' ? snapTarget.point : oppositeEndpoint,
-        },
-        snapPoint: snapTarget.point,
-        tolerance: CONNECTION_SNAP_METERS,
-        walls: activeWalls,
-      })
-    ) {
-      return null
-    }
+    return wallEndpointSnapIsValid({
+      activeWalls,
+      endpoint,
+      oppositeEndpoint,
+      snapTarget,
+      wall,
+    })
+      ? snapTarget
+      : null
+  }
 
-    return snapTarget
+  const getWallEndpointDirectionalSnapTarget = (
+    point: Point,
+    rayEnd: Point,
+    wall: Wall,
+    endpoint: 'end' | 'start',
+    oppositeEndpoint: Point,
+  ) => {
+    const activeWalls = activeFloor.walls.filter(
+      (candidateWall) => candidateWall.id !== wall.id,
+    )
+    const snapTarget = getDirectionalSnapTarget({
+      point,
+      rayEnd,
+      rayStart: oppositeEndpoint,
+      segments: getSnapSegments(activeWalls, wall.kind, wall.thickness),
+    })
+
+    return wallEndpointSnapIsValid({
+      activeWalls,
+      endpoint,
+      oppositeEndpoint,
+      snapTarget,
+      wall,
+    })
+      ? snapTarget
+      : null
   }
 
   const wallUpdateRespectsMinimumJoinAngles = (
@@ -2558,6 +2963,7 @@ export function FloorplanCanvas({
   }
 
   const stopMiddlePan = () => {
+    syncViewportFromStage()
     middlePanRef.current = null
     setIsMiddlePanning(false)
   }
@@ -2650,11 +3056,15 @@ export function FloorplanCanvas({
         clientX: event.evt.clientX,
         clientY: event.evt.clientY,
       }
-      setViewport((currentViewport) => ({
-        ...currentViewport,
-        x: currentViewport.x + deltaX,
-        y: currentViewport.y + deltaY,
-      }))
+      const stage = stageRef.current
+
+      if (stage) {
+        stage.position({
+          x: stage.x() + deltaX,
+          y: stage.y() + deltaY,
+        })
+        stage.batchDraw()
+      }
       return
     }
 
@@ -2679,21 +3089,37 @@ export function FloorplanCanvas({
     }
 
     const pointerEnd = getDraftEndPoint(draftWall.start, point, event.evt)
-    const axis = getDraftAxis(draftWall.start, point)
-    const basePoint = event.evt.ctrlKey ? point : snapToAxis(draftWall.start, point)
+    const basePoint = event.evt.ctrlKey
+      ? point
+      : snapToWallDirection(draftWall.start, point)
     const alignmentGuide =
       event.evt.ctrlKey || event.evt.shiftKey
         ? null
-        : getClosestAlignmentGuide(
-            basePoint,
-            snapWalls,
-            axis === 'horizontal' ? 'x' : 'y',
-          )
+        : getClosestDirectionalAlignmentGuide({
+            directionEnd: basePoint,
+            directionStart: draftWall.start,
+            point: basePoint,
+            walls: snapWalls,
+          })
     const snapPreviewPoint = applyAlignmentGuide(basePoint, alignmentGuide)
+    const snapPreviewTarget = event.evt.ctrlKey
+      ? getPreferredSnapPreviewTarget(snapPreviewPoint)
+      : getPreferredDirectionalSnapTarget({
+          point: snapPreviewPoint,
+          rayEnd: basePoint,
+          rayStart: draftWall.start,
+        })
+    const validSnapPreviewTarget =
+      snapPreviewTarget &&
+      externalSideSnapMatchesMovingWallSide({
+        oppositeEndpoint: draftWall.start,
+        snapTarget: snapPreviewTarget,
+      })
+        ? snapPreviewTarget
+        : null
+
     setIsAxisLocked(!event.evt.ctrlKey)
-    setHoverSnapTarget(
-      event.evt.shiftKey ? null : getPreferredSnapPreviewTarget(snapPreviewPoint),
-    )
+    setHoverSnapTarget(event.evt.shiftKey ? null : validSnapPreviewTarget)
     setHoverAlignmentGuide(alignmentGuide)
     setDraftWall({
       ...draftWall,
@@ -2754,6 +3180,20 @@ export function FloorplanCanvas({
         : viewport.scale * ZOOM_STEP,
     )
   }
+
+  const syncViewportFromStage = useCallback(() => {
+    const stage = stageRef.current
+
+    if (!stage) {
+      return
+    }
+
+    setViewport((currentViewport) => ({
+      ...currentViewport,
+      x: stage.x(),
+      y: stage.y(),
+    }))
+  }, [])
 
   const visibleBounds = {
     left: -viewport.x / viewport.scale,
@@ -3011,18 +3451,11 @@ export function FloorplanCanvas({
           const wallMount = isWallMountedModel
             ? getWallMountForPoint(pointerPosition, activeFloor.walls)
             : null
-          const nextPosition = wallMount?.position ?? pointerPosition
 
           if (wallMount) {
             event.target.position(toCanvasPoint(wallMount.position))
             event.target.rotation((wallMount.rotation * 180) / Math.PI)
           }
-
-          onUpdateModel(model.id, {
-            position: nextPosition,
-            rotation: wallMount?.rotation ?? model.rotation,
-            wallAttachment: wallMount?.wallAttachment,
-          })
         }}
         onDragStart={(event) => {
           event.cancelBubble = true
@@ -3040,17 +3473,19 @@ export function FloorplanCanvas({
           const wallMount = isWallMountedModel
             ? getWallMountForPoint(pointerPosition, activeFloor.walls)
             : null
+          const nextPosition = wallMount?.position ?? pointerPosition
+          const updates = {
+            position: nextPosition,
+            rotation: wallMount?.rotation ?? model.rotation,
+            wallAttachment: wallMount?.wallAttachment,
+          }
 
           if (wallMount) {
             event.target.position(toCanvasPoint(wallMount.position))
             event.target.rotation((wallMount.rotation * 180) / Math.PI)
-            onUpdateModel(model.id, {
-              position: wallMount.position,
-              rotation: wallMount.rotation,
-              wallAttachment: wallMount.wallAttachment,
-            })
           }
 
+          onUpdateModel(model.id, updates)
           setIsDraggingModel(false)
         }}
       >
@@ -3387,7 +3822,7 @@ export function FloorplanCanvas({
         <span>
           {isAddingWall
             ? draftWall
-              ? 'Move pointer, Ctrl for free angle'
+              ? '45 deg steps, Ctrl for free angle'
               : 'Click to start wall'
             : 'Select Add Wall'}
         </span>
@@ -3475,6 +3910,7 @@ export function FloorplanCanvas({
         className={isMiddlePanning ? 'canvas-host panning' : 'canvas-host'}
       >
         <Stage
+          ref={stageRef}
           width={size.width}
           height={size.height}
           x={viewport.x}
@@ -3495,13 +3931,7 @@ export function FloorplanCanvas({
               stopMiddlePan()
             }
           }}
-          onDragMove={(event) => {
-            setViewport((currentViewport) => ({
-              ...currentViewport,
-              x: event.target.x(),
-              y: event.target.y(),
-            }))
-          }}
+          onDragEnd={syncViewportFromStage}
           onWheel={handleWheel}
           onPointerLeave={() => {
             if (middlePanRef.current) {
@@ -3799,21 +4229,39 @@ export function FloorplanCanvas({
                         endpoint === 'start'
                           ? dragState.startWall.end
                           : dragState.startWall.start
-                      const lockedPoint =
-                        event.evt.shiftKey &&
-                        Math.abs(rawPoint.x - oppositeEndpoint.x) >
-                          Math.abs(rawPoint.y - oppositeEndpoint.y)
-                          ? { x: rawPoint.x, y: oppositeEndpoint.y }
-                          : event.evt.shiftKey
-                            ? { x: oppositeEndpoint.x, y: rawPoint.y }
-                            : rawPoint
-                      const snapTarget = getWallEndpointSnapTarget(
+                      const lockedPoint = event.evt.ctrlKey
+                        ? rawPoint
+                        : snapToWallDirection(oppositeEndpoint, rawPoint)
+                      const alignmentGuide = event.evt.ctrlKey
+                        ? null
+                        : getClosestDirectionalAlignmentGuide({
+                            directionEnd: lockedPoint,
+                            directionStart: oppositeEndpoint,
+                            point: lockedPoint,
+                            walls: activeFloor.walls.filter(
+                              (wall) => wall.id !== renderedWall.wall.id,
+                            ),
+                          })
+                      const alignedPoint = applyAlignmentGuide(
                         lockedPoint,
-                        renderedWall.wall,
-                        endpoint,
-                        oppositeEndpoint,
+                        alignmentGuide,
                       )
-                      const nextPoint = snapTarget?.point ?? lockedPoint
+                      const snapTarget = event.evt.ctrlKey
+                        ? getWallEndpointSnapTarget(
+                            alignedPoint,
+                            renderedWall.wall,
+                            endpoint,
+                            oppositeEndpoint,
+                          )
+                        : getWallEndpointDirectionalSnapTarget(
+                            alignedPoint,
+                            alignedPoint,
+                            renderedWall.wall,
+                            endpoint,
+                            oppositeEndpoint,
+                          )
+                      const nextPoint =
+                        snapTarget?.point ?? alignedPoint
                       const nextWall = {
                         start:
                           endpoint === 'start'
@@ -3830,6 +4278,7 @@ export function FloorplanCanvas({
                         )
                       ) {
                         setHoverSnapTarget(null)
+                        setHoverAlignmentGuide(null)
                         event.target.position(
                           toCanvasPoint(renderedWall.wall[endpoint]),
                         )
@@ -3837,6 +4286,7 @@ export function FloorplanCanvas({
                       }
 
                       setHoverSnapTarget(snapTarget)
+                      setHoverAlignmentGuide(alignmentGuide)
                       dragState.pendingWall = nextWall
                       event.target.position(toCanvasPoint(nextPoint))
                       scheduleWallDragPreview({
@@ -3854,6 +4304,7 @@ export function FloorplanCanvas({
 
                       wallDragRef.current = null
                       setHoverSnapTarget(null)
+                      setHoverAlignmentGuide(null)
                       if (wallDragPreviewFrameRef.current !== null) {
                         window.cancelAnimationFrame(wallDragPreviewFrameRef.current)
                         wallDragPreviewFrameRef.current = null

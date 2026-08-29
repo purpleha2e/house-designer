@@ -278,25 +278,42 @@ function getAttachedSide(
 }
 
 function buildSideAttachments({
-  endpointNodeKeys,
+  endpointNodes,
   sideSnapTolerance,
   walls,
 }: {
-  endpointNodeKeys: Set<string>
+  endpointNodes: EndpointJoinNode[]
   sideSnapTolerance: number
   walls: Wall[]
 }) {
   const attachments: SideAttachmentNode[] = []
+  const endpointPeerWallIds = new Map<string, Set<string>>()
+
+  endpointNodes.forEach((node) => {
+    node.endpoints.forEach((endpoint) => {
+      endpointPeerWallIds.set(
+        `${endpoint.wallId}:${endpoint.endpoint}`,
+        new Set(
+          node.endpoints
+            .filter((candidate) => candidate.wallId !== endpoint.wallId)
+            .map((candidate) => candidate.wallId),
+        ),
+      )
+    })
+  })
 
   for (const wall of walls) {
     for (const endpoint of ['start', 'end'] as const) {
-      if (endpointNodeKeys.has(`${wall.id}:${endpoint}`)) {
-        continue
-      }
-
       const endpointPoint = getEndpointPoint(wall, endpoint)
+      const peerWallIds =
+        endpointPeerWallIds.get(`${wall.id}:${endpoint}`) ?? new Set<string>()
       const candidates = walls
-        .filter((targetWall) => targetWall.id !== wall.id)
+        .filter(
+          (targetWall) =>
+            targetWall.id !== wall.id &&
+            !peerWallIds.has(targetWall.id) &&
+            !(wall.kind === 'external' && targetWall.kind === 'internal'),
+        )
         .map((targetWall) => ({
           projection: getProjectionOnWall(endpointPoint, targetWall),
           targetWall,
@@ -315,26 +332,36 @@ function buildSideAttachments({
             first.projection.distance - second.projection.distance ||
             first.targetWall.id.localeCompare(second.targetWall.id),
         )
+      const selectedCandidates = candidates.some(
+        ({ targetWall }) =>
+          wall.kind === 'internal' && targetWall.kind === 'external',
+      )
+        ? candidates.filter(
+            ({ targetWall }) =>
+              wall.kind === 'internal' && targetWall.kind === 'external',
+          )
+        : candidates.filter(
+            ({ projection }, index) =>
+              index === 0 ||
+              (Math.abs(projection.distance - candidates[0].projection.distance) <=
+                sideSnapTolerance &&
+                distance(projection.point, candidates[0].projection.point) <=
+                  sideSnapTolerance),
+          )
 
-      const bestCandidate = candidates[0]
-
-      if (!bestCandidate) {
-        continue
-      }
-
-      const { projection, targetWall } = bestCandidate
-
-      attachments.push({
-        attachedEndpoint: {
-          endpoint,
-          wallId: wall.id,
-        },
-        id: `side:${attachments.length}`,
-        point: projection.point,
-        side: getAttachedSide(endpointPoint, wall, endpoint, targetWall),
-        targetDistance: projection.rawT * wallLength(targetWall),
-        targetWallId: targetWall.id,
-        type: 'side-attachment',
+      selectedCandidates.forEach(({ projection, targetWall }) => {
+        attachments.push({
+          attachedEndpoint: {
+            endpoint,
+            wallId: wall.id,
+          },
+          id: `side:${attachments.length}`,
+          point: projection.point,
+          side: getAttachedSide(endpointPoint, wall, endpoint, targetWall),
+          targetDistance: projection.rawT * wallLength(targetWall),
+          targetWallId: targetWall.id,
+          type: 'side-attachment',
+        })
       })
     }
   }
@@ -440,7 +467,7 @@ export function buildWallGraph(
     options.endpointSnapTolerance ?? DEFAULT_ENDPOINT_SNAP_TOLERANCE
   const sideSnapTolerance =
     options.sideSnapTolerance ?? DEFAULT_SIDE_SNAP_TOLERANCE
-  const { endpointNodeKeys, nodes } = buildEndpointNodes(
+  const { nodes } = buildEndpointNodes(
     walls,
     endpointSnapTolerance,
   )
@@ -452,7 +479,7 @@ export function buildWallGraph(
     ),
     endpointNodes: nodes,
     sideAttachments: buildSideAttachments({
-      endpointNodeKeys,
+      endpointNodes: nodes,
       sideSnapTolerance,
       walls,
     }),

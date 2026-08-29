@@ -8,8 +8,6 @@ type ToolbarProps = {
 }
 
 export function Toolbar({
-  floorCount,
-  wallCount,
   onLoadProject,
   onSaveProject,
 }: ToolbarProps) {

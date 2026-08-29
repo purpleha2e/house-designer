@@ -6,7 +6,11 @@ import {
   buildRoomSurfaceWallFacesFromSpans,
   getRoomSurfaceKey,
 } from './roomSurfaceMesh.ts'
-import { buildWallMeshFaces, type WallMeshFace } from './wallMesh.ts'
+import {
+  buildWallBodyPerimeterMeshFaces,
+  buildWallMeshFaces,
+  type WallMeshFace,
+} from './wallMesh.ts'
 
 export type FloorWallSurfaceFace = WallMeshFace
 
@@ -16,6 +20,7 @@ export type FloorWallSurfaceMeshOptions = {
   renderedWalls: RenderedWall[]
   roomSurfaceRendererEnabled?: boolean
   rooms: DetectedRoom[]
+  useWallBodyPerimeterMesh?: boolean
 }
 
 type WallFaceCoverageInterval = {
@@ -39,6 +44,19 @@ function getDistanceAlongWall(wall: Wall, point: { x: number; y: number }) {
       (point.y - wall.start.y) * (wall.end.y - wall.start.y)) /
     length
   )
+}
+
+function getWallNormal(wall: Wall) {
+  const length = distance(wall.start, wall.end)
+
+  if (length <= 0.000001) {
+    return { x: 0, y: 1 }
+  }
+
+  return {
+    x: -(wall.end.y - wall.start.y) / length,
+    y: (wall.end.x - wall.start.x) / length,
+  }
 }
 
 function getWallFaceHorizontalInterval(
@@ -125,19 +143,6 @@ function getMaterialWallSideKey(face: FloorWallSurfaceFace) {
   return face.materialSource.side
     ? `${face.materialSource.wallId}:${face.materialSource.side}`
     : null
-}
-
-function getWallNormal(wall: Wall) {
-  const length = distance(wall.start, wall.end)
-
-  if (length <= 0.000001) {
-    return { x: 0, y: 1 }
-  }
-
-  return {
-    x: -(wall.end.y - wall.start.y) / length,
-    y: (wall.end.x - wall.start.x) / length,
-  }
 }
 
 function faceIsCoplanarWithWallSide(
@@ -388,7 +393,10 @@ function structuralFaceOverlapsRoomSurfaceFace(
   roomSurfaceFace: FloorWallSurfaceFace,
   wallsById: Map<string, Wall>,
 ) {
-  if (structuralFace.kind === 'cap') {
+  if (
+    structuralFace.kind === 'cap' ||
+    structuralFace.materialSource.role === 'cap'
+  ) {
     return false
   }
 
@@ -446,12 +454,117 @@ function structuralFaceOverlapsAnyRoomSurfaceFace(
   )
 }
 
+function capIsCoplanarWithTargetWallSide(
+  face: FloorWallSurfaceFace,
+  targetWall: Wall,
+  side: -1 | 1,
+) {
+  const normal = getWallNormal(targetWall)
+  const sideNormal = {
+    x: normal.x * side,
+    y: normal.y * side,
+  }
+  const normalDot = face.normal[0] * sideNormal.x + face.normal[2] * sideNormal.y
+
+  if (Math.abs(normalDot) < 0.98) {
+    return false
+  }
+
+  const firstPoint = face.vertices[0].position
+  const sidePlanePoint = {
+    x: targetWall.start.x + sideNormal.x * targetWall.thickness / 2,
+    y: targetWall.start.y + sideNormal.y * targetWall.thickness / 2,
+  }
+  const planeDistance = Math.abs(
+    (firstPoint[0] - sidePlanePoint.x) * sideNormal.x +
+      (firstPoint[2] - sidePlanePoint.y) * sideNormal.y,
+  )
+
+  return planeDistance <= 0.012
+}
+
+function wallDirectionsArePerpendicular(firstWall: Wall, secondWall: Wall) {
+  const firstLength = distance(firstWall.start, firstWall.end)
+  const secondLength = distance(secondWall.start, secondWall.end)
+
+  if (firstLength <= 0.000001 || secondLength <= 0.000001) {
+    return false
+  }
+
+  const firstDirection = {
+    x: (firstWall.end.x - firstWall.start.x) / firstLength,
+    y: (firstWall.end.y - firstWall.start.y) / firstLength,
+  }
+  const secondDirection = {
+    x: (secondWall.end.x - secondWall.start.x) / secondLength,
+    y: (secondWall.end.y - secondWall.start.y) / secondLength,
+  }
+
+  return Math.abs(
+    firstDirection.x * secondDirection.x +
+      firstDirection.y * secondDirection.y,
+  ) <= 0.08
+}
+
+function sideAttachmentCapIsCoveredByRoomSurface(
+  face: FloorWallSurfaceFace,
+  roomSurfaceFaces: FloorWallSurfaceFace[],
+  wallsById: Map<string, Wall>,
+) {
+  if (
+    face.kind !== 'cap' ||
+    face.materialSource.role === 'cap' ||
+    !face.materialSource.side
+  ) {
+    return false
+  }
+
+  const sourceWall = wallsById.get(face.wallId)
+  const targetWall = wallsById.get(face.materialSource.wallId)
+
+  if (!sourceWall || !targetWall) {
+    return false
+  }
+
+  if (sourceWall.kind === 'internal' && targetWall.kind === 'external') {
+    return false
+  }
+
+  if (!wallDirectionsArePerpendicular(sourceWall, targetWall)) {
+    return false
+  }
+
+  if (sourceWall.kind === 'internal' && targetWall.kind === 'internal') {
+    return roomSurfaceFaces.some(
+      (roomSurfaceFace) =>
+        roomSurfaceFace.materialSource.role === 'room-surface' &&
+        roomSurfaceFace.wallId === targetWall.id,
+    )
+  }
+
+  return (
+    capIsCoplanarWithTargetWallSide(
+      face,
+      targetWall,
+      face.materialSource.side as -1 | 1,
+    ) &&
+    roomSurfaceFaces.some(
+      (roomSurfaceFace) =>
+        roomSurfaceFace.materialSource.role === 'room-surface' &&
+        roomSurfaceFace.wallId === targetWall.id &&
+        Math.abs(dotWallFaceNormals(face, roomSurfaceFace)) > 0.98 &&
+        facePlaneDistance(face, roomSurfaceFace) <= 0.012,
+    )
+  )
+}
+
 export function buildFloorWallSurfaceFaces({
   contextRenderedWalls,
   externalFootprintWallIds,
   renderedWalls,
   roomSurfaceRendererEnabled = true,
   rooms,
+  useWallBodyPerimeterMesh = false,
 }: FloorWallSurfaceMeshOptions): FloorWallSurfaceFace[] {
   const walls = renderedWalls.map((renderedWall) => renderedWall.wall)
   const contextWalls = (contextRenderedWalls ?? renderedWalls).map(
@@ -461,6 +574,7 @@ export function buildFloorWallSurfaceFaces({
   const wallsById = new Map(contextWalls.map((wall) => [wall.id, wall]))
   const roomSurfaceSpans = roomSurfaceRendererEnabled
     ? buildRoomSurfaceFaceSpans({
+        requireCompleteRoomPlans: true,
         renderedWalls: contextRenderedWalls ?? renderedWalls,
         rooms,
       })
@@ -476,20 +590,20 @@ export function buildFloorWallSurfaceFaces({
       .map(getRoomSurfaceKey)
       .filter((key): key is string => Boolean(key)),
   )
-  const omittedSideAttachmentCapTargetIds = new Set([
-    ...(externalFootprintWallIds ?? []),
-    ...rawRoomSurfaceFaces.map((face) => face.materialSource.wallId),
-  ])
-  const structuralFaces = buildWallMeshFaces(contextWalls, {
-    omitEndpointJoinSideFacesForWallIds:
-      externalFootprintWallIds && externalFootprintWallIds.size > 0
-        ? externalFootprintWallIds
-        : undefined,
-    omitSideAttachmentCapsForTargetWallIds:
-      omittedSideAttachmentCapTargetIds.size > 0
-        ? omittedSideAttachmentCapTargetIds
-        : undefined,
-  }).filter((face) => renderedWallIdSet.has(face.wallId))
+  const structuralFaces = (useWallBodyPerimeterMesh
+    ? buildWallBodyPerimeterMeshFaces(walls)
+    : buildWallMeshFaces(contextWalls, {
+        omitEndpointJoinSideFacesForWallIds:
+          externalFootprintWallIds && externalFootprintWallIds.size > 0
+            ? externalFootprintWallIds
+            : undefined,
+      })
+  ).filter((face) => renderedWallIdSet.has(face.wallId))
+
+  if (useWallBodyPerimeterMesh) {
+    return structuralFaces
+  }
+
   const sideAttachmentCapCoverage = getSideAttachmentCapCoverageByKey(
     structuralFaces,
     wallsById,
@@ -509,6 +623,11 @@ export function buildFloorWallSurfaceFaces({
 
   return [
     ...structuralFaces.flatMap((face) =>
+      sideAttachmentCapIsCoveredByRoomSurface(
+        face,
+        roomSurfaceFaces,
+        wallsById,
+      ) ||
       structuralFaceOverlapsAnyRoomSurfaceFace(
         face,
         roomSurfaceFaces,

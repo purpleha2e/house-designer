@@ -16,6 +16,7 @@ type WallMaterialMode = 'full' | 'lower'
 
 const MIN_INTERNAL_WALL_THICKNESS = 0.05
 const MAX_INTERNAL_WALL_THICKNESS = 0.3
+const MIN_TEXTURE_SCALE = 0.001
 
 const clampInternalWallThickness = (thickness: number) =>
   Math.min(
@@ -27,6 +28,19 @@ const formatMetresInputValue = (value: number) =>
   Number.isFinite(value)
     ? value.toFixed(3).replace(/\.?0+$/, '')
     : ''
+
+const formatDecimalInputValue = (value: number) =>
+  Number.isFinite(value)
+    ? value.toString()
+    : ''
+
+const parseTextureScaleInput = (value: string) => {
+  const parsedValue = Number.parseFloat(value)
+
+  return Number.isFinite(parsedValue) && parsedValue >= MIN_TEXTURE_SCALE
+    ? parsedValue
+    : null
+}
 
 type LeftToolRailProps = {
   activeFloorId: string
@@ -110,7 +124,6 @@ export function LeftToolRail({
   selectedSurface,
   selectedFloorViewId,
   selectedWallHeight,
-  wallCount,
   wallKind,
   onAddEmptyFloor,
   onAddFloor,
@@ -138,6 +151,7 @@ export function LeftToolRail({
     useState<WallMaterialMode>('full')
   const [wallCoverageHeight, setWallCoverageHeight] = useState(1.2)
   const [textureScale, setTextureScale] = useState(1)
+  const [textureScaleInput, setTextureScaleInput] = useState('1')
   const [textureRotation, setTextureRotation] = useState(0)
   const [customPaintColor, setCustomPaintColor] = useState('#f4d7dd')
   const [internalWallThicknessDraft, setInternalWallThicknessDraft] = useState<
@@ -226,6 +240,9 @@ export function LeftToolRail({
       return
     }
 
+    const parsedTextureScale = parseTextureScaleInput(textureScaleInput)
+    const scaleToApply = parsedTextureScale ?? textureScale
+
     onApplyMaterial({
       coverageHeight:
         (selectedSurface.type === 'wall-face' ||
@@ -239,7 +256,7 @@ export function LeftToolRail({
       customColor: materialIsCustomPaint ? customPaintColor : undefined,
       materialId: materialToApply,
       textureRotation,
-      textureScale,
+      textureScale: scaleToApply,
       wallMode:
         selectedSurface.type === 'wall-face' ||
         selectedSurface.type === 'wall-surface-fragment'
@@ -251,6 +268,11 @@ export function LeftToolRail({
           ? selectedSurface.side
           : undefined,
     })
+
+    if (parsedTextureScale !== null) {
+      setTextureScale(parsedTextureScale)
+      setTextureScaleInput(formatDecimalInputValue(parsedTextureScale))
+    }
   }
 
   return (
@@ -325,7 +347,7 @@ export function LeftToolRail({
             <>
               <header>
                 <h2>Walls</h2>
-                <p>{isAddingWall ? 'Click and drag in 2D' : 'Choose wall type'}</p>
+                <p>{isAddingWall ? 'Click start, click end' : 'Choose wall type'}</p>
               </header>
               <button
                 type="button"
@@ -498,16 +520,33 @@ export function LeftToolRail({
                 <span>Texture scale</span>
                 <div>
                   <input
-                    type="number"
-                    min="0.05"
-                    max="20"
-                    step="0.05"
-                    value={textureScale}
+                    type="text"
+                    inputMode="decimal"
+                    value={textureScaleInput}
                     onChange={(event) => {
-                      const parsedValue = Number.parseFloat(event.target.value)
+                      const nextValue = event.target.value
 
-                      if (Number.isFinite(parsedValue)) {
-                        setTextureScale(Math.min(20, Math.max(0.05, parsedValue)))
+                      setTextureScaleInput(nextValue)
+
+                      const parsedValue = parseTextureScaleInput(nextValue)
+                      if (parsedValue !== null) {
+                        setTextureScale(parsedValue)
+                      }
+                    }}
+                    onBlur={() => {
+                      const parsedValue = parseTextureScaleInput(textureScaleInput)
+
+                      if (parsedValue === null) {
+                        setTextureScaleInput(formatDecimalInputValue(textureScale))
+                        return
+                      }
+
+                      setTextureScale(parsedValue)
+                      setTextureScaleInput(formatDecimalInputValue(parsedValue))
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.currentTarget.blur()
                       }
                     }}
                   />

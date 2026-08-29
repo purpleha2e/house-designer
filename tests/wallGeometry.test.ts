@@ -81,7 +81,7 @@ test('internal wall endpoint on external end cap is not trimmed back along shall
   assert.equal(renderedInternal?.startExtension, 0)
 })
 
-test('internal wall endpoint on external end cap trims at normal join angles', () => {
+test('internal wall endpoint on external end cap retains its snapped centerline', () => {
   const external = wall({
     id: 'external',
     kind: 'external',
@@ -100,6 +100,5 @@ test('internal wall endpoint on external end cap trims at normal join angles', (
     (renderedWall) => renderedWall.wall.id === internal.id,
   )
 
-  assert.ok((renderedInternal?.startExtension ?? 0) < 0)
-  assert.ok((renderedInternal?.startExtension ?? 0) >= -external.thickness)
+  assert.equal(renderedInternal?.startExtension, 0)
 })

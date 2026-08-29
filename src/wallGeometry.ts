@@ -40,6 +40,8 @@ function getProjectionOnSegment(point: Point, start: Point, end: Point) {
 function pointIsOnWallSnapLine(distanceToCenterline: number, wall: Wall) {
   return (
     distanceToCenterline <= CONNECTION_EPSILON_METERS ||
+    Math.abs(distanceToCenterline - wall.thickness / 4) <=
+      CONNECTION_EPSILON_METERS ||
     Math.abs(distanceToCenterline - wall.thickness / 2) <=
       CONNECTION_EPSILON_METERS
   )
@@ -196,7 +198,9 @@ function getJoinExtension(
       const directionDotNormal =
         sourceDirection.x * wallNormal.x + sourceDirection.y * wallNormal.y
 
-      if (pointIsOnWallEndCap && Math.abs(directionDotNormal) < 0.35) {
+      // End-cap quarter snaps retain their authored centerline endpoint. The
+      // perimeter composer banks the two wall edges independently at the join.
+      if (pointIsOnWallEndCap) {
         continue
       }
 

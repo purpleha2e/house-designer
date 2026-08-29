@@ -91,6 +91,38 @@ test('wall join constraint allows endpoint snaps at or above 45 degrees', () => 
   )
 })
 
+test('wall join constraint allows another wall at an occupied snap point', () => {
+  const snapPoint = { x: 0, y: 0 }
+  const movingWall = wall({
+    id: 'moving',
+    start: { x: 0.9, y: 0 },
+    end: { x: 1, y: 0 },
+  })
+  const walls = [
+    wall({
+      id: 'north',
+      start: snapPoint,
+      end: { x: 0, y: 1 },
+    }),
+    wall({
+      id: 'west',
+      start: snapPoint,
+      end: { x: -1, y: 0 },
+    }),
+  ]
+
+  assert.equal(
+    endpointSnapRespectsMinimumJoinAngle({
+      endpoint: 'start',
+      movingWall,
+      snapPoint,
+      tolerance: 0.03,
+      walls,
+    }),
+    true,
+  )
+})
+
 test('wall join constraint rejects rotating a wall past 45 degrees at an already snapped endpoint', () => {
   const snappedPoint = { x: 0, y: 0 }
   const walls = [

@@ -384,3 +384,111 @@ test('floor wall surface mesh omits caps covered by composed room surfaces', () 
 
   assert.equal(branchStartCap, undefined)
 })
+
+test('floor wall surface mesh can render structural faces from body perimeters', () => {
+  const walls = [
+    wall({
+      id: 'left',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 2, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'right',
+      kind: 'external',
+      start: { x: 2, y: 0 },
+      end: { x: 3, y: 1 },
+      thickness: 0.3,
+    }),
+  ]
+  const renderedWalls = getRenderedWalls(walls)
+  const topology = buildWallTopology(walls)
+  const faces = buildFloorWallSurfaceFaces({
+    renderedWalls,
+    rooms: topology.rooms,
+    useWallBodyPerimeterMesh: true,
+  })
+
+  assert.ok(faces.some((face) => face.faceId.startsWith('perimeter:')))
+  assert.equal(
+    faces.some((face) => face.materialSource.role === 'room-surface'),
+    false,
+  )
+  assert.ok(faces.some((face) => face.kind === 'top'))
+  assert.ok(faces.some((face) => face.kind === 'bottom'))
+  assert.ok(faces.some((face) => face.kind === 'side'))
+  assert.equal(
+    faces.every((face) =>
+      face.vertices.every((vertex) =>
+        vertex.position.every((coordinate) => Number.isFinite(coordinate)),
+      ),
+    ),
+    true,
+  )
+})
+
+test('floor wall surface perimeter mesh keeps opening cutouts in the composed render path', () => {
+  const walls = [
+    wall({
+      id: 'opening-wall',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 4, y: 0 },
+      thickness: 0.3,
+      openings: [
+        {
+          bottom: 0,
+          center: 2,
+          height: 2.1,
+          id: 'door',
+          modelId: 'door-model',
+          width: 0.9,
+        },
+      ],
+    }),
+  ]
+  const renderedWalls = getRenderedWalls(walls)
+  const faces = buildFloorWallSurfaceFaces({
+    renderedWalls,
+    roomSurfaceRendererEnabled: false,
+    rooms: [],
+    useWallBodyPerimeterMesh: true,
+  })
+
+  assert.equal(
+    faces.some(
+      (face) =>
+        face.kind === 'side' &&
+        face.materialSource.wallId === 'opening-wall' &&
+        face.vertices.some(
+          (vertex) =>
+            vertex.position[0] > 1.55 &&
+            vertex.position[0] < 2.45 &&
+            vertex.position[1] > 0.1 &&
+            vertex.position[1] < 2,
+        ),
+    ),
+    false,
+  )
+  assert.deepEqual(
+    faces
+      .filter((face) => face.faceId.startsWith('opening-wall:opening:door:'))
+      .map((face) => face.faceId)
+      .sort(),
+    [
+      'opening-wall:opening:door:left:-1',
+      'opening-wall:opening:door:left:1',
+      'opening-wall:opening:door:right:-1',
+      'opening-wall:opening:door:right:1',
+      'opening-wall:opening:door:top:-1',
+      'opening-wall:opening:door:top:1',
+    ],
+  )
+  assert.equal(
+    faces
+      .filter((face) => face.faceId.startsWith('opening-wall:opening:door:'))
+      .every((face) => typeof face.materialSource.side === 'number'),
+    true,
+  )
+})

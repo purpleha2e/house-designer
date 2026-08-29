@@ -96,16 +96,24 @@ import {
 } from '../wallEngine/floorWallSurfaceMesh'
 import { createWallBufferGeometry } from '../wallEngine/wallThreeGeometry'
 import { buildWallGraph, type WallSide } from '../wallEngine/wallGraph'
+import {
+  buildWallBodyPerimeters,
+  type WallBodyPerimeter,
+} from '../wallEngine/wallBodyPerimeter'
 
 export function clearThreeDModelAssetCaches() {
   ;(useGLTF as unknown as { clear?: () => void }).clear?.()
 }
 
 const WALL_ENGINE_RENDERER_ENABLED = true
+const WALL_BODY_PERIMETER_MESH_ENABLED = true
 const ROOM_SURFACE_WALL_RENDERER_ENABLED = true
 const ROOM_SURFACE_DEBUG_OVERLAY_ENABLED = false
 const ROOM_BOUNDARY_DEBUG_OVERLAY_ENABLED = false
+const WALL_PERIMETER_DEBUG_OVERLAY_ENABLED = true
 const SHADER_WARMUP_ENABLED = false
+const CEILING_VISUAL_OVERLAP_METERS = 0.035
+const CEILING_VERTICAL_OVERLAP_METERS = 0.02
 
 type WallEngineFace = FloorWallSurfaceFace
 
@@ -994,11 +1002,18 @@ function getLineIntersection(
   }
 }
 
-function getExternalWallLoop(walls: Wall[]) {
+function getLoopKey(loop: Point[]) {
+  return loop
+    .map((point) => getPointKey(point))
+    .sort()
+    .join('|')
+}
+
+function getExternalWallLoops(walls: Wall[]) {
   const externalWalls = walls.filter((wall) => wall.kind !== 'internal')
 
   if (externalWalls.length < 3) {
-    return null
+    return []
   }
 
   const edges = externalWalls.map((wall) => ({
@@ -1066,15 +1081,31 @@ function getExternalWallLoop(walls: Wall[]) {
     }
   }
 
-  return loops.reduce<Point[] | null>((bestLoop, loop) => {
+  const uniqueLoops = new Map<string, Point[]>()
+
+  loops.forEach((loop) => {
     const area = Math.abs(getSignedArea(loop))
 
     if (area < 0.01 || loop.length < 3) {
-      return bestLoop
+      return
     }
 
-    return !bestLoop || area > Math.abs(getSignedArea(bestLoop)) ? loop : bestLoop
-  }, null)
+    const loopKey = getLoopKey(loop)
+    const existingLoop = uniqueLoops.get(loopKey)
+
+    if (!existingLoop || area > Math.abs(getSignedArea(existingLoop))) {
+      uniqueLoops.set(loopKey, loop)
+    }
+  })
+
+  return Array.from(uniqueLoops.values()).sort(
+    (firstLoop, secondLoop) =>
+      Math.abs(getSignedArea(secondLoop)) - Math.abs(getSignedArea(firstLoop)),
+  )
+}
+
+function getExternalWallLoop(walls: Wall[]) {
+  return getExternalWallLoops(walls)[0] ?? null
 }
 
 function traceWallLoop(
@@ -1251,6 +1282,14 @@ function getFloorFootprint(floor: FloorLevel) {
   return loop ? getOffsetFootprint(loop, externalThickness / 2) : null
 }
 
+function getFloorFootprints(floor: FloorLevel) {
+  const loops = getExternalWallLoops(floor.walls)
+  const externalThickness =
+    floor.walls.find((wall) => wall.kind !== 'internal')?.thickness ?? 0
+
+  return loops.map((loop) => getOffsetFootprint(loop, externalThickness / 2))
+}
+
 function getNearestFloorFootprint(floor: FloorLevel, floors: FloorLevel[]) {
   const ownFootprint = getFloorFootprint(floor)
 
@@ -1397,10 +1436,10 @@ function getFloorWallBodyFootprints(floor: FloorLevel) {
 }
 
 function getUpperFloorCoverageFootprints(floor: FloorLevel) {
-  const floorFootprint = getFloorFootprint(floor)
+  const floorFootprints = getFloorFootprints(floor)
 
-  if (floorFootprint) {
-    return [floorFootprint]
+  if (floorFootprints.length > 0) {
+    return floorFootprints
   }
 
   return [...getFloorRoomFootprints(floor), ...getFloorWallBodyFootprints(floor)]
@@ -1428,15 +1467,25 @@ function getSlabFootprints(
   upperFloor: FloorLevel | null,
   floors: FloorLevel[],
 ) {
-  const lowerFootprint = getNearestFloorFootprint(lowerFloor, floors)
+  const lowerFootprints = getFloorFootprints(lowerFloor)
+  const lowerFallbackFootprint =
+    lowerFootprints.length > 0
+      ? null
+      : getNearestFloorFootprint(lowerFloor, floors)
+  const effectiveLowerFootprints =
+    lowerFootprints.length > 0
+      ? lowerFootprints
+      : lowerFallbackFootprint
+        ? [lowerFallbackFootprint]
+        : []
 
   if (!upperFloor) {
-    return lowerFootprint ? [lowerFootprint] : []
+    return effectiveLowerFootprints
   }
 
   const upperFootprints = getUpperFloorCoverageFootprints(upperFloor)
 
-  if (!lowerFootprint) {
+  if (effectiveLowerFootprints.length === 0) {
     return upperFootprints
   }
 
@@ -1444,8 +1493,12 @@ function getSlabFootprints(
     return []
   }
 
-  return upperFootprints
-    .map((upperFootprint) => getIntersectionFootprint(lowerFootprint, upperFootprint))
+  return effectiveLowerFootprints
+    .flatMap((lowerFootprint) =>
+      upperFootprints.map((upperFootprint) =>
+        getIntersectionFootprint(lowerFootprint, upperFootprint),
+      ),
+    )
     .filter((footprint): footprint is Point[] => Boolean(footprint))
 }
 
@@ -2437,7 +2490,6 @@ function WallSegmentMesh({
   renderedLength,
   rotationY,
   segment,
-  wall,
   wallId,
   wallHeight,
   wallKind,
@@ -2739,6 +2791,7 @@ function WallEngineWallMeshes({
       renderedWalls,
       roomSurfaceRendererEnabled: ROOM_SURFACE_WALL_RENDERER_ENABLED,
       rooms,
+      useWallBodyPerimeterMesh: WALL_BODY_PERIMETER_MESH_ENABLED,
     })
   }, [externalFootprintWallIds, renderedWalls, roomSurfaceDebugRenderedWalls, rooms])
   const roomSurfaceDebugFaces = useMemo(
@@ -2754,23 +2807,41 @@ function WallEngineWallMeshes({
   )
   const roomSurfaceDebugPlans = useMemo(
     () =>
-      buildRoomWallSurfacePlans({
-        includeWallsWithOpenings: true,
-        renderedWalls: roomSurfaceDebugRenderedWalls ?? renderedWalls,
-        rooms,
-      }),
+      WALL_RENDER_DEBUG_ENABLED
+        ? buildRoomWallSurfacePlans({
+            includeWallsWithOpenings: true,
+            renderedWalls: roomSurfaceDebugRenderedWalls ?? renderedWalls,
+            rooms,
+          })
+        : [],
     [renderedWalls, roomSurfaceDebugRenderedWalls, rooms],
   )
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     recordRoomWallSurfacePlans(floorId, roomSurfaceDebugPlans)
   }, [floorId, roomSurfaceDebugPlans])
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     recordRoomSurfaceFaces(floorId, faces)
   }, [faces, floorId])
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     recordWallFaces(floorId, faces)
   }, [faces, floorId])
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     recordWallGeometryDump({
       faces,
       floorId,
@@ -2804,23 +2875,27 @@ function WallEngineWallMeshes({
   )
   const selectedFaces = useMemo(() => {
     if (selectedSurface?.type === 'wall-surface-fragment') {
-      return faces.filter((face) => face.faceId === selectedSurface.fragmentId)
+      return faces.filter(
+        (face) =>
+          face.faceId === selectedSurface.fragmentId &&
+          face.pickSource.wallId === selectedSurface.wallId &&
+          face.pickSource.side === selectedSurface.side,
+      )
+    }
+
+    if (selectedSurface?.type === 'wall-face') {
+      return faces.filter(
+        (face) =>
+          face.pickSource.wallId === selectedSurface.wallId &&
+          face.pickSource.side === selectedSurface.side,
+      )
     }
 
     if (selectedWallId) {
       return faces.filter((face) => face.pickSource.wallId === selectedWallId)
     }
 
-    if (selectedSurface?.type !== 'wall-face') {
-      return []
-    }
-
-    return faces
-      .filter(
-        (face) =>
-          face.pickSource.wallId === selectedSurface.wallId &&
-          face.pickSource.side === selectedSurface.side,
-      )
+    return []
   }, [faces, selectedSurface, selectedWallId])
   const selectedGeometry = useMemo(() => {
     if (selectedFaces.length === 0) {
@@ -2950,6 +3025,13 @@ function WallEngineWallMeshes({
       {ROOM_BOUNDARY_DEBUG_OVERLAY_ENABLED ? (
         <RoomBoundaryDebugOverlay elevation={elevation} rooms={rooms} />
       ) : null}
+      {WALL_PERIMETER_DEBUG_OVERLAY_ENABLED ? (
+        <WallPerimeterDebugOverlay
+          elevation={elevation}
+          height={Math.max(...walls.map((wall) => wall.height), 0)}
+          walls={walls}
+        />
+      ) : null}
       {ROOM_SURFACE_DEBUG_OVERLAY_ENABLED ? (
         <RoomSurfaceGapDebugOverlay
           elevation={elevation}
@@ -3071,6 +3153,70 @@ function RoomBoundaryDebugOverlay({
 
   return (
     <lineSegments geometry={geometry} position={[0, elevation, 0]} renderOrder={13}>
+      <lineBasicMaterial
+        color="#facc15"
+        depthTest={false}
+        depthWrite={false}
+        transparent
+        opacity={0.95}
+      />
+    </lineSegments>
+  )
+}
+
+function createWallPerimeterDebugGeometry(
+  footprints: Pick<WallBodyPerimeter, 'holes' | 'outline'>[],
+  y: number,
+) {
+  const positions: number[] = []
+  const addRing = (ring: Point[]) => {
+    if (ring.length < 2) {
+      return
+    }
+
+    ring.forEach((start, index) => {
+      const end = ring[(index + 1) % ring.length]
+
+      positions.push(start.x, y, start.y, end.x, y, end.y)
+    })
+  }
+
+  footprints.forEach((footprint) => {
+    addRing(footprint.outline)
+    footprint.holes.forEach(addRing)
+  })
+
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+  geometry.computeBoundingBox()
+  geometry.computeBoundingSphere()
+
+  return geometry
+}
+
+function WallPerimeterDebugOverlay({
+  elevation,
+  height,
+  walls,
+}: {
+  elevation: number
+  height: number
+  walls: Wall[]
+}) {
+  const plan = useMemo(() => buildWallBodyPerimeters(walls), [walls])
+  const geometry = useMemo(
+    () => createWallPerimeterDebugGeometry(plan.perimeters, height + 0.08),
+    [height, plan.perimeters],
+  )
+
+  useEffect(() => () => geometry.dispose(), [geometry])
+
+  if (plan.perimeters.length === 0) {
+    return null
+  }
+
+  return (
+    <lineSegments geometry={geometry} position={[0, elevation, 0]} renderOrder={16}>
       <lineBasicMaterial
         color="#facc15"
         depthTest={false}
@@ -3437,6 +3583,7 @@ const engineActivityListeners = new Set<
 >()
 const ENGINE_LOG_LIMIT = 600
 const WALL_RENDER_DEBUG_LIMIT = 300
+const WALL_RENDER_DEBUG_ENABLED = false
 const WALL_RENDER_DEBUG_SNAPSHOTS_ENABLED = false
 const engineLogEntries: EngineLogEntry[] = []
 const wallRenderDebugEntries: EngineLogEntry[] = []
@@ -4277,6 +4424,10 @@ function recordWallRenderDebug(
   detail?: string,
   snapshot?: string,
 ) {
+  if (!WALL_RENDER_DEBUG_ENABLED) {
+    return null
+  }
+
   ensureEngineLogApi()
   const entry = recordEngineLog(type, detail, snapshot)
 
@@ -4951,6 +5102,10 @@ const WallMesh = memo(function WallMesh({
     wall.id,
   )
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     recordWallRenderDebug(
       'wall-renderer:legacy-wall',
       `floor=${floorId} wall=${wall.id}`,
@@ -6306,6 +6461,33 @@ function createPlanShape(points: Point[]) {
   return shape
 }
 
+function expandPlanPolygonFromCentroid(points: Point[], amount: number) {
+  if (points.length < 3 || amount <= 0) {
+    return points
+  }
+
+  const centroid = points.reduce(
+    (total, point) => ({
+      x: total.x + point.x / points.length,
+      y: total.y + point.y / points.length,
+    }),
+    { x: 0, y: 0 },
+  )
+
+  return points.map((point) => {
+    const dx = point.x - centroid.x
+    const dy = point.y - centroid.y
+    const length = Math.hypot(dx, dy)
+
+    return length > 0.000001
+      ? {
+          x: point.x + (dx / length) * amount,
+          y: point.y + (dy / length) * amount,
+        }
+      : point
+  })
+}
+
 function hasRenderablePlanPolygon(polygon: Point[]) {
   if (polygon.length < 3) {
     return false
@@ -6843,10 +7025,8 @@ function WallFootprintMeshes({
     (sourceWalls ?? []).some((wall) =>
       getWallMaterialAssignments(surfaceAssignments, wall.id).length > 0,
     )
-  const hasSourceWalls = (sourceWalls ?? []).length > 0
   const useExplicitGeometry =
     wallKind === 'internal' ||
-    hasSourceWalls ||
     (wallKind === 'external' &&
       ((sourceWalls ?? []).some(hasWallOpenings) || hasExternalWallFaceAssignments))
   const explicitGeometry = useMemo(
@@ -6883,11 +7063,12 @@ function WallFootprintMeshes({
 
     if (
       selectedSurface?.type === 'wall-face' &&
-      (!selectedWallId || selectedSurface.wallId === selectedWallId) &&
-      selectedMaterialIndex !== null &&
-      presentMaterialIndices.has(selectedMaterialIndex)
+      (!selectedWallId || selectedSurface.wallId === selectedWallId)
     ) {
-      return [selectedMaterialIndex]
+      return selectedMaterialIndex !== null &&
+        presentMaterialIndices.has(selectedMaterialIndex)
+        ? [selectedMaterialIndex]
+        : []
     }
 
     const wallId =
@@ -6930,6 +7111,10 @@ function WallFootprintMeshes({
     [explicitGeometry],
   )
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     const footprintEdges = buildFootprintEdgeDebugEntries({
       floorId,
       footprints,
@@ -8309,6 +8494,8 @@ function surfacesMatch(
   ) {
     return (
       firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.wallId === secondSurface.wallId &&
+      firstSurface.side === secondSurface.side &&
       firstSurface.fragmentId === secondSurface.fragmentId
     )
   }
@@ -8670,6 +8857,85 @@ function RoomFloorFinishMesh({
   )
 }
 
+function RoomFloorBaseMesh({
+  elevation,
+  polygon,
+  shadowsEnabled,
+  wireframe,
+}: {
+  elevation: number
+  polygon: Point[]
+  shadowsEnabled: boolean
+  wireframe: boolean
+}) {
+  const meshRef = useRef<Object3D>(null!)
+  const shape = useMemo(() => createPlanShape(polygon), [polygon])
+  const y = elevation + 0.002
+
+  useHorizontalSurfaceVisibility(meshRef, y, 'above')
+
+  return (
+    <mesh
+      ref={meshRef}
+      position={[0, y, 0]}
+      receiveShadow={shadowsEnabled}
+      rotation={[-Math.PI / 2, 0, 0]}
+      renderOrder={1}
+    >
+      <shapeGeometry args={[shape]} />
+      <meshStandardMaterial
+        color="#f8fafc"
+        roughness={0.82}
+        side={FrontSide}
+        wireframe={wireframe}
+      />
+    </mesh>
+  )
+}
+
+function RoomFloorBaseMeshes({
+  elevation,
+  roomSurfacePolygonsBySignature,
+  rooms,
+  shadowsEnabled,
+  visibleRoomSignatures,
+  wireframe,
+}: {
+  elevation: number
+  roomSurfacePolygonsBySignature?: Map<string, Point[]>
+  rooms: DetectedRoom[]
+  shadowsEnabled: boolean
+  visibleRoomSignatures?: ReadonlySet<string> | null
+  wireframe: boolean
+}) {
+  return (
+    <group>
+      {rooms
+        .filter(
+          (room) =>
+            !visibleRoomSignatures ||
+            visibleRoomSignatures.has(room.signature),
+        )
+        .map((room) => {
+          const polygon = getRenderableRoomPolygon(
+            room,
+            roomSurfacePolygonsBySignature,
+          )
+
+          return polygon ? (
+            <RoomFloorBaseMesh
+              key={room.signature}
+              elevation={elevation}
+              polygon={polygon}
+              shadowsEnabled={shadowsEnabled}
+              wireframe={wireframe}
+            />
+          ) : null
+        })}
+    </group>
+  )
+}
+
 function RoomFloorFinishes({
   elevation,
   floorId,
@@ -8740,8 +9006,12 @@ function RoomCeilingFinishMesh({
 }) {
   const meshRef = useRef<Object3D>(null!)
   const material = surfaceMaterialsById.get(materialId)
-  const shape = useMemo(() => createPlanShape(polygon), [polygon])
-  const y = elevation + roomHeight - 0.006
+  const visualPolygon = useMemo(
+    () => expandPlanPolygonFromCentroid(polygon, CEILING_VISUAL_OVERLAP_METERS),
+    [polygon],
+  )
+  const shape = useMemo(() => createPlanShape(visualPolygon), [visualPolygon])
+  const y = elevation + roomHeight - CEILING_VERTICAL_OVERLAP_METERS
 
   useHorizontalSurfaceVisibility(meshRef, y, 'below')
 
@@ -9275,6 +9545,10 @@ function WallEngineExclusionDebugRecorder({
   surfaceAssignments: SurfaceMaterialAssignment[]
 }) {
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     const externalWallUnionWallIdSet = new Set(externalWallUnionWallIds)
     const legacyInternalWallFootprintWallIdSet = new Set(
       legacyInternalWallFootprintWallIds,
@@ -9373,7 +9647,8 @@ function SolidFloorScene({
   wallBodyOccluders: WallBodyOccluder[]
   wireframe: boolean
 }) {
-  const usesExternalWallUnion = externalWallFootprintGroups.length > 0
+  const usesExternalWallUnion =
+    !WALL_BODY_PERIMETER_MESH_ENABLED && externalWallFootprintGroups.length > 0
   const externalWallUnionWallIdSet = useMemo(
     () => new Set(externalWallUnionWallIds),
     [externalWallUnionWallIds],
@@ -9426,6 +9701,10 @@ function SolidFloorScene({
       )
     : visibleRenderedWalls
   useEffect(() => {
+    if (!WALL_RENDER_DEBUG_ENABLED) {
+      return
+    }
+
     renderedWalls.forEach((renderedWall) => {
       const reasons = getBaseWallEngineExclusionReasons(
         renderedWall.wall,
@@ -11425,7 +11704,7 @@ function getSurfacePickKey(surface: SelectableSurface) {
   }
 
   if (surface.type === 'wall-surface-fragment') {
-    return `${surface.floorId}:wall-fragment:${surface.fragmentId}`
+    return `${surface.floorId}:wall-fragment:${surface.wallId}:${surface.side}:${surface.fragmentId}`
   }
 
   if (surface.type === 'room-floor' || surface.type === 'ceiling') {
@@ -13458,7 +13737,7 @@ export function ThreeDView({
           <SceneRenderInvalidator
             renderKey={`${floorGeometryStatusKey}:${shaderWarmupKey}:${surfaceAssignments.length}:${scenePreparationPending ? 'preparing' : 'ready'}`}
           />
-          <SceneObjectDebugProbe />
+          {WALL_RENDER_DEBUG_ENABLED ? <SceneObjectDebugProbe /> : null}
           <CameraFovController fov={cameraFov} />
             <RendererLightCapabilities
               onLocalLightLimitChange={updateLocalLightLimit}
@@ -13546,7 +13825,9 @@ export function ThreeDView({
               } = renderedFloor
               const isActive = floor.id === activeFloorId
               const usesExternalWallUnion =
-                isActive && externalWallUnionFootprints.length > 0
+                !WALL_BODY_PERIMETER_MESH_ENABLED &&
+                isActive &&
+                externalWallUnionFootprints.length > 0
               const externalWallUnionWallIdSet = new Set(
                 externalWallUnionWallIds,
               )
@@ -13626,14 +13907,10 @@ export function ThreeDView({
                 renderOptions.groundPlane && !showAllFloors && isActive
                   ? getFloorPlaneBounds(floor)
                   : null
-              const needsSunShadowBlocker =
-                renderOptions.shadows &&
-                renderOptions.daylight &&
-                floor.id === activeFloorId
               const shouldRenderSlab =
                 !showAllFloors &&
-                (renderOptions.floorSlabs || needsSunShadowBlocker) &&
-                (floor.id === activeFloorId || floor.id === floorBelowActive?.id)
+                renderOptions.floorSlabs &&
+                floor.id === floorBelowActive?.id
 
               if (showAllFloors) {
                 return (
@@ -13738,7 +14015,6 @@ export function ThreeDView({
                         isSolid={slabIsSolid}
                         onRegisterPickTarget={registerPickTarget}
                         selectedSurface={selectedSurface}
-                        sunShadowBlocker={!slabIsSolid && needsSunShadowBlocker}
                         surfaceAssignments={surfaceAssignments}
                         upperFloor={upperFloor}
                         wireframe={renderOptions.wireframe}
@@ -13772,6 +14048,14 @@ export function ThreeDView({
                     ) : null}
                     {isActive ? (
                       <>
+                        <RoomFloorBaseMeshes
+                          elevation={floor.elevation}
+                          roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
+                          rooms={rooms}
+                          shadowsEnabled={renderOptions.shadows}
+                          visibleRoomSignatures={activeVisibleRoomSignatures}
+                          wireframe={renderOptions.wireframe}
+                        />
                         <RoomFloorFinishes
                           elevation={floor.elevation}
                           floorId={floor.id}

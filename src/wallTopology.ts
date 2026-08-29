@@ -540,6 +540,7 @@ function endpointNodeMergeDistance(wall: Wall, node: WallNode) {
   const wallIsInternal = wall.kind === 'internal'
 
   if (
+    (wallIsInternal && nodeHasInternalWall) ||
     (wallIsInternal && nodeHasExternalWall) ||
     (wallIsExternal && nodeHasInternalWall)
   ) {

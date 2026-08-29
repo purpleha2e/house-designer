@@ -47,6 +47,51 @@ test('wall geometry plan converges endpoint sides for ordinary snapped joins', (
   )
 })
 
+test('wall geometry plan uses opposite local sides for angled internal joins', () => {
+  const plans = buildWallGeometryPlans([
+    wall({
+      id: 'left',
+      start: { x: -2, y: 1.5 },
+      end: { x: 0, y: 0 },
+      thickness: 0.15,
+    }),
+    wall({
+      id: 'right',
+      start: { x: 0, y: 0 },
+      end: { x: 3, y: 0.6 },
+      thickness: 0.15,
+    }),
+  ])
+  const left = plans.find((plan) => plan.wallId === 'left')
+  const right = plans.find((plan) => plan.wallId === 'right')
+
+  assert.equal(left?.end.type, 'endpoint-join')
+  assert.equal(right?.start.type, 'endpoint-join')
+
+  if (left?.end.type !== 'endpoint-join' || right?.start.type !== 'endpoint-join') {
+    throw new Error('Expected endpoint joins')
+  }
+
+  assert.deepEqual(
+    left.end.sidePlans.map((sidePlan) => sidePlan.type),
+    ['converge', 'converge'],
+  )
+  assert.deepEqual(
+    right.start.sidePlans.map((sidePlan) => sidePlan.type),
+    ['converge', 'converge'],
+  )
+  assert.deepEqual(
+    left.end.sidePlans.map((sidePlan) => [
+      Number(sidePlan.point.x.toFixed(6)),
+      Number(sidePlan.point.y.toFixed(6)),
+    ]),
+    right.start.sidePlans.map((sidePlan) => [
+      Number(sidePlan.point.x.toFixed(6)),
+      Number(sidePlan.point.y.toFixed(6)),
+    ]),
+  )
+})
+
 test('wall geometry plan chamfers endpoint joins when convergence is too long', () => {
   const plans = buildWallGeometryPlans(
     [
@@ -188,6 +233,45 @@ test('wall geometry plan pulls external end-face quarter snaps to the external f
     [
       { side: 1, x: 2.799, y: 0.15 },
       { side: -1, x: 3, y: 0.15 },
+    ],
+  )
+})
+
+test('wall geometry plan keeps parallel external end-face quarter snaps separate', () => {
+  const plans = buildWallGeometryPlans([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 4 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'branch',
+      kind: 'internal',
+      start: { x: 0.075, y: 4 },
+      end: { x: 0.075, y: 5 },
+      thickness: 0.15,
+    }),
+  ])
+  const branch = plans.find((plan) => plan.wallId === 'branch')
+
+  assert.equal(branch?.start.type, 'side-attachment')
+
+  if (branch?.start.type !== 'side-attachment') {
+    throw new Error('Expected side attachment')
+  }
+
+  assert.equal(Number(branch.start.trimDistance.toFixed(3)), 0)
+  assert.deepEqual(
+    branch.start.sidePoints.map((sidePoint) => ({
+      side: sidePoint.side,
+      x: Number(sidePoint.point.x.toFixed(3)),
+      y: Number(sidePoint.point.y.toFixed(3)),
+    })),
+    [
+      { side: 1, x: 0, y: 4 },
+      { side: -1, x: 0.15, y: 4 },
     ],
   )
 })

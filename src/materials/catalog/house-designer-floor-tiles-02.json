@@ -14,7 +14,7 @@
     "normalTextureUrl": "../textures/floor_tiles/floor_tiles_02_nor_gl_4k.png",
     "roughnessTextureUrl": "../textures/floor_tiles/floor_tiles_02_rough_4k.jpg",
     "displacementTextureUrl": "../textures/floor_tiles/floor_tiles_02_disp_4k.png",
-    "roughness": 0.68,
+    "roughness": 0.88,
     "metalness": 0,
     "displacementScale": 0.006,
     "realWorldWidthMeters": 2,
