@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+.local-certs/
 
 # Local recovery/export artifacts
 recovered-chrome-localstorage-*/

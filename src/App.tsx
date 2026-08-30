@@ -28,6 +28,7 @@ import {
   syncWallOpenings,
   updateWallAttachedModels,
 } from './modelPlacement'
+import springfield12Project from '../springfield_12.json'
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
@@ -39,6 +40,29 @@ const ALL_FLOORS_VIEW_ID = 'all'
 const PROJECT_FILE_EXTENSION = '.house.json'
 const PROJECT_FILE_NAME = `house-design${PROJECT_FILE_EXTENSION}`
 const PROJECT_FILE_MIME_TYPE = 'application/json'
+
+function createId() {
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  if (typeof crypto.getRandomValues === 'function') {
+    const bytes = crypto.getRandomValues(new Uint8Array(16))
+    bytes[6] = (bytes[6] & 0x0f) | 0x40
+    bytes[8] = (bytes[8] & 0x3f) | 0x80
+    const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0'))
+
+    return [
+      hex.slice(0, 4).join(''),
+      hex.slice(4, 6).join(''),
+      hex.slice(6, 8).join(''),
+      hex.slice(8, 10).join(''),
+      hex.slice(10, 16).join(''),
+    ].join('-')
+  }
+
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
 
 type SavedProject = {
   activeFloorId: string
@@ -265,6 +289,134 @@ function cloneProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapshot {
   return structuredClone(snapshot)
 }
 
+function enforceProjectLightEnabledLimit(
+  floorsToClamp: FloorLevel[],
+  priorityModelId?: string,
+  priorityFloorId?: string,
+) {
+  const enabledLights = floorsToClamp.flatMap((floor, floorIndex) =>
+    (floor.models ?? []).flatMap((model, modelIndex) => {
+      const definition = modelsById.get(model.modelId)
+
+      return definition?.isLight && model.lightEnabled !== false
+        ? [{ floorId: floor.id, floorIndex, model, modelIndex }]
+        : []
+    }),
+  )
+
+  if (enabledLights.length <= MAX_ENABLED_LIGHTS) {
+    return floorsToClamp
+  }
+
+  const enabledLightIds = new Set<string>()
+  const priorityLight = priorityModelId
+    ? enabledLights.find((light) => light.model.id === priorityModelId)
+    : null
+
+  if (priorityLight) {
+    enabledLightIds.add(priorityLight.model.id)
+  }
+
+  const orderedLights = enabledLights
+    .filter((light) => light.model.id !== priorityModelId)
+    .sort((firstLight, secondLight) => {
+      const firstFloorScore = firstLight.floorId === priorityFloorId ? 0 : 1
+      const secondFloorScore = secondLight.floorId === priorityFloorId ? 0 : 1
+
+      return (
+        firstFloorScore - secondFloorScore ||
+        firstLight.floorIndex - secondLight.floorIndex ||
+        firstLight.modelIndex - secondLight.modelIndex
+      )
+    })
+
+  for (const light of orderedLights) {
+    if (enabledLightIds.size >= MAX_ENABLED_LIGHTS) {
+      break
+    }
+
+    enabledLightIds.add(light.model.id)
+  }
+
+  return floorsToClamp.map((floor) => ({
+    ...floor,
+    models: (floor.models ?? []).map((model) => {
+      const definition = modelsById.get(model.modelId)
+
+      return definition?.isLight &&
+        model.lightEnabled !== false &&
+        !enabledLightIds.has(model.id)
+        ? {
+            ...model,
+            lightEnabled: false,
+          }
+        : model
+    }),
+  }))
+}
+
+function normalizeSavedProject(project: SavedProject) {
+  const floors = enforceProjectLightEnabledLimit(
+    project.floors.map((floor) => normalizeFloor(floor, modelsById)),
+    undefined,
+    project.activeFloorId,
+  )
+  const activeFloorId = floors.some((floor) => floor.id === project.activeFloorId)
+    ? project.activeFloorId
+    : floors[0].id
+
+  return {
+    activeFloorId,
+    floors,
+    surfaceAssignments: Array.isArray(project.surfaceAssignments)
+      ? project.surfaceAssignments
+      : [],
+    wallKind: project.wallKind,
+  }
+}
+
+function createFallbackProject(): SavedProject {
+  const initialWallId = createId()
+  const initialFloorId = createId()
+
+  return {
+    activeFloorId: initialFloorId,
+    floors: [
+      {
+        id: initialFloorId,
+        name: 'Floor 0',
+        elevation: 0,
+        models: [],
+        rooms: [],
+        roomHeight: DEFAULT_ROOM_HEIGHT,
+        slabThickness: DEFAULT_SLAB_THICKNESS,
+        walls: [
+          {
+            id: initialWallId,
+            kind: 'external',
+            start: { x: 1.5, y: 1.5 },
+            end: { x: 6.5, y: 1.5 },
+            thickness: DEFAULT_THICKNESS,
+            height: DEFAULT_ROOM_HEIGHT,
+          },
+        ],
+      },
+    ],
+    surfaceAssignments: [],
+    wallKind: 'external',
+  }
+}
+
+function createInitialProject() {
+  const defaultProject = springfield12Project as SavedProject
+
+  if (isSavedProject(defaultProject)) {
+    return normalizeSavedProject(defaultProject)
+  }
+
+  return normalizeSavedProject(createFallbackProject())
+}
+
 function isTextEntryElement(target: EventTarget | null) {
   if (
     target instanceof HTMLInputElement ||
@@ -278,47 +430,34 @@ function isTextEntryElement(target: EventTarget | null) {
 }
 
 function App() {
-  const initialWallId: string = crypto.randomUUID()
-  const initialFloorId: string = crypto.randomUUID()
-  const [floors, setFloors] = useState<FloorLevel[]>([
-    {
-      id: initialFloorId,
-      name: 'Floor 0',
-      elevation: 0,
-      models: [],
-      rooms: [],
-      roomHeight: DEFAULT_ROOM_HEIGHT,
-      slabThickness: DEFAULT_SLAB_THICKNESS,
-      walls: [
-        {
-          id: initialWallId,
-          kind: 'external',
-          start: { x: 1.5, y: 1.5 },
-          end: { x: 6.5, y: 1.5 },
-          thickness: DEFAULT_THICKNESS,
-          height: DEFAULT_ROOM_HEIGHT,
-        },
-      ],
-    },
-  ])
-  const [activeFloorId, setActiveFloorId] = useState<string>(initialFloorId)
+  const initialProjectRef = useRef<ReturnType<typeof createInitialProject> | null>(
+    null,
+  )
+
+  if (!initialProjectRef.current) {
+    initialProjectRef.current = createInitialProject()
+  }
+
+  const initialProject = initialProjectRef.current
+  const [floors, setFloors] = useState<FloorLevel[]>(initialProject.floors)
+  const [activeFloorId, setActiveFloorId] = useState<string>(
+    initialProject.activeFloorId,
+  )
   const [selectedFloorViewId, setSelectedFloorViewId] =
-    useState<string>(initialFloorId)
-  const [wallKind, setWallKind] = useState<WallKind>('external')
+    useState<string>(initialProject.activeFloorId)
+  const [wallKind, setWallKind] = useState<WallKind>(initialProject.wallKind)
   const [internalWallThickness, setInternalWallThickness] = useState(
     DEFAULT_INTERNAL_THICKNESS,
   )
   const [isAddingWall, setIsAddingWall] = useState(false)
-  const [selectedWallId, setSelectedWallId] = useState<string | null>(
-    initialWallId,
-  )
+  const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
   const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
     null,
   )
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
   const [selectedSurface, setSelectedSurface] =
     useState<SelectableSurface | null>(null)
-  const [selectedWallIds, setSelectedWallIds] = useState<string[]>([initialWallId])
+  const [selectedWallIds, setSelectedWallIds] = useState<string[]>([])
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([])
   const editorGridRef = useRef<HTMLElement>(null)
   const historyPastRef = useRef<ProjectSnapshot[]>([])
@@ -337,7 +476,7 @@ function App() {
   const [sceneRevision, setSceneRevision] = useState(0)
   const [surfaceAssignments, setSurfaceAssignments] = useState<
     SurfaceMaterialAssignment[]
-  >([])
+  >(initialProject.surfaceAssignments)
 
   const getProjectSnapshot = (): ProjectSnapshot => ({
     activeFloorId,
@@ -388,72 +527,6 @@ function App() {
     const definition = modelsById.get(modelId)
 
     return definition?.wallMount ? syncWallOpenings(floor, modelsById) : floor
-  }
-
-  const enforceProjectLightEnabledLimit = (
-    floorsToClamp: FloorLevel[],
-    priorityModelId?: string,
-    priorityFloorId?: string,
-  ) => {
-    const enabledLights = floorsToClamp.flatMap((floor, floorIndex) =>
-      (floor.models ?? []).flatMap((model, modelIndex) => {
-        const definition = modelsById.get(model.modelId)
-
-        return definition?.isLight && model.lightEnabled !== false
-          ? [{ floorId: floor.id, floorIndex, model, modelIndex }]
-          : []
-      }),
-    )
-
-    if (enabledLights.length <= MAX_ENABLED_LIGHTS) {
-      return floorsToClamp
-    }
-
-    const enabledLightIds = new Set<string>()
-    const priorityLight = priorityModelId
-      ? enabledLights.find((light) => light.model.id === priorityModelId)
-      : null
-
-    if (priorityLight) {
-      enabledLightIds.add(priorityLight.model.id)
-    }
-
-    const orderedLights = enabledLights
-      .filter((light) => light.model.id !== priorityModelId)
-      .sort((firstLight, secondLight) => {
-        const firstFloorScore = firstLight.floorId === priorityFloorId ? 0 : 1
-        const secondFloorScore = secondLight.floorId === priorityFloorId ? 0 : 1
-
-        return (
-          firstFloorScore - secondFloorScore ||
-          firstLight.floorIndex - secondLight.floorIndex ||
-          firstLight.modelIndex - secondLight.modelIndex
-        )
-      })
-
-    for (const light of orderedLights) {
-      if (enabledLightIds.size >= MAX_ENABLED_LIGHTS) {
-        break
-      }
-
-      enabledLightIds.add(light.model.id)
-    }
-
-    return floorsToClamp.map((floor) => ({
-      ...floor,
-      models: (floor.models ?? []).map((model) => {
-        const definition = modelsById.get(model.modelId)
-
-        return definition?.isLight &&
-          model.lightEnabled !== false &&
-          !enabledLightIds.has(model.id)
-          ? {
-              ...model,
-              lightEnabled: false,
-            }
-          : model
-      }),
-    }))
   }
 
   const recordHistory = (coalesceKey?: string) => {
@@ -534,7 +607,7 @@ function App() {
 
           return (
             existingRoom ?? {
-              id: crypto.randomUUID(),
+              id: createId(),
               name: `Room ${index + 1}`,
               signature: detectedRoom.signature,
             }
@@ -592,7 +665,7 @@ function App() {
 
   const addWall = (wall: Pick<Wall, 'start' | 'end'>) => {
     recordHistory()
-    const id = crypto.randomUUID()
+    const id = createId()
     const targetFloor =
       floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
 
@@ -720,7 +793,7 @@ function App() {
   const addFloor = ({ copyExternalWalls }: { copyExternalWalls: boolean }) => {
     recordHistory()
     const floorNumber = floors.length
-    const id = crypto.randomUUID()
+    const id = createId()
     const previousFloor = floors[floors.length - 1]
     const previousElevation = previousFloor
       ? previousFloor.elevation + previousFloor.roomHeight + previousFloor.slabThickness
@@ -742,7 +815,7 @@ function App() {
                 .filter((wall) => wall.kind === 'external')
                 .map((wall) => ({
                   ...wall,
-                  id: crypto.randomUUID(),
+                  id: createId(),
                   height: DEFAULT_ROOM_HEIGHT,
                   openings: undefined,
                 }))
@@ -801,7 +874,7 @@ function App() {
     const activeFloorForPlacement =
       floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
     const model = createPlacedModel({
-      id: crypto.randomUUID(),
+      id: createId(),
       modelId,
       modelsById,
       walls: activeFloorForPlacement.walls,
@@ -956,7 +1029,7 @@ function App() {
         ...nextAssignments,
         {
           customColor,
-          id: crypto.randomUUID(),
+          id: createId(),
           materialId,
           target: {
             type: 'room-floor',
@@ -996,7 +1069,7 @@ function App() {
         ...nextAssignments,
         {
           customColor,
-          id: crypto.randomUUID(),
+          id: createId(),
           materialId,
           target: {
             type: 'ceiling',
@@ -1035,7 +1108,7 @@ function App() {
         ...nextAssignments,
         {
           customColor,
-          id: crypto.randomUUID(),
+          id: createId(),
           materialId,
           target: {
             type: 'floor-slab-edge',
@@ -1079,7 +1152,7 @@ function App() {
         {
           coverageHeight,
           customColor,
-          id: crypto.randomUUID(),
+          id: createId(),
           materialId,
           target: {
             type: 'wall-face',
@@ -1126,7 +1199,7 @@ function App() {
         {
           coverageHeight,
           customColor,
-          id: crypto.randomUUID(),
+          id: createId(),
           materialId,
           target: {
             type: 'wall-surface-fragment',
@@ -1428,7 +1501,7 @@ function App() {
     recordHistory()
 
     if (clipboardItem.type === 'wall') {
-      const id = crypto.randomUUID()
+      const id = createId()
       const wallToPaste: Wall = {
         ...clipboardItem.wall,
         id,
@@ -1462,7 +1535,7 @@ function App() {
       return
     }
 
-    const id = crypto.randomUUID()
+    const id = createId()
     const definition = modelsById.get(clipboardItem.model.modelId)
     const pastedPosition = {
       x: clipboardItem.model.position.x + 0.35,

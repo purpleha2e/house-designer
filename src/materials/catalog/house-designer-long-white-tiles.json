@@ -1,0 +1,24 @@
+{
+  "id": "house-designer-long-white-tiles",
+  "manufacturer": "House Designer",
+  "productName": "Long White Tiles",
+  "collection": "Core samples",
+  "category": "tile",
+  "materialType": "ceramic wall tile",
+  "finish": "gloss",
+  "colourFamily": "white",
+  "tags": ["wall", "tile", "kitchen", "bathroom", "ceramic"],
+  "pbr": {
+    "baseColor": "#f4f1ea",
+    "baseColorTextureUrl": "../textures/long_white_tiles/long_white_tiles_diff_4k.jpg",
+    "normalTextureUrl": "../textures/long_white_tiles/long_white_tiles_nor_gl_4k.png",
+    "roughnessTextureUrl": "../textures/long_white_tiles/long_white_tiles_rough_4k.png",
+    "ambientOcclusionTextureUrl": "../textures/long_white_tiles/long_white_tiles_ao_4k.jpg",
+    "displacementTextureUrl": "../textures/long_white_tiles/long_white_tiles_disp_4k.png",
+    "roughness": 0.34,
+    "metalness": 0,
+    "displacementScale": 0.003,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1
+  }
+}
