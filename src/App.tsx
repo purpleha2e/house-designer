@@ -1,10 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import { ContextPanel } from './components/ContextPanel'
 import {
   FloorplanCanvas,
   clearFloorplanModelAssetCaches,
 } from './components/FloorplanCanvas'
 import { LeftToolRail } from './components/LeftToolRail'
+import { ManufacturerPortal } from './components/ManufacturerPortal'
 import { ModelSelector } from './components/ModelSelector'
 import { Toolbar } from './components/Toolbar'
 import { ThreeDView, clearThreeDModelAssetCaches } from './components/ThreeDView'
@@ -13,13 +21,24 @@ import type {
   PlacedModel,
   Room,
   SelectableSurface,
+  SunPosition,
   SurfaceMaterialAssignment,
   SurfaceWallSide,
   Wall,
   WallKind,
+  WallSurfaceFragmentReference,
 } from './types'
-import { surfaceMaterialCatalog } from './materials/materialCatalog'
-import { modelsById, type ModelDefinition } from './models/modelLibrary'
+import {
+  registerRuntimeSurfaceMaterials,
+  surfaceMaterialCatalog,
+} from './materials/materialCatalog'
+import {
+  modelLibrary,
+  modelsById,
+  registerRuntimeModels,
+  type ModelDefinition,
+} from './models/modelLibrary'
+import { loadPortalCatalog } from './portalCatalog'
 import { buildWallTopology, type DetectedRoom } from './wallTopology'
 import {
   createPlacedModel,
@@ -28,7 +47,7 @@ import {
   syncWallOpenings,
   updateWallAttachedModels,
 } from './modelPlacement'
-import springfield12Project from '../springfield_12.json'
+import springfield12Project from '../springfield_13.json'
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
@@ -40,6 +59,10 @@ const ALL_FLOORS_VIEW_ID = 'all'
 const PROJECT_FILE_EXTENSION = '.house.json'
 const PROJECT_FILE_NAME = `house-design${PROJECT_FILE_EXTENSION}`
 const PROJECT_FILE_MIME_TYPE = 'application/json'
+const DEFAULT_SUN_POSITION: SunPosition = {
+  azimuth: Math.atan2(6, 4),
+  elevation: 0.78,
+}
 
 function createId() {
   if (typeof crypto.randomUUID === 'function') {
@@ -67,6 +90,7 @@ function createId() {
 type SavedProject = {
   activeFloorId: string
   floors: FloorLevel[]
+  sunPosition?: SunPosition
   surfaceAssignments?: SurfaceMaterialAssignment[]
   wallKind: WallKind
 }
@@ -188,6 +212,24 @@ function selectableSurfacesMatch(
     return false
   }
 
+  if (
+    firstSurface.type === 'portal-floor' &&
+    secondSurface.type === 'portal-floor'
+  ) {
+    return (
+      firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.wallId === secondSurface.wallId &&
+      firstSurface.openingId === secondSurface.openingId
+    )
+  }
+
+  if (
+    firstSurface.type === 'portal-floor' ||
+    secondSurface.type === 'portal-floor'
+  ) {
+    return false
+  }
+
   return (
     firstSurface.floorId === secondSurface.floorId &&
     firstSurface.roomSignature === secondSurface.roomSignature
@@ -245,8 +287,13 @@ async function saveTextToLocalFile(fileName: string, contents: string) {
   URL.revokeObjectURL(url)
 }
 
+type LoadedProjectFile = {
+  contents: string
+  fileName: string
+}
+
 function readTextFromInputFile() {
-  return new Promise<string | null>((resolve, reject) => {
+  return new Promise<LoadedProjectFile | null>((resolve, reject) => {
     const input = document.createElement('input')
 
     input.type = 'file'
@@ -259,7 +306,10 @@ function readTextFromInputFile() {
         return
       }
 
-      file.text().then(resolve, reject)
+      file.text().then(
+        (contents) => resolve({ contents, fileName: file.name }),
+        reject,
+      )
     }
     input.oncancel = () => resolve(null)
     input.click()
@@ -279,7 +329,10 @@ async function readTextFromLocalFile() {
       return null
     }
 
-    return fileHandle.getFile().then((file) => file.text())
+    return fileHandle.getFile().then(async (file) => ({
+      contents: await file.text(),
+      fileName: file.name,
+    }))
   }
 
   return readTextFromInputFile()
@@ -355,6 +408,21 @@ function enforceProjectLightEnabledLimit(
   }))
 }
 
+function normalizeSunPosition(sunPosition?: SunPosition): SunPosition {
+  if (
+    !sunPosition ||
+    !Number.isFinite(sunPosition.azimuth) ||
+    !Number.isFinite(sunPosition.elevation)
+  ) {
+    return DEFAULT_SUN_POSITION
+  }
+
+  return {
+    azimuth: sunPosition.azimuth,
+    elevation: Math.max(0.08, Math.min(1.2, sunPosition.elevation)),
+  }
+}
+
 function normalizeSavedProject(project: SavedProject) {
   const floors = enforceProjectLightEnabledLimit(
     project.floors.map((floor) => normalizeFloor(floor, modelsById)),
@@ -368,6 +436,7 @@ function normalizeSavedProject(project: SavedProject) {
   return {
     activeFloorId,
     floors,
+    sunPosition: normalizeSunPosition(project.sunPosition),
     surfaceAssignments: Array.isArray(project.surfaceAssignments)
       ? project.surfaceAssignments
       : [],
@@ -402,6 +471,7 @@ function createFallbackProject(): SavedProject {
         ],
       },
     ],
+    sunPosition: DEFAULT_SUN_POSITION,
     surfaceAssignments: [],
     wallKind: 'external',
   }
@@ -440,6 +510,9 @@ function App() {
 
   const initialProject = initialProjectRef.current
   const [floors, setFloors] = useState<FloorLevel[]>(initialProject.floors)
+  const [sunPosition, setSunPosition] = useState<SunPosition>(
+    initialProject.sunPosition,
+  )
   const [activeFloorId, setActiveFloorId] = useState<string>(
     initialProject.activeFloorId,
   )
@@ -450,6 +523,7 @@ function App() {
     DEFAULT_INTERNAL_THICKNESS,
   )
   const [isAddingWall, setIsAddingWall] = useState(false)
+  const [projectFileName, setProjectFileName] = useState('springfield_13.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
   const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
     null,
@@ -470,13 +544,37 @@ function App() {
   const [splitPercent, setSplitPercent] = useState(50)
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
+  const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
   const [modelAssetVersion, setModelAssetVersion] = useState(0)
   const [sceneRevision, setSceneRevision] = useState(0)
+  const [availableMaterials, setAvailableMaterials] = useState(
+    () => [...surfaceMaterialCatalog],
+  )
+  const [availableModels, setAvailableModels] = useState(() => [...modelLibrary])
   const [surfaceAssignments, setSurfaceAssignments] = useState<
     SurfaceMaterialAssignment[]
   >(initialProject.surfaceAssignments)
+
+  const refreshPortalCatalog = useCallback(async () => {
+    try {
+      const catalog = await loadPortalCatalog()
+      registerRuntimeSurfaceMaterials(catalog.materials)
+      registerRuntimeModels(catalog.models)
+      setAvailableMaterials([...surfaceMaterialCatalog])
+      setAvailableModels([...modelLibrary])
+      setModelAssetVersion((version) => version + 1)
+    } catch (error) {
+      console.warn(
+        error instanceof Error ? error.message : 'Could not load uploaded assets',
+      )
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshPortalCatalog()
+  }, [refreshPortalCatalog])
 
   const getProjectSnapshot = (): ProjectSnapshot => ({
     activeFloorId,
@@ -488,6 +586,7 @@ function App() {
     selectedSurface,
     selectedWallId,
     selectedWallIds,
+    sunPosition,
     surfaceAssignments,
     wallKind,
   })
@@ -508,6 +607,7 @@ function App() {
     setSelectedSurface(snapshot.selectedSurface ?? null)
     setSelectedWallId(snapshot.selectedWallId)
     setSelectedWallIds(snapshot.selectedWallIds)
+    setSunPosition(normalizeSunPosition(snapshot.sunPosition))
     setSurfaceAssignments(snapshot.surfaceAssignments ?? [])
     setWallKind(snapshot.wallKind)
     setIsAddingWall(false)
@@ -909,6 +1009,7 @@ function App() {
   const refreshModelAssets = () => {
     clearFloorplanModelAssetCaches()
     clearThreeDModelAssetCaches()
+    void refreshPortalCatalog()
     setModelAssetVersion((currentVersion) => currentVersion + 1)
     setSceneRevision((currentRevision) => currentRevision + 1)
   }
@@ -1121,6 +1222,48 @@ function App() {
     })
   }
 
+  const assignPortalFloorMaterial = (
+    floorId: string,
+    wallId: string,
+    openingId: string,
+    materialId: string | null,
+    textureScale = 1,
+    textureRotation = 0,
+    customColor?: string,
+  ) => {
+    recordHistory()
+    setSurfaceAssignments((currentAssignments) => {
+      const nextAssignments = currentAssignments.filter(
+        (assignment) =>
+          !(
+            assignment.target.type === 'portal-floor' &&
+            assignment.target.floorId === floorId &&
+            assignment.target.wallId === wallId &&
+            assignment.target.openingId === openingId
+          ),
+      )
+
+      return materialId
+        ? [
+            ...nextAssignments,
+            {
+              customColor,
+              id: createId(),
+              materialId,
+              target: {
+                type: 'portal-floor' as const,
+                floorId,
+                openingId,
+                wallId,
+              },
+              textureRotation,
+              textureScale,
+            },
+          ]
+        : nextAssignments
+    })
+  }
+
   const assignWallMaterial = (
     wallId: string,
     materialId: string | null,
@@ -1166,9 +1309,8 @@ function App() {
     })
   }
 
-  const assignWallFragmentMaterial = (
-    wallId: string,
-    fragmentId: string,
+  const assignWallFragmentMaterials = (
+    fragments: WallSurfaceFragmentReference[],
     materialId: string | null,
     coverageHeight: number,
     side: SurfaceWallSide,
@@ -1178,12 +1320,18 @@ function App() {
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
+      const fragmentKeys = new Set(
+        fragments.map(
+          (fragment) => `${fragment.wallId}:${fragment.fragmentId}`,
+        ),
+      )
       const nextAssignments = currentAssignments.filter(
         (assignment) =>
           !(
             assignment.target.type === 'wall-surface-fragment' &&
-            assignment.target.wallId === wallId &&
-            assignment.target.fragmentId === fragmentId &&
+            fragmentKeys.has(
+              `${assignment.target.wallId}:${assignment.target.fragmentId}`,
+            ) &&
             (side === 'both' ||
               assignment.target.side === 'both' ||
               assignment.target.side === side)
@@ -1196,20 +1344,20 @@ function App() {
 
       return [
         ...nextAssignments,
-        {
+        ...fragments.map((fragment) => ({
           coverageHeight,
           customColor,
           id: createId(),
           materialId,
           target: {
             type: 'wall-surface-fragment',
-            fragmentId,
+            fragmentId: fragment.fragmentId,
             side,
-            wallId,
+            wallId: fragment.wallId,
           },
           textureRotation,
           textureScale,
-        },
+        } satisfies SurfaceMaterialAssignment)),
       ]
     })
   }
@@ -1261,6 +1409,7 @@ function App() {
     const project: SavedProject = {
       activeFloorId,
       floors,
+      sunPosition,
       surfaceAssignments,
       wallKind,
     }
@@ -1281,13 +1430,13 @@ function App() {
 
   const loadProject = async () => {
     try {
-      const savedProject = await readTextFromLocalFile()
+      const loadedFile = await readTextFromLocalFile()
 
-      if (!savedProject) {
+      if (!loadedFile) {
         return
       }
 
-      const parsedProject: unknown = JSON.parse(savedProject)
+      const parsedProject: unknown = JSON.parse(loadedFile.contents)
 
       if (!isSavedProject(parsedProject)) {
         window.alert('The selected house design could not be loaded.')
@@ -1310,6 +1459,7 @@ function App() {
 
       setActiveFloorId(loadedActiveFloorId)
       setSelectedFloorViewId(loadedActiveFloorId)
+      setSunPosition(normalizeSunPosition(parsedProject.sunPosition))
       setSurfaceAssignments(
         Array.isArray(parsedProject.surfaceAssignments)
           ? parsedProject.surfaceAssignments
@@ -1322,6 +1472,7 @@ function App() {
       setSelectedModelId(null)
       setSelectedModelIds([])
       setIsAddingWall(false)
+      setProjectFileName(loadedFile.fileName)
       setSceneRevision((currentRevision) => currentRevision + 1)
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -1422,14 +1573,26 @@ function App() {
       return
     }
 
+    if (selectedSurface.type === 'portal-floor') {
+      assignPortalFloorMaterial(
+        selectedSurface.floorId,
+        selectedSurface.wallId,
+        selectedSurface.openingId,
+        materialId,
+        textureScale,
+        textureRotation,
+        customColor,
+      )
+      return
+    }
+
     const wall = activeFloor.walls.find(
       (candidateWall) => candidateWall.id === selectedSurface.wallId,
     )
 
     if (selectedSurface.type === 'wall-surface-fragment') {
-      assignWallFragmentMaterial(
-        selectedSurface.wallId,
-        selectedSurface.fragmentId,
+      assignWallFragmentMaterials(
+        selectedSurface.fragments ?? [selectedSurface],
         materialId,
         wallMode === 'lower' ? coverageHeight ?? 1.2 : wall?.height ?? activeFloor.roomHeight,
         wallSide ?? 'both',
@@ -1673,7 +1836,9 @@ function App() {
 
     setSelectedWallId(null)
     setSelectedRoomSignature(
-      surface.type === 'floor-slab-edge' ? null : surface.roomSignature,
+      surface.type === 'floor-slab-edge' || surface.type === 'portal-floor'
+        ? null
+        : surface.roomSignature,
     )
   }
 
@@ -1776,6 +1941,12 @@ function App() {
 
   return (
     <main className="app-shell">
+      {isManufacturerPortalOpen ? (
+        <ManufacturerPortal
+          onCatalogChanged={refreshPortalCatalog}
+          onClose={() => setIsManufacturerPortalOpen(false)}
+        />
+      ) : null}
       <LeftToolRail
         activeFloorId={activeFloor.id}
         canCopy={canCopy}
@@ -1785,7 +1956,7 @@ function App() {
         floors={floors}
         internalWallThickness={internalWallThickness}
         isAddingWall={isAddingWall}
-        materials={surfaceMaterialCatalog}
+        materials={availableMaterials}
         selectedSurface={selectedSurface}
         selectedFloorViewId={selectedFloorViewId}
         selectedWallHeight={selectedSurfaceWall?.height ?? null}
@@ -1828,6 +1999,7 @@ function App() {
         floorCount={floors.length}
         wallCount={totalWallCount}
         onLoadProject={loadProject}
+        onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
         onSaveProject={saveProject}
       />
       <section
@@ -1845,6 +2017,7 @@ function App() {
           internalWallThickness={internalWallThickness}
           isAddingWall={isAddingWall}
           modelAssetVersion={modelAssetVersion}
+          projectFileName={projectFileName}
           selectedModelId={selectedModelId}
           selectedModelIds={selectedModelIds}
           selectedWallId={selectedWallId}
@@ -1872,7 +2045,10 @@ function App() {
             activeFloor={activeFloor}
             selectedModel={selectedModel}
             selectedRoom={selectedRoom}
+            selectedSurface={selectedSurface}
             selectedWall={selectedWall}
+            surfaceAssignments={surfaceAssignments}
+            surfaceMaterials={availableMaterials}
             onDeleteModel={deleteModel}
             onRenameRoom={(roomSignature, name) => {
               recordHistory()
@@ -1933,10 +2109,17 @@ function App() {
         <ThreeDView
           activeFloorId={activeFloor.id}
           floors={floors}
+          lightDirection={sunPosition}
           modelAssetVersion={modelAssetVersion}
           onClearSelection={clearThreeDSelection}
+          onSelectFloor={(floorId) => {
+            setActiveFloorId(floorId)
+            setSelectedFloorViewId(floorId)
+            clearThreeDSelection()
+          }}
           onSelectModel={selectModelFromThreeD}
           onSelectSurface={selectSurfaceFromThreeD}
+          onLightDirectionChange={setSunPosition}
           onUpdateModel={updateModel}
           selectedModelId={selectedModelId}
           selectedSurface={selectedSurface}
@@ -1948,6 +2131,7 @@ function App() {
       </section>
       {isModelSelectorOpen ? (
         <ModelSelector
+          models={availableModels}
           onClose={() => setIsModelSelectorOpen(false)}
           onRefreshModels={refreshModelAssets}
           onSelectModel={addModel}

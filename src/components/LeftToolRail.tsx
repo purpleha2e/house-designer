@@ -229,6 +229,8 @@ export function LeftToolRail({
       ? 'Floor selected'
       : selectedSurface?.type === 'ceiling'
         ? 'Ceiling selected'
+        : selectedSurface?.type === 'portal-floor'
+          ? 'Doorway floor selected'
         : selectedSurface?.type === 'wall-face' ||
             selectedSurface?.type === 'wall-surface-fragment'
           ? 'Wall selected'

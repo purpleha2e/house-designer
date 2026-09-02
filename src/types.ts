@@ -47,6 +47,12 @@ export type SurfaceFinish =
 
 export type SurfaceWallSide = -1 | 1 | 'both'
 
+export type WallSurfaceFragmentReference = {
+  fragmentId: string
+  side: Exclude<SurfaceWallSide, 'both'>
+  wallId: string
+}
+
 export type SurfaceTarget =
   | {
       type: 'room-floor'
@@ -76,6 +82,12 @@ export type SurfaceTarget =
   | {
       type: 'floor-slab-edge'
       floorId: string
+    }
+  | {
+      type: 'portal-floor'
+      floorId: string
+      openingId: string
+      wallId: string
     }
 
 export type SurfaceMaterialPbr = {
@@ -141,6 +153,7 @@ export type SelectableSurface =
   | {
       floorId: string
       fragmentId: string
+      fragments?: WallSurfaceFragmentReference[]
       side: Exclude<SurfaceWallSide, 'both'>
       wallId: string
       type: 'wall-surface-fragment'
@@ -148,6 +161,12 @@ export type SelectableSurface =
   | {
       floorId: string
       type: 'floor-slab-edge'
+    }
+  | {
+      floorId: string
+      openingId: string
+      type: 'portal-floor'
+      wallId: string
     }
 
 export type PlacedModel = {
@@ -181,4 +200,9 @@ export type FloorLevel = {
   roomHeight: number
   slabThickness: number
   walls: Wall[]
+}
+
+export type SunPosition = {
+  azimuth: number
+  elevation: number
 }

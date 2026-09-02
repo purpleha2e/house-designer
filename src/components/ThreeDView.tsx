@@ -7,6 +7,9 @@ import {
 } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
+import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
+import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import {
   BackSide,
@@ -19,6 +22,7 @@ import {
   FrontSide,
   Material,
   Matrix3,
+  Matrix4,
   NearestFilter,
   NoColorSpace,
   Object3D,
@@ -65,6 +69,7 @@ import type {
   PlacedModel,
   Point,
   SelectableSurface,
+  SunPosition,
   SurfaceMaterialAssignment,
   SurfaceMaterialProduct,
   SurfaceWallSide,
@@ -73,6 +78,8 @@ import type {
 } from '../types'
 import { surfaceMaterialsById } from '../materials/materialCatalog'
 import { getModelAssetUrl, modelsById } from '../models/modelLibrary'
+import { subtractPlanCutouts } from '../planarCutouts'
+import { getStairSlabOpenings } from '../stairSlabOpenings'
 import {
   getClippedInternalWallRenderExtensions,
   getClippedInternalWallFootprints,
@@ -97,6 +104,7 @@ import {
 } from '../wallEngine/floorWallSurfaceMesh'
 import { createWallBufferGeometry } from '../wallEngine/wallThreeGeometry'
 import { buildWallGraph, type WallSide } from '../wallEngine/wallGraph'
+import { buildCoplanarWallSurfaceGroups } from '../wallEngine/wallSurfaceGroups'
 import {
   buildWallBodyPerimeters,
   type WallBodyPerimeter,
@@ -114,14 +122,19 @@ const ROOM_BOUNDARY_DEBUG_OVERLAY_ENABLED = false
 const SHADER_WARMUP_ENABLED = true
 const CEILING_VISUAL_OVERLAP_METERS = 0.035
 const CEILING_VERTICAL_OVERLAP_METERS = 0.02
+const FLOOR_BASE_VERTICAL_OFFSET_METERS = 0.008
+const FLOOR_FINISH_VERTICAL_OFFSET_METERS = 0.012
 
 type WallEngineFace = FloorWallSurfaceFace
 
 type ThreeDViewProps = {
   activeFloorId: string
   floors: FloorLevel[]
+  lightDirection: SunPosition
   modelAssetVersion: number
   onClearSelection: () => void
+  onLightDirectionChange: (lightDirection: SunPosition) => void
+  onSelectFloor: (floorId: string) => void
   onSelectModel: (modelId: string, floorId: string) => void
   onSelectSurface: (surface: SelectableSurface) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
@@ -183,6 +196,15 @@ type RoomPortal = {
   openingId: string
   toRoomSignature: string
   top: number
+  wallId: string
+  width: number
+}
+
+type PortalFloorGeometry = {
+  center: Point
+  depth: number
+  direction: Point
+  openingId: string
   wallId: string
   width: number
 }
@@ -539,6 +561,16 @@ const XR_STEP_DISTANCE_METERS = 0.45
 const XR_STICK_MOVE_SPEED = 1.4
 const XR_STICK_DEADZONE = 0.35
 const XR_MAX_DELTA_SECONDS = 0.05
+const XR_FRAMEBUFFER_SCALE_FACTOR = 0.65
+const XR_FOVEATION = 1
+const XR_MAX_REALTIME_LOCAL_LIGHTS = 4
+const XR_LEFT_EXIT_BUTTON_INDEX = 5
+const XR_STAIRS_BUTTON_OFFSET_METERS = 0.85
+const XR_STAIRS_BUTTON_HEIGHT_METERS = 1
+const XR_PUSH_BUTTON_RADIUS_METERS = 0.025
+const XR_PUSH_BUTTON_CONTACT_RADIUS_METERS = 0.045
+const XR_PUSH_BUTTON_PRESS_DEPTH_METERS = 0.03
+const XR_PUSH_BUTTON_RELEASE_DEPTH_METERS = 0.07
 const FAKE_AO_FLOOR_DEPTH_METERS = 0.18
 const FAKE_AO_WALL_HEIGHT_METERS = 0.28
 const FAKE_AO_SURFACE_OFFSET_METERS = 0.008
@@ -566,6 +598,7 @@ const WINDOW_DAYLIGHT_PORTAL_WALL_CLEARANCE = 0.08
 const LOCAL_LIGHT_CEILING_CLEARANCE_METERS = 0.55
 const PICK_CLICK_TOLERANCE_PIXELS = 3
 const MAIN_THREAD_STALL_THRESHOLD_MS = 450
+const MAIN_THREAD_STALL_STATUS_COOLDOWN_MS = 6000
 const SCENE_PREPARATION_TIMEOUT_MS = 15000
 const SHADER_WARMUP_TIMEOUT_MS = 10000
 const SKIRTING_HEIGHT_METERS = 0.09
@@ -580,10 +613,7 @@ const SKIRTING_MITER_LIMIT_METERS = 0.12
 type AspectRatioMode = 'normal' | 'super-wide' | 'wide'
 type TransformMode = 'rotate' | 'scale' | 'translate'
 
-type LightDirection = {
-  azimuth: number
-  elevation: number
-}
+type LightDirection = SunPosition
 
 type WindowDaylightPortalSlot = {
   angle: number
@@ -1575,6 +1605,30 @@ function getSceneBounds(floors: FloorLevel[]) {
   }
 }
 
+function smoothstep(minimum: number, maximum: number, value: number) {
+  const normalized = Math.max(
+    0,
+    Math.min(1, (value - minimum) / (maximum - minimum)),
+  )
+
+  return normalized * normalized * (3 - 2 * normalized)
+}
+
+function getSunAppearance(elevation: number) {
+  const daylightBlend = smoothstep(SUN_MIN_ELEVATION, 0.55, elevation)
+  const intensityBlend = smoothstep(SUN_MIN_ELEVATION, 0.42, elevation)
+  const color = new Color('#ff5a2f').lerp(
+    new Color('#fff8ee'),
+    daylightBlend,
+  )
+
+  return {
+    color,
+    intensity: 0.55 + intensityBlend * 0.75,
+    warmth: 1 - daylightBlend,
+  }
+}
+
 function SunLight({
   enabled,
   lightDirection,
@@ -1603,6 +1657,7 @@ function SunLight({
   )
   const lightRadius =
     horizontalDistance * Math.max(0.08, Math.cos(lightDirection.elevation))
+  const sunAppearance = getSunAppearance(lightDirection.elevation)
   const lightPosition = [
     sceneBounds.centerX + Math.cos(lightDirection.azimuth) * lightRadius,
     lightHeight,
@@ -1619,8 +1674,9 @@ function SunLight({
       />
       <directionalLight
         ref={lightRef}
+        color={sunAppearance.color}
         position={lightPosition}
-        intensity={enabled ? 1.3 : 0}
+        intensity={enabled ? sunAppearance.intensity : 0}
         castShadow={enabled && shadows}
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -1866,6 +1922,7 @@ function getWindowDaylightPortalSlots(
     x: Math.cos(lightDirection.azimuth),
     y: Math.sin(lightDirection.azimuth),
   }
+  const sunAppearance = getSunAppearance(lightDirection.elevation)
   const sunElevationFactor = Math.max(0.15, Math.sin(lightDirection.elevation))
   const slots: WindowDaylightPortalSlot[] = []
 
@@ -1944,10 +2001,14 @@ function getWindowDaylightPortalSlots(
           ),
         )
         const power = windowArea * (2.4 + directSunFactor * sunElevationFactor * 7.5)
+        const portalColor = new Color('#dcecff').lerp(
+          sunAppearance.color,
+          directSunFactor * (0.35 + sunAppearance.warmth * 0.65),
+        )
 
         slots.push({
           angle,
-          color: '#dcecff',
+          color: `#${portalColor.getHexString()}`,
           distance: WINDOW_DAYLIGHT_PORTAL_DISTANCE,
           id: `${floor.id}:${wall.id}:${opening.id}`,
           position,
@@ -2902,13 +2963,49 @@ function WallEngineWallMeshes({
       }),
     [floorId, renderFaces],
   )
+  const coplanarSurfaceGroups = useMemo(
+    () => buildCoplanarWallSurfaceGroups(faces),
+    [faces],
+  )
   const pickPayload = useMemo(
-    () =>
-      buildWallBufferGeometryPayload(faces, {
+    () => {
+      const nextPayload = buildWallBufferGeometryPayload(faces, {
         floorId,
         groupBy: 'face',
-      }),
-    [faces, floorId],
+      })
+      const pickTargets = new Map<number, SelectableSurface>()
+
+      nextPayload.pickTargets.forEach((target, materialIndex) => {
+          if (target.type !== 'wall-surface-fragment') {
+            pickTargets.set(materialIndex, target)
+            return
+          }
+
+          const fragments = coplanarSurfaceGroups.get(target.fragmentId)
+
+          if (!fragments || fragments.length === 0) {
+            pickTargets.set(materialIndex, target)
+            return
+          }
+
+          const primaryFragment = fragments[0]
+
+          pickTargets.set(
+            materialIndex,
+            {
+              ...target,
+              ...primaryFragment,
+              fragments,
+            },
+          )
+        })
+
+      return {
+        ...nextPayload,
+        pickTargets,
+      }
+    },
+    [coplanarSurfaceGroups, faces, floorId],
   )
   const geometry = useMemo(() => createWallBufferGeometry(payload), [payload])
   const pickGeometry = useMemo(
@@ -2917,11 +3014,19 @@ function WallEngineWallMeshes({
   )
   const selectedFaces = useMemo(() => {
     if (selectedSurface?.type === 'wall-surface-fragment') {
+      const selectedFragmentKeys = new Set(
+        (selectedSurface.fragments ?? [selectedSurface]).map(
+          (fragment) =>
+            `${fragment.wallId}:${fragment.side}:${fragment.fragmentId}`,
+        ),
+      )
+
       return faces.filter(
         (face) =>
-          face.faceId === selectedSurface.fragmentId &&
-          face.pickSource.wallId === selectedSurface.wallId &&
-          face.pickSource.side === selectedSurface.side,
+          typeof face.pickSource.side === 'number' &&
+          selectedFragmentKeys.has(
+            `${face.pickSource.wallId}:${face.pickSource.side}:${face.faceId}`,
+          ),
       )
     }
 
@@ -3619,6 +3724,8 @@ type SurfaceTextureRequest = {
 const surfaceTextureCache = new Map<string, LoadedSurfaceTextures>()
 const surfaceTexturePromiseCache = new Map<string, Promise<LoadedSurfaceTextures>>()
 const sharedSurfaceTextureLoader = new TextureLoader()
+const sharedSurfaceKtx2Loader = new KTX2Loader()
+let sharedSurfaceKtx2LoaderRenderer: WebGLRenderer | null = null
 const WALL_TEXTURE_MAX_SIZE = 1024
 const engineActivityListeners = new Set<
   (activity: EngineActivityMessage) => void
@@ -3640,6 +3747,22 @@ const wallGeometryDebugEntries = new Map<string, WallGeometryDumpEntry>()
 const footprintFaceDebugEntries = new Map<string, FootprintFaceDebugEntry[]>()
 const footprintEdgeDebugEntries = new Map<string, FootprintEdgeDebugEntry[]>()
 let engineLogSequence = 0
+
+function getSharedKtx2Loader(gl: WebGLRenderer) {
+  if (sharedSurfaceKtx2LoaderRenderer !== gl) {
+    sharedSurfaceKtx2Loader.detectSupport(gl)
+    sharedSurfaceKtx2LoaderRenderer = gl
+  }
+
+  return sharedSurfaceKtx2Loader
+}
+
+function setGltfKtx2Loader(
+  loader: { setKTX2Loader: (ktx2Loader: never) => unknown },
+  gl: WebGLRenderer,
+) {
+  loader.setKTX2Loader(getSharedKtx2Loader(gl) as never)
+}
 let surfaceTextureLoadsInFlight = 0
 let sceneObjectDebugProvider: (() => SceneObjectDebugSummary) | null = null
 
@@ -4593,12 +4716,14 @@ function configureSurfaceTexture(
 function loadSurfaceTexture(
   textureUrl: string,
   {
+    gl,
     isColorMap,
     maxSize,
     repeatX,
     repeatY,
     rotationRadians,
   }: {
+    gl?: WebGLRenderer
     isColorMap: boolean
     maxSize?: number
     repeatX: number
@@ -4607,21 +4732,38 @@ function loadSurfaceTexture(
   },
 ) {
   return new Promise<Texture>((resolve) => {
-    sharedSurfaceTextureLoader.load(
-      textureUrl,
-      (texture) =>
-        resolve(
-          configureSurfaceTexture(texture, {
-            isColorMap,
-            maxSize,
-            repeatX,
-            repeatY,
-            rotationRadians,
-          }),
-        ),
-      undefined,
-      () => resolve(undefined as unknown as Texture),
-    )
+    const isKtx2 = textureUrl.toLowerCase().includes('.ktx2')
+
+    if (isKtx2 && !gl) {
+      resolve(undefined as unknown as Texture)
+      return
+    }
+
+    const loader = isKtx2
+      ? (() => {
+          return getSharedKtx2Loader(gl as WebGLRenderer)
+        })()
+      : sharedSurfaceTextureLoader
+
+    try {
+      loader.load(
+        textureUrl,
+        (texture) =>
+          resolve(
+            configureSurfaceTexture(texture, {
+              isColorMap,
+              maxSize,
+              repeatX,
+              repeatY,
+              rotationRadians,
+            }),
+          ),
+        undefined,
+        () => resolve(undefined as unknown as Texture),
+      )
+    } catch {
+      resolve(undefined as unknown as Texture)
+    }
   })
 }
 
@@ -4693,7 +4835,10 @@ function getSurfaceTextureRequest(
   }
 }
 
-function getOrLoadSurfaceTextures(request: SurfaceTextureRequest) {
+function getOrLoadSurfaceTextures(
+  request: SurfaceTextureRequest,
+  gl?: WebGLRenderer,
+) {
   const cachedTextures = surfaceTextureCache.get(request.textureCacheKey)
 
   if (cachedTextures) {
@@ -4709,6 +4854,7 @@ function getOrLoadSurfaceTextures(request: SurfaceTextureRequest) {
   const texturePromise = Promise.all(
     request.entriesToLoad.map(async ([key, textureUrl, isColorMap]) => {
       const texture = await loadSurfaceTexture(textureUrl, {
+        gl,
         isColorMap,
         maxSize: request.maxTextureSize,
         repeatX: request.repeatX,
@@ -4742,7 +4888,11 @@ function useSurfaceMaterialTextures(
   textureQuality: SurfaceTextureQuality,
   repeatOverride?: { repeatX: number; repeatY: number },
 ) {
-  const [textures, setTextures] = useState<LoadedSurfaceTextures>({})
+  const { gl } = useThree()
+  const [textureState, setTextureState] = useState<{
+    key: string
+    textures: LoadedSurfaceTextures
+  }>({ key: '', textures: {} })
   const textureRequest = useMemo(
     () =>
       getSurfaceTextureRequest(
@@ -4767,7 +4917,10 @@ function useSurfaceMaterialTextures(
     if (textureRequest.entriesToLoad.length === 0) {
       queueMicrotask(() => {
         if (!cancelled) {
-          setTextures({})
+          setTextureState({
+            key: textureRequest.textureCacheKey,
+            textures: {},
+          })
         }
       })
       return
@@ -4778,7 +4931,10 @@ function useSurfaceMaterialTextures(
     if (cachedTextures) {
       queueMicrotask(() => {
         if (!cancelled) {
-          setTextures(cachedTextures)
+          setTextureState({
+            key: textureRequest.textureCacheKey,
+            textures: cachedTextures,
+          })
         }
       })
       return
@@ -4787,7 +4943,7 @@ function useSurfaceMaterialTextures(
     const cachedTexturePromise = surfaceTexturePromiseCache.get(
       textureRequest.textureCacheKey,
     )
-    const texturePromise = getOrLoadSurfaceTextures(textureRequest)
+    const texturePromise = getOrLoadSurfaceTextures(textureRequest, gl)
 
     if (!cachedTexturePromise) {
       surfaceTextureLoadsInFlight += textureRequest.entriesToLoad.length
@@ -4811,7 +4967,10 @@ function useSurfaceMaterialTextures(
 
     texturePromise.then((nextTextures) => {
       if (!cancelled) {
-        setTextures(nextTextures)
+        setTextureState({
+          key: textureRequest.textureCacheKey,
+          textures: nextTextures,
+        })
       }
     })
 
@@ -4819,10 +4978,13 @@ function useSurfaceMaterialTextures(
       cancelled = true
     }
   }, [
+    gl,
     textureRequest,
   ])
 
-  return textures
+  return textureState.key === textureRequest.textureCacheKey
+    ? textureState.textures
+    : {}
 }
 
 function SurfaceMeshStandardMaterial({
@@ -4841,8 +5003,8 @@ function SurfaceMeshStandardMaterial({
   displacementEnabled?: boolean
   material: SurfaceMaterialProduct
   assignment: SurfaceMaterialAssignment
-  polygonOffsetFactor: number
-  polygonOffsetUnits: number
+  polygonOffsetFactor?: number
+  polygonOffsetUnits?: number
   repeatOverride?: { repeatX: number; repeatY: number }
   side?: Side
   textureQuality?: SurfaceTextureQuality
@@ -4861,14 +5023,21 @@ function SurfaceMeshStandardMaterial({
   return (
     <meshStandardMaterial
       attach={attach}
-      {...textures}
+      aoMap={textures.aoMap ?? null}
       color={hasBaseColorTexture ? '#ffffff' : baseColor}
+      displacementMap={textures.displacementMap ?? null}
       displacementScale={displacementEnabled ? material.pbr.displacementScale ?? 0 : 0}
+      map={textures.map ?? null}
       metalness={material.pbr.metalness ?? 0}
-      polygonOffset
+      metalnessMap={textures.metalnessMap ?? null}
+      normalMap={textures.normalMap ?? null}
+      polygonOffset={
+        polygonOffsetFactor !== undefined || polygonOffsetUnits !== undefined
+      }
       polygonOffsetFactor={polygonOffsetFactor}
       polygonOffsetUnits={polygonOffsetUnits}
       roughness={material.pbr.roughness ?? 0.7}
+      roughnessMap={textures.roughnessMap ?? null}
       shadowSide={FrontSide}
       side={side}
       wireframe={wireframe}
@@ -4907,6 +5076,8 @@ function SceneResourcePreloader({
   renderedFloors: RenderedFloorData[]
   surfaceAssignments: SurfaceMaterialAssignment[]
 }) {
+  const { gl } = useThree()
+
   useEffect(() => {
     const modelUrls = new Set(
       floors.flatMap((floor) =>
@@ -4919,9 +5090,11 @@ function SceneResourcePreloader({
     )
 
     modelUrls.forEach((sourceUrl) => {
-      useGLTF.preload(sourceUrl)
+      useGLTF.preload(sourceUrl, true, true, (loader) => {
+        setGltfKtx2Loader(loader, gl)
+      })
     })
-  }, [floors, modelAssetVersion])
+  }, [floors, gl, modelAssetVersion])
 
   useEffect(() => {
     const textureRequests = new Map<string, SurfaceTextureRequest>()
@@ -4978,10 +5151,11 @@ function SceneResourcePreloader({
 
       if (
         assignment.target.type === 'room-floor' ||
-        assignment.target.type === 'ceiling'
+        assignment.target.type === 'ceiling' ||
+        assignment.target.type === 'portal-floor'
       ) {
         addRequest(assignment, material, {
-          displacementEnabled: true,
+          displacementEnabled: false,
           textureQuality: 'pbr',
         })
         return
@@ -5051,7 +5225,9 @@ function SceneResourcePreloader({
       message: `Preloading ${pluralize(textureCount, 'texture')}...`,
       minimumVisibleMs: 1400,
     })
-    Promise.all(uncachedRequests.map(getOrLoadSurfaceTextures))
+    Promise.all(
+      uncachedRequests.map((request) => getOrLoadSurfaceTextures(request, gl)),
+    )
       .catch((error) => {
         recordEngineLog(
           'texture-preload-failed',
@@ -5074,7 +5250,7 @@ function SceneResourcePreloader({
       cancelled = true
       onPendingChange(false)
     }
-  }, [floors, onPendingChange, renderedFloors, surfaceAssignments])
+  }, [floors, gl, onPendingChange, renderedFloors, surfaceAssignments])
 
   return null
 }
@@ -6375,18 +6551,23 @@ const FakeAmbientOcclusion = memo(function FakeAmbientOcclusion({
 
 function FloorSlabEdgeFace({
   assignment,
+  centerY,
   edgeIndex,
+  height,
   floorId,
   floor,
   isSelected,
   material,
   onRegisterPickTarget,
   point,
+  showDefaultSurface = false,
   nextPoint,
   wireframe,
 }: {
   assignment?: SurfaceMaterialAssignment
+  centerY?: number
   edgeIndex: number
+  height?: number
   floorId: string
   floor: FloorLevel
   isSelected: boolean
@@ -6394,6 +6575,7 @@ function FloorSlabEdgeFace({
   nextPoint: Point
   onRegisterPickTarget?: (target: PickTarget) => () => void
   point: Point
+  showDefaultSurface?: boolean
   wireframe: boolean
 }) {
   const meshRef = useRef<Object3D>(null!)
@@ -6403,7 +6585,9 @@ function FloorSlabEdgeFace({
   const centerX = (point.x + nextPoint.x) / 2
   const centerZ = (point.y + nextPoint.y) / 2
   const rotationY = -Math.atan2(dz, dx)
-  const y = floor.elevation + floor.roomHeight - floor.slabThickness / 2
+  const faceHeight = height ?? floor.slabThickness
+  const y =
+    centerY ?? floor.elevation + floor.roomHeight + floor.slabThickness / 2
   const surface: SelectableSurface = useMemo(
     () => ({
       floorId,
@@ -6439,8 +6623,12 @@ function FloorSlabEdgeFace({
       rotation={[0, rotationY, 0]}
       renderOrder={isSelected ? 7 : assignment ? 4 : -1}
     >
-      <mesh ref={meshRef}>
-        <planeGeometry args={[length, floor.slabThickness]} />
+      <mesh
+        castShadow={showDefaultSurface || Boolean(assignment)}
+        receiveShadow={showDefaultSurface || Boolean(assignment)}
+        ref={meshRef}
+      >
+        <planeGeometry args={[length, faceHeight]} />
         {assignment && material ? (
           <SurfaceMeshStandardMaterial
             assignment={assignment}
@@ -6451,10 +6639,20 @@ function FloorSlabEdgeFace({
             repeatOverride={getSurfaceRepeatForDimensions(
               material,
               length,
-              floor.slabThickness,
+              faceHeight,
             )}
             side={DoubleSide}
             textureQuality={getWallSurfaceTextureQuality(material)}
+            wireframe={wireframe}
+          />
+        ) : showDefaultSurface ? (
+          <meshStandardMaterial
+            color="#cbd5e1"
+            polygonOffset
+            polygonOffsetFactor={-2}
+            polygonOffsetUnits={-2}
+            roughness={0.82}
+            side={DoubleSide}
             wireframe={wireframe}
           />
         ) : (
@@ -6468,9 +6666,9 @@ function FloorSlabEdgeFace({
           />
         )}
       </mesh>
-      {assignment && material && isSelected ? (
+      {(showDefaultSurface || (assignment && material)) && isSelected ? (
         <mesh position={[0, 0, 0.004]}>
-          <planeGeometry args={[length, floor.slabThickness]} />
+          <planeGeometry args={[length, faceHeight]} />
           <meshBasicMaterial
             color="#f97316"
             depthTest={false}
@@ -6493,6 +6691,7 @@ function FloorSlab({
   floors,
   isSolid,
   onRegisterPickTarget,
+  openings,
   selectedSurface,
   sunShadowBlocker,
   surfaceAssignments,
@@ -6504,6 +6703,7 @@ function FloorSlab({
   floors: FloorLevel[]
   isSolid: boolean
   onRegisterPickTarget?: (target: PickTarget) => () => void
+  openings: Point[][]
   selectedSurface?: SelectableSurface | null
   sunShadowBlocker?: boolean
   surfaceAssignments?: SurfaceMaterialAssignment[]
@@ -6526,22 +6726,33 @@ function FloorSlab({
     [floor.id],
   )
   const edgeIsSelected = surfacesMatch(selectedSurface ?? null, edgeSurface)
-  const slabShapes = useMemo(
+  const slabFootprints = useMemo(
     () =>
-      footprints.map((footprint) => {
-        const [firstPoint, ...remainingPoints] = footprint
-        const shape = new Shape()
-        shape.moveTo(firstPoint.x, -firstPoint.y)
-
-        for (const point of remainingPoints) {
-          shape.lineTo(point.x, -point.y)
-        }
-
-        shape.closePath()
-        return shape
-      }),
-    [footprints],
+      footprints.flatMap((footprint) =>
+        subtractPlanCutouts(footprint, openings),
+      ),
+    [footprints, openings],
   )
+  const slabShapes = useMemo(
+    () => slabFootprints.map(createPlanShapeWithHoles),
+    [slabFootprints],
+  )
+  const openingEdgeRings = useMemo(
+    () => slabFootprints.flatMap((footprint) => footprint.holes),
+    [slabFootprints],
+  )
+  const openingRevealBottomY =
+    floor.elevation + floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS
+  const openingRevealTopY =
+    (upperFloor?.elevation ??
+      floor.elevation + floor.roomHeight + floor.slabThickness) +
+    FLOOR_FINISH_VERTICAL_OFFSET_METERS
+  const openingRevealHeight = Math.max(
+    0.001,
+    openingRevealTopY - openingRevealBottomY,
+  )
+  const openingRevealCenterY =
+    openingRevealBottomY + openingRevealHeight / 2
 
   if (slabShapes.length === 0) {
     return null
@@ -6571,13 +6782,17 @@ function FloorSlab({
               ]}
             />
             {isSolid ? (
-              <meshStandardMaterial
-                color="#cbd5e1"
-                roughness={0.82}
-                shadowSide={DoubleSide}
-                side={DoubleSide}
-                wireframe={wireframe}
-              />
+              <>
+                <meshStandardMaterial
+                  attach="material-0"
+                  color="#cbd5e1"
+                  roughness={0.82}
+                  shadowSide={DoubleSide}
+                  side={DoubleSide}
+                  wireframe={wireframe}
+                />
+                <meshBasicMaterial attach="material-1" visible={false} />
+              </>
             ) : (
               <meshStandardMaterial
                 colorWrite={false}
@@ -6603,26 +6818,51 @@ function FloorSlab({
               />
             </mesh>
           ) : null}
-          {slabShape.getPoints().map((point, edgeIndex, points) => (
-            <FloorSlabEdgeFace
-              key={edgeIndex}
-              assignment={edgeAssignment}
-              edgeIndex={edgeIndex}
-              floor={floor}
-              floorId={floor.id}
-              isSelected={edgeIsSelected}
-              material={edgeMaterial}
-              nextPoint={{
-                x: points[(edgeIndex + 1) % points.length].x,
-                y: -points[(edgeIndex + 1) % points.length].y,
-              }}
-              onRegisterPickTarget={onRegisterPickTarget}
-              point={{ x: point.x, y: -point.y }}
-              wireframe={wireframe}
-            />
-          ))}
+          {isSolid
+            ? slabShape.getPoints().map((point, edgeIndex, points) => (
+                <FloorSlabEdgeFace
+                  key={edgeIndex}
+                  assignment={edgeAssignment}
+                  edgeIndex={edgeIndex}
+                  floor={floor}
+                  floorId={floor.id}
+                  isSelected={edgeIsSelected}
+                  material={edgeMaterial}
+                  nextPoint={{
+                    x: points[(edgeIndex + 1) % points.length].x,
+                    y: -points[(edgeIndex + 1) % points.length].y,
+                  }}
+                  onRegisterPickTarget={onRegisterPickTarget}
+                  point={{ x: point.x, y: -point.y }}
+                  showDefaultSurface
+                  wireframe={wireframe}
+                />
+              ))
+            : null}
         </group>
       ))}
+      {isSolid
+        ? openingEdgeRings.flatMap((ring, ringIndex) =>
+            ring.map((point, edgeIndex) => (
+              <FloorSlabEdgeFace
+                key={`opening:${ringIndex}:${edgeIndex}`}
+                assignment={edgeAssignment}
+                centerY={openingRevealCenterY}
+                edgeIndex={edgeIndex}
+                floor={floor}
+                floorId={floor.id}
+                height={openingRevealHeight}
+                isSelected={edgeIsSelected}
+                material={edgeMaterial}
+                nextPoint={ring[(edgeIndex + 1) % ring.length]}
+                onRegisterPickTarget={onRegisterPickTarget}
+                point={point}
+                showDefaultSurface
+                wireframe={wireframe}
+              />
+            )),
+          )
+        : null}
     </group>
   )
 }
@@ -6643,33 +6883,6 @@ function createPlanShape(points: Point[]) {
 
   shape.closePath()
   return shape
-}
-
-function expandPlanPolygonFromCentroid(points: Point[], amount: number) {
-  if (points.length < 3 || amount <= 0) {
-    return points
-  }
-
-  const centroid = points.reduce(
-    (total, point) => ({
-      x: total.x + point.x / points.length,
-      y: total.y + point.y / points.length,
-    }),
-    { x: 0, y: 0 },
-  )
-
-  return points.map((point) => {
-    const dx = point.x - centroid.x
-    const dy = point.y - centroid.y
-    const length = Math.hypot(dx, dy)
-
-    return length > 0.000001
-      ? {
-          x: point.x + (dx / length) * amount,
-          y: point.y + (dy / length) * amount,
-        }
-      : point
-  })
 }
 
 function hasRenderablePlanPolygon(polygon: Point[]) {
@@ -6715,6 +6928,12 @@ function createPlanShapeWithHoles({ holes, outline }: WallUnionFootprint) {
   }
 
   return shape
+}
+
+function createPlanShapesWithCutouts(outline: Point[], cutouts: Point[][]) {
+  return subtractPlanCutouts(outline, cutouts).map((footprint) =>
+    createPlanShapeWithHoles(footprint),
+  )
 }
 
 function hasWallOpenings(wall: Wall) {
@@ -8681,6 +8900,17 @@ function surfacesMatch(
   }
 
   if (
+    firstSurface.type === 'portal-floor' &&
+    secondSurface.type === 'portal-floor'
+  ) {
+    return (
+      firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.wallId === secondSurface.wallId &&
+      firstSurface.openingId === secondSurface.openingId
+    )
+  }
+
+  if (
     firstSurface.type !== 'wall-face' &&
     secondSurface.type !== 'wall-face' &&
     firstSurface.type !== 'wall-surface-fragment' &&
@@ -8688,7 +8918,9 @@ function surfacesMatch(
   ) {
     if (
       firstSurface.type === 'floor-slab-edge' ||
-      secondSurface.type === 'floor-slab-edge'
+      secondSurface.type === 'floor-slab-edge' ||
+      firstSurface.type === 'portal-floor' ||
+      secondSurface.type === 'portal-floor'
     ) {
       return false
     }
@@ -8706,6 +8938,7 @@ function SelectableRoomSurfaceMesh({
   elevation,
   floorId,
   onRegisterPickTarget,
+  openings,
   polygon,
   room,
   roomHeight,
@@ -8715,6 +8948,7 @@ function SelectableRoomSurfaceMesh({
   elevation: number
   floorId: string
   onRegisterPickTarget: (target: PickTarget) => () => void
+  openings: Point[][]
   polygon: Point[]
   room: DetectedRoom
   roomHeight: number
@@ -8722,7 +8956,10 @@ function SelectableRoomSurfaceMesh({
   type: 'ceiling' | 'room-floor'
 }) {
   const meshRef = useRef<Object3D>(null!)
-  const shape = useMemo(() => createPlanShape(polygon), [polygon])
+  const shapes = useMemo(
+    () => createPlanShapesWithCutouts(polygon, openings),
+    [openings, polygon],
+  )
   const surface: SelectableSurface = useMemo(
     () => ({
       floorId,
@@ -8769,7 +9006,7 @@ function SelectableRoomSurfaceMesh({
         rotation={[-Math.PI / 2, 0, 0]}
         renderOrder={-1}
       >
-        <shapeGeometry args={[shape]} />
+        <shapeGeometry args={[shapes]} />
         <meshBasicMaterial
           color="#000000"
           depthWrite={false}
@@ -8784,7 +9021,7 @@ function SelectableRoomSurfaceMesh({
           rotation={[-Math.PI / 2, 0, 0]}
           renderOrder={6}
         >
-          <shapeGeometry args={[shape]} />
+          <shapeGeometry args={[shapes]} />
           <meshBasicMaterial
             color="#f97316"
             depthTest
@@ -8802,21 +9039,76 @@ function SelectableRoomSurfaceMesh({
   )
 }
 
+function FloorPlaneSurface({
+  elevation,
+  floorPlane,
+  isActive,
+  openings,
+  receiveShadow,
+  wireframe,
+}: {
+  elevation: number
+  floorPlane: NonNullable<ReturnType<typeof getFloorPlaneBounds>>
+  isActive: boolean
+  openings: Point[][]
+  receiveShadow: boolean
+  wireframe: boolean
+}) {
+  const shapes = useMemo(() => {
+    const halfSize = floorPlane.size / 2
+
+    return createPlanShapesWithCutouts(
+      [
+        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ - halfSize },
+        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ - halfSize },
+        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ + halfSize },
+        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ + halfSize },
+      ],
+      openings,
+    )
+  }, [floorPlane, openings])
+
+  return (
+    <mesh
+      position={[0, elevation - 0.01, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      receiveShadow={receiveShadow}
+      renderOrder={isActive ? 0 : -1}
+    >
+      <shapeGeometry args={[shapes]} />
+      <meshStandardMaterial
+        color={isActive ? '#f8fafc' : '#eef2f7'}
+        depthWrite={isActive}
+        opacity={isActive ? 1 : 0.035}
+        polygonOffset={!isActive}
+        polygonOffsetFactor={2}
+        polygonOffsetUnits={2}
+        transparent={!isActive}
+        wireframe={wireframe}
+      />
+    </mesh>
+  )
+}
+
 function SelectableRoomSurfaces({
+  ceilingOpenings,
   elevation,
   floorPlane,
   floorId,
   onRegisterPickTarget,
+  floorOpenings,
   roomHeight,
   roomSurfacePolygonsBySignature,
   rooms,
   selectedSurface,
   visibleRoomSignatures,
 }: {
+  ceilingOpenings: Point[][]
   elevation: number
   floorPlane?: ReturnType<typeof getFloorPlaneBounds> | null
   floorId: string
   onRegisterPickTarget: (target: PickTarget) => () => void
+  floorOpenings: Point[][]
   roomHeight: number
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
@@ -8832,6 +9124,7 @@ function SelectableRoomSurfaces({
             floorId={floorId}
             floorPlane={floorPlane}
             onRegisterPickTarget={onRegisterPickTarget}
+            openings={floorOpenings}
             roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
             rooms={rooms}
             type="room-floor"
@@ -8841,6 +9134,7 @@ function SelectableRoomSurfaces({
             floorId={floorId}
             floorPlane={floorPlane}
             onRegisterPickTarget={onRegisterPickTarget}
+            openings={ceilingOpenings}
             roomHeight={roomHeight}
             roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
             rooms={rooms}
@@ -8867,6 +9161,7 @@ function SelectableRoomSurfaces({
                   elevation={elevation}
                   floorId={floorId}
                   onRegisterPickTarget={onRegisterPickTarget}
+                  openings={floorOpenings}
                   polygon={polygon}
                   room={room}
                   roomHeight={roomHeight}
@@ -8878,6 +9173,7 @@ function SelectableRoomSurfaces({
                   elevation={elevation}
                   floorId={floorId}
                   onRegisterPickTarget={onRegisterPickTarget}
+                  openings={ceilingOpenings}
                   polygon={polygon}
                   room={room}
                   roomHeight={roomHeight}
@@ -8896,6 +9192,7 @@ function SelectableRoomSurfaceAreaMesh({
   floorId,
   floorPlane,
   onRegisterPickTarget,
+  openings,
   roomHeight = 0,
   roomSurfacePolygonsBySignature,
   rooms,
@@ -8905,6 +9202,7 @@ function SelectableRoomSurfaceAreaMesh({
   floorId: string
   floorPlane: NonNullable<ReturnType<typeof getFloorPlaneBounds>>
   onRegisterPickTarget: (target: PickTarget) => () => void
+  openings: Point[][]
   roomHeight?: number
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
@@ -8916,6 +9214,18 @@ function SelectableRoomSurfaceAreaMesh({
       ? elevation + 0.006
       : elevation + roomHeight - 0.015
   const pickSide = type === 'ceiling' ? BackSide : FrontSide
+  const shape = useMemo(() => {
+    const halfSize = floorPlane.size / 2
+    return createPlanShapesWithCutouts(
+      [
+        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ - halfSize },
+        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ - halfSize },
+        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ + halfSize },
+        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ + halfSize },
+      ],
+      openings,
+    )
+  }, [floorPlane, openings])
 
   useHorizontalSurfaceVisibility(
     meshRef,
@@ -8952,11 +9262,11 @@ function SelectableRoomSurfaceAreaMesh({
   return (
     <mesh
       ref={meshRef}
-      position={[floorPlane.centerX, y, floorPlane.centerZ]}
+      position={[0, y, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={-2}
     >
-      <planeGeometry args={[floorPlane.size, floorPlane.size]} />
+      <shapeGeometry args={[shape]} />
       <meshBasicMaterial
         color="#000000"
         depthWrite={false}
@@ -8989,19 +9299,24 @@ function RoomFloorFinishMesh({
   assignment,
   elevation,
   materialId,
+  openings,
   polygon,
   wireframe,
 }: {
   assignment: SurfaceMaterialAssignment
   elevation: number
   materialId: string
+  openings: Point[][]
   polygon: Point[]
   wireframe: boolean
 }) {
   const meshRef = useRef<Object3D>(null!)
   const material = surfaceMaterialsById.get(materialId)
-  const shape = useMemo(() => createPlanShape(polygon), [polygon])
-  const y = elevation + 0.004
+  const shapes = useMemo(
+    () => createPlanShapesWithCutouts(polygon, openings),
+    [openings, polygon],
+  )
+  const y = elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS
 
   useHorizontalSurfaceVisibility(meshRef, y, 'above')
 
@@ -9017,9 +9332,10 @@ function RoomFloorFinishMesh({
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={2}
     >
-      <shapeGeometry args={[shape]} />
+      <shapeGeometry args={[shapes]} />
       <SurfaceMeshStandardMaterial
         assignment={assignment}
+        displacementEnabled={false}
         material={material}
         polygonOffsetFactor={-1}
         polygonOffsetUnits={-1}
@@ -9032,18 +9348,23 @@ function RoomFloorFinishMesh({
 
 function RoomFloorBaseMesh({
   elevation,
+  openings,
   polygon,
   shadowsEnabled,
   wireframe,
 }: {
   elevation: number
+  openings: Point[][]
   polygon: Point[]
   shadowsEnabled: boolean
   wireframe: boolean
 }) {
   const meshRef = useRef<Object3D>(null!)
-  const shape = useMemo(() => createPlanShape(polygon), [polygon])
-  const y = elevation + 0.002
+  const shapes = useMemo(
+    () => createPlanShapesWithCutouts(polygon, openings),
+    [openings, polygon],
+  )
+  const y = elevation + FLOOR_BASE_VERTICAL_OFFSET_METERS
 
   useHorizontalSurfaceVisibility(meshRef, y, 'above')
 
@@ -9055,7 +9376,7 @@ function RoomFloorBaseMesh({
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={1}
     >
-      <shapeGeometry args={[shape]} />
+      <shapeGeometry args={[shapes]} />
       <meshStandardMaterial
         color="#f8fafc"
         roughness={0.82}
@@ -9068,6 +9389,7 @@ function RoomFloorBaseMesh({
 
 function RoomFloorBaseMeshes({
   elevation,
+  openings,
   roomSurfacePolygonsBySignature,
   rooms,
   shadowsEnabled,
@@ -9075,6 +9397,7 @@ function RoomFloorBaseMeshes({
   wireframe,
 }: {
   elevation: number
+  openings: Point[][]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
   shadowsEnabled: boolean
@@ -9099,6 +9422,7 @@ function RoomFloorBaseMeshes({
             <RoomFloorBaseMesh
               key={room.signature}
               elevation={elevation}
+              openings={openings}
               polygon={polygon}
               shadowsEnabled={shadowsEnabled}
               wireframe={wireframe}
@@ -9112,6 +9436,7 @@ function RoomFloorBaseMeshes({
 function RoomFloorFinishes({
   elevation,
   floorId,
+  openings,
   roomSurfacePolygonsBySignature,
   rooms,
   surfaceAssignments,
@@ -9120,6 +9445,7 @@ function RoomFloorFinishes({
 }: {
   elevation: number
   floorId: string
+  openings: Point[][]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
   surfaceAssignments: SurfaceMaterialAssignment[]
@@ -9153,6 +9479,7 @@ function RoomFloorFinishes({
               assignment={assignment}
               elevation={elevation}
               materialId={assignment.materialId}
+              openings={openings}
               polygon={polygon}
               wireframe={wireframe}
             />
@@ -9162,10 +9489,221 @@ function RoomFloorFinishes({
   )
 }
 
+function RoomPortalFloorMesh({
+  assignment,
+  elevation,
+  floorId,
+  isSelected,
+  material,
+  onRegisterPickTarget,
+  portal,
+  shadowsEnabled,
+  wireframe,
+}: {
+  assignment?: SurfaceMaterialAssignment
+  elevation: number
+  floorId: string
+  isSelected: boolean
+  material?: SurfaceMaterialProduct
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  portal: PortalFloorGeometry
+  shadowsEnabled: boolean
+  wireframe: boolean
+}) {
+  const meshRef = useRef<Object3D>(null!)
+  const y = elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS
+  const shape = useMemo(() => {
+    const halfWidth = portal.width / 2
+    const halfDepth = portal.depth / 2
+    const normal = {
+      x: -portal.direction.y,
+      y: portal.direction.x,
+    }
+    const along = (distance: number, across: number) => ({
+      x:
+        portal.center.x +
+        portal.direction.x * distance +
+        normal.x * across,
+      y:
+        portal.center.y +
+        portal.direction.y * distance +
+        normal.y * across,
+    })
+
+    return createPlanShape([
+      along(-halfWidth, -halfDepth),
+      along(halfWidth, -halfDepth),
+      along(halfWidth, halfDepth),
+      along(-halfWidth, halfDepth),
+    ])
+  }, [portal])
+  const surface = useMemo<SelectableSurface>(
+    () => ({
+      floorId,
+      openingId: portal.openingId,
+      type: 'portal-floor',
+      wallId: portal.wallId,
+    }),
+    [floorId, portal.openingId, portal.wallId],
+  )
+
+  useHorizontalSurfaceVisibility(meshRef, y, 'above')
+
+  useEffect(() => {
+    const object = meshRef.current
+
+    if (!object) {
+      return undefined
+    }
+
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      kind: 'surface',
+      object,
+      pickSide: FrontSide,
+      surface,
+    })
+  }, [floorId, onRegisterPickTarget, surface])
+
+  return (
+    <group>
+      <mesh
+        ref={meshRef}
+        position={[0, y, 0]}
+        receiveShadow={shadowsEnabled}
+        rotation={[-Math.PI / 2, 0, 0]}
+        renderOrder={2}
+      >
+        <shapeGeometry args={[shape]} />
+        {assignment && material ? (
+          <SurfaceMeshStandardMaterial
+            assignment={assignment}
+            displacementEnabled={false}
+            material={material}
+            side={FrontSide}
+            wireframe={wireframe}
+          />
+        ) : (
+          <meshStandardMaterial
+            color="#f8fafc"
+            roughness={0.82}
+            side={FrontSide}
+            wireframe={wireframe}
+          />
+        )}
+      </mesh>
+      {isSelected ? (
+        <mesh
+          position={[0, y, 0]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          renderOrder={6}
+        >
+          <shapeGeometry args={[shape]} />
+          <meshBasicMaterial
+            color="#f97316"
+            depthWrite={false}
+            opacity={0.28}
+            polygonOffset
+            polygonOffsetFactor={-8}
+            polygonOffsetUnits={-8}
+            side={FrontSide}
+            transparent
+          />
+        </mesh>
+      ) : null}
+    </group>
+  )
+}
+
+function RoomPortalFloors({
+  elevation,
+  floorId,
+  onRegisterPickTarget,
+  selectedSurface,
+  shadowsEnabled,
+  surfaceAssignments,
+  walls,
+  wireframe,
+}: {
+  elevation: number
+  floorId: string
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  selectedSurface: SelectableSurface | null
+  shadowsEnabled: boolean
+  surfaceAssignments: SurfaceMaterialAssignment[]
+  walls: Wall[]
+  wireframe: boolean
+}) {
+  const thresholdPortals = useMemo(() => {
+    return walls.flatMap((wall) => {
+      const wallLength = Math.hypot(
+        wall.end.x - wall.start.x,
+        wall.end.y - wall.start.y,
+      )
+
+      if (wallLength <= 0.000001) {
+        return []
+      }
+
+      const direction = {
+        x: (wall.end.x - wall.start.x) / wallLength,
+        y: (wall.end.y - wall.start.y) / wallLength,
+      }
+
+      return (wall.openings ?? [])
+        .filter((opening) => opening.bottom <= 0.05)
+        .map((opening) => ({
+          center: getWallPointAtDistance(wall, opening.center),
+          depth: wall.thickness,
+          direction,
+          openingId: opening.id,
+          wallId: wall.id,
+          width: opening.width,
+        }))
+    })
+  }, [walls])
+
+  return thresholdPortals.map((portal) => {
+    const surface: SelectableSurface = {
+      floorId,
+      openingId: portal.openingId,
+      type: 'portal-floor',
+      wallId: portal.wallId,
+    }
+    const assignment = surfaceAssignments.findLast(
+      (candidate) =>
+        candidate.target.type === 'portal-floor' &&
+        candidate.target.floorId === floorId &&
+        candidate.target.wallId === portal.wallId &&
+        candidate.target.openingId === portal.openingId,
+    )
+    const material = assignment
+      ? surfaceMaterialsById.get(assignment.materialId)
+      : undefined
+
+    return (
+      <RoomPortalFloorMesh
+        key={`${portal.wallId}:${portal.openingId}`}
+        assignment={assignment}
+        elevation={elevation}
+        floorId={floorId}
+        isSelected={surfacesMatch(selectedSurface, surface)}
+        material={material}
+        onRegisterPickTarget={onRegisterPickTarget}
+        portal={portal}
+        shadowsEnabled={shadowsEnabled}
+        wireframe={wireframe}
+      />
+    )
+  })
+}
+
 function RoomCeilingFinishMesh({
   assignment,
   elevation,
   materialId,
+  openings,
   polygon,
   roomHeight,
   wireframe,
@@ -9173,6 +9711,7 @@ function RoomCeilingFinishMesh({
   assignment: SurfaceMaterialAssignment
   elevation: number
   materialId: string
+  openings: Point[][]
   polygon: Point[]
   roomHeight: number
   wireframe: boolean
@@ -9180,10 +9719,13 @@ function RoomCeilingFinishMesh({
   const meshRef = useRef<Object3D>(null!)
   const material = surfaceMaterialsById.get(materialId)
   const visualPolygon = useMemo(
-    () => expandPlanPolygonFromCentroid(polygon, CEILING_VISUAL_OVERLAP_METERS),
+    () => getOffsetFootprint(polygon, CEILING_VISUAL_OVERLAP_METERS),
     [polygon],
   )
-  const shape = useMemo(() => createPlanShape(visualPolygon), [visualPolygon])
+  const shapes = useMemo(
+    () => createPlanShapesWithCutouts(visualPolygon, openings),
+    [openings, visualPolygon],
+  )
   const y = elevation + roomHeight - CEILING_VERTICAL_OVERLAP_METERS
 
   useHorizontalSurfaceVisibility(meshRef, y, 'below')
@@ -9200,9 +9742,10 @@ function RoomCeilingFinishMesh({
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={2}
     >
-      <shapeGeometry args={[shape]} />
+      <shapeGeometry args={[shapes]} />
       <SurfaceMeshStandardMaterial
         assignment={assignment}
+        displacementEnabled={false}
         material={material}
         polygonOffsetFactor={-1}
         polygonOffsetUnits={-1}
@@ -9216,6 +9759,7 @@ function RoomCeilingFinishMesh({
 function RoomCeilingFinishes({
   elevation,
   floorId,
+  openings,
   roomSurfacePolygonsBySignature,
   roomHeight,
   rooms,
@@ -9225,6 +9769,7 @@ function RoomCeilingFinishes({
 }: {
   elevation: number
   floorId: string
+  openings: Point[][]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   roomHeight: number
   rooms: DetectedRoom[]
@@ -9259,6 +9804,7 @@ function RoomCeilingFinishes({
               assignment={assignment}
               elevation={elevation}
               materialId={assignment.materialId}
+              openings={openings}
               polygon={polygon}
               roomHeight={roomHeight}
               wireframe={wireframe}
@@ -9343,12 +9889,12 @@ function getPlanAabbHorizontalSnapDelta(
   ) => {
     const signedSeparation = dx !== 0 ? dx : dz
     const distance = Math.abs(signedSeparation)
+    const snapDistance = allowOverlap
+      ? Math.max(MODEL_EDGE_SNAP_DISTANCE_METERS, MODEL_EDGE_SNAP_OVERLAP_METERS)
+      : MODEL_EDGE_SNAP_DISTANCE_METERS
 
     if (
-      distance <=
-        (signedSeparation < 0 && allowOverlap
-          ? MODEL_EDGE_SNAP_OVERLAP_METERS
-          : MODEL_EDGE_SNAP_DISTANCE_METERS) &&
+      distance <= snapDistance &&
       overlap >= MODEL_EDGE_SNAP_MIN_OVERLAP_METERS
     ) {
       candidates.push({ distance, dx, dz })
@@ -9527,7 +10073,7 @@ function ModelMesh({
   wireframe: boolean
 }) {
   const groupRef = useRef<Object3D>(null!)
-  const transformModifierRef = useRef({ ctrlKey: false })
+  const transformModifierRef = useRef({ ctrlKey: false, shiftKey: false })
   const lastValidTransformRef = useRef<ObjectTransformSnapshot | null>(null)
   const [importedLocalBounds, setImportedLocalBounds] =
     useState<ModelHorizontalBounds | null>(null)
@@ -9589,32 +10135,53 @@ function ModelMesh({
   useEffect(() => {
     if (!isSelected || !isActive) {
       transformModifierRef.current.ctrlKey = false
+      transformModifierRef.current.shiftKey = false
       return undefined
     }
 
-    const updateCtrlKey = (event: KeyboardEvent) => {
-      transformModifierRef.current.ctrlKey =
-        event.ctrlKey ||
-        event.key === 'Control' ||
-        event.code === 'ControlLeft' ||
-        event.code === 'ControlRight'
+    const isControlKey = (event: KeyboardEvent) =>
+      event.key === 'Control' ||
+      event.code === 'ControlLeft' ||
+      event.code === 'ControlRight'
+    const isShiftKey = (event: KeyboardEvent) =>
+      event.key === 'Shift' ||
+      event.code === 'ShiftLeft' ||
+      event.code === 'ShiftRight'
+    const updateModifierKeys = (event: KeyboardEvent) => {
+      transformModifierRef.current.ctrlKey = event.ctrlKey || isControlKey(event)
+      transformModifierRef.current.shiftKey = event.shiftKey || isShiftKey(event)
     }
-    const clearCtrlKey = () => {
+    const releaseModifierKeys = (event: KeyboardEvent) => {
+      transformModifierRef.current.ctrlKey = isControlKey(event)
+        ? false
+        : event.ctrlKey
+      transformModifierRef.current.shiftKey = isShiftKey(event)
+        ? false
+        : event.shiftKey
+    }
+    const clearModifierKeys = () => {
       transformModifierRef.current.ctrlKey = false
+      transformModifierRef.current.shiftKey = false
     }
 
-    window.addEventListener('keydown', updateCtrlKey, true)
-    window.addEventListener('keyup', updateCtrlKey, true)
-    window.addEventListener('blur', clearCtrlKey)
+    window.addEventListener('keydown', updateModifierKeys, true)
+    window.addEventListener('keyup', releaseModifierKeys, true)
+    window.addEventListener('blur', clearModifierKeys)
 
     return () => {
-      window.removeEventListener('keydown', updateCtrlKey, true)
-      window.removeEventListener('keyup', updateCtrlKey, true)
-      window.removeEventListener('blur', clearCtrlKey)
-      clearCtrlKey()
+      window.removeEventListener('keydown', updateModifierKeys, true)
+      window.removeEventListener('keyup', releaseModifierKeys, true)
+      window.removeEventListener('blur', clearModifierKeys)
+      clearModifierKeys()
     }
   }, [isActive, isSelected])
-  const objectCollides = (ignoredWallId?: string) => {
+  const objectCollides = ({
+    ignoredWallId,
+    tolerance = 0,
+  }: {
+    ignoredWallId?: string
+    tolerance?: number
+  } = {}) => {
     const object = groupRef.current
 
     if (!object || modelDefinition.isLight) {
@@ -9640,6 +10207,7 @@ function ModelMesh({
       return planAabbsOverlap(
         objectBounds,
         getPlanAabbFromPoints(getWallPolygon({ wall, startExtension: 0, endExtension: 0 })),
+        tolerance,
       )
     })
 
@@ -9662,6 +10230,7 @@ function ModelMesh({
       return planAabbsOverlap(
         objectBounds,
         getPlanAabbFromBox(new Box3().setFromObject(target.object)),
+        tolerance,
       )
     })
   }
@@ -9682,7 +10251,12 @@ function ModelMesh({
     collisionTarget.updateWorldMatrix(true, false)
 
     const objectBounds = getPlanAabbFromBox(new Box3().setFromObject(collisionTarget))
-    let bestSnap: { distance: number; dx: number; dz: number } | null = null
+    let bestSnap: {
+      distance: number
+      dx: number
+      dz: number
+      targetModelId: string
+    } | null = null
 
     for (const target of pickTargetsRef.current) {
       if (
@@ -9705,16 +10279,21 @@ function ModelMesh({
         continue
       }
 
-      bestSnap = snap
+      bestSnap = {
+        ...snap,
+        targetModelId: target.modelId,
+      }
     }
 
     if (!bestSnap) {
-      return
+      return null
     }
 
     object.position.x += bestSnap.dx
     object.position.z += bestSnap.dz
     object.updateWorldMatrix(true, true)
+
+    return bestSnap
   }
   const applyObjectSnaps = () => {
     const object = groupRef.current
@@ -9750,7 +10329,12 @@ function ModelMesh({
       applyObjectEdgeSnap()
     }
 
-    if (!snappingDisabled && objectCollides(wallSnap?.wallId)) {
+    if (
+      !snappingDisabled &&
+      objectCollides({
+        ignoredWallId: wallSnap?.wallId,
+      })
+    ) {
       const lastValidTransform = lastValidTransformRef.current
 
       if (lastValidTransform) {
@@ -9817,6 +10401,10 @@ function ModelMesh({
           isSelected={isSelected}
           blocksCollision={!modelDefinition.wallMount}
           modelId={model.id}
+          normalizeToDimensions={Boolean(modelDefinition.normalizeToDimensions)}
+          targetDepth={modelDefinition.depth}
+          targetHeight={modelDefinition.height}
+          targetWidth={modelDefinition.width}
           onBoundsChange={setImportedLocalBounds}
           onRegisterPickTarget={onRegisterPickTarget}
           sourceUrl={getModelAssetUrl(
@@ -10472,9 +11060,13 @@ function ImportedModelContent({
   isActive,
   isSelected,
   modelId,
+  normalizeToDimensions,
   onBoundsChange,
   onRegisterPickTarget,
   sourceUrl,
+  targetDepth,
+  targetHeight,
+  targetWidth,
   wireframe,
 }: {
   blocksCollision: boolean
@@ -10485,12 +11077,20 @@ function ImportedModelContent({
   isActive: boolean
   isSelected: boolean
   modelId: string
+  normalizeToDimensions: boolean
   onBoundsChange: (bounds: ModelHorizontalBounds) => void
   onRegisterPickTarget: (target: PickTarget) => () => void
   sourceUrl: string
+  targetDepth: number
+  targetHeight: number
+  targetWidth: number
   wireframe: boolean
 }) {
-  const gltf = useGLTF(sourceUrl)
+  const normalizedGroupRef = useRef<Object3D>(null!)
+  const { gl } = useThree()
+  const gltf = useGLTF(sourceUrl, true, true, (loader) => {
+    setGltfKtx2Loader(loader, gl)
+  })
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
   const bounds = useMemo(() => {
     const box = new Box3().setFromObject(scene)
@@ -10506,25 +11106,84 @@ function ImportedModelContent({
       size,
     }
   }, [scene])
+  const normalizedTransform = useMemo(() => {
+    const scaleX = normalizeToDimensions
+      ? targetWidth / Math.max(bounds.size.x, 0.0001)
+      : 1
+    const scaleY = normalizeToDimensions
+      ? targetHeight / Math.max(bounds.size.y, 0.0001)
+      : 1
+    const scaleZ = normalizeToDimensions
+      ? targetDepth / Math.max(bounds.size.z, 0.0001)
+      : 1
+    const size = normalizeToDimensions
+      ? new Vector3(targetWidth, targetHeight, targetDepth)
+      : bounds.size.clone()
+
+    return {
+      center: bounds.center.clone().multiply(new Vector3(scaleX, scaleY, scaleZ)),
+      offset: new Vector3(0, 0, 0),
+      scale: new Vector3(scaleX, scaleY, scaleZ),
+      size,
+    }
+  }, [
+    bounds.box.min.x,
+    bounds.box.min.y,
+    bounds.box.min.z,
+    bounds.size.x,
+    bounds.size.y,
+    bounds.size.z,
+    normalizeToDimensions,
+    targetDepth,
+    targetHeight,
+    targetWidth,
+  ])
 
   useEffect(() => {
+    if (!normalizeToDimensions) {
+      onBoundsChange({
+        maxX: bounds.box.max.x,
+        maxZ: bounds.box.max.z,
+        minX: bounds.box.min.x,
+        minZ: bounds.box.min.z,
+      })
+      return
+    }
+
     onBoundsChange({
-      maxX: bounds.box.max.x,
-      maxZ: bounds.box.max.z,
-      minX: bounds.box.min.x,
-      minZ: bounds.box.min.z,
+      maxX: bounds.box.max.x * normalizedTransform.scale.x,
+      maxZ: bounds.box.max.z * normalizedTransform.scale.z,
+      minX: bounds.box.min.x * normalizedTransform.scale.x,
+      minZ: bounds.box.min.z * normalizedTransform.scale.z,
     })
-  }, [bounds, onBoundsChange])
+  }, [
+    bounds.box.max.x,
+    bounds.box.max.z,
+    bounds.box.min.x,
+    bounds.box.min.z,
+    normalizeToDimensions,
+    normalizedTransform.scale.x,
+    normalizedTransform.scale.z,
+    normalizedTransform.size.x,
+    normalizedTransform.size.z,
+    onBoundsChange,
+  ])
 
   useEffect(() => {
+    const object = normalizedGroupRef.current
+
+    if (!object) {
+      return undefined
+    }
+
     return onRegisterPickTarget({
       blocksCollision,
       floorId,
       kind: 'model',
       modelId,
-      object: scene,
+      object,
     })
-  }, [blocksCollision, floorId, modelId, onRegisterPickTarget, scene])
+  }, [blocksCollision, floorId, modelId, onRegisterPickTarget])
 
   useEffect(() => {
     scene.traverse((object) => {
@@ -10643,11 +11302,21 @@ function ImportedModelContent({
     <>
       {isSelected && isActive ? (
         <SelectionBoundsBox
-          center={[bounds.center.x, bounds.center.y, bounds.center.z]}
-          size={[bounds.size.x, bounds.size.y, bounds.size.z]}
+          center={[
+            normalizedTransform.center.x,
+            normalizedTransform.center.y,
+            normalizedTransform.center.z,
+          ]}
+          size={[
+            normalizedTransform.size.x,
+            normalizedTransform.size.y,
+            normalizedTransform.size.z,
+          ]}
         />
       ) : null}
-      <primitive object={scene} />
+      <group ref={normalizedGroupRef} scale={normalizedTransform.scale}>
+        <primitive object={scene} />
+      </group>
     </>
   )
 }
@@ -11476,9 +12145,10 @@ function WebXRViewerButton({
 
   useEffect(() => {
     gl.xr.enabled = true
+    gl.xr.setFramebufferScaleFactor(XR_FRAMEBUFFER_SCALE_FACTOR)
 
     const button = VRButton.createButton(gl, {
-      optionalFeatures: ['bounded-floor', 'local-floor'],
+      optionalFeatures: ['bounded-floor', 'hand-tracking', 'local-floor'],
     })
     button.classList.add('webxr-enter-button')
     button.style.bottom = '18px'
@@ -11495,6 +12165,7 @@ function WebXRViewerButton({
     }
 
     const handleSessionStart = () => {
+      gl.xr.setFoveation(XR_FOVEATION)
       onPresentingChange(true)
       emitEngineActivity({
         message: 'VR session active',
@@ -11523,15 +12194,47 @@ function WebXRViewerButton({
   return null
 }
 
+function getVrStartPosition(floor: FloorLevel | null) {
+  if (!floor || floor.walls.length === 0) {
+    return {
+      floorId: floor?.id ?? null,
+      x: 0,
+      y: floor?.elevation ?? 0,
+      z: 0,
+    }
+  }
+
+  const externalWalls = floor.walls.filter(
+    (wall) => wall.kind === 'external',
+  )
+  const boundsWalls = externalWalls.length > 0 ? externalWalls : floor.walls
+  const points = boundsWalls.flatMap((wall) => [wall.start, wall.end])
+  const minX = Math.min(...points.map((point) => point.x))
+  const maxX = Math.max(...points.map((point) => point.x))
+  const minZ = Math.min(...points.map((point) => point.y))
+  const maxZ = Math.max(...points.map((point) => point.y))
+
+  return {
+    floorId: floor.id,
+    x: (minX + maxX) / 2,
+    y: floor.elevation,
+    z: (minZ + maxZ) / 2,
+  }
+}
+
 function XRLocomotionControls({
   activeFloorElevation,
+  initialPosition,
 }: {
   activeFloorElevation: number
+  initialPosition: { x: number; y: number; z: number }
 }) {
   const { gl } = useThree()
   const appliedFloorElevationRef = useRef(0)
+  const initialPositionAppliedRef = useRef(false)
   const queuedStepsRef = useRef(0)
   const forwardRef = useRef(new Vector3())
+  const previousLeftExitButtonPressedRef = useRef(false)
 
   const applyActiveFloorElevation = useCallback(() => {
     const elevationDelta = activeFloorElevation - appliedFloorElevationRef.current
@@ -11600,24 +12303,14 @@ function XRLocomotionControls({
     const queueForwardStep = () => {
       queuedStepsRef.current += 1
     }
-    const endSession = () => {
-      gl.xr.getSession()?.end().catch(() => {
-        emitEngineActivity({
-          message: 'Could not exit VR session',
-          minimumVisibleMs: 1200,
-        })
-      })
-    }
 
     controllers.forEach((controller) => {
       controller.addEventListener('selectstart', queueForwardStep)
-      controller.addEventListener('squeezestart', endSession)
     })
 
     return () => {
       controllers.forEach((controller) => {
         controller.removeEventListener('selectstart', queueForwardStep)
-        controller.removeEventListener('squeezestart', endSession)
       })
     }
   }, [gl])
@@ -11625,8 +12318,30 @@ function XRLocomotionControls({
   useFrame((_, delta) => {
     if (!gl.xr.isPresenting) {
       appliedFloorElevationRef.current = 0
+      initialPositionAppliedRef.current = false
       queuedStepsRef.current = 0
+      previousLeftExitButtonPressedRef.current = false
       return
+    }
+
+    if (!initialPositionAppliedRef.current) {
+      const referenceSpace = gl.xr.getReferenceSpace()
+
+      if (!referenceSpace || typeof XRRigidTransform === 'undefined') {
+        return
+      }
+
+      gl.xr.setReferenceSpace(
+        referenceSpace.getOffsetReferenceSpace(
+          new XRRigidTransform({
+            x: -initialPosition.x,
+            y: -initialPosition.y,
+            z: -initialPosition.z,
+          }),
+        ),
+      )
+      appliedFloorElevationRef.current = initialPosition.y
+      initialPositionAppliedRef.current = true
     }
 
     applyActiveFloorElevation()
@@ -11644,12 +12359,27 @@ function XRLocomotionControls({
     }
 
     let strongestStickY = 0
+    let leftExitButtonPressed = false
 
     for (const inputSource of session.inputSources) {
-      const axes = inputSource.gamepad?.axes
+      const gamepad = inputSource.gamepad
+      const axes = gamepad?.axes
 
       if (!axes || axes.length === 0) {
+        if (
+          inputSource.handedness === 'left' &&
+          gamepad?.buttons[XR_LEFT_EXIT_BUTTON_INDEX]?.pressed
+        ) {
+          leftExitButtonPressed = true
+        }
         continue
+      }
+
+      if (
+        inputSource.handedness === 'left' &&
+        gamepad?.buttons[XR_LEFT_EXIT_BUTTON_INDEX]?.pressed
+      ) {
+        leftExitButtonPressed = true
       }
 
       const yCandidates = [axes[3], axes[1]].filter(
@@ -11666,6 +12396,20 @@ function XRLocomotionControls({
       }
     }
 
+    if (
+      leftExitButtonPressed &&
+      !previousLeftExitButtonPressedRef.current
+    ) {
+      gl.xr.getSession()?.end().catch(() => {
+        emitEngineActivity({
+          message: 'Could not exit VR session',
+          minimumVisibleMs: 1200,
+        })
+      })
+    }
+
+    previousLeftExitButtonPressedRef.current = leftExitButtonPressed
+
     if (Math.abs(strongestStickY) <= XR_STICK_DEADZONE) {
       return
     }
@@ -11678,6 +12422,285 @@ function XRLocomotionControls({
   })
 
   return null
+}
+
+function getNextFloorAbove(activeFloor: FloorLevel | null, floors: FloorLevel[]) {
+  if (!activeFloor) {
+    return null
+  }
+
+  return [...floors]
+    .filter((floor) => floor.elevation > activeFloor.elevation)
+    .sort(
+      (firstFloor, secondFloor) => firstFloor.elevation - secondFloor.elevation,
+    )[0] ?? null
+}
+
+function getNextFloorBelow(activeFloor: FloorLevel | null, floors: FloorLevel[]) {
+  if (!activeFloor) {
+    return null
+  }
+
+  return [...floors]
+    .filter((floor) => floor.elevation < activeFloor.elevation)
+    .sort(
+      (firstFloor, secondFloor) => secondFloor.elevation - firstFloor.elevation,
+    )[0] ?? null
+}
+
+function getStairsButtonPosition(
+  model: PlacedModel,
+  elevation: number,
+  landing: 'lower' | 'upper',
+): [number, number, number] {
+  const direction = {
+    x: Math.sin(model.rotation),
+    y: Math.cos(model.rotation),
+  }
+  const directionMultiplier = landing === 'lower' ? -1 : 1
+
+  return [
+    model.position.x +
+      direction.x * XR_STAIRS_BUTTON_OFFSET_METERS * directionMultiplier,
+    elevation + XR_STAIRS_BUTTON_HEIGHT_METERS,
+    model.position.y +
+      direction.y * XR_STAIRS_BUTTON_OFFSET_METERS * directionMultiplier,
+  ]
+}
+
+function XRStairsPushButton({
+  contactSources,
+  handSources,
+  onPush,
+  position,
+}: {
+  contactSources: Object3D[]
+  handSources: Object3D[]
+  onPush: () => void
+  position: [number, number, number]
+}) {
+  const { gl } = useThree()
+  const groupRef = useRef<Object3D>(null)
+  const plungerRef = useRef<Object3D>(null)
+  const isPressedRef = useRef(false)
+  const cameraPositionRef = useRef(new Vector3())
+  const contactPositionRef = useRef(new Vector3())
+  const localContactRef = useRef(new Vector3())
+  const inverseButtonMatrixRef = useRef(new Matrix4())
+
+  useFrame(() => {
+    const group = groupRef.current
+    const plunger = plungerRef.current
+
+    if (!group || !plunger || !gl.xr.isPresenting) {
+      return
+    }
+
+    const cameraPosition = cameraPositionRef.current
+    gl.xr.getCamera().getWorldPosition(cameraPosition)
+    group.lookAt(cameraPosition.x, group.position.y, cameraPosition.z)
+    group.updateWorldMatrix(true, false)
+    inverseButtonMatrixRef.current.copy(group.matrixWorld).invert()
+
+    const contacts = contactSources.flatMap((source) => {
+      if (!source.visible) {
+        return []
+      }
+
+      const position = new Vector3(0, 0, -0.1).applyMatrix4(source.matrixWorld)
+      return [position]
+    })
+
+    handSources.forEach((hand) => {
+      const fingerTip = hand.getObjectByName('index-finger-tip')
+
+      if (fingerTip?.visible) {
+        contacts.push(fingerTip.getWorldPosition(new Vector3()))
+      }
+    })
+
+    let closestDepth = Number.POSITIVE_INFINITY
+
+    contacts.forEach((contact) => {
+      const localContact = localContactRef.current
+        .copy(contactPositionRef.current.copy(contact))
+        .applyMatrix4(inverseButtonMatrixRef.current)
+      const radialDistance = Math.hypot(localContact.x, localContact.y)
+
+      if (radialDistance <= XR_PUSH_BUTTON_CONTACT_RADIUS_METERS) {
+        closestDepth = Math.min(closestDepth, Math.abs(localContact.z - 0.025))
+      }
+    })
+
+    const isTouching = closestDepth <= XR_PUSH_BUTTON_PRESS_DEPTH_METERS
+    plunger.position.z = isTouching ? 0.015 : 0.025
+
+    if (isTouching && !isPressedRef.current) {
+      isPressedRef.current = true
+      onPush()
+    } else if (
+      !isTouching &&
+      closestDepth > XR_PUSH_BUTTON_RELEASE_DEPTH_METERS
+    ) {
+      isPressedRef.current = false
+    }
+  })
+
+  return (
+    <group
+      ref={groupRef}
+      position={position}
+      renderOrder={30}
+      userData={{ houseDesignerRole: 'xr-stairs-floor-button' }}
+    >
+      <mesh>
+        <boxGeometry args={[0.09, 0.08, 0.018]} />
+        <meshStandardMaterial color="#263445" metalness={0.45} roughness={0.34} />
+      </mesh>
+      <mesh position={[0, 0, 0.011]}>
+        <torusGeometry args={[0.032, 0.004, 10, 28]} />
+        <meshStandardMaterial color="#cbd5e1" metalness={0.7} roughness={0.24} />
+      </mesh>
+      <mesh ref={plungerRef} position={[0, 0, 0.025]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[XR_PUSH_BUTTON_RADIUS_METERS, XR_PUSH_BUTTON_RADIUS_METERS, 0.018, 28]} />
+        <meshStandardMaterial
+          color="#ef4444"
+          emissive="#7f1d1d"
+          emissiveIntensity={0.28}
+          metalness={0.2}
+          roughness={0.32}
+        />
+      </mesh>
+    </group>
+  )
+}
+
+function XRControllerVisualsAndButtons({
+  activeFloor,
+  floors,
+  onSelectFloor,
+}: {
+  activeFloor: FloorLevel | null
+  floors: FloorLevel[]
+  onSelectFloor: (floorId: string) => void
+}) {
+  const { gl } = useThree()
+  const controllerModelFactory = useMemo(() => new XRControllerModelFactory(), [])
+  const handModelFactory = useMemo(() => new XRHandModelFactory(), [])
+  const controllers = useMemo(
+    () => [gl.xr.getController(0), gl.xr.getController(1)],
+    [gl],
+  )
+  const controllerGrips = useMemo(
+    () => [gl.xr.getControllerGrip(0), gl.xr.getControllerGrip(1)],
+    [gl],
+  )
+  const hands = useMemo(
+    () => [gl.xr.getHand(0), gl.xr.getHand(1)],
+    [gl],
+  )
+  const nextFloor = getNextFloorAbove(activeFloor, floors)
+  const previousFloor = getNextFloorBelow(activeFloor, floors)
+  const stairsButtons = useMemo(() => {
+    if (!activeFloor) {
+      return []
+    }
+
+    const upwardButtons = nextFloor
+      ? (activeFloor.models ?? [])
+          .filter((model) => model.modelId === 'simple-stairs')
+          .map((model) => ({
+            id: `up:${model.id}`,
+            position: getStairsButtonPosition(
+              model,
+              activeFloor.elevation,
+              'lower',
+            ),
+            targetFloor: nextFloor,
+          }))
+      : []
+    const downwardButtons = previousFloor
+      ? (previousFloor.models ?? [])
+          .filter((model) => model.modelId === 'simple-stairs')
+          .map((model) => ({
+            id: `down:${model.id}`,
+            position: getStairsButtonPosition(
+              model,
+              activeFloor.elevation,
+              'upper',
+            ),
+            targetFloor: previousFloor,
+          }))
+      : []
+
+    return [...upwardButtons, ...downwardButtons]
+  }, [activeFloor, nextFloor, previousFloor])
+
+  useEffect(() => {
+    recordEngineLog(
+      'xr-stairs-buttons',
+      `activeFloor=${activeFloor?.id ?? 'none'} previousFloor=${previousFloor?.id ?? 'none'} nextFloor=${nextFloor?.id ?? 'none'} count=${stairsButtons.length}`,
+    )
+  }, [activeFloor?.id, nextFloor?.id, previousFloor?.id, stairsButtons.length])
+
+  useEffect(() => {
+    const controllerModels = controllerGrips.map((grip) =>
+      controllerModelFactory.createControllerModel(grip),
+    )
+    const handModels = hands.map((hand) =>
+      handModelFactory.createHandModel(hand, 'mesh'),
+    )
+
+    controllerGrips.forEach((grip, index) => {
+      grip.add(controllerModels[index])
+    })
+    hands.forEach((hand, index) => {
+      hand.add(handModels[index])
+    })
+
+    return () => {
+      controllerGrips.forEach((grip, index) => {
+        grip.remove(controllerModels[index])
+      })
+      hands.forEach((hand, index) => {
+        hand.remove(handModels[index])
+      })
+    }
+  }, [
+    controllerGrips,
+    controllerModelFactory,
+    handModelFactory,
+    hands,
+  ])
+
+  return (
+    <>
+      {controllers.map((controller, index) => (
+        <primitive key={`controller-${index}`} object={controller} />
+      ))}
+      {controllerGrips.map((grip, index) => (
+        <primitive key={`controller-grip-${index}`} object={grip} />
+      ))}
+      {hands.map((hand, index) => (
+        <primitive key={`hand-${index}`} object={hand} />
+      ))}
+      {stairsButtons.map((button) => (
+        <XRStairsPushButton
+          contactSources={controllers}
+          handSources={hands}
+          key={button.id}
+          onPush={() => {
+            onSelectFloor(button.targetFloor.id)
+            emitEngineActivity({
+              message: `Moved to ${button.targetFloor.name}`,
+              minimumVisibleMs: 1200,
+            })
+          }}
+          position={button.position}
+        />
+      ))}
+    </>
+  )
 }
 
 function CountrysideSkybox() {
@@ -11966,6 +12989,10 @@ function WalkCameraControls({
       event.key === 'Alt' ||
       event.code === 'AltLeft' ||
       event.code === 'AltRight'
+    const isShiftKey = (event: KeyboardEvent) =>
+      event.key === 'Shift' ||
+      event.code === 'ShiftLeft' ||
+      event.code === 'ShiftRight'
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!movementEnabled) {
         return
@@ -11985,7 +13012,7 @@ function WalkCameraControls({
         return
       }
 
-      if (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
+      if (isShiftKey(event)) {
         event.preventDefault()
         isShiftPressedRef.current = true
         return
@@ -11994,7 +13021,7 @@ function WalkCameraControls({
       if (['KeyA', 'KeyD', 'KeyS', 'KeyW'].includes(event.code)) {
         event.preventDefault()
         keysRef.current.add(event.code)
-        isShiftPressedRef.current = event.shiftKey || isShiftPressedRef.current
+        isShiftPressedRef.current = event.shiftKey
       }
     }
     const handleKeyUp = (event: KeyboardEvent) => {
@@ -12010,9 +13037,7 @@ function WalkCameraControls({
         return
       }
 
-      if (event.key === 'Shift' || event.code === 'ShiftLeft' || event.code === 'ShiftRight') {
-        isShiftPressedRef.current = false
-      }
+      isShiftPressedRef.current = isShiftKey(event) ? false : event.shiftKey
     }
     const isLookPointerButton = (event: globalThis.PointerEvent) =>
       event.button === 2
@@ -12249,7 +13274,10 @@ function getPickTargetPriority(target: PickTarget) {
     return 0
   }
 
-  if (target.surface.type === 'floor-slab-edge') {
+  if (
+    target.surface.type === 'floor-slab-edge' ||
+    target.surface.type === 'portal-floor'
+  ) {
     return 3
   }
 
@@ -12274,6 +13302,10 @@ function getSurfacePickKey(surface: SelectableSurface) {
 
   if (surface.type === 'room-floor' || surface.type === 'ceiling') {
     return `${surface.floorId}:${surface.type}:${surface.roomSignature}`
+  }
+
+  if (surface.type === 'portal-floor') {
+    return `${surface.floorId}:portal-floor:${surface.wallId}:${surface.openingId}`
   }
 
   return `${surface.floorId}:${surface.type}`
@@ -13207,8 +14239,11 @@ function PickBufferExporter({
 export function ThreeDView({
   activeFloorId,
   floors,
+  lightDirection,
   modelAssetVersion,
   onClearSelection,
+  onLightDirectionChange,
+  onSelectFloor,
   onSelectModel,
   onSelectSurface,
   onUpdateModel,
@@ -13236,6 +14271,7 @@ export function ThreeDView({
     message: 'startup',
     time: 0,
   })
+  const lastVisibleStallStatusTimeRef = useRef(0)
   const latestRendererStatsRef = useRef<RendererStats | null>(null)
   const lastLoggedRendererStatsRef = useRef<RendererStats | null>(null)
   const previousShaderProgramCountRef = useRef<number | null>(null)
@@ -13260,10 +14296,6 @@ export function ThreeDView({
   const [isAssetLoadPending, setIsAssetLoadPending] = useState(false)
   const [initialScenePreparationComplete, setInitialScenePreparationComplete] =
     useState(false)
-  const [lightDirection, setLightDirection] = useState<LightDirection>({
-    azimuth: Math.atan2(6, 4),
-    elevation: 0.78,
-  })
   const [, setRoomVisibilityState] =
     useState<FloorVisibilityState | null>(null)
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
@@ -13296,6 +14328,16 @@ export function ThreeDView({
         (firstFloor, secondFloor) => firstFloor.elevation - secondFloor.elevation,
       ),
     [floors],
+  )
+  const vrStartPosition = useMemo(
+    () => getVrStartPosition(activeFloor),
+    [activeFloor],
+  )
+  const handleXrPresentingChange = useCallback(
+    (isPresenting: boolean) => {
+      setIsXrPresenting(isPresenting)
+    },
+    [],
   )
   const floorBelowActive = activeFloor
     ? floorsByElevation
@@ -13644,7 +14686,10 @@ export function ThreeDView({
       const activityId = latestEngineActivityIdRef.current
       const indicator = engineStatusRef.current
 
-      if (message !== 'Engine idle') {
+      if (
+        message !== 'Engine idle' &&
+        !message.startsWith('Main thread stalled')
+      ) {
         lastEngineActivityRef.current = {
           message,
           time: performance.now(),
@@ -13959,10 +15004,16 @@ export function ThreeDView({
         console.warn(
           `[HouseDesigner] Main thread stalled for ${stallSeconds}s${activityContext}. ${stallSnapshotRef.current}`,
         )
-        showEngineStatus(
-          `Main thread stalled for ${stallSeconds}s${activityContext}`,
-          4200,
-        )
+        if (
+          frameTime - lastVisibleStallStatusTimeRef.current >=
+          MAIN_THREAD_STALL_STATUS_COOLDOWN_MS
+        ) {
+          lastVisibleStallStatusTimeRef.current = frameTime
+          showEngineStatus(
+            `Main thread stalled for ${stallSeconds}s${activityContext}`,
+            4200,
+          )
+        }
       }
 
       lastFrameTime = frameTime
@@ -14034,7 +15085,7 @@ export function ThreeDView({
   const screenSpaceAmbientOcclusionEnabled =
     renderOptions.ambientOcclusion && !isXrPresenting
   const fakeAmbientOcclusionEnabled =
-    renderOptions.ambientOcclusion && isXrPresenting
+    false
 
   return (
     <section className="editor-pane">
@@ -14318,9 +15369,17 @@ export function ThreeDView({
         >
           <WebXRViewerButton
             containerRef={threeHostRef}
-            onPresentingChange={setIsXrPresenting}
+            onPresentingChange={handleXrPresentingChange}
           />
-          <XRLocomotionControls activeFloorElevation={activeFloor?.elevation ?? 0} />
+          <XRLocomotionControls
+            activeFloorElevation={activeFloor?.elevation ?? 0}
+            initialPosition={vrStartPosition}
+          />
+          <XRControllerVisualsAndButtons
+            activeFloor={activeFloor}
+            floors={floors}
+            onSelectFloor={onSelectFloor}
+          />
           <ModelPicker
             active
             isTransformingRef={isTransformingModelRef}
@@ -14354,7 +15413,7 @@ export function ThreeDView({
             surfaceAssignments={surfaceAssignments}
           />
           <ShaderWarmup
-            blocked={shaderWarmupBlocked}
+            blocked={shaderWarmupBlocked || isXrPresenting}
             onPendingChange={updateShaderWarmupPending}
             warmupKey={shaderWarmupKey}
           />
@@ -14368,8 +15427,12 @@ export function ThreeDView({
             />
             <LocalLightBudgetController
               activeFloorId={activeFloorId}
-              enabled={renderOptions.lights}
-              localLightLimit={localLightLimit}
+              enabled={renderOptions.lights && !isXrPresenting}
+              localLightLimit={
+                isXrPresenting
+                  ? Math.min(localLightLimit, XR_MAX_REALTIME_LOCAL_LIGHTS)
+                  : localLightLimit
+              }
               onLocalLightIdsChange={updateLocalLightIds}
               selectedModelId={selectedModelId}
               visibleRenderedFloors={visibleRenderedFloors}
@@ -14394,21 +15457,24 @@ export function ThreeDView({
               enabled={renderOptions.daylight}
               lightDirection={lightDirection}
               sceneBounds={sceneBounds}
-              shadows={renderOptions.shadows}
+              shadows={renderOptions.shadows && !isXrPresenting}
             />
             <WindowDaylightPortalPool
               enabled={
                 renderOptions.daylight &&
                 renderOptions.shadows &&
-                renderOptions.windowDaylight
+                renderOptions.windowDaylight &&
+                !isXrPresenting
               }
               slots={windowDaylightPortalSlots}
             />
             <FixedLocalLightPool
               activeFloorId={activeFloorId}
               localLightIds={localLightIds}
-              lightShadowsEnabled={renderOptions.lightShadows}
-              shadowsEnabled={renderOptions.shadows}
+              lightShadowsEnabled={
+                renderOptions.lightShadows && !isXrPresenting
+              }
+              shadowsEnabled={renderOptions.shadows && !isXrPresenting}
               visibleRenderedFloors={visibleRenderedFloors}
             />
 
@@ -14524,6 +15590,17 @@ export function ThreeDView({
               )
               const upperFloor =
                 floorIndex >= 0 ? floorsByElevation[floorIndex + 1] ?? null : null
+              const lowerFloor =
+                floorIndex > 0 ? floorsByElevation[floorIndex - 1] ?? null : null
+              const floorOpenings = lowerFloor
+                ? getStairSlabOpenings(lowerFloor, floor, floors, modelsById)
+                : []
+              const ceilingOpenings = getStairSlabOpenings(
+                floor,
+                upperFloor,
+                floors,
+                modelsById,
+              )
               const hasShadowSurface = renderOptions.shadows && isActive
               const visibleRoomsForFloor = rooms
               const visibleModelsForFloor = floor.models ?? []
@@ -14533,8 +15610,9 @@ export function ThreeDView({
                   : null
               const shouldRenderSlab =
                 !showAllFloors &&
-                renderOptions.floorSlabs &&
-                floor.id === floorBelowActive?.id
+                ((renderOptions.floorSlabs &&
+                  floor.id === floorBelowActive?.id) ||
+                  (renderOptions.shadows && isActive))
 
               if (showAllFloors) {
                 return (
@@ -14553,6 +15631,7 @@ export function ThreeDView({
                           floors={floors}
                           isSolid
                           onRegisterPickTarget={registerPickTarget}
+                          openings={ceilingOpenings}
                           selectedSurface={selectedSurface}
                           surfaceAssignments={surfaceAssignments}
                           upperFloor={upperFloor}
@@ -14562,15 +15641,27 @@ export function ThreeDView({
                       <RoomFloorFinishes
                         elevation={floor.elevation}
                         floorId={floor.id}
+                        openings={floorOpenings}
                         roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                         rooms={rooms}
                         surfaceAssignments={surfaceAssignments}
                         visibleRoomSignatures={null}
                         wireframe={renderOptions.wireframe}
                       />
+                      <RoomPortalFloors
+                        elevation={floor.elevation}
+                        floorId={floor.id}
+                        onRegisterPickTarget={registerPickTarget}
+                        selectedSurface={selectedSurface}
+                        shadowsEnabled={renderOptions.shadows}
+                        surfaceAssignments={surfaceAssignments}
+                        walls={geometryContextWalls}
+                        wireframe={renderOptions.wireframe}
+                      />
                       <RoomCeilingFinishes
                         elevation={floor.elevation}
                         floorId={floor.id}
+                        openings={ceilingOpenings}
                         roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                         roomHeight={floor.roomHeight}
                         rooms={rooms}
@@ -14579,9 +15670,11 @@ export function ThreeDView({
                         wireframe={renderOptions.wireframe}
                       />
                       <SelectableRoomSurfaces
+                        ceilingOpenings={ceilingOpenings}
                         elevation={floor.elevation}
                         floorPlane={getFloorPlaneBounds(floor)}
                         floorId={floor.id}
+                        floorOpenings={floorOpenings}
                         onRegisterPickTarget={registerPickTarget}
                         roomHeight={floor.roomHeight}
                         roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
@@ -14642,42 +15735,29 @@ export function ThreeDView({
                         floors={floors}
                         isSolid={slabIsSolid}
                         onRegisterPickTarget={registerPickTarget}
+                        openings={ceilingOpenings}
                         selectedSurface={selectedSurface}
+                        sunShadowBlocker={isActive && !slabIsSolid}
                         surfaceAssignments={surfaceAssignments}
                         upperFloor={upperFloor}
                         wireframe={renderOptions.wireframe}
                       />
                     ) : null}
                     {floorPlane ? (
-                      <>
-                        <mesh
-                          position={[
-                            floorPlane.centerX,
-                            -0.01,
-                            floorPlane.centerZ,
-                          ]}
-                          rotation={[-Math.PI / 2, 0, 0]}
-                          receiveShadow={hasShadowSurface}
-                          renderOrder={isActive ? 0 : -1}
-                        >
-                          <planeGeometry args={[floorPlane.size, floorPlane.size]} />
-                          <meshStandardMaterial
-                            color={isActive ? '#f8fafc' : '#eef2f7'}
-                            depthWrite={isActive}
-                            opacity={isActive ? 1 : 0.035}
-                            polygonOffset={!isActive}
-                            polygonOffsetFactor={2}
-                            polygonOffsetUnits={2}
-                            transparent={!isActive}
-                            wireframe={renderOptions.wireframe}
-                          />
-                        </mesh>
-                      </>
+                      <FloorPlaneSurface
+                        elevation={floor.elevation}
+                        floorPlane={floorPlane}
+                        isActive={isActive}
+                        openings={floorOpenings}
+                        receiveShadow={hasShadowSurface}
+                        wireframe={renderOptions.wireframe}
+                      />
                     ) : null}
                     {isActive ? (
                       <>
                         <RoomFloorBaseMeshes
                           elevation={floor.elevation}
+                          openings={floorOpenings}
                           roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                           rooms={rooms}
                           shadowsEnabled={renderOptions.shadows}
@@ -14687,15 +15767,27 @@ export function ThreeDView({
                         <RoomFloorFinishes
                           elevation={floor.elevation}
                           floorId={floor.id}
+                          openings={floorOpenings}
                           roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                           rooms={rooms}
                           surfaceAssignments={surfaceAssignments}
                           visibleRoomSignatures={activeVisibleRoomSignatures}
                           wireframe={renderOptions.wireframe}
                         />
+                        <RoomPortalFloors
+                          elevation={floor.elevation}
+                          floorId={floor.id}
+                          onRegisterPickTarget={registerPickTarget}
+                          selectedSurface={selectedSurface}
+                          shadowsEnabled={renderOptions.shadows}
+                          surfaceAssignments={surfaceAssignments}
+                          walls={geometryContextWalls}
+                          wireframe={renderOptions.wireframe}
+                        />
                         <RoomCeilingFinishes
                           elevation={floor.elevation}
                           floorId={floor.id}
+                          openings={ceilingOpenings}
                           roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                           roomHeight={floor.roomHeight}
                           rooms={rooms}
@@ -14704,9 +15796,11 @@ export function ThreeDView({
                           wireframe={renderOptions.wireframe}
                         />
                         <SelectableRoomSurfaces
+                          ceilingOpenings={ceilingOpenings}
                           elevation={floor.elevation}
                           floorPlane={floorPlane}
                           floorId={floor.id}
+                          floorOpenings={floorOpenings}
                           onRegisterPickTarget={registerPickTarget}
                           roomHeight={floor.roomHeight}
                           roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
@@ -14990,7 +16084,7 @@ export function ThreeDView({
         </div>
         <LightGimbal
           lightDirection={lightDirection}
-          onLightDirectionChange={setLightDirection}
+          onLightDirectionChange={onLightDirectionChange}
         />
       </div>
     </section>

@@ -2,10 +2,14 @@ import type {
   FloorLevel,
   PlacedModel,
   Room,
+  SelectableSurface,
+  SurfaceMaterialAssignment,
+  SurfaceMaterialProduct,
   Wall,
 } from '../types'
 import type { ModelDefinition } from '../models/modelLibrary'
 import type { DetectedRoom } from '../wallTopology'
+import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 
 type ContextPanelProps = {
   activeFloor: FloorLevel
@@ -17,7 +21,10 @@ type ContextPanelProps = {
     detectedRoom: DetectedRoom
     metadata: Room
   } | null
+  selectedSurface: SelectableSurface | null
   selectedWall: Wall | undefined
+  surfaceAssignments: SurfaceMaterialAssignment[]
+  surfaceMaterials: SurfaceMaterialProduct[]
   onDeleteModel: (modelId: string) => void
   onRenameRoom: (roomSignature: string, name: string) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
@@ -27,24 +34,151 @@ function getWallLength(wall: Wall) {
   return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
 }
 
+function surfaceSideMatches(
+  assignment: SurfaceMaterialAssignment,
+  side: -1 | 1,
+) {
+  return (
+    (assignment.target.type === 'wall-face' ||
+      assignment.target.type === 'wall-surface-fragment') &&
+    (assignment.target.side === 'both' || assignment.target.side === side)
+  )
+}
+
+function getSelectedSurfaceAssignment(
+  selectedSurface: SelectableSurface,
+  surfaceAssignments: SurfaceMaterialAssignment[],
+) {
+  if (selectedSurface.type === 'room-floor') {
+    return surfaceAssignments.findLast(
+      (assignment) =>
+        assignment.target.type === 'room-floor' &&
+        assignment.target.floorId === selectedSurface.floorId &&
+        assignment.target.roomSignature === selectedSurface.roomSignature,
+    )
+  }
+
+  if (selectedSurface.type === 'ceiling') {
+    return surfaceAssignments.findLast(
+      (assignment) =>
+        assignment.target.type === 'ceiling' &&
+        assignment.target.floorId === selectedSurface.floorId &&
+        assignment.target.roomSignature === selectedSurface.roomSignature,
+    )
+  }
+
+  if (selectedSurface.type === 'floor-slab-edge') {
+    return surfaceAssignments.findLast(
+      (assignment) =>
+        assignment.target.type === 'floor-slab-edge' &&
+        assignment.target.floorId === selectedSurface.floorId,
+    )
+  }
+
+  if (selectedSurface.type === 'portal-floor') {
+    return surfaceAssignments.findLast(
+      (assignment) =>
+        assignment.target.type === 'portal-floor' &&
+        assignment.target.floorId === selectedSurface.floorId &&
+        assignment.target.wallId === selectedSurface.wallId &&
+        assignment.target.openingId === selectedSurface.openingId,
+    )
+  }
+
+  if (selectedSurface.type === 'wall-surface-fragment') {
+    const fragmentAssignment = surfaceAssignments.findLast(
+      (assignment) =>
+        assignment.target.type === 'wall-surface-fragment' &&
+        assignment.target.wallId === selectedSurface.wallId &&
+        assignment.target.fragmentId === selectedSurface.fragmentId &&
+        surfaceSideMatches(assignment, selectedSurface.side),
+    )
+
+    if (fragmentAssignment) {
+      return fragmentAssignment
+    }
+  }
+
+  return surfaceAssignments.findLast(
+    (assignment) =>
+      assignment.target.type === 'wall-face' &&
+      assignment.target.wallId === selectedSurface.wallId &&
+      surfaceSideMatches(assignment, selectedSurface.side),
+  )
+}
+
+function getSurfaceTypeLabel(selectedSurface: SelectableSurface) {
+  switch (selectedSurface.type) {
+    case 'room-floor':
+      return 'Room floor'
+    case 'ceiling':
+      return 'Ceiling'
+    case 'floor-slab-edge':
+      return 'Floor slab edge'
+    case 'portal-floor':
+      return 'Doorway floor'
+    case 'wall-surface-fragment':
+      return 'Wall section'
+    case 'wall-face':
+      return 'Wall face'
+  }
+}
+
+function getDefaultSurfaceMaterialLabel(
+  selectedSurface: SelectableSurface,
+  selectedWall: Wall | undefined,
+) {
+  if (
+    selectedSurface.type === 'wall-face' ||
+    selectedSurface.type === 'wall-surface-fragment'
+  ) {
+    return selectedWall?.kind === 'external'
+      ? 'Default external wall'
+      : 'Default internal wall'
+  }
+
+  return `Default ${getSurfaceTypeLabel(selectedSurface).toLowerCase()}`
+}
+
 export function ContextPanel({
   activeFloor,
   selectedModel,
   selectedRoom,
+  selectedSurface,
   selectedWall,
+  surfaceAssignments,
+  surfaceMaterials,
   onDeleteModel,
   onRenameRoom,
   onUpdateModel,
 }: ContextPanelProps) {
   const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
   const selectedModelIsSpotlight = selectedModel?.definition.lightKind === 'spot'
+  const selectedSurfaceAssignment = selectedSurface
+    ? getSelectedSurfaceAssignment(selectedSurface, surfaceAssignments)
+    : undefined
+  const selectedSurfaceMaterial = selectedSurfaceAssignment
+    ? surfaceMaterials.find(
+        (material) => material.id === selectedSurfaceAssignment.materialId,
+      )
+    : undefined
+  const selectedSurfaceMaterialLabel = selectedSurface
+    ? selectedSurfaceMaterial
+      ? getSurfaceMaterialLabel(selectedSurfaceMaterial)
+      : getDefaultSurfaceMaterialLabel(selectedSurface, selectedWall)
+    : null
+  const selectedSurfaceColor =
+    selectedSurfaceAssignment?.customColor ??
+    selectedSurfaceMaterial?.pbr.baseColor
 
   return (
     <aside className="context-panel" aria-label="Selection details">
       <div>
         <h2>Context</h2>
         <p>
-          {selectedWall
+          {selectedSurface
+            ? `${activeFloor.name} - ${getSurfaceTypeLabel(selectedSurface)}`
+            : selectedWall
             ? `${activeFloor.name} - wall ${selectedWall.id.slice(0, 8)}`
             : selectedModel
               ? `${activeFloor.name} - ${selectedModel.definition.name}`
@@ -55,6 +189,68 @@ export function ContextPanel({
       </div>
 
       <dl>
+        {selectedSurface ? (
+          <>
+            <div>
+              <dt>Surface</dt>
+              <dd>{getSurfaceTypeLabel(selectedSurface)}</dd>
+            </div>
+            <div>
+              <dt>Material</dt>
+              <dd className="context-material-value">
+                {selectedSurfaceColor ? (
+                  <span
+                    className="context-colour-swatch"
+                    style={{ backgroundColor: selectedSurfaceColor }}
+                  />
+                ) : null}
+                <span>{selectedSurfaceMaterialLabel}</span>
+              </dd>
+            </div>
+            {selectedSurfaceMaterial ? (
+              <>
+                <div>
+                  <dt>Manufacturer</dt>
+                  <dd>{selectedSurfaceMaterial.manufacturer}</dd>
+                </div>
+                <div>
+                  <dt>Finish</dt>
+                  <dd>
+                    {selectedSurfaceMaterial.finish ??
+                      selectedSurfaceMaterial.materialType ??
+                      selectedSurfaceMaterial.category}
+                  </dd>
+                </div>
+              </>
+            ) : null}
+            <div>
+              <dt>Scale</dt>
+              <dd>{(selectedSurfaceAssignment?.textureScale ?? 1).toFixed(2)}x</dd>
+            </div>
+            <div>
+              <dt>Orientation</dt>
+              <dd>{selectedSurfaceAssignment?.textureRotation ?? 0} deg</dd>
+            </div>
+            {selectedSurfaceAssignment?.coverageHeight !== undefined ? (
+              <div>
+                <dt>Coverage</dt>
+                <dd>{selectedSurfaceAssignment.coverageHeight.toFixed(2)} m</dd>
+              </div>
+            ) : null}
+            {selectedSurfaceMaterial?.pbr.realWorldWidthMeters ||
+            selectedSurfaceMaterial?.pbr.realWorldHeightMeters ? (
+              <div>
+                <dt>Texture size</dt>
+                <dd>
+                  {selectedSurfaceMaterial.pbr.realWorldWidthMeters?.toFixed(2) ?? '-'} x{' '}
+                  {selectedSurfaceMaterial.pbr.realWorldHeightMeters?.toFixed(2) ?? '-'} m
+                </dd>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+        {!selectedSurface ? (
+          <>
         {selectedRoom ? (
           <div className="context-field">
             <dt>Room name</dt>
@@ -286,6 +482,8 @@ export function ContextPanel({
                 </button>
               </dd>
             </div>
+          </>
+        ) : null}
           </>
         ) : null}
       </dl>

@@ -1,3 +1,18 @@
+export type ModelObjectType =
+  | 'appliance'
+  | 'bathroom'
+  | 'decor'
+  | 'exterior-door'
+  | 'furniture'
+  | 'interior-door'
+  | 'kitchen'
+  | 'lighting'
+  | 'other'
+  | 'patio-door'
+  | 'stairs'
+  | 'structural'
+  | 'window'
+
 export type ModelDefinition = {
   id: string
   name: string
@@ -13,7 +28,9 @@ export type ModelDefinition = {
   lightSpread?: number
   openingCenterOffset?: number
   openingWidth?: number
-  wallMount?: 'interior-door' | 'patio-door' | 'window'
+  normalizeToDimensions?: boolean
+  objectType?: ModelObjectType
+  wallMount?: 'exterior-door' | 'interior-door' | 'patio-door' | 'window'
   sourceUrl?: string
   shape: 'box' | 'light' | 'round'
   width: number
@@ -48,6 +65,12 @@ const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
     openingWidth: 0.975141,
     width: 0.975141,
   },
+  'simple-stairs': {
+    depth: 2.640001,
+    height: 2.377067,
+    objectType: 'stairs',
+    width: 0.85,
+  },
 }
 
 const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles).map(
@@ -61,6 +84,7 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
     const isPatioDoorWithSideLights = isPatioDoor && modelId.includes('side-lights')
     const isOpenInteriorDoor = isInteriorDoor && modelId.includes('open')
     const isThreePaneWindow = isWindow && modelId.includes('three-pane')
+    const isStairs = modelId.includes('stairs')
 
     const baseDefinition: ModelDefinition = {
       id: modelId || `model-${index + 1}`,
@@ -69,6 +93,7 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
       color: '#2563eb',
       height: isInteriorDoor ? 2.1 : isPatioDoor ? 2.08 : isWindow ? 1.1 : 1,
       openingWidth: isInteriorDoor ? 0.97 : undefined,
+      objectType: isStairs ? 'stairs' : undefined,
       sourceUrl: sourceUrl as string,
       shape: 'box',
       wallMount: isInteriorDoor
@@ -198,6 +223,29 @@ export const modelLibrary =
 export const modelsById = new Map(
   modelLibrary.map((model) => [model.id, model]),
 )
+
+export function registerRuntimeModels(models: ModelDefinition[]) {
+  modelLibrary.splice(
+    0,
+    modelLibrary.length,
+    ...[
+      ...modelLibrary.filter((model) => !model.id.startsWith('portal-model-')),
+      ...models,
+    ].sort((firstModel, secondModel) =>
+      firstModel.category === secondModel.category
+        ? firstModel.name.localeCompare(secondModel.name)
+        : firstModel.category.localeCompare(secondModel.category),
+    ),
+  )
+  Array.from(modelsById.keys()).forEach((modelId) => {
+    if (modelId.startsWith('portal-model-')) {
+      modelsById.delete(modelId)
+    }
+  })
+  models.forEach((model) => {
+    modelsById.set(model.id, model)
+  })
+}
 
 export function getModelAssetUrl(sourceUrl: string, version = 0) {
   if (version <= 0) {

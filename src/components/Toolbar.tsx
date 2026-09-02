@@ -4,11 +4,13 @@ type ToolbarProps = {
   floorCount: number
   wallCount: number
   onLoadProject: () => void
+  onOpenManufacturerPortal: () => void
   onSaveProject: () => void
 }
 
 export function Toolbar({
   onLoadProject,
+  onOpenManufacturerPortal,
   onSaveProject,
 }: ToolbarProps) {
   const [isProjectMenuOpen, setIsProjectMenuOpen] = useState(false)
@@ -49,6 +51,15 @@ export function Toolbar({
               }}
             >
               Save
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onOpenManufacturerPortal()
+                setIsProjectMenuOpen(false)
+              }}
+            >
+              Assets
             </button>
           </div>
         ) : null}

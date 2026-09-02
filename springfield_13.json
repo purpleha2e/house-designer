@@ -438,7 +438,7 @@
           "signature": "390:218|390:319|487:218|487:319"
         },
         {
-          "id": "ea0d0b51-be34-44f3-8cf9-ddbb1bc02847",
+          "id": "6a082d37-3d15-4f42-9107-d8562f3ebe41",
           "name": "Room 4",
           "signature": "302:199|302:276|316:276|316:388|351:199|351:277|356:218|356:277|385:218|385:388"
         },
@@ -923,16 +923,6 @@
           "scale": 1
         },
         {
-          "id": "22a02c4e-4380-4330-ad31-4282fd4c3617",
-          "modelId": "kitchen-range",
-          "position": {
-            "x": 14.599627521693488,
-            "y": 3.8941504067310606
-          },
-          "rotation": 4.71238898038469,
-          "scale": 1
-        },
-        {
           "id": "217af7ee-9c8e-4eb7-83c0-5ab963a7bc82",
           "modelId": "base-cabinet-marble-cream-800mm",
           "position": {
@@ -970,6 +960,16 @@
             "y": 3.900864252401526
           },
           "rotation": 4.706946546111308,
+          "scale": 1
+        },
+        {
+          "id": "542158ab-ec30-46d1-99ec-23b13062174c",
+          "modelId": "portal-model-8a94e438fab29cf4951861d3197e9343",
+          "position": {
+            "x": 14.599629186184849,
+            "y": 3.8905456724032077
+          },
+          "rotation": 4.71238898038469,
           "scale": 1
         }
       ]
@@ -1780,6 +1780,10 @@
       ]
     }
   ],
+  "sunPosition": {
+    "azimuth": -2.912360720312798,
+    "elevation": 0.41585125378003235
+  },
   "surfaceAssignments": [
     {
       "coverageHeight": 2.4,
@@ -2815,18 +2819,6 @@
     },
     {
       "customColor": "#ffffff",
-      "id": "57a10593-b8a1-484c-b5ae-ac2b4054ca0f",
-      "materialId": "house-designer-custom-paint-matt",
-      "target": {
-        "type": "ceiling",
-        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
-        "roomSignature": "390:218|390:319|487:218|487:319"
-      },
-      "textureRotation": 0,
-      "textureScale": 1
-    },
-    {
-      "customColor": "#ffffff",
       "id": "676b91c1-136d-4bad-ace6-27eb320d9078",
       "materialId": "house-designer-custom-paint-matt",
       "target": {
@@ -3165,17 +3157,6 @@
       "textureScale": 1
     },
     {
-      "id": "1a3654ec-7343-4d16-a0fa-20fbd0042f6a",
-      "materialId": "dulux-timeless-matt",
-      "target": {
-        "type": "ceiling",
-        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
-        "roomSignature": "189:196|189:251|297:194|297:251|338:43|338:63|356:194|356:213|487:213|487:43|97:196|97:63"
-      },
-      "textureRotation": 0,
-      "textureScale": 2
-    },
-    {
       "coverageHeight": 2.4,
       "id": "6b6ac5fd-a2a7-4fdc-ae0f-ebd3d42fb0d4",
       "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
@@ -3213,17 +3194,6 @@
       },
       "textureRotation": 0,
       "textureScale": 1
-    },
-    {
-      "id": "aee9e702-f942-430f-9b24-79fc10547923",
-      "materialId": "portal-material-7a6528a5d03727febb0055ec6a4029e9",
-      "target": {
-        "type": "room-floor",
-        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
-        "roomSignature": "189:196|189:251|297:194|297:251|338:43|338:63|356:194|356:213|487:213|487:43|97:196|97:63"
-      },
-      "textureRotation": 0,
-      "textureScale": 2
     },
     {
       "id": "ab033693-ef78-4bb9-8a37-df60607f7203",
@@ -3268,6 +3238,114 @@
       },
       "textureRotation": 0,
       "textureScale": 8
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "d92e6e44-8aea-4e54-bf2d-ba223569c3be",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "302:199|302:276|316:276|316:388|351:199|351:280|385:280|385:388"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "4e064b4d-f009-4e6c-a15f-6df7856269af",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "189:196|189:251|297:194|297:251|338:43|338:63|356:194|356:213|487:213|487:43|97:196|97:63"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "bf720ce4-c008-4e1e-944e-c5d9874c46b3",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "390:218|390:319|487:218|487:319"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "0747316b-4342-4a12-aaff-e60fa24c472b",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "390:324|390:421|487:324|487:421"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "286468f0-7887-4b16-aff4-b0896c7b4cab",
+      "materialId": "house-designer-custom-paint-matt",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "189:256|189:388|297:256|297:281|311:281|311:388"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "id": "6afed946-71b6-4bb9-b7f0-92f40ce23581",
+      "materialId": "portal-material-e7ae16d858a15b1a0b50c45144a04998",
+      "target": {
+        "type": "portal-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "openingId": "21ef1ec4-3f80-4cfd-88d1-101e12e8481a",
+        "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "id": "a943ef37-bd1c-46ae-8a16-6a6d1e7b9fdf",
+      "materialId": "portal-material-e7ae16d858a15b1a0b50c45144a04998",
+      "target": {
+        "type": "room-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "189:196|189:251|297:194|297:251|338:43|338:63|356:194|356:213|487:213|487:43|97:196|97:63"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "f22a6fca-0c9f-463d-a756-3e5c37363e1e",
+      "materialId": "dulux-green-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:2:side:0",
+        "side": 1,
+        "wallId": "25a658fa-eb18-413b-81df-9ec3e00fdcbc"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "customColor": "#ffffff",
+      "id": "d6bc6a85-130b-4495-a101-60d4d156c275",
+      "materialId": "house-designer-custom-paint-gloss",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "302:199|302:276|316:276|316:388|351:199|351:277|356:218|356:277|385:218|385:388"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
     }
   ],
   "wallKind": "internal"

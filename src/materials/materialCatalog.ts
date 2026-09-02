@@ -6,7 +6,7 @@ export const CUSTOM_PAINT_MATERIAL_IDS = new Set([
 ])
 
 const materialTextureModules = import.meta.glob<string>(
-  './textures/**/*.{jpg,jpeg,png,webp}',
+  './textures/**/*.{jpg,jpeg,ktx2,png,webp}',
   {
     eager: true,
     import: 'default',
@@ -97,6 +97,38 @@ export const surfaceMaterialCatalog = Object.values(materialModules)
 export const surfaceMaterialsById = new Map(
   surfaceMaterialCatalog.map((material) => [material.id, material]),
 )
+
+export function registerRuntimeSurfaceMaterials(
+  materials: SurfaceMaterialProduct[],
+) {
+  surfaceMaterialCatalog.splice(
+    0,
+    surfaceMaterialCatalog.length,
+    ...[
+      ...surfaceMaterialCatalog.filter(
+        (material) => !material.id.startsWith('portal-material-'),
+      ),
+      ...materials,
+    ].sort(
+      (firstMaterial, secondMaterial) =>
+        [
+          firstMaterial.manufacturer.localeCompare(secondMaterial.manufacturer),
+          (firstMaterial.collection ?? '').localeCompare(
+            secondMaterial.collection ?? '',
+          ),
+          firstMaterial.productName.localeCompare(secondMaterial.productName),
+        ].find((comparison) => comparison !== 0) ?? 0,
+    ),
+  )
+  Array.from(surfaceMaterialsById.keys()).forEach((materialId) => {
+    if (materialId.startsWith('portal-material-')) {
+      surfaceMaterialsById.delete(materialId)
+    }
+  })
+  materials.forEach((material) => {
+    surfaceMaterialsById.set(material.id, material)
+  })
+}
 
 export function getSurfaceMaterialLabel(material: SurfaceMaterialProduct) {
   return [

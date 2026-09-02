@@ -47,6 +47,7 @@ import {
   WebGLRenderer,
 } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 
 const METERS_TO_PIXELS = 60
 const MIN_WALL_LENGTH_METERS = 0.15
@@ -92,6 +93,7 @@ type FloorplanCanvasProps = {
   internalWallThickness: number
   isAddingWall: boolean
   modelAssetVersion: number
+  projectFileName: string
   selectedModelId: string | null
   selectedModelIds: string[]
   selectedRoomSignature: string | null
@@ -232,11 +234,30 @@ type AngleWidget = {
 type ModelBounds = {
   depth: number
   height: number
+  maxX: number
+  maxZ: number
+  minX: number
+  minZ: number
   width: number
 }
 
 const modelPreviewCache = new Map<string, HTMLCanvasElement>()
 const modelBoundsCache = new Map<string, ModelBounds>()
+const sharedModelKtx2Loader = new KTX2Loader()
+let sharedModelKtx2Renderer: WebGLRenderer | null = null
+
+function configureModelGltfLoader(loader: GLTFLoader) {
+  if (!sharedModelKtx2Renderer) {
+    const canvas = document.createElement('canvas')
+    sharedModelKtx2Renderer = new WebGLRenderer({
+      canvas,
+      powerPreference: 'low-power',
+    })
+    sharedModelKtx2Loader.detectSupport(sharedModelKtx2Renderer)
+  }
+
+  loader.setKTX2Loader(sharedModelKtx2Loader)
+}
 
 export function clearFloorplanModelAssetCaches() {
   modelPreviewCache.clear()
@@ -250,6 +271,8 @@ function GLBModelPreview({
   stroke,
   strokeWidth,
   width,
+  x,
+  y,
 }: {
   height: number
   opacity: number
@@ -257,6 +280,8 @@ function GLBModelPreview({
   stroke: string
   strokeWidth: number
   width: number
+  x: number
+  y: number
 }) {
   const [previewImage, setPreviewImage] = useState<HTMLCanvasElement | null>(
     () => modelPreviewCache.get(sourceUrl) ?? null,
@@ -270,6 +295,7 @@ function GLBModelPreview({
 
     let isMounted = true
     const loader = new GLTFLoader()
+    configureModelGltfLoader(loader)
 
     loader.load(sourceUrl, (gltf) => {
       if (!isMounted) {
@@ -333,27 +359,22 @@ function GLBModelPreview({
   return (
     <>
       <Rect
-        x={0}
-        y={0}
+        x={x}
+        y={y}
         width={width}
         height={height}
-        offsetX={width / 2}
-        offsetY={height / 2}
         fill="#ffffff"
         opacity={0.78}
         stroke={stroke}
         strokeWidth={strokeWidth}
-        cornerRadius={4}
       />
       {previewImage ? (
         <KonvaImage
           image={previewImage}
-          x={0}
-          y={0}
+          x={x}
+          y={y}
           width={width}
           height={height}
-          offsetX={width / 2}
-          offsetY={height / 2}
           opacity={opacity}
         />
       ) : null}
@@ -2302,6 +2323,7 @@ export function FloorplanCanvas({
   internalWallThickness,
   isAddingWall,
   modelAssetVersion,
+  projectFileName,
   selectedModelId,
   selectedModelIds,
   selectedRoomSignature,
@@ -2421,6 +2443,7 @@ export function FloorplanCanvas({
   useEffect(() => {
     let isMounted = true
     const loader = new GLTFLoader()
+    configureModelGltfLoader(loader)
 
     for (const modelDefinition of modelLibrary) {
       if (!modelDefinition.sourceUrl || modelBoundsCache.has(modelDefinition.id)) {
@@ -2439,6 +2462,10 @@ export function FloorplanCanvas({
         const modelBounds = {
           depth: Math.max(size.z, 0.1),
           height: Math.max(size.y, 0.1),
+          maxX: bounds.max.x,
+          maxZ: bounds.max.z,
+          minX: bounds.min.x,
+          minZ: bounds.min.z,
           width: Math.max(size.x, 0.1),
         }
 
@@ -3405,11 +3432,39 @@ export function FloorplanCanvas({
 
     const center = toCanvasPoint(model.position)
     const modelBounds = modelBoundsById[modelDefinition.id]
-    const baseWidth = modelBounds?.width ?? modelDefinition.width
-    const baseDepth = modelBounds?.depth ?? modelDefinition.depth
     const modelScale = model.scale ?? 1
+    const nativeWidth = modelBounds?.width ?? modelDefinition.width
+    const nativeDepth = modelBounds?.depth ?? modelDefinition.depth
+    const targetScaleX =
+      modelDefinition.sourceUrl && modelDefinition.normalizeToDimensions
+        ? modelDefinition.width / Math.max(nativeWidth, 0.0001)
+        : 1
+    const targetScaleZ =
+      modelDefinition.sourceUrl && modelDefinition.normalizeToDimensions
+        ? modelDefinition.depth / Math.max(nativeDepth, 0.0001)
+        : 1
+    const boundsMinX =
+      modelDefinition.sourceUrl && modelBounds
+        ? modelBounds.minX * targetScaleX
+        : -modelDefinition.width / 2
+    const boundsMaxX =
+      modelDefinition.sourceUrl && modelBounds
+        ? modelBounds.maxX * targetScaleX
+        : modelDefinition.width / 2
+    const boundsMinZ =
+      modelDefinition.sourceUrl && modelBounds
+        ? modelBounds.minZ * targetScaleZ
+        : -modelDefinition.depth / 2
+    const boundsMaxZ =
+      modelDefinition.sourceUrl && modelBounds
+        ? modelBounds.maxZ * targetScaleZ
+        : modelDefinition.depth / 2
+    const baseWidth = Math.max(boundsMaxX - boundsMinX, 0.1)
+    const baseDepth = Math.max(boundsMaxZ - boundsMinZ, 0.1)
     const width = baseWidth * modelScale * METERS_TO_PIXELS
     const height = baseDepth * modelScale * METERS_TO_PIXELS
+    const footprintX = boundsMinX * modelScale * METERS_TO_PIXELS
+    const footprintY = boundsMinZ * modelScale * METERS_TO_PIXELS
     const rotation = (model.rotation * 180) / Math.PI
     const isWallMountedModel = Boolean(modelDefinition.wallMount)
     const labelWidth = Math.max(72, width)
@@ -3500,6 +3555,8 @@ export function FloorplanCanvas({
             stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
             strokeWidth={isSelectedModel ? 3 : 1}
             width={width}
+            x={footprintX}
+            y={footprintY}
           />
         ) : modelDefinition.shape === 'round' || modelDefinition.shape === 'light' ? (
           <Circle
@@ -3818,7 +3875,7 @@ export function FloorplanCanvas({
   return (
     <section className="editor-pane">
       <div className="pane-header">
-        <h2>2D Floorplan</h2>
+        <h2>{`2D Floorplan (${projectFileName.replace(/(?:\.house)?\.json$/i, '')})`}</h2>
         <span>
           {isAddingWall
             ? draftWall

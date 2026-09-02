@@ -4,22 +4,29 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "asset-portal": "node server/asset-portal.mjs",
     "dev": "vite",
+    "dev:all": "node server/dev-with-portal.mjs",
+    "dev:portal": "node server/asset-portal.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "node --test --experimental-strip-types tests/*.test.ts"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@react-three/postprocessing": "^3.0.5",
     "konva": "^10.3.1",
+    "ktx2-encoder": "^0.6.0",
     "polygon-clipping": "^0.15.7",
     "postprocessing": "^6.39.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-konva": "^19.2.5",
+    "sharp": "^0.35.4",
     "three": "^0.185.1"
   },
   "devDependencies": {

@@ -1,13 +1,15 @@
 import type { CSSProperties } from 'react'
-import { modelLibrary } from '../models/modelLibrary'
+import type { ModelDefinition } from '../models/modelLibrary'
 
 type ModelSelectorProps = {
+  models: ModelDefinition[]
   onClose: () => void
   onRefreshModels: () => void
   onSelectModel: (modelId: string) => void
 }
 
 export function ModelSelector({
+  models,
   onClose,
   onRefreshModels,
   onSelectModel,
@@ -37,7 +39,7 @@ export function ModelSelector({
         </header>
 
         <div className="model-grid">
-          {modelLibrary.map((model) => (
+          {models.map((model) => (
             <button
               key={model.id}
               type="button"
