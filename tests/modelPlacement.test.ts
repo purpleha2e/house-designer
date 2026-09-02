@@ -75,6 +75,8 @@ test('creates a wall-mounted model from the plan center', () => {
 
   assert.deepEqual(model.position, { x: 2.5, y: 0 })
   assert.equal(model.rotation, 0)
+  assert.equal(model.flipped, false)
+  assert.equal(model.mirrored, false)
   assert.deepEqual(model.wallAttachment, {
     wallId: 'wall-1',
     offset: 2.5,

@@ -13,6 +13,13 @@ export type ModelObjectType =
   | 'structural'
   | 'window'
 
+export type ModelHorizontalBounds = {
+  maxX: number
+  maxZ: number
+  minX: number
+  minZ: number
+}
+
 export type ModelDefinition = {
   id: string
   name: string
@@ -26,6 +33,7 @@ export type ModelDefinition = {
   lightKind?: 'point' | 'spot'
   lightPower?: number
   lightSpread?: number
+  localBounds?: ModelHorizontalBounds
   openingCenterOffset?: number
   openingWidth?: number
   normalizeToDimensions?: boolean

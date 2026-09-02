@@ -170,6 +170,7 @@ export type SelectableSurface =
     }
 
 export type PlacedModel = {
+  flipped?: boolean
   id: string
   height?: number
   lightColor?: string
@@ -178,6 +179,7 @@ export type PlacedModel = {
   lightFalloff?: number
   lightPower?: number
   lightSpread?: number
+  mirrored?: boolean
   modelId: string
   position: Point
   rotation: number

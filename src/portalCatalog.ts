@@ -18,6 +18,10 @@ type PortalCatalogAsset = {
   inferredDimensions?: {
     depth: number
     height: number
+    maxX?: number
+    maxZ?: number
+    minX?: number
+    minZ?: number
     width: number
   } | null
   manufacturer: {
@@ -221,6 +225,13 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
   const wallMount = normalizeModelWallMount(
     asset.metadata.modelBehavior || objectType,
   )
+  const inferredDimensions = asset.inferredDimensions
+  const hasLocalBounds = [
+    inferredDimensions?.maxX,
+    inferredDimensions?.maxZ,
+    inferredDimensions?.minX,
+    inferredDimensions?.minZ,
+  ].every((value) => Number.isFinite(value))
 
   return {
     category:
@@ -232,6 +243,14 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
     depth: metadataDepth ?? asset.inferredDimensions?.depth ?? 1,
     height: metadataHeight ?? asset.inferredDimensions?.height ?? 1,
     id: `portal-model-${asset.id}`,
+    localBounds: hasLocalBounds
+      ? {
+          maxX: inferredDimensions!.maxX!,
+          maxZ: inferredDimensions!.maxZ!,
+          minX: inferredDimensions!.minX!,
+          minZ: inferredDimensions!.minZ!,
+        }
+      : undefined,
     name: asset.metadata.productName || 'Uploaded model',
     normalizeToDimensions: hasManualDimensions,
     objectType,

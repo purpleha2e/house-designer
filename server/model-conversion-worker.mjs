@@ -150,7 +150,7 @@ function getModelDimensionsFromDocument(document) {
     return null
   }
 
-  return { depth, height, width }
+  return { ...bounds, depth, height, width }
 }
 
 function listTextureSlots(texture) {

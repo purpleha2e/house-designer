@@ -312,7 +312,14 @@ async function listAssetsForManufacturer(manufacturer) {
         if (metadata.assetKind === 'model') {
           const modelFileName = getStoredModelFileName(metadata)
 
-          if (modelFileName && !metadata.inferredDimensions) {
+          if (
+            modelFileName &&
+            (!metadata.inferredDimensions ||
+              !Number.isFinite(metadata.inferredDimensions.minX) ||
+              !Number.isFinite(metadata.inferredDimensions.maxX) ||
+              !Number.isFinite(metadata.inferredDimensions.minZ) ||
+              !Number.isFinite(metadata.inferredDimensions.maxZ))
+          ) {
             const inferredDimensions = await inferModelDimensions(
               join(root, assetDir.name, modelFileName),
             )
@@ -484,7 +491,7 @@ function getModelDimensionsFromGltfJson(gltf) {
     return null
   }
 
-  return { depth, height, width }
+  return { depth, height, maxX, maxY, maxZ, minX, minY, minZ, width }
 }
 
 function transformPoint(matrix, point) {
@@ -613,7 +620,7 @@ function getModelDimensionsFromDocument(document) {
     return null
   }
 
-  return { depth, height, width }
+  return { ...bounds, depth, height, width }
 }
 
 async function inferModelDimensions(filePath) {

@@ -853,6 +853,60 @@ test('wall body perimeter mesh extrudes the composed perimeter outline', () => {
   )
 })
 
+test('wall body perimeter mesh preserves individual heights in a mixed-height join', () => {
+  const faces = buildWallBodyPerimeterMeshFaces([
+    wall({
+      end: { x: 2, y: 0 },
+      height: 1.2,
+      id: 'short',
+      start: { x: 0, y: 0 },
+    }),
+    wall({
+      end: { x: 2, y: 2 },
+      height: 2.4,
+      id: 'tall',
+      start: { x: 2, y: 0 },
+    }),
+  ])
+  const shortFaces = faces.filter((face) => face.wallId === 'short')
+  const tallFaces = faces.filter((face) => face.wallId === 'tall')
+
+  assert.ok(shortFaces.length > 0)
+  assert.ok(tallFaces.length > 0)
+  assert.ok(faces.every((face) => face.faceId.startsWith('perimeter:')))
+  assert.equal(
+    Math.max(...shortFaces.flatMap((face) => face.vertices.map((vertex) => vertex.position[1]))),
+    1.2,
+  )
+  assert.equal(
+    Math.max(...tallFaces.flatMap((face) => face.vertices.map((vertex) => vertex.position[1]))),
+    2.4,
+  )
+  assert.ok(
+    faces.some((face) => {
+      const heights = face.vertices.map((vertex) => vertex.position[1])
+      return (
+        face.kind === 'side' &&
+        Math.min(...heights) === 1.2 &&
+        Math.max(...heights) === 2.4
+      )
+    }),
+  )
+  const intermediateTopFaces = faces.filter(
+    (face) =>
+      face.kind === 'top' &&
+      face.vertices.every((vertex) => vertex.position[1] === 1.2),
+  )
+
+  assert.ok(intermediateTopFaces.length > 0)
+  assert.equal(
+    intermediateTopFaces.some((face) =>
+      face.vertices.some((vertex) => vertex.position[2] > 0.2),
+    ),
+    false,
+  )
+})
+
 test('wall body perimeter mesh preserves holes while extruding rings', () => {
   const faces = buildWallBodyPerimeterMeshFaces([
     wall({

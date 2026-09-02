@@ -55,6 +55,8 @@ const polygonClippingRuntime = polygonClipping as typeof polygonClipping & {
 }
 const unionPolygons =
   polygonClippingRuntime.union ?? polygonClippingRuntime.default?.union
+const differencePolygons =
+  polygonClippingRuntime.difference ?? polygonClippingRuntime.default?.difference
 
 function distance(first: Point, second: Point) {
   return Math.hypot(first.x - second.x, first.y - second.y)
@@ -1195,6 +1197,31 @@ function toPerimeters(
       },
     ]
   })
+}
+
+export function subtractWallBodyPerimeters(
+  subject: WallBodyPerimeter,
+  clips: WallBodyPerimeter[],
+) {
+  if (clips.length === 0) {
+    return [subject]
+  }
+
+  const toPerimeterPolygon = (perimeter: WallBodyPerimeter): Polygon => [
+    closeRing(perimeter.outline),
+    ...perimeter.holes.map(closeRing),
+  ]
+  const difference = differencePolygons(
+    toPerimeterPolygon(subject),
+    ...clips.map(toPerimeterPolygon),
+  )
+
+  return toPerimeters(difference, subject.componentId, subject.wallIds).map(
+    (perimeter, index) => ({
+      ...perimeter,
+      componentId: `${subject.componentId}:exposed:${index}`,
+    }),
+  )
 }
 
 export function buildWallBodyPerimeters(

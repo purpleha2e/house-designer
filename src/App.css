@@ -931,22 +931,48 @@
   outline: 2px solid rgba(37, 99, 235, 0.2);
 }
 
+.context-actions dd {
+  display: flex;
+  gap: 6px;
+}
+
 .context-actions button {
   height: 28px;
-  border: 1px solid #fecaca;
   border-radius: 4px;
-  background: #fff1f2;
-  color: #991b1b;
   font: inherit;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
 
-.context-actions button:hover,
-.context-actions button:focus-visible {
+.context-danger-action {
+  border: 1px solid #fecaca;
+  background: #fff1f2;
+  color: #991b1b;
+}
+
+.context-danger-action:hover,
+.context-danger-action:focus-visible {
   background: #fee2e2;
   outline: none;
+}
+
+.context-secondary-action {
+  border: 1px solid #b9c4d4;
+  background: #ffffff;
+  color: #172033;
+}
+
+.context-secondary-action:hover,
+.context-secondary-action:focus-visible {
+  background: #eef2f7;
+  outline: none;
+}
+
+.context-secondary-action[aria-pressed='true'] {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .editor-grid {

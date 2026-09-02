@@ -2,6 +2,7 @@ import { ShapeUtils, Vector2 } from 'three'
 import type { Point, Wall } from '../types.ts'
 import {
   buildWallBodyPerimeters,
+  subtractWallBodyPerimeters,
   type WallBodyPerimeter,
   type WallBodyRing,
 } from './wallBodyPerimeter.ts'
@@ -14,6 +15,7 @@ import {
   type WallGeometryPlan,
 } from './wallPlan.ts'
 import type { WallEndpointKey, WallGraphOptions, WallSide } from './wallGraph.ts'
+import { getCanonicalWallUvDistance } from './wallUv.ts'
 
 export type WallMeshVertex = {
   position: [number, number, number]
@@ -1286,7 +1288,6 @@ function addPerimeterVerticalWallSideFaces({
   edgeLength,
   end,
   faces,
-  height,
   normal,
   ringIndex,
   ringKind,
@@ -1295,12 +1296,13 @@ function addPerimeterVerticalWallSideFaces({
   wall,
   wallId,
   wallSide,
+  yBottom,
+  yTop,
 }: {
   edgeIndex: number
   edgeLength: number
   end: Point
   faces: WallMeshFace[]
-  height: number
   normal: Point
   ringIndex: number
   ringKind: 'hole' | 'outline'
@@ -1309,6 +1311,8 @@ function addPerimeterVerticalWallSideFaces({
   wall: Wall
   wallId: string
   wallSide: WallSide
+  yBottom: number
+  yTop: number
 }) {
   const source = {
     side: wallSide,
@@ -1326,8 +1330,8 @@ function addPerimeterVerticalWallSideFaces({
 
   if (openings.length === 0) {
     addPerimeterVerticalFaceQuad({
-      edgeDistanceEnd: edgeLength,
-      edgeDistanceStart: 0,
+      edgeDistanceEnd: getCanonicalWallUvDistance(wall, end),
+      edgeDistanceStart: getCanonicalWallUvDistance(wall, start),
       end,
       faceId: `perimeter:${sourceWallId}:${ringKind}:${ringIndex}:side:${edgeIndex}`,
       faces,
@@ -1335,8 +1339,8 @@ function addPerimeterVerticalWallSideFaces({
       source,
       start,
       wallId,
-      yBottom: 0,
-      yTop: height,
+      yBottom,
+      yTop,
     })
     return
   }
@@ -1363,14 +1367,14 @@ function addPerimeterVerticalWallSideFaces({
     .filter((value) => value >= intervalStart - 0.0001 && value <= intervalEnd + 0.0001)
     .sort((first, second) => first - second)
   const yBreaks = [
-    0,
-    height,
+    yBottom,
+    yTop,
     ...openings.flatMap((opening) => [
-      Math.max(0, opening.bottom),
-      Math.min(height, opening.top),
+      Math.max(yBottom, opening.bottom),
+      Math.min(yTop, opening.top),
     ]),
   ]
-    .filter((value) => value >= -0.0001 && value <= height + 0.0001)
+    .filter((value) => value >= yBottom - 0.0001 && value <= yTop + 0.0001)
     .sort((first, second) => first - second)
   const uniqueXBreaks = xBreaks.filter(
     (value, index) => index === 0 || Math.abs(value - xBreaks[index - 1]) > 0.0001,
@@ -1413,8 +1417,8 @@ function addPerimeterVerticalWallSideFaces({
       }
 
       addPerimeterVerticalFaceQuad({
-        edgeDistanceEnd: edgeEndDistance,
-        edgeDistanceStart: edgeStartDistance,
+        edgeDistanceEnd: getCanonicalWallUvDistance(wall, segmentEnd),
+        edgeDistanceStart: getCanonicalWallUvDistance(wall, segmentStart),
         end: segmentEnd,
         faceId: `perimeter:${sourceWallId}:${ringKind}:${ringIndex}:side:${edgeIndex}:${xStart}:${xEnd}:${yBottom}:${yTop}`,
         faces,
@@ -1467,10 +1471,12 @@ function addPerimeterTriangleFace({
 function addPerimeterCapFaces({
   faces,
   height,
+  kinds = ['bottom', 'top'],
   perimeter,
 }: {
   faces: WallMeshFace[]
   height: number
+  kinds?: Array<'bottom' | 'top'>
   perimeter: WallBodyPerimeter
 }) {
   const [wallId = perimeter.componentId] = perimeter.wallIds
@@ -1497,35 +1503,41 @@ function addPerimeterCapFaces({
       capPoints[thirdIndex],
     ] as [Point, Point, Point]
 
-    addPerimeterTriangleFace({
-      faceId: `perimeter:${perimeter.componentId}:top:${triangleIndex}`,
-      faces,
-      height,
-      kind: 'top',
-      points,
-      source,
-    })
-    addPerimeterTriangleFace({
-      faceId: `perimeter:${perimeter.componentId}:bottom:${triangleIndex}`,
-      faces,
-      height,
-      kind: 'bottom',
-      points: [points[2], points[1], points[0]],
-      source,
-    })
+    if (kinds.includes('top')) {
+      addPerimeterTriangleFace({
+        faceId: `perimeter:${perimeter.componentId}:top:${height}:${triangleIndex}`,
+        faces,
+        height,
+        kind: 'top',
+        points,
+        source,
+      })
+    }
+    if (kinds.includes('bottom')) {
+      addPerimeterTriangleFace({
+        faceId: `perimeter:${perimeter.componentId}:bottom:${triangleIndex}`,
+        faces,
+        height,
+        kind: 'bottom',
+        points: [points[2], points[1], points[0]],
+        source,
+      })
+    }
   })
 }
 
 function addPerimeterVerticalFaces({
   faces,
-  height,
   perimeter,
   walls,
+  yBottom,
+  yTop,
 }: {
   faces: WallMeshFace[]
-  height: number
   perimeter: WallBodyPerimeter
   walls: Wall[]
+  yBottom: number
+  yTop: number
 }) {
   const [wallId = perimeter.componentId] = perimeter.wallIds
   const addRing = (ring: WallBodyRing, ringKind: 'hole' | 'outline', ringIndex: number) => {
@@ -1546,15 +1558,16 @@ function addPerimeterVerticalFaces({
           edgeLength,
           end,
           faces,
-          height,
           normal: outward,
           ringIndex,
           ringKind,
           sourceWallId: perimeter.componentId,
           start,
           wall: matchedWallSide.wall,
-          wallId,
+          wallId: matchedWallSide.wall.id,
           wallSide: matchedWallSide.side,
+          yBottom,
+          yTop,
         })
         return
       }
@@ -1571,8 +1584,8 @@ function addPerimeterVerticalFaces({
         source,
         start,
         wallId,
-        yBottom: 0,
-        yTop: height,
+        yBottom,
+        yTop,
       })
     })
   }
@@ -1789,10 +1802,17 @@ export function buildWallBodyPerimeterMeshFaces(
   const faces: WallMeshFace[] = []
 
   perimeterPlan.perimeters.forEach((perimeter) => {
-    const height = Math.max(
-      ...perimeter.wallIds.map((wallId) => wallsById.get(wallId)?.height ?? 0),
-      0,
-    )
+    const perimeterWalls = perimeter.wallIds
+      .map((wallId) => wallsById.get(wallId))
+      .filter((wall): wall is Wall => Boolean(wall))
+    const heightLevels = Array.from(
+      new Set(
+        perimeterWalls
+          .map((wall) => Math.round(wall.height * 1000000) / 1000000)
+          .filter((height) => height > 0),
+      ),
+    ).sort((firstHeight, secondHeight) => firstHeight - secondHeight)
+    const height = heightLevels.at(-1) ?? 0
 
     if (height <= 0 || perimeter.outline.length < 3) {
       return
@@ -1801,19 +1821,47 @@ export function buildWallBodyPerimeterMeshFaces(
     addPerimeterCapFaces({
       faces,
       height,
+      kinds: ['bottom'],
       perimeter,
     })
-    addPerimeterVerticalFaces({
-      faces,
-      height,
-      perimeter,
-      walls: perimeter.wallIds
-        .map((wallId) => wallsById.get(wallId))
-        .filter((wall): wall is Wall => Boolean(wall)),
+    const layers = heightLevels.map((yTop) => {
+      const layerWalls = perimeterWalls.filter(
+        (wall) => wall.height >= yTop - 0.000001,
+      )
+
+      return {
+        layerPlan: buildWallBodyPerimeters(layerWalls, options),
+        layerWalls,
+        yTop,
+      }
     })
-    perimeter.wallIds
-      .map((wallId) => wallsById.get(wallId))
-      .filter((wall): wall is Wall => Boolean(wall))
+    let yBottom = 0
+
+    layers.forEach(({ layerPlan, layerWalls, yTop }, layerIndex) => {
+      const nextLayerPerimeters = layers[layerIndex + 1]?.layerPlan.perimeters ?? []
+
+      layerPlan.perimeters.forEach((layerPerimeter) => {
+        addPerimeterVerticalFaces({
+          faces,
+          perimeter: layerPerimeter,
+          walls: layerWalls,
+          yBottom,
+          yTop,
+        })
+        subtractWallBodyPerimeters(layerPerimeter, nextLayerPerimeters).forEach(
+          (exposedPerimeter) => {
+            addPerimeterCapFaces({
+              faces,
+              height: yTop,
+              kinds: ['top'],
+              perimeter: exposedPerimeter,
+            })
+          },
+        )
+      })
+      yBottom = yTop
+    })
+    perimeterWalls
       .filter((wall) => (wall.openings ?? []).length > 0)
       .forEach((wall) => addOpeningRevealFaces({ faces, wall }))
   })

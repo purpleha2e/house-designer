@@ -23,9 +23,9 @@ import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import type { FloorLevel, PlacedModel, Point, Wall, WallKind } from '../types'
 import {
   getModelAssetUrl,
-  modelLibrary,
   modelsById,
 } from '../models/modelLibrary'
+import { snapStairApertureToWalls } from '../stairPlacement'
 import {
   endpointSnapRespectsMinimumJoinAngle,
   wallRespectsMinimumJoinAngles,
@@ -99,6 +99,7 @@ type FloorplanCanvasProps = {
   selectedRoomSignature: string | null
   selectedWallId: string | null
   selectedWallIds: string[]
+  wallHeight: number
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
   onDeleteModel: (modelId: string) => void
@@ -242,7 +243,13 @@ type ModelBounds = {
 }
 
 const modelPreviewCache = new Map<string, HTMLCanvasElement>()
+const modelPreviewPromiseCache = new Map<string, Promise<HTMLCanvasElement>>()
 const modelBoundsCache = new Map<string, ModelBounds>()
+const modelBoundsPromiseCache = new Map<string, Promise<ModelBounds>>()
+const modelGltfPromiseCache = new Map<
+  string,
+  ReturnType<GLTFLoader['loadAsync']>
+>()
 const sharedModelKtx2Loader = new KTX2Loader()
 let sharedModelKtx2Renderer: WebGLRenderer | null = null
 
@@ -261,7 +268,127 @@ function configureModelGltfLoader(loader: GLTFLoader) {
 
 export function clearFloorplanModelAssetCaches() {
   modelPreviewCache.clear()
+  modelPreviewPromiseCache.clear()
   modelBoundsCache.clear()
+  modelBoundsPromiseCache.clear()
+  modelGltfPromiseCache.clear()
+}
+
+function loadModelGltf(sourceUrl: string) {
+  const cachedPromise = modelGltfPromiseCache.get(sourceUrl)
+
+  if (cachedPromise) {
+    return cachedPromise
+  }
+
+  const loader = new GLTFLoader()
+  configureModelGltfLoader(loader)
+  const promise = loader.loadAsync(sourceUrl)
+  modelGltfPromiseCache.set(sourceUrl, promise)
+  promise.catch(() => modelGltfPromiseCache.delete(sourceUrl))
+  return promise
+}
+
+function loadModelBounds(sourceUrl: string) {
+  const cachedPromise = modelBoundsPromiseCache.get(sourceUrl)
+
+  if (cachedPromise) {
+    return cachedPromise
+  }
+
+  const promise = loadModelGltf(sourceUrl).then((gltf) => {
+    const bounds = new Box3().setFromObject(gltf.scene)
+    const size = new Vector3()
+    bounds.getSize(size)
+    return {
+      depth: Math.max(size.z, 0.1),
+      height: Math.max(size.y, 0.1),
+      maxX: bounds.max.x,
+      maxZ: bounds.max.z,
+      minX: bounds.min.x,
+      minZ: bounds.min.z,
+      width: Math.max(size.x, 0.1),
+    }
+  })
+
+  modelBoundsPromiseCache.set(sourceUrl, promise)
+  promise.catch(() => modelBoundsPromiseCache.delete(sourceUrl))
+  return promise
+}
+
+function loadModelPreview(sourceUrl: string) {
+  const cachedPreview = modelPreviewCache.get(sourceUrl)
+
+  if (cachedPreview) {
+    return Promise.resolve(cachedPreview)
+  }
+
+  const cachedPromise = modelPreviewPromiseCache.get(sourceUrl)
+
+  if (cachedPromise) {
+    return cachedPromise
+  }
+
+  const promise = loadModelGltf(sourceUrl).then((gltf) => {
+    const canvas = document.createElement('canvas')
+    const size = 512
+    canvas.width = size
+    canvas.height = size
+
+    const scene = new Scene()
+    const model = gltf.scene.clone(true)
+    scene.add(model)
+
+    const bounds = new Box3().setFromObject(model)
+    const modelSize = new Vector3()
+    const center = new Vector3()
+    bounds.getSize(modelSize)
+    bounds.getCenter(center)
+
+    const cameraSize = Math.max(modelSize.x, modelSize.z, 0.1) * 0.65
+    const camera = new OrthographicCamera(
+      -cameraSize,
+      cameraSize,
+      cameraSize,
+      -cameraSize,
+      0.01,
+      Math.max(modelSize.y * 4, 20),
+    )
+    camera.position.set(
+      center.x,
+      center.y + Math.max(modelSize.y * 2, 10),
+      center.z,
+    )
+    camera.lookAt(center)
+
+    scene.add(new AmbientLight('#ffffff', 1.9))
+    const light = new DirectionalLight('#ffffff', 2.6)
+    light.position.set(center.x + 3, center.y + 6, center.z + 4)
+    scene.add(light)
+
+    const renderer = new WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      canvas,
+      preserveDrawingBuffer: true,
+    })
+    renderer.setClearColor(0x000000, 0)
+    renderer.setPixelRatio(1)
+    renderer.setSize(size, size, false)
+    renderer.render(scene, camera)
+    renderer.forceContextLoss()
+    renderer.dispose()
+
+    modelPreviewCache.set(sourceUrl, canvas)
+    return canvas
+  })
+
+  modelPreviewPromiseCache.set(sourceUrl, promise)
+  promise.then(
+    () => modelPreviewPromiseCache.delete(sourceUrl),
+    () => modelPreviewPromiseCache.delete(sourceUrl),
+  )
+  return promise
 }
 
 function GLBModelPreview({
@@ -294,62 +421,13 @@ function GLBModelPreview({
     }
 
     let isMounted = true
-    const loader = new GLTFLoader()
-    configureModelGltfLoader(loader)
-
-    loader.load(sourceUrl, (gltf) => {
-      if (!isMounted) {
-        return
-      }
-
-      const canvas = document.createElement('canvas')
-      const size = 512
-      canvas.width = size
-      canvas.height = size
-
-      const scene = new Scene()
-      const model = gltf.scene.clone(true)
-      scene.add(model)
-
-      const bounds = new Box3().setFromObject(model)
-      const modelSize = new Vector3()
-      const center = new Vector3()
-      bounds.getSize(modelSize)
-      bounds.getCenter(center)
-
-      const cameraSize = Math.max(modelSize.x, modelSize.z, 0.1) * 0.65
-      const camera = new OrthographicCamera(
-        -cameraSize,
-        cameraSize,
-        cameraSize,
-        -cameraSize,
-        0.01,
-        Math.max(modelSize.y * 4, 20),
-      )
-      camera.position.set(center.x, center.y + Math.max(modelSize.y * 2, 10), center.z)
-      camera.lookAt(center)
-
-      scene.add(new AmbientLight('#ffffff', 1.9))
-      const light = new DirectionalLight('#ffffff', 2.6)
-      light.position.set(center.x + 3, center.y + 6, center.z + 4)
-      scene.add(light)
-
-      const renderer = new WebGLRenderer({
-        alpha: true,
-        antialias: true,
-        canvas,
-        preserveDrawingBuffer: true,
+    loadModelPreview(sourceUrl)
+      .then((canvas) => {
+        if (isMounted) {
+          setPreviewImage(canvas)
+        }
       })
-      renderer.setClearColor(0x000000, 0)
-      renderer.setPixelRatio(1)
-      renderer.setSize(size, size, false)
-      renderer.render(scene, camera)
-      renderer.forceContextLoss()
-      renderer.dispose()
-
-      modelPreviewCache.set(sourceUrl, canvas)
-      setPreviewImage(canvas)
-    })
+      .catch(() => undefined)
 
     return () => {
       isMounted = false
@@ -2329,6 +2407,7 @@ export function FloorplanCanvas({
   selectedRoomSignature,
   selectedWallId,
   selectedWallIds,
+  wallHeight,
   wallKind,
   onAddWall,
   onDeleteModel,
@@ -2377,6 +2456,18 @@ export function FloorplanCanvas({
         : walls,
     [referenceWalls, renderOptions.snapToReferenceFloors, walls],
   )
+  const stairSnapWalls = useMemo(() => {
+    const floorsByElevation = [...floors].sort(
+      (firstFloor, secondFloor) => firstFloor.elevation - secondFloor.elevation,
+    )
+    const activeFloorIndex = floorsByElevation.findIndex(
+      (floor) => floor.id === activeFloor.id,
+    )
+    const upperFloor =
+      activeFloorIndex >= 0 ? floorsByElevation[activeFloorIndex + 1] : undefined
+
+    return upperFloor ? [...walls, ...upperFloor.walls] : walls
+  }, [activeFloor.id, floors, walls])
   const referenceSnapSegments = useMemo(
     () =>
       renderOptions.snapToReferenceFloors
@@ -2442,49 +2533,55 @@ export function FloorplanCanvas({
 
   useEffect(() => {
     let isMounted = true
-    const loader = new GLTFLoader()
-    configureModelGltfLoader(loader)
+    const requiredDefinitions = [
+      ...new Map(
+        (activeFloor.models ?? [])
+          .map((model) => modelsById.get(model.modelId))
+          .filter((definition) => definition?.sourceUrl)
+          .map((definition) => [definition!.id, definition!] as const),
+      ).values(),
+    ]
+    const cachedBounds = Object.fromEntries(
+      requiredDefinitions.flatMap((definition) => {
+        const bounds = modelBoundsCache.get(definition.id)
+        return bounds ? [[definition.id, bounds] as const] : []
+      }),
+    ) as Record<string, ModelBounds>
+    const missingDefinitions = requiredDefinitions.filter(
+      (definition) => !modelBoundsCache.has(definition.id),
+    )
 
-    for (const modelDefinition of modelLibrary) {
-      if (!modelDefinition.sourceUrl || modelBoundsCache.has(modelDefinition.id)) {
-        continue
+    setModelBoundsById(cachedBounds)
+
+    Promise.allSettled(
+      missingDefinitions.map(async (definition) => {
+        const bounds = await loadModelBounds(
+          getModelAssetUrl(definition.sourceUrl!, modelAssetVersion),
+        )
+        modelBoundsCache.set(definition.id, bounds)
+        return [definition.id, bounds] as const
+      }),
+    ).then((results) => {
+      if (!isMounted) {
+        return
       }
 
-      loader.load(getModelAssetUrl(modelDefinition.sourceUrl, modelAssetVersion), (gltf) => {
-        if (!isMounted) {
-          return
-        }
+      const loadedBounds = results.flatMap((result) =>
+        result.status === 'fulfilled' ? [result.value] : [],
+      )
 
-        const bounds = new Box3().setFromObject(gltf.scene)
-        const size = new Vector3()
-        bounds.getSize(size)
-
-        const modelBounds = {
-          depth: Math.max(size.z, 0.1),
-          height: Math.max(size.y, 0.1),
-          maxX: bounds.max.x,
-          maxZ: bounds.max.z,
-          minX: bounds.min.x,
-          minZ: bounds.min.z,
-          width: Math.max(size.x, 0.1),
-        }
-
-        modelBoundsCache.set(modelDefinition.id, modelBounds)
-        setModelBoundsById((currentBounds) => ({
-          ...currentBounds,
-          [modelDefinition.id]: modelBounds,
-        }))
-      })
-    }
-
-    setModelBoundsById(
-      Object.fromEntries(modelBoundsCache.entries()) as Record<string, ModelBounds>,
-    )
+      if (loadedBounds.length > 0) {
+        setModelBoundsById({
+          ...cachedBounds,
+          ...Object.fromEntries(loadedBounds),
+        })
+      }
+    })
 
     return () => {
       isMounted = false
     }
-  }, [modelAssetVersion])
+  }, [activeFloor.models, modelAssetVersion])
 
   useEffect(() => {
     if (!import.meta.env.DEV || !selectedWallId) {
@@ -2625,18 +2722,18 @@ export function FloorplanCanvas({
               draftAngleInput,
               wallKind,
               internalWallThickness,
-              activeFloor.roomHeight,
+              wallHeight,
               snapWalls,
             ),
           }
         : currentDraftWall,
     )
   }, [
-    activeFloor.roomHeight,
     draftLengthInput,
     draftAngleInput,
     internalWallThickness,
     snapWalls,
+    wallHeight,
     wallKind,
   ])
 
@@ -3042,7 +3139,7 @@ export function FloorplanCanvas({
                       draftAngleInput,
                       wallKind,
                       internalWallThickness,
-                      activeFloor.roomHeight,
+                      wallHeight,
                       snapWalls,
                     )
                   : pointerEnd
@@ -3432,6 +3529,11 @@ export function FloorplanCanvas({
 
     const center = toCanvasPoint(model.position)
     const modelBounds = modelBoundsById[modelDefinition.id]
+
+    if (modelDefinition.sourceUrl && !modelBounds) {
+      return []
+    }
+
     const modelScale = model.scale ?? 1
     const nativeWidth = modelBounds?.width ?? modelDefinition.width
     const nativeDepth = modelBounds?.depth ?? modelDefinition.depth
@@ -3479,6 +3581,27 @@ export function FloorplanCanvas({
       baseWidth / 2 + 22 / METERS_TO_PIXELS,
       baseDepth / 2 + 22 / METERS_TO_PIXELS,
     )
+    const getStairSnap = (
+      position: Point,
+      nextRotation = model.rotation,
+      nextScale = modelScale,
+    ) =>
+      modelDefinition.objectType === 'stairs'
+        ? snapStairApertureToWalls({
+            depth: modelDefinition.depth,
+            localBounds: {
+              maxX: boundsMaxX,
+              maxZ: boundsMaxZ,
+              minX: boundsMinX,
+              minZ: boundsMinZ,
+            },
+            position,
+            rotation: nextRotation,
+            scale: nextScale,
+            walls: stairSnapWalls,
+            width: modelDefinition.width,
+          })
+        : null
 
     return (
       <Group
@@ -3506,10 +3629,13 @@ export function FloorplanCanvas({
           const wallMount = isWallMountedModel
             ? getWallMountForPoint(pointerPosition, activeFloor.walls)
             : null
+          const stairSnap = getStairSnap(pointerPosition)
 
           if (wallMount) {
             event.target.position(toCanvasPoint(wallMount.position))
             event.target.rotation((wallMount.rotation * 180) / Math.PI)
+          } else if (stairSnap) {
+            event.target.position(toCanvasPoint(stairSnap.position))
           }
         }}
         onDragStart={(event) => {
@@ -3528,7 +3654,9 @@ export function FloorplanCanvas({
           const wallMount = isWallMountedModel
             ? getWallMountForPoint(pointerPosition, activeFloor.walls)
             : null
-          const nextPosition = wallMount?.position ?? pointerPosition
+          const stairSnap = getStairSnap(pointerPosition)
+          const nextPosition =
+            wallMount?.position ?? stairSnap?.position ?? pointerPosition
           const updates = {
             position: nextPosition,
             rotation: wallMount?.rotation ?? model.rotation,
@@ -3538,51 +3666,58 @@ export function FloorplanCanvas({
           if (wallMount) {
             event.target.position(toCanvasPoint(wallMount.position))
             event.target.rotation((wallMount.rotation * 180) / Math.PI)
+          } else if (stairSnap) {
+            event.target.position(toCanvasPoint(stairSnap.position))
           }
 
           onUpdateModel(model.id, updates)
           setIsDraggingModel(false)
         }}
       >
-        {modelDefinition.sourceUrl ? (
-          <GLBModelPreview
-            height={height}
-            opacity={0.92}
-            sourceUrl={getModelAssetUrl(
-              modelDefinition.sourceUrl,
-              modelAssetVersion,
-            )}
-            stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
-            strokeWidth={isSelectedModel ? 3 : 1}
-            width={width}
-            x={footprintX}
-            y={footprintY}
-          />
-        ) : modelDefinition.shape === 'round' || modelDefinition.shape === 'light' ? (
-          <Circle
-            x={0}
-            y={0}
-            radius={Math.max(width, height) / 2}
-            fill={modelDefinition.color}
-            opacity={0.72}
-            stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
-            strokeWidth={isSelectedModel ? 3 : 1}
-          />
-        ) : (
-          <Rect
-            x={0}
-            y={0}
-            width={width}
-            height={height}
-            offsetX={width / 2}
-            offsetY={height / 2}
-            fill={modelDefinition.color}
-            opacity={0.72}
-            stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
-            strokeWidth={isSelectedModel ? 3 : 1}
-            cornerRadius={4}
-          />
-        )}
+        <Group
+          rotation={model.flipped ? 180 : 0}
+          scaleX={model.mirrored ? -1 : 1}
+        >
+          {modelDefinition.sourceUrl ? (
+            <GLBModelPreview
+              height={height}
+              opacity={0.92}
+              sourceUrl={getModelAssetUrl(
+                modelDefinition.sourceUrl,
+                modelAssetVersion,
+              )}
+              stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
+              strokeWidth={isSelectedModel ? 3 : 1}
+              width={width}
+              x={footprintX}
+              y={footprintY}
+            />
+          ) : modelDefinition.shape === 'round' || modelDefinition.shape === 'light' ? (
+            <Circle
+              x={0}
+              y={0}
+              radius={Math.max(width, height) / 2}
+              fill={modelDefinition.color}
+              opacity={0.72}
+              stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
+              strokeWidth={isSelectedModel ? 3 : 1}
+            />
+          ) : (
+            <Rect
+              x={0}
+              y={0}
+              width={width}
+              height={height}
+              offsetX={width / 2}
+              offsetY={height / 2}
+              fill={modelDefinition.color}
+              opacity={0.72}
+              stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
+              strokeWidth={isSelectedModel ? 3 : 1}
+              cornerRadius={4}
+            />
+          )}
+        </Group>
         {modelDefinition.sourceUrl ? null : (
           <Text
             x={0}
@@ -3637,10 +3772,17 @@ export function FloorplanCanvas({
                   ) +
                   Math.PI / 2
 
+                const nextRotation = event.evt.shiftKey
+                  ? snapRadians(rotation, MODEL_ROTATION_SNAP_RADIANS)
+                  : rotation
+                const stairSnap = getStairSnap(
+                  model.position,
+                  nextRotation,
+                )
+
                 onUpdateModel(model.id, {
-                  rotation: event.evt.shiftKey
-                    ? snapRadians(rotation, MODEL_ROTATION_SNAP_RADIANS)
-                    : rotation,
+                  position: stairSnap?.position ?? model.position,
+                  rotation: nextRotation,
                 })
               }}
               onDragEnd={(event) => {
@@ -3687,12 +3829,20 @@ export function FloorplanCanvas({
                   return
                 }
 
+                const nextScale = clamp(
+                  distance(point, model.position) / baseScaleHandleDistance,
+                  MIN_MODEL_SCALE,
+                  MAX_MODEL_SCALE,
+                )
+                const stairSnap = getStairSnap(
+                  model.position,
+                  model.rotation,
+                  nextScale,
+                )
+
                 onUpdateModel(model.id, {
-                  scale: clamp(
-                    distance(point, model.position) / baseScaleHandleDistance,
-                    MIN_MODEL_SCALE,
-                    MAX_MODEL_SCALE,
-                  ),
+                  position: stairSnap?.position ?? model.position,
+                  scale: nextScale,
                 })
               }}
               onDragEnd={(event) => {

@@ -114,7 +114,7 @@ function getSurfaceTypeLabel(selectedSurface: SelectableSurface) {
     case 'ceiling':
       return 'Ceiling'
     case 'floor-slab-edge':
-      return 'Floor slab edge'
+      return 'Ceiling slab edge'
     case 'portal-floor':
       return 'Doorway floor'
     case 'wall-surface-fragment':
@@ -154,6 +154,15 @@ export function ContextPanel({
 }: ContextPanelProps) {
   const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
   const selectedModelIsSpotlight = selectedModel?.definition.lightKind === 'spot'
+  const selectedModelIsDoor = Boolean(
+    selectedModel &&
+      (selectedModel.definition.wallMount === 'exterior-door' ||
+        selectedModel.definition.wallMount === 'interior-door' ||
+        selectedModel.definition.wallMount === 'patio-door' ||
+        selectedModel.definition.objectType === 'exterior-door' ||
+        selectedModel.definition.objectType === 'interior-door' ||
+        selectedModel.definition.objectType === 'patio-door'),
+  )
   const selectedSurfaceAssignment = selectedSurface
     ? getSelectedSurfaceAssignment(selectedSurface, surfaceAssignments)
     : undefined
@@ -471,11 +480,45 @@ export function ContextPanel({
                 </div>
               </>
             )}
+            {selectedModelIsDoor ? (
+              <div className="context-actions context-door-actions">
+                <dt>Door</dt>
+                <dd>
+                  <button
+                    type="button"
+                    className="context-secondary-action"
+                    aria-pressed={selectedModel.model.flipped === true}
+                    title="Switch the door between inward and outward facing"
+                    onClick={() =>
+                      onUpdateModel(selectedModel.model.id, {
+                        flipped: !selectedModel.model.flipped,
+                      })
+                    }
+                  >
+                    Flip
+                  </button>
+                  <button
+                    type="button"
+                    className="context-secondary-action"
+                    aria-pressed={selectedModel.model.mirrored === true}
+                    title="Mirror the door to move its hinge to the other side"
+                    onClick={() =>
+                      onUpdateModel(selectedModel.model.id, {
+                        mirrored: !selectedModel.model.mirrored,
+                      })
+                    }
+                  >
+                    Mirror
+                  </button>
+                </dd>
+              </div>
+            ) : null}
             <div className="context-actions">
               <dt>Actions</dt>
               <dd>
                 <button
                   type="button"
+                  className="context-danger-action"
                   onClick={() => onDeleteModel(selectedModel.model.id)}
                 >
                   Delete

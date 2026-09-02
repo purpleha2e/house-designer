@@ -259,6 +259,7 @@ export function normalizeFloor(
 
           return {
             ...model,
+            flipped: model.flipped === true,
             height:
               definition?.isLight &&
               (typeof model.height !== 'number' || !Number.isFinite(model.height))
@@ -296,6 +297,7 @@ export function normalizeFloor(
                 !Number.isFinite(model.lightSpread))
                 ? definition.lightSpread
                 : model.lightSpread,
+            mirrored: model.mirrored === true,
             scale:
               typeof model.scale === 'number' && Number.isFinite(model.scale)
                 ? model.scale
@@ -324,6 +326,7 @@ export function createPlacedModel({
     : null
 
   return {
+    flipped: false,
     height: definition?.isLight ? 1.8 : undefined,
     id,
     lightColor: definition?.isLight ? definition.lightColor : undefined,
@@ -332,6 +335,7 @@ export function createPlacedModel({
     lightFalloff: definition?.isLight ? definition.lightFalloff : undefined,
     lightPower: definition?.isLight ? definition.lightPower : undefined,
     lightSpread: definition?.lightKind === 'spot' ? definition.lightSpread : undefined,
+    mirrored: false,
     modelId,
     position: wallMount?.position ?? planCenter,
     rotation: wallMount?.rotation ?? 0,

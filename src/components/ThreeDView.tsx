@@ -79,7 +79,16 @@ import type {
 import { surfaceMaterialsById } from '../materials/materialCatalog'
 import { getModelAssetUrl, modelsById } from '../models/modelLibrary'
 import { subtractPlanCutouts } from '../planarCutouts'
-import { getStairSlabOpenings } from '../stairSlabOpenings'
+import { snapStairApertureToWalls } from '../stairPlacement'
+import {
+  getModelHorizontalBounds,
+  getStairOpeningPolygon,
+  getStairSlabOpenings,
+} from '../stairSlabOpenings'
+import {
+  createCeilingSlabGeometry,
+  offsetEdgeTowardPoint,
+} from '../ceilingSlabGeometry'
 import {
   getClippedInternalWallRenderExtensions,
   getClippedInternalWallFootprints,
@@ -88,9 +97,13 @@ import {
   type WallFootprintRenderGroup,
   type WallUnionFootprint,
 } from '../wallBooleanGeometry'
-import { getRenderedWalls, getWallPolygon, type RenderedWall } from '../wallGeometry'
+import { getWallPolygon, type RenderedWall } from '../wallGeometry'
 import { buildWallTopology, type DetectedRoom } from '../wallTopology'
 import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
+import {
+  findFloorSlabSupportingWall,
+  type FloorSlabSupportingWall,
+} from '../floorSlabEdgeMaterial'
 import { buildWallGeometryPlans } from '../wallEngine/wallPlan'
 import {
   buildRoomWallSurfacePlans,
@@ -122,6 +135,7 @@ const ROOM_BOUNDARY_DEBUG_OVERLAY_ENABLED = false
 const SHADER_WARMUP_ENABLED = true
 const CEILING_VISUAL_OVERLAP_METERS = 0.035
 const CEILING_VERTICAL_OVERLAP_METERS = 0.02
+const CEILING_SLAB_CAP_INSET_METERS = 0.001
 const FLOOR_BASE_VERTICAL_OFFSET_METERS = 0.008
 const FLOOR_FINISH_VERTICAL_OFFSET_METERS = 0.012
 
@@ -273,6 +287,31 @@ type SceneObjectDebugSummary = {
   wallLikeMeshes: SceneObjectDebugEntry[]
 }
 
+type CeilingSlabDebugEntry = {
+  floorId: string
+  highestWallTop: number | null
+  lowestWallTop: number | null
+  slabBottom: number
+  slabTop: number
+  upperFloorElevation: number | null
+  upperFloorId: string | null
+  upperFloorGap: number | null
+  wallGap: number | null
+}
+
+type CeilingSlabEdgeDebugEntry = {
+  edgeIndex: number
+  floorId: string
+  lowerPlaneError: number | null
+  lowerWallId: string | null
+  upperPlaneError: number | null
+  upperWallId: string | null
+  x1: number
+  x2: number
+  z1: number
+  z2: number
+}
+
 type HouseDesignerEngineLogApi = {
   clear: () => void
   current?: () => EngineLogEntry[]
@@ -290,6 +329,8 @@ type HouseDesignerEngineLogApi = {
   wallFaces?: () => WallFaceDebugEntry[]
   routes?: () => WallRenderRouteDebugEntry[]
   sceneObjects?: () => SceneObjectDebugSummary | null
+  ceilingSlabs?: () => CeilingSlabDebugEntry[]
+  ceilingSlabEdges?: () => CeilingSlabEdgeDebugEntry[]
   summary?: () => Array<{ detail?: string; type: string }>
   tableCurrent?: () => void
   tableFootprintFaces?: (floorId?: string) => void
@@ -304,6 +345,9 @@ type HouseDesignerEngineLogApi = {
   tableRoomPlanSummary?: () => void
   tableRoutes?: () => void
   tableSceneObjects?: () => void
+  tableCeilingSlabs?: () => void
+  tableCeilingSlabEdges?: () => void
+  setRoleVisible?: (role: string, visible: boolean) => number
   table: (count?: number) => void
 }
 
@@ -558,14 +602,13 @@ const WALK_HEAD_HEIGHT_METERS = 1.8
 const WALK_LOOK_SENSITIVITY = 0.002
 const WALK_MAX_PITCH_RADIANS = Math.PI / 2 - 0.05
 const XR_STEP_DISTANCE_METERS = 0.45
-const XR_STICK_MOVE_SPEED = 1.4
+const XR_SNAP_TURN_RADIANS = Math.PI / 12
 const XR_STICK_DEADZONE = 0.35
-const XR_MAX_DELTA_SECONDS = 0.05
 const XR_FRAMEBUFFER_SCALE_FACTOR = 0.65
 const XR_FOVEATION = 1
 const XR_MAX_REALTIME_LOCAL_LIGHTS = 4
 const XR_LEFT_EXIT_BUTTON_INDEX = 5
-const XR_STAIRS_BUTTON_OFFSET_METERS = 0.85
+const XR_STAIRS_BUTTON_INSET_METERS = 0.35
 const XR_STAIRS_BUTTON_HEIGHT_METERS = 1
 const XR_PUSH_BUTTON_RADIUS_METERS = 0.025
 const XR_PUSH_BUTTON_CONTACT_RADIUS_METERS = 0.045
@@ -803,6 +846,8 @@ function getFloorRenderResetKey(
         model.position.y,
         model.rotation ?? '',
         model.scale ?? '',
+        model.flipped ?? '',
+        model.mirrored ?? '',
         model.height ?? '',
         model.wallAttachment?.wallId ?? '',
         model.wallAttachment?.offset ?? '',
@@ -1174,10 +1219,6 @@ function getExternalWallLoops(walls: Wall[]) {
   )
 }
 
-function getExternalWallLoop(walls: Wall[]) {
-  return getExternalWallLoops(walls)[0] ?? null
-}
-
 function traceWallLoop(
   firstEdge: FootprintEdge,
   startKey: string,
@@ -1344,40 +1385,12 @@ function getOffsetFootprint(loop: Point[], offset: number) {
   })
 }
 
-function getFloorFootprint(floor: FloorLevel) {
-  const loop = getExternalWallLoop(floor.walls)
-  const externalThickness =
-    floor.walls.find((wall) => wall.kind !== 'internal')?.thickness ?? 0
-
-  return loop ? getOffsetFootprint(loop, externalThickness / 2) : null
-}
-
 function getFloorFootprints(floor: FloorLevel) {
   const loops = getExternalWallLoops(floor.walls)
   const externalThickness =
     floor.walls.find((wall) => wall.kind !== 'internal')?.thickness ?? 0
 
   return loops.map((loop) => getOffsetFootprint(loop, externalThickness / 2))
-}
-
-function getNearestFloorFootprint(floor: FloorLevel, floors: FloorLevel[]) {
-  const ownFootprint = getFloorFootprint(floor)
-
-  if (ownFootprint) {
-    return ownFootprint
-  }
-
-  for (const candidateFloor of [...floors]
-    .filter((candidateFloor) => candidateFloor.elevation < floor.elevation)
-    .sort((firstFloor, secondFloor) => secondFloor.elevation - firstFloor.elevation)) {
-    const candidateFootprint = getFloorFootprint(candidateFloor)
-
-    if (candidateFootprint) {
-      return candidateFootprint
-    }
-  }
-
-  return null
 }
 
 function getWallClipSegmentIntersection(
@@ -1497,24 +1510,6 @@ function getConvexHull(points: Point[]) {
   return [...lowerHull.slice(0, -1), ...upperHull.slice(0, -1)]
 }
 
-function getFloorRoomFootprints(floor: FloorLevel) {
-  return buildWallTopology(floor.walls).rooms.map((room) => room.polygon)
-}
-
-function getFloorWallBodyFootprints(floor: FloorLevel) {
-  return getRenderedWalls(floor.walls).map((renderedWall) => getWallPolygon(renderedWall))
-}
-
-function getUpperFloorCoverageFootprints(floor: FloorLevel) {
-  const floorFootprints = getFloorFootprints(floor)
-
-  if (floorFootprints.length > 0) {
-    return floorFootprints
-  }
-
-  return [...getFloorRoomFootprints(floor), ...getFloorWallBodyFootprints(floor)]
-}
-
 function getIntersectionFootprint(firstFootprint: Point[], secondFootprint: Point[]) {
   if (secondFootprint.every((point) => pointIsInPolygon(point, firstFootprint))) {
     return secondFootprint
@@ -1532,44 +1527,8 @@ function getIntersectionFootprint(firstFootprint: Point[], secondFootprint: Poin
   return intersectionPoints.length >= 3 ? getConvexHull(intersectionPoints) : null
 }
 
-function getSlabFootprints(
-  lowerFloor: FloorLevel,
-  upperFloor: FloorLevel | null,
-  floors: FloorLevel[],
-) {
-  const lowerFootprints = getFloorFootprints(lowerFloor)
-  const lowerFallbackFootprint =
-    lowerFootprints.length > 0
-      ? null
-      : getNearestFloorFootprint(lowerFloor, floors)
-  const effectiveLowerFootprints =
-    lowerFootprints.length > 0
-      ? lowerFootprints
-      : lowerFallbackFootprint
-        ? [lowerFallbackFootprint]
-        : []
-
-  if (!upperFloor) {
-    return effectiveLowerFootprints
-  }
-
-  const upperFootprints = getUpperFloorCoverageFootprints(upperFloor)
-
-  if (effectiveLowerFootprints.length === 0) {
-    return upperFootprints
-  }
-
-  if (upperFootprints.length === 0) {
-    return []
-  }
-
-  return effectiveLowerFootprints
-    .flatMap((lowerFootprint) =>
-      upperFootprints.map((upperFootprint) =>
-        getIntersectionFootprint(lowerFootprint, upperFootprint),
-      ),
-    )
-    .filter((footprint): footprint is Point[] => Boolean(footprint))
+function getCeilingSlabFootprints(upperFloor: FloorLevel | null) {
+  return upperFloor ? getFloorFootprints(upperFloor) : []
 }
 
 function getSceneBounds(floors: FloorLevel[]) {
@@ -3559,6 +3518,29 @@ function getWallFaceMaterialAssignmentForSide(
   )
 }
 
+function getExternalWallSlabEdgeMaterialAssignment(
+  surfaceAssignments: SurfaceMaterialAssignment[],
+  wall: Wall,
+  side: Exclude<SurfaceWallSide, 'both'>,
+) {
+  const wallAssignments = getWallSurfaceMaterialAssignments(
+    surfaceAssignments,
+    wall.id,
+  )
+  const fragmentAssignment = wallAssignments.findLast(
+    (assignment) =>
+      assignment.target.type === 'wall-surface-fragment' &&
+      (assignment.coverageHeight ?? Number.POSITIVE_INFINITY) >=
+        wall.height - 0.001 &&
+      (assignment.target.side === 'both' || assignment.target.side === side),
+  )
+
+  return (
+    fragmentAssignment ??
+    getWallFaceMaterialAssignmentForSide(wallAssignments, side, wall.height)
+  )
+}
+
 function getWallFragmentMaterialAssignmentForSide(
   wallMaterialAssignments: SurfaceMaterialAssignment[],
   fragmentId: string,
@@ -3746,6 +3728,8 @@ const wallFaceDebugEntries = new Map<string, WallFaceDebugEntry[]>()
 const wallGeometryDebugEntries = new Map<string, WallGeometryDumpEntry>()
 const footprintFaceDebugEntries = new Map<string, FootprintFaceDebugEntry[]>()
 const footprintEdgeDebugEntries = new Map<string, FootprintEdgeDebugEntry[]>()
+const ceilingSlabDebugEntries = new Map<string, CeilingSlabDebugEntry>()
+const ceilingSlabEdgeDebugEntries = new Map<string, CeilingSlabEdgeDebugEntry[]>()
 let engineLogSequence = 0
 
 function getSharedKtx2Loader(gl: WebGLRenderer) {
@@ -3765,6 +3749,9 @@ function setGltfKtx2Loader(
 }
 let surfaceTextureLoadsInFlight = 0
 let sceneObjectDebugProvider: (() => SceneObjectDebugSummary) | null = null
+let sceneRoleVisibilityController:
+  | ((role: string, visible: boolean) => number)
+  | null = null
 
 declare global {
   interface Window {
@@ -4452,6 +4439,9 @@ function getWallRenderDebugApi(): HouseDesignerWallRenderDebugApi {
     wallFaces: getWallFaceDebugEntries,
     routes: getWallRenderRouteEntries,
     sceneObjects: () => sceneObjectDebugProvider?.() ?? null,
+    ceilingSlabs: () => Array.from(ceilingSlabDebugEntries.values()),
+    ceilingSlabEdges: () =>
+      Array.from(ceilingSlabEdgeDebugEntries.values()).flat(),
     summary: () =>
       Array.from(wallRenderDebugCurrentEntries.values()).map((entry) => ({
         detail: entry.detail,
@@ -4520,6 +4510,14 @@ function getWallRenderDebugApi(): HouseDesignerWallRenderDebugApi {
       console.table(summary?.wallLikeMeshes ?? [])
       return summary
     },
+    tableCeilingSlabs: () => {
+      console.table(Array.from(ceilingSlabDebugEntries.values()))
+    },
+    tableCeilingSlabEdges: () => {
+      console.table(Array.from(ceilingSlabEdgeDebugEntries.values()).flat())
+    },
+    setRoleVisible: (role, visible) =>
+      sceneRoleVisibilityController?.(role, visible) ?? 0,
     table: (count = 80) => {
       console.table(wallRenderDebugEntries.slice(-count))
     },
@@ -4548,10 +4546,15 @@ function ensureEngineLogApi() {
     typeof window.houseDesignerWallRenderDebug.roomSurfaceFaces !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.roomSurfaceFaceSummary !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.wallFaces !== 'function' ||
+    typeof window.houseDesignerWallRenderDebug.ceilingSlabs !== 'function' ||
+    typeof window.houseDesignerWallRenderDebug.ceilingSlabEdges !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.sceneObjects !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.tableRoomSurfaceFaces !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.tableRoomSurfaceFaceSummary !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.tableWallFaces !== 'function' ||
+    typeof window.houseDesignerWallRenderDebug.tableCeilingSlabs !== 'function' ||
+    typeof window.houseDesignerWallRenderDebug.tableCeilingSlabEdges !== 'function' ||
+    typeof window.houseDesignerWallRenderDebug.setRoleVisible !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.roomPlanProblemDetails !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.roomPlanProblems !== 'function' ||
     typeof window.houseDesignerWallRenderDebug.tableRoomPlanProblemDetails !== 'function' ||
@@ -5177,15 +5180,11 @@ function SceneResourcePreloader({
           return
         }
 
-        const floorIndex = renderedFloors.findIndex(
-          ({ floor }) => floor.id === renderedFloor.floor.id,
-        )
-        const upperFloor = renderedFloors[floorIndex + 1]?.floor ?? null
-        const slabFootprints = getSlabFootprints(
-          renderedFloor.floor,
-          upperFloor,
-          floors,
-        )
+        const upperFloor = renderedFloors
+          .map(({ floor }) => floor)
+          .filter((floor) => floor.elevation > renderedFloor.floor.elevation)
+          .sort((first, second) => first.elevation - second.elevation)[0]
+        const slabFootprints = getCeilingSlabFootprints(upperFloor ?? null)
 
         slabFootprints.forEach((footprint) => {
           footprint.forEach((point, pointIndex) => {
@@ -6549,6 +6548,62 @@ const FakeAmbientOcclusion = memo(function FakeAmbientOcclusion({
   )
 })
 
+function createFloorSlabEdgeUvGeometry({
+  faceHeight,
+  length,
+  normalSign,
+  uvBottom,
+  uvEnd,
+  uvStart,
+}: {
+  faceHeight: number
+  length: number
+  normalSign: -1 | 1
+  uvBottom: number
+  uvEnd: number
+  uvStart: number
+}) {
+  const halfLength = length / 2
+  const halfHeight = faceHeight / 2
+  const geometry = new BufferGeometry()
+  const vertices = [
+    { position: [-halfLength, -halfHeight, 0], uv: [uvStart, uvBottom] },
+    { position: [halfLength, -halfHeight, 0], uv: [uvEnd, uvBottom] },
+    {
+      position: [halfLength, halfHeight, 0],
+      uv: [uvEnd, uvBottom + faceHeight],
+    },
+    {
+      position: [-halfLength, halfHeight, 0],
+      uv: [uvStart, uvBottom + faceHeight],
+    },
+  ]
+  const triangleIndices =
+    normalSign === 1 ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]
+
+  geometry.setAttribute(
+    'position',
+    new Float32BufferAttribute(
+      triangleIndices.flatMap((index) => vertices[index].position),
+      3,
+    ),
+  )
+  geometry.setAttribute(
+    'uv',
+    new Float32BufferAttribute(
+      triangleIndices.flatMap((index) => vertices[index].uv),
+      2,
+    ),
+  )
+  geometry.computeVertexNormals()
+  return geometry
+}
+
+const FLOOR_SLAB_EDGE_WALL_OVERLAP_METERS = CEILING_VERTICAL_OVERLAP_METERS
+const FLOOR_SLAB_EDGE_UPPER_WALL_OVERLAP_METERS = 0.02
+const FLOOR_SLAB_REVEAL_PLAN_OVERLAP_METERS = 0.002
+const FLOOR_SLAB_REVEAL_TOP_OVERLAP_METERS = 0.002
+
 function FloorSlabEdgeFace({
   assignment,
   centerY,
@@ -6560,8 +6615,10 @@ function FloorSlabEdgeFace({
   material,
   onRegisterPickTarget,
   point,
+  pickOnly = false,
   showDefaultSurface = false,
   nextPoint,
+  uvFrame,
   wireframe,
 }: {
   assignment?: SurfaceMaterialAssignment
@@ -6575,7 +6632,14 @@ function FloorSlabEdgeFace({
   nextPoint: Point
   onRegisterPickTarget?: (target: PickTarget) => () => void
   point: Point
+  pickOnly?: boolean
   showDefaultSurface?: boolean
+  uvFrame?: {
+    bottom: number
+    end: number
+    normalSign: -1 | 1
+    start: number
+  }
   wireframe: boolean
 }) {
   const meshRef = useRef<Object3D>(null!)
@@ -6585,9 +6649,27 @@ function FloorSlabEdgeFace({
   const centerX = (point.x + nextPoint.x) / 2
   const centerZ = (point.y + nextPoint.y) / 2
   const rotationY = -Math.atan2(dz, dx)
-  const faceHeight = height ?? floor.slabThickness
+  const lowerWallOverlap = uvFrame ? FLOOR_SLAB_EDGE_WALL_OVERLAP_METERS : 0
+  const upperWallOverlap = 0
+  const faceHeight =
+    (height ?? floor.slabThickness) + lowerWallOverlap + upperWallOverlap
   const y =
-    centerY ?? floor.elevation + floor.roomHeight + floor.slabThickness / 2
+    (centerY ?? floor.elevation + floor.roomHeight + floor.slabThickness / 2) +
+    (upperWallOverlap - lowerWallOverlap) / 2
+  const uvGeometry = useMemo(
+    () =>
+      uvFrame
+        ? createFloorSlabEdgeUvGeometry({
+            faceHeight,
+            length,
+            normalSign: uvFrame.normalSign,
+            uvBottom: uvFrame.bottom - lowerWallOverlap,
+            uvEnd: uvFrame.end,
+            uvStart: uvFrame.start,
+          })
+        : null,
+    [faceHeight, length, lowerWallOverlap, uvFrame],
+  )
   const surface: SelectableSurface = useMemo(
     () => ({
       floorId,
@@ -6611,6 +6693,7 @@ function FloorSlabEdgeFace({
       surface,
     })
   }, [floorId, onRegisterPickTarget, surface])
+  useEffect(() => () => uvGeometry?.dispose(), [uvGeometry])
 
   if (length <= 0.001) {
     return null
@@ -6624,23 +6707,34 @@ function FloorSlabEdgeFace({
       renderOrder={isSelected ? 7 : assignment ? 4 : -1}
     >
       <mesh
-        castShadow={showDefaultSurface || Boolean(assignment)}
-        receiveShadow={showDefaultSurface || Boolean(assignment)}
+        castShadow={!pickOnly && (showDefaultSurface || Boolean(assignment))}
+        receiveShadow={!pickOnly && (showDefaultSurface || Boolean(assignment))}
         ref={meshRef}
+        userData={{ houseDesignerRole: 'ceiling-slab-edge' }}
       >
-        <planeGeometry args={[length, faceHeight]} />
-        {assignment && material ? (
+        {uvGeometry ? (
+          <primitive attach="geometry" object={uvGeometry} />
+        ) : (
+          <planeGeometry args={[length, faceHeight]} />
+        )}
+        {pickOnly ? (
+          <meshBasicMaterial
+            colorWrite={false}
+            depthWrite={false}
+            side={DoubleSide}
+          />
+        ) : assignment && material ? (
           <SurfaceMeshStandardMaterial
             assignment={assignment}
             displacementEnabled={false}
             material={material}
             polygonOffsetFactor={-2}
             polygonOffsetUnits={-2}
-            repeatOverride={getSurfaceRepeatForDimensions(
-              material,
-              length,
-              faceHeight,
-            )}
+            repeatOverride={
+              uvFrame
+                ? undefined
+                : getSurfaceRepeatForDimensions(material, length, faceHeight)
+            }
             side={DoubleSide}
             textureQuality={getWallSurfaceTextureQuality(material)}
             wireframe={wireframe}
@@ -6666,7 +6760,8 @@ function FloorSlabEdgeFace({
           />
         )}
       </mesh>
-      {(showDefaultSurface || (assignment && material)) && isSelected ? (
+      {(pickOnly || showDefaultSurface || (assignment && material)) &&
+      isSelected ? (
         <mesh position={[0, 0, 0.004]}>
           <planeGeometry args={[length, faceHeight]} />
           <meshBasicMaterial
@@ -6683,12 +6778,150 @@ function FloorSlabEdgeFace({
   )
 }
 
+type CeilingSlabOuterEdge = {
+  assignment?: SurfaceMaterialAssignment
+  material?: SurfaceMaterialProduct
+  nextPoint: Point
+  point: Point
+  uvFrame?: {
+    bottom: number
+    end: number
+    normalSign: -1 | 1
+    start: number
+  }
+}
+
+function CeilingSlabSolid({
+  castsShadow,
+  depth,
+  edges,
+  shape,
+  wireframe,
+}: {
+  castsShadow: boolean
+  depth: number
+  edges: readonly CeilingSlabOuterEdge[]
+  shape: Shape
+  wireframe: boolean
+}) {
+  const geometry = useMemo(
+    () =>
+      createCeilingSlabGeometry(
+        shape,
+        depth,
+        edges.map((edge, edgeIndex) => {
+          const dx = edge.nextPoint.x - edge.point.x
+          const dz = edge.nextPoint.y - edge.point.y
+          const length = Math.hypot(dx, dz)
+
+          return {
+            materialIndex: edgeIndex + 1,
+            nextPoint: edge.nextPoint,
+            normalSign: edge.uvFrame?.normalSign ?? 1,
+            point: edge.point,
+            topOverlap: FLOOR_SLAB_EDGE_UPPER_WALL_OVERLAP_METERS,
+            uvBottom:
+              (edge.uvFrame?.bottom ?? 0) -
+              (edge.uvFrame ? FLOOR_SLAB_EDGE_WALL_OVERLAP_METERS : 0),
+            uvEnd: edge.uvFrame?.end ?? length,
+            uvStart: edge.uvFrame?.start ?? 0,
+          }
+        }),
+        CEILING_SLAB_CAP_INSET_METERS,
+      ),
+    [depth, edges, shape],
+  )
+
+  useEffect(() => () => geometry.dispose(), [geometry])
+
+  return (
+    <mesh
+      castShadow={castsShadow}
+      receiveShadow
+      rotation={[-Math.PI / 2, 0, 0]}
+      renderOrder={0}
+      userData={{ houseDesignerRole: 'ceiling-slab-solid' }}
+    >
+      <primitive attach="geometry" object={geometry} />
+      <meshStandardMaterial
+        attach="material-0"
+        color="#cbd5e1"
+        polygonOffset
+        polygonOffsetFactor={1}
+        polygonOffsetUnits={1}
+        roughness={0.82}
+        shadowSide={DoubleSide}
+        side={DoubleSide}
+        wireframe={wireframe}
+      />
+      {edges.map((edge, edgeIndex) =>
+        edge.assignment && edge.material ? (
+          <SurfaceMeshStandardMaterial
+            key={edgeIndex}
+            assignment={edge.assignment}
+            attach={`material-${edgeIndex + 1}`}
+            displacementEnabled={false}
+            material={edge.material}
+            polygonOffsetFactor={1}
+            polygonOffsetUnits={1}
+            side={DoubleSide}
+            textureQuality={getWallSurfaceTextureQuality(edge.material)}
+            wireframe={wireframe}
+          />
+        ) : (
+          <meshStandardMaterial
+            key={edgeIndex}
+            attach={`material-${edgeIndex + 1}`}
+            color="#cbd5e1"
+            polygonOffset
+            polygonOffsetFactor={1}
+            polygonOffsetUnits={1}
+            roughness={0.82}
+            shadowSide={DoubleSide}
+            side={DoubleSide}
+            wireframe={wireframe}
+          />
+        ),
+      )}
+    </mesh>
+  )
+}
+
 const SUN_SHADOW_BLOCKER_USER_DATA = 'houseDesignerSunShadowBlocker'
 
-function FloorSlab({
+function getSlabEdgeWallPlaneError(
+  point: Point,
+  nextPoint: Point,
+  supportingWall: FloorSlabSupportingWall | null,
+) {
+  if (!supportingWall) {
+    return null
+  }
+
+  const wall = supportingWall.wall
+  const wallDx = wall.end.x - wall.start.x
+  const wallDz = wall.end.y - wall.start.y
+  const wallLength = Math.hypot(wallDx, wallDz)
+
+  if (wallLength <= 0.001) {
+    return null
+  }
+
+  const normalX = -wallDz / wallLength
+  const normalZ = wallDx / wallLength
+  const midpointX = (point.x + nextPoint.x) / 2
+  const midpointZ = (point.y + nextPoint.y) / 2
+  const signedDistance =
+    (midpointX - wall.start.x) * normalX +
+    (midpointZ - wall.start.y) * normalZ
+  const wallFaceDistance = (wall.thickness / 2) * supportingWall.side
+
+  return signedDistance - wallFaceDistance
+}
+
+function CeilingSlab({
   castsShadow,
   floor,
-  floors,
   isSolid,
   onRegisterPickTarget,
   openings,
@@ -6700,7 +6933,6 @@ function FloorSlab({
 }: {
   castsShadow: boolean
   floor: FloorLevel
-  floors: FloorLevel[]
   isSolid: boolean
   onRegisterPickTarget?: (target: PickTarget) => () => void
   openings: Point[][]
@@ -6710,7 +6942,45 @@ function FloorSlab({
   upperFloor: FloorLevel | null
   wireframe: boolean
 }) {
-  const footprints = getSlabFootprints(floor, upperFloor, floors)
+  // A solid inter-storey slab occupies this floor's ceiling zone, but follows
+  // the footprint of the storey it supports. An invisible ceiling shadow
+  // blocker follows the current floor and is not structural slab geometry.
+  const footprints = isSolid
+    ? getCeilingSlabFootprints(upperFloor)
+    : getFloorFootprints(floor)
+  const slabBottom =
+    floor.elevation +
+    floor.roomHeight -
+    (isSolid ? CEILING_VERTICAL_OVERLAP_METERS : 0)
+  const slabTop =
+    floor.elevation + floor.roomHeight + floor.slabThickness
+  useEffect(() => {
+    if (!isSolid) {
+      return undefined
+    }
+
+    const wallTops = floor.walls.map(
+      (wall) => floor.elevation + wall.height,
+    )
+    const highestWallTop = wallTops.length > 0 ? Math.max(...wallTops) : null
+    const lowestWallTop = wallTops.length > 0 ? Math.min(...wallTops) : null
+
+    ceilingSlabDebugEntries.set(floor.id, {
+      floorId: floor.id,
+      highestWallTop,
+      lowestWallTop,
+      slabBottom,
+      slabTop,
+      upperFloorElevation: upperFloor?.elevation ?? null,
+      upperFloorGap: upperFloor ? upperFloor.elevation - slabTop : null,
+      upperFloorId: upperFloor?.id ?? null,
+      wallGap: highestWallTop === null ? null : slabBottom - highestWallTop,
+    })
+
+    return () => {
+      ceilingSlabDebugEntries.delete(floor.id)
+    }
+  }, [floor.elevation, floor.id, floor.roomHeight, floor.slabThickness, floor.walls, isSolid, slabBottom, slabTop, upperFloor])
   const edgeAssignment = getFloorSlabEdgeMaterialAssignment(
     surfaceAssignments ?? [],
     floor.id,
@@ -6737,6 +7007,99 @@ function FloorSlab({
     () => slabFootprints.map(createPlanShapeWithHoles),
     [slabFootprints],
   )
+  const slabOuterEdges = useMemo(
+    () =>
+      slabShapes.map((slabShape) => {
+        const points = slabShape.getPoints().map((point) => ({
+          x: point.x,
+          y: -point.y,
+        }))
+
+        return points.map((point, edgeIndex) => {
+          const nextPoint = points[(edgeIndex + 1) % points.length]
+          const supportingWall = findFloorSlabSupportingWall(
+            point,
+            nextPoint,
+            floor.walls,
+          )
+          const upperSupportingWall = upperFloor
+            ? findFloorSlabSupportingWall(point, nextPoint, upperFloor.walls)
+            : null
+          const inheritedAssignment = supportingWall
+            ? getExternalWallSlabEdgeMaterialAssignment(
+                surfaceAssignments ?? [],
+                supportingWall.wall,
+                supportingWall.side,
+              )
+            : undefined
+          const inheritedMaterial = inheritedAssignment
+            ? surfaceMaterialsById.get(inheritedAssignment.materialId)
+            : undefined
+          const inheritsWallMaterial = Boolean(
+            supportingWall && inheritedAssignment && inheritedMaterial,
+          )
+
+          return {
+            assignment: inheritsWallMaterial
+              ? inheritedAssignment
+              : edgeAssignment,
+            material: inheritsWallMaterial ? inheritedMaterial : edgeMaterial,
+            nextPoint,
+            point,
+            supportingWall,
+            upperSupportingWall,
+            uvFrame:
+              inheritsWallMaterial && supportingWall
+                ? {
+                    bottom: supportingWall.wall.height,
+                    end: supportingWall.uvEnd,
+                    normalSign: supportingWall.normalSign,
+                    start: supportingWall.uvStart,
+                  }
+                : undefined,
+          }
+        })
+      }),
+    [
+      edgeAssignment,
+      edgeMaterial,
+      floor.walls,
+      slabShapes,
+      surfaceAssignments,
+      upperFloor,
+    ],
+  )
+  useEffect(() => {
+    ceilingSlabEdgeDebugEntries.set(
+      floor.id,
+      slabOuterEdges.flatMap((edges) =>
+        edges.map((edge, edgeIndex) => ({
+          edgeIndex,
+          floorId: floor.id,
+          lowerPlaneError: getSlabEdgeWallPlaneError(
+            edge.point,
+            edge.nextPoint,
+            edge.supportingWall,
+          ),
+          lowerWallId: edge.supportingWall?.wall.id ?? null,
+          upperPlaneError: getSlabEdgeWallPlaneError(
+            edge.point,
+            edge.nextPoint,
+            edge.upperSupportingWall,
+          ),
+          upperWallId: edge.upperSupportingWall?.wall.id ?? null,
+          x1: Number(edge.point.x.toFixed(3)),
+          x2: Number(edge.nextPoint.x.toFixed(3)),
+          z1: Number(edge.point.y.toFixed(3)),
+          z2: Number(edge.nextPoint.y.toFixed(3)),
+        })),
+      ),
+    )
+
+    return () => {
+      ceilingSlabEdgeDebugEntries.delete(floor.id)
+    }
+  }, [floor.id, slabOuterEdges])
   const openingEdgeRings = useMemo(
     () => slabFootprints.flatMap((footprint) => footprint.holes),
     [slabFootprints],
@@ -6746,7 +7109,8 @@ function FloorSlab({
   const openingRevealTopY =
     (upperFloor?.elevation ??
       floor.elevation + floor.roomHeight + floor.slabThickness) +
-    FLOOR_FINISH_VERTICAL_OFFSET_METERS
+    FLOOR_FINISH_VERTICAL_OFFSET_METERS +
+    FLOOR_SLAB_REVEAL_TOP_OVERLAP_METERS
   const openingRevealHeight = Math.max(
     0.001,
     openingRevealTopY - openingRevealBottomY,
@@ -6762,52 +7126,58 @@ function FloorSlab({
     <group>
       {slabShapes.map((slabShape, index) => (
         <group key={index}>
-          <mesh
-            castShadow={castsShadow && (isSolid || Boolean(sunShadowBlocker))}
-            receiveShadow={isSolid}
-            position={[0, floor.elevation + floor.roomHeight, 0]}
-            rotation={[-Math.PI / 2, 0, 0]}
-            renderOrder={0}
-            userData={{
-              [SUN_SHADOW_BLOCKER_USER_DATA]: !isSolid && Boolean(sunShadowBlocker),
-            }}
-          >
-            <extrudeGeometry
-              args={[
-                slabShape,
-                {
-                  bevelEnabled: false,
-                  depth: floor.slabThickness,
-                },
+          {isSolid ? (
+            <group
+              position={[
+                0,
+                floor.elevation +
+                  floor.roomHeight -
+                  CEILING_VERTICAL_OVERLAP_METERS,
+                0,
               ]}
-            />
-            {isSolid ? (
-              <>
-                <meshStandardMaterial
-                  attach="material-0"
-                  color="#cbd5e1"
-                  roughness={0.82}
-                  shadowSide={DoubleSide}
-                  side={DoubleSide}
-                  wireframe={wireframe}
-                />
-                <meshBasicMaterial attach="material-1" visible={false} />
-              </>
-            ) : (
+            >
+              <CeilingSlabSolid
+                castsShadow={castsShadow}
+                depth={floor.slabThickness + CEILING_VERTICAL_OVERLAP_METERS}
+                edges={slabOuterEdges[index]}
+                shape={slabShape}
+                wireframe={wireframe}
+              />
+            </group>
+          ) : (
+            <mesh
+              castShadow={castsShadow && Boolean(sunShadowBlocker)}
+              position={[0, floor.elevation + floor.roomHeight, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+              userData={{
+                [SUN_SHADOW_BLOCKER_USER_DATA]: Boolean(sunShadowBlocker),
+                houseDesignerRole: 'ceiling-shadow-blocker',
+              }}
+            >
+              <extrudeGeometry
+                args={[
+                  slabShape,
+                  {
+                    bevelEnabled: false,
+                    depth: floor.slabThickness,
+                  },
+                ]}
+              />
               <meshStandardMaterial
                 colorWrite={false}
                 depthWrite={false}
                 shadowSide={DoubleSide}
                 wireframe={wireframe}
               />
-            )}
-          </mesh>
+            </mesh>
+          )}
           {isSolid ? (
             <mesh
               position={[0, floor.elevation + floor.roomHeight - 0.002, 0]}
               receiveShadow
               rotation={[-Math.PI / 2, 0, 0]}
               renderOrder={1}
+              userData={{ houseDesignerRole: 'ceiling-slab-underside' }}
             >
               <shapeGeometry args={[slabShape]} />
               <meshStandardMaterial
@@ -6819,22 +7189,20 @@ function FloorSlab({
             </mesh>
           ) : null}
           {isSolid
-            ? slabShape.getPoints().map((point, edgeIndex, points) => (
+            ? slabOuterEdges[index].map((edge, edgeIndex) => (
                 <FloorSlabEdgeFace
                   key={edgeIndex}
-                  assignment={edgeAssignment}
+                  assignment={edge.assignment}
                   edgeIndex={edgeIndex}
                   floor={floor}
                   floorId={floor.id}
                   isSelected={edgeIsSelected}
-                  material={edgeMaterial}
-                  nextPoint={{
-                    x: points[(edgeIndex + 1) % points.length].x,
-                    y: -points[(edgeIndex + 1) % points.length].y,
-                  }}
+                  material={edge.material}
+                  nextPoint={edge.nextPoint}
                   onRegisterPickTarget={onRegisterPickTarget}
-                  point={{ x: point.x, y: -point.y }}
-                  showDefaultSurface
+                  pickOnly
+                  point={edge.point}
+                  uvFrame={edge.uvFrame}
                   wireframe={wireframe}
                 />
               ))
@@ -6843,24 +7211,40 @@ function FloorSlab({
       ))}
       {isSolid
         ? openingEdgeRings.flatMap((ring, ringIndex) =>
-            ring.map((point, edgeIndex) => (
-              <FloorSlabEdgeFace
-                key={`opening:${ringIndex}:${edgeIndex}`}
-                assignment={edgeAssignment}
-                centerY={openingRevealCenterY}
-                edgeIndex={edgeIndex}
-                floor={floor}
-                floorId={floor.id}
-                height={openingRevealHeight}
-                isSelected={edgeIsSelected}
-                material={edgeMaterial}
-                nextPoint={ring[(edgeIndex + 1) % ring.length]}
-                onRegisterPickTarget={onRegisterPickTarget}
-                point={point}
-                showDefaultSurface
-                wireframe={wireframe}
-              />
-            )),
+            ring.map((point, edgeIndex) => {
+              const center = ring.reduce(
+                (sum, ringPoint) => ({
+                  x: sum.x + ringPoint.x / ring.length,
+                  y: sum.y + ringPoint.y / ring.length,
+                }),
+                { x: 0, y: 0 },
+              )
+              const revealEdge = offsetEdgeTowardPoint(
+                point,
+                ring[(edgeIndex + 1) % ring.length],
+                center,
+                FLOOR_SLAB_REVEAL_PLAN_OVERLAP_METERS,
+              )
+
+              return (
+                <FloorSlabEdgeFace
+                  key={`opening:${ringIndex}:${edgeIndex}`}
+                  assignment={edgeAssignment}
+                  centerY={openingRevealCenterY}
+                  edgeIndex={edgeIndex}
+                  floor={floor}
+                  floorId={floor.id}
+                  height={openingRevealHeight}
+                  isSelected={edgeIsSelected}
+                  material={edgeMaterial}
+                  nextPoint={revealEdge.nextPoint}
+                  onRegisterPickTarget={onRegisterPickTarget}
+                  point={revealEdge.point}
+                  showDefaultSurface
+                  wireframe={wireframe}
+                />
+              )
+            }),
           )
         : null}
     </group>
@@ -10048,6 +10432,7 @@ function ModelMesh({
   onTransformActiveChange,
   onUpdateModel,
   shadowsEnabled,
+  stairSnapWalls,
   transformEnabled,
   transformMode,
   walls,
@@ -10067,6 +10452,7 @@ function ModelMesh({
   onTransformActiveChange: (isActive: boolean) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
   shadowsEnabled: boolean
+  stairSnapWalls: Wall[]
   transformEnabled: boolean
   transformMode: TransformMode
   walls: Wall[]
@@ -10176,9 +10562,11 @@ function ModelMesh({
     }
   }, [isActive, isSelected])
   const objectCollides = ({
+    ignoreWalls = false,
     ignoredWallId,
     tolerance = 0,
   }: {
+    ignoreWalls?: boolean
     ignoredWallId?: string
     tolerance?: number
   } = {}) => {
@@ -10199,7 +10587,7 @@ function ModelMesh({
 
     const objectBox = new Box3().setFromObject(collisionTarget)
     const objectBounds = getPlanAabbFromBox(objectBox)
-    const collidesWithWall = walls.some((wall) => {
+    const collidesWithWall = !ignoreWalls && walls.some((wall) => {
       if (wall.id === ignoredWallId) {
         return false
       }
@@ -10310,7 +10698,19 @@ function ModelMesh({
       x: object.position.x,
       y: object.position.z,
     }
-    const wallSnap = snappingDisabled || modelDefinition.wallMount || modelDefinition.isLight
+    const isStairs = modelDefinition.objectType === 'stairs'
+    const stairSnap = snappingDisabled || !isStairs
+      ? null
+      : snapStairApertureToWalls({
+          depth: modelDefinition.depth,
+          localBounds: importedLocalBounds,
+          position: transformedPosition,
+          rotation: -object.rotation.y,
+          scale: uniformScale,
+          walls: stairSnapWalls,
+          width: modelDefinition.width,
+        })
+    const wallSnap = snappingDisabled || isStairs || modelDefinition.wallMount || modelDefinition.isLight
       ? null
       : getModelWallSnap(
           transformedPosition,
@@ -10319,19 +10719,23 @@ function ModelMesh({
           walls,
         )
 
-    if (wallSnap) {
+    if (stairSnap) {
+      object.position.x = stairSnap.position.x
+      object.position.z = stairSnap.position.y
+    } else if (wallSnap) {
       object.position.x = wallSnap.position.x
       object.position.z = wallSnap.position.y
       object.rotation.y = -wallSnap.rotation
     }
 
-    if (!snappingDisabled) {
+    if (!snappingDisabled && !isStairs) {
       applyObjectEdgeSnap()
     }
 
     if (
       !snappingDisabled &&
       objectCollides({
+        ignoreWalls: isStairs,
         ignoredWallId: wallSnap?.wallId,
       })
     ) {
@@ -10373,13 +10777,10 @@ function ModelMesh({
       wallAttachment: undefined,
     })
   }
-  const modelGroup = (
+  const localModelTransform = (
     <group
-      ref={groupRef}
-      position={[model.position.x, floorSnapY, model.position.y]}
-      rotation={[0, -model.rotation, 0]}
-      scale={model.scale}
-      renderOrder={isActive ? 3 : 1}
+      rotation={[0, model.flipped ? Math.PI : 0, 0]}
+      scale={[model.mirrored ? -1 : 1, 1, 1]}
     >
       {modelDefinition.isLight ? (
         <LightModelContent
@@ -10425,6 +10826,17 @@ function ModelMesh({
           wireframe={wireframe}
         />
       )}
+    </group>
+  )
+  const modelGroup = (
+    <group
+      ref={groupRef}
+      position={[model.position.x, floorSnapY, model.position.y]}
+      rotation={[0, -model.rotation, 0]}
+      scale={model.scale}
+      renderOrder={isActive ? 3 : 1}
+    >
+      {localModelTransform}
     </group>
   )
 
@@ -10540,6 +10952,7 @@ function SolidFloorScene({
   selectedSurface,
   shadowsEnabled,
   showWallPerimeter,
+  stairSnapWalls,
   surfaceAssignments,
   transformEnabled,
   transformMode,
@@ -10569,6 +10982,7 @@ function SolidFloorScene({
   selectedSurface: SelectableSurface | null
   shadowsEnabled: boolean
   showWallPerimeter: boolean
+  stairSnapWalls: Wall[]
   surfaceAssignments: SurfaceMaterialAssignment[]
   transformEnabled: boolean
   transformMode: TransformMode
@@ -10809,6 +11223,7 @@ function SolidFloorScene({
               onTransformActiveChange={onTransformActiveChange}
               onUpdateModel={onUpdateModel}
               shadowsEnabled={shadowsEnabled}
+              stairSnapWalls={stairSnapWalls}
               transformEnabled={transformEnabled}
               transformMode={transformMode}
               walls={floor.walls}
@@ -11860,9 +12275,21 @@ function SceneRenderInvalidator({
 }
 
 function SceneObjectDebugProbe() {
-  const { scene } = useThree()
+  const { invalidate, scene } = useThree()
 
   useEffect(() => {
+    sceneRoleVisibilityController = (role, visible) => {
+      let changed = 0
+
+      scene.traverse((object) => {
+        if (object.userData.houseDesignerRole === role) {
+          object.visible = visible
+          changed += 1
+        }
+      })
+      invalidate()
+      return changed
+    }
     sceneObjectDebugProvider = () => {
       const meshes: SceneObjectDebugEntry[] = []
 
@@ -11914,8 +12341,11 @@ function SceneObjectDebugProbe() {
       if (sceneObjectDebugProvider) {
         sceneObjectDebugProvider = null
       }
+      if (sceneRoleVisibilityController) {
+        sceneRoleVisibilityController = null
+      }
     }
-  }, [scene])
+  }, [invalidate, scene])
 
   return null
 }
@@ -12234,7 +12664,11 @@ function XRLocomotionControls({
   const initialPositionAppliedRef = useRef(false)
   const queuedStepsRef = useRef(0)
   const forwardRef = useRef(new Vector3())
+  const turnUpRef = useRef(new Vector3(0, 1, 0))
+  const turnPivotRef = useRef(new Vector3())
+  const rotatedTurnPivotRef = useRef(new Vector3())
   const previousLeftExitButtonPressedRef = useRef(false)
+  const rightStickLatchedRef = useRef(false)
 
   const applyActiveFloorElevation = useCallback(() => {
     const elevationDelta = activeFloorElevation - appliedFloorElevationRef.current
@@ -12298,6 +12732,45 @@ function XRLocomotionControls({
     [gl],
   )
 
+  const turnViewer = useCallback(
+    (angle: number) => {
+      if (!gl.xr.isPresenting || Math.abs(angle) <= 0) {
+        return
+      }
+
+      const referenceSpace = gl.xr.getReferenceSpace()
+
+      if (!referenceSpace || typeof XRRigidTransform === 'undefined') {
+        return
+      }
+
+      const halfAngle = angle / 2
+      const pivot = gl.xr.getCamera().getWorldPosition(turnPivotRef.current)
+      pivot.y = 0
+      const rotatedPivot = rotatedTurnPivotRef.current
+        .copy(pivot)
+        .applyAxisAngle(turnUpRef.current, angle)
+      gl.xr.setReferenceSpace(
+        referenceSpace.getOffsetReferenceSpace(
+          new XRRigidTransform(
+            {
+              x: pivot.x - rotatedPivot.x,
+              y: 0,
+              z: pivot.z - rotatedPivot.z,
+            },
+            {
+              x: 0,
+              y: Math.sin(halfAngle),
+              z: 0,
+              w: Math.cos(halfAngle),
+            },
+          ),
+        ),
+      )
+    },
+    [gl],
+  )
+
   useEffect(() => {
     const controllers = [gl.xr.getController(0), gl.xr.getController(1)]
     const queueForwardStep = () => {
@@ -12315,12 +12788,13 @@ function XRLocomotionControls({
     }
   }, [gl])
 
-  useFrame((_, delta) => {
+  useFrame(() => {
     if (!gl.xr.isPresenting) {
       appliedFloorElevationRef.current = 0
       initialPositionAppliedRef.current = false
       queuedStepsRef.current = 0
       previousLeftExitButtonPressedRef.current = false
+      rightStickLatchedRef.current = false
       return
     }
 
@@ -12358,7 +12832,8 @@ function XRLocomotionControls({
       return
     }
 
-    let strongestStickY = 0
+    let rightStickX = 0
+    let rightStickY = 0
     let leftExitButtonPressed = false
 
     for (const inputSource of session.inputSources) {
@@ -12382,17 +12857,23 @@ function XRLocomotionControls({
         leftExitButtonPressed = true
       }
 
-      const yCandidates = [axes[3], axes[1]].filter(
-        (axis): axis is number => typeof axis === 'number',
-      )
-      const stickY = yCandidates.reduce(
-        (strongest, axis) =>
-          Math.abs(axis) > Math.abs(strongest) ? axis : strongest,
-        0,
-      )
-
-      if (Math.abs(stickY) > Math.abs(strongestStickY)) {
-        strongestStickY = stickY
+      if (inputSource.handedness === 'right') {
+        const xCandidates = [axes[2], axes[0]].filter(
+          (axis): axis is number => typeof axis === 'number',
+        )
+        const yCandidates = [axes[3], axes[1]].filter(
+          (axis): axis is number => typeof axis === 'number',
+        )
+        rightStickX = xCandidates.reduce(
+          (strongest, axis) =>
+            Math.abs(axis) > Math.abs(strongest) ? axis : strongest,
+          0,
+        )
+        rightStickY = yCandidates.reduce(
+          (strongest, axis) =>
+            Math.abs(axis) > Math.abs(strongest) ? axis : strongest,
+          0,
+        )
       }
     }
 
@@ -12410,14 +12891,31 @@ function XRLocomotionControls({
 
     previousLeftExitButtonPressedRef.current = leftExitButtonPressed
 
-    if (Math.abs(strongestStickY) <= XR_STICK_DEADZONE) {
+    const stickMagnitude = Math.max(
+      Math.abs(rightStickX),
+      Math.abs(rightStickY),
+    )
+
+    if (stickMagnitude <= XR_STICK_DEADZONE) {
+      rightStickLatchedRef.current = false
+      return
+    }
+
+    if (rightStickLatchedRef.current) {
+      return
+    }
+
+    rightStickLatchedRef.current = true
+
+    if (Math.abs(rightStickX) > Math.abs(rightStickY)) {
+      turnViewer(
+        rightStickX > 0 ? XR_SNAP_TURN_RADIANS : -XR_SNAP_TURN_RADIANS,
+      )
       return
     }
 
     moveViewer(
-      -strongestStickY *
-        XR_STICK_MOVE_SPEED *
-        Math.min(delta, XR_MAX_DELTA_SECONDS),
+      rightStickY < 0 ? XR_STEP_DISTANCE_METERS : -XR_STEP_DISTANCE_METERS,
     )
   })
 
@@ -12450,22 +12948,45 @@ function getNextFloorBelow(activeFloor: FloorLevel | null, floors: FloorLevel[])
 
 function getStairsButtonPosition(
   model: PlacedModel,
+  definition: NonNullable<ReturnType<typeof modelsById.get>>,
   elevation: number,
   landing: 'lower' | 'upper',
 ): [number, number, number] {
-  const direction = {
-    x: Math.sin(model.rotation),
-    y: Math.cos(model.rotation),
+  const polygon = getStairOpeningPolygon(
+    model.position,
+    model.rotation,
+    definition.width,
+    definition.depth,
+    model.scale || 1,
+    getModelHorizontalBounds(definition),
+  )
+  const landingPoints = landing === 'lower' ? [polygon[0], polygon[1]] : [polygon[2], polygon[3]]
+  const landingCenter = {
+    x: (landingPoints[0].x + landingPoints[1].x) / 2,
+    y: (landingPoints[0].y + landingPoints[1].y) / 2,
   }
-  const directionMultiplier = landing === 'lower' ? -1 : 1
+  const polygonCenter = polygon.reduce(
+    (center, point) => ({
+      x: center.x + point.x / polygon.length,
+      y: center.y + point.y / polygon.length,
+    }),
+    { x: 0, y: 0 },
+  )
+  const inward = new Vector2(
+    polygonCenter.x - landingCenter.x,
+    polygonCenter.y - landingCenter.y,
+  ).normalize()
 
   return [
-    model.position.x +
-      direction.x * XR_STAIRS_BUTTON_OFFSET_METERS * directionMultiplier,
+    landingCenter.x + inward.x * XR_STAIRS_BUTTON_INSET_METERS,
     elevation + XR_STAIRS_BUTTON_HEIGHT_METERS,
-    model.position.y +
-      direction.y * XR_STAIRS_BUTTON_OFFSET_METERS * directionMultiplier,
+    landingCenter.y + inward.y * XR_STAIRS_BUTTON_INSET_METERS,
   ]
+}
+
+function getStairsDefinition(model: PlacedModel) {
+  const definition = modelsById.get(model.modelId)
+  return definition?.objectType === 'stairs' ? definition : null
 }
 
 function XRStairsPushButton({
@@ -12608,11 +13129,15 @@ function XRControllerVisualsAndButtons({
 
     const upwardButtons = nextFloor
       ? (activeFloor.models ?? [])
-          .filter((model) => model.modelId === 'simple-stairs')
-          .map((model) => ({
+          .flatMap((model) => {
+            const definition = getStairsDefinition(model)
+            return definition ? [{ model, definition }] : []
+          })
+          .map(({ model, definition }) => ({
             id: `up:${model.id}`,
             position: getStairsButtonPosition(
               model,
+              definition,
               activeFloor.elevation,
               'lower',
             ),
@@ -12621,11 +13146,15 @@ function XRControllerVisualsAndButtons({
       : []
     const downwardButtons = previousFloor
       ? (previousFloor.models ?? [])
-          .filter((model) => model.modelId === 'simple-stairs')
-          .map((model) => ({
+          .flatMap((model) => {
+            const definition = getStairsDefinition(model)
+            return definition ? [{ model, definition }] : []
+          })
+          .map(({ model, definition }) => ({
             id: `down:${model.id}`,
             position: getStairsButtonPosition(
               model,
+              definition,
               activeFloor.elevation,
               'upper',
             ),
@@ -14264,6 +14793,7 @@ export function ThreeDView({
   const threeHostRef = useRef<HTMLDivElement | null>(null)
   const [isTransformingModel, setIsTransformingModel] = useState(false)
   const [isXrPresenting, setIsXrPresenting] = useState(false)
+  const showAllFloorsInScene = showAllFloors || isXrPresenting
   const engineStatusRef = useRef<HTMLDivElement>(null)
   const engineStatusTimerRef = useRef<number | null>(null)
   const latestEngineActivityIdRef = useRef(0)
@@ -14458,7 +14988,7 @@ export function ThreeDView({
   const occlusionCullingEnabled = false
   const visibleRenderedFloors = useMemo(
     () =>
-      showAllFloors
+      showAllFloorsInScene
         ? renderedFloors
         : (renderOptions.referenceFloors
             ? floors.filter(
@@ -14476,15 +15006,15 @@ export function ThreeDView({
       renderedFloors,
       renderedFloorsById,
       renderOptions.referenceFloors,
-      showAllFloors,
+      showAllFloorsInScene,
     ],
   )
   const allFloorsPlane = useMemo(
     () =>
-      showAllFloors && renderOptions.groundPlane
+      showAllFloorsInScene && renderOptions.groundPlane
         ? getFloorsPlaneBounds(visibleRenderedFloors.map((renderedFloor) => renderedFloor.floor))
         : null,
-    [renderOptions.groundPlane, showAllFloors, visibleRenderedFloors],
+    [renderOptions.groundPlane, showAllFloorsInScene, visibleRenderedFloors],
   )
   const windowDaylightPortalSlots = useMemo(
     () => getWindowDaylightPortalSlots(visibleRenderedFloors, lightDirection),
@@ -14514,14 +15044,14 @@ export function ThreeDView({
   const shaderWarmupKey = useMemo(
     () =>
       JSON.stringify({
-        floorCount: showAllFloors
+        floorCount: showAllFloorsInScene
           ? floors.length
           : floors.some((floor) => floor.id === activeFloorId)
             ? 1
             : 0,
         modelVariants: Array.from(
           new Set(
-            (showAllFloors
+            (showAllFloorsInScene
               ? floors
               : floors.filter((floor) => floor.id === activeFloorId)
             ).flatMap((floor) =>
@@ -14551,7 +15081,7 @@ export function ThreeDView({
           windowDaylight: renderOptions.windowDaylight,
           wireframe: renderOptions.wireframe,
         },
-        showAllFloors,
+        showAllFloors: showAllFloorsInScene,
         surfaceMaterialVariants: Array.from(
           new Set(
             surfaceAssignments.map((assignment) => {
@@ -14570,7 +15100,7 @@ export function ThreeDView({
         ).sort(),
         wallKinds: Array.from(
           new Set(
-            (showAllFloors
+            (showAllFloorsInScene
               ? floors
               : floors.filter((floor) => floor.id === activeFloorId)
             ).flatMap((floor) => floor.walls.map((wall) => wall.kind)),
@@ -14592,12 +15122,12 @@ export function ThreeDView({
       renderOptions.wallPerimeter,
       renderOptions.windowDaylight,
       renderOptions.wireframe,
-      showAllFloors,
+      showAllFloorsInScene,
       surfaceAssignments,
     ],
   )
   const lightIndicator = useMemo(() => {
-    const scopedFloors = showAllFloors
+    const scopedFloors = showAllFloorsInScene
       ? floors
       : floors.filter((floor) => floor.id === activeFloorId)
     const scopedLightModels = scopedFloors.flatMap((floor) =>
@@ -14612,7 +15142,7 @@ export function ThreeDView({
       ).length,
       total: scopedLightModels.length,
     }
-  }, [activeFloorId, floors, localLightIds, showAllFloors])
+  }, [activeFloorId, floors, localLightIds, showAllFloorsInScene])
   useEffect(() => {
     const latestStats = latestRendererStatsRef.current
 
@@ -15342,7 +15872,7 @@ export function ThreeDView({
                     checked={renderOptions.floorSlabs}
                     onChange={() => updateRenderOption('floorSlabs')}
                   />
-                  Floor slabs
+                  Ceiling slabs
                 </label>
               </div>
             ) : null}
@@ -15605,16 +16135,16 @@ export function ThreeDView({
               const visibleRoomsForFloor = rooms
               const visibleModelsForFloor = floor.models ?? []
               const floorPlane =
-                renderOptions.groundPlane && !showAllFloors && isActive
+                renderOptions.groundPlane && !showAllFloorsInScene && isActive
                   ? getFloorPlaneBounds(floor)
                   : null
               const shouldRenderSlab =
-                !showAllFloors &&
+                !showAllFloorsInScene &&
                 ((renderOptions.floorSlabs &&
                   floor.id === floorBelowActive?.id) ||
                   (renderOptions.shadows && isActive))
 
-              if (showAllFloors) {
+              if (showAllFloorsInScene) {
                 return (
                   <group key={`${sceneRevision}:${floor.id}`}>
                       <FloorRenderBoundary
@@ -15624,11 +16154,10 @@ export function ThreeDView({
                           surfaceAssignments,
                         )}
                       >
-                      {renderOptions.floorSlabs ? (
-                        <FloorSlab
+                      {renderOptions.floorSlabs && upperFloor ? (
+                        <CeilingSlab
                           castsShadow={renderOptions.shadows}
                           floor={floor}
-                          floors={floors}
                           isSolid
                           onRegisterPickTarget={registerPickTarget}
                           openings={ceilingOpenings}
@@ -15707,6 +16236,11 @@ export function ThreeDView({
                         selectedSurface={selectedSurface}
                         shadowsEnabled={renderOptions.shadows}
                         showWallPerimeter={renderOptions.wallPerimeter}
+                        stairSnapWalls={
+                          upperFloor
+                            ? [...floor.walls, ...upperFloor.walls]
+                            : floor.walls
+                        }
                         surfaceAssignments={surfaceAssignments}
                         transformEnabled={transformEnabled}
                         transformMode={transformMode}
@@ -15729,10 +16263,9 @@ export function ThreeDView({
                     )}
                   >
                     {shouldRenderSlab ? (
-                      <FloorSlab
+                      <CeilingSlab
                         castsShadow={renderOptions.shadows}
                         floor={floor}
-                        floors={floors}
                         isSolid={slabIsSolid}
                         onRegisterPickTarget={registerPickTarget}
                         openings={ceilingOpenings}
@@ -15985,6 +16518,11 @@ export function ThreeDView({
                               onTransformActiveChange={setTransformingModel}
                               onUpdateModel={onUpdateModel}
                               shadowsEnabled={renderOptions.shadows}
+                              stairSnapWalls={
+                                upperFloor
+                                  ? [...floor.walls, ...upperFloor.walls]
+                                  : floor.walls
+                              }
                               transformEnabled={transformEnabled}
                               transformMode={transformMode}
                               walls={floor.walls}

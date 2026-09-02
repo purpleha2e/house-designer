@@ -35,6 +35,10 @@ type PortalAsset = {
   inferredDimensions?: {
     depth: number
     height: number
+    maxX?: number
+    maxZ?: number
+    minX?: number
+    minZ?: number
     width: number
   } | null
   manufacturer: PortalManufacturer

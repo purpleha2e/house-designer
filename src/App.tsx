@@ -522,6 +522,7 @@ function App() {
   const [internalWallThickness, setInternalWallThickness] = useState(
     DEFAULT_INTERNAL_THICKNESS,
   )
+  const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [projectFileName, setProjectFileName] = useState('springfield_13.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
@@ -784,7 +785,7 @@ function App() {
                     wallKind === 'external'
                       ? DEFAULT_THICKNESS
                       : internalWallThickness,
-                  height: targetFloor.roomHeight,
+                  height: Math.min(newWallHeight, targetFloor.roomHeight),
                 },
               ],
             }
@@ -930,6 +931,34 @@ function App() {
     setSelectedModelId(null)
     setSelectedModelIds([])
     setIsAddingWall(false)
+  }
+
+  const updateActiveFloorSlabThickness = (slabThickness: number) => {
+    const targetFloor = floors.find((floor) => floor.id === activeFloorId)
+
+    if (!targetFloor || Math.abs(targetFloor.slabThickness - slabThickness) <= 0.000001) {
+      return
+    }
+
+    const elevationDelta = slabThickness - targetFloor.slabThickness
+    recordHistory()
+    setFloors((currentFloors) =>
+      currentFloors.map((floor) => {
+        if (floor.id === targetFloor.id) {
+          return {
+            ...floor,
+            slabThickness,
+          }
+        }
+
+        return floor.elevation > targetFloor.elevation
+          ? {
+              ...floor,
+              elevation: floor.elevation + elevationDelta,
+            }
+          : floor
+      }),
+    )
   }
 
   const deleteActiveFloor = () => {
@@ -1961,6 +1990,7 @@ function App() {
         selectedFloorViewId={selectedFloorViewId}
         selectedWallHeight={selectedSurfaceWall?.height ?? null}
         wallCount={totalWallCount}
+        wallHeight={Math.min(newWallHeight, activeFloor.roomHeight)}
         wallKind={wallKind}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
@@ -1987,9 +2017,11 @@ function App() {
           setSelectedModelIds([])
           setIsAddingWall(false)
         }}
+        onSlabThicknessChange={updateActiveFloorSlabThickness}
         onToggleAddWall={() => setIsAddingWall((value) => !value)}
         onUndo={undo}
         onInternalWallThicknessChange={setInternalWallThickness}
+        onWallHeightChange={setNewWallHeight}
         onWallKindChange={(nextWallKind) => {
           recordHistory()
           setWallKind(nextWallKind)
@@ -2022,6 +2054,7 @@ function App() {
           selectedModelIds={selectedModelIds}
           selectedWallId={selectedWallId}
           selectedWallIds={selectedWallIds}
+          wallHeight={Math.min(newWallHeight, activeFloor.roomHeight)}
           wallKind={wallKind}
           onAddWall={addWall}
           onDeleteModel={deleteModel}
@@ -2114,7 +2147,11 @@ function App() {
           onClearSelection={clearThreeDSelection}
           onSelectFloor={(floorId) => {
             setActiveFloorId(floorId)
-            setSelectedFloorViewId(floorId)
+            setSelectedFloorViewId((currentFloorViewId) =>
+              currentFloorViewId === ALL_FLOORS_VIEW_ID
+                ? currentFloorViewId
+                : floorId,
+            )
             clearThreeDSelection()
           }}
           onSelectModel={selectModelFromThreeD}

@@ -16,7 +16,10 @@ type WallMaterialMode = 'full' | 'lower'
 
 const MIN_INTERNAL_WALL_THICKNESS = 0.05
 const MAX_INTERNAL_WALL_THICKNESS = 0.3
+const MIN_WALL_HEIGHT = 0.05
 const MIN_TEXTURE_SCALE = 0.001
+const MIN_SLAB_THICKNESS = 0.05
+const MAX_SLAB_THICKNESS = 1
 
 const clampInternalWallThickness = (thickness: number) =>
   Math.min(
@@ -56,6 +59,7 @@ type LeftToolRailProps = {
   selectedFloorViewId: string
   selectedWallHeight: number | null
   wallCount: number
+  wallHeight: number
   wallKind: WallKind
   onAddEmptyFloor: () => void
   onAddFloor: () => void
@@ -78,8 +82,10 @@ type LeftToolRailProps = {
   onRedo: () => void
   onSaveProject: () => void
   onSelectFloor: (floorId: string) => void
+  onSlabThicknessChange: (thickness: number) => void
   onToggleAddWall: () => void
   onUndo: () => void
+  onWallHeightChange: (height: number) => void
   onWallKindChange: (wallKind: WallKind) => void
 }
 
@@ -124,6 +130,7 @@ export function LeftToolRail({
   selectedSurface,
   selectedFloorViewId,
   selectedWallHeight,
+  wallHeight,
   wallKind,
   onAddEmptyFloor,
   onAddFloor,
@@ -138,8 +145,10 @@ export function LeftToolRail({
   onRedo,
   onSaveProject,
   onSelectFloor,
+  onSlabThicknessChange,
   onToggleAddWall,
   onUndo,
+  onWallHeightChange,
   onWallKindChange,
 }: LeftToolRailProps) {
   const [openPanel, setOpenPanel] = useState<RailPanel | null>(null)
@@ -157,9 +166,20 @@ export function LeftToolRail({
   const [internalWallThicknessDraft, setInternalWallThicknessDraft] = useState<
     string | null
   >(null)
+  const [wallHeightDraft, setWallHeightDraft] = useState<string | null>(null)
+  const [slabThicknessDraft, setSlabThicknessDraft] = useState<{
+    floorId: string
+    value: string
+  } | null>(null)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId)
   const internalWallThicknessInputValue =
     internalWallThicknessDraft ?? formatMetresInputValue(internalWallThickness)
+  const wallHeightInputValue =
+    wallHeightDraft ?? formatMetresInputValue(wallHeight)
+  const slabThicknessInputValue =
+    slabThicknessDraft?.floorId === activeFloorId
+      ? slabThicknessDraft.value
+      : formatMetresInputValue(activeFloor?.slabThickness ?? 0)
 
   const updateInternalWallThickness = (value: string) => {
     setInternalWallThicknessDraft(value)
@@ -191,6 +211,47 @@ export function LeftToolRail({
     const clampedValue = clampInternalWallThickness(parsedValue)
     onInternalWallThicknessChange(clampedValue)
     setInternalWallThicknessDraft(null)
+  }
+  const commitWallHeight = () => {
+    if (wallHeightDraft === null || !activeFloor) {
+      return
+    }
+
+    const parsedValue = Number.parseFloat(wallHeightDraft)
+
+    if (!Number.isFinite(parsedValue)) {
+      setWallHeightDraft(null)
+      return
+    }
+
+    const height = Math.min(
+      activeFloor.roomHeight,
+      Math.max(MIN_WALL_HEIGHT, parsedValue),
+    )
+    onWallHeightChange(height)
+    setWallHeightDraft(null)
+  }
+  const commitSlabThickness = () => {
+    if (slabThicknessDraft?.floorId !== activeFloorId || !activeFloor) {
+      return
+    }
+
+    const parsedValue = Number.parseFloat(slabThicknessDraft.value)
+
+    if (!Number.isFinite(parsedValue)) {
+      setSlabThicknessDraft(null)
+      return
+    }
+
+    const thickness = Math.min(
+      MAX_SLAB_THICKNESS,
+      Math.max(MIN_SLAB_THICKNESS, parsedValue),
+    )
+
+    setSlabThicknessDraft(null)
+    if (Math.abs(thickness - activeFloor.slabThickness) > 0.000001) {
+      onSlabThicknessChange(thickness)
+    }
   }
   const togglePanel = (panel: RailPanel) => {
     setOpenPanel((currentPanel) => (currentPanel === panel ? null : panel))
@@ -375,6 +436,27 @@ export function LeftToolRail({
                 </button>
               </div>
               <label className="flyout-field">
+                <span>Wall height</span>
+                <div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={wallHeightInputValue}
+                    onChange={(event) => setWallHeightDraft(event.target.value)}
+                    onBlur={commitWallHeight}
+                    onFocus={() =>
+                      setWallHeightDraft(formatMetresInputValue(wallHeight))
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.currentTarget.blur()
+                      }
+                    }}
+                  />
+                  <span>m</span>
+                </div>
+              </label>
+              <label className="flyout-field">
                 <span>Internal thickness</span>
                 <div>
                   <input
@@ -423,6 +505,38 @@ export function LeftToolRail({
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="flyout-field">
+                <span>Slab thickness</span>
+                <div>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    disabled={!activeFloor}
+                    value={slabThicknessInputValue}
+                    onChange={(event) =>
+                      setSlabThicknessDraft({
+                        floorId: activeFloorId,
+                        value: event.target.value,
+                      })
+                    }
+                    onBlur={commitSlabThickness}
+                    onFocus={() =>
+                      setSlabThicknessDraft({
+                        floorId: activeFloorId,
+                        value: formatMetresInputValue(
+                          activeFloor?.slabThickness ?? 0,
+                        ),
+                      })
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.currentTarget.blur()
+                      }
+                    }}
+                  />
+                  <span>m</span>
+                </div>
               </label>
               <button type="button" onClick={onAddFloor}>
                 Add floor from external walls

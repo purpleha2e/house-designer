@@ -6,7 +6,7 @@
       "name": "Floor 0",
       "elevation": 0,
       "roomHeight": 2.4,
-      "slabThickness": 0.3,
+      "slabThickness": 0.2,
       "walls": [
         {
           "start": {
@@ -175,6 +175,14 @@
               "width": 1.64,
               "bottom": 0.9,
               "height": 1.1
+            },
+            {
+              "id": "1caa60eb-eca4-433d-873b-8cd9ac179bce",
+              "modelId": "portal-model-bb35ad04a6c60479b06147e9ddd58e7e",
+              "center": 5.010349040783222,
+              "width": 1.1115425825119019,
+              "bottom": 0,
+              "height": 2.0630530081689358
             }
           ]
         },
@@ -223,7 +231,7 @@
             {
               "id": "cbd5fa6a-f180-4b81-89c1-3cf83f07c1ad",
               "modelId": "panel-interior-door-closed",
-              "center": 0.8437705706511806,
+              "center": 0.7542945270913001,
               "width": 0.975141,
               "bottom": 0,
               "height": 2.124037
@@ -271,7 +279,7 @@
             {
               "id": "f34a7512-0679-499c-a4f4-8fe78eb66bd8",
               "modelId": "panel-interior-door-closed",
-              "center": 1.5432224407514257,
+              "center": 1.2532224407514256,
               "width": 0.975141,
               "bottom": 0,
               "height": 2.124037
@@ -319,7 +327,7 @@
             {
               "id": "3f0022f7-0986-4550-a2fe-38c8a8ee6213",
               "modelId": "panel-interior-door-closed",
-              "center": 2.5145627626821554,
+              "center": 2.6812294293488232,
               "width": 0.975141,
               "bottom": 0,
               "height": 2.124037
@@ -419,6 +427,20 @@
           "kind": "internal",
           "thickness": 0.15,
           "height": 2.4
+        },
+        {
+          "start": {
+            "x": 10.593264324309562,
+            "y": 8.321680473745111
+          },
+          "end": {
+            "x": 11.614627581803308,
+            "y": 8.321680473745111
+          },
+          "id": "6ff61a69-96da-402e-984e-659af2d1d7c7",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 1.7
         }
       ],
       "rooms": [
@@ -433,14 +455,19 @@
           "signature": "179:201|179:276|97:201|97:276"
         },
         {
+          "id": "54dfb2a4-c2ac-4618-88a4-cb9760c39e28",
+          "name": "Room 3",
+          "signature": "356:218|356:275|385:218|385:275"
+        },
+        {
           "id": "227f6cb5-2b84-48db-857d-19aa7e032855",
           "name": "Utility",
           "signature": "390:218|390:319|487:218|487:319"
         },
         {
-          "id": "6a082d37-3d15-4f42-9107-d8562f3ebe41",
-          "name": "Room 4",
-          "signature": "302:199|302:276|316:276|316:388|351:199|351:277|356:218|356:277|385:218|385:388"
+          "id": "71741397-4fab-4162-87a9-4c9d2b2691c5",
+          "name": "Room 5",
+          "signature": "302:199|302:276|316:276|316:388|351:199|351:280|385:280|385:388"
         },
         {
           "id": "a9a2f0e4-1592-4be6-bab6-f96eed25a993",
@@ -462,17 +489,21 @@
             "y": 3.7731710685156328
           },
           "rotation": -0.0012379362811902883,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "5b1f51c7-b7c8-45cb-ae93-4b0314d63970",
           "modelId": "sofa",
           "position": {
-            "x": 6.130704590814047,
-            "y": 3.798626532471818
+            "x": 3.679808923614047,
+            "y": 3.6696320236718174
           },
           "rotation": -1.5695465017118497,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "ad78e249-dbe1-47af-809f-766c7c30b7b3",
@@ -482,17 +513,9 @@
             "y": 3.8999420271036493
           },
           "rotation": 0,
-          "scale": 1
-        },
-        {
-          "id": "4789c7ed-f7ee-494a-9bf1-4188cf92ad2a",
-          "modelId": "simple-stairs",
-          "position": {
-            "x": 11.115161767429873,
-            "y": 9.058275360436983
-          },
-          "rotation": 3.1484205857356393,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "a9c70aa4-5923-486b-a43a-41d21f938090",
@@ -502,7 +525,9 @@
             "y": 9.99939278709336
           },
           "rotation": 1.5707963267948966,
-          "scale": 0.8285761982086326
+          "scale": 0.8285761982086326,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "26db2a27-ce90-452b-9f0a-664be548ab48",
@@ -512,7 +537,9 @@
             "y": 3.8347420271036508
           },
           "rotation": 3.141592653589793,
-          "scale": 0.9024332684214519
+          "scale": 0.9024332684214519,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "12619881-a8b1-41d9-b0b8-94b859cc432b",
@@ -526,7 +553,9 @@
           "wallAttachment": {
             "wallId": "32839949-b7c2-4d3e-a29a-d878395ebc51",
             "offset": 2.3636367425062517
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "40cd0180-362b-4e53-b636-44aae544cf3f",
@@ -540,7 +569,9 @@
           "wallAttachment": {
             "wallId": "23132085-4594-4796-944d-a01b9ab8c0aa",
             "offset": 1.850303409172917
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "60666a2a-bf53-433a-8857-473213fa72b2",
@@ -554,7 +585,9 @@
           "wallAttachment": {
             "wallId": "6031c6e0-1f5b-4f23-aeb6-096436c5a4d2",
             "offset": 1.5896965908270815
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "04f5486f-372b-4c43-becd-9867602ffc61",
@@ -568,7 +601,9 @@
           "wallAttachment": {
             "wallId": "1048f345-692d-43b8-91f1-d9befed20cd3",
             "offset": 5.133636742506251
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "70d6af8d-014c-4b33-b9ce-36aac931f905",
@@ -582,7 +617,9 @@
           "wallAttachment": {
             "wallId": "1048f345-692d-43b8-91f1-d9befed20cd3",
             "offset": 1.7003034091729186
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "3934acac-cf0e-4541-87f2-96e9f72a7722",
@@ -592,7 +629,9 @@
             "y": 6.401555774084759
           },
           "rotation": 0,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "ea0718f4-07bb-493b-ae2f-c346ab61c3a2",
@@ -606,7 +645,9 @@
           "wallAttachment": {
             "wallId": "68b4b6ae-79ab-4835-8ceb-192482939bb9",
             "offset": 6.276493615384102
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "59438e69-9389-4b7a-9852-33deb6d2d667",
@@ -620,7 +661,9 @@
           "wallAttachment": {
             "wallId": "a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b",
             "offset": 1.946401022791509
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "93905c25-e241-4b37-aea7-834720f1efa9",
@@ -630,7 +673,9 @@
             "y": 1.2869930114026031
           },
           "rotation": 3.141592653589793,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "01d92b9f-5db5-4645-b0e1-947739f739ae",
@@ -640,7 +685,9 @@
             "y": 12.636993011402604
           },
           "rotation": 0,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "cf690895-368d-449c-99ef-42b0f582dc14",
@@ -650,7 +697,9 @@
             "y": 10.965923007899182
           },
           "rotation": 3.141592653589793,
-          "scale": 1.197885938169633
+          "scale": 1.197885938169633,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.293921632516565,
@@ -666,7 +715,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 20,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.0794152591774036,
@@ -675,14 +726,16 @@
           "lightPower": 150,
           "modelId": "point-light",
           "position": {
-            "x": 4.809009614694835,
-            "y": 3.656732801308716
+            "x": 4.425676281361502,
+            "y": 3.8400661346420497
           },
           "rotation": 0,
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 10,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 1.9925980113902106,
@@ -691,14 +744,16 @@
           "lightPower": 150,
           "modelId": "point-light",
           "position": {
-            "x": 7.239292886617942,
+            "x": 7.305959553284608,
             "y": 7.04502057062581
           },
           "rotation": 0,
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 1.8212027273605849,
@@ -714,7 +769,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 1.8212027273605849,
@@ -730,7 +787,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 1.8212027273605849,
@@ -746,7 +805,9 @@
           "scale": 1,
           "lightEnabled": false,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 1.8212027273605849,
@@ -762,7 +823,9 @@
           "scale": 1,
           "lightEnabled": false,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.267481190954011,
@@ -778,7 +841,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 20,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.127419255240742,
@@ -794,7 +859,9 @@
           "scale": 1,
           "lightEnabled": false,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 1.7741453279408763,
@@ -810,7 +877,9 @@
           "scale": 1,
           "lightEnabled": false,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "21ef1ec4-3f80-4cfd-88d1-101e12e8481a",
@@ -824,7 +893,9 @@
           "wallAttachment": {
             "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6",
             "offset": 0.7666666666666657
-          }
+          },
+          "mirrored": true,
+          "flipped": true
         },
         {
           "id": "fde767d0-d0f5-4b95-9aa1-424c45ab3428",
@@ -838,49 +909,60 @@
           "wallAttachment": {
             "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16",
             "offset": 2.916666666666666
-          }
+          },
+          "mirrored": true,
+          "flipped": false
         },
         {
           "id": "f34a7512-0679-499c-a4f4-8fe78eb66bd8",
           "modelId": "panel-interior-door-closed",
           "position": {
             "x": 10.593264324309562,
-            "y": 7.426555774084759
+            "y": 7.136555774084759
           },
           "rotation": 1.5707963267948966,
           "scale": 1,
           "wallAttachment": {
             "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32",
-            "offset": 1.5432224407514257
-          }
+            "offset": 1.2532224407514256,
+            "side": 1
+          },
+          "flipped": true,
+          "mirrored": true
         },
         {
           "id": "3f0022f7-0986-4550-a2fe-38c8a8ee6213",
           "modelId": "panel-interior-door-closed",
           "position": {
             "x": 9.393264324309563,
-            "y": 10.876555774084759
+            "y": 11.043222440751427
           },
-          "rotation": -1.5707963267948966,
+          "rotation": 1.5707963267948966,
           "scale": 1,
           "wallAttachment": {
             "wallId": "401541da-d0b7-4fd5-ba5b-bafb835d6878",
-            "offset": 2.5145627626821554
-          }
+            "offset": 2.6812294293488232,
+            "side": 1
+          },
+          "flipped": true,
+          "mirrored": false
         },
         {
           "id": "cbd5fa6a-f180-4b81-89c1-3cf83f07c1ad",
           "modelId": "panel-interior-door-closed",
           "position": {
             "x": 11.614627581803308,
-            "y": 10.943222440751423
+            "y": 11.032698484311304
           },
-          "rotation": 1.5707963267948966,
+          "rotation": -1.5707963267948966,
           "scale": 1,
           "wallAttachment": {
             "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4",
-            "offset": 0.8437705706511806
-          }
+            "offset": 0.7542945270913001,
+            "side": 1
+          },
+          "mirrored": true,
+          "flipped": true
         },
         {
           "id": "8a19149c-12fb-41c9-8fd0-88cc17f1690f",
@@ -890,7 +972,9 @@
             "y": 3.761393570114006
           },
           "rotation": 1.5707963267948966,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "53e04b99-2f70-4c6d-942a-28be5ed958f4",
@@ -900,7 +984,9 @@
             "y": 1.2869930114026031
           },
           "rotation": 3.141592653589793,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "193ee535-3c30-45e7-8681-2c06f30ac57c",
@@ -910,7 +996,9 @@
             "y": 1.2869930114026031
           },
           "rotation": 3.141592653589793,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "aa837487-2e3d-4b4a-a907-3b1886c3c177",
@@ -920,7 +1008,9 @@
             "y": 1.2869930114026031
           },
           "rotation": 3.141592653589793,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "217af7ee-9c8e-4eb7-83c0-5ab963a7bc82",
@@ -930,7 +1020,9 @@
             "y": 2.9393124309807703
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "0ddfb86d-3422-477a-8376-2a73a5d1025f",
@@ -940,7 +1032,9 @@
             "y": 4.85922084098355
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "02417e78-0f0f-4cdb-a139-000691466a0a",
@@ -950,7 +1044,9 @@
             "y": 5.660540008126079
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "d5bdbefa-96b0-4219-b952-919012786f61",
@@ -960,7 +1056,9 @@
             "y": 3.900864252401526
           },
           "rotation": 4.706946546111308,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "542158ab-ec30-46d1-99ec-23b13062174c",
@@ -970,6 +1068,61 @@
             "y": 3.8905456724032077
           },
           "rotation": 4.71238898038469,
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
+        },
+        {
+          "flipped": false,
+          "id": "1caa60eb-eca4-433d-873b-8cd9ac179bce",
+          "mirrored": false,
+          "modelId": "portal-model-bb35ad04a6c60479b06147e9ddd58e7e",
+          "position": {
+            "x": 10.519976622586533,
+            "y": 11.786993011402604
+          },
+          "rotation": 0,
+          "scale": 1,
+          "wallAttachment": {
+            "wallId": "23132085-4594-4796-944d-a01b9ab8c0aa",
+            "offset": 5.010349040783222,
+            "side": 1
+          }
+        },
+        {
+          "flipped": false,
+          "id": "80acea07-5e0c-4008-8ba7-4dc331772c85",
+          "mirrored": false,
+          "modelId": "portal-model-f08c2cc3a2f93b9ef8c23d1ea5f3b036",
+          "position": {
+            "x": 11.11462745067309,
+            "y": 10.285913279241349
+          },
+          "rotation": 3.141592653589793,
+          "scale": 1
+        },
+        {
+          "flipped": false,
+          "id": "217a9d84-256d-4bcf-a961-8cff55ef127e",
+          "mirrored": false,
+          "modelId": "toilet",
+          "position": {
+            "x": 11.105336950753259,
+            "y": 7.94547783239781
+          },
+          "rotation": -1.5707963267948966,
+          "scale": 1
+        },
+        {
+          "flipped": false,
+          "id": "23e08403-984e-4009-ad0d-9ab622023c3e",
+          "mirrored": false,
+          "modelId": "portal-model-4a7dce0cb65d7c77b0cb4dd9e74fa989",
+          "position": {
+            "x": 11.104292648315068,
+            "y": 6.551555774084759
+          },
+          "rotation": 3.141592653589793,
           "scale": 1
         }
       ]
@@ -977,7 +1130,7 @@
     {
       "id": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
       "name": "Floor 1",
-      "elevation": 2.6999999999999997,
+      "elevation": 2.5999999999999996,
       "roomHeight": 2.4,
       "slabThickness": 0.3,
       "walls": [
@@ -1007,49 +1160,11 @@
         },
         {
           "start": {
-            "x": 14.74962758180331,
-            "y": 12.786993011402604
-          },
-          "end": {
-            "x": 11.539627581803309,
-            "y": 12.786993011402604
-          },
-          "id": "cc80963f-745f-4c74-bcef-e46c77cdfff4",
-          "kind": "external",
-          "thickness": 0.3,
-          "height": 2.4,
-          "openings": [
-            {
-              "id": "9c1413d5-2099-4c4f-83dc-b516cf1d14ad",
-              "modelId": "window-three-pane",
-              "center": 1.6263237159476596,
-              "width": 1.64,
-              "bottom": 0.9,
-              "height": 1.1
-            }
-          ]
-        },
-        {
-          "start": {
-            "x": 11.539627581803309,
-            "y": 12.786993011402604
-          },
-          "end": {
-            "x": 11.539627581803309,
-            "y": 11.786993011402604
-          },
-          "id": "ed9022a6-568f-4773-ab40-32d73ba6094d",
-          "kind": "external",
-          "thickness": 0.3,
-          "height": 2.4
-        },
-        {
-          "start": {
             "x": 5.509627581803311,
             "y": 11.786993011402604
           },
           "end": {
-            "x": 11.539627581803309,
+            "x": 14.74962758180331,
             "y": 11.786993011402604
           },
           "id": "cc68aecd-58eb-476d-a29b-996164b1c4a1",
@@ -1060,7 +1175,7 @@
             {
               "id": "361f98a5-5c57-4db6-9359-930ad6ad96fd",
               "modelId": "window-three-pane",
-              "center": 1.8303429507190045,
+              "center": 1.8303429507190048,
               "width": 1.64,
               "bottom": 0.9,
               "height": 1.1
@@ -1069,6 +1184,14 @@
               "id": "34826819-89d4-4eac-b7ee-f39c16e5be32",
               "modelId": "window-three-pane",
               "center": 4.84700961738567,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            },
+            {
+              "id": "9c1413d5-2099-4c4f-83dc-b516cf1d14ad",
+              "modelId": "window-three-pane",
+              "center": 7.634412284052335,
               "width": 1.64,
               "bottom": 0.9,
               "height": 1.1
@@ -1096,7 +1219,7 @@
           },
           "end": {
             "x": 14.74962758180331,
-            "y": 12.786993011402604
+            "y": 11.786993011402604
           },
           "id": "4f8220c8-6338-4c13-a8b5-9583cdafba6d",
           "kind": "external",
@@ -1106,7 +1229,7 @@
             {
               "id": "560d0068-463f-4566-8e9f-fd2a7a77f5f0",
               "modelId": "window-three-pane",
-              "center": 6.366765778974028,
+              "center": 6.3667657789740275,
               "width": 1.64,
               "bottom": 0.9,
               "height": 1.1
@@ -1326,7 +1449,7 @@
           "signature": "390:200|390:301|487:200|487:301"
         },
         {
-          "id": "3bc758c5-0443-4ab1-b320-3967a2c30142",
+          "id": "d9af83e7-96d9-4c3f-90d4-36a1febf77c5",
           "name": "Room 5",
           "signature": "289:200|289:251|308:251|308:388|385:200|385:388"
         },
@@ -1336,9 +1459,9 @@
           "signature": "189:256|189:388|303:256|303:388"
         },
         {
-          "id": "19ececad-2eed-4da0-a0fb-0d682ecf915f",
+          "id": "b10e908d-a35c-4e34-9b5f-7f4c40d48fc5",
           "name": "Room 7",
-          "signature": "390:306|390:421|487:306|487:421"
+          "signature": "390:306|390:388|487:306|487:388"
         }
       ],
       "models": [
@@ -1350,7 +1473,9 @@
             "y": 3.94022699848955
           },
           "rotation": 1.5707963267948966,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "3237bac3-8fc4-4ab4-8406-6334a66a1b9d",
@@ -1360,7 +1485,9 @@
             "y": 3.4978986042458438
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "cff03fd2-e8a4-48af-877a-9914fafa427f",
@@ -1370,7 +1497,9 @@
             "y": 9.769081339282938
           },
           "rotation": 1.5707963267948966,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "7b8adb16-e1fb-492e-88c0-01533526379d",
@@ -1380,7 +1509,9 @@
             "y": 2.394809511969023
           },
           "rotation": 1.5707963267948961,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "1fc65154-b662-4012-a3f3-9ce39d6f3f8e",
@@ -1390,7 +1521,9 @@
             "y": 2.74129645952658
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "11894e3b-79b5-4376-a43c-6385fe802e89",
@@ -1400,7 +1533,9 @@
             "y": 7.189158548900047
           },
           "rotation": 3.141592653589793,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "712ccae4-c639-40f3-b2e3-5554e66751f9",
@@ -1410,7 +1545,9 @@
             "y": 8.685454845196345
           },
           "rotation": 3.141592653589793,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "9e8c9f05-01ad-4189-b2ac-b787f953cd52",
@@ -1420,7 +1557,9 @@
             "y": 8.47329813534627
           },
           "rotation": 0,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "5aca1ef7-f800-4a4a-9815-33a02c78ea7f",
@@ -1430,7 +1569,9 @@
             "y": 2.5812752601541438
           },
           "rotation": 1.5707963267948966,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "0192b483-9181-45e8-aa37-443b13c38c84",
@@ -1440,7 +1581,9 @@
             "y": 5.132390883461209
           },
           "rotation": 1.5707963267948966,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "d2ab2ad7-c469-4d2c-98f0-6a6cf9a809ef",
@@ -1450,7 +1593,9 @@
             "y": 2.387046160782792
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "87554abe-887b-407d-80cb-9620a516435e",
@@ -1460,7 +1605,9 @@
             "y": 4.695171047880981
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "b28a77ae-0db8-4603-a648-92b3b85eb3c0",
@@ -1470,7 +1617,9 @@
             "y": 8.588490592624012
           },
           "rotation": 1.5707963267948966,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "13b56e67-4b0d-4b0f-b909-9562cc47bee4",
@@ -1480,7 +1629,9 @@
             "y": 11.024922566715915
           },
           "rotation": 1.5707963267948966,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "f5d6eaf6-cc3e-41c5-84f5-ccbd643e9fd3",
@@ -1490,7 +1641,9 @@
             "y": 8.898943113770647
           },
           "rotation": 4.71238898038469,
-          "scale": 1
+          "scale": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "9644a988-21df-4593-b829-b09cdd4634f3",
@@ -1504,7 +1657,9 @@
           "wallAttachment": {
             "wallId": "0a0e9ead-8795-4abc-a65e-da2c3d2e158e",
             "offset": 2.2970096173856707
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "49578da5-5988-447a-9b29-37a9c2522486",
@@ -1518,7 +1673,9 @@
           "wallAttachment": {
             "wallId": "2e47ccce-fbcd-45b5-9e8d-9953a2ad0dc0",
             "offset": 2.5103429507190054
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "361f98a5-5c57-4db6-9359-930ad6ad96fd",
@@ -1532,21 +1689,26 @@
           "wallAttachment": {
             "wallId": "cc68aecd-58eb-476d-a29b-996164b1c4a1",
             "offset": 1.8303429507190045
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "9c1413d5-2099-4c4f-83dc-b516cf1d14ad",
           "modelId": "window-three-pane",
           "position": {
-            "x": 13.12330386585565,
-            "y": 12.786993011402604
+            "x": 13.144039865855646,
+            "y": 11.786993011402604
           },
-          "rotation": 3.141592653589793,
+          "rotation": 0,
           "scale": 1,
           "wallAttachment": {
-            "wallId": "cc80963f-745f-4c74-bcef-e46c77cdfff4",
-            "offset": 1.6263237159476596
-          }
+            "wallId": "cc68aecd-58eb-476d-a29b-996164b1c4a1",
+            "offset": 7.634412284052335,
+            "side": 1
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "34826819-89d4-4eac-b7ee-f39c16e5be32",
@@ -1560,7 +1722,9 @@
           "wallAttachment": {
             "wallId": "cc68aecd-58eb-476d-a29b-996164b1c4a1",
             "offset": 4.84700961738567
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.126750921585908,
@@ -1576,7 +1740,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 15,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.390567286704242,
@@ -1592,7 +1758,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 10,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.126750921585908,
@@ -1608,7 +1776,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 15,
-          "lightFalloff": 1
+          "lightFalloff": 1,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.126750921585908,
@@ -1624,7 +1794,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 20,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.126750921585908,
@@ -1640,7 +1812,9 @@
           "scale": 1,
           "lightEnabled": true,
           "lightDistance": 20,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.126750921585908,
@@ -1656,7 +1830,9 @@
           "scale": 1,
           "lightEnabled": false,
           "lightDistance": 20,
-          "lightFalloff": 0
+          "lightFalloff": 0,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "height": 2.126750921585908,
@@ -1672,7 +1848,9 @@
           "scale": 1,
           "lightEnabled": false,
           "lightDistance": 10,
-          "lightFalloff": 1.35
+          "lightFalloff": 1.35,
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "560d0068-463f-4566-8e9f-fd2a7a77f5f0",
@@ -1686,7 +1864,9 @@
           "wallAttachment": {
             "wallId": "4f8220c8-6338-4c13-a8b5-9583cdafba6d",
             "offset": 6.366765778974028
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "95010c6e-2468-4c6c-8146-1ca65e4b5a0c",
@@ -1700,7 +1880,9 @@
           "wallAttachment": {
             "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
             "offset": 3.917990382614328
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "543d892f-7987-4aeb-885e-6fb6eb71cfb4",
@@ -1715,7 +1897,9 @@
             "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
             "offset": 5.4429903826143295,
             "side": 1
-          }
+          },
+          "mirrored": true,
+          "flipped": false
         },
         {
           "id": "559bcef3-fc81-43b2-9b6d-fea87c1d465e",
@@ -1730,7 +1914,9 @@
             "wallId": "8af610e2-790d-4e81-8992-39fdcbff8ac3",
             "offset": 8.226323715947661,
             "side": 1
-          }
+          },
+          "mirrored": true,
+          "flipped": false
         },
         {
           "id": "05ec82ce-94ab-4df2-be8b-79130ccd7ff7",
@@ -1745,7 +1931,9 @@
             "wallId": "b1128cf4-e367-46eb-9a08-2f3f20e8fbf6",
             "offset": 4.967771181077005,
             "side": 1
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         },
         {
           "id": "0fb31ca9-a58f-4ed0-b153-ca7a881b3d4d",
@@ -1760,7 +1948,9 @@
             "wallId": "b1128cf4-e367-46eb-9a08-2f3f20e8fbf6",
             "offset": 0.8677711810770035,
             "side": 1
-          }
+          },
+          "mirrored": true,
+          "flipped": false
         },
         {
           "id": "9a8182b9-1346-48c8-97ed-6a353ff339b8",
@@ -1775,7 +1965,9 @@
             "wallId": "25e28ed4-d08e-4500-a1eb-b0fb79e6d998",
             "offset": 3.233776601013771,
             "side": 1
-          }
+          },
+          "flipped": false,
+          "mirrored": false
         }
       ]
     }
@@ -2281,36 +2473,12 @@
     },
     {
       "coverageHeight": 2.4,
-      "id": "4e7636c0-a722-47a1-8bb2-04b4a9196f2a",
-      "materialId": "house-designer-red-brick",
-      "target": {
-        "type": "wall-face",
-        "side": -1,
-        "wallId": "cc80963f-745f-4c74-bcef-e46c77cdfff4"
-      },
-      "textureRotation": 0,
-      "textureScale": 1
-    },
-    {
-      "coverageHeight": 2.4,
       "id": "181af903-4dd8-4a0e-9b6b-cb909f43ee43",
       "materialId": "house-designer-red-brick",
       "target": {
         "type": "wall-face",
         "side": 1,
         "wallId": "cc68aecd-58eb-476d-a29b-996164b1c4a1"
-      },
-      "textureRotation": 0,
-      "textureScale": 1
-    },
-    {
-      "coverageHeight": 2.4,
-      "id": "bba0199f-2d96-46a1-97df-379223b3b06a",
-      "materialId": "house-designer-red-brick",
-      "target": {
-        "type": "wall-face",
-        "side": -1,
-        "wallId": "ed9022a6-568f-4773-ab40-32d73ba6094d"
       },
       "textureRotation": 0,
       "textureScale": 1
@@ -2383,30 +2551,6 @@
         "type": "ceiling",
         "floorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
         "roomSignature": "390:306|390:388|390:398|390:421|487:306|487:421"
-      },
-      "textureRotation": 0,
-      "textureScale": 1
-    },
-    {
-      "coverageHeight": 2.4,
-      "id": "39a2dacf-7ac1-4aeb-8a36-60df9acf6e52",
-      "materialId": "dulux-timeless-matt",
-      "target": {
-        "type": "wall-face",
-        "side": 1,
-        "wallId": "ed9022a6-568f-4773-ab40-32d73ba6094d"
-      },
-      "textureRotation": 0,
-      "textureScale": 1
-    },
-    {
-      "coverageHeight": 2.4,
-      "id": "e0122923-703e-4019-85cb-e4d4ab146027",
-      "materialId": "dulux-timeless-matt",
-      "target": {
-        "type": "wall-face",
-        "side": 1,
-        "wallId": "cc80963f-745f-4c74-bcef-e46c77cdfff4"
       },
       "textureRotation": 0,
       "textureScale": 1
@@ -3323,8 +3467,364 @@
       "textureScale": 8
     },
     {
+      "customColor": "#ffffff",
+      "id": "d6bc6a85-130b-4495-a101-60d4d156c275",
+      "materialId": "house-designer-custom-paint-gloss",
+      "target": {
+        "type": "ceiling",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "302:199|302:276|316:276|316:388|351:199|351:277|356:218|356:277|385:218|385:388"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "id": "4d0ff6b2-fe5d-4ddf-9f19-b21ec610f631",
+      "materialId": "portal-material-e7ae16d858a15b1a0b50c45144a04998",
+      "target": {
+        "type": "room-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "302:199|302:276|316:276|316:388|351:199|351:277|356:218|356:277|385:218|385:388"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
       "coverageHeight": 2.4,
-      "id": "f22a6fca-0c9f-463d-a756-3e5c37363e1e",
+      "id": "b5c1432d-f364-4f4d-a13e-2dd13655dbcc",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:3:side:9:0.07500000030956144:0.2790961666666657:0:2.124037",
+        "side": -1,
+        "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "1537cfea-8887-4fda-9a9d-3c94e1d01408",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:3:side:9:0.07500000030956144:0.2790961666666657:2.124037:2.4",
+        "side": -1,
+        "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "c7024a28-5323-452d-b4e3-1eb0b4076e54",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:3:side:9:0.2790961666666657:1.2542371666666656:2.124037:2.4",
+        "side": -1,
+        "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "f5dc0b79-d104-4c58-ba36-c12c965f2fcf",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:3:side:9:1.2542371666666656:1.5250000003095625:0:2.124037",
+        "side": -1,
+        "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "93a4dc2c-b730-4a8e-86e8-169bc2c64468",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:3:side:9:1.2542371666666656:1.5250000003095625:2.124037:2.4",
+        "side": -1,
+        "wallId": "d1e8e232-c604-48c2-add9-97d3397605f6"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "id": "523d603f-5587-4f42-8e52-398e2d0720ea",
+      "materialId": "portal-material-e7ae16d858a15b1a0b50c45144a04998",
+      "target": {
+        "type": "portal-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "openingId": "f34a7512-0679-499c-a4f4-8fe78eb66bd8",
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "coverageHeight": 1.7,
+      "id": "05d278cb-8742-4524-a5f3-502622e522bb",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "6ff61a69-96da-402e-984e-659af2d1d7c7:side:-1:0:0.9463632574937471",
+        "side": -1,
+        "wallId": "6ff61a69-96da-402e-984e-659af2d1d7c7"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "54ca09ce-c96f-46c6-80e3-0fc845699392",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "d13368b9-0005-4ee3-900f-f94a38f8db32:side:-1:0:0.7656519407514256:0:2.124037",
+        "side": -1,
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "ee908191-9988-43f0-be9e-bcdcbed43d8b",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "d13368b9-0005-4ee3-900f-f94a38f8db32:side:-1:0:0.7656519407514256:2.124037:2.4",
+        "side": -1,
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "24535502-f452-4968-afda-033bb49fbc21",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "d13368b9-0005-4ee3-900f-f94a38f8db32:side:-1:0.7656519407514256:1.7407929407514255:2.124037:2.4",
+        "side": -1,
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "dae0c162-548f-47db-977e-7f4d678793bc",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "d13368b9-0005-4ee3-900f-f94a38f8db32:side:-1:1.7407929407514255:2.4383471404117776:0:2.124037",
+        "side": -1,
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "7da65f0d-54d5-4ff6-ac50-007cd03d1794",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "d13368b9-0005-4ee3-900f-f94a38f8db32:side:-1:1.7407929407514255:2.4383471404117776:2.124037:2.4",
+        "side": -1,
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "88611774-7787-4f88-a540-f91a345aa0b3",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "244916e6-6f68-435c-986f-a3dfabb6ead4:side:-1:0:0.26672402709130005:0:2.124037",
+        "side": -1,
+        "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "01d1594e-5743-4647-b860-960add218168",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "244916e6-6f68-435c-986f-a3dfabb6ead4:side:-1:0:0.26672402709130005:2.124037:2.4",
+        "side": -1,
+        "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "43889a10-6640-4dd5-a929-d9700599e749",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "244916e6-6f68-435c-986f-a3dfabb6ead4:side:-1:0.26672402709130005:1.2418650270913:2.124037:2.4",
+        "side": -1,
+        "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "5e4c8446-24ab-470a-ae42-f07572562527",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "244916e6-6f68-435c-986f-a3dfabb6ead4:side:-1:1.2418650270913:5.315312537657493:0:2.124037",
+        "side": -1,
+        "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "389dcfaf-1db9-45f7-bc0c-7c31b5d0740d",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "244916e6-6f68-435c-986f-a3dfabb6ead4:side:-1:1.2418650270913:5.315312537657493:2.124037:2.4",
+        "side": -1,
+        "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "39bd7027-2c39-45a5-9d52-7b8361a63f17",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16:side:1:0.07499999999999929:2.429096166666666:0:2.124037",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "392f389d-d115-4124-9a15-d750aac57622",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16:side:1:0.07499999999999929:2.429096166666666:2.124037:2.4",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "f4c3f225-0e1d-43ec-9276-ffb42fda7165",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16:side:1:2.429096166666666:3.404237166666666:2.124037:2.4",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "9f0c4104-fe04-4908-bfae-97950658c440",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16:side:1:3.404237166666666:4.0063632574937476:0:2.124037",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "264bfab5-315b-47e1-b2e3-454733a8a64c",
+      "materialId": "farrow-ball-hague-blue",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16:side:1:3.404237166666666:4.0063632574937476:2.124037:2.4",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "id": "f972607f-3a38-40fa-b174-599820d76c0a",
+      "materialId": "portal-material-e7ae16d858a15b1a0b50c45144a04998",
+      "target": {
+        "type": "room-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "roomSignature": "356:218|356:275|385:218|385:275"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "id": "42ac4038-2aa6-4786-957b-7ef71222da22",
+      "materialId": "portal-material-e7ae16d858a15b1a0b50c45144a04998",
+      "target": {
+        "type": "portal-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "openingId": "3f0022f7-0986-4550-a2fe-38c8a8ee6213",
+        "wallId": "401541da-d0b7-4fd5-ba5b-bafb835d6878"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "id": "82fd1a5e-f641-4f88-adf9-efce479893c9",
+      "materialId": "portal-material-e7ae16d858a15b1a0b50c45144a04998",
+      "target": {
+        "type": "portal-floor",
+        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
+        "openingId": "cbd5fa6a-f180-4b81-89c1-3cf83f07c1ad",
+        "wallId": "244916e6-6f68-435c-986f-a3dfabb6ead4"
+      },
+      "textureRotation": 0,
+      "textureScale": 8
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "067dbeb2-96c4-4c6a-8106-fa637075a058",
+      "materialId": "dulux-green-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|6ff61a69-96da-402e-984e-659af2d1d7c7|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:2:side:0",
+        "side": 1,
+        "wallId": "25a658fa-eb18-413b-81df-9ec3e00fdcbc"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "9d1aa6ef-c01d-4843-bd2d-1a3a0cc149e3",
       "materialId": "dulux-green-matt",
       "target": {
         "type": "wall-surface-fragment",
@@ -3333,16 +3833,121 @@
         "wallId": "25a658fa-eb18-413b-81df-9ec3e00fdcbc"
       },
       "textureRotation": 0,
-      "textureScale": 8
+      "textureScale": 1
     },
     {
-      "customColor": "#ffffff",
-      "id": "d6bc6a85-130b-4495-a101-60d4d156c275",
-      "materialId": "house-designer-custom-paint-gloss",
+      "coverageHeight": 2.4,
+      "id": "39a04467-991a-4b65-8222-3834938e308a",
+      "materialId": "dulux-timeless-matt",
       "target": {
-        "type": "ceiling",
-        "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
-        "roomSignature": "302:199|302:276|316:276|316:388|351:199|351:277|356:218|356:277|385:218|385:388"
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|6ff61a69-96da-402e-984e-659af2d1d7c7|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:5:side:3:1.096363257690438:2.429096166666666:0:1.7",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "a82f527b-f8c6-4075-9328-4fbea6e9cdad",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|6ff61a69-96da-402e-984e-659af2d1d7c7|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:5:side:3:3.404237166666666:4.006363257690438:0:1.7",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "d3f57e1a-8b53-4b9d-8201-8ca0925d9850",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:4:side:3:1.096363257690438:2.429096166666666:1.7:2.124037",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "34c56d33-fcb2-4749-b6a9-e0d0ebae0f7b",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:4:side:3:1.096363257690438:2.429096166666666:2.124037:2.4",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "1223faad-2d60-4bc2-acd5-6aedd37e97a1",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:4:side:3:2.429096166666666:3.404237166666666:2.124037:2.4",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "b78d51cc-8137-4a6f-bc48-6caeabff60a5",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:4:side:3:3.404237166666666:4.006363257690438:1.7:2.124037",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "729c7e3d-e5fe-4838-928b-f9226c91c4b2",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:4:side:3:3.404237166666666:4.006363257690438:2.124037:2.4",
+        "side": 1,
+        "wallId": "0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "bde2047f-6444-4709-a1a2-864c746f46a5",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|6ff61a69-96da-402e-984e-659af2d1d7c7|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:0:side:4",
+        "side": -1,
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
+      },
+      "textureRotation": 0,
+      "textureScale": 1
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "59609a78-286f-499a-afc5-98867d091adc",
+      "materialId": "dulux-timeless-matt",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter:0604efe8-1ce8-4be7-8ff1-6e7ac96b0e16|08975e9a-b667-425d-87d6-8536a19e8536|1048f345-692d-43b8-91f1-d9befed20cd3|1d906202-22ea-41db-a4af-e3bad5b9617d|23132085-4594-4796-944d-a01b9ab8c0aa|244916e6-6f68-435c-986f-a3dfabb6ead4|25a658fa-eb18-413b-81df-9ec3e00fdcbc|32839949-b7c2-4d3e-a29a-d878395ebc51|401541da-d0b7-4fd5-ba5b-bafb835d6878|6031c6e0-1f5b-4f23-aeb6-096436c5a4d2|637b638d-1b06-40ee-8812-841c7e06bd15|68b4b6ae-79ab-4835-8ceb-192482939bb9|72b5c1f1-f09e-4851-8d05-7a271955455d|73cba4e6-6c7e-40da-ab80-e047edc83384|8b16ae92-b686-49ee-b718-2e944c8cd857|8e067269-181b-4dba-94d3-72f773fb2b63|a2d8c1e0-cef4-45bd-9dad-0a6bc4361a7b|ad6be6e9-bee5-462e-afd3-bfa7ca58a686|d13368b9-0005-4ee3-900f-f94a38f8db32|d1e8e232-c604-48c2-add9-97d3397605f6|fbda8fe0-e526-4913-a3e4-104dc8ebd4ba:hole:0:side:4",
+        "side": -1,
+        "wallId": "d13368b9-0005-4ee3-900f-f94a38f8db32"
       },
       "textureRotation": 0,
       "textureScale": 1
