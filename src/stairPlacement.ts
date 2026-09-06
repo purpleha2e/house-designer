@@ -10,6 +10,8 @@ type StairWallSnapOptions = {
   position: Point
   rotation: number
   scale: number
+  widthScale?: number
+  depthScale?: number
   tolerance?: number
   walls: readonly Wall[]
   width: number
@@ -35,6 +37,8 @@ export function snapStairApertureToWalls({
   position,
   rotation,
   scale,
+  widthScale = 1,
+  depthScale = 1,
   tolerance = STAIR_WALL_SNAP_TOLERANCE_METERS,
   walls,
   width,
@@ -46,6 +50,8 @@ export function snapStairApertureToWalls({
     depth,
     scale,
     localBounds ?? undefined,
+    widthScale,
+    depthScale,
   )
   let bestSnap: StairWallSnap | null = null
 

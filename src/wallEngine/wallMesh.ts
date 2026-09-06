@@ -45,6 +45,8 @@ export type WallMeshFace = {
 
 export type WallMeshBuildOptions = WallGraphOptions & {
   chamferThreshold?: number
+  exteriorWallSidesByWallId?: ReadonlyMap<string, WallSide>
+  wallOpeningDepthsByModelId?: ReadonlyMap<string, number>
   omitEndpointJoinSideFacesForWallIds?: ReadonlySet<string>
   omitSideAttachmentCapsForRenderedTargetWallIds?: ReadonlySet<string>
   omitSideAttachmentCapsForTargetWallIds?: ReadonlySet<string>
@@ -52,10 +54,39 @@ export type WallMeshBuildOptions = WallGraphOptions & {
 
 export type WallBodyPerimeterMeshBuildOptions = WallMeshBuildOptions
 
+type WallOpeningRect = {
+  bottom: number
+  id: string
+  left: number
+  modelId: string
+  right: number
+  top: number
+}
+
+type WallOpeningBoundarySegment =
+  | {
+      bottom: number
+      edge: 'left' | 'right'
+      id: string
+      openingId?: string
+      top: number
+      x: number
+    }
+  | {
+      edge: 'bottom' | 'top'
+      id: string
+      left: number
+      openingId?: string
+      right: number
+      y: number
+    }
+
 type EndpointJoinContext = {
   endpointPlan: Extract<WallEndpointPlan, { type: 'endpoint-join' }>
   plan: WallGeometryPlan
 }
+
+const EXTERIOR_OPENING_REVEAL_INSET_METERS = 0.02
 
 function distance(first: Point, second: Point) {
   return Math.hypot(first.x - second.x, first.y - second.y)
@@ -247,6 +278,7 @@ function getWallOpeningRects(wall: Wall) {
             bottom,
             id: opening.id,
             left,
+            modelId: opening.modelId,
             right,
             top,
           }
@@ -255,14 +287,185 @@ function getWallOpeningRects(wall: Wall) {
     .filter(
       (
         opening,
-      ): opening is {
-        bottom: number
-        id: string
-        left: number
-        right: number
-        top: number
-      } => Boolean(opening),
+      ): opening is WallOpeningRect => Boolean(opening),
     )
+}
+
+function getUniqueSortedBreaks(values: number[]) {
+  const sortedValues = [...values].sort((first, second) => first - second)
+
+  return sortedValues.filter(
+    (value, index) =>
+      index === 0 || Math.abs(value - sortedValues[index - 1]) > 0.0001,
+  )
+}
+
+function openingRectsContainPoint(
+  openings: WallOpeningRect[],
+  x: number,
+  y: number,
+) {
+  return openings.some(
+    (opening) =>
+      x > opening.left + 0.0001 &&
+      x < opening.right - 0.0001 &&
+      y > opening.bottom + 0.0001 &&
+      y < opening.top - 0.0001,
+  )
+}
+
+function getBoundarySegmentOpeningId(
+  openings: WallOpeningRect[],
+  edge: 'bottom' | 'left' | 'right' | 'top',
+  primary: number,
+  rangeStart: number,
+  rangeEnd: number,
+) {
+  const matches = openings.filter((opening) => {
+    if (edge === 'left') {
+      return (
+        Math.abs(opening.left - primary) <= 0.0001 &&
+        rangeStart >= opening.bottom - 0.0001 &&
+        rangeEnd <= opening.top + 0.0001
+      )
+    }
+
+    if (edge === 'right') {
+      return (
+        Math.abs(opening.right - primary) <= 0.0001 &&
+        rangeStart >= opening.bottom - 0.0001 &&
+        rangeEnd <= opening.top + 0.0001
+      )
+    }
+
+    if (edge === 'bottom') {
+      return (
+        Math.abs(opening.bottom - primary) <= 0.0001 &&
+        rangeStart >= opening.left - 0.0001 &&
+        rangeEnd <= opening.right + 0.0001
+      )
+    }
+
+    return (
+      Math.abs(opening.top - primary) <= 0.0001 &&
+      rangeStart >= opening.left - 0.0001 &&
+      rangeEnd <= opening.right + 0.0001
+    )
+  })
+
+  return matches.length === 1 ? matches[0].id : undefined
+}
+
+function getMergedOpeningBoundarySegments(
+  openings: WallOpeningRect[],
+  wallHeight: number,
+): WallOpeningBoundarySegment[] {
+  const xBreaks = getUniqueSortedBreaks(
+    openings.flatMap((opening) => [opening.left, opening.right]),
+  )
+  const yBreaks = getUniqueSortedBreaks(
+    openings.flatMap((opening) => [opening.bottom, opening.top]),
+  )
+  const segments: WallOpeningBoundarySegment[] = []
+
+  xBreaks.slice(0, -1).forEach((left, xIndex) => {
+    const right = xBreaks[xIndex + 1]
+
+    if (right <= left + 0.0001) {
+      return
+    }
+
+    yBreaks.slice(0, -1).forEach((bottom, yIndex) => {
+      const top = yBreaks[yIndex + 1]
+
+      if (top <= bottom + 0.0001) {
+        return
+      }
+
+      const centerX = (left + right) / 2
+      const centerY = (bottom + top) / 2
+
+      if (!openingRectsContainPoint(openings, centerX, centerY)) {
+        return
+      }
+
+      if (!openingRectsContainPoint(openings, left - 0.0002, centerY)) {
+        segments.push({
+          bottom,
+          edge: 'left',
+          id: `left:${left}:${bottom}:${top}`,
+          openingId: getBoundarySegmentOpeningId(
+            openings,
+            'left',
+            left,
+            bottom,
+            top,
+          ),
+          top,
+          x: left,
+        })
+      }
+
+      if (!openingRectsContainPoint(openings, right + 0.0002, centerY)) {
+        segments.push({
+          bottom,
+          edge: 'right',
+          id: `right:${right}:${bottom}:${top}`,
+          openingId: getBoundarySegmentOpeningId(
+            openings,
+            'right',
+            right,
+            bottom,
+            top,
+          ),
+          top,
+          x: right,
+        })
+      }
+
+      if (
+        bottom > 0.0001 &&
+        !openingRectsContainPoint(openings, centerX, bottom - 0.0002)
+      ) {
+        segments.push({
+          edge: 'bottom',
+          id: `bottom:${left}:${right}:${bottom}`,
+          left,
+          openingId: getBoundarySegmentOpeningId(
+            openings,
+            'bottom',
+            bottom,
+            left,
+            right,
+          ),
+          right,
+          y: bottom,
+        })
+      }
+
+      if (
+        top < wallHeight - 0.0001 &&
+        !openingRectsContainPoint(openings, centerX, top + 0.0002)
+      ) {
+        segments.push({
+          edge: 'top',
+          id: `top:${left}:${right}:${top}`,
+          left,
+          openingId: getBoundarySegmentOpeningId(
+            openings,
+            'top',
+            top,
+            left,
+            right,
+          ),
+          right,
+          y: top,
+        })
+      }
+    })
+  })
+
+  return segments
 }
 
 function addSideFaceQuad({
@@ -812,9 +1015,11 @@ function addHorizontalFaces({
 
 function addOpeningRevealFaces({
   faces,
+  options,
   wall,
 }: {
   faces: WallMeshFace[]
+  options: WallMeshBuildOptions
   wall: Wall
 }) {
   const addRevealFace = ({
@@ -836,15 +1041,16 @@ function addOpeningRevealFaces({
     yBottom: number
     yTop: number
   }) => {
-    const source = { side, wallId: wall.id }
+    const materialSource = { role: 'cap' as const, side, wallId: wall.id }
+    const sideSource = { side, wallId: wall.id }
 
     faces.push({
       faceId,
       kind: 'cap',
-      materialSource: source,
+      materialSource,
       normal,
-      pickSource: source,
-      uvSource: source,
+      pickSource: sideSource,
+      uvSource: sideSource,
       vertices: [
         toVertex(firstPoint, yBottom, [0, yBottom]),
         toVertex(secondPoint, yBottom, [uvWidth, yBottom]),
@@ -855,124 +1061,175 @@ function addOpeningRevealFaces({
     })
   }
 
-  getWallOpeningRects(wall).forEach((opening) => {
-    const positiveLeft = getWallSidePointAtDistance(wall, opening.left, 1)
-    const negativeLeft = getWallSidePointAtDistance(wall, opening.left, -1)
-    const positiveRight = getWallSidePointAtDistance(wall, opening.right, 1)
-    const negativeRight = getWallSidePointAtDistance(wall, opening.right, -1)
-    const centerLeft = getWallSidePointAtDistance(wall, opening.left, 0 as WallSide)
-    const centerRight = getWallSidePointAtDistance(wall, opening.right, 0 as WallSide)
-    const openingWidth = opening.right - opening.left
-    const halfThickness = wall.thickness / 2
-
-    addRevealFace({
-      faceId: `${wall.id}:opening:${opening.id}:left:-1`,
-      firstPoint: negativeLeft,
-      normal: getEndpointNormal(wall, 'start'),
-      secondPoint: centerLeft,
-      side: -1,
-      uvWidth: halfThickness,
-      yBottom: opening.bottom,
-      yTop: opening.top,
-    })
-    addRevealFace({
-      faceId: `${wall.id}:opening:${opening.id}:left:1`,
-      firstPoint: centerLeft,
-      normal: getEndpointNormal(wall, 'start'),
-      secondPoint: positiveLeft,
-      side: 1,
-      uvWidth: halfThickness,
-      yBottom: opening.bottom,
-      yTop: opening.top,
-    })
-    addRevealFace({
-      faceId: `${wall.id}:opening:${opening.id}:right:1`,
-      firstPoint: positiveRight,
-      normal: getEndpointNormal(wall, 'end'),
-      secondPoint: centerRight,
-      side: 1,
-      uvWidth: halfThickness,
-      yBottom: opening.bottom,
-      yTop: opening.top,
-    })
-    addRevealFace({
-      faceId: `${wall.id}:opening:${opening.id}:right:-1`,
-      firstPoint: centerRight,
-      normal: getEndpointNormal(wall, 'end'),
-      secondPoint: negativeRight,
-      side: -1,
-      uvWidth: halfThickness,
-      yBottom: opening.bottom,
-      yTop: opening.top,
-    })
-
-    if (opening.top < wall.height - 0.0001) {
-      const negativeSource = { side: -1 as const, wallId: wall.id }
-      const positiveSource = { side: 1 as const, wallId: wall.id }
-
-      faces.push({
-        faceId: `${wall.id}:opening:${opening.id}:top:1`,
-        kind: 'cap',
-        materialSource: positiveSource,
-        normal: [0, -1, 0],
-        pickSource: positiveSource,
-        uvSource: positiveSource,
-        vertices: [
-          toVertex(positiveLeft, opening.top, [0, halfThickness]),
-          toVertex(positiveRight, opening.top, [openingWidth, halfThickness]),
-          toVertex(centerRight, opening.top, [openingWidth, 0]),
-          toVertex(centerLeft, opening.top, [0, 0]),
-        ],
-        wallId: wall.id,
-      })
-      faces.push({
-        faceId: `${wall.id}:opening:${opening.id}:top:-1`,
-        kind: 'cap',
-        materialSource: negativeSource,
-        normal: [0, -1, 0],
-        pickSource: negativeSource,
-        uvSource: negativeSource,
-        vertices: [
-          toVertex(centerLeft, opening.top, [0, halfThickness]),
-          toVertex(centerRight, opening.top, [openingWidth, halfThickness]),
-          toVertex(negativeRight, opening.top, [openingWidth, 0]),
-          toVertex(negativeLeft, opening.top, [0, 0]),
-        ],
-        wallId: wall.id,
-      })
+  const halfThickness = wall.thickness / 2
+  const exteriorSide =
+    wall.kind === 'external'
+      ? options.exteriorWallSidesByWallId?.get(wall.id)
+      : undefined
+  const openingRectangles = getWallOpeningRects(wall)
+  const getRevealSplitOffset = (openingId?: string) => {
+    if (!exteriorSide || !openingId) {
+      return 0
     }
 
-    if (opening.bottom > 0.0001) {
+    const opening = openingRectangles.find(
+      (candidateOpening) => candidateOpening.id === openingId,
+    )
+    const openingDepth = opening
+      ? options.wallOpeningDepthsByModelId?.get(opening.modelId)
+      : undefined
+
+    if (typeof openingDepth !== 'number' || !Number.isFinite(openingDepth)) {
+      return 0
+    }
+
+    return Math.max(
+      -halfThickness,
+      Math.min(
+        halfThickness,
+        exteriorSide *
+          (halfThickness -
+            EXTERIOR_OPENING_REVEAL_INSET_METERS -
+            openingDepth / 2),
+      ),
+    )
+  }
+  const revealSegments = getMergedOpeningBoundarySegments(
+    openingRectangles,
+    wall.height,
+  )
+
+  revealSegments.forEach((segment) => {
+    const faceIdPrefix = segment.openingId
+      ? `${wall.id}:opening:${segment.openingId}:${segment.edge}`
+      : `${wall.id}:opening-boundary:${segment.id}`
+    const splitOffset = getRevealSplitOffset(segment.openingId)
+    const splitSide = splitOffset * 2 / wall.thickness as WallSide
+
+    if (segment.edge === 'left' || segment.edge === 'right') {
+      const pointNegative = getWallSidePointAtDistance(wall, segment.x, -1)
+      const pointSplit = getWallSidePointAtDistance(wall, segment.x, splitSide)
+      const pointPositive = getWallSidePointAtDistance(wall, segment.x, 1)
+      const normal =
+        segment.edge === 'left'
+          ? getEndpointNormal(wall, 'start')
+          : getEndpointNormal(wall, 'end')
+
+      addRevealFace({
+        faceId: `${faceIdPrefix}:-1`,
+        firstPoint:
+          segment.edge === 'left' ? pointNegative : pointSplit,
+        normal,
+        secondPoint:
+          segment.edge === 'left' ? pointSplit : pointNegative,
+        side: -1,
+        uvWidth: splitOffset + halfThickness,
+        yBottom: segment.bottom,
+        yTop: segment.top,
+      })
+      addRevealFace({
+        faceId: `${faceIdPrefix}:1`,
+        firstPoint:
+          segment.edge === 'left' ? pointSplit : pointPositive,
+        normal,
+        secondPoint:
+          segment.edge === 'left' ? pointPositive : pointSplit,
+        side: 1,
+        uvWidth: halfThickness - splitOffset,
+        yBottom: segment.bottom,
+        yTop: segment.top,
+      })
+      return
+    }
+
+    if (segment.edge === 'top') {
+      const leftNegative = getWallSidePointAtDistance(wall, segment.left, -1)
+      const leftSplit = getWallSidePointAtDistance(wall, segment.left, splitSide)
+      const leftPositive = getWallSidePointAtDistance(wall, segment.left, 1)
+      const rightNegative = getWallSidePointAtDistance(wall, segment.right, -1)
+      const rightSplit = getWallSidePointAtDistance(wall, segment.right, splitSide)
+      const rightPositive = getWallSidePointAtDistance(wall, segment.right, 1)
+      const openingWidth = segment.right - segment.left
+      const normal: [number, number, number] = [0, -1, 0]
       const negativeSource = { side: -1 as const, wallId: wall.id }
       const positiveSource = { side: 1 as const, wallId: wall.id }
+      const negativeMaterialSource = { role: 'cap' as const, ...negativeSource }
+      const positiveMaterialSource = { role: 'cap' as const, ...positiveSource }
 
       faces.push({
-        faceId: `${wall.id}:opening:${opening.id}:bottom:-1`,
+        faceId: `${faceIdPrefix}:1`,
         kind: 'cap',
-        materialSource: negativeSource,
-        normal: [0, 1, 0],
-        pickSource: negativeSource,
-        uvSource: negativeSource,
+        materialSource: positiveMaterialSource,
+        normal,
+        pickSource: positiveSource,
+        uvSource: positiveSource,
         vertices: [
-          toVertex(negativeLeft, opening.bottom, [0, 0]),
-          toVertex(negativeRight, opening.bottom, [openingWidth, 0]),
-          toVertex(centerRight, opening.bottom, [openingWidth, halfThickness]),
-          toVertex(centerLeft, opening.bottom, [0, halfThickness]),
+          toVertex(leftPositive, segment.y, [0, halfThickness - splitOffset]),
+          toVertex(rightPositive, segment.y, [openingWidth, halfThickness - splitOffset]),
+          toVertex(rightSplit, segment.y, [openingWidth, 0]),
+          toVertex(leftSplit, segment.y, [0, 0]),
         ],
         wallId: wall.id,
       })
       faces.push({
-        faceId: `${wall.id}:opening:${opening.id}:bottom:1`,
+        faceId: `${faceIdPrefix}:-1`,
         kind: 'cap',
-        materialSource: positiveSource,
-        normal: [0, 1, 0],
+        materialSource: negativeMaterialSource,
+        normal,
+        pickSource: negativeSource,
+        uvSource: negativeSource,
+        vertices: [
+          toVertex(leftSplit, segment.y, [0, splitOffset + halfThickness]),
+          toVertex(rightSplit, segment.y, [openingWidth, splitOffset + halfThickness]),
+          toVertex(rightNegative, segment.y, [openingWidth, 0]),
+          toVertex(leftNegative, segment.y, [0, 0]),
+        ],
+        wallId: wall.id,
+      })
+      return
+    }
+
+    if (segment.edge === 'bottom') {
+      const leftNegative = getWallSidePointAtDistance(wall, segment.left, -1)
+      const leftSplit = getWallSidePointAtDistance(wall, segment.left, splitSide)
+      const leftPositive = getWallSidePointAtDistance(wall, segment.left, 1)
+      const rightNegative = getWallSidePointAtDistance(wall, segment.right, -1)
+      const rightSplit = getWallSidePointAtDistance(wall, segment.right, splitSide)
+      const rightPositive = getWallSidePointAtDistance(wall, segment.right, 1)
+      const openingWidth = segment.right - segment.left
+      const normal: [number, number, number] = [0, 1, 0]
+      const negativeSource = { side: -1 as const, wallId: wall.id }
+      const positiveSource = { side: 1 as const, wallId: wall.id }
+      const negativeMaterialSource = { role: 'cap' as const, ...negativeSource }
+      const positiveMaterialSource = { role: 'cap' as const, ...positiveSource }
+
+      faces.push({
+        faceId: `${faceIdPrefix}:-1`,
+        kind: 'cap',
+        materialSource: negativeMaterialSource,
+        normal,
+        pickSource: negativeSource,
+        uvSource: negativeSource,
+        vertices: [
+          toVertex(leftNegative, segment.y, [0, 0]),
+          toVertex(rightNegative, segment.y, [openingWidth, 0]),
+          toVertex(rightSplit, segment.y, [openingWidth, splitOffset + halfThickness]),
+          toVertex(leftSplit, segment.y, [0, splitOffset + halfThickness]),
+        ],
+        wallId: wall.id,
+      })
+      faces.push({
+        faceId: `${faceIdPrefix}:1`,
+        kind: 'cap',
+        materialSource: positiveMaterialSource,
+        normal,
         pickSource: positiveSource,
         uvSource: positiveSource,
         vertices: [
-          toVertex(centerLeft, opening.bottom, [0, 0]),
-          toVertex(centerRight, opening.bottom, [openingWidth, 0]),
-          toVertex(positiveRight, opening.bottom, [openingWidth, halfThickness]),
-          toVertex(positiveLeft, opening.bottom, [0, halfThickness]),
+          toVertex(leftSplit, segment.y, [0, 0]),
+          toVertex(rightSplit, segment.y, [openingWidth, 0]),
+          toVertex(rightPositive, segment.y, [openingWidth, halfThickness - splitOffset]),
+          toVertex(leftPositive, segment.y, [0, halfThickness - splitOffset]),
         ],
         wallId: wall.id,
       })
@@ -1752,6 +2009,7 @@ function buildWallFaces(
   })
   addOpeningRevealFaces({
     faces,
+    options,
     wall,
   })
 
@@ -1863,7 +2121,7 @@ export function buildWallBodyPerimeterMeshFaces(
     })
     perimeterWalls
       .filter((wall) => (wall.openings ?? []).length > 0)
-      .forEach((wall) => addOpeningRevealFaces({ faces, wall }))
+      .forEach((wall) => addOpeningRevealFaces({ faces, options, wall }))
   })
 
   return faces

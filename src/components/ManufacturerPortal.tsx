@@ -62,11 +62,13 @@ const portalTokenStorageKey = 'houseDesignerAssetPortalToken'
 const emptyAssetMetadata = {
   category: '',
   collection: '',
+  baseColor: '#ffffff',
   colourFamily: '',
   depth: '',
   finish: '',
   height: '',
   materialType: '',
+  metalness: '0',
   modelBehavior: '',
   objectType: '',
   openingWidth: '',
@@ -74,6 +76,7 @@ const emptyAssetMetadata = {
   productUrl: '',
   realWorldHeightMeters: '',
   realWorldWidthMeters: '',
+  roughness: '0.7',
   sku: '',
   tags: '',
   width: '',
@@ -81,10 +84,12 @@ const emptyAssetMetadata = {
 
 function getAssetFormMetadata(asset: PortalAsset) {
   const legacyModelBehavior = asset.metadata.modelBehavior ?? ''
+  const baseColor = asset.metadata.baseColor || asset.metadata.albedoColor || ''
 
   return {
     ...emptyAssetMetadata,
     ...asset.metadata,
+    baseColor: baseColor || emptyAssetMetadata.baseColor,
     category: asset.category ?? asset.metadata.category ?? '',
     collection: asset.collection ?? asset.metadata.collection ?? '',
     objectType: asset.metadata.objectType || legacyModelBehavior,
@@ -369,16 +374,25 @@ export function ManufacturerPortal({
     const hasFile = Array.from(formData.values()).some(
       (value) => value instanceof File && value.size > 0,
     )
+    const hasSimpleMaterialDefinition =
+      assetKind === 'material' && /^#[\da-f]{6}$/i.test(metadata.baseColor.trim())
 
-    if (!editingAsset && !hasFile) {
-      setMessage('Choose at least one file to upload')
+    if (!editingAsset && !hasFile && !hasSimpleMaterialDefinition) {
+      setMessage('Choose at least one file or set a material albedo colour')
       return
     }
 
     formData.set('assetKind', assetKind)
     Object.entries(metadata).forEach(([key, value]) => {
+      if (key === 'baseColor' || key === 'roughness' || key === 'metalness') {
+        return
+      }
+
       formData.set(key, value)
     })
+    formData.set('albedoColor', metadata.baseColor)
+    formData.set('pbrRoughness', metadata.roughness)
+    formData.set('pbrMetalness', metadata.metalness)
     setIsBusy(true)
     setMessage(editingAsset ? 'Saving asset changes...' : 'Uploading asset...')
 
@@ -745,6 +759,42 @@ export function ManufacturerPortal({
                     />
                   </label>
                   <label>
+                    Albedo colour
+                    <input
+                      type="color"
+                      value={metadata.baseColor}
+                      onChange={(event) =>
+                        setMetadataField('baseColor', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Roughness
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={metadata.roughness}
+                      onChange={(event) =>
+                        setMetadataField('roughness', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label>
+                    Metalness
+                    <input
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={metadata.metalness}
+                      onChange={(event) =>
+                        setMetadataField('metalness', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label>
                     Real width metres
                     <input
                       inputMode="decimal"
@@ -1037,7 +1087,22 @@ export function ManufacturerPortal({
                               'Not set'}
                           </dd>
                         </div>
-                      ) : null}
+                      ) : (
+                        <>
+                          <div>
+                            <dt>Albedo</dt>
+                            <dd>{metadataValue(asset, 'baseColor')}</dd>
+                          </div>
+                          <div>
+                            <dt>Metalness</dt>
+                            <dd>{metadataValue(asset, 'metalness')}</dd>
+                          </div>
+                          <div>
+                            <dt>Roughness</dt>
+                            <dd>{metadataValue(asset, 'roughness')}</dd>
+                          </div>
+                        </>
+                      )}
                       <div>
                         <dt>Target</dt>
                         <dd>{asset.conversion.target}</dd>

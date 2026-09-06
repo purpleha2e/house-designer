@@ -312,7 +312,9 @@ export function ContextPanel({
                 ? '-'
               : selectedModel
                 ? `${(
-                    selectedModel.definition.width * selectedModel.model.scale
+                    selectedModel.definition.width *
+                    selectedModel.model.scale *
+                    (selectedModel.model.widthScale ?? 1)
                   ).toFixed(2)} m`
                 : '-'}
           </dd>
@@ -326,7 +328,9 @@ export function ContextPanel({
                 ? '-'
               : selectedModel
                 ? `${(
-                    selectedModel.definition.depth * selectedModel.model.scale
+                    selectedModel.definition.depth *
+                    selectedModel.model.scale *
+                    (selectedModel.model.depthScale ?? 1)
                   ).toFixed(2)} m`
                 : '-'}
           </dd>
@@ -472,7 +476,11 @@ export function ContextPanel({
               <>
                 <div>
                   <dt>Scale</dt>
-                  <dd>{selectedModel.model.scale.toFixed(2)}x</dd>
+                  <dd>
+                    {selectedModel.model.scale.toFixed(2)}x /{' '}
+                    {(selectedModel.model.widthScale ?? 1).toFixed(2)}w /{' '}
+                    {(selectedModel.model.depthScale ?? 1).toFixed(2)}d
+                  </dd>
                 </div>
                 <div>
                   <dt>Rotation</dt>

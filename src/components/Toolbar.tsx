@@ -2,13 +2,17 @@ import { useState } from 'react'
 
 type ToolbarProps = {
   floorCount: number
+  isEngineConsoleOpen: boolean
   wallCount: number
   onLoadProject: () => void
+  onEngineConsoleOpenChange: (isOpen: boolean) => void
   onOpenManufacturerPortal: () => void
   onSaveProject: () => void
 }
 
 export function Toolbar({
+  isEngineConsoleOpen,
+  onEngineConsoleOpenChange,
   onLoadProject,
   onOpenManufacturerPortal,
   onSaveProject,
@@ -61,6 +65,16 @@ export function Toolbar({
             >
               Assets
             </button>
+            <label className="project-menu-checkbox">
+              <input
+                type="checkbox"
+                checked={isEngineConsoleOpen}
+                onChange={(event) =>
+                  onEngineConsoleOpenChange(event.target.checked)
+                }
+              />
+              Console
+            </label>
           </div>
         ) : null}
       </div>

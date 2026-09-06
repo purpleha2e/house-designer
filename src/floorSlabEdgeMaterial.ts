@@ -11,6 +11,7 @@ export type FloorSlabSupportingWall = {
 
 const MINIMUM_EDGE_LENGTH = 0.001
 const MAXIMUM_DIRECTION_ERROR = 0.025
+const MINIMUM_LONGITUDINAL_OVERLAP = 0.02
 const MINIMUM_LATERAL_TOLERANCE = 0.2
 
 function distanceOutsideInterval(value: number, minimum: number, maximum: number) {
@@ -86,6 +87,14 @@ export function findFloorSlabSupportingWall(
       midpointOffset.x * wallUnit.x + midpointOffset.y * wallUnit.y
     const signedFaceDistance =
       midpointOffset.x * normal.x + midpointOffset.y * normal.y
+    const edgeStartDistance =
+      (point.x - wall.start.x) * wallUnit.x +
+      (point.y - wall.start.y) * wallUnit.y
+    const edgeEndDistance =
+      (nextPoint.x - wall.start.x) * wallUnit.x +
+      (nextPoint.y - wall.start.y) * wallUnit.y
+    const edgeDistanceStart = Math.min(edgeStartDistance, edgeEndDistance)
+    const edgeDistanceEnd = Math.max(edgeStartDistance, edgeEndDistance)
     const expectedFaceDistance = wall.thickness / 2
     const lateralError = Math.abs(
       Math.abs(signedFaceDistance) - expectedFaceDistance,
@@ -95,15 +104,22 @@ export function findFloorSlabSupportingWall(
       wall.thickness * 0.75,
     )
     const longitudinalTolerance = Math.max(0.05, wall.thickness)
-    const longitudinalError = distanceOutsideInterval(
-      midpointDistance,
-      -longitudinalTolerance,
-      wallLength + longitudinalTolerance,
-    )
+    const overlapStart = Math.max(edgeDistanceStart, -longitudinalTolerance)
+    const overlapEnd = Math.min(edgeDistanceEnd, wallLength + longitudinalTolerance)
+    const longitudinalOverlap = Math.max(0, overlapEnd - overlapStart)
+    const longitudinalError =
+      longitudinalOverlap > 0
+        ? 0
+        : distanceOutsideInterval(
+            midpointDistance,
+            -longitudinalTolerance,
+            wallLength + longitudinalTolerance,
+          )
 
     if (
       lateralError > lateralTolerance ||
-      longitudinalError > longitudinalTolerance
+      (longitudinalOverlap < MINIMUM_LONGITUDINAL_OVERLAP &&
+        longitudinalError > longitudinalTolerance)
     ) {
       continue
     }
@@ -111,7 +127,10 @@ export function findFloorSlabSupportingWall(
     const uvStart = getCanonicalWallUvDistance(wall, point)
     const uvEnd = getCanonicalWallUvDistance(wall, nextPoint)
     const score =
-      lateralError + longitudinalError * 2 + directionError * wall.thickness
+      lateralError +
+      longitudinalError * 2 +
+      directionError * wall.thickness +
+      Math.max(0, edgeLength - longitudinalOverlap) / edgeLength
     const edgeLeftNormal = { x: -edgeUnit.y, y: edgeUnit.x }
     const outwardNormalSign = signedFaceDistance >= 0 ? 1 : -1
     const outwardNormal = {

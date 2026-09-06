@@ -50,6 +50,31 @@ test('matches a slab outline clipped to an external wall centre line', () => {
   assert.equal(match?.wall.id, externalWall.id)
 })
 
+test('matches a slab edge even when the midpoint spans a break in the wall run', () => {
+  const firstWall: Wall = {
+    ...externalWall,
+    end: { x: 4, y: 2 },
+    id: 'external-left',
+    start: { x: 0, y: 2 },
+  }
+  const secondWall: Wall = {
+    ...externalWall,
+    end: { x: 10, y: 2 },
+    id: 'external-right',
+    start: { x: 6, y: 2 },
+  }
+
+  const match = findFloorSlabSupportingWall(
+    { x: 0, y: 2.15 },
+    { x: 10, y: 2.15 },
+    [firstWall, secondWall],
+  )
+
+  assert.ok(match)
+  assert.ok(['external-left', 'external-right'].includes(match.wall.id))
+  assert.equal(match.side, 1)
+})
+
 test('does not inherit from internal or unrelated walls', () => {
   const internalWall: Wall = { ...externalWall, id: 'internal', kind: 'internal' }
 

@@ -1,8 +1,5 @@
 import { useState } from 'react'
-import {
-  getSurfaceMaterialLabel,
-  isCustomPaintMaterialId,
-} from '../materials/materialCatalog'
+import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import type {
   FloorLevel,
   SelectableSurface,
@@ -11,8 +8,9 @@ import type {
   WallKind,
 } from '../types'
 
-type RailPanel = 'floor' | 'materials' | 'project' | 'wall'
+type RailPanel = 'align' | 'floor' | 'materials' | 'project' | 'wall'
 type WallMaterialMode = 'full' | 'lower'
+type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
 
 const MIN_INTERNAL_WALL_THICKNESS = 0.05
 const MAX_INTERNAL_WALL_THICKNESS = 0.3
@@ -57,6 +55,7 @@ type LeftToolRailProps = {
   materials: SurfaceMaterialProduct[]
   selectedSurface: SelectableSurface | null
   selectedFloorViewId: string
+  selectedModelCount: number
   selectedWallHeight: number | null
   wallCount: number
   wallHeight: number
@@ -72,6 +71,7 @@ type LeftToolRailProps = {
     wallMode?: WallMaterialMode
     wallSide?: SurfaceWallSide
   }) => void
+  onAlignModels: (direction: ModelAlignDirection) => void
   onCopy: () => void
   onCut: () => void
   onDeleteFloor: () => void
@@ -129,12 +129,14 @@ export function LeftToolRail({
   materials,
   selectedSurface,
   selectedFloorViewId,
+  selectedModelCount,
   selectedWallHeight,
   wallHeight,
   wallKind,
   onAddEmptyFloor,
   onAddFloor,
   onApplyMaterial,
+  onAlignModels,
   onCopy,
   onCut,
   onDeleteFloor,
@@ -162,7 +164,6 @@ export function LeftToolRail({
   const [textureScale, setTextureScale] = useState(1)
   const [textureScaleInput, setTextureScaleInput] = useState('1')
   const [textureRotation, setTextureRotation] = useState(0)
-  const [customPaintColor, setCustomPaintColor] = useState('#f4d7dd')
   const [internalWallThicknessDraft, setInternalWallThicknessDraft] = useState<
     string | null
   >(null)
@@ -282,9 +283,6 @@ export function LeftToolRail({
   const materialToApply = selectedMaterialIsVisible
     ? selectedMaterialId
     : filteredMaterials[0]?.id ?? ''
-  const materialIsCustomPaint = materialToApply
-    ? isCustomPaintMaterialId(materialToApply)
-    : false
   const selectedSurfaceLabel =
     selectedSurface?.type === 'room-floor'
       ? 'Floor selected'
@@ -316,7 +314,6 @@ export function LeftToolRail({
               Math.max(0.05, wallCoverageHeight),
             )
           : selectedWallHeight ?? undefined,
-      customColor: materialIsCustomPaint ? customPaintColor : undefined,
       materialId: materialToApply,
       textureRotation,
       textureScale: scaleToApply,
@@ -371,6 +368,14 @@ export function LeftToolRail({
           onClick={() => togglePanel('materials')}
         >
           A
+        </IconButton>
+        <IconButton
+          active={openPanel === 'align'}
+          disabled={selectedModelCount < 2}
+          label="Align"
+          onClick={() => togglePanel('align')}
+        >
+          =
         </IconButton>
         <div className="left-tool-rail-divider" />
         <IconButton disabled={!canUndo} label="Undo" onClick={onUndo}>
@@ -615,23 +620,6 @@ export function LeftToolRail({
                   )}
                 </select>
               </label>
-              {materialIsCustomPaint ? (
-                <label className="flyout-colour-field">
-                  <span>Paint colour</span>
-                  <div>
-                    <input
-                      type="color"
-                      value={customPaintColor}
-                      onChange={(event) => setCustomPaintColor(event.target.value)}
-                    />
-                    <input
-                      type="text"
-                      value={customPaintColor}
-                      onChange={(event) => setCustomPaintColor(event.target.value)}
-                    />
-                  </div>
-                </label>
-              ) : null}
               <label className="flyout-field">
                 <span>Texture scale</span>
                 <div>
@@ -731,6 +719,45 @@ export function LeftToolRail({
               >
                 Apply material
               </button>
+            </>
+          ) : null}
+
+          {openPanel === 'align' ? (
+            <>
+              <header>
+                <h2>Align</h2>
+                <p>{selectedModelCount} objects selected</p>
+              </header>
+              <div className="flyout-grid-control" aria-label="Align selected objects">
+                <button
+                  type="button"
+                  disabled={selectedModelCount < 2}
+                  onClick={() => onAlignModels('top')}
+                >
+                  Top
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedModelCount < 2}
+                  onClick={() => onAlignModels('bottom')}
+                >
+                  Bottom
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedModelCount < 2}
+                  onClick={() => onAlignModels('left')}
+                >
+                  Left
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedModelCount < 2}
+                  onClick={() => onAlignModels('right')}
+                >
+                  Right
+                </button>
+              </div>
             </>
           ) : null}
         </aside>

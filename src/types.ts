@@ -184,6 +184,9 @@ export type PlacedModel = {
   position: Point
   rotation: number
   scale: number
+  wallOpeningBottom?: number
+  widthScale?: number
+  depthScale?: number
   wallAttachment?: WallAttachment
 }
 

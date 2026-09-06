@@ -131,6 +131,22 @@ function parsePositiveNumber(value: string | undefined) {
   return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : undefined
 }
 
+function parseUnitNumber(value: string | undefined) {
+  const parsedValue = Number.parseFloat(value ?? '')
+
+  return Number.isFinite(parsedValue)
+    ? Math.min(1, Math.max(0, parsedValue))
+    : undefined
+}
+
+function parseHexColor(value: string | undefined) {
+  const normalizedValue = value?.trim()
+
+  return normalizedValue && /^#[\da-f]{6}$/i.test(normalizedValue)
+    ? normalizedValue
+    : undefined
+}
+
 function normalizeModelWallMount(value: string | undefined) {
   const normalized = normalizeToken(value ?? '')
 
@@ -159,8 +175,13 @@ function portalMaterialToSurfaceMaterial(
   asset: PortalCatalogAsset,
 ): SurfaceMaterialProduct | null {
   const baseColorTextureUrl = findProcessedFile(asset, 'baseColor')
+  const baseColor = parseHexColor(asset.metadata.baseColor)
 
-  if (asset.conversion?.status !== 'complete' || !baseColorTextureUrl) {
+  if (!baseColorTextureUrl && !baseColor) {
+    return null
+  }
+
+  if (baseColorTextureUrl && asset.conversion?.status !== 'complete') {
     return null
   }
 
@@ -168,6 +189,7 @@ function portalMaterialToSurfaceMaterial(
     asset.metadata.category || asset.category || '',
   )
   const finish = normalizeSurfaceFinish(asset.metadata.finish ?? '')
+  const roughness = parseUnitNumber(asset.metadata.roughness)
 
   return {
     category,
@@ -179,17 +201,18 @@ function portalMaterialToSurfaceMaterial(
     materialType: asset.metadata.materialType || category,
     pbr: {
       ambientOcclusionTextureUrl: findProcessedFile(asset, 'ambientOcclusion'),
+      baseColor,
       baseColorTextureUrl,
       displacementScale: 0.003,
       displacementTextureUrl: findProcessedFile(asset, 'displacement'),
-      metalness: 0,
+      metalness: parseUnitNumber(asset.metadata.metalness) ?? 0,
       metalnessTextureUrl: findProcessedFile(asset, 'metalness'),
       normalTextureUrl: findProcessedFile(asset, 'normal'),
       realWorldHeightMeters: parsePositiveNumber(
         asset.metadata.realWorldHeightMeters,
       ),
       realWorldWidthMeters: parsePositiveNumber(asset.metadata.realWorldWidthMeters),
-      roughness: 0.7,
+      roughness: roughness ?? 0.7,
       roughnessTextureUrl: findProcessedFile(asset, 'roughness'),
     },
     productName: asset.metadata.productName || 'Uploaded material',
@@ -255,6 +278,7 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
     normalizeToDimensions: hasManualDimensions,
     objectType,
     openingWidth: parsePositiveNumber(asset.metadata.openingWidth),
+    previewUrl: findOriginalFile(asset, 'preview'),
     shape: 'box',
     sourceUrl: modelUrl,
     wallMount,

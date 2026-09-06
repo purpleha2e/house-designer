@@ -36,6 +36,7 @@ export type ModelDefinition = {
   localBounds?: ModelHorizontalBounds
   openingCenterOffset?: number
   openingWidth?: number
+  previewUrl?: string
   normalizeToDimensions?: boolean
   objectType?: ModelObjectType
   wallMount?: 'exterior-door' | 'interior-door' | 'patio-door' | 'window'

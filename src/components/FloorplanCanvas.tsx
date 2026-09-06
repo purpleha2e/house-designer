@@ -74,7 +74,9 @@ const SNAP_MARKER_OUTER_RADIUS = 9
 const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
 const MIN_MODEL_SCALE = 0.2
 const MAX_MODEL_SCALE = 5
-const MODEL_ROTATION_SNAP_RADIANS = (5 * Math.PI) / 180
+const MODEL_TRANSLATION_STEP_METERS = 0.1
+const MODEL_ROTATION_SNAP_RADIANS = (10 * Math.PI) / 180
+const MODEL_SCALE_STEP = 0.1
 const WALL_DIRECTION_SNAP_RADIANS = Math.PI / 4
 const WALL_MODEL_SNAP_DISTANCE_METERS = 0.65
 const ROOM_HIGHLIGHT_COLORS = [
@@ -123,6 +125,30 @@ type Viewport = {
   scale: number
 }
 
+type TransformMode = 'rotate' | 'scale' | 'translate'
+
+type ModelMoveDragState = {
+  axis: 'x' | 'y' | null
+  modelId: string
+  startPosition: Point
+}
+
+type ModelRotateDragState = {
+  modelId: string
+  startAngle: number
+  startRotation: number
+}
+
+type ModelScaleDragState = {
+  axis: 'x' | 'y' | null
+  modelId: string
+  startClientX: number
+  startClientY: number
+  startDepthScale: number
+  startDistance: number
+  startWidthScale: number
+}
+
 type FloorplanRenderOptions = {
   externalDimensions: boolean
   floorAreaSummary: boolean
@@ -160,6 +186,12 @@ type WallDragState =
       startPointer: Point
       startWall: Pick<Wall, 'end' | 'start'>
     }
+
+type WallMeasurementEditState = {
+  anchorEndpoint: 'end' | 'start'
+  movingEndpoint: 'end' | 'start'
+  wallId: string
+}
 
 type SnapTarget = {
   point: Point
@@ -1074,14 +1106,12 @@ function traceExternalLoop(
   return null
 }
 
-function applyMeasuredLengthAndAngle(
+function applyMeasuredLengthAndAngleForWall(
   start: Point,
   pointerEnd: Point,
   lengthInput: string | null,
   angleInput: string | null,
-  wallKind: WallKind,
-  internalWallThickness: number,
-  roomHeight: number,
+  wall: Wall,
   walls: Wall[],
 ) {
   const typedLength = parseLengthInput(lengthInput ?? '')
@@ -1097,16 +1127,13 @@ function applyMeasuredLengthAndAngle(
     return initialEnd
   }
 
-  const draftWall: Wall = {
-    id: 'draft-wall',
-    kind: wallKind,
+  const measuredWall: Wall = {
+    ...wall,
     start,
     end: initialEnd,
-    thickness: getDraftWallThickness(wallKind, internalWallThickness),
-    height: roomHeight,
   }
   const centerlineLength = getCenterlineLengthForVisibleLength(
-    draftWall,
+    measuredWall,
     walls,
     typedLength,
   )
@@ -1115,6 +1142,35 @@ function applyMeasuredLengthAndAngle(
     x: start.x + Math.cos(angle) * centerlineLength,
     y: start.y + Math.sin(angle) * centerlineLength,
   }
+}
+
+function applyMeasuredLengthAndAngle(
+  start: Point,
+  pointerEnd: Point,
+  lengthInput: string | null,
+  angleInput: string | null,
+  wallKind: WallKind,
+  internalWallThickness: number,
+  roomHeight: number,
+  walls: Wall[],
+) {
+  const draftWall: Wall = {
+    id: 'draft-wall',
+    kind: wallKind,
+    start,
+    end: pointerEnd,
+    thickness: getDraftWallThickness(wallKind, internalWallThickness),
+    height: roomHeight,
+  }
+
+  return applyMeasuredLengthAndAngleForWall(
+    start,
+    pointerEnd,
+    lengthInput,
+    angleInput,
+    draftWall,
+    walls,
+  )
 }
 
 function getExternalDimensionSide(wall: Wall, walls: Wall[]): -1 | 1 {
@@ -2483,6 +2539,8 @@ export function FloorplanCanvas({
   const [draftWall, setDraftWall] = useState<{ start: Point; end: Point } | null>(
     null,
   )
+  const [wallMeasurementEdit, setWallMeasurementEdit] =
+    useState<WallMeasurementEditState | null>(null)
   const [hoverSnapTarget, setHoverSnapTarget] = useState<SnapTarget | null>(null)
   const [hoverAlignmentGuide, setHoverAlignmentGuide] =
     useState<AlignmentGuide | null>(null)
@@ -2492,6 +2550,8 @@ export function FloorplanCanvas({
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
   const [isDraggingModel, setIsDraggingModel] = useState(false)
   const [isDraggingWall, setIsDraggingWall] = useState(false)
+  const [transformMode, setTransformMode] =
+    useState<TransformMode>('translate')
   const [wallDragPreview, setWallDragPreview] = useState<{
     wall: Pick<Wall, 'end' | 'start'>
     wallId: string
@@ -2504,6 +2564,10 @@ export function FloorplanCanvas({
   const stageRef = useRef<KonvaStage | null>(null)
   const middlePanRef = useRef<PanState | null>(null)
   const wallDragRef = useRef<WallDragState | null>(null)
+  const modelMoveAxisRef = useRef<'x' | 'y' | null>(null)
+  const modelMoveDragRef = useRef<ModelMoveDragState | null>(null)
+  const modelRotateDragRef = useRef<ModelRotateDragState | null>(null)
+  const modelScaleDragRef = useRef<ModelScaleDragState | null>(null)
   const wallDragPreviewFrameRef = useRef<number | null>(null)
   const pendingWallDragPreviewRef = useRef<typeof wallDragPreview>(null)
   const scheduleWallDragPreview = useCallback(
@@ -2738,6 +2802,28 @@ export function FloorplanCanvas({
   ])
 
   useEffect(() => {
+    if (!wallMeasurementEdit) {
+      return
+    }
+
+    if (selectedWallId !== wallMeasurementEdit.wallId) {
+      closeWallMeasurementEdit()
+      return
+    }
+
+    const nextWall = getMeasuredSelectedWall(wallMeasurementEdit)
+
+    setWallDragPreview(
+      nextWall
+        ? {
+            wallId: wallMeasurementEdit.wallId,
+            wall: nextWall,
+          }
+        : null,
+    )
+  }, [draftAngleInput, draftLengthInput, selectedWallId, wallMeasurementEdit, walls])
+
+  useEffect(() => {
     if (!isAddingWall) {
       return
     }
@@ -2816,6 +2902,92 @@ export function FloorplanCanvas({
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [activeFloor.walls, draftWall, isAddingWall, onAddWall, onExitAddWall])
+
+  useEffect(() => {
+    if (isAddingWall || draftWall) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement ||
+        (event.target instanceof HTMLElement && event.target.isContentEditable)
+      ) {
+        return
+      }
+
+      const isLengthKey = /^\d$/.test(event.key) || event.key === '.'
+      const selectedWall = selectedWallId
+        ? walls.find((wall) => wall.id === selectedWallId)
+        : null
+
+      if (!wallMeasurementEdit && (!selectedWall || selectedWallIds.length > 1)) {
+        return
+      }
+
+      if (
+        !isLengthKey &&
+        event.key !== 'Backspace' &&
+        event.key !== 'Enter' &&
+        event.key !== 'Escape'
+      ) {
+        return
+      }
+
+      if (!wallMeasurementEdit && !isLengthKey) {
+        return
+      }
+
+      event.preventDefault()
+
+      if (event.key === 'Escape') {
+        closeWallMeasurementEdit()
+        return
+      }
+
+      if (event.key === 'Enter') {
+        commitWallMeasurementEdit()
+        return
+      }
+
+      if (!wallMeasurementEdit && selectedWall) {
+        const editEndpoints = getWallMeasurementEditEndpoints(selectedWall)
+
+        if (!editEndpoints) {
+          return
+        }
+
+        setWallMeasurementEdit({
+          wallId: selectedWall.id,
+          ...editEndpoints,
+        })
+      }
+
+      setDraftLengthInput((currentValue) => {
+        if (event.key === 'Backspace') {
+          return currentValue ? currentValue.slice(0, -1) : ''
+        }
+
+        if (event.key === '.' && currentValue?.includes('.')) {
+          return currentValue ?? ''
+        }
+
+        return `${currentValue ?? ''}${event.key}`
+      })
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [
+    draftWall,
+    isAddingWall,
+    selectedWallId,
+    selectedWallIds.length,
+    wallMeasurementEdit,
+    walls,
+  ])
 
   const getPointerPoint = (
     event: KonvaEventObject<DragEvent> | KonvaEventObject<PointerEvent>,
@@ -3000,6 +3172,22 @@ export function FloorplanCanvas({
       : null
   }
 
+  const getWallMeasurementEditEndpoints = (wall: Wall) => {
+    const startAttached =
+      getOtherNodeConnections(wallTopology, wall, 'start').length > 0
+    const endAttached =
+      getOtherNodeConnections(wallTopology, wall, 'end').length > 0
+
+    if (startAttached && endAttached) {
+      return null
+    }
+
+    return {
+      anchorEndpoint: startAttached ? 'start' : endAttached ? 'end' : 'start',
+      movingEndpoint: startAttached ? 'end' : endAttached ? 'start' : 'end',
+    } satisfies Omit<WallMeasurementEditState, 'wallId'>
+  }
+
   const wallUpdateRespectsMinimumJoinAngles = (
     wallId: string,
     nextWall: Pick<Wall, 'end' | 'start'>,
@@ -3039,6 +3227,58 @@ export function FloorplanCanvas({
     ) {
       onAddWall(nextWall)
     }
+  }
+
+  const getMeasuredSelectedWall = (
+    editState: WallMeasurementEditState,
+    lengthInput = draftLengthInput,
+    angleInput = draftAngleInput,
+  ) => {
+    const wall = walls.find((candidateWall) => candidateWall.id === editState.wallId)
+
+    if (!wall) {
+      return null
+    }
+
+    const anchor = wall[editState.anchorEndpoint]
+    const currentMovingPoint = wall[editState.movingEndpoint]
+    const nextMovingPoint = applyMeasuredLengthAndAngleForWall(
+      anchor,
+      currentMovingPoint,
+      lengthInput,
+      angleInput,
+      wall,
+      walls,
+    )
+    const nextWall =
+      editState.movingEndpoint === 'start'
+        ? { start: nextMovingPoint, end: anchor }
+        : { start: anchor, end: nextMovingPoint }
+
+    return wallUpdateRespectsMinimumJoinAngles(editState.wallId, nextWall)
+      ? nextWall
+      : null
+  }
+
+  const closeWallMeasurementEdit = () => {
+    setWallMeasurementEdit(null)
+    setDraftLengthInput(null)
+    setDraftAngleInput(null)
+    setWallDragPreview(null)
+  }
+
+  const commitWallMeasurementEdit = () => {
+    if (!wallMeasurementEdit) {
+      return
+    }
+
+    const nextWall = getMeasuredSelectedWall(wallMeasurementEdit)
+
+    if (nextWall && distance(nextWall.start, nextWall.end) >= MIN_WALL_LENGTH_METERS) {
+      onUpdateWall(wallMeasurementEdit.wallId, nextWall)
+    }
+
+    closeWallMeasurementEdit()
   }
 
   const closeContextMenu = () => {
@@ -3353,13 +3593,32 @@ export function FloorplanCanvas({
     [wallDragPreview, walls],
   )
   const renderedWalls = useMemo(() => getRenderedWalls(previewWalls), [previewWalls])
-  const draftWallLength = draftWall ? distance(draftWall.start, draftWall.end) : null
+  const selectedWallMeasurementPreview =
+    wallMeasurementEdit && wallDragPreview?.wallId === wallMeasurementEdit.wallId
+      ? wallDragPreview.wall
+      : wallMeasurementEdit
+        ? walls.find((wall) => wall.id === wallMeasurementEdit.wallId) ?? null
+        : null
+  const measurementWall = draftWall ?? selectedWallMeasurementPreview
+  const measurementAnchor =
+    measurementWall && wallMeasurementEdit && !draftWall
+      ? measurementWall[wallMeasurementEdit.anchorEndpoint]
+      : measurementWall?.start
+  const measurementMovingPoint =
+    measurementWall && wallMeasurementEdit && !draftWall
+      ? measurementWall[wallMeasurementEdit.movingEndpoint]
+      : measurementWall?.end
+  const draftWallLength = measurementWall
+    ? distance(measurementWall.start, measurementWall.end)
+    : null
   const angleWidget =
-    draftWall && !isAxisLocked ? getAngleWidget(draftWall.start, draftWall.end) : null
-  const draftWallMidpoint = draftWall
+    measurementAnchor && measurementMovingPoint && !isAxisLocked
+      ? getAngleWidget(measurementAnchor, measurementMovingPoint)
+      : null
+  const draftWallMidpoint = measurementWall
     ? toCanvasPoint({
-        x: (draftWall.start.x + draftWall.end.x) / 2,
-        y: (draftWall.start.y + draftWall.end.y) / 2,
+        x: (measurementWall.start.x + measurementWall.end.x) / 2,
+        y: (measurementWall.start.y + measurementWall.end.y) / 2,
       })
     : null
   const draftLengthPanelPosition = draftWallMidpoint
@@ -3370,6 +3629,9 @@ export function FloorplanCanvas({
     : null
   const draftAngleDisplay = draftWall
     ? draftAngleInput ?? Math.round(getAngleDegrees(draftWall.start, draftWall.end)).toString()
+    : measurementAnchor && measurementMovingPoint
+      ? draftAngleInput ??
+        Math.round(getAngleDegrees(measurementAnchor, measurementMovingPoint)).toString()
     : ''
 
   const updateDraftLength = (value: string) => {
@@ -3535,6 +3797,8 @@ export function FloorplanCanvas({
     }
 
     const modelScale = model.scale ?? 1
+    const modelWidthScale = model.widthScale ?? 1
+    const modelDepthScale = model.depthScale ?? 1
     const nativeWidth = modelBounds?.width ?? modelDefinition.width
     const nativeDepth = modelBounds?.depth ?? modelDefinition.depth
     const targetScaleX =
@@ -3563,28 +3827,24 @@ export function FloorplanCanvas({
         : modelDefinition.depth / 2
     const baseWidth = Math.max(boundsMaxX - boundsMinX, 0.1)
     const baseDepth = Math.max(boundsMaxZ - boundsMinZ, 0.1)
-    const width = baseWidth * modelScale * METERS_TO_PIXELS
-    const height = baseDepth * modelScale * METERS_TO_PIXELS
-    const footprintX = boundsMinX * modelScale * METERS_TO_PIXELS
-    const footprintY = boundsMinZ * modelScale * METERS_TO_PIXELS
+    const width = baseWidth * modelScale * modelWidthScale * METERS_TO_PIXELS
+    const height = baseDepth * modelScale * modelDepthScale * METERS_TO_PIXELS
+    const footprintX =
+      boundsMinX * modelScale * modelWidthScale * METERS_TO_PIXELS
+    const footprintY =
+      boundsMinZ * modelScale * modelDepthScale * METERS_TO_PIXELS
     const rotation = (model.rotation * 180) / Math.PI
     const isWallMountedModel = Boolean(modelDefinition.wallMount)
     const labelWidth = Math.max(72, width)
     const isSelectedModel =
       model.id === selectedModelId || selectedModelIds.includes(model.id)
-    const rotateHandleY = -height / 2 - 28
-    const scaleHandle = {
-      x: width / 2 + 22,
-      y: height / 2 + 22,
-    }
-    const baseScaleHandleDistance = Math.hypot(
-      baseWidth / 2 + 22 / METERS_TO_PIXELS,
-      baseDepth / 2 + 22 / METERS_TO_PIXELS,
-    )
+    const gizmoScale = 1 / viewport.scale
     const getStairSnap = (
       position: Point,
       nextRotation = model.rotation,
       nextScale = modelScale,
+      nextWidthScale = modelWidthScale,
+      nextDepthScale = modelDepthScale,
     ) =>
       modelDefinition.objectType === 'stairs'
         ? snapStairApertureToWalls({
@@ -3598,10 +3858,124 @@ export function FloorplanCanvas({
             position,
             rotation: nextRotation,
             scale: nextScale,
+            widthScale: nextWidthScale,
+            depthScale: nextDepthScale,
             walls: stairSnapWalls,
             width: modelDefinition.width,
           })
         : null
+    const getPointerAngleFromModelCenter = (point: Point) =>
+      Math.atan2(point.y - model.position.y, point.x - model.position.x)
+    const getPointerScaleDistance = (
+      point: Point,
+      axis: ModelScaleDragState['axis'],
+    ) => {
+      const localPoint = rotateVector(
+        {
+          x: point.x - model.position.x,
+          y: point.y - model.position.y,
+        },
+        -model.rotation,
+      )
+
+      if (axis === 'x') {
+        return Math.abs(localPoint.x)
+      }
+
+      if (axis === 'y') {
+        return Math.abs(localPoint.y)
+      }
+
+      return Math.hypot(localPoint.x, localPoint.y)
+    }
+    const beginRotateDrag = (point: Point | null) => {
+      modelRotateDragRef.current = point
+        ? {
+            modelId: model.id,
+            startAngle: getPointerAngleFromModelCenter(point),
+            startRotation: model.rotation,
+          }
+        : null
+    }
+    const beginScaleDrag = (
+      point: Point | null,
+      axis: ModelScaleDragState['axis'],
+      event: KonvaEventObject<DragEvent>,
+    ) => {
+      const fallbackDistance =
+        axis === 'x'
+          ? baseWidth / 2
+          : axis === 'y'
+            ? baseDepth / 2
+            : Math.hypot(baseWidth / 2, baseDepth / 2)
+      const pointerDistance = point
+        ? getPointerScaleDistance(point, axis)
+        : fallbackDistance * modelScale
+
+      modelScaleDragRef.current = {
+        axis,
+        modelId: model.id,
+        startClientX: event.evt.clientX,
+        startClientY: event.evt.clientY,
+        startDepthScale: modelDepthScale,
+        startDistance: Math.max(pointerDistance, 0.0001),
+        startWidthScale: modelWidthScale,
+      }
+    }
+    const updateScaleFromPointer = (
+      point: Point | null,
+      event: KonvaEventObject<DragEvent>,
+    ) => {
+      const dragState = modelScaleDragRef.current
+
+      if (!point || !dragState || dragState.modelId !== model.id) {
+        return
+      }
+
+      const rawScale =
+        dragState.axis === null
+          ? 1 +
+            ((event.evt.clientX - dragState.startClientX) -
+              (event.evt.clientY - dragState.startClientY)) /
+              120
+          : getPointerScaleDistance(point, dragState.axis) /
+            dragState.startDistance
+      const widthScale =
+        dragState.axis === 'y'
+          ? dragState.startWidthScale
+          : dragState.startWidthScale * rawScale
+      const depthScale =
+        dragState.axis === 'x'
+          ? dragState.startDepthScale
+          : dragState.startDepthScale * rawScale
+      const nextWidthScale = event.evt.ctrlKey
+        ? clamp(widthScale, MIN_MODEL_SCALE, MAX_MODEL_SCALE)
+        : clamp(
+            Math.round(widthScale / MODEL_SCALE_STEP) * MODEL_SCALE_STEP,
+            MIN_MODEL_SCALE,
+            MAX_MODEL_SCALE,
+          )
+      const nextDepthScale = event.evt.ctrlKey
+        ? clamp(depthScale, MIN_MODEL_SCALE, MAX_MODEL_SCALE)
+        : clamp(
+            Math.round(depthScale / MODEL_SCALE_STEP) * MODEL_SCALE_STEP,
+            MIN_MODEL_SCALE,
+            MAX_MODEL_SCALE,
+          )
+      const stairSnap = getStairSnap(
+        model.position,
+        model.rotation,
+        modelScale,
+        nextWidthScale,
+        nextDepthScale,
+      )
+
+      onUpdateModel(model.id, {
+        position: stairSnap?.position ?? model.position,
+        widthScale: nextWidthScale,
+        depthScale: nextDepthScale,
+      })
+    }
 
     return (
       <Group
@@ -3609,7 +3983,7 @@ export function FloorplanCanvas({
         x={center.x}
         y={center.y}
         rotation={rotation}
-        draggable={!isAddingWall}
+        draggable={!isAddingWall && transformMode === 'translate'}
         listening={!isAddingWall}
         onClick={(event) => {
           event.cancelBubble = true
@@ -3622,10 +3996,37 @@ export function FloorplanCanvas({
         onContextMenu={(event) => openModelContextMenu(model.id, event)}
         onDragMove={(event) => {
           event.cancelBubble = true
-          const pointerPosition = toPlanPoint({
+          const rawPosition = toPlanPoint({
             x: event.target.x(),
             y: event.target.y(),
           })
+          const dragState = modelMoveDragRef.current
+          const rawDelta = dragState
+            ? {
+                x: rawPosition.x - dragState.startPosition.x,
+                y: rawPosition.y - dragState.startPosition.y,
+              }
+            : { x: 0, y: 0 }
+          const constrainedDelta = {
+            x: dragState?.axis === 'y' ? 0 : rawDelta.x,
+            y: dragState?.axis === 'x' ? 0 : rawDelta.y,
+          }
+          const delta = event.evt.ctrlKey
+            ? constrainedDelta
+            : {
+                x:
+                  Math.round(constrainedDelta.x / MODEL_TRANSLATION_STEP_METERS) *
+                  MODEL_TRANSLATION_STEP_METERS,
+                y:
+                  Math.round(constrainedDelta.y / MODEL_TRANSLATION_STEP_METERS) *
+                  MODEL_TRANSLATION_STEP_METERS,
+              }
+          const pointerPosition = dragState
+            ? {
+                x: dragState.startPosition.x + delta.x,
+                y: dragState.startPosition.y + delta.y,
+              }
+            : rawPosition
           const wallMount = isWallMountedModel
             ? getWallMountForPoint(pointerPosition, activeFloor.walls)
             : null
@@ -3636,11 +4037,18 @@ export function FloorplanCanvas({
             event.target.rotation((wallMount.rotation * 180) / Math.PI)
           } else if (stairSnap) {
             event.target.position(toCanvasPoint(stairSnap.position))
+          } else {
+            event.target.position(toCanvasPoint(pointerPosition))
           }
         }}
         onDragStart={(event) => {
           event.cancelBubble = true
           setIsDraggingModel(true)
+          modelMoveDragRef.current = {
+            axis: modelMoveAxisRef.current,
+            modelId: model.id,
+            startPosition: { ...model.position },
+          }
           if (!selectedModelIds.includes(model.id)) {
             onSelectModel(model.id)
           }
@@ -3671,6 +4079,8 @@ export function FloorplanCanvas({
           }
 
           onUpdateModel(model.id, updates)
+          modelMoveDragRef.current = null
+          modelMoveAxisRef.current = null
           setIsDraggingModel(false)
         }}
       >
@@ -3733,48 +4143,103 @@ export function FloorplanCanvas({
             listening={false}
           />
         )}
-        {isSelectedModel ? (
-          <>
+        {isSelectedModel && transformMode === 'translate' ? (
+          <Group rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
             <Line
-              points={[0, -height / 2, 0, rotateHandleY]}
+              points={[0, 0, 52, 0]}
+              stroke="#dc2626"
+              strokeWidth={3}
+              hitStrokeWidth={18}
+              onPointerDown={() => {
+                modelMoveAxisRef.current = 'x'
+              }}
+            />
+            <Line
+              points={[52, 0, 42, -6, 42, 6]}
+              closed
+              fill="#dc2626"
+              stroke="#dc2626"
+              onPointerDown={() => {
+                modelMoveAxisRef.current = 'x'
+              }}
+            />
+            <Line
+              points={[0, 0, 0, -52]}
+              stroke="#16a34a"
+              strokeWidth={3}
+              hitStrokeWidth={18}
+              onPointerDown={() => {
+                modelMoveAxisRef.current = 'y'
+              }}
+            />
+            <Line
+              points={[0, -52, -6, -42, 6, -42]}
+              closed
+              fill="#16a34a"
+              stroke="#16a34a"
+              onPointerDown={() => {
+                modelMoveAxisRef.current = 'y'
+              }}
+            />
+            <Rect
+              x={-7}
+              y={-7}
+              width={14}
+              height={14}
+              fill="#ffffff"
               stroke="#2563eb"
-              strokeWidth={1.5}
-              dash={[4, 4]}
+              strokeWidth={2}
+              onPointerDown={() => {
+                modelMoveAxisRef.current = null
+              }}
+            />
+          </Group>
+        ) : null}
+        {isSelectedModel && transformMode === 'rotate' ? (
+          <Group rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
+            <Circle
+              x={0}
+              y={0}
+              radius={13}
+              stroke="#111827"
+              strokeWidth={1}
+              dash={[3, 3]}
               listening={false}
             />
             <Circle
               x={0}
-              y={rotateHandleY}
-              radius={7}
-              fill="#ffffff"
+              y={0}
+              radius={28}
               stroke="#2563eb"
-              strokeWidth={2}
+              strokeWidth={3}
+              hitStrokeWidth={18}
               draggable
               onPointerDown={(event) => {
                 event.cancelBubble = true
               }}
               onDragStart={(event) => {
                 event.cancelBubble = true
+                beginRotateDrag(getPointerPoint(event))
+                event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(true)
               }}
               onDragMove={(event) => {
                 event.cancelBubble = true
                 const point = getPointerPoint(event)
+                const dragState = modelRotateDragRef.current
 
-                if (!point) {
+                if (!point || !dragState || dragState.modelId !== model.id) {
+                  event.target.position({ x: 0, y: 0 })
                   return
                 }
 
                 const rotation =
-                  Math.atan2(
-                    point.y - model.position.y,
-                    point.x - model.position.x,
-                  ) +
-                  Math.PI / 2
-
-                const nextRotation = event.evt.shiftKey
-                  ? snapRadians(rotation, MODEL_ROTATION_SNAP_RADIANS)
-                  : rotation
+                  dragState.startRotation +
+                  getPointerAngleFromModelCenter(point) -
+                  dragState.startAngle
+                const nextRotation = event.evt.ctrlKey
+                  ? rotation
+                  : snapRadians(rotation, MODEL_ROTATION_SNAP_RADIANS)
                 const stairSnap = getStairSnap(
                   model.position,
                   nextRotation,
@@ -3784,33 +4249,134 @@ export function FloorplanCanvas({
                   position: stairSnap?.position ?? model.position,
                   rotation: nextRotation,
                 })
+                event.target.position({ x: 0, y: 0 })
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                modelRotateDragRef.current = null
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(false)
+              }}
+            />
+          </Group>
+        ) : null}
+        {isSelectedModel && transformMode === 'scale' ? (
+          <Group rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
+            <Line
+              points={[0, 0, 52, 0]}
+              stroke="#dc2626"
+              strokeWidth={3}
+              hitStrokeWidth={18}
+              draggable
+              onPointerDown={(event) => {
+                event.cancelBubble = true
+              }}
+              onDragStart={(event) => {
+                event.cancelBubble = true
+                beginScaleDrag(getPointerPoint(event), 'x', event)
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(true)
+              }}
+              onDragMove={(event) => {
+                event.cancelBubble = true
+                updateScaleFromPointer(getPointerPoint(event), event)
+                event.target.position({ x: 0, y: 0 })
+              }}
+              onDragEnd={(event) => {
+                event.cancelBubble = true
+                modelScaleDragRef.current = null
+                event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
               }}
             />
             <Line
-              points={[
-                width / 2,
-                height / 2,
-                scaleHandle.x,
-                scaleHandle.y,
-              ]}
+              points={[52, 0, 42, -6, 42, 6]}
+              closed
+              fill="#dc2626"
+              stroke="#dc2626"
+              draggable
+              onPointerDown={(event) => {
+                event.cancelBubble = true
+              }}
+              onDragStart={(event) => {
+                event.cancelBubble = true
+                beginScaleDrag(getPointerPoint(event), 'x', event)
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(true)
+              }}
+              onDragMove={(event) => {
+                event.cancelBubble = true
+                updateScaleFromPointer(getPointerPoint(event), event)
+                event.target.position({ x: 0, y: 0 })
+              }}
+              onDragEnd={(event) => {
+                event.cancelBubble = true
+                modelScaleDragRef.current = null
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(false)
+              }}
+            />
+            <Line
+              points={[0, 0, 0, -52]}
               stroke="#16a34a"
-              strokeWidth={1.5}
-              dash={[4, 4]}
-              listening={false}
+              strokeWidth={3}
+              hitStrokeWidth={18}
+              draggable
+              onPointerDown={(event) => {
+                event.cancelBubble = true
+              }}
+              onDragStart={(event) => {
+                event.cancelBubble = true
+                beginScaleDrag(getPointerPoint(event), 'y', event)
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(true)
+              }}
+              onDragMove={(event) => {
+                event.cancelBubble = true
+                updateScaleFromPointer(getPointerPoint(event), event)
+                event.target.position({ x: 0, y: 0 })
+              }}
+              onDragEnd={(event) => {
+                event.cancelBubble = true
+                modelScaleDragRef.current = null
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(false)
+              }}
+            />
+            <Line
+              points={[0, -52, -6, -42, 6, -42]}
+              closed
+              fill="#16a34a"
+              stroke="#16a34a"
+              draggable
+              onPointerDown={(event) => {
+                event.cancelBubble = true
+              }}
+              onDragStart={(event) => {
+                event.cancelBubble = true
+                beginScaleDrag(getPointerPoint(event), 'y', event)
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(true)
+              }}
+              onDragMove={(event) => {
+                event.cancelBubble = true
+                updateScaleFromPointer(getPointerPoint(event), event)
+                event.target.position({ x: 0, y: 0 })
+              }}
+              onDragEnd={(event) => {
+                event.cancelBubble = true
+                modelScaleDragRef.current = null
+                event.target.position({ x: 0, y: 0 })
+                setIsDraggingModel(false)
+              }}
             />
             <Rect
-              x={scaleHandle.x}
-              y={scaleHandle.y}
+              x={-7}
+              y={-7}
               width={14}
               height={14}
-              offsetX={7}
-              offsetY={7}
               fill="#ffffff"
-              stroke="#16a34a"
+              stroke="#2563eb"
               strokeWidth={2}
               cornerRadius={3}
               draggable
@@ -3819,38 +4385,23 @@ export function FloorplanCanvas({
               }}
               onDragStart={(event) => {
                 event.cancelBubble = true
+                beginScaleDrag(getPointerPoint(event), null, event)
+                event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(true)
               }}
               onDragMove={(event) => {
                 event.cancelBubble = true
-                const point = getPointerPoint(event)
-
-                if (!point || baseScaleHandleDistance <= 0) {
-                  return
-                }
-
-                const nextScale = clamp(
-                  distance(point, model.position) / baseScaleHandleDistance,
-                  MIN_MODEL_SCALE,
-                  MAX_MODEL_SCALE,
-                )
-                const stairSnap = getStairSnap(
-                  model.position,
-                  model.rotation,
-                  nextScale,
-                )
-
-                onUpdateModel(model.id, {
-                  position: stairSnap?.position ?? model.position,
-                  scale: nextScale,
-                })
+                updateScaleFromPointer(getPointerPoint(event), event)
+                event.target.position({ x: 0, y: 0 })
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                modelScaleDragRef.current = null
+                event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
               }}
             />
-          </>
+          </Group>
         ) : null}
       </Group>
     )
@@ -4033,7 +4584,30 @@ export function FloorplanCanvas({
               : 'Click to start wall'
             : 'Select Add Wall'}
         </span>
-        <div className="floorplan-header-controls">
+          <div className="floorplan-header-controls">
+          <div className="segmented-control compact" aria-label="2D transform mode">
+            <button
+              type="button"
+              className={transformMode === 'translate' ? 'active' : ''}
+              onClick={() => setTransformMode('translate')}
+            >
+              Move
+            </button>
+            <button
+              type="button"
+              className={transformMode === 'rotate' ? 'active' : ''}
+              onClick={() => setTransformMode('rotate')}
+            >
+              Rotate
+            </button>
+            <button
+              type="button"
+              className={transformMode === 'scale' ? 'active' : ''}
+              onClick={() => setTransformMode('scale')}
+            >
+              Scale
+            </button>
+          </div>
           <div className="render-options">
             <button
               type="button"
@@ -4285,12 +4859,24 @@ export function FloorplanCanvas({
                       x: pointerPoint.x - dragState.startPointer.x,
                       y: pointerPoint.y - dragState.startPointer.y,
                     }
-                    const delta =
+                    const constrainedDelta =
                       event.evt.shiftKey && Math.abs(rawDelta.x) > Math.abs(rawDelta.y)
                         ? { x: rawDelta.x, y: 0 }
                         : event.evt.shiftKey
                           ? { x: 0, y: rawDelta.y }
                           : rawDelta
+                    const delta = event.evt.ctrlKey
+                      ? constrainedDelta
+                      : {
+                          x:
+                            Math.round(
+                              constrainedDelta.x / MODEL_TRANSLATION_STEP_METERS,
+                            ) * MODEL_TRANSLATION_STEP_METERS,
+                          y:
+                            Math.round(
+                              constrainedDelta.y / MODEL_TRANSLATION_STEP_METERS,
+                            ) * MODEL_TRANSLATION_STEP_METERS,
+                        }
 
                     const nextWall = {
                       start: {
@@ -4531,13 +5117,13 @@ export function FloorplanCanvas({
 
             {dimensionRulers}
 
-            {draftWall ? (
+            {measurementWall ? (
               <Line
                 points={[
-                  toCanvasPoint(draftWall.start).x,
-                  toCanvasPoint(draftWall.start).y,
-                  toCanvasPoint(draftWall.end).x,
-                  toCanvasPoint(draftWall.end).y,
+                  toCanvasPoint(measurementWall.start).x,
+                  toCanvasPoint(measurementWall.start).y,
+                  toCanvasPoint(measurementWall.end).x,
+                  toCanvasPoint(measurementWall.end).y,
                 ]}
                 stroke="#2563eb"
                 strokeWidth={0.3 * METERS_TO_PIXELS}
@@ -4546,12 +5132,12 @@ export function FloorplanCanvas({
               />
             ) : null}
 
-            {angleWidget && draftWall ? (
+            {angleWidget && measurementAnchor ? (
               <>
                 <Line
                   points={[
-                    toCanvasPoint(draftWall.start).x,
-                    toCanvasPoint(draftWall.start).y,
+                    toCanvasPoint(measurementAnchor).x,
+                    toCanvasPoint(measurementAnchor).y,
                     toCanvasPoint(angleWidget.baselineEnd).x,
                     toCanvasPoint(angleWidget.baselineEnd).y,
                   ]}
@@ -4565,8 +5151,8 @@ export function FloorplanCanvas({
                   strokeWidth={2}
                 />
                 <Circle
-                  x={toCanvasPoint(draftWall.start).x}
-                  y={toCanvasPoint(draftWall.start).y}
+                  x={toCanvasPoint(measurementAnchor).x}
+                  y={toCanvasPoint(measurementAnchor).y}
                   radius={4}
                   fill="#ffffff"
                   stroke="#f97316"
@@ -4731,22 +5317,29 @@ export function FloorplanCanvas({
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
-                    if (
-                      draftWall &&
-                      distance(draftWall.start, draftWall.end) >=
-                        MIN_WALL_LENGTH_METERS
-                    ) {
-                      commitDraftWall(draftWall)
+                    if (draftWall) {
+                      if (
+                        distance(draftWall.start, draftWall.end) >=
+                          MIN_WALL_LENGTH_METERS
+                      ) {
+                        commitDraftWall(draftWall)
+                      }
+                      resetDraftWall()
+                    } else {
+                      commitWallMeasurementEdit()
                     }
-                    resetDraftWall()
                   }
 
-                if (event.key === 'Escape') {
-                  event.preventDefault()
-                  resetDraftWall()
-                  onExitAddWall()
-                }
-              }}
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    if (draftWall) {
+                      resetDraftWall()
+                      onExitAddWall()
+                    } else {
+                      closeWallMeasurementEdit()
+                    }
+                  }
+                }}
               />
               <span>m</span>
             </label>
@@ -4758,10 +5351,14 @@ export function FloorplanCanvas({
                 inputMode="decimal"
                 onChange={(event) => updateDraftAngle(event.target.value)}
                 onFocus={() => {
-                  if (draftAngleInput === null && draftWall) {
+                  if (
+                    draftAngleInput === null &&
+                    measurementAnchor &&
+                    measurementMovingPoint
+                  ) {
                     setDraftAngleInput(
                       Math.round(
-                        getAngleDegrees(draftWall.start, draftWall.end),
+                        getAngleDegrees(measurementAnchor, measurementMovingPoint),
                       ).toString(),
                     )
                   }
@@ -4769,20 +5366,27 @@ export function FloorplanCanvas({
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault()
-                    if (
-                      draftWall &&
-                      distance(draftWall.start, draftWall.end) >=
-                        MIN_WALL_LENGTH_METERS
-                    ) {
-                      commitDraftWall(draftWall)
+                    if (draftWall) {
+                      if (
+                        distance(draftWall.start, draftWall.end) >=
+                          MIN_WALL_LENGTH_METERS
+                      ) {
+                        commitDraftWall(draftWall)
+                      }
+                      resetDraftWall()
+                    } else {
+                      commitWallMeasurementEdit()
                     }
-                    resetDraftWall()
                   }
 
                   if (event.key === 'Escape') {
                     event.preventDefault()
-                    resetDraftWall()
-                    onExitAddWall()
+                    if (draftWall) {
+                      resetDraftWall()
+                      onExitAddWall()
+                    } else {
+                      closeWallMeasurementEdit()
+                    }
                   }
                 }}
               />

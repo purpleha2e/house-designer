@@ -494,6 +494,50 @@ test('wall mesh builder cuts floor-level doorways out of the bottom face', () =>
   )
 })
 
+test('wall mesh builder merges overlapping opening reveals', () => {
+  const faces = buildWallMeshFaces([
+    wall({
+      id: 'overlap-wall',
+      start: { x: 0, y: 0 },
+      end: { x: 5, y: 0 },
+      openings: [
+        {
+          bottom: 0,
+          center: 2,
+          height: 2,
+          id: 'patio-door',
+          modelId: 'patio-door-model',
+          width: 2,
+        },
+        {
+          bottom: 0.9,
+          center: 3,
+          height: 1.2,
+          id: 'window',
+          modelId: 'window-model',
+          width: 1.5,
+        },
+      ],
+      thickness: 0.3,
+    }),
+  ])
+  const revealFaces = faces.filter(
+    (face) => face.wallId === 'overlap-wall' && face.kind === 'cap',
+  )
+  const hasInternalSharedReveal = revealFaces.some((face) => {
+    const xs = face.vertices.map((vertex) => vertex.position[0])
+    const ys = face.vertices.map((vertex) => vertex.position[1])
+    const isVerticalAtDoorRight = xs.every((x) => Math.abs(x - 3) < 0.0001)
+    const isVerticalAtWindowLeft = xs.every((x) => Math.abs(x - 2.25) < 0.0001)
+    const spansOverlapHeight =
+      Math.min(...ys) < 1.95 && Math.max(...ys) > 0.95
+
+    return (isVerticalAtDoorRight || isVerticalAtWindowLeft) && spansOverlapHeight
+  })
+
+  assert.equal(hasInternalSharedReveal, false)
+})
+
 test('wall mesh builder keeps opening distances stable on side-attached walls', () => {
   const faces = buildWallMeshFaces([
     wall({

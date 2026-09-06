@@ -5,6 +5,10 @@ const WINDOW_SILL_HEIGHT_METERS = 0.9
 const PATIO_DOOR_WIDTH_METERS = 1.62
 const PATIO_SIDE_LIGHT_BOTTOM_METERS = 1.02
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
 type ModelsById = ReadonlyMap<string, ModelDefinition>
 
 function distance(start: Point, end: Point) {
@@ -125,19 +129,31 @@ export function getModelOpenings(
   }
 
   const scale = model.scale ?? 1
+  const widthScale = model.widthScale ?? 1
   const wallLength = getWallLength(wall)
   const width = Math.min(
-    Math.max((definition.openingWidth ?? definition.width) * scale, 0.3),
+    Math.max(
+      (definition.openingWidth ?? definition.width) * scale * widthScale,
+      0.3,
+    ),
     Math.max(wallLength - 0.2, 0.3),
   )
+  const requestedBottom =
+    definition.wallMount === 'window'
+      ? model.wallOpeningBottom ?? WINDOW_SILL_HEIGHT_METERS
+      : 0
+  const maxBottom = Math.max(wall.height - 0.3, 0)
   const bottom =
     definition.wallMount === 'window'
-      ? Math.min(WINDOW_SILL_HEIGHT_METERS, Math.max(wall.height - 0.2, 0))
+      ? clamp(requestedBottom, 0, maxBottom)
       : 0
-  const height = Math.min(Math.max(definition.height * scale, 0.3), Math.max(wall.height - bottom, 0.3))
+  const height = Math.min(
+    Math.max(definition.height * scale, 0.3),
+    Math.max(wall.height - bottom, 0.3),
+  )
   const modelOffset = getModelOffsetOnWall(model, wall)
   const openingCenter =
-    modelOffset + (definition.openingCenterOffset ?? 0) * scale
+    modelOffset + (definition.openingCenterOffset ?? 0) * scale * widthScale
 
   const opening: WallOpening = {
     id: model.id,
@@ -153,10 +169,13 @@ export function getModelOpenings(
   }
 
   const centreDoorWidth = Math.min(
-    PATIO_DOOR_WIDTH_METERS * scale,
+    PATIO_DOOR_WIDTH_METERS * scale * widthScale,
     Math.max(wallLength - 0.2, 0.3),
   )
-  const sideLightWidth = Math.max((definition.width * scale - centreDoorWidth) / 2, 0)
+  const sideLightWidth = Math.max(
+    (definition.width * scale * widthScale - centreDoorWidth) / 2,
+    0,
+  )
   const sideLightBottom = Math.min(
     PATIO_SIDE_LIGHT_BOTTOM_METERS * scale,
     Math.max(wall.height - 0.2, 0),
@@ -302,6 +321,22 @@ export function normalizeFloor(
               typeof model.scale === 'number' && Number.isFinite(model.scale)
                 ? model.scale
                 : 1,
+            wallOpeningBottom:
+              definition?.wallMount === 'window' &&
+              typeof model.wallOpeningBottom === 'number' &&
+              Number.isFinite(model.wallOpeningBottom)
+                ? model.wallOpeningBottom
+                : undefined,
+            widthScale:
+              typeof model.widthScale === 'number' &&
+              Number.isFinite(model.widthScale)
+                ? model.widthScale
+                : 1,
+            depthScale:
+              typeof model.depthScale === 'number' &&
+              Number.isFinite(model.depthScale)
+                ? model.depthScale
+                : 1,
           }
         })
       : [],
@@ -340,6 +375,8 @@ export function createPlacedModel({
     position: wallMount?.position ?? planCenter,
     rotation: wallMount?.rotation ?? 0,
     scale: 1,
+    widthScale: 1,
+    depthScale: 1,
     wallAttachment: wallMount?.wallAttachment,
   }
 }

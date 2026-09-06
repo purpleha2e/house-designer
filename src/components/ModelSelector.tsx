@@ -46,18 +46,24 @@ export function ModelSelector({
               className="model-option"
               onClick={() => onSelectModel(model.id)}
             >
-              <span
-                className={
-                  model.shape === 'round' || model.shape === 'light'
-                    ? 'model-option-preview round'
-                    : 'model-option-preview'
-                }
-                style={{
-                  '--model-color': model.color,
-                  '--model-depth': model.depth,
-                  '--model-width': model.width,
-                } as CSSProperties}
-              />
+              {model.previewUrl ? (
+                <span className="model-option-preview-image">
+                  <img src={model.previewUrl} alt="" loading="lazy" />
+                </span>
+              ) : (
+                <span
+                  className={
+                    model.shape === 'round' || model.shape === 'light'
+                      ? 'model-option-preview round'
+                      : 'model-option-preview'
+                  }
+                  style={{
+                    '--model-color': model.color,
+                    '--model-depth': model.depth,
+                    '--model-width': model.width,
+                  } as CSSProperties}
+                />
+              )}
               <strong>{model.name}</strong>
               <span>{model.category}</span>
             </button>

@@ -13,11 +13,13 @@ export function getStairOpeningPolygon(
   depth: number,
   scale: number,
   localBounds?: ModelHorizontalBounds,
+  widthScale = 1,
+  depthScale = 1,
 ) {
-  const minX = (localBounds?.minX ?? -width / 2) * scale
-  const maxX = (localBounds?.maxX ?? width / 2) * scale
-  const minZ = (localBounds?.minZ ?? -depth / 2) * scale
-  const maxZ = (localBounds?.maxZ ?? depth / 2) * scale
+  const minX = (localBounds?.minX ?? -width / 2) * scale * widthScale
+  const maxX = (localBounds?.maxX ?? width / 2) * scale * widthScale
+  const minZ = (localBounds?.minZ ?? -depth / 2) * scale * depthScale
+  const maxZ = (localBounds?.maxZ ?? depth / 2) * scale * depthScale
   const cosine = Math.cos(rotation)
   const sine = Math.sin(rotation)
 
@@ -83,6 +85,8 @@ export function getStairSlabOpenings(
       }
 
       const scale = model.scale || 1
+      const widthScale = model.widthScale || 1
+      const depthScale = model.depthScale || 1
       const stairTop = modelFloor.elevation + definition.height * scale
       const isOnLowerFloor = modelFloor.id === lowerFloor.id
 
@@ -101,6 +105,8 @@ export function getStairSlabOpenings(
           definition.depth,
           scale,
           getModelHorizontalBounds(definition),
+          widthScale,
+          depthScale,
         ),
       ]
     })

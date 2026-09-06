@@ -20,6 +20,7 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   FrontSide,
+  AdditiveBlending,
   Material,
   Matrix3,
   Matrix4,
@@ -77,7 +78,11 @@ import type {
   WallKind,
 } from '../types'
 import { surfaceMaterialsById } from '../materials/materialCatalog'
-import { getModelAssetUrl, modelsById } from '../models/modelLibrary'
+import {
+  getModelAssetUrl,
+  modelsById,
+  type ModelDefinition,
+} from '../models/modelLibrary'
 import { subtractPlanCutouts } from '../planarCutouts'
 import { snapStairApertureToWalls } from '../stairPlacement'
 import {
@@ -90,10 +95,6 @@ import {
   offsetEdgeTowardPoint,
 } from '../ceilingSlabGeometry'
 import {
-  getClippedInternalWallRenderExtensions,
-  getClippedInternalWallFootprints,
-  getExternalWallRenderExtensions,
-  unionMiteredWallFootprints,
   type WallFootprintRenderGroup,
   type WallUnionFootprint,
 } from '../wallBooleanGeometry'
@@ -107,7 +108,6 @@ import {
 import { buildWallGeometryPlans } from '../wallEngine/wallPlan'
 import {
   buildRoomWallSurfacePlans,
-  buildRoomSurfaceFloorPolygons,
   buildRoomSurfaceWallFaces,
   type RoomWallSurfacePlan,
 } from '../wallEngine/roomSurfaceMesh'
@@ -122,6 +122,15 @@ import {
   buildWallBodyPerimeters,
   type WallBodyPerimeter,
 } from '../wallEngine/wallBodyPerimeter'
+import type {
+  RenderedFloorData,
+  RoomPortal,
+  WallBodyOccluder,
+} from '../threeDLevelPreparation'
+import {
+  prepareRenderedFloorsInWorkers,
+  prepareRenderedFloorsSync,
+} from '../threeDLevelPreparationClient'
 
 export function clearThreeDModelAssetCaches() {
   ;(useGLTF as unknown as { clear?: () => void }).clear?.()
@@ -144,9 +153,11 @@ type WallEngineFace = FloorWallSurfaceFace
 type ThreeDViewProps = {
   activeFloorId: string
   floors: FloorLevel[]
+  isEngineConsoleOpen: boolean
   lightDirection: SunPosition
   modelAssetVersion: number
   onClearSelection: () => void
+  onEngineConsoleOpenChange: (isOpen: boolean) => void
   onLightDirectionChange: (lightDirection: SunPosition) => void
   onSelectFloor: (floorId: string) => void
   onSelectModel: (modelId: string, floorId: string) => void
@@ -165,6 +176,7 @@ type RenderOptions = {
   ambientOcclusionIntensity: number
   ambientOcclusionQuality: AmbientOcclusionQuality
   ambientTerm: number
+  bakedLightmaps: boolean
   daylight: boolean
   floorSlabs: boolean
   groundPlane: boolean
@@ -177,7 +189,6 @@ type RenderOptions = {
   shadows: boolean
   skybox: boolean
   wallPerimeter: boolean
-  windowDaylight: boolean
   wireframe: boolean
 }
 
@@ -187,32 +198,6 @@ type RenderToggleOption = Exclude<
 >
 
 type AmbientOcclusionQuality = 'fast' | 'balanced'
-
-type RenderedFloorData = {
-  externalWallFootprintGroups: WallFootprintRenderGroup[]
-  externalWallUnionFootprints: WallUnionFootprint[]
-  externalWallUnionWallIds: string[]
-  externalWallUnionWalls: Wall[]
-  floor: FloorLevel
-  geometryContextWalls: Wall[]
-  internalWallFootprintGroups: WallFootprintRenderGroup[]
-  roomPortals: RoomPortal[]
-  roomSurfacePolygonsBySignature: Map<string, Point[]>
-  wallBodyOccluders: WallBodyOccluder[]
-  renderedWalls: RenderedWall[]
-  rooms: DetectedRoom[]
-}
-
-type RoomPortal = {
-  bottom: number
-  center: Point
-  fromRoomSignature: string
-  openingId: string
-  toRoomSignature: string
-  top: number
-  wallId: string
-  width: number
-}
 
 type PortalFloorGeometry = {
   center: Point
@@ -227,13 +212,6 @@ type FloorVisibilityState = {
   currentRoomSignature: string | null
   floorId: string
   visibleRoomSignatures: string[]
-}
-
-type WallBodyOccluder = {
-  kind: WallKind
-  polygon: Point[]
-  renderedWall: RenderedWall
-  wallId: string
 }
 
 type LocalLightSlot = {
@@ -268,6 +246,11 @@ type EngineLogEntry = {
   snapshot?: string
   timeMs: number
   type: string
+}
+
+type EngineConsoleLine = {
+  entry: EngineLogEntry
+  text: string
 }
 
 type SceneObjectDebugEntry = {
@@ -606,8 +589,9 @@ const XR_SNAP_TURN_RADIANS = Math.PI / 12
 const XR_STICK_DEADZONE = 0.35
 const XR_FRAMEBUFFER_SCALE_FACTOR = 0.65
 const XR_FOVEATION = 1
-const XR_MAX_REALTIME_LOCAL_LIGHTS = 4
-const XR_LEFT_EXIT_BUTTON_INDEX = 5
+const XR_MAX_REALTIME_LOCAL_LIGHTS = 2
+const XR_SUN_SHADOW_MAP_SIZE = 1024
+const XR_EXIT_BUTTON_INDEX = 5
 const XR_STAIRS_BUTTON_INSET_METERS = 0.35
 const XR_STAIRS_BUTTON_HEIGHT_METERS = 1
 const XR_PUSH_BUTTON_RADIUS_METERS = 0.025
@@ -618,6 +602,9 @@ const FAKE_AO_FLOOR_DEPTH_METERS = 0.18
 const FAKE_AO_WALL_HEIGHT_METERS = 0.28
 const FAKE_AO_SURFACE_OFFSET_METERS = 0.008
 const FAKE_AO_FLOOR_Y_OFFSET_METERS = 0.012
+const BAKED_FLOOR_LIGHTMAP_SIZE = 512
+const BAKED_FLOOR_CONTACT_SHADOW_ALPHA = 0.28
+const BAKED_FLOOR_LIGHT_MAX_ALPHA = 0.36
 const WINDOW_SILL_HEIGHT_METERS = 0.9
 const SUN_MIN_ELEVATION = 0.08
 const SUN_MAX_ELEVATION = 1.2
@@ -629,15 +616,15 @@ const MODEL_WALL_SNAP_DISTANCE_METERS = 0.75
 const MODEL_EDGE_SNAP_DISTANCE_METERS = 0.28
 const MODEL_EDGE_SNAP_OVERLAP_METERS = 0.35
 const MODEL_EDGE_SNAP_MIN_OVERLAP_METERS = 0.05
+const WINDOW_WALL_OFFSET_SNAP_DISTANCE_METERS = 0.18
+const WINDOW_WALL_OFFSET_STEP_METERS = 0.05
+const WINDOW_WALL_FACE_INSET_METERS = 0.02
+const WALL_MOUNT_FRAME_ANCHOR_DEPTH_METERS = 0.08
 const FALLBACK_REALTIME_LOCAL_LIGHTS = 8
 const MAX_REALTIME_LOCAL_LIGHTS = 11
-const MAX_WINDOW_DAYLIGHT_PORTALS = 8
 const LOCAL_LIGHT_RENDER_POWER_SCALE = 0.08
 const DEFAULT_LOCAL_LIGHT_DISTANCE = 10
 const DEFAULT_LOCAL_LIGHT_FALLOFF = 1.15
-const WINDOW_DAYLIGHT_PORTAL_DISTANCE = 5.5
-const WINDOW_DAYLIGHT_PORTAL_TARGET_DISTANCE = 2.6
-const WINDOW_DAYLIGHT_PORTAL_WALL_CLEARANCE = 0.08
 const LOCAL_LIGHT_CEILING_CLEARANCE_METERS = 0.55
 const PICK_CLICK_TOLERANCE_PIXELS = 3
 const MAIN_THREAD_STALL_THRESHOLD_MS = 450
@@ -657,16 +644,6 @@ type AspectRatioMode = 'normal' | 'super-wide' | 'wide'
 type TransformMode = 'rotate' | 'scale' | 'translate'
 
 type LightDirection = SunPosition
-
-type WindowDaylightPortalSlot = {
-  angle: number
-  color: string
-  distance: number
-  id: string
-  position: [number, number, number]
-  power: number
-  target: [number, number, number]
-}
 
 type WalkNavigationMode = 'look' | 'orbit'
 
@@ -754,8 +731,35 @@ type WallCapUvProjector = {
   renderedWall: RenderedWall
 }
 
+type OpeningRectangle = {
+  bottom: number
+  id?: string
+  left: number
+  modelId?: string
+  right: number
+  top: number
+}
+
+type OpeningBoundarySegment =
+  | {
+      bottom: number
+      edge: 'left' | 'right'
+      id: string
+      openingId?: string
+      top: number
+      x: number
+    }
+  | {
+      edge: 'bottom' | 'top'
+      id: string
+      left: number
+      openingId?: string
+      right: number
+      y: number
+    }
+
 class ModelLoadBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; modelId: string },
   { hasError: boolean }
 > {
   state = { hasError: false }
@@ -766,6 +770,10 @@ class ModelLoadBoundary extends Component<
 
   componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
     console.warn('Failed to render model in 3D view.', error, errorInfo)
+    recordEngineLog(
+      'model-load-failed',
+      `${this.props.modelId}: ${error instanceof Error ? error.message : String(error)}`,
+    )
   }
 
   render() {
@@ -846,6 +854,9 @@ function getFloorRenderResetKey(
         model.position.y,
         model.rotation ?? '',
         model.scale ?? '',
+        model.wallOpeningBottom ?? '',
+        model.widthScale ?? '',
+        model.depthScale ?? '',
         model.flipped ?? '',
         model.mirrored ?? '',
         model.height ?? '',
@@ -871,6 +882,7 @@ function getFloorRenderResetKey(
         assignment.id,
         assignment.materialId,
         assignment.coverageHeight ?? '',
+        assignment.customColor ?? '',
         assignment.textureScale ?? '',
         assignment.textureRotation ?? '',
       ].join(','),
@@ -1592,11 +1604,13 @@ function SunLight({
   enabled,
   lightDirection,
   sceneBounds,
+  shadowMapSize = 2048,
   shadows,
 }: {
   enabled: boolean
   lightDirection: LightDirection
   sceneBounds: ReturnType<typeof getSceneBounds>
+  shadowMapSize?: number
   shadows: boolean
 }) {
   const lightRef = useRef<DirectionalLight>(null)
@@ -1637,8 +1651,8 @@ function SunLight({
         position={lightPosition}
         intensity={enabled ? sunAppearance.intensity : 0}
         castShadow={enabled && shadows}
-        shadow-mapSize-width={2048}
-        shadow-mapSize-height={2048}
+        shadow-mapSize-width={shadowMapSize}
+        shadow-mapSize-height={shadowMapSize}
         shadow-camera-left={-sceneBounds.size / 2}
         shadow-camera-right={sceneBounds.size / 2}
         shadow-camera-top={sceneBounds.size / 2}
@@ -1802,187 +1816,6 @@ function getWallNormal(wall: Wall) {
   }
 }
 
-function buildRoomPortals(floor: FloorLevel, rooms: DetectedRoom[]) {
-  const portals: RoomPortal[] = []
-  const portalKeys = new Set<string>()
-
-  for (const wall of floor.walls) {
-    if (!wall.openings?.length) {
-      continue
-    }
-
-    const normal = getWallNormal(wall)
-    const sampleOffset = wall.thickness / 2 + 0.12
-
-    for (const opening of wall.openings) {
-      const center = getWallPointAtDistance(wall, opening.center)
-      const firstRoom = getRoomContainingPoint(rooms, {
-        x: center.x + normal.x * sampleOffset,
-        y: center.y + normal.y * sampleOffset,
-      })
-      const secondRoom = getRoomContainingPoint(rooms, {
-        x: center.x - normal.x * sampleOffset,
-        y: center.y - normal.y * sampleOffset,
-      })
-
-      if (
-        !firstRoom ||
-        !secondRoom ||
-        firstRoom.signature === secondRoom.signature
-      ) {
-        continue
-      }
-
-      const key = [
-        wall.id,
-        opening.id,
-        firstRoom.signature,
-        secondRoom.signature,
-      ]
-        .sort()
-        .join(':')
-
-      if (portalKeys.has(key)) {
-        continue
-      }
-
-      portalKeys.add(key)
-      portals.push({
-        bottom: opening.bottom,
-        center,
-        fromRoomSignature: firstRoom.signature,
-        openingId: opening.id,
-        top: opening.bottom + opening.height,
-        toRoomSignature: secondRoom.signature,
-        wallId: wall.id,
-        width: opening.width,
-      })
-      portals.push({
-        bottom: opening.bottom,
-        center,
-        fromRoomSignature: secondRoom.signature,
-        openingId: opening.id,
-        top: opening.bottom + opening.height,
-        toRoomSignature: firstRoom.signature,
-        wallId: wall.id,
-        width: opening.width,
-      })
-    }
-  }
-
-  return portals
-}
-
-function getWindowDaylightPortalSlots(
-  renderedFloors: RenderedFloorData[],
-  lightDirection: LightDirection,
-) {
-  const sunHorizontalDirection = {
-    x: Math.cos(lightDirection.azimuth),
-    y: Math.sin(lightDirection.azimuth),
-  }
-  const sunAppearance = getSunAppearance(lightDirection.elevation)
-  const sunElevationFactor = Math.max(0.15, Math.sin(lightDirection.elevation))
-  const slots: WindowDaylightPortalSlot[] = []
-
-  for (const renderedFloor of renderedFloors) {
-    const { floor, renderedWalls, rooms } = renderedFloor
-
-    for (const renderedWall of renderedWalls) {
-      const wall = renderedWall.wall
-
-      if (wall.kind !== 'external' || !wall.openings?.length) {
-        continue
-      }
-
-      const wallBasis = getWallBasis(wall)
-      const sampleOffset = wall.thickness / 2 + 0.12
-
-      for (const opening of wall.openings) {
-        const modelDefinition = modelsById.get(opening.modelId)
-
-        if (modelDefinition?.wallMount !== 'window') {
-          continue
-        }
-
-        const center = getWallPointAtDistance(wall, opening.center)
-        const positiveNormalRoom = getRoomContainingPoint(rooms, {
-          x: center.x + wallBasis.normal.x * sampleOffset,
-          y: center.y + wallBasis.normal.y * sampleOffset,
-        })
-        const negativeNormalRoom = getRoomContainingPoint(rooms, {
-          x: center.x - wallBasis.normal.x * sampleOffset,
-          y: center.y - wallBasis.normal.y * sampleOffset,
-        })
-        const inwardNormal = positiveNormalRoom
-          ? wallBasis.normal
-          : negativeNormalRoom
-            ? { x: -wallBasis.normal.x, y: -wallBasis.normal.y }
-            : null
-
-        if (!inwardNormal) {
-          continue
-        }
-
-        const outwardNormal = {
-          x: -inwardNormal.x,
-          y: -inwardNormal.y,
-        }
-        const directSunFactor = Math.max(
-          0,
-          outwardNormal.x * sunHorizontalDirection.x +
-            outwardNormal.y * sunHorizontalDirection.y,
-        )
-        const windowArea = Math.max(0.35, opening.width * opening.height)
-        const centerY = floor.elevation + opening.bottom + opening.height / 2
-        const targetY = Math.max(
-          floor.elevation + 0.25,
-          centerY - 0.25 - sunElevationFactor * 1.4,
-        )
-        const outsideOffset =
-          wall.thickness / 2 + WINDOW_DAYLIGHT_PORTAL_WALL_CLEARANCE
-        const insideOffset = WINDOW_DAYLIGHT_PORTAL_TARGET_DISTANCE
-        const position: [number, number, number] = [
-          center.x - inwardNormal.x * outsideOffset,
-          centerY,
-          center.y - inwardNormal.y * outsideOffset,
-        ]
-        const target: [number, number, number] = [
-          center.x + inwardNormal.x * insideOffset,
-          targetY,
-          center.y + inwardNormal.y * insideOffset,
-        ]
-        const angle = Math.max(
-          0.32,
-          Math.min(
-            0.85,
-            Math.atan((Math.max(opening.width, opening.height) * 0.85) / insideOffset),
-          ),
-        )
-        const power = windowArea * (2.4 + directSunFactor * sunElevationFactor * 7.5)
-        const portalColor = new Color('#dcecff').lerp(
-          sunAppearance.color,
-          directSunFactor * (0.35 + sunAppearance.warmth * 0.65),
-        )
-
-        slots.push({
-          angle,
-          color: `#${portalColor.getHexString()}`,
-          distance: WINDOW_DAYLIGHT_PORTAL_DISTANCE,
-          id: `${floor.id}:${wall.id}:${opening.id}`,
-          position,
-          power,
-          target,
-        })
-      }
-    }
-  }
-
-  return slots
-    .sort((firstSlot, secondSlot) => secondSlot.power - firstSlot.power)
-    .slice(0, MAX_WINDOW_DAYLIGHT_PORTALS)
-}
-
 function getVisibleRoomSignatures(
   currentRoomSignature: string | null,
   rooms: DetectedRoom[],
@@ -2056,26 +1889,6 @@ function wallTouchesVisibleRoom(
   return sampledRooms.some(
     (room) => !room || visibleRoomSignatures.has(room.signature),
   )
-}
-
-function wallTouchesDetectedRoom(wall: Wall, rooms: DetectedRoom[]) {
-  const midpoint = {
-    x: (wall.start.x + wall.end.x) / 2,
-    y: (wall.start.y + wall.end.y) / 2,
-  }
-  const normal = getWallNormal(wall)
-  const sampleOffset = wall.thickness / 2 + 0.08
-
-  return [
-    getRoomContainingPoint(rooms, {
-      x: midpoint.x + normal.x * sampleOffset,
-      y: midpoint.y + normal.y * sampleOffset,
-    }),
-    getRoomContainingPoint(rooms, {
-      x: midpoint.x - normal.x * sampleOffset,
-      y: midpoint.y - normal.y * sampleOffset,
-    }),
-  ].some(Boolean)
 }
 
 function getRenderedWallLocalPoint(
@@ -2846,16 +2659,33 @@ function WallEngineWallMeshes({
     () => new Map(walls.map((wall) => [wall.id, wall])),
     [walls],
   )
+  const exteriorWallSidesByWallId = useMemo(
+    () => getExteriorWallSidesByWallId(walls, rooms),
+    [rooms, walls],
+  )
+  const wallOpeningDepthsByModelId = useMemo(
+    () => getWallOpeningDepthsByModelId(walls),
+    [walls],
+  )
   const faces = useMemo(() => {
     return buildFloorWallSurfaceFaces({
       contextRenderedWalls: roomSurfaceDebugRenderedWalls,
       externalFootprintWallIds,
+      exteriorWallSidesByWallId,
       renderedWalls,
       roomSurfaceRendererEnabled: ROOM_SURFACE_WALL_RENDERER_ENABLED,
       rooms,
       useWallBodyPerimeterMesh: WALL_BODY_PERIMETER_MESH_ENABLED,
+      wallOpeningDepthsByModelId,
     })
-  }, [externalFootprintWallIds, renderedWalls, roomSurfaceDebugRenderedWalls, rooms])
+  }, [
+    exteriorWallSidesByWallId,
+    externalFootprintWallIds,
+    renderedWalls,
+    roomSurfaceDebugRenderedWalls,
+    rooms,
+    wallOpeningDepthsByModelId,
+  ])
   const roomSurfaceDebugFaces = useMemo(
     () =>
       ROOM_SURFACE_DEBUG_OVERLAY_ENABLED
@@ -3438,13 +3268,21 @@ function WallEngineMaterialSlot({
           wall.height,
         )
       : undefined
+  const capSideAssignment =
+    wall && (source.side === 1 || source.side === -1)
+      ? getExternalWallSlabEdgeMaterialAssignment(
+          surfaceAssignments,
+          wall,
+          source.side,
+        )
+      : undefined
   const capSideOneAssignment =
     wall && source.role === 'cap'
-      ? getWallFaceMaterialAssignmentForSide(wallMaterialAssignments, 1, wall.height)
+      ? getExternalWallSlabEdgeMaterialAssignment(surfaceAssignments, wall, 1)
       : undefined
   const capSideTwoAssignment =
     wall && source.role === 'cap'
-      ? getWallFaceMaterialAssignmentForSide(wallMaterialAssignments, -1, wall.height)
+      ? getExternalWallSlabEdgeMaterialAssignment(surfaceAssignments, wall, -1)
       : undefined
   const capSharedAssignment =
     capSideOneAssignment && capSideTwoAssignment
@@ -3454,7 +3292,7 @@ function WallEngineMaterialSlot({
       : capSideOneAssignment ?? capSideTwoAssignment
   const assignment =
     source.role === 'cap'
-      ? capSharedAssignment ?? ownSideAssignment
+      ? capSideAssignment ?? capSharedAssignment ?? ownSideAssignment
       : ownSideAssignment
   const material = assignment
     ? surfaceMaterialsById.get(assignment.materialId)
@@ -3716,7 +3554,9 @@ const ENGINE_LOG_LIMIT = 600
 const WALL_RENDER_DEBUG_LIMIT = 300
 const WALL_RENDER_DEBUG_ENABLED = false
 const WALL_RENDER_DEBUG_SNAPSHOTS_ENABLED = false
+const ENGINE_CONSOLE_LINE_LIMIT = 200
 const engineLogEntries: EngineLogEntry[] = []
+const engineLogListeners = new Set<(entry: EngineLogEntry) => void>()
 const wallRenderDebugEntries: EngineLogEntry[] = []
 const wallRenderDebugCurrentEntries = new Map<string, EngineLogEntry>()
 const roomWallSurfacePlanDebugEntries = new Map<
@@ -4584,7 +4424,94 @@ function recordEngineLog(
     engineLogEntries.splice(0, engineLogEntries.length - ENGINE_LOG_LIMIT)
   }
 
+  engineLogListeners.forEach((listener) => listener(entry))
+
   return entry
+}
+
+function subscribeEngineLog(listener: (entry: EngineLogEntry) => void) {
+  engineLogListeners.add(listener)
+
+  return () => {
+    engineLogListeners.delete(listener)
+  }
+}
+
+function formatEngineLogTime(timeMs: number) {
+  return `${(timeMs / 1000).toFixed(1)}s`
+}
+
+function formatEngineConsoleLine(entry: EngineLogEntry) {
+  const detail = entry.detail ? ` ${entry.detail}` : ''
+
+  if (entry.type === 'renderer-stats') {
+    return `[${formatEngineLogTime(entry.timeMs)}] renderer:${detail}`
+  }
+
+  if (entry.type === 'shader-programs-added') {
+    return `[${formatEngineLogTime(entry.timeMs)}] shaders:${detail}`
+  }
+
+  if (entry.type === 'model-loaded') {
+    return `[${formatEngineLogTime(entry.timeMs)}] model:${detail}`
+  }
+
+  if (entry.type === 'texture-loaded' || entry.type === 'texture-load-failed') {
+    return `[${formatEngineLogTime(entry.timeMs)}] texture:${detail}`
+  }
+
+  if (entry.type === 'shader-warmup-start') {
+    return `[${formatEngineLogTime(entry.timeMs)}] shaders: compiling scene`
+  }
+
+  if (entry.type === 'shader-warmup-complete') {
+    return `[${formatEngineLogTime(entry.timeMs)}] shaders: scene ready`
+  }
+
+  if (entry.type === 'shader-warmup-timeout') {
+    return `[${formatEngineLogTime(entry.timeMs)}] shaders: warmup timeout${detail}`
+  }
+
+  if (entry.type === 'activity') {
+    return `[${formatEngineLogTime(entry.timeMs)}]${detail}`
+  }
+
+  return `[${formatEngineLogTime(entry.timeMs)}] ${entry.type}:${detail}`
+}
+
+function getAssetFileName(assetUrl: string) {
+  try {
+    return new URL(assetUrl, window.location.href).pathname.split('/').pop() ??
+      assetUrl
+  } catch {
+    return assetUrl.split(/[\\/]/).pop() ?? assetUrl
+  }
+}
+
+function formatMeters(value: number) {
+  return `${value.toFixed(value >= 10 ? 1 : 2)}m`
+}
+
+function formatDimensions(width: number, height: number, depth: number) {
+  return `${formatMeters(width)} x ${formatMeters(height)} x ${formatMeters(depth)}`
+}
+
+function getPlacedPortalModelIds(floors: FloorLevel[]) {
+  return Array.from(
+    new Set(
+      floors.flatMap((floor) =>
+        (floor.models ?? [])
+          .map((model) => model.modelId)
+          .filter((modelId) => modelId.startsWith('portal-model-')),
+      ),
+    ),
+  ).sort()
+}
+
+function getRegisteredPortalModelCount() {
+  return Array.from(modelsById.keys()).filter((modelId) =>
+    modelId.startsWith('portal-model-'),
+  ).length
 }
 
 function recordWallRenderDebug(
@@ -4751,20 +4678,34 @@ function loadSurfaceTexture(
     try {
       loader.load(
         textureUrl,
-        (texture) =>
-          resolve(
-            configureSurfaceTexture(texture, {
+        (texture) => {
+          const configuredTexture = configureSurfaceTexture(texture, {
               isColorMap,
               maxSize,
               repeatX,
               repeatY,
               rotationRadians,
-            }),
-          ),
+            })
+          const size = getTextureImageSize(configuredTexture.image)
+          const sizeDetail = size ? ` ${size.width}x${size.height}` : ''
+
+          recordEngineLog(
+            'texture-loaded',
+            `${getAssetFileName(textureUrl)}${sizeDetail}`,
+          )
+          resolve(configuredTexture)
+        },
         undefined,
-        () => resolve(undefined as unknown as Texture),
+        () => {
+          recordEngineLog(
+            'texture-load-failed',
+            getAssetFileName(textureUrl),
+          )
+          resolve(undefined as unknown as Texture)
+        },
       )
     } catch {
+      recordEngineLog('texture-load-failed', getAssetFileName(textureUrl))
       resolve(undefined as unknown as Texture)
     }
   })
@@ -5020,14 +4961,13 @@ function SurfaceMeshStandardMaterial({
     textureQuality,
     repeatOverride,
   )
-  const hasBaseColorTexture = Boolean(textures.map)
   const baseColor = assignment.customColor ?? material.pbr.baseColor ?? '#e2e8f0'
 
   return (
     <meshStandardMaterial
       attach={attach}
       aoMap={textures.aoMap ?? null}
-      color={hasBaseColorTexture ? '#ffffff' : baseColor}
+      color={baseColor}
       displacementMap={textures.displacementMap ?? null}
       displacementScale={displacementEnabled ? material.pbr.displacementScale ?? 0 : 0}
       map={textures.map ?? null}
@@ -5817,14 +5757,15 @@ function getDoorwayClipIntervalsForSkirtingSegment(
     }
 
     const scale = model.scale ?? 1
+    const widthScale = model.widthScale ?? 1
     const width = Math.max(
-      (definition.openingWidth ?? definition.width) * scale,
+      (definition.openingWidth ?? definition.width) * scale * widthScale,
       0.3,
     )
     const interval = getProjectedInterval(
       renderedWall.wall,
       getProjectedModelOffsetOnWall(model, renderedWall.wall) +
-        (definition.openingCenterOffset ?? 0) * scale,
+        (definition.openingCenterOffset ?? 0) * scale * widthScale,
       width,
     )
 
@@ -6323,13 +6264,17 @@ const SkirtingBoards = memo(function SkirtingBoards({
 })
 
 function createFakeAmbientOcclusionGeometry({
+  depth,
   elevation,
   geometryContextWalls,
   roomPolygons,
+  wallHeight,
 }: {
+  depth: number
   elevation: number
   geometryContextWalls: Wall[]
   roomPolygons: Point[][]
+  wallHeight: number
 }) {
   const floorGeometry = new BufferGeometry()
   const wallGeometry = new BufferGeometry()
@@ -6337,7 +6282,7 @@ function createFakeAmbientOcclusionGeometry({
   const wallPositions: number[] = []
   const floorY = elevation + FAKE_AO_FLOOR_Y_OFFSET_METERS
   const wallBottomY = elevation + FAKE_AO_FLOOR_Y_OFFSET_METERS
-  const wallTopY = elevation + FAKE_AO_WALL_HEIGHT_METERS
+  const wallTopY = elevation + wallHeight
   const sideFacesRoom = (
     wall: Wall,
     side: Exclude<SurfaceWallSide, 'both'>,
@@ -6387,12 +6332,12 @@ function createFakeAmbientOcclusionGeometry({
       }
 
       const outerStart = {
-        x: start.x + sideNormal.x * FAKE_AO_FLOOR_DEPTH_METERS,
-        y: start.y + sideNormal.y * FAKE_AO_FLOOR_DEPTH_METERS,
+        x: start.x + sideNormal.x * depth,
+        y: start.y + sideNormal.y * depth,
       }
       const outerEnd = {
-        x: end.x + sideNormal.x * FAKE_AO_FLOOR_DEPTH_METERS,
-        y: end.y + sideNormal.y * FAKE_AO_FLOOR_DEPTH_METERS,
+        x: end.x + sideNormal.x * depth,
+        y: end.y + sideNormal.y * depth,
       }
       const wallStart = {
         x: start.x + sideNormal.x * FAKE_AO_SURFACE_OFFSET_METERS,
@@ -6459,19 +6404,23 @@ function createFakeAmbientOcclusionGeometry({
 }
 
 const FakeAmbientOcclusion = memo(function FakeAmbientOcclusion({
+  depth = FAKE_AO_FLOOR_DEPTH_METERS,
   elevation,
   geometryContextWalls,
   intensity,
   roomSurfacePolygonsBySignature,
   rooms,
   visible,
+  wallHeight = FAKE_AO_WALL_HEIGHT_METERS,
 }: {
+  depth?: number
   elevation: number
   geometryContextWalls: Wall[]
   intensity: number
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
   visible: boolean
+  wallHeight?: number
 }) {
   const roomPolygons = useMemo(
     () =>
@@ -6485,11 +6434,13 @@ const FakeAmbientOcclusion = memo(function FakeAmbientOcclusion({
   const { floorGeometry, wallGeometry } = useMemo(
     () =>
       createFakeAmbientOcclusionGeometry({
+        depth,
         elevation,
         geometryContextWalls,
         roomPolygons,
+        wallHeight,
       }),
-    [elevation, geometryContextWalls, roomPolygons],
+    [depth, elevation, geometryContextWalls, roomPolygons, wallHeight],
   )
   const floorOpacity = Math.min(0.16, 0.075 * intensity)
   const wallOpacity = Math.min(0.11, 0.052 * intensity)
@@ -7025,18 +6976,19 @@ function CeilingSlab({
           const upperSupportingWall = upperFloor
             ? findFloorSlabSupportingWall(point, nextPoint, upperFloor.walls)
             : null
-          const inheritedAssignment = supportingWall
+          const materialSupportingWall = supportingWall ?? upperSupportingWall
+          const inheritedAssignment = materialSupportingWall
             ? getExternalWallSlabEdgeMaterialAssignment(
                 surfaceAssignments ?? [],
-                supportingWall.wall,
-                supportingWall.side,
+                materialSupportingWall.wall,
+                materialSupportingWall.side,
               )
             : undefined
           const inheritedMaterial = inheritedAssignment
             ? surfaceMaterialsById.get(inheritedAssignment.materialId)
             : undefined
           const inheritsWallMaterial = Boolean(
-            supportingWall && inheritedAssignment && inheritedMaterial,
+            materialSupportingWall && inheritedAssignment && inheritedMaterial,
           )
 
           return {
@@ -7049,12 +7001,12 @@ function CeilingSlab({
             supportingWall,
             upperSupportingWall,
             uvFrame:
-              inheritsWallMaterial && supportingWall
+              inheritsWallMaterial && materialSupportingWall
                 ? {
-                    bottom: supportingWall.wall.height,
-                    end: supportingWall.uvEnd,
-                    normalSign: supportingWall.normalSign,
-                    start: supportingWall.uvStart,
+                    bottom: materialSupportingWall.wall.height,
+                    end: materialSupportingWall.uvEnd,
+                    normalSign: materialSupportingWall.normalSign,
+                    start: materialSupportingWall.uvStart,
                   }
                 : undefined,
           }
@@ -7421,58 +7373,6 @@ function getPointDistance(firstPoint: Point, secondPoint: Point) {
   return Math.hypot(firstPoint.x - secondPoint.x, firstPoint.y - secondPoint.y)
 }
 
-function pointsAreConnected(firstPoint: Point, secondPoint: Point) {
-  return getPointDistance(firstPoint, secondPoint) <= 0.02
-}
-
-function externalWallsAreConnected(firstWall: Wall, secondWall: Wall) {
-  return (
-    pointsAreConnected(firstWall.start, secondWall.start) ||
-    pointsAreConnected(firstWall.start, secondWall.end) ||
-    pointsAreConnected(firstWall.end, secondWall.start) ||
-    pointsAreConnected(firstWall.end, secondWall.end)
-  )
-}
-
-function getExternalWallUnionWallGroups(walls: Wall[]) {
-  const externalWalls = walls.filter((wall) => wall.kind === 'external')
-  const visitedWallIds = new Set<string>()
-  const unionWallGroups: Wall[][] = []
-
-  for (const wall of externalWalls) {
-    if (visitedWallIds.has(wall.id)) {
-      continue
-    }
-
-    const component: Wall[] = []
-    const pendingWalls = [wall]
-    visitedWallIds.add(wall.id)
-
-    while (pendingWalls.length > 0) {
-      const currentWall = pendingWalls.pop()!
-      component.push(currentWall)
-
-      for (const candidateWall of externalWalls) {
-        if (
-          visitedWallIds.has(candidateWall.id) ||
-          !externalWallsAreConnected(currentWall, candidateWall)
-        ) {
-          continue
-        }
-
-        visitedWallIds.add(candidateWall.id)
-        pendingWalls.push(candidateWall)
-      }
-    }
-
-    if (component.length > 1) {
-      unionWallGroups.push(component)
-    }
-  }
-
-  return unionWallGroups
-}
-
 function createUnionFootprintEdgeGeometry(
   footprint: WallUnionFootprint,
   elevation: number,
@@ -7571,14 +7471,14 @@ function getOpeningRectanglesForEdge({
   const edgeWallMin = Math.min(edgeStartWallDistance, edgeEndWallDistance)
   const edgeWallMax = Math.max(edgeStartWallDistance, edgeEndWallDistance)
   const openings = (wall.openings ?? [])
-    .map((opening) => {
+    .flatMap((opening) => {
       const openingWallLeft = opening.center - opening.width / 2
       const openingWallRight = opening.center + opening.width / 2
       const clippedWallLeft = Math.max(edgeWallMin, openingWallLeft)
       const clippedWallRight = Math.min(edgeWallMax, openingWallRight)
 
       if (clippedWallRight <= clippedWallLeft) {
-        return null
+        return []
       }
 
       const leftDistance = wallDistanceToEdgeDistance(clippedWallLeft)
@@ -7589,32 +7489,20 @@ function getOpeningRectanglesForEdge({
         Math.min(height, opening.bottom + opening.height),
       )
 
-      return {
+      const rectangle = {
         bottom,
+        id: opening.id,
         left: Math.max(0, Math.min(leftDistance, rightDistance)),
+        modelId: opening.modelId,
         right: Math.min(edgeLength, Math.max(leftDistance, rightDistance)),
         top,
       }
-    })
-    .filter(
-      (
-        opening,
-      ): opening is {
-        bottom: number
-        left: number
-        right: number
-        top: number
-      } => {
-        if (!opening) {
-          return false
-        }
 
-        return (
-          opening.right - opening.left > 0.001 &&
-          opening.top - opening.bottom > 0.001
-        )
-      },
-    )
+      return rectangle.right - rectangle.left > 0.001 &&
+        rectangle.top - rectangle.bottom > 0.001
+        ? [rectangle]
+        : []
+    })
 
   if (openings.length === 0) {
     return [{ bottom: 0, left: 0, right: edgeLength, top: height }]
@@ -7661,6 +7549,183 @@ function getOpeningRectanglesForEdge({
   })
 }
 
+function getUniqueSortedOpeningBreaks(values: number[]) {
+  const sortedValues = [...values].sort((first, second) => first - second)
+
+  return sortedValues.filter(
+    (value, index) =>
+      index === 0 || Math.abs(value - sortedValues[index - 1]) > 0.0001,
+  )
+}
+
+function openingRectanglesContainPoint(
+  openings: OpeningRectangle[],
+  x: number,
+  y: number,
+) {
+  return openings.some(
+    (opening) =>
+      x > opening.left + 0.0001 &&
+      x < opening.right - 0.0001 &&
+      y > opening.bottom + 0.0001 &&
+      y < opening.top - 0.0001,
+  )
+}
+
+function getOpeningBoundarySegmentOpeningId(
+  openings: OpeningRectangle[],
+  edge: OpeningBoundarySegment['edge'],
+  primary: number,
+  rangeStart: number,
+  rangeEnd: number,
+) {
+  const matches = openings.filter((opening) => {
+    if (edge === 'left') {
+      return (
+        Math.abs(opening.left - primary) <= 0.0001 &&
+        rangeStart >= opening.bottom - 0.0001 &&
+        rangeEnd <= opening.top + 0.0001
+      )
+    }
+
+    if (edge === 'right') {
+      return (
+        Math.abs(opening.right - primary) <= 0.0001 &&
+        rangeStart >= opening.bottom - 0.0001 &&
+        rangeEnd <= opening.top + 0.0001
+      )
+    }
+
+    if (edge === 'bottom') {
+      return (
+        Math.abs(opening.bottom - primary) <= 0.0001 &&
+        rangeStart >= opening.left - 0.0001 &&
+        rangeEnd <= opening.right + 0.0001
+      )
+    }
+
+    return (
+      Math.abs(opening.top - primary) <= 0.0001 &&
+      rangeStart >= opening.left - 0.0001 &&
+      rangeEnd <= opening.right + 0.0001
+    )
+  })
+
+  return matches.length === 1 ? matches[0].id : undefined
+}
+
+function getMergedOpeningBoundarySegments(
+  openings: OpeningRectangle[],
+  wallHeight: number,
+): OpeningBoundarySegment[] {
+  const xBreaks = getUniqueSortedOpeningBreaks(
+    openings.flatMap((opening) => [opening.left, opening.right]),
+  )
+  const yBreaks = getUniqueSortedOpeningBreaks(
+    openings.flatMap((opening) => [opening.bottom, opening.top]),
+  )
+  const segments: OpeningBoundarySegment[] = []
+
+  xBreaks.slice(0, -1).forEach((left, xIndex) => {
+    const right = xBreaks[xIndex + 1]
+
+    if (right <= left + 0.0001) {
+      return
+    }
+
+    yBreaks.slice(0, -1).forEach((bottom, yIndex) => {
+      const top = yBreaks[yIndex + 1]
+
+      if (top <= bottom + 0.0001) {
+        return
+      }
+
+      const centerX = (left + right) / 2
+      const centerY = (bottom + top) / 2
+
+      if (!openingRectanglesContainPoint(openings, centerX, centerY)) {
+        return
+      }
+
+      if (!openingRectanglesContainPoint(openings, left - 0.0002, centerY)) {
+        segments.push({
+          bottom,
+          edge: 'left',
+          id: `left:${left}:${bottom}:${top}`,
+          openingId: getOpeningBoundarySegmentOpeningId(
+            openings,
+            'left',
+            left,
+            bottom,
+            top,
+          ),
+          top,
+          x: left,
+        })
+      }
+
+      if (!openingRectanglesContainPoint(openings, right + 0.0002, centerY)) {
+        segments.push({
+          bottom,
+          edge: 'right',
+          id: `right:${right}:${bottom}:${top}`,
+          openingId: getOpeningBoundarySegmentOpeningId(
+            openings,
+            'right',
+            right,
+            bottom,
+            top,
+          ),
+          top,
+          x: right,
+        })
+      }
+
+      if (
+        bottom > 0.0001 &&
+        !openingRectanglesContainPoint(openings, centerX, bottom - 0.0002)
+      ) {
+        segments.push({
+          edge: 'bottom',
+          id: `bottom:${left}:${right}:${bottom}`,
+          left,
+          openingId: getOpeningBoundarySegmentOpeningId(
+            openings,
+            'bottom',
+            bottom,
+            left,
+            right,
+          ),
+          right,
+          y: bottom,
+        })
+      }
+
+      if (
+        top < wallHeight - 0.0001 &&
+        !openingRectanglesContainPoint(openings, centerX, top + 0.0002)
+      ) {
+        segments.push({
+          edge: 'top',
+          id: `top:${left}:${right}:${top}`,
+          left,
+          openingId: getOpeningBoundarySegmentOpeningId(
+            openings,
+            'top',
+            top,
+            left,
+            right,
+          ),
+          right,
+          y: top,
+        })
+      }
+    })
+  })
+
+  return segments
+}
+
 function UnionFootprintWireframe({
   elevation,
   footprint,
@@ -7694,6 +7759,7 @@ function WallFootprintMeshes({
   height,
   includeVerticalFaces,
   onRegisterPickTarget,
+  rooms,
   selectedWallId,
   selectedSurface,
   sourceWalls,
@@ -7710,6 +7776,7 @@ function WallFootprintMeshes({
   height: number
   includeVerticalFaces?: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
+  rooms: DetectedRoom[]
   selectedWallId: string | null
   selectedSurface: SelectableSurface | null
   sourceWalls?: Wall[]
@@ -7733,6 +7800,14 @@ function WallFootprintMeshes({
     [geometryContextRenderedWalls],
   )
   const revealContextWalls = useMemo(() => sourceWalls ?? [], [sourceWalls])
+  const exteriorWallSidesByWallId = useMemo(
+    () => getExteriorWallSidesByWallId(revealContextWalls, rooms),
+    [revealContextWalls, rooms],
+  )
+  const wallOpeningDepthsByModelId = useMemo(
+    () => getWallOpeningDepthsByModelId(revealContextWalls),
+    [revealContextWalls],
+  )
   const wallFaceMaterialIndices = useMemo(() => {
     const materialIndices = new Map<string, number>()
 
@@ -7754,11 +7829,17 @@ function WallFootprintMeshes({
             (candidateWall) => candidateWall.id === wallId,
           )
           const assignment = wall
-            ? getWallFaceMaterialAssignmentForSide(
-                getWallMaterialAssignments(surfaceAssignments, wall.id),
-                side,
-                wall.height,
-              )
+            ? wallKind === 'external'
+              ? getExternalWallSlabEdgeMaterialAssignment(
+                  surfaceAssignments,
+                  wall,
+                  side,
+                )
+              : getWallFaceMaterialAssignmentForSide(
+                  getWallMaterialAssignments(surfaceAssignments, wall.id),
+                  side,
+                  wall.height,
+                )
             : undefined
           const material = assignment
             ? surfaceMaterialsById.get(assignment.materialId)
@@ -7829,6 +7910,8 @@ function WallFootprintMeshes({
             revealContextWalls,
             includeVerticalFaces ?? wallKind !== 'internal',
             wallKind !== 'external',
+            exteriorWallSidesByWallId,
+            wallOpeningDepthsByModelId,
           )
         : null,
     [
@@ -7841,6 +7924,8 @@ function WallFootprintMeshes({
       includeVerticalFaces,
       useExplicitGeometry,
       wallFaceMaterialIndices,
+      exteriorWallSidesByWallId,
+      wallOpeningDepthsByModelId,
     ],
   )
   const selectedHighlightMaterialIndices = useMemo(() => {
@@ -8794,6 +8879,8 @@ function createWallFootprintGeometryWithOpenings(
   revealWalls = walls,
   includeVerticalFaces = true,
   includeHoleVerticalFaces = true,
+  exteriorWallSidesByWallId = new Map<string, WallSide>(),
+  wallOpeningDepthsByModelId = new Map<string, number>(),
 ) {
   const geometry = new BufferGeometry()
   const positions: number[] = []
@@ -9050,6 +9137,8 @@ function createWallFootprintGeometryWithOpenings(
     .forEach((wall) => {
       const { normal, unit } = getWallBasis(wall)
       const halfThickness = wall.thickness / 2
+      const exteriorSide =
+        wall.kind === 'external' ? exteriorWallSidesByWallId.get(wall.id) : undefined
       const toPosition = (
         distanceAlongWall: number,
         y: number,
@@ -9060,70 +9149,149 @@ function createWallFootprintGeometryWithOpenings(
         wall.start.y + unit.y * distanceAlongWall + normal.y * sideOffset,
       ]
 
-      ;(wall.openings ?? []).forEach((opening) => {
-        const left = opening.center - opening.width / 2
-        const right = opening.center + opening.width / 2
-        const bottom = Math.max(0, Math.min(height, opening.bottom))
-        const top = Math.max(bottom, Math.min(height, opening.bottom + opening.height))
+      const openingRectangles = (wall.openings ?? [])
+        .flatMap((opening) => {
+          const left = opening.center - opening.width / 2
+          const right = opening.center + opening.width / 2
+          const bottom = Math.max(0, Math.min(height, opening.bottom))
+          const top = Math.max(
+            bottom,
+            Math.min(height, opening.bottom + opening.height),
+          )
 
-        if (right <= left || top <= bottom) {
-          return
+          return right > left && top > bottom
+            ? [{
+                bottom,
+                id: opening.id,
+                left,
+                modelId: opening.modelId,
+                right,
+                top,
+              }]
+            : []
+        })
+      const getRevealSplitOffset = (openingId?: string) => {
+        if (!exteriorSide || !openingId) {
+          return 0
         }
 
-        ;([-1, 1] as const).forEach((side) => {
-          const depthStart = side === 1 ? 0 : -halfThickness
-          const depthEnd = side === 1 ? halfThickness : 0
-          const revealDepth = Math.abs(depthEnd - depthStart)
-          const materialIndex = wallFaceMaterialIndices.get(`${wall.id}:${side}`) ?? 0
+        const opening = openingRectangles.find(
+          (candidateOpening) => candidateOpening.id === openingId,
+        )
+        const openingDepth = opening?.modelId
+          ? wallOpeningDepthsByModelId.get(opening.modelId)
+          : undefined
 
-          addQuad(
-            [
-              toPosition(left, bottom, depthStart),
-              toPosition(left, bottom, depthEnd),
-              toPosition(left, top, depthEnd),
-              toPosition(left, top, depthStart),
-            ],
-            [unit.x, 0, unit.y],
-            [[0, bottom], [revealDepth, bottom], [revealDepth, top], [0, top]],
-            materialIndex,
-          )
-          addQuad(
-            [
-              toPosition(right, bottom, depthEnd),
-              toPosition(right, bottom, depthStart),
-              toPosition(right, top, depthStart),
-              toPosition(right, top, depthEnd),
-            ],
-            [-unit.x, 0, -unit.y],
-            [[0, bottom], [revealDepth, bottom], [revealDepth, top], [0, top]],
-            materialIndex,
-          )
-          addQuad(
-            [
-              toPosition(left, top, depthEnd),
-              toPosition(right, top, depthEnd),
-              toPosition(right, top, depthStart),
-              toPosition(left, top, depthStart),
-            ],
-            [0, -1, 0],
-            [[left, 0], [right, 0], [right, revealDepth], [left, revealDepth]],
-            materialIndex,
-          )
-          if (bottom > SKIRTING_OPENING_FLOOR_TOLERANCE_METERS) {
-            addQuad(
-              [
-                toPosition(left, bottom, depthStart),
-                toPosition(right, bottom, depthStart),
-                toPosition(right, bottom, depthEnd),
-                toPosition(left, bottom, depthEnd),
-              ],
-              [0, 1, 0],
-              [[left, 0], [right, 0], [right, revealDepth], [left, revealDepth]],
-              materialIndex,
-            )
-          }
-        })
-      })
+        if (typeof openingDepth !== 'number' || !Number.isFinite(openingDepth)) {
+          return 0
+        }
+
+        return Math.max(
+          -halfThickness,
+          Math.min(
+            halfThickness,
+            exteriorSide *
+              (halfThickness -
+                WINDOW_WALL_FACE_INSET_METERS -
+                openingDepth / 2),
+          ),
+        )
+      }
+
+      getMergedOpeningBoundarySegments(openingRectangles, height).forEach(
+        (segment) => {
+          const splitOffset = getRevealSplitOffset(segment.openingId)
+          ;([-1, 1] as const).forEach((side) => {
+            const depthStart = side === 1 ? splitOffset : -halfThickness
+            const depthEnd = side === 1 ? halfThickness : splitOffset
+            const revealDepth = Math.abs(depthEnd - depthStart)
+            const materialIndex =
+              wallFaceMaterialIndices.get(`${wall.id}:${side}`) ?? 0
+
+            if (segment.edge === 'left') {
+              addQuad(
+                [
+                  toPosition(segment.x, segment.bottom, depthStart),
+                  toPosition(segment.x, segment.bottom, depthEnd),
+                  toPosition(segment.x, segment.top, depthEnd),
+                  toPosition(segment.x, segment.top, depthStart),
+                ],
+                [unit.x, 0, unit.y],
+                [
+                  [0, segment.bottom],
+                  [revealDepth, segment.bottom],
+                  [revealDepth, segment.top],
+                  [0, segment.top],
+                ],
+                materialIndex,
+              )
+              return
+            }
+
+            if (segment.edge === 'right') {
+              addQuad(
+                [
+                  toPosition(segment.x, segment.bottom, depthEnd),
+                  toPosition(segment.x, segment.bottom, depthStart),
+                  toPosition(segment.x, segment.top, depthStart),
+                  toPosition(segment.x, segment.top, depthEnd),
+                ],
+                [-unit.x, 0, -unit.y],
+                [
+                  [0, segment.bottom],
+                  [revealDepth, segment.bottom],
+                  [revealDepth, segment.top],
+                  [0, segment.top],
+                ],
+                materialIndex,
+              )
+              return
+            }
+
+            if (segment.edge === 'top') {
+              addQuad(
+                [
+                  toPosition(segment.left, segment.y, depthEnd),
+                  toPosition(segment.right, segment.y, depthEnd),
+                  toPosition(segment.right, segment.y, depthStart),
+                  toPosition(segment.left, segment.y, depthStart),
+                ],
+                [0, -1, 0],
+                [
+                  [segment.left, 0],
+                  [segment.right, 0],
+                  [segment.right, revealDepth],
+                  [segment.left, revealDepth],
+                ],
+                materialIndex,
+              )
+              return
+            }
+
+            if (
+              segment.edge === 'bottom' &&
+              segment.y > SKIRTING_OPENING_FLOOR_TOLERANCE_METERS
+            ) {
+              addQuad(
+                [
+                  toPosition(segment.left, segment.y, depthStart),
+                  toPosition(segment.right, segment.y, depthStart),
+                  toPosition(segment.right, segment.y, depthEnd),
+                  toPosition(segment.left, segment.y, depthEnd),
+                ],
+                [0, 1, 0],
+                [
+                  [segment.left, 0],
+                  [segment.right, 0],
+                  [segment.right, revealDepth],
+                  [segment.left, revealDepth],
+                ],
+                materialIndex,
+              )
+            }
+          })
+        },
+      )
     })
 
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
@@ -9817,6 +9985,363 @@ function RoomFloorBaseMeshes({
   )
 }
 
+function getAllEnabledLocalLightSlots(floor: FloorLevel) {
+  const slots: LocalLightSlot[] = []
+
+  for (const model of floor.models ?? []) {
+    const modelDefinition = modelsById.get(model.modelId)
+
+    if (!modelDefinition?.isLight || model.lightEnabled === false) {
+      continue
+    }
+
+    const height = model.height ?? modelDefinition.height
+    const lightKind = modelDefinition.lightKind ?? 'point'
+    const lightY = floor.elevation + height
+    const maxLightY =
+      floor.elevation +
+      Math.max(0.2, floor.roomHeight - LOCAL_LIGHT_CEILING_CLEARANCE_METERS)
+    const y = Math.min(lightY, maxLightY)
+
+    slots.push({
+      angle:
+        ((lightKind === 'spot'
+          ? Math.max(
+              5,
+              Math.min(120, model.lightSpread ?? modelDefinition.lightSpread ?? 36),
+            )
+          : 120) *
+          Math.PI) /
+        360,
+      color: model.lightColor ?? modelDefinition.lightColor ?? modelDefinition.color,
+      distance: Math.max(
+        0.5,
+        Math.min(
+          30,
+          model.lightDistance ??
+            modelDefinition.lightDistance ??
+            DEFAULT_LOCAL_LIGHT_DISTANCE,
+        ),
+      ),
+      falloff: Math.max(
+        0.5,
+        Math.min(
+          2,
+          model.lightFalloff ??
+            modelDefinition.lightFalloff ??
+            DEFAULT_LOCAL_LIGHT_FALLOFF,
+        ),
+      ),
+      id: model.id,
+      kind: lightKind,
+      penumbra: lightKind === 'spot' ? 0.45 : 0.75,
+      position: [model.position.x, y, model.position.y],
+      power:
+        (model.lightPower ?? modelDefinition.lightPower ?? 450) *
+        LOCAL_LIGHT_RENDER_POWER_SCALE,
+      target: [model.position.x, y - 1, model.position.y],
+    })
+  }
+
+  return slots
+}
+
+function drawPlanPath(
+  context: CanvasRenderingContext2D,
+  polygon: Point[],
+  worldToCanvas: (point: Point) => Point,
+) {
+  polygon.forEach((point, index) => {
+    const canvasPoint = worldToCanvas(point)
+
+    if (index === 0) {
+      context.moveTo(canvasPoint.x, canvasPoint.y)
+    } else {
+      context.lineTo(canvasPoint.x, canvasPoint.y)
+    }
+  })
+  context.closePath()
+}
+
+function createBakedFloorLightmapTextures({
+  daylightEnabled,
+  floor,
+  lightDirection,
+  roomPolygons,
+  walls,
+}: {
+  daylightEnabled: boolean
+  floor: FloorLevel
+  lightDirection: LightDirection
+  roomPolygons: Point[][]
+  walls: Wall[]
+}) {
+  const floorPlane = getFloorPlaneBounds(floor)
+
+  if (!floorPlane || roomPolygons.length === 0) {
+    return null
+  }
+
+  const shadowCanvas = document.createElement('canvas')
+  const lightCanvas = document.createElement('canvas')
+  shadowCanvas.width = BAKED_FLOOR_LIGHTMAP_SIZE
+  shadowCanvas.height = BAKED_FLOOR_LIGHTMAP_SIZE
+  lightCanvas.width = BAKED_FLOOR_LIGHTMAP_SIZE
+  lightCanvas.height = BAKED_FLOOR_LIGHTMAP_SIZE
+  const shadowContext = shadowCanvas.getContext('2d')
+  const lightContext = lightCanvas.getContext('2d')
+
+  if (!shadowContext || !lightContext) {
+    return null
+  }
+
+  const halfSize = floorPlane.size / 2
+  const minX = floorPlane.centerX - halfSize
+  const minZ = floorPlane.centerZ - halfSize
+  const worldToCanvas = (point: Point): Point => ({
+    x: ((point.x - minX) / floorPlane.size) * BAKED_FLOOR_LIGHTMAP_SIZE,
+    y: ((point.y - minZ) / floorPlane.size) * BAKED_FLOOR_LIGHTMAP_SIZE,
+  })
+  const drawRoomClip = (context: CanvasRenderingContext2D) => {
+    context.beginPath()
+    roomPolygons.forEach((polygon) => drawPlanPath(context, polygon, worldToCanvas))
+    context.clip()
+  }
+
+  shadowContext.save()
+  drawRoomClip(shadowContext)
+  shadowContext.lineCap = 'round'
+  shadowContext.lineJoin = 'round'
+
+  const lightSlots = getAllEnabledLocalLightSlots(floor)
+
+  walls.forEach((wall) => {
+    const start = worldToCanvas(wall.start)
+    const end = worldToCanvas(wall.end)
+
+    shadowContext.beginPath()
+    shadowContext.moveTo(start.x, start.y)
+    shadowContext.lineTo(end.x, end.y)
+    shadowContext.strokeStyle = `rgba(0, 0, 0, ${BAKED_FLOOR_CONTACT_SHADOW_ALPHA})`
+    shadowContext.lineWidth = Math.max(
+      3,
+      (wall.thickness / floorPlane.size) * BAKED_FLOOR_LIGHTMAP_SIZE * 0.95,
+    )
+    shadowContext.stroke()
+  })
+  shadowContext.restore()
+
+  lightContext.save()
+  drawRoomClip(lightContext)
+  if (daylightEnabled) {
+    const sunGradientStart = {
+      x:
+        BAKED_FLOOR_LIGHTMAP_SIZE *
+        (0.5 - Math.cos(lightDirection.azimuth) * 0.5),
+      y:
+        BAKED_FLOOR_LIGHTMAP_SIZE *
+        (0.5 - Math.sin(lightDirection.azimuth) * 0.5),
+    }
+    const sunGradientEnd = {
+      x:
+        BAKED_FLOOR_LIGHTMAP_SIZE *
+        (0.5 + Math.cos(lightDirection.azimuth) * 0.5),
+      y:
+        BAKED_FLOOR_LIGHTMAP_SIZE *
+        (0.5 + Math.sin(lightDirection.azimuth) * 0.5),
+    }
+    const daylightGradient = lightContext.createLinearGradient(
+      sunGradientStart.x,
+      sunGradientStart.y,
+      sunGradientEnd.x,
+      sunGradientEnd.y,
+    )
+    daylightGradient.addColorStop(0, 'rgba(255, 248, 232, 0.18)')
+    daylightGradient.addColorStop(0.55, 'rgba(244, 248, 255, 0.08)')
+    daylightGradient.addColorStop(1, 'rgba(126, 161, 213, 0.02)')
+    lightContext.fillStyle = daylightGradient
+    lightContext.fillRect(
+      0,
+      0,
+      BAKED_FLOOR_LIGHTMAP_SIZE,
+      BAKED_FLOOR_LIGHTMAP_SIZE,
+    )
+  }
+
+  lightSlots.forEach((slot) => {
+    const center = worldToCanvas({ x: slot.position[0], y: slot.position[2] })
+    const radius =
+      (Math.min(slot.distance, 8) / floorPlane.size) * BAKED_FLOOR_LIGHTMAP_SIZE
+    const color = new Color(slot.color)
+    const gradient = lightContext.createRadialGradient(
+      center.x,
+      center.y,
+      0,
+      center.x,
+      center.y,
+      Math.max(8, radius),
+    )
+    const alpha = Math.min(
+      BAKED_FLOOR_LIGHT_MAX_ALPHA,
+      0.1 + slot.power / 750,
+    )
+
+    gradient.addColorStop(
+      0,
+      `rgba(${Math.round(color.r * 255)}, ${Math.round(
+        color.g * 255,
+      )}, ${Math.round(color.b * 255)}, ${alpha.toFixed(3)})`,
+    )
+    gradient.addColorStop(
+      1,
+      `rgba(${Math.round(color.r * 255)}, ${Math.round(
+        color.g * 255,
+      )}, ${Math.round(color.b * 255)}, 0)`,
+    )
+    lightContext.fillStyle = gradient
+    lightContext.fillRect(
+      center.x - radius,
+      center.y - radius,
+      radius * 2,
+      radius * 2,
+    )
+  })
+  lightContext.restore()
+
+  const shadowTexture = new CanvasTexture(shadowCanvas)
+  const lightTexture = new CanvasTexture(lightCanvas)
+  shadowTexture.needsUpdate = true
+  lightTexture.needsUpdate = true
+
+  return {
+    floorPlane,
+    lightCount: lightSlots.length,
+    lightTexture,
+    shadowTexture,
+  }
+}
+
+function BakedFloorLightmap({
+  daylightEnabled,
+  enabled,
+  floor,
+  lightDirection,
+  roomSurfacePolygonsBySignature,
+  rooms,
+  walls,
+  wireframe,
+}: {
+  daylightEnabled: boolean
+  enabled: boolean
+  floor: FloorLevel
+  lightDirection: LightDirection
+  roomSurfacePolygonsBySignature?: Map<string, Point[]>
+  rooms: DetectedRoom[]
+  walls: Wall[]
+  wireframe: boolean
+}) {
+  const roomPolygons = useMemo(
+    () =>
+      rooms
+        .map((room) =>
+          getRenderableRoomPolygon(room, roomSurfacePolygonsBySignature),
+        )
+        .filter((polygon): polygon is Point[] => Boolean(polygon)),
+    [roomSurfacePolygonsBySignature, rooms],
+  )
+  const bakedLightmap = useMemo(
+    () =>
+      enabled && !wireframe
+        ? createBakedFloorLightmapTextures({
+            daylightEnabled,
+            floor,
+            lightDirection,
+            roomPolygons,
+            walls,
+          })
+        : null,
+    [
+      daylightEnabled,
+      enabled,
+      floor,
+      lightDirection.azimuth,
+      lightDirection.elevation,
+      roomPolygons,
+      walls,
+      wireframe,
+    ],
+  )
+
+  useEffect(() => {
+    if (!bakedLightmap) {
+      return undefined
+    }
+
+    recordEngineLog(
+      'floor-lightmap-baked',
+      `${floor.id}: ${BAKED_FLOOR_LIGHTMAP_SIZE}x${BAKED_FLOOR_LIGHTMAP_SIZE}, ${bakedLightmap.lightCount} lights`,
+    )
+
+    return () => {
+      bakedLightmap.shadowTexture.dispose()
+      bakedLightmap.lightTexture.dispose()
+    }
+  }, [bakedLightmap, floor.id])
+
+  if (!bakedLightmap) {
+    return null
+  }
+
+  return (
+    <group
+      position={[
+        bakedLightmap.floorPlane.centerX,
+        floor.elevation + 0.018,
+        bakedLightmap.floorPlane.centerZ,
+      ]}
+      renderOrder={5}
+    >
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry
+          args={[
+            bakedLightmap.floorPlane.size,
+            bakedLightmap.floorPlane.size,
+          ]}
+        />
+        <meshBasicMaterial
+          color="#000000"
+          depthWrite={false}
+          map={bakedLightmap.shadowTexture}
+          opacity={1}
+          polygonOffset
+          polygonOffsetFactor={-4}
+          polygonOffsetUnits={-4}
+          transparent
+        />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry
+          args={[
+            bakedLightmap.floorPlane.size,
+            bakedLightmap.floorPlane.size,
+          ]}
+        />
+        <meshBasicMaterial
+          blending={AdditiveBlending}
+          color="#ffffff"
+          depthWrite={false}
+          map={bakedLightmap.lightTexture}
+          opacity={1}
+          polygonOffset
+          polygonOffsetFactor={-5}
+          polygonOffsetUnits={-5}
+          transparent
+        />
+      </mesh>
+    </group>
+  )
+}
+
 function RoomFloorFinishes({
   elevation,
   floorId,
@@ -10264,7 +10789,12 @@ function getPlanAabbHorizontalSnapDelta(
   objectBounds: PlanAabb,
   targetBounds: PlanAabb,
 ) {
-  const candidates: Array<{ distance: number; dx: number; dz: number }> = []
+  const candidates: Array<{
+    axis: 'x' | 'z'
+    distance: number
+    dx: number
+    dz: number
+  }> = []
   const addCandidate = (
     dx: number,
     dz: number,
@@ -10281,7 +10811,7 @@ function getPlanAabbHorizontalSnapDelta(
       distance <= snapDistance &&
       overlap >= MODEL_EDGE_SNAP_MIN_OVERLAP_METERS
     ) {
-      candidates.push({ distance, dx, dz })
+      candidates.push({ axis: dx !== 0 ? 'x' : 'z', distance, dx, dz })
     }
   }
   const objectWidth = getPlanAabbWidth(objectBounds)
@@ -10308,10 +10838,88 @@ function getPlanAabbHorizontalSnapDelta(
     addCandidate(targetBounds.maxX - objectBounds.maxX, 0, objectDepth, false)
   }
 
-  return candidates.sort(
-    (firstCandidate, secondCandidate) =>
-      firstCandidate.distance - secondCandidate.distance,
-  )[0] ?? null
+  const bestX = candidates
+    .filter((candidate) => candidate.axis === 'x')
+    .sort(
+      (firstCandidate, secondCandidate) =>
+        firstCandidate.distance - secondCandidate.distance,
+    )[0]
+  const bestZ = candidates
+    .filter((candidate) => candidate.axis === 'z')
+    .sort(
+      (firstCandidate, secondCandidate) =>
+        firstCandidate.distance - secondCandidate.distance,
+    )[0]
+
+  if (!bestX && !bestZ) {
+    return null
+  }
+
+  return {
+    distance: Math.max(bestX?.distance ?? 0, bestZ?.distance ?? 0),
+    dx: bestX?.dx ?? 0,
+    dz: bestZ?.dz ?? 0,
+  }
+}
+
+function getOutwardProjection(
+  rotationY: number,
+  localPoint: Point,
+  outwardDirection: Point,
+) {
+  const cos = Math.cos(rotationY)
+  const sin = Math.sin(rotationY)
+  const worldX = localPoint.x * cos + localPoint.y * sin
+  const worldZ = -localPoint.x * sin + localPoint.y * cos
+
+  return worldX * outwardDirection.x + worldZ * outwardDirection.y
+}
+
+function getWallInsetForLocalBounds(
+  localBounds: ModelHorizontalBounds | null,
+  rotationY: number,
+  outwardDirection: Point,
+) {
+  if (!localBounds) {
+    return 0
+  }
+
+  const localCorners = [
+    { x: localBounds.minX, y: localBounds.minZ },
+    { x: localBounds.minX, y: localBounds.maxZ },
+    { x: localBounds.maxX, y: localBounds.minZ },
+    { x: localBounds.maxX, y: localBounds.maxZ },
+  ]
+  const minOutwardProjection = Math.min(
+    ...localCorners.map((corner) =>
+      getOutwardProjection(rotationY, corner, outwardDirection),
+    ),
+  )
+
+  return Math.max(0, -minOutwardProjection)
+}
+
+function getOutwardExtentForLocalBounds(
+  localBounds: ModelHorizontalBounds | null,
+  rotationY: number,
+  outwardDirection: Point,
+) {
+  if (!localBounds) {
+    return 0
+  }
+
+  const localCorners = [
+    { x: localBounds.minX, y: localBounds.minZ },
+    { x: localBounds.minX, y: localBounds.maxZ },
+    { x: localBounds.maxX, y: localBounds.minZ },
+    { x: localBounds.maxX, y: localBounds.maxZ },
+  ]
+
+  return Math.max(
+    ...localCorners.map((corner) =>
+      getOutwardProjection(rotationY, corner, outwardDirection),
+    ),
+  )
 }
 
 function getModelWallSnap(
@@ -10320,33 +10928,6 @@ function getModelWallSnap(
   localForwardAngle: number | null,
   walls: Wall[],
 ) {
-  const getOutwardProjection = (rotationY: number, localPoint: Point, outwardDirection: Point) => {
-    const cos = Math.cos(rotationY)
-    const sin = Math.sin(rotationY)
-    const worldX = localPoint.x * cos + localPoint.y * sin
-    const worldZ = -localPoint.x * sin + localPoint.y * cos
-
-    return worldX * outwardDirection.x + worldZ * outwardDirection.y
-  }
-  const getWallInset = (rotationY: number, outwardDirection: Point) => {
-    if (!localBounds) {
-      return 0
-    }
-
-    const localCorners = [
-      { x: localBounds.minX, y: localBounds.minZ },
-      { x: localBounds.minX, y: localBounds.maxZ },
-      { x: localBounds.maxX, y: localBounds.minZ },
-      { x: localBounds.maxX, y: localBounds.maxZ },
-    ]
-    const minOutwardProjection = Math.min(
-      ...localCorners.map((corner) =>
-        getOutwardProjection(rotationY, corner, outwardDirection),
-      ),
-    )
-
-    return Math.max(0, -minOutwardProjection)
-  }
 
   return walls
     .map((wall) => {
@@ -10386,10 +10967,11 @@ function getModelWallSnap(
         localForwardAngle === null
           ? Math.atan2(dy, dx) + (side < 0 ? Math.PI : 0)
           : outwardAngle - localForwardAngle
-      const wallInset = getWallInset(-rotation, {
-        x: outwardDirection.x,
-        y: outwardDirection.y,
-      })
+      const wallInset = getWallInsetForLocalBounds(
+        localBounds,
+        -rotation,
+        outwardDirection,
+      )
       const targetDistance = wall.thickness / 2 + wallInset
       const distanceToWallFace = Math.max(0, Math.abs(signedDistance) - wall.thickness / 2)
       const snapDistance = distanceToWallFace
@@ -10417,6 +10999,327 @@ function getModelWallSnap(
     .sort((firstSnap, secondSnap) => firstSnap.distance - secondSnap.distance)[0] ?? null
 }
 
+function getWallLength2d(wall: Wall) {
+  return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
+}
+
+function getWallModelOpeningMetrics(
+  model: PlacedModel,
+  wall: Wall,
+): { centerOffset: number; width: number } | null {
+  const definition = modelsById.get(model.modelId)
+
+  if (!definition?.wallMount) {
+    return null
+  }
+
+  const scale = model.scale ?? 1
+  const widthScale = model.widthScale ?? 1
+  const wallLength = getWallLength2d(wall)
+  const width = Math.min(
+    Math.max(
+      (definition.openingWidth ?? definition.width) * scale * widthScale,
+      0.3,
+    ),
+    Math.max(wallLength - 0.2, 0.3),
+  )
+
+  return {
+    centerOffset: (definition.openingCenterOffset ?? 0) * scale * widthScale,
+    width,
+  }
+}
+
+function getProjectedWallOffset(point: Point, wall: Wall) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const lengthSquared = dx * dx + dy * dy
+
+  if (lengthSquared <= 0.000001) {
+    return 0
+  }
+
+  return ((point.x - wall.start.x) * dx + (point.y - wall.start.y) * dy) /
+    Math.sqrt(lengthSquared)
+}
+
+function getPointAtWallOffset(wall: Wall, offset: number) {
+  const length = getWallLength2d(wall)
+
+  if (length <= 0.000001) {
+    return wall.start
+  }
+
+  const unit = {
+    x: (wall.end.x - wall.start.x) / length,
+    y: (wall.end.y - wall.start.y) / length,
+  }
+
+  return {
+    x: wall.start.x + unit.x * offset,
+    y: wall.start.y + unit.y * offset,
+  }
+}
+
+function getWallOffsetPosition(
+  wall: Wall,
+  offset: number,
+  side: -1 | 1,
+  sideDistance: number,
+) {
+  const length = getWallLength2d(wall)
+
+  if (length <= 0.000001) {
+    return wall.start
+  }
+
+  const unit = {
+    x: (wall.end.x - wall.start.x) / length,
+    y: (wall.end.y - wall.start.y) / length,
+  }
+  const normal = {
+    x: -unit.y,
+    y: unit.x,
+  }
+  const centerlinePosition = getPointAtWallOffset(wall, offset)
+
+  return {
+    x: centerlinePosition.x + normal.x * side * sideDistance,
+    y: centerlinePosition.y + normal.y * side * sideDistance,
+  }
+}
+
+function getWallMountedModelFallbackLocalBounds(
+  definition: ModelDefinition,
+): ModelHorizontalBounds {
+  return {
+    maxX: definition.width / 2,
+    maxZ: definition.depth,
+    minX: -definition.width / 2,
+    minZ: 0,
+  }
+}
+
+function getWallMountedModelLocalBounds(
+  definition: ModelDefinition,
+  importedLocalBounds: ModelHorizontalBounds | null,
+) {
+  return definition.sourceUrl
+    ? importedLocalBounds ??
+        definition.localBounds ??
+        getWallMountedModelFallbackLocalBounds(definition)
+    : getWallMountedModelFallbackLocalBounds(definition)
+}
+
+function getWallMountedModelDisplayPosition({
+  definition,
+  importedLocalBounds,
+  model,
+  offset,
+  rotation,
+  side,
+  wall,
+}: {
+  definition: ModelDefinition
+  importedLocalBounds: ModelHorizontalBounds | null
+  model: PlacedModel
+  offset: number
+  rotation: number
+  side: -1 | 1
+  wall: Wall
+}) {
+  const length = getWallLength2d(wall)
+
+  if (length <= 0.000001) {
+    return wall.start
+  }
+
+  const unit = {
+    x: (wall.end.x - wall.start.x) / length,
+    y: (wall.end.y - wall.start.y) / length,
+  }
+  const normal = {
+    x: -unit.y,
+    y: unit.x,
+  }
+  const outwardDirection = {
+    x: normal.x * side,
+    y: normal.y * side,
+  }
+  const localBounds = getWallMountedModelLocalBounds(
+    definition,
+    importedLocalBounds,
+  )
+  const scale = model.scale ?? 1
+  const widthScale = scale * (model.widthScale ?? 1)
+  const depthScale = scale * (model.depthScale ?? 1)
+  const scaledLocalBounds = {
+    maxX: localBounds.maxX * widthScale,
+    maxZ: localBounds.maxZ * depthScale,
+    minX: localBounds.minX * widthScale,
+    minZ: localBounds.minZ * depthScale,
+  }
+  const boundsOutwardExtent = getOutwardExtentForLocalBounds(
+    scaledLocalBounds,
+    -rotation,
+    outwardDirection,
+  )
+  const frameAnchorDepth = definition.sourceUrl
+    ? Math.min(
+        Math.max(definition.depth * depthScale, 0),
+        WALL_MOUNT_FRAME_ANCHOR_DEPTH_METERS * depthScale,
+      )
+    : Number.POSITIVE_INFINITY
+  const outwardExtent = Math.min(boundsOutwardExtent, frameAnchorDepth)
+  const targetDistance =
+    wall.thickness / 2 - WINDOW_WALL_FACE_INSET_METERS - outwardExtent
+
+  return getWallOffsetPosition(
+    wall,
+    offset,
+    side,
+    targetDistance,
+  )
+}
+
+function getWallMountedModelRotation(wall: Wall, side: -1 | 1) {
+  return Math.atan2(wall.end.y - wall.start.y, wall.end.x - wall.start.x) +
+    (side < 0 ? Math.PI : 0)
+}
+
+function getExteriorWallSide(wall: Wall, rooms: DetectedRoom[]): -1 | 1 {
+  if (wall.kind !== 'external') {
+    return 1
+  }
+
+  const length = getWallLength2d(wall)
+
+  if (length <= 0.000001) {
+    return 1
+  }
+
+  const unit = {
+    x: (wall.end.x - wall.start.x) / length,
+    y: (wall.end.y - wall.start.y) / length,
+  }
+  const normal = {
+    x: -unit.y,
+    y: unit.x,
+  }
+  const midpoint = {
+    x: (wall.start.x + wall.end.x) / 2,
+    y: (wall.start.y + wall.end.y) / 2,
+  }
+  const sampleDistance = wall.thickness / 2 + 0.08
+  const positiveRoom = getRoomContainingPoint(rooms, {
+    x: midpoint.x + normal.x * sampleDistance,
+    y: midpoint.y + normal.y * sampleDistance,
+  })
+  const negativeRoom = getRoomContainingPoint(rooms, {
+    x: midpoint.x - normal.x * sampleDistance,
+    y: midpoint.y - normal.y * sampleDistance,
+  })
+
+  if (positiveRoom && !negativeRoom) {
+    return -1
+  }
+
+  if (negativeRoom && !positiveRoom) {
+    return 1
+  }
+
+  return 1
+}
+
+function getExteriorWallSidesByWallId(walls: Wall[], rooms: DetectedRoom[]) {
+  return new Map(
+    walls
+      .filter((wall) => wall.kind === 'external')
+      .map((wall) => [wall.id, getExteriorWallSide(wall, rooms)] as const),
+  )
+}
+
+function getWallOpeningDepthsByModelId(walls: Wall[]) {
+  const modelIds = new Set(
+    walls.flatMap((wall) => (wall.openings ?? []).map((opening) => opening.modelId)),
+  )
+
+  return new Map(
+    Array.from(modelIds).flatMap((modelId) => {
+      const definition = modelsById.get(modelId)
+
+      return definition ? [[modelId, definition.depth] as const] : []
+    }),
+  )
+}
+
+function snapWindowWallOffset({
+  model,
+  models,
+  offset,
+  wall,
+}: {
+  model: PlacedModel
+  models: PlacedModel[]
+  offset: number
+  wall: Wall
+}) {
+  const metrics = getWallModelOpeningMetrics(model, wall)
+
+  if (!metrics) {
+    return offset
+  }
+
+  const currentLeft = offset + metrics.centerOffset - metrics.width / 2
+  const currentRight = offset + metrics.centerOffset + metrics.width / 2
+  let bestSnapDistance = Number.POSITIVE_INFINITY
+  let bestSnapOffset: number | null = null
+
+  const addCandidate = (candidateOffset: number) => {
+    const distance = Math.abs(candidateOffset - offset)
+
+    if (
+      distance <= WINDOW_WALL_OFFSET_SNAP_DISTANCE_METERS &&
+      distance < bestSnapDistance
+    ) {
+      bestSnapDistance = distance
+      bestSnapOffset = candidateOffset
+    }
+  }
+
+  for (const otherModel of models) {
+    if (
+      otherModel.id === model.id ||
+      otherModel.wallAttachment?.wallId !== wall.id
+    ) {
+      continue
+    }
+
+    const otherOpenings = wall.openings ?? []
+
+    for (const opening of otherOpenings) {
+      const [ownerId] = opening.id.split(':')
+
+      if (ownerId !== otherModel.id) {
+        continue
+      }
+
+      addCandidate(opening.center - opening.width / 2 - metrics.centerOffset - metrics.width / 2)
+      addCandidate(opening.center + opening.width / 2 - metrics.centerOffset + metrics.width / 2)
+
+      if (Math.abs(currentLeft - (opening.center + opening.width / 2)) <= WINDOW_WALL_OFFSET_SNAP_DISTANCE_METERS) {
+        addCandidate(opening.center + opening.width / 2 - metrics.centerOffset + metrics.width / 2)
+      }
+
+      if (Math.abs(currentRight - (opening.center - opening.width / 2)) <= WINDOW_WALL_OFFSET_SNAP_DISTANCE_METERS) {
+        addCandidate(opening.center - opening.width / 2 - metrics.centerOffset - metrics.width / 2)
+      }
+    }
+  }
+
+  return bestSnapOffset ?? offset
+}
+
 function ModelMesh({
   daylightEnabled,
   elevation,
@@ -10426,11 +11329,13 @@ function ModelMesh({
   isSelected,
   lightMarkersVisible,
   model,
+  models,
   modelAssetVersion,
   pickTargetsRef,
   onRegisterPickTarget,
   onTransformActiveChange,
   onUpdateModel,
+  rooms,
   shadowsEnabled,
   stairSnapWalls,
   transformEnabled,
@@ -10446,11 +11351,13 @@ function ModelMesh({
   isSelected: boolean
   lightMarkersVisible: boolean
   model: PlacedModel
+  models: PlacedModel[]
   modelAssetVersion: number
   pickTargetsRef: MutableRefObject<PickTarget[]>
   onRegisterPickTarget: (target: PickTarget) => () => void
   onTransformActiveChange: (isActive: boolean) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  rooms: DetectedRoom[]
   shadowsEnabled: boolean
   stairSnapWalls: Wall[]
   transformEnabled: boolean
@@ -10473,7 +11380,7 @@ function ModelMesh({
     modelDefinition.isLight
       ? model.height ?? modelDefinition.height
       : modelDefinition.wallMount === 'window'
-        ? WINDOW_SILL_HEIGHT_METERS
+        ? model.wallOpeningBottom ?? WINDOW_SILL_HEIGHT_METERS
         : 0
   const castsShadow =
     shadowsEnabled &&
@@ -10482,18 +11389,56 @@ function ModelMesh({
     modelDefinition.wallMount !== 'window' &&
     modelDefinition.wallMount !== 'patio-door'
   const floorSnapY = elevation + verticalOffset
+  const wallMountWall = model.wallAttachment?.wallId
+    ? walls.find((wall) => wall.id === model.wallAttachment?.wallId)
+    : null
+  const scaledModelHeight = modelDefinition.height * (model.scale ?? 1)
+  const maxWindowBottom = wallMountWall
+    ? Math.max(wallMountWall.height - Math.min(Math.max(scaledModelHeight, 0.3), wallMountWall.height), 0)
+    : Number.POSITIVE_INFINITY
+  const isEditableWallMountedOpening =
+    Boolean(modelDefinition.wallMount && model.wallAttachment && wallMountWall)
+  const isVerticallyEditableWindow =
+    modelDefinition.wallMount === 'window' && Boolean(model.wallAttachment)
+  const wallMountedDisplaySide =
+    wallMountWall &&
+    (modelDefinition.wallMount === 'window' ||
+      modelDefinition.wallMount === 'exterior-door' ||
+      modelDefinition.wallMount === 'patio-door')
+      ? getExteriorWallSide(wallMountWall, rooms)
+      : model.wallAttachment?.side ?? 1
+  const wallMountedDisplayRotation =
+    isEditableWallMountedOpening && wallMountWall
+      ? getWallMountedModelRotation(wallMountWall, wallMountedDisplaySide)
+      : model.rotation
+  const displayPosition =
+    isEditableWallMountedOpening && wallMountWall && model.wallAttachment
+      ? getWallMountedModelDisplayPosition({
+          definition: modelDefinition,
+          importedLocalBounds,
+          model,
+          offset: model.wallAttachment.offset,
+          rotation: wallMountedDisplayRotation,
+          side: wallMountedDisplaySide,
+          wall: wallMountWall,
+        })
+      : model.position
   const snapObjectToFloor = () => {
     const object = groupRef.current
 
-    if (object && !modelDefinition.isLight) {
+    if (object && !modelDefinition.isLight && !isVerticallyEditableWindow) {
       object.position.y = floorSnapY
     }
   }
   const getObjectUniformScale = (object: Object3D) =>
     Math.max(
       0.2,
-      (Math.abs(object.scale.x) + Math.abs(object.scale.y) + Math.abs(object.scale.z)) / 3,
+      Math.abs(object.scale.y),
     )
+  const getObjectWidthScale = (object: Object3D, uniformScale: number) =>
+    Math.max(0.2, Math.abs(object.scale.x) / Math.max(uniformScale, 0.0001))
+  const getObjectDepthScale = (object: Object3D, uniformScale: number) =>
+    Math.max(0.2, Math.abs(object.scale.z) / Math.max(uniformScale, 0.0001))
   const importedForwardAngle = modelDefinition.sourceUrl ? -Math.PI / 2 : null
   const getObjectTransformSnapshot = (object: Object3D): ObjectTransformSnapshot => ({
     position: object.position.clone(),
@@ -10690,10 +11635,86 @@ function ModelMesh({
       return null
     }
 
+    if (isEditableWallMountedOpening) {
+      const wall = wallMountWall
+      const metrics = wall ? getWallModelOpeningMetrics(model, wall) : null
+      const rawOffset =
+        wall && metrics
+          ? getProjectedWallOffset(
+              { x: object.position.x, y: object.position.z },
+              wall,
+            )
+          : model.wallAttachment?.offset ?? 0
+      const wallLength = wall ? getWallLength2d(wall) : 0
+      const minOffset = metrics ? metrics.width / 2 - metrics.centerOffset : 0
+      const maxOffset =
+        metrics && wall
+          ? wallLength - metrics.width / 2 - metrics.centerOffset
+          : wallLength
+      const side = model.wallAttachment?.side ?? 1
+      const steppedOffset = transformModifierRef.current.ctrlKey
+        ? rawOffset
+        : Math.round(rawOffset / WINDOW_WALL_OFFSET_STEP_METERS) *
+          WINDOW_WALL_OFFSET_STEP_METERS
+      const snappedOffset =
+        wall && !transformModifierRef.current.ctrlKey
+          ? snapWindowWallOffset({
+              model,
+              models,
+              offset: steppedOffset,
+              wall,
+            })
+          : steppedOffset
+      const nextOffset = Math.max(minOffset, Math.min(maxOffset, snappedOffset))
+      const displayPosition = wall
+        ? getWallMountedModelDisplayPosition({
+            definition: modelDefinition,
+          importedLocalBounds,
+          model,
+          offset: nextOffset,
+          rotation: wallMountedDisplayRotation,
+          side: wall.kind === 'external' ? wallMountedDisplaySide : side,
+          wall,
+        })
+        : model.position
+      const savedPosition = wall
+        ? getPointAtWallOffset(wall, nextOffset)
+        : model.position
+
+      object.position.x = displayPosition.x
+      object.position.z = displayPosition.y
+      object.rotation.y = -wallMountedDisplayRotation
+      object.position.y = isVerticallyEditableWindow
+        ? elevation + Math.max(0, Math.min(maxWindowBottom, object.position.y - elevation))
+        : floorSnapY
+      object.updateWorldMatrix(true, true)
+      updateLastValidTransform()
+
+      return {
+        height: undefined,
+        position: savedPosition,
+        rotation: wallMountedDisplayRotation,
+        scale: model.scale ?? 1,
+        wallAttachment: model.wallAttachment
+          ? {
+              ...model.wallAttachment,
+              offset: nextOffset,
+            }
+          : undefined,
+        wallOpeningBottom: isVerticallyEditableWindow
+          ? object.position.y - elevation
+          : undefined,
+        widthScale: model.widthScale ?? 1,
+        depthScale: model.depthScale ?? 1,
+      }
+    }
+
     snapObjectToFloor()
 
     const snappingDisabled = transformModifierRef.current.ctrlKey
     const uniformScale = getObjectUniformScale(object)
+    const widthScale = getObjectWidthScale(object, uniformScale)
+    const depthScale = getObjectDepthScale(object, uniformScale)
     const transformedPosition = {
       x: object.position.x,
       y: object.position.z,
@@ -10707,6 +11728,8 @@ function ModelMesh({
           position: transformedPosition,
           rotation: -object.rotation.y,
           scale: uniformScale,
+          widthScale,
+          depthScale,
           walls: stairSnapWalls,
           width: modelDefinition.width,
         })
@@ -10760,6 +11783,10 @@ function ModelMesh({
       },
       rotation: wallSnap?.rotation ?? -object.rotation.y,
       scale: uniformScale,
+      wallAttachment: undefined,
+      wallOpeningBottom: undefined,
+      widthScale,
+      depthScale,
     }
   }
   const commitObjectTransform = () => {
@@ -10774,7 +11801,10 @@ function ModelMesh({
       position: snappedTransform.position,
       rotation: snappedTransform.rotation,
       scale: snappedTransform.scale,
-      wallAttachment: undefined,
+      wallAttachment: snappedTransform.wallAttachment,
+      wallOpeningBottom: snappedTransform.wallOpeningBottom,
+      widthScale: snappedTransform.widthScale,
+      depthScale: snappedTransform.depthScale,
     })
   }
   const localModelTransform = (
@@ -10831,9 +11861,13 @@ function ModelMesh({
   const modelGroup = (
     <group
       ref={groupRef}
-      position={[model.position.x, floorSnapY, model.position.y]}
-      rotation={[0, -model.rotation, 0]}
-      scale={model.scale}
+      position={[displayPosition.x, floorSnapY, displayPosition.y]}
+      rotation={[0, -wallMountedDisplayRotation, 0]}
+      scale={[
+        (model.scale ?? 1) * (model.widthScale ?? 1),
+        model.scale ?? 1,
+        (model.scale ?? 1) * (model.depthScale ?? 1),
+      ]}
       renderOrder={isActive ? 3 : 1}
     >
       {localModelTransform}
@@ -10847,6 +11881,15 @@ function ModelMesh({
         <TransformControls
           object={groupRef}
           mode={transformMode}
+          showX={
+            isVerticallyEditableWindow ? transformMode === 'translate' : true
+          }
+          showY={
+            isVerticallyEditableWindow ? transformMode === 'translate' : true
+          }
+          showZ={
+            isVerticallyEditableWindow ? transformMode === 'translate' : true
+          }
           onMouseDown={() => {
             updateLastValidTransform()
             onTransformActiveChange(true)
@@ -11113,6 +12156,7 @@ function SolidFloorScene({
             geometryContextWalls={geometryContextWalls}
             height={floor.roomHeight}
             onRegisterPickTarget={onRegisterPickTarget}
+            rooms={rooms}
             selectedWallId={selectedWallId}
             selectedSurface={selectedSurface}
             sourceWalls={(group.wallIds ?? [group.wallId])
@@ -11145,6 +12189,7 @@ function SolidFloorScene({
           height={floor.roomHeight}
           includeVerticalFaces={Boolean(group.wallIds && group.wallIds.length > 1)}
           onRegisterPickTarget={onRegisterPickTarget}
+          rooms={rooms}
           selectedWallId={selectedWallId}
           selectedSurface={selectedSurface}
           sourceWalls={(group.wallIds ?? [group.wallId])
@@ -11207,7 +12252,10 @@ function SolidFloorScene({
       />
       <Suspense fallback={null}>
         {visibleModels.map((model) => (
-          <ModelLoadBoundary key={`${model.id}:${modelAssetVersion}`}>
+          <ModelLoadBoundary
+            key={`${model.id}:${modelAssetVersion}`}
+            modelId={model.id}
+          >
             <ModelMesh
               daylightEnabled={daylightEnabled}
               elevation={floor.elevation}
@@ -11217,11 +12265,13 @@ function SolidFloorScene({
               isSelected={isSelectedModel(model.id)}
               lightMarkersVisible={lightMarkersVisible}
               model={model}
+              models={visibleModels}
               modelAssetVersion={modelAssetVersion}
               pickTargetsRef={pickTargetsRef}
               onRegisterPickTarget={onRegisterPickTarget}
               onTransformActiveChange={onTransformActiveChange}
               onUpdateModel={onUpdateModel}
+              rooms={rooms}
               shadowsEnabled={shadowsEnabled}
               stairSnapWalls={stairSnapWalls}
               transformEnabled={transformEnabled}
@@ -11325,6 +12375,21 @@ function FallbackModelContent({
     })
   }, [floorId, model.id, modelDefinition?.wallMount, onRegisterPickTarget])
 
+  useEffect(() => {
+    if (!modelDefinition) {
+      return
+    }
+
+    recordEngineLog(
+      'model-loaded',
+      `${modelDefinition.name} (${model.id}) ${formatDimensions(
+        modelDefinition.width,
+        modelDefinition.height,
+        modelDefinition.depth,
+      )}`,
+    )
+  }, [model.id, modelDefinition])
+
   if (!modelDefinition) {
     return null
   }
@@ -11426,6 +12491,21 @@ function LightModelContent({
     })
   }, [floorId, model.id, onRegisterPickTarget, showMarker])
 
+  useEffect(() => {
+    if (!modelDefinition) {
+      return
+    }
+
+    recordEngineLog(
+      'model-loaded',
+      `${modelDefinition.name} (${model.id}) ${formatDimensions(
+        modelDefinition.width,
+        modelDefinition.height,
+        modelDefinition.depth,
+      )}`,
+    )
+  }, [model.id, modelDefinition])
+
   return (
     <>
       {isSelected && isActive ? (
@@ -11503,6 +12583,9 @@ function ImportedModelContent({
 }) {
   const normalizedGroupRef = useRef<Object3D>(null!)
   const { gl } = useThree()
+  useEffect(() => {
+    recordEngineLog('model-load-start', getAssetFileName(sourceUrl))
+  }, [sourceUrl])
   const gltf = useGLTF(sourceUrl, true, true, (loader) => {
     setGltfKtx2Loader(loader, gl)
   })
@@ -11582,6 +12665,23 @@ function ImportedModelContent({
     normalizedTransform.size.x,
     normalizedTransform.size.z,
     onBoundsChange,
+  ])
+
+  useEffect(() => {
+    recordEngineLog(
+      'model-loaded',
+      `${getAssetFileName(sourceUrl)} (${modelId}) ${formatDimensions(
+        normalizedTransform.size.x,
+        normalizedTransform.size.y,
+        normalizedTransform.size.z,
+      )}`,
+    )
+  }, [
+    modelId,
+    normalizedTransform.size.x,
+    normalizedTransform.size.y,
+    normalizedTransform.size.z,
+    sourceUrl,
   ])
 
   useEffect(() => {
@@ -12034,82 +13134,18 @@ function PooledLocalPointLight({
   )
 }
 
-function PooledWindowDaylightPortal({
-  enabled,
-  slot,
-}: {
-  enabled: boolean
-  slot: WindowDaylightPortalSlot | null
-}) {
-  const lightRef = useRef<SpotLight>(null!)
-  const targetRef = useRef<Object3D>(null!)
-  const isActiveSlot = enabled && Boolean(slot)
-  const position = slot?.position ?? ([0, -1000, 0] as [number, number, number])
-  const target = slot?.target ?? ([0, -1001, 0] as [number, number, number])
-
-  useEffect(() => {
-    if (lightRef.current && targetRef.current) {
-      lightRef.current.target = targetRef.current
-      lightRef.current.target.updateMatrixWorld()
-    }
-  }, [])
-
-  return (
-    <>
-      <spotLight
-        ref={lightRef}
-        angle={slot?.angle ?? 0.5}
-        castShadow={isActiveSlot}
-        color={slot?.color ?? '#dcecff'}
-        decay={1.4}
-        distance={slot?.distance ?? WINDOW_DAYLIGHT_PORTAL_DISTANCE}
-        penumbra={0.92}
-        position={position}
-        power={isActiveSlot && slot ? slot.power : 0}
-        shadow-bias={-0.0004}
-        shadow-camera-far={slot?.distance ?? WINDOW_DAYLIGHT_PORTAL_DISTANCE}
-        shadow-camera-near={0.08}
-        shadow-mapSize-width={512}
-        shadow-mapSize-height={512}
-        shadow-normalBias={0.08}
-        shadow-radius={3}
-        visible={isActiveSlot}
-      />
-      <object3D ref={targetRef} position={target} />
-    </>
-  )
-}
-
-function WindowDaylightPortalPool({
-  enabled,
-  slots,
-}: {
-  enabled: boolean
-  slots: WindowDaylightPortalSlot[]
-}) {
-  return (
-    <>
-      {Array.from({ length: MAX_WINDOW_DAYLIGHT_PORTALS }, (_, index) => (
-        <PooledWindowDaylightPortal
-          key={index}
-          enabled={enabled}
-          slot={slots[index] ?? null}
-        />
-      ))}
-    </>
-  )
-}
-
 function FixedLocalLightPool({
   activeFloorId,
   localLightIds,
   lightShadowsEnabled,
+  maxLights = MAX_REALTIME_LOCAL_LIGHTS,
   shadowsEnabled,
   visibleRenderedFloors,
 }: {
   activeFloorId: string
   localLightIds: ReadonlySet<string>
   lightShadowsEnabled: boolean
+  maxLights?: number
   shadowsEnabled: boolean
   visibleRenderedFloors: RenderedFloorData[]
 }) {
@@ -12130,31 +13166,31 @@ function FixedLocalLightPool({
     () =>
       slots
         .filter((slot) => slot.kind === 'point')
-        .slice(0, MAX_REALTIME_LOCAL_LIGHTS),
-    [slots],
+        .slice(0, maxLights),
+    [maxLights, slots],
   )
   const spotSlots = useMemo(
     () =>
       slots
         .filter((slot) => slot.kind === 'spot')
-        .slice(0, MAX_REALTIME_LOCAL_LIGHTS),
-    [slots],
+        .slice(0, maxLights),
+    [maxLights, slots],
   )
   const pointPoolSlots = useMemo(
     () =>
       Array.from(
-        { length: MAX_REALTIME_LOCAL_LIGHTS },
+        { length: maxLights },
         (_, index) => pointSlots[index] ?? null,
       ),
-    [pointSlots],
+    [maxLights, pointSlots],
   )
   const spotPoolSlots = useMemo(
     () =>
       Array.from(
-        { length: MAX_REALTIME_LOCAL_LIGHTS },
+        { length: maxLights },
         (_, index) => spotSlots[index] ?? null,
       ),
-    [spotSlots],
+    [maxLights, spotSlots],
   )
   const castPooledShadows = shadowsEnabled && lightShadowsEnabled
 
@@ -12667,7 +13703,7 @@ function XRLocomotionControls({
   const turnUpRef = useRef(new Vector3(0, 1, 0))
   const turnPivotRef = useRef(new Vector3())
   const rotatedTurnPivotRef = useRef(new Vector3())
-  const previousLeftExitButtonPressedRef = useRef(false)
+  const previousExitButtonPressedRef = useRef(false)
   const rightStickLatchedRef = useRef(false)
 
   const applyActiveFloorElevation = useCallback(() => {
@@ -12793,7 +13829,7 @@ function XRLocomotionControls({
       appliedFloorElevationRef.current = 0
       initialPositionAppliedRef.current = false
       queuedStepsRef.current = 0
-      previousLeftExitButtonPressedRef.current = false
+      previousExitButtonPressedRef.current = false
       rightStickLatchedRef.current = false
       return
     }
@@ -12834,27 +13870,21 @@ function XRLocomotionControls({
 
     let rightStickX = 0
     let rightStickY = 0
-    let leftExitButtonPressed = false
+    let exitButtonPressed = false
 
     for (const inputSource of session.inputSources) {
       const gamepad = inputSource.gamepad
       const axes = gamepad?.axes
 
       if (!axes || axes.length === 0) {
-        if (
-          inputSource.handedness === 'left' &&
-          gamepad?.buttons[XR_LEFT_EXIT_BUTTON_INDEX]?.pressed
-        ) {
-          leftExitButtonPressed = true
+        if (gamepad?.buttons[XR_EXIT_BUTTON_INDEX]?.pressed) {
+          exitButtonPressed = true
         }
         continue
       }
 
-      if (
-        inputSource.handedness === 'left' &&
-        gamepad?.buttons[XR_LEFT_EXIT_BUTTON_INDEX]?.pressed
-      ) {
-        leftExitButtonPressed = true
+      if (gamepad?.buttons[XR_EXIT_BUTTON_INDEX]?.pressed) {
+        exitButtonPressed = true
       }
 
       if (inputSource.handedness === 'right') {
@@ -12878,8 +13908,8 @@ function XRLocomotionControls({
     }
 
     if (
-      leftExitButtonPressed &&
-      !previousLeftExitButtonPressedRef.current
+      exitButtonPressed &&
+      !previousExitButtonPressedRef.current
     ) {
       gl.xr.getSession()?.end().catch(() => {
         emitEngineActivity({
@@ -12889,7 +13919,7 @@ function XRLocomotionControls({
       })
     }
 
-    previousLeftExitButtonPressedRef.current = leftExitButtonPressed
+    previousExitButtonPressedRef.current = exitButtonPressed
 
     const stickMagnitude = Math.max(
       Math.abs(rightStickX),
@@ -12959,6 +13989,8 @@ function getStairsButtonPosition(
     definition.depth,
     model.scale || 1,
     getModelHorizontalBounds(definition),
+    model.widthScale || 1,
+    model.depthScale || 1,
   )
   const landingPoints = landing === 'lower' ? [polygon[0], polygon[1]] : [polygon[2], polygon[3]]
   const landingCenter = {
@@ -14765,12 +15797,98 @@ function PickBufferExporter({
   return null
 }
 
+function EngineConsoleOverlay({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean
+  onClose: () => void
+}) {
+  const [lines, setLines] = useState<EngineConsoleLine[]>([])
+  const linesRef = useRef<HTMLDivElement | null>(null)
+  const shouldStickToBottomRef = useRef(true)
+
+  const clearLines = useCallback(() => {
+    setLines([])
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined
+    }
+
+    const seedLines = engineLogEntries
+      .slice(-ENGINE_CONSOLE_LINE_LIMIT)
+      .map((entry) => ({
+        entry,
+        text: formatEngineConsoleLine(entry),
+      }))
+
+    setLines(seedLines)
+
+    return subscribeEngineLog((entry) => {
+      setLines((currentLines) => [
+        ...currentLines,
+        {
+          entry,
+          text: formatEngineConsoleLine(entry),
+        },
+      ].slice(-ENGINE_CONSOLE_LINE_LIMIT))
+    })
+  }, [isOpen])
+
+  useEffect(() => {
+    const element = linesRef.current
+
+    if (!element || !shouldStickToBottomRef.current) {
+      return
+    }
+
+    element.scrollTop = element.scrollHeight
+  }, [lines])
+
+  if (!isOpen) {
+    return null
+  }
+
+  return (
+    <div className="engine-console-overlay" aria-label="3D console log">
+      <div className="engine-console-toolbar">
+        <span>Console</span>
+        <button type="button" onClick={clearLines}>
+          Clear
+        </button>
+        <button type="button" onClick={onClose} aria-label="Close 3D console">
+          Close
+        </button>
+      </div>
+      <div
+        ref={linesRef}
+        className="engine-console-lines"
+        onScroll={(event) => {
+          const element = event.currentTarget
+          shouldStickToBottomRef.current =
+            element.scrollHeight - element.scrollTop - element.clientHeight < 8
+        }}
+      >
+        {lines.map((line) => (
+          <div key={line.entry.index} className="engine-console-line">
+            {line.text}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function ThreeDView({
   activeFloorId,
   floors,
+  isEngineConsoleOpen,
   lightDirection,
   modelAssetVersion,
   onClearSelection,
+  onEngineConsoleOpenChange,
   onLightDirectionChange,
   onSelectFloor,
   onSelectModel,
@@ -14833,6 +15951,7 @@ export function ThreeDView({
     ambientOcclusionIntensity: 0.85,
     ambientOcclusionQuality: 'fast',
     ambientTerm: 0.32,
+    bakedLightmaps: true,
     daylight: true,
     floorSlabs: true,
     groundPlane: true,
@@ -14845,9 +15964,43 @@ export function ThreeDView({
     shadows: true,
     skybox: false,
     wallPerimeter: false,
-    windowDaylight: true,
     wireframe: false,
   })
+
+  useEffect(() => {
+    const placedPortalModelIds = getPlacedPortalModelIds(floors)
+
+    if (placedPortalModelIds.length === 0) {
+      return
+    }
+
+    const missingPortalModelIds = placedPortalModelIds.filter(
+      (modelId) => !modelsById.has(modelId),
+    )
+
+    recordEngineLog(
+      'portal-models',
+      `${placedPortalModelIds.length} placed, ${getRegisteredPortalModelCount()} registered`,
+    )
+
+    if (missingPortalModelIds.length > 0) {
+      recordEngineLog(
+        'portal-model-definitions-missing',
+        missingPortalModelIds.join(', '),
+      )
+    } else {
+      placedPortalModelIds.forEach((modelId) => {
+        const definition = modelsById.get(modelId)
+
+        if (definition?.sourceUrl) {
+          recordEngineLog(
+            'portal-model-url',
+            `${modelId} ${getModelAssetUrl(definition.sourceUrl, modelAssetVersion)}`,
+          )
+        }
+      })
+    }
+  }, [floors, modelAssetVersion])
   const sceneBounds = useMemo(() => getSceneBounds(floors), [floors])
   const activeFloor = floors.find((floor) => floor.id === activeFloorId) ?? null
   const cameraFov = getCameraFov(aspectRatioMode)
@@ -14874,105 +16027,87 @@ export function ThreeDView({
         .filter((floor) => floor.elevation < activeFloor.elevation)
         .at(-1) ?? null
     : null
-  const renderedFloors = useMemo<RenderedFloorData[]>(
+  const floorGeometryStatusKey = useMemo(
     () =>
-      floors.map((floor) => {
-        const topology = buildWallTopology(floor.walls)
-        const baseRenderedWalls = floor.walls
-          .map((wall) => topology.renderedWallsById.get(wall.id))
-          .filter((renderedWall): renderedWall is RenderedWall =>
-            Boolean(renderedWall),
-          )
-        const topologyWalls = baseRenderedWalls.map((renderedWall) => renderedWall.wall)
-        const renderedWalls = baseRenderedWalls.map((renderedWall) => {
-          if (renderedWall.wall.kind === 'internal') {
-            return {
-              ...renderedWall,
-              ...getClippedInternalWallRenderExtensions(
-                renderedWall.wall,
-                topologyWalls,
-              ),
-            }
-          }
-
-          if (!hasWallOpenings(renderedWall.wall)) {
-            return renderedWall
-          }
-
-          if (renderedWall.wall.kind !== 'external') {
-            return renderedWall
-          }
-
-          return {
-            ...renderedWall,
-            ...getExternalWallRenderExtensions(renderedWall.wall, topologyWalls),
-          }
-        })
-        const externalWallFootprintGroups = getExternalWallUnionWallGroups(
-          topologyWalls,
-        ).flatMap((walls) => {
-          if (
-            !walls.some((wall) =>
-              wallTouchesDetectedRoom(wall, topology.rooms),
-            )
-          ) {
-            return []
-          }
-
-          const footprints = unionMiteredWallFootprints(walls, topologyWalls)
-
-          return footprints.length > 0
-            ? [
-                {
-                  footprints,
-                  wallId: walls[0].id,
-                  wallIds: walls.map((wall) => wall.id),
-                },
-              ]
-            : []
-        })
-        const externalWallUnionFootprints =
-          externalWallFootprintGroups.flatMap((group) => group.footprints)
-        const externalWallUnionWallIds = externalWallFootprintGroups.flatMap(
-          (group) => group.wallIds ?? [group.wallId],
-        )
-        const wallsById = new Map(topologyWalls.map((wall) => [wall.id, wall]))
-        const externalWallUnionWalls = externalWallUnionWallIds
-          .map((wallId) => wallsById.get(wallId))
-          .filter((wall): wall is Wall => Boolean(wall))
-        const internalWallFootprintGroups = getClippedInternalWallFootprints(
-          topologyWalls.filter((wall) => wall.kind === 'internal'),
-          topologyWalls,
-        )
-        const wallBodyOccluders = renderedWalls.map((renderedWall) => ({
-          kind: renderedWall.wall.kind,
-          polygon: getWallPolygon(renderedWall),
-          renderedWall,
-          wallId: renderedWall.wall.id,
-        }))
-        const roomPortals = buildRoomPortals(floor, topology.rooms)
-        const roomSurfacePolygonsBySignature = buildRoomSurfaceFloorPolygons({
-          renderedWalls,
-          rooms: topology.rooms,
-        })
-
-        return {
-          externalWallFootprintGroups,
-          externalWallUnionFootprints,
-          externalWallUnionWallIds,
-          externalWallUnionWalls,
-          floor,
-          geometryContextWalls: topologyWalls,
-          internalWallFootprintGroups,
-          roomPortals,
-          roomSurfacePolygonsBySignature,
-          renderedWalls,
-          rooms: topology.rooms,
-          wallBodyOccluders,
-        }
-      }),
-    [floors, surfaceAssignments],
+      JSON.stringify(
+        floors.map((floor) => ({
+          elevation: floor.elevation,
+          id: floor.id,
+          roomHeight: floor.roomHeight,
+          slabThickness: floor.slabThickness,
+          walls: floor.walls.map((wall) => ({
+            end: wall.end,
+            height: wall.height,
+            id: wall.id,
+            kind: wall.kind,
+            openings: wall.openings,
+            start: wall.start,
+            thickness: wall.thickness,
+          })),
+        })),
+      ),
+    [floors],
   )
+  const canPrepareLevelsInWorkers =
+    typeof Worker !== 'undefined' && floors.length > 0
+  const [renderedFloors, setRenderedFloors] = useState<RenderedFloorData[]>(
+    () => (canPrepareLevelsInWorkers ? [] : prepareRenderedFloorsSync(floors)),
+  )
+  const [isLevelPreparationPending, setIsLevelPreparationPending] =
+    useState(canPrepareLevelsInWorkers)
+
+  useEffect(() => {
+    const startedAt = performance.now()
+    const controller = new AbortController()
+    const preparationTarget =
+      typeof Worker === 'undefined' || floors.length === 0
+        ? 'main thread'
+        : 'workers'
+
+    setIsLevelPreparationPending(true)
+    recordEngineLog(
+      'level-preparation-start',
+      `${floors.length} floors on ${preparationTarget}`,
+    )
+    emitEngineActivity({
+      message: `Preparing ${pluralize(
+        floors.length,
+        'floor',
+      )} on ${preparationTarget}...`,
+      minimumVisibleMs: 700,
+    })
+
+    prepareRenderedFloorsInWorkers(floors, {
+      signal: controller.signal,
+    })
+      .then((preparedFloors) => {
+        setRenderedFloors(preparedFloors)
+        setIsLevelPreparationPending(false)
+        recordEngineLog(
+          'level-preparation-complete',
+          `${preparedFloors.length} floors in ${Math.round(
+            performance.now() - startedAt,
+          )}ms`,
+        )
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        console.warn('Worker level preparation failed; using main thread.', error)
+        setRenderedFloors(prepareRenderedFloorsSync(floors))
+        setIsLevelPreparationPending(false)
+        recordEngineLog(
+          'level-preparation-worker-fallback',
+          error instanceof Error ? error.message : String(error),
+        )
+      })
+
+    return () => {
+      controller.abort()
+    }
+  }, [floorGeometryStatusKey, floors])
   const renderedFloorsById = useMemo(
     () =>
       new Map(
@@ -15016,31 +16151,6 @@ export function ThreeDView({
         : null,
     [renderOptions.groundPlane, showAllFloorsInScene, visibleRenderedFloors],
   )
-  const windowDaylightPortalSlots = useMemo(
-    () => getWindowDaylightPortalSlots(visibleRenderedFloors, lightDirection),
-    [lightDirection, visibleRenderedFloors],
-  )
-  const floorGeometryStatusKey = useMemo(
-    () =>
-      JSON.stringify(
-        floors.map((floor) => ({
-          elevation: floor.elevation,
-          id: floor.id,
-          roomHeight: floor.roomHeight,
-          slabThickness: floor.slabThickness,
-          walls: floor.walls.map((wall) => ({
-            end: wall.end,
-            height: wall.height,
-            id: wall.id,
-            kind: wall.kind,
-            openings: wall.openings,
-            start: wall.start,
-            thickness: wall.thickness,
-          })),
-        })),
-      ),
-    [floors],
-  )
   const shaderWarmupKey = useMemo(
     () =>
       JSON.stringify({
@@ -15070,6 +16180,7 @@ export function ThreeDView({
         renderOptions: {
           ambientOcclusion: renderOptions.ambientOcclusion,
           ambientOcclusionQuality: renderOptions.ambientOcclusionQuality,
+          bakedLightmaps: renderOptions.bakedLightmaps,
           floorSlabs: renderOptions.floorSlabs,
           lightMarkers: renderOptions.lightMarkers,
           lightShadows: renderOptions.lightShadows,
@@ -15078,7 +16189,6 @@ export function ThreeDView({
           shadows: renderOptions.shadows,
           skybox: renderOptions.skybox,
           wallPerimeter: renderOptions.wallPerimeter,
-          windowDaylight: renderOptions.windowDaylight,
           wireframe: renderOptions.wireframe,
         },
         showAllFloors: showAllFloorsInScene,
@@ -15112,6 +16222,7 @@ export function ThreeDView({
       floors,
       renderOptions.ambientOcclusion,
       renderOptions.ambientOcclusionQuality,
+      renderOptions.bakedLightmaps,
       renderOptions.floorSlabs,
       renderOptions.lightMarkers,
       renderOptions.lightShadows,
@@ -15120,7 +16231,6 @@ export function ThreeDView({
       renderOptions.shadows,
       renderOptions.skybox,
       renderOptions.wallPerimeter,
-      renderOptions.windowDaylight,
       renderOptions.wireframe,
       showAllFloorsInScene,
       surfaceAssignments,
@@ -15155,13 +16265,11 @@ export function ThreeDView({
       renderOptions.ambientOcclusion
         ? `AO ${renderOptions.ambientOcclusionQuality} ${renderOptions.ambientOcclusionIntensity.toFixed(2)}`
         : 'AO off',
-      renderOptions.windowDaylight
-        ? `window daylight ${windowDaylightPortalSlots.length}`
-        : 'window daylight off',
       objectFrustumCullingEnabled
         ? 'object frustum culling on'
         : 'object frustum culling off',
       `ambient ${renderOptions.ambientTerm.toFixed(2)}`,
+      renderOptions.bakedLightmaps ? 'baked lightmaps on' : 'baked lightmaps off',
       renderOptions.lights ? 'lights on' : 'lights off',
       latestStats
         ? `${latestStats.programs} shaders, ${latestStats.calls} calls, ${latestStats.textures} tex`
@@ -15175,24 +16283,32 @@ export function ThreeDView({
     renderOptions.ambientOcclusionIntensity,
     renderOptions.ambientOcclusionQuality,
     renderOptions.ambientTerm,
+    renderOptions.bakedLightmaps,
     renderOptions.lightShadows,
     renderOptions.lights,
     objectFrustumCullingEnabled,
     renderOptions.shadows,
-    renderOptions.windowDaylight,
     visibleRenderedFloors.length,
-    windowDaylightPortalSlots.length,
   ])
   const scenePreparationPending =
-    isShaderWarmupPending || isTexturePreloadPending || isAssetLoadPending
+    isLevelPreparationPending ||
+    isShaderWarmupPending ||
+    isTexturePreloadPending ||
+    isAssetLoadPending
   const scenePreparationPendingReasons = useMemo(
     () =>
       [
         isShaderWarmupPending ? 'shader-warmup' : null,
         isTexturePreloadPending ? 'texture-preload' : null,
         isAssetLoadPending ? 'asset-load' : null,
+        isLevelPreparationPending ? 'level-preparation' : null,
       ].filter((reason): reason is string => Boolean(reason)),
-    [isAssetLoadPending, isShaderWarmupPending, isTexturePreloadPending],
+    [
+      isAssetLoadPending,
+      isLevelPreparationPending,
+      isShaderWarmupPending,
+      isTexturePreloadPending,
+    ],
   )
   const initialScenePreparationPending =
     scenePreparationPending && !initialScenePreparationComplete
@@ -15273,6 +16389,7 @@ export function ThreeDView({
       setIsShaderWarmupPending(false)
       setIsTexturePreloadPending(false)
       setIsAssetLoadPending(false)
+      setIsLevelPreparationPending(false)
       setInitialScenePreparationComplete(true)
       showEngineStatus('Engine idle', 700)
     }, SCENE_PREPARATION_TIMEOUT_MS)
@@ -15308,10 +16425,10 @@ export function ThreeDView({
           : 'Disabling ambient occlusion pass...'
       }
 
-      if (option === 'windowDaylight') {
+      if (option === 'bakedLightmaps') {
         return nextEnabled
-          ? 'Preparing window daylight portals...'
-          : 'Disabling window daylight portals...'
+          ? 'Baking floor lightmaps...'
+          : 'Disabling baked floor lightmaps...'
       }
 
       if (option === 'lights') {
@@ -15615,7 +16732,14 @@ export function ThreeDView({
   const screenSpaceAmbientOcclusionEnabled =
     renderOptions.ambientOcclusion && !isXrPresenting
   const fakeAmbientOcclusionEnabled =
-    false
+    renderOptions.ambientOcclusion && isXrPresenting
+  const fakeAmbientOcclusionIntensity = renderOptions.ambientOcclusionIntensity
+  const activeLocalLightLimit = isXrPresenting
+    ? Math.min(localLightLimit, XR_MAX_REALTIME_LOCAL_LIGHTS)
+    : localLightLimit
+  const sunShadowsEnabled = renderOptions.shadows && !isXrPresenting
+  const localLightShadowsEnabled =
+    renderOptions.shadows && renderOptions.lightShadows && !isXrPresenting
 
   return (
     <section className="editor-pane">
@@ -15669,7 +16793,7 @@ export function ThreeDView({
             />
             Head height
           </label>
-          <button
+          {/* <button
             type="button"
             onClick={() => {
               const capturePickBuffer = pickBufferCaptureRef.current
@@ -15688,7 +16812,7 @@ export function ThreeDView({
             }}
           >
             Pick PNG
-          </button>
+          </button> */}
           {pickBufferDownload ? (
             <a
               className="pick-buffer-download-link"
@@ -15767,10 +16891,10 @@ export function ThreeDView({
                 <label>
                   <input
                     type="checkbox"
-                    checked={renderOptions.windowDaylight}
-                    onChange={() => updateRenderOption('windowDaylight')}
+                    checked={renderOptions.bakedLightmaps}
+                    onChange={() => updateRenderOption('bakedLightmaps')}
                   />
-                  Window daylight
+                  Baked lightmaps
                 </label>
                 <label>
                   <input
@@ -15897,72 +17021,69 @@ export function ThreeDView({
           }}
           tabIndex={0}
         >
-          <WebXRViewerButton
-            containerRef={threeHostRef}
-            onPresentingChange={handleXrPresentingChange}
-          />
-          <XRLocomotionControls
-            activeFloorElevation={activeFloor?.elevation ?? 0}
-            initialPosition={vrStartPosition}
-          />
-          <XRControllerVisualsAndButtons
-            activeFloor={activeFloor}
-            floors={floors}
-            onSelectFloor={onSelectFloor}
-          />
-          <ModelPicker
-            active
-            isTransformingRef={isTransformingModelRef}
-            onClearSelection={onClearSelection}
-            onSelectModel={onSelectModel}
-            onSelectSurface={onSelectSurface}
-            pickTargetsRef={pickTargetsRef}
-          />
-          <PickBufferExporter
-            onImage={setPickBufferDownload}
-            onReady={(capture) => {
-              pickBufferCaptureRef.current = capture
-            }}
-            pickTargetsRef={pickTargetsRef}
-          />
-          <FpsCounter onFpsChange={updateFps} />
-          <RendererStatsSampler onStatsChange={updateRendererStats} />
-          <SunShadowBlockerFilter />
-          <CameraRoomVisibilityTracker
-            activeFloor={activeFloor}
-            enabled={occlusionCullingEnabled}
-            onVisibilityChange={setRoomVisibilityState}
-            renderedFloor={activeRenderedFloor}
-          />
-          <SceneAssetLoadTracker onPendingChange={updateAssetLoadPending} />
-          <SceneResourcePreloader
-            floors={floors}
-            modelAssetVersion={modelAssetVersion}
-            onPendingChange={updateTexturePreloadPending}
-            renderedFloors={renderedFloors}
-            surfaceAssignments={surfaceAssignments}
-          />
-          <ShaderWarmup
-            blocked={shaderWarmupBlocked || isXrPresenting}
-            onPendingChange={updateShaderWarmupPending}
-            warmupKey={shaderWarmupKey}
-          />
-          <SceneRenderInvalidator
-            renderKey={`${floorGeometryStatusKey}:${shaderWarmupKey}:${surfaceAssignments.length}:${scenePreparationPending ? 'preparing' : 'ready'}`}
-          />
-          {WALL_RENDER_DEBUG_ENABLED ? <SceneObjectDebugProbe /> : null}
-          <CameraFovController fov={cameraFov} />
+          <>
+            <WebXRViewerButton
+              containerRef={threeHostRef}
+              onPresentingChange={handleXrPresentingChange}
+            />
+            <XRLocomotionControls
+              activeFloorElevation={activeFloor?.elevation ?? 0}
+              initialPosition={vrStartPosition}
+            />
+            <XRControllerVisualsAndButtons
+              activeFloor={activeFloor}
+              floors={floors}
+              onSelectFloor={onSelectFloor}
+            />
+            <ModelPicker
+              active
+              isTransformingRef={isTransformingModelRef}
+              onClearSelection={onClearSelection}
+              onSelectModel={onSelectModel}
+              onSelectSurface={onSelectSurface}
+              pickTargetsRef={pickTargetsRef}
+            />
+            <PickBufferExporter
+              onImage={setPickBufferDownload}
+              onReady={(capture) => {
+                pickBufferCaptureRef.current = capture
+              }}
+              pickTargetsRef={pickTargetsRef}
+            />
+            <FpsCounter onFpsChange={updateFps} />
+            <RendererStatsSampler onStatsChange={updateRendererStats} />
+            <SunShadowBlockerFilter />
+            <CameraRoomVisibilityTracker
+              activeFloor={activeFloor}
+              enabled={occlusionCullingEnabled}
+              onVisibilityChange={setRoomVisibilityState}
+              renderedFloor={activeRenderedFloor}
+            />
+            <SceneAssetLoadTracker onPendingChange={updateAssetLoadPending} />
+            <SceneResourcePreloader
+              floors={floors}
+              modelAssetVersion={modelAssetVersion}
+              onPendingChange={updateTexturePreloadPending}
+              renderedFloors={renderedFloors}
+              surfaceAssignments={surfaceAssignments}
+            />
+            <ShaderWarmup
+              blocked={shaderWarmupBlocked || isXrPresenting}
+              onPendingChange={updateShaderWarmupPending}
+              warmupKey={shaderWarmupKey}
+            />
+            <SceneRenderInvalidator
+              renderKey={`${floorGeometryStatusKey}:${shaderWarmupKey}:${surfaceAssignments.length}:${scenePreparationPending ? 'preparing' : 'ready'}`}
+            />
+            {WALL_RENDER_DEBUG_ENABLED ? <SceneObjectDebugProbe /> : null}
+            <CameraFovController fov={cameraFov} />
             <RendererLightCapabilities
               onLocalLightLimitChange={updateLocalLightLimit}
             />
             <LocalLightBudgetController
               activeFloorId={activeFloorId}
-              enabled={renderOptions.lights && !isXrPresenting}
-              localLightLimit={
-                isXrPresenting
-                  ? Math.min(localLightLimit, XR_MAX_REALTIME_LOCAL_LIGHTS)
-                  : localLightLimit
-              }
+              enabled={renderOptions.lights}
+              localLightLimit={activeLocalLightLimit}
               onLocalLightIdsChange={updateLocalLightIds}
               selectedModelId={selectedModelId}
               visibleRenderedFloors={visibleRenderedFloors}
@@ -15987,24 +17108,15 @@ export function ThreeDView({
               enabled={renderOptions.daylight}
               lightDirection={lightDirection}
               sceneBounds={sceneBounds}
-              shadows={renderOptions.shadows && !isXrPresenting}
-            />
-            <WindowDaylightPortalPool
-              enabled={
-                renderOptions.daylight &&
-                renderOptions.shadows &&
-                renderOptions.windowDaylight &&
-                !isXrPresenting
-              }
-              slots={windowDaylightPortalSlots}
+              shadowMapSize={isXrPresenting ? XR_SUN_SHADOW_MAP_SIZE : 2048}
+              shadows={sunShadowsEnabled}
             />
             <FixedLocalLightPool
               activeFloorId={activeFloorId}
               localLightIds={localLightIds}
-              lightShadowsEnabled={
-                renderOptions.lightShadows && !isXrPresenting
-              }
-              shadowsEnabled={renderOptions.shadows && !isXrPresenting}
+              lightShadowsEnabled={localLightShadowsEnabled}
+              maxLights={activeLocalLightLimit}
+              shadowsEnabled={renderOptions.shadows}
               visibleRenderedFloors={visibleRenderedFloors}
             />
 
@@ -16177,6 +17289,16 @@ export function ThreeDView({
                         visibleRoomSignatures={null}
                         wireframe={renderOptions.wireframe}
                       />
+                      <BakedFloorLightmap
+                        daylightEnabled={renderOptions.daylight}
+                        enabled={renderOptions.bakedLightmaps}
+                        floor={floor}
+                        lightDirection={lightDirection}
+                        roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
+                        rooms={rooms}
+                        walls={geometryContextWalls}
+                        wireframe={renderOptions.wireframe}
+                      />
                       <RoomPortalFloors
                         elevation={floor.elevation}
                         floorId={floor.id}
@@ -16216,9 +17338,7 @@ export function ThreeDView({
                         externalWallFootprintGroups={externalWallFootprintGroups}
                         externalWallUnionWallIds={externalWallUnionWallIds}
                         fakeAmbientOcclusionEnabled={fakeAmbientOcclusionEnabled}
-                        fakeAmbientOcclusionIntensity={
-                          renderOptions.ambientOcclusionIntensity
-                        }
+                        fakeAmbientOcclusionIntensity={fakeAmbientOcclusionIntensity}
                         floor={floor}
                         frustumCullingEnabled={objectFrustumCullingEnabled}
                         internalWallFootprintGroups={internalWallFootprintGroups}
@@ -16307,6 +17427,16 @@ export function ThreeDView({
                           visibleRoomSignatures={activeVisibleRoomSignatures}
                           wireframe={renderOptions.wireframe}
                         />
+                        <BakedFloorLightmap
+                          daylightEnabled={renderOptions.daylight}
+                          enabled={renderOptions.bakedLightmaps}
+                          floor={floor}
+                          lightDirection={lightDirection}
+                          roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
+                          rooms={visibleRoomsForFloor}
+                          walls={geometryContextWalls}
+                          wireframe={renderOptions.wireframe}
+                        />
                         <RoomPortalFloors
                           elevation={floor.elevation}
                           floorId={floor.id}
@@ -16383,6 +17513,7 @@ export function ThreeDView({
                           geometryContextWalls={geometryContextWalls}
                           height={floor.roomHeight}
                           onRegisterPickTarget={registerPickTarget}
+                          rooms={visibleRoomsForFloor}
                           selectedWallId={selectedWallId}
                           selectedSurface={selectedSurface}
                           sourceWalls={sourceWalls}
@@ -16432,6 +17563,7 @@ export function ThreeDView({
                                 group.wallIds && group.wallIds.length > 1,
                               )}
                               onRegisterPickTarget={registerPickTarget}
+                              rooms={visibleRoomsForFloor}
                               selectedWallId={selectedWallId}
                               selectedSurface={selectedSurface}
                               sourceWalls={sourceWalls}
@@ -16489,7 +17621,7 @@ export function ThreeDView({
                       <FakeAmbientOcclusion
                         elevation={floor.elevation}
                         geometryContextWalls={geometryContextWalls}
-                        intensity={renderOptions.ambientOcclusionIntensity}
+                        intensity={fakeAmbientOcclusionIntensity}
                         roomSurfacePolygonsBySignature={
                           roomSurfacePolygonsBySignature
                         }
@@ -16502,7 +17634,10 @@ export function ThreeDView({
                     {isActive ? (
                       <Suspense fallback={null}>
                         {visibleModelsForFloor.map((model) => (
-                          <ModelLoadBoundary key={`${model.id}:${modelAssetVersion}`}>
+                          <ModelLoadBoundary
+                            key={`${model.id}:${modelAssetVersion}`}
+                            modelId={model.id}
+                          >
                             <ModelMesh
                               daylightEnabled={renderOptions.daylight}
                               elevation={floor.elevation}
@@ -16512,11 +17647,13 @@ export function ThreeDView({
                               isSelected={model.id === selectedModelId}
                               lightMarkersVisible={renderOptions.lightMarkers}
                               model={model}
+                              models={visibleModelsForFloor}
                               modelAssetVersion={modelAssetVersion}
                               pickTargetsRef={pickTargetsRef}
                               onRegisterPickTarget={registerPickTarget}
                               onTransformActiveChange={setTransformingModel}
                               onUpdateModel={onUpdateModel}
+                              rooms={visibleRoomsForFloor}
                               shadowsEnabled={renderOptions.shadows}
                               stairSnapWalls={
                                 upperFloor
@@ -16564,6 +17701,7 @@ export function ThreeDView({
                 />
               </EffectComposer>
             ) : null}
+          </>
         </Canvas>
         <div
           ref={engineStatusRef}
@@ -16573,6 +17711,10 @@ export function ThreeDView({
         >
           Engine idle
         </div>
+        <EngineConsoleOverlay
+          isOpen={isEngineConsoleOpen}
+          onClose={() => onEngineConsoleOpenChange(false)}
+        />
         {initialScenePreparationPending ? (
           <div className="viewport-preparing-overlay" aria-live="polite">
             <div className="viewport-preparing-panel">

@@ -11,16 +11,19 @@ import {
   buildWallMeshFaces,
   type WallMeshFace,
 } from './wallMesh.ts'
+import type { WallSide } from './wallGraph.ts'
 
 export type FloorWallSurfaceFace = WallMeshFace
 
 export type FloorWallSurfaceMeshOptions = {
   externalFootprintWallIds?: ReadonlySet<string>
+  exteriorWallSidesByWallId?: ReadonlyMap<string, WallSide>
   contextRenderedWalls?: RenderedWall[]
   renderedWalls: RenderedWall[]
   roomSurfaceRendererEnabled?: boolean
   rooms: DetectedRoom[]
   useWallBodyPerimeterMesh?: boolean
+  wallOpeningDepthsByModelId?: ReadonlyMap<string, number>
 }
 
 type WallFaceCoverageInterval = {
@@ -561,10 +564,12 @@ function sideAttachmentCapIsCoveredByRoomSurface(
 export function buildFloorWallSurfaceFaces({
   contextRenderedWalls,
   externalFootprintWallIds,
+  exteriorWallSidesByWallId,
   renderedWalls,
   roomSurfaceRendererEnabled = true,
   rooms,
   useWallBodyPerimeterMesh = false,
+  wallOpeningDepthsByModelId,
 }: FloorWallSurfaceMeshOptions): FloorWallSurfaceFace[] {
   const walls = renderedWalls.map((renderedWall) => renderedWall.wall)
   const contextWalls = (contextRenderedWalls ?? renderedWalls).map(
@@ -591,12 +596,17 @@ export function buildFloorWallSurfaceFaces({
       .filter((key): key is string => Boolean(key)),
   )
   const structuralFaces = (useWallBodyPerimeterMesh
-    ? buildWallBodyPerimeterMeshFaces(walls)
+    ? buildWallBodyPerimeterMeshFaces(walls, {
+        exteriorWallSidesByWallId,
+        wallOpeningDepthsByModelId,
+      })
     : buildWallMeshFaces(contextWalls, {
+        exteriorWallSidesByWallId,
         omitEndpointJoinSideFacesForWallIds:
           externalFootprintWallIds && externalFootprintWallIds.size > 0
             ? externalFootprintWallIds
             : undefined,
+        wallOpeningDepthsByModelId,
       })
   ).filter((face) => renderedWallIdSet.has(face.wallId))
 

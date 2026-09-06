@@ -127,6 +127,58 @@ test('calculates window opening dimensions from model metadata', () => {
   ])
 })
 
+test('uses moved wall opening bottom for window cutouts', () => {
+  const model: PlacedModel = {
+    id: 'window-1',
+    modelId: 'window',
+    position: { x: 2.5, y: 0 },
+    rotation: 0,
+    scale: 1,
+    wallAttachment: {
+      wallId: 'wall-1',
+      offset: 2.5,
+    },
+    wallOpeningBottom: 1.2,
+  }
+
+  assert.deepEqual(getModelOpenings(model, wall, modelsById), [
+    {
+      id: 'window-1',
+      modelId: 'window',
+      center: 2.5,
+      width: 1.09,
+      bottom: 1.2,
+      height: 1.1,
+    },
+  ])
+})
+
+test('clamps moved window cutouts inside the wall height', () => {
+  const model: PlacedModel = {
+    id: 'window-1',
+    modelId: 'window',
+    position: { x: 2.5, y: 0 },
+    rotation: 0,
+    scale: 1,
+    wallAttachment: {
+      wallId: 'wall-1',
+      offset: 2.5,
+    },
+    wallOpeningBottom: 2.3,
+  }
+
+  assert.deepEqual(getModelOpenings(model, wall, modelsById), [
+    {
+      id: 'window-1',
+      modelId: 'window',
+      center: 2.5,
+      width: 1.09,
+      bottom: 2.1,
+      height: 0.3,
+    },
+  ])
+})
+
 test('calculates panel door opening from model-specific bounds', () => {
   const model: PlacedModel = {
     id: 'panel-door-1',

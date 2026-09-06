@@ -25,6 +25,14 @@ const HOUSE_DESIGNER_MANUFACTURER_NAME = 'House Designer'
 const HOUSE_DESIGNER_MANUFACTURER_SLUG = 'house-designer'
 const LEGACY_ADMIN_MANUFACTURER_SLUG = 'house-designer-admin'
 const modelDimensionIo = new NodeIO().registerExtensions(ALL_EXTENSIONS)
+const MATERIAL_TEXTURE_FIELDS = new Set([
+  'ambientOcclusion',
+  'baseColor',
+  'displacement',
+  'metalness',
+  'normal',
+  'roughness',
+])
 
 const sessions = new Map()
 const processingJobs = new Set()
@@ -287,6 +295,63 @@ function hasProcessedModelFile(metadata) {
   )
 }
 
+function hasMaterialTextureFiles(metadata) {
+  return (metadata.files ?? []).some((file) =>
+    MATERIAL_TEXTURE_FIELDS.has(file.fieldName),
+  )
+}
+
+function getMultipartField(fields, key, fallback = '') {
+  return Object.hasOwn(fields, key) ? fields[key] : fallback
+}
+
+function getMaterialBaseColorField(fields, fallback = '') {
+  const albedoColor = fields.albedoColor?.trim()
+  const baseColor = fields.baseColor?.trim()
+
+  return albedoColor || baseColor || fallback
+}
+
+function normalizeSimpleMaterialMetadata(metadata) {
+  if (metadata.assetKind !== 'material' || hasMaterialTextureFiles(metadata)) {
+    return false
+  }
+
+  let changed = false
+  metadata.metadata = metadata.metadata ?? {}
+
+  if (!metadata.metadata.baseColor) {
+    metadata.metadata.baseColor = '#ffffff'
+    changed = true
+  }
+
+  if (!metadata.metadata.roughness) {
+    metadata.metadata.roughness = '0.7'
+    changed = true
+  }
+
+  if (!metadata.metadata.metalness) {
+    metadata.metadata.metalness = '0'
+    changed = true
+  }
+
+  if (metadata.conversion?.status !== 'complete') {
+    metadata.conversion = {
+      ...metadata.conversion,
+      completedAt: new Date().toISOString(),
+      status: 'complete',
+    }
+    changed = true
+  }
+
+  if (changed) {
+    metadata.processedFiles = []
+    metadata.updatedAt = new Date().toISOString()
+  }
+
+  return changed
+}
+
 async function listAssetsForManufacturer(manufacturer) {
   const assetKinds = ['materials', 'models']
   const assets = []
@@ -309,6 +374,10 @@ async function listAssetsForManufacturer(manufacturer) {
       const metadata = await readJson(metadataPath, null)
 
       if (metadata) {
+        if (normalizeSimpleMaterialMetadata(metadata)) {
+          await writeJson(metadataPath, metadata)
+        }
+
         if (metadata.assetKind === 'model') {
           const modelFileName = getStoredModelFileName(metadata)
 
@@ -1014,11 +1083,13 @@ async function handleUpload(request, response) {
     },
     inferredDimensions,
     metadata: {
+      baseColor: getMaterialBaseColorField(fields),
       colourFamily: fields.colourFamily ?? '',
       depth: fields.depth ?? '',
       finish: fields.finish ?? '',
       height: fields.height ?? '',
       materialType: fields.materialType ?? '',
+      metalness: fields.pbrMetalness ?? fields.metalness ?? '',
       modelBehavior: fields.modelBehavior ?? '',
       objectType: fields.objectType ?? '',
       openingWidth: fields.openingWidth ?? '',
@@ -1026,6 +1097,7 @@ async function handleUpload(request, response) {
       productUrl: fields.productUrl ?? '',
       realWorldHeightMeters: fields.realWorldHeightMeters ?? '',
       realWorldWidthMeters: fields.realWorldWidthMeters ?? '',
+      roughness: fields.pbrRoughness ?? fields.roughness ?? '',
       sku: fields.sku ?? '',
       tags: fields.tags ?? '',
       width: fields.width ?? '',
@@ -1036,7 +1108,15 @@ async function handleUpload(request, response) {
   const metadataPath = join(assetDir, 'metadata.json')
   await writeJson(metadataPath, metadata)
 
-  if (metadata.assetKind === 'material') {
+  if (metadata.assetKind === 'material' && !hasMaterialTextureFiles(metadata)) {
+    metadata.conversion = {
+      ...metadata.conversion,
+      completedAt: new Date().toISOString(),
+      status: 'complete',
+    }
+    metadata.updatedAt = new Date().toISOString()
+    await writeJson(metadataPath, metadata)
+  } else if (metadata.assetKind === 'material') {
     queueMaterialProcessing(metadataPath, assetDir)
   } else {
     queueModelProcessing(metadataPath, assetDir)
@@ -1082,6 +1162,19 @@ async function handleProcessAsset(request, response, pathname) {
 
   if (!metadata) {
     sendError(response, 404, 'Asset was not found')
+    return
+  }
+
+  if (kind === 'materials' && !hasMaterialTextureFiles(metadata)) {
+    metadata.processedFiles = []
+    metadata.conversion = {
+      ...metadata.conversion,
+      completedAt: new Date().toISOString(),
+      status: 'complete',
+    }
+    metadata.updatedAt = new Date().toISOString()
+    await writeJson(metadataPath, metadata)
+    sendJson(response, 200, { asset: metadata })
     return
   }
 
@@ -1183,11 +1276,17 @@ async function handleUpdateAsset(request, response, pathname) {
   metadata.files = [...retainedFiles, ...storedFiles]
   metadata.metadata = {
     ...metadata.metadata,
+    baseColor: getMaterialBaseColorField(
+      fields,
+      metadata.metadata?.baseColor ?? '',
+    ),
     colourFamily: fields.colourFamily ?? '',
     depth: fields.depth ?? '',
     finish: fields.finish ?? '',
     height: fields.height ?? '',
     materialType: fields.materialType ?? '',
+    metalness: fields.pbrMetalness ??
+      getMultipartField(fields, 'metalness', metadata.metadata?.metalness ?? ''),
     modelBehavior: fields.modelBehavior ?? '',
     objectType: fields.objectType ?? '',
     openingWidth: fields.openingWidth ?? '',
@@ -1195,6 +1294,8 @@ async function handleUpdateAsset(request, response, pathname) {
     productUrl: fields.productUrl ?? '',
     realWorldHeightMeters: fields.realWorldHeightMeters ?? '',
     realWorldWidthMeters: fields.realWorldWidthMeters ?? '',
+    roughness: fields.pbrRoughness ??
+      getMultipartField(fields, 'roughness', metadata.metadata?.roughness ?? ''),
     sku: fields.sku ?? '',
     tags: fields.tags ?? '',
     width: fields.width ?? '',
@@ -1218,12 +1319,21 @@ async function handleUpdateAsset(request, response, pathname) {
     }
   }
 
+  if (expectedAssetKind === 'material' && !hasMaterialTextureFiles(metadata)) {
+    metadata.processedFiles = []
+    metadata.conversion = {
+      ...metadata.conversion,
+      completedAt: new Date().toISOString(),
+      status: 'complete',
+    }
+  }
+
   await writeJson(metadataPath, metadata)
 
   if (files.length > 0) {
-    if (expectedAssetKind === 'material') {
+    if (expectedAssetKind === 'material' && hasMaterialTextureFiles(metadata)) {
       queueMaterialProcessing(metadataPath, assetDir)
-    } else {
+    } else if (expectedAssetKind === 'model') {
       queueModelProcessing(metadataPath, assetDir)
     }
   }

@@ -64,6 +64,8 @@ const DEFAULT_SUN_POSITION: SunPosition = {
   elevation: 0.78,
 }
 
+type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
+
 function createId() {
   if (typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -90,6 +92,7 @@ function createId() {
 type SavedProject = {
   activeFloorId: string
   floors: FloorLevel[]
+  modelDefinitions?: ModelDefinition[]
   sunPosition?: SunPosition
   surfaceAssignments?: SurfaceMaterialAssignment[]
   wallKind: WallKind
@@ -342,6 +345,24 @@ function cloneProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapshot {
   return structuredClone(snapshot)
 }
 
+function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
+  const modelIds = new Set(
+    floors.flatMap((floor) => (floor.models ?? []).map((model) => model.modelId)),
+  )
+
+  return Array.from(modelIds)
+    .flatMap((modelId) => {
+      const definition = modelsById.get(modelId)
+
+      return definition && modelId.startsWith('portal-model-')
+        ? [definition]
+        : []
+    })
+    .sort((firstDefinition, secondDefinition) =>
+      firstDefinition.id.localeCompare(secondDefinition.id),
+    )
+}
+
 function enforceProjectLightEnabledLimit(
   floorsToClamp: FloorLevel[],
   priorityModelId?: string,
@@ -424,6 +445,10 @@ function normalizeSunPosition(sunPosition?: SunPosition): SunPosition {
 }
 
 function normalizeSavedProject(project: SavedProject) {
+  if (Array.isArray(project.modelDefinitions)) {
+    registerRuntimeModels(project.modelDefinitions)
+  }
+
   const floors = enforceProjectLightEnabledLimit(
     project.floors.map((floor) => normalizeFloor(floor, modelsById)),
     undefined,
@@ -436,6 +461,7 @@ function normalizeSavedProject(project: SavedProject) {
   return {
     activeFloorId,
     floors,
+    modelDefinitions: getSavedProjectModelDefinitions(floors),
     sunPosition: normalizeSunPosition(project.sunPosition),
     surfaceAssignments: Array.isArray(project.surfaceAssignments)
       ? project.surfaceAssignments
@@ -546,6 +572,7 @@ function App() {
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
+  const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(true)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
   const [modelAssetVersion, setModelAssetVersion] = useState(0)
@@ -561,6 +588,9 @@ function App() {
   const refreshPortalCatalog = useCallback(async () => {
     try {
       const catalog = await loadPortalCatalog()
+      console.info(
+        `[HouseDesigner] Loaded portal catalog: ${catalog.models.length} models, ${catalog.materials.length} materials`,
+      )
       registerRuntimeSurfaceMaterials(catalog.materials)
       registerRuntimeModels(catalog.models)
       setAvailableMaterials([...surfaceMaterialCatalog])
@@ -577,9 +607,21 @@ function App() {
     void refreshPortalCatalog()
   }, [refreshPortalCatalog])
 
+  useEffect(() => {
+    if (modelAssetVersion <= 0) {
+      return
+    }
+
+    setFloors((currentFloors) =>
+      currentFloors.map((floor) => normalizeFloor(floor, modelsById)),
+    )
+    setSceneRevision((currentRevision) => currentRevision + 1)
+  }, [modelAssetVersion])
+
   const getProjectSnapshot = (): ProjectSnapshot => ({
     activeFloorId,
     floors,
+    modelDefinitions: getSavedProjectModelDefinitions(floors),
     selectedFloorViewId,
     selectedModelId,
     selectedModelIds,
@@ -1067,7 +1109,7 @@ function App() {
               const nextModel = { ...model, ...updates, id: model.id }
               const definition = modelsById.get(model.modelId)
               const wallMount =
-                definition?.wallMount && updates.position
+                definition?.wallMount && updates.position && !updates.wallAttachment
                   ? getWallMountForPoint(updates.position, floor.walls)
                   : null
 
@@ -1079,10 +1121,12 @@ function App() {
                     wallAttachment: wallMount.wallAttachment,
                   }
                 : definition?.wallMount && updates.position
-                  ? {
-                      ...nextModel,
-                      wallAttachment: undefined,
-                    }
+                  ? updates.wallAttachment
+                    ? nextModel
+                    : {
+                        ...nextModel,
+                        wallAttachment: undefined,
+                      }
                   : nextModel
             }),
           },
@@ -1435,9 +1479,11 @@ function App() {
   }
 
   const saveProject = async () => {
+    const normalizedFloors = floors.map((floor) => normalizeFloor(floor, modelsById))
     const project: SavedProject = {
       activeFloorId,
-      floors,
+      floors: normalizedFloors,
+      modelDefinitions: getSavedProjectModelDefinitions(normalizedFloors),
       sunPosition,
       surfaceAssignments,
       wallKind,
@@ -1470,6 +1516,11 @@ function App() {
       if (!isSavedProject(parsedProject)) {
         window.alert('The selected house design could not be loaded.')
         return
+      }
+
+      if (Array.isArray(parsedProject.modelDefinitions)) {
+        registerRuntimeModels(parsedProject.modelDefinitions)
+        setAvailableModels([...modelLibrary])
       }
 
       const loadedFloors = enforceProjectLightEnabledLimit(
@@ -1650,6 +1701,183 @@ function App() {
   const canRedo = historyAvailability.canRedo
   const canCopy = Boolean(selectedModel || selectedWall)
   const canPaste = Boolean(clipboardItem)
+
+  const getModelPlanHalfWidth = (
+    model: PlacedModel,
+    definition: ModelDefinition,
+  ) => {
+    const scale = model.scale ?? 1
+    const width = definition.width * scale * (model.widthScale ?? 1)
+    const depth = definition.depth * scale * (model.depthScale ?? 1)
+    const rotation = model.rotation ?? 0
+
+    return (
+      Math.abs(Math.cos(rotation)) * width / 2 +
+      Math.abs(Math.sin(rotation)) * depth / 2
+    )
+  }
+
+  const getModelVerticalBounds = (
+    model: PlacedModel,
+    definition: ModelDefinition,
+  ) => {
+    const scale = model.scale ?? 1
+    const height = definition.height * scale
+    const bottom =
+      definition.wallMount === 'window'
+        ? model.wallOpeningBottom ?? 0.9
+        : definition.isLight
+          ? model.height ?? definition.height
+          : 0
+
+    return {
+      bottom,
+      top: bottom + height,
+    }
+  }
+
+  const alignSelectedModels = (direction: ModelAlignDirection) => {
+    if (selectedModelIds.length < 2) {
+      return
+    }
+
+    recordHistory(`align:${direction}`)
+    setFloors((currentFloors) =>
+      currentFloors.map((floor) => {
+        if (floor.id !== activeFloor.id) {
+          return floor
+        }
+
+        const models = floor.models ?? []
+        const selectedModels = selectedModelIds
+          .map((modelId) => models.find((model) => model.id === modelId) ?? null)
+          .filter((model): model is PlacedModel => Boolean(model))
+        const referenceModel = selectedModels[0]
+        const referenceDefinition = referenceModel
+          ? modelsById.get(referenceModel.modelId)
+          : undefined
+
+        if (!referenceModel || !referenceDefinition) {
+          return floor
+        }
+
+        const referenceHalfWidth = getModelPlanHalfWidth(
+          referenceModel,
+          referenceDefinition,
+        )
+        const referenceVerticalBounds = getModelVerticalBounds(
+          referenceModel,
+          referenceDefinition,
+        )
+        const referenceLeft = referenceModel.position.x - referenceHalfWidth
+        const referenceRight = referenceModel.position.x + referenceHalfWidth
+        const selectedIdSet = new Set(selectedModelIds.slice(1))
+        const nextModels = models.map((model) => {
+          if (!selectedIdSet.has(model.id)) {
+            return model
+          }
+
+          const definition = modelsById.get(model.modelId)
+
+          if (!definition) {
+            return model
+          }
+
+          if (direction === 'left' || direction === 'right') {
+            const halfWidth = getModelPlanHalfWidth(model, definition)
+            const currentEdge =
+              direction === 'left'
+                ? model.position.x - halfWidth
+                : model.position.x + halfWidth
+            const targetEdge =
+              direction === 'left' ? referenceLeft : referenceRight
+            const deltaX = targetEdge - currentEdge
+
+            if (Math.abs(deltaX) <= 0.000001) {
+              return model
+            }
+
+            if (model.wallAttachment) {
+              const wall = floor.walls.find(
+                (candidateWall) =>
+                  candidateWall.id === model.wallAttachment?.wallId,
+              )
+              const wallLength = wall
+                ? Math.hypot(
+                    wall.end.x - wall.start.x,
+                    wall.end.y - wall.start.y,
+                  )
+                : 0
+              const wallUnitX = wallLength > 0 && wall
+                ? (wall.end.x - wall.start.x) / wallLength
+                : 0
+
+              if (!wall || Math.abs(wallUnitX) <= 0.000001) {
+                return model
+              }
+
+              const nextOffset = Math.max(
+                0,
+                Math.min(wallLength, model.wallAttachment.offset + deltaX / wallUnitX),
+              )
+              const nextPosition = {
+                x: wall.start.x + (wall.end.x - wall.start.x) * (nextOffset / wallLength),
+                y: wall.start.y + (wall.end.y - wall.start.y) * (nextOffset / wallLength),
+              }
+
+              return {
+                ...model,
+                position: nextPosition,
+                wallAttachment: {
+                  ...model.wallAttachment,
+                  offset: nextOffset,
+                },
+              }
+            }
+
+            return {
+              ...model,
+              position: {
+                ...model.position,
+                x: model.position.x + deltaX,
+              },
+            }
+          }
+
+          const verticalBounds = getModelVerticalBounds(model, definition)
+          const targetBottom =
+            direction === 'bottom'
+              ? referenceVerticalBounds.bottom
+              : referenceVerticalBounds.top -
+                (verticalBounds.top - verticalBounds.bottom)
+
+          if (definition.wallMount === 'window') {
+            return {
+              ...model,
+              wallOpeningBottom: Math.max(0, targetBottom),
+            }
+          }
+
+          if (definition.isLight) {
+            return {
+              ...model,
+              height: Math.max(0.05, targetBottom),
+            }
+          }
+
+          return model
+        })
+
+        return syncWallOpenings(
+          {
+            ...floor,
+            models: nextModels,
+          },
+          modelsById,
+        )
+      }),
+    )
+  }
 
   const copySelection = () => {
     if (selectedModel) {
@@ -1988,12 +2216,14 @@ function App() {
         materials={availableMaterials}
         selectedSurface={selectedSurface}
         selectedFloorViewId={selectedFloorViewId}
+        selectedModelCount={selectedModelIds.length}
         selectedWallHeight={selectedSurfaceWall?.height ?? null}
         wallCount={totalWallCount}
         wallHeight={Math.min(newWallHeight, activeFloor.roomHeight)}
         wallKind={wallKind}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
+        onAlignModels={alignSelectedModels}
         onApplyMaterial={applyMaterialToSelectedSurface}
         onCopy={copySelection}
         onCut={cutSelection}
@@ -2029,7 +2259,9 @@ function App() {
       />
       <Toolbar
         floorCount={floors.length}
+        isEngineConsoleOpen={isEngineConsoleOpen}
         wallCount={totalWallCount}
+        onEngineConsoleOpenChange={setIsEngineConsoleOpen}
         onLoadProject={loadProject}
         onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
         onSaveProject={saveProject}
@@ -2142,9 +2374,11 @@ function App() {
         <ThreeDView
           activeFloorId={activeFloor.id}
           floors={floors}
+          isEngineConsoleOpen={isEngineConsoleOpen}
           lightDirection={sunPosition}
           modelAssetVersion={modelAssetVersion}
           onClearSelection={clearThreeDSelection}
+          onEngineConsoleOpenChange={setIsEngineConsoleOpen}
           onSelectFloor={(floorId) => {
             setActiveFloorId(floorId)
             setSelectedFloorViewId((currentFloorViewId) =>
