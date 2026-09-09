@@ -87,6 +87,30 @@ function pointIsOnSegment(point: Point, start: Point, end: Point) {
   )
 }
 
+function pointTouchesWallBody(point: Point, wall: Wall) {
+  const projection = getProjectionOnSegment(point, wall.start, wall.end)
+
+  return (
+    projection.rawT >= -GRAPH_EPSILON_METERS &&
+    projection.rawT <= 1 + GRAPH_EPSILON_METERS &&
+    distance(point, projection.point) <=
+      wall.thickness / 2 + GRAPH_EPSILON_METERS
+  )
+}
+
+function internalWallCanBoundRoom(wall: Wall, walls: Wall[]) {
+  if (wall.kind !== 'internal') {
+    return true
+  }
+
+  return (['start', 'end'] as const).every((endpoint) =>
+    walls.some(
+      (otherWall) =>
+        otherWall.id !== wall.id && pointTouchesWallBody(wall[endpoint], otherWall),
+    ),
+  )
+}
+
 function pointIsInPolygon(point: Point, polygon: Point[]) {
   let isInside = false
 
@@ -296,7 +320,10 @@ function normalizeDetectedRooms(rooms: DetectedRoom[]) {
 }
 
 function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
-  const renderedWalls = getRenderedWalls(walls)
+  const roomBoundaryWalls = walls.filter((wall) =>
+    internalWallCanBoundRoom(wall, walls),
+  )
+  const renderedWalls = getRenderedWalls(roomBoundaryWalls)
   const unionRooms = buildDetectedRoomsFromWallUnion(renderedWalls)
 
   if (unionRooms.length > 0) {

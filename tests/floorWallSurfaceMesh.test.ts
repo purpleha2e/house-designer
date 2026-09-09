@@ -428,6 +428,51 @@ test('floor wall surface mesh can render structural faces from body perimeters',
   )
 })
 
+test('floor wall surface perimeter mesh can omit top caps under a solid slab', () => {
+  const walls = [
+    wall({
+      id: 'bottom',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 4, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'right',
+      kind: 'external',
+      start: { x: 4, y: 0 },
+      end: { x: 4, y: 3 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'top',
+      kind: 'external',
+      start: { x: 4, y: 3 },
+      end: { x: 0, y: 3 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'left',
+      kind: 'external',
+      start: { x: 0, y: 3 },
+      end: { x: 0, y: 0 },
+      thickness: 0.3,
+    }),
+  ]
+  const renderedWalls = getRenderedWalls(walls)
+  const topology = buildWallTopology(walls)
+  const faces = buildFloorWallSurfaceFaces({
+    omitTopCapFaces: true,
+    renderedWalls,
+    rooms: topology.rooms,
+    useWallBodyPerimeterMesh: true,
+  })
+
+  assert.equal(faces.some((face) => face.kind === 'top'), false)
+  assert.ok(faces.some((face) => face.kind === 'bottom'))
+  assert.ok(faces.some((face) => face.kind === 'side'))
+})
+
 test('floor wall surface perimeter mesh keeps opening cutouts in the composed render path', () => {
   const walls = [
     wall({

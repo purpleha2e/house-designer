@@ -89,6 +89,11 @@ export type SurfaceTarget =
       openingId: string
       wallId: string
     }
+  | {
+      type: 'roof'
+      floorId: string
+      roofId: string
+    }
 
 export type SurfaceMaterialPbr = {
   ambientOcclusionTextureUrl?: string
@@ -168,6 +173,11 @@ export type SelectableSurface =
       type: 'portal-floor'
       wallId: string
     }
+  | {
+      floorId: string
+      roofId: string
+      type: 'roof'
+    }
 
 export type PlacedModel = {
   flipped?: boolean
@@ -196,11 +206,32 @@ export type WallAttachment = {
   side?: -1 | 1
 }
 
+export type RoofStructure = {
+  depth: number
+  heightOffset?: number
+  id: string
+  overhangEnd?: number
+  overhangPitchDegrees?: number
+  soffitColor?: string
+  overhangSide?: number
+  overhangSideNegative?: number
+  overhangSidePositive?: number
+  pitchDegrees: number
+  position: Point
+  rotation: number
+  supportDepth?: number
+  supportPosition?: Point
+  supportWidth?: number
+  type: 'flat' | 'hip' | 'lean-to' | 'up-and-over'
+  width: number
+}
+
 export type FloorLevel = {
   id: string
   name: string
   elevation: number
   models: PlacedModel[]
+  roofs?: RoofStructure[]
   rooms: Room[]
   roomHeight: number
   slabThickness: number

@@ -18,6 +18,19 @@ const serverProxy = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  preview: useHttps
+    ? {
+        https: existsSync(localPfx)
+          ? { pfx: readFileSync(localPfx) }
+          : {
+              cert: readFileSync(localCert),
+              key: readFileSync(localKey),
+            },
+        proxy: serverProxy,
+      }
+    : {
+        proxy: serverProxy,
+      },
   server: useHttps
     ? {
         https: existsSync(localPfx)

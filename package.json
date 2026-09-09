@@ -10,7 +10,8 @@
     "dev:portal": "node server/asset-portal.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
+    "preview": "node server/preview-with-portal.mjs",
+    "preview:vite": "vite preview",
     "test": "node --test --experimental-strip-types tests/*.test.ts"
   },
   "dependencies": {

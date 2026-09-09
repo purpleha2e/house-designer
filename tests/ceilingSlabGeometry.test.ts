@@ -103,6 +103,38 @@ test('extends the facade above the structural slab cap', () => {
   geometry.dispose()
 })
 
+test('starts the facade above the structural slab bottom', () => {
+  const geometry = createCeilingSlabGeometry(createSquareShape(), 0.22, [
+    {
+      bottomOffset: 0.02,
+      materialIndex: 1,
+      nextPoint: { x: 2, y: 0 },
+      normalSign: 1,
+      point: { x: 0, y: 0 },
+      uvBottom: 2.4,
+      uvEnd: 2,
+      uvStart: 0,
+    },
+  ])
+  const facadeGroup = geometry.groups.find((group) => group.materialIndex === 1)!
+  const positions = geometry.getAttribute('position')
+  const uvs = geometry.getAttribute('uv')
+  const facadeHeights = Array.from(
+    { length: facadeGroup.count },
+    (_, offset) => positions.getZ(facadeGroup.start + offset),
+  )
+  const facadeVerticalUvs = Array.from(
+    { length: facadeGroup.count },
+    (_, offset) => uvs.getY(facadeGroup.start + offset),
+  )
+
+  assert.ok(Math.abs(Math.min(...facadeHeights) - 0.02) < 1e-5)
+  assert.ok(Math.abs(Math.max(...facadeHeights) - 0.22) < 1e-5)
+  assert.ok(Math.abs(Math.min(...facadeVerticalUvs) - 2.4) < 1e-5)
+  assert.ok(Math.abs(Math.max(...facadeVerticalUvs) - 2.6) < 1e-5)
+  geometry.dispose()
+})
+
 test('insets horizontal caps without moving the slab facade', () => {
   const geometry = createCeilingSlabGeometry(
     createSquareShape(),
@@ -133,7 +165,7 @@ test('insets horizontal caps without moving the slab facade', () => {
 
   assert.ok(Math.abs(Math.min(...capHeights) - 0.001) < 1e-5)
   assert.ok(Math.abs(Math.max(...capHeights) - 0.219) < 1e-5)
-  assert.equal(Math.min(...facadeHeights), 0)
+  assert.ok(Math.abs(Math.min(...facadeHeights)) < 1e-5)
   assert.ok(Math.abs(Math.max(...facadeHeights) - 0.22) < 1e-5)
   geometry.dispose()
 })

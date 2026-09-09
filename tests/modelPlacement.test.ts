@@ -4,6 +4,7 @@ import {
   createPlacedModel,
   getWallMountForPoint,
   getModelOpenings,
+  normalizeFloor,
   syncWallOpenings,
   updateWallAttachedModels,
 } from '../src/modelPlacement.ts'
@@ -64,6 +65,63 @@ const wall: Wall = {
   thickness: 0.3,
   height: 2.4,
 }
+
+test('normalizes lean-to roof structures on loaded floors', () => {
+  const floor = {
+    id: 'floor-1',
+    name: 'Floor 1',
+    elevation: 2.7,
+    models: [],
+    rooms: [],
+    roomHeight: 2.4,
+    slabThickness: 0.3,
+    walls: [wall],
+    roofs: [
+      {
+        depth: 3,
+        heightOffset: 0.45,
+        id: 'roof-1',
+        pitchDegrees: 32,
+        position: { x: 2, y: 1 },
+        rotation: 0,
+        type: 'lean-to',
+        width: 5,
+      },
+    ],
+  } satisfies FloorLevel
+
+  const [roof] = normalizeFloor(floor, modelsById).roofs
+
+  assert.equal(roof.type, 'lean-to')
+  assert.equal(roof.heightOffset, 0.45)
+})
+
+test('roof overhang pitch and soffit colour survive saving and normalization', () => {
+  const floor = {
+    id: 'floor', name: 'Floor', elevation: 0, roomHeight: 2.4,
+    slabThickness: 0.2, walls: [], rooms: [], models: [],
+    roofs: [{
+      id: 'roof', type: 'up-and-over', width: 7, depth: 9,
+      pitchDegrees: 37, overhangPitchDegrees: 22, soffitColor: '#345678',
+      position: { x: 0, y: 0 }, rotation: 0,
+    }],
+  } satisfies FloorLevel
+  const saved = JSON.parse(JSON.stringify(floor)) as FloorLevel
+  const [roof] = normalizeFloor(saved, modelsById).roofs
+  assert.equal(roof.overhangPitchDegrees, 22)
+  assert.equal(roof.soffitColor, '#345678')
+
+  const legacy = { ...floor, roofs: [{ ...floor.roofs[0], overhangPitchDegrees: undefined, soffitColor: undefined }] }
+  const [legacyRoof] = normalizeFloor(legacy, modelsById).roofs
+  assert.equal(legacyRoof.overhangPitchDegrees, undefined)
+  assert.equal(legacyRoof.soffitColor, undefined)
+
+  for (const [input, expected] of [[-1, 0], [90, 75], [NaN, undefined]] as const) {
+    const [normalized] = normalizeFloor({ ...floor, roofs: [{ ...floor.roofs[0], overhangPitchDegrees: input, soffitColor: 'invalid' }] }, modelsById).roofs
+    assert.equal(normalized.overhangPitchDegrees, expected)
+    assert.equal(normalized.soffitColor, undefined)
+  }
+})
 
 test('creates a wall-mounted model from the plan center', () => {
   const model = createPlacedModel({
@@ -298,6 +356,137 @@ test('syncs model openings while preserving manual openings', () => {
     'manual-opening',
     'window-1',
   ])
+})
+
+test('splits wall-mounted openings across adjacent collinear wall segments', () => {
+  const model: PlacedModel = {
+    id: 'panel-door-1',
+    modelId: 'panel-interior-door-closed',
+    position: { x: 2.2, y: 0 },
+    rotation: 0,
+    scale: 1,
+    wallAttachment: {
+      wallId: 'right-wall',
+      offset: 0.2,
+      side: 1,
+    },
+  }
+  const floor: FloorLevel = {
+    id: 'floor-1',
+    name: 'Floor 0',
+    elevation: 0,
+    models: [model],
+    rooms: [],
+    roomHeight: 2.4,
+    slabThickness: 0.3,
+    walls: [
+      {
+        ...wall,
+        id: 'left-wall',
+        kind: 'internal',
+        start: { x: 0, y: 0 },
+        end: { x: 2, y: 0 },
+        thickness: 0.1,
+      },
+      {
+        ...wall,
+        id: 'right-wall',
+        kind: 'internal',
+        start: { x: 2, y: 0 },
+        end: { x: 5, y: 0 },
+        thickness: 0.1,
+      },
+    ],
+  }
+
+  const syncedFloor = syncWallOpenings(floor, modelsById)
+
+  assert.deepEqual(syncedFloor.walls[0].openings, [
+    {
+      id: 'panel-door-1:wall:left-wall',
+      modelId: 'panel-interior-door-closed',
+      center: 1.8562147500000001,
+      width: 0.28757049999999973,
+      bottom: 0,
+      height: 2.124037,
+    },
+  ])
+  assert.deepEqual(syncedFloor.walls[1].openings, [
+    {
+      id: 'panel-door-1',
+      modelId: 'panel-interior-door-closed',
+      center: 0.34378525000000004,
+      width: 0.6875705000000001,
+      bottom: 0,
+      height: 2.124037,
+    },
+  ])
+})
+
+test('syncs doors independently on joined internal wall segments', () => {
+  const floor: FloorLevel = {
+    id: 'floor-1',
+    name: 'Floor 0',
+    elevation: 0,
+    models: [
+      {
+        id: 'left-door',
+        modelId: 'panel-interior-door-closed',
+        position: { x: 0.8, y: 0 },
+        rotation: 0,
+        scale: 1,
+        wallAttachment: {
+          wallId: 'left-wall',
+          offset: 0.8,
+          side: 1,
+        },
+      },
+      {
+        id: 'right-door',
+        modelId: 'panel-interior-door-closed',
+        position: { x: 3.5, y: 0 },
+        rotation: 0,
+        scale: 1,
+        wallAttachment: {
+          wallId: 'right-wall',
+          offset: 1.5,
+          side: 1,
+        },
+      },
+    ],
+    rooms: [],
+    roomHeight: 2.4,
+    slabThickness: 0.3,
+    walls: [
+      {
+        ...wall,
+        id: 'left-wall',
+        kind: 'internal',
+        start: { x: 0, y: 0 },
+        end: { x: 1.63, y: 0 },
+        thickness: 0.1,
+      },
+      {
+        ...wall,
+        id: 'right-wall',
+        kind: 'internal',
+        start: { x: 1.63, y: 0 },
+        end: { x: 4.75, y: 0 },
+        thickness: 0.1,
+      },
+    ],
+  }
+
+  const syncedFloor = syncWallOpenings(floor, modelsById)
+
+  assert.deepEqual(
+    (syncedFloor.walls[0].openings ?? []).map((opening) => opening.id),
+    ['left-door'],
+  )
+  assert.deepEqual(
+    (syncedFloor.walls[1].openings ?? []).map((opening) => opening.id),
+    ['right-door'],
+  )
 })
 
 test('moves attached models when their wall geometry changes', () => {

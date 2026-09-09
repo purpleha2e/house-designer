@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
+import { RoofPitchFields } from './RoofPitchFields'
 import {
   Fragment,
   useCallback,
@@ -20,7 +21,14 @@ import {
 } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
-import type { FloorLevel, PlacedModel, Point, Wall, WallKind } from '../types'
+import type {
+  FloorLevel,
+  PlacedModel,
+  Point,
+  RoofStructure,
+  Wall,
+  WallKind,
+} from '../types'
 import {
   getModelAssetUrl,
   modelsById,
@@ -35,6 +43,7 @@ import {
   buildWallTopology,
   getOtherNodeConnections,
   getWallEndpointNode,
+  type DetectedRoom,
   type WallTopology,
 } from '../wallTopology'
 import {
@@ -75,8 +84,10 @@ const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
 const MIN_MODEL_SCALE = 0.2
 const MAX_MODEL_SCALE = 5
 const MODEL_TRANSLATION_STEP_METERS = 0.1
+const ROOF_WALL_ANCHOR_STEP_METERS = 0.1
 const MODEL_ROTATION_SNAP_RADIANS = (10 * Math.PI) / 180
 const MODEL_SCALE_STEP = 0.1
+const WALL_DRAG_CONNECTION_TOLERANCE_METERS = 0.04
 const WALL_DIRECTION_SNAP_RADIANS = Math.PI / 4
 const WALL_MODEL_SNAP_DISTANCE_METERS = 0.65
 const ROOM_HIGHLIGHT_COLORS = [
@@ -98,20 +109,47 @@ type FloorplanCanvasProps = {
   projectFileName: string
   selectedModelId: string | null
   selectedModelIds: string[]
+  selectedRoofId: string | null
   selectedRoomSignature: string | null
   selectedWallId: string | null
   selectedWallIds: string[]
   wallHeight: number
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
+  onAddRoof: (options: RoofCreateOptions) => void
   onDeleteModel: (modelId: string) => void
+  onDeleteRoof: (roofId: string) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
   onSelectModel: (modelId: string | null, additive?: boolean) => void
+  onSelectRoof: (roofId: string | null) => void
   onSelectRoom: (roomSignature: string | null) => void
   onSelectWall: (wallId: string | null, additive?: boolean) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  onUpdateRoof: (roofId: string, updates: Partial<RoofStructure>) => void
   onUpdateWall: (wallId: string, updates: Pick<Wall, 'end' | 'start'>) => void
+  onUpdateWalls: (
+    updates: Array<{ wallId: string; updates: Pick<Wall, 'end' | 'start'> }>,
+  ) => void
+}
+
+type RoofCreateOptions = {
+  depth?: number
+  floorId: string
+  overhangEnd?: number
+  overhangPitchDegrees?: number
+  soffitColor?: string
+  overhangSide?: number
+  overhangSideNegative?: number
+  overhangSidePositive?: number
+  pitchDegrees: number
+  position?: Point
+  rotation?: number
+  supportDepth?: number
+  supportPosition?: Point
+  supportWidth?: number
+  type: RoofStructure['type']
+  width: number
 }
 
 type CanvasSize = {
@@ -126,6 +164,8 @@ type Viewport = {
 }
 
 type TransformMode = 'rotate' | 'scale' | 'translate'
+
+type RoofPlacementDirection = 'east' | 'north' | 'south' | 'west'
 
 type ModelMoveDragState = {
   axis: 'x' | 'y' | null
@@ -149,6 +189,13 @@ type ModelScaleDragState = {
   startWidthScale: number
 }
 
+type RoofResizeCorner = 'bottom-left' | 'bottom-right' | 'top-left' | 'top-right'
+
+type RoofResizeDragState = {
+  corner: RoofResizeCorner
+  roof: RoofStructure
+}
+
 type FloorplanRenderOptions = {
   externalDimensions: boolean
   floorAreaSummary: boolean
@@ -160,7 +207,7 @@ type FloorplanRenderOptions = {
 
 type ContextMenuState = {
   targetId: string
-  targetType: 'model' | 'wall'
+  targetType: 'model' | 'roof' | 'wall'
   x: number
   y: number
 }
@@ -173,7 +220,11 @@ type PanState = {
 type WallDragState =
   | {
       pendingWall?: Pick<Wall, 'end' | 'start'>
+      pendingWalls?: Record<string, Pick<Wall, 'end' | 'start'>>
+      seedWallIds: string[]
+      startWalls: Record<string, Pick<Wall, 'end' | 'start'>>
       type: 'wall'
+      wallIds: string[]
       wallId: string
       startPointer: Point
       startWall: Pick<Wall, 'end' | 'start'>
@@ -1760,6 +1811,783 @@ function rotateVector(vector: Point, angle: number) {
   }
 }
 
+function getRoofPlacementRotation(
+  roofType: RoofStructure['type'],
+  direction: RoofPlacementDirection,
+) {
+  if (roofType === 'up-and-over') {
+    return direction === 'east' || direction === 'west' ? -Math.PI / 2 : 0
+  }
+
+  if (roofType === 'lean-to') {
+    if (direction === 'east') {
+      return 0
+    }
+
+    if (direction === 'west') {
+      return Math.PI
+    }
+
+    if (direction === 'north') {
+      return Math.PI / 2
+    }
+
+    return -Math.PI / 2
+  }
+
+  if (direction === 'east') {
+    return 0
+  }
+
+  if (direction === 'west') {
+    return Math.PI
+  }
+
+  if (direction === 'north') {
+    return -Math.PI / 2
+  }
+
+  return Math.PI / 2
+}
+
+function getRoomContainingPoint(rooms: DetectedRoom[], point: Point) {
+  return rooms.find((room) => pointIsInPolygon(point, room.polygon)) ?? null
+}
+
+function getExteriorWallSide(wall: Wall, rooms: DetectedRoom[]): -1 | 1 {
+  if (wall.kind !== 'external') {
+    return 1
+  }
+
+  const length = distance(wall.start, wall.end)
+
+  if (length <= 0.000001) {
+    return 1
+  }
+
+  const unit = {
+    x: (wall.end.x - wall.start.x) / length,
+    y: (wall.end.y - wall.start.y) / length,
+  }
+  const normal = {
+    x: -unit.y,
+    y: unit.x,
+  }
+  const midpoint = {
+    x: (wall.start.x + wall.end.x) / 2,
+    y: (wall.start.y + wall.end.y) / 2,
+  }
+  const sampleDistance = wall.thickness / 2 + 0.08
+  const positiveRoom = getRoomContainingPoint(rooms, {
+    x: midpoint.x + normal.x * sampleDistance,
+    y: midpoint.y + normal.y * sampleDistance,
+  })
+  const negativeRoom = getRoomContainingPoint(rooms, {
+    x: midpoint.x - normal.x * sampleDistance,
+    y: midpoint.y - normal.y * sampleDistance,
+  })
+
+  if (positiveRoom && !negativeRoom) {
+    return -1
+  }
+
+  if (negativeRoom && !positiveRoom) {
+    return 1
+  }
+
+  return 1
+}
+
+function getLeanToRotationFromSnappedWall(
+  points: Point[],
+  walls: Wall[],
+  rooms: DetectedRoom[],
+) {
+  if (points.length < 2) {
+    return null
+  }
+
+  const tolerance = 0.18
+  const selectedWall = walls
+    .filter((wall) => wall.kind === 'external')
+    .map((wall) => {
+      const wallLength = distance(wall.start, wall.end)
+
+      if (wallLength <= 0.000001) {
+        return null
+      }
+
+      const unit = {
+        x: (wall.end.x - wall.start.x) / wallLength,
+        y: (wall.end.y - wall.start.y) / wallLength,
+      }
+      const matchedPoints = points.flatMap((point) => {
+        const closestPoint = getClosestPointOnSegment(
+          point,
+          wall.start,
+          wall.end,
+        )
+        const pointDistance = distance(point, closestPoint)
+
+        if (pointDistance > tolerance) {
+          return []
+        }
+
+        return [{
+          distance: pointDistance,
+          station:
+            (closestPoint.x - wall.start.x) * unit.x +
+            (closestPoint.y - wall.start.y) * unit.y,
+        }]
+      })
+      const span =
+        matchedPoints.length > 1
+          ? Math.max(...matchedPoints.map((point) => point.station)) -
+            Math.min(...matchedPoints.map((point) => point.station))
+          : 0
+      const averageDistance =
+        matchedPoints.length > 0
+          ? matchedPoints.reduce(
+              (total, point) => total + point.distance,
+              0,
+            ) / matchedPoints.length
+          : Number.POSITIVE_INFINITY
+
+      return {
+        averageDistance,
+        matchedPoints,
+        span,
+        wall,
+      }
+    })
+    .filter((candidate): candidate is NonNullable<typeof candidate> =>
+      Boolean(candidate),
+    )
+    .filter(({ matchedPoints, span }) => matchedPoints.length >= 2 && span >= 0.3)
+    .sort((firstCandidate, secondCandidate) => {
+      return (
+        secondCandidate.span - firstCandidate.span ||
+        firstCandidate.averageDistance - secondCandidate.averageDistance
+      )
+    })[0]?.wall
+
+  if (!selectedWall) {
+    return null
+  }
+
+  const length = distance(selectedWall.start, selectedWall.end)
+
+  if (length <= 0.000001) {
+    return null
+  }
+
+  const unit = {
+    x: (selectedWall.end.x - selectedWall.start.x) / length,
+    y: (selectedWall.end.y - selectedWall.start.y) / length,
+  }
+  const exteriorSide = getExteriorWallSide(selectedWall, rooms)
+  const exteriorNormal = {
+    x: -unit.y * exteriorSide,
+    y: unit.x * exteriorSide,
+  }
+
+  return Math.atan2(exteriorNormal.y, -exteriorNormal.x)
+}
+
+function getUpAndOverRotationFromPlacementPoints(points: Point[]) {
+  if (points.length < 2) {
+    return null
+  }
+
+  const getRotationFromRun = (runAngle: number) => Math.PI / 2 - runAngle
+
+  if (points.length === 2) {
+    const dx = points[1].x - points[0].x
+    const dy = points[1].y - points[0].y
+    const length = Math.hypot(dx, dy)
+
+    return length <= 0.000001 ? null : getRotationFromRun(Math.atan2(dy, dx))
+  }
+
+  let bestRightAngleArea = 0
+  let bestRightAngleRunAngle: number | null = null
+
+  points.forEach((cornerPoint, cornerIndex) => {
+    points.forEach((firstPoint, firstIndex) => {
+      if (firstIndex === cornerIndex) {
+        return
+      }
+
+      points.forEach((secondPoint, secondIndex) => {
+        if (secondIndex === cornerIndex || secondIndex <= firstIndex) {
+          return
+        }
+
+        const firstVector = {
+          x: firstPoint.x - cornerPoint.x,
+          y: firstPoint.y - cornerPoint.y,
+        }
+        const secondVector = {
+          x: secondPoint.x - cornerPoint.x,
+          y: secondPoint.y - cornerPoint.y,
+        }
+        const firstLength = Math.hypot(firstVector.x, firstVector.y)
+        const secondLength = Math.hypot(secondVector.x, secondVector.y)
+
+        if (firstLength <= 0.000001 || secondLength <= 0.000001) {
+          return
+        }
+
+        const perpendicularError = Math.abs(
+          (firstVector.x * secondVector.x + firstVector.y * secondVector.y) /
+            (firstLength * secondLength),
+        )
+
+        if (perpendicularError > 0.08) {
+          return
+        }
+
+        const longerVector =
+          firstLength >= secondLength ? firstVector : secondVector
+        const area = firstLength * secondLength
+
+        if (area > bestRightAngleArea) {
+          bestRightAngleArea = area
+          bestRightAngleRunAngle = Math.atan2(longerVector.y, longerVector.x)
+        }
+      })
+    })
+  })
+
+  if (bestRightAngleRunAngle !== null) {
+    return getRotationFromRun(bestRightAngleRunAngle)
+  }
+
+  const parallelAngleDistance = (firstAngle: number, secondAngle: number) => {
+    const rawDistance = Math.abs(firstAngle - secondAngle) % Math.PI
+    return Math.min(rawDistance, Math.PI - rawDistance)
+  }
+  const pairAngles: Array<{
+    angle: number
+    length: number
+  }> = []
+
+  points.forEach((firstPoint, firstIndex) => {
+    points.slice(firstIndex + 1).forEach((secondPoint) => {
+      const dx = secondPoint.x - firstPoint.x
+      const dy = secondPoint.y - firstPoint.y
+      const length = Math.hypot(dx, dy)
+
+      if (length <= 0.000001) {
+        return
+      }
+
+      pairAngles.push({
+        angle: Math.atan2(dy, dx),
+        length,
+      })
+    })
+  })
+
+  if (pairAngles.length === 0) {
+    return null
+  }
+
+  const parallelTolerance = (5 * Math.PI) / 180
+  const groupedAngles = pairAngles.reduce<
+    Array<{
+      angle: number
+      count: number
+      maxLength: number
+      totalLength: number
+    }>
+  >((groups, pair) => {
+    const group = groups.find(
+      (candidate) =>
+        parallelAngleDistance(candidate.angle, pair.angle) <= parallelTolerance,
+    )
+
+    if (!group) {
+      groups.push({
+        angle: pair.angle,
+        count: 1,
+        maxLength: pair.length,
+        totalLength: pair.length,
+      })
+      return groups
+    }
+
+    group.count += 1
+    group.maxLength = Math.max(group.maxLength, pair.length)
+    group.totalLength += pair.length
+    return groups
+  }, [])
+
+  const bestGroup =
+    groupedAngles
+      .filter((group) => group.count > 1)
+      .sort(
+        (firstGroup, secondGroup) =>
+          secondGroup.totalLength - firstGroup.totalLength ||
+          secondGroup.maxLength - firstGroup.maxLength,
+      )[0] ?? null
+  const fallbackPair = [...pairAngles].sort(
+    (firstPair, secondPair) => secondPair.length - firstPair.length,
+  )[0]
+
+  return getRotationFromRun(bestGroup?.angle ?? fallbackPair.angle)
+}
+
+function getRoofPlacementBounds({
+  overhangEnd,
+  overhangSide,
+  overhangSideNegative,
+  overhangSidePositive,
+  points,
+  roofType,
+  rotation,
+}: {
+  overhangEnd: number
+  overhangSide: number
+  overhangSideNegative?: number
+  overhangSidePositive?: number
+  points: Point[]
+  roofType: RoofStructure['type']
+  rotation: number
+}) {
+  if (points.length < 2) {
+    return null
+  }
+
+  const localPoints = points.map((point) => rotateVector(point, rotation))
+  const minX = Math.min(...localPoints.map((point) => point.x))
+  const maxX = Math.max(...localPoints.map((point) => point.x))
+  const minY = Math.min(...localPoints.map((point) => point.y))
+  const maxY = Math.max(...localPoints.map((point) => point.y))
+  const negativeSideOverhang = Math.max(
+    0,
+    overhangSideNegative ?? overhangSide,
+  )
+  const positiveSideOverhang = Math.max(
+    0,
+    overhangSidePositive ?? overhangSide,
+  )
+  const expandedMinX =
+    roofType === 'lean-to' ? minX - negativeSideOverhang : minX - negativeSideOverhang
+  const expandedMaxX =
+    roofType === 'lean-to' ? maxX : maxX + positiveSideOverhang
+  const expandedMinY = minY - overhangEnd
+  const expandedMaxY = maxY + overhangEnd
+  const localCenter = {
+    x: (expandedMinX + expandedMaxX) / 2,
+    y: (expandedMinY + expandedMaxY) / 2,
+  }
+  const position = rotateVector(localCenter, -rotation)
+
+  return {
+    depth: Math.max(0.3, expandedMaxY - expandedMinY),
+    position,
+    width: Math.max(0.3, expandedMaxX - expandedMinX),
+  }
+}
+
+function getRoofSupportBounds(points: Point[], rotation: number) {
+  if (points.length < 2) {
+    return null
+  }
+
+  const localPoints = points.map((point) => rotateVector(point, rotation))
+  const minX = Math.min(...localPoints.map((point) => point.x))
+  const maxX = Math.max(...localPoints.map((point) => point.x))
+  const minY = Math.min(...localPoints.map((point) => point.y))
+  const maxY = Math.max(...localPoints.map((point) => point.y))
+  const localCenter = {
+    x: (minX + maxX) / 2,
+    y: (minY + maxY) / 2,
+  }
+
+  return {
+    depth: Math.max(0.3, maxY - minY),
+    position: rotateVector(localCenter, -rotation),
+    width: Math.max(0.3, maxX - minX),
+  }
+}
+
+function getRoofPlanSupportLocalBounds(roof: RoofStructure) {
+  const halfWidth = Math.max(roof.width, 0.3) / 2
+  const halfDepth = Math.max(roof.depth, 0.3) / 2
+
+  if (roof.supportPosition && roof.supportWidth && roof.supportDepth) {
+    const supportCenterLocal = rotateVector(
+      {
+        x: roof.supportPosition.x - roof.position.x,
+        y: roof.supportPosition.y - roof.position.y,
+      },
+      roof.rotation,
+    )
+    const supportHalfWidth = Math.max(roof.supportWidth, 0.3) / 2
+    const supportHalfDepth = Math.max(roof.supportDepth, 0.3) / 2
+
+    return {
+      maxX: supportCenterLocal.x + supportHalfWidth,
+      maxY: supportCenterLocal.y + supportHalfDepth,
+      minX: supportCenterLocal.x - supportHalfWidth,
+      minY: supportCenterLocal.y - supportHalfDepth,
+    }
+  }
+
+  if (roof.type === 'hip') {
+    return {
+      maxX: halfWidth,
+      maxY: halfDepth,
+      minX: -halfWidth,
+      minY: -halfDepth,
+    }
+  }
+
+  const endOverhang = Math.max(0, roof.overhangEnd ?? 0)
+  const negativeSideOverhang = Math.max(
+    0,
+    roof.overhangSideNegative ?? roof.overhangSide ?? 0,
+  )
+  const positiveSideOverhang = Math.max(
+    0,
+    roof.overhangSidePositive ?? roof.overhangSide ?? 0,
+  )
+
+  return {
+    maxX:
+      roof.type === 'lean-to' ? halfWidth : halfWidth - positiveSideOverhang,
+    maxY: halfDepth - endOverhang,
+    minX: -halfWidth + negativeSideOverhang,
+    minY: -halfDepth + endOverhang,
+  }
+}
+
+function getRoofWorldPointFromLocal(roof: RoofStructure, localPoint: Point) {
+  const worldOffset = rotateVector(localPoint, -roof.rotation)
+
+  return {
+    x: roof.position.x + worldOffset.x,
+    y: roof.position.y + worldOffset.y,
+  }
+}
+
+function getRoofPlacementSupportPoints({
+  points,
+  roofType,
+  rotation,
+  walls,
+}: {
+  points: Point[]
+  roofType: RoofStructure['type']
+  rotation: number
+  walls: Wall[]
+}) {
+  if (points.length < 2 || roofType === 'hip') {
+    return points
+  }
+
+  const localPoints = points.map((point) => rotateVector(point, rotation))
+  const minX = Math.min(...localPoints.map((point) => point.x))
+  const maxX = Math.max(...localPoints.map((point) => point.x))
+  const minY = Math.min(...localPoints.map((point) => point.y))
+  const maxY = Math.max(...localPoints.map((point) => point.y))
+  const tolerance = 0.18
+  const supportPoints = [...points]
+  const addPoint = (point: Point) => {
+    if (!supportPoints.some((supportPoint) => pointsMatch(supportPoint, point))) {
+      supportPoints.push(point)
+    }
+  }
+
+  walls
+    .filter((wall) => wall.kind === 'external')
+    .forEach((wall) => {
+      const start = rotateVector(wall.start, rotation)
+      const end = rotateVector(wall.end, rotation)
+      const wallMinX = Math.min(start.x, end.x)
+      const wallMaxX = Math.max(start.x, end.x)
+      const wallMinY = Math.min(start.y, end.y)
+      const wallMaxY = Math.max(start.y, end.y)
+      const runsAlongRoofWidth = Math.abs(end.x - start.x) >= Math.abs(end.y - start.y)
+      const runsAlongRoofDepth = !runsAlongRoofWidth
+      const overlapsSelectedWidth = wallMaxX >= minX - tolerance &&
+        wallMinX <= maxX + tolerance
+      const overlapsSelectedDepth = wallMaxY >= minY - tolerance &&
+        wallMinY <= maxY + tolerance
+      const onSelectedGableLine =
+        runsAlongRoofWidth &&
+        overlapsSelectedWidth &&
+        ((Math.abs(start.y - minY) <= tolerance &&
+          Math.abs(end.y - minY) <= tolerance) ||
+          (Math.abs(start.y - maxY) <= tolerance &&
+            Math.abs(end.y - maxY) <= tolerance))
+      const onSelectedLeanToHighLine =
+        roofType === 'lean-to' &&
+        runsAlongRoofDepth &&
+        overlapsSelectedDepth &&
+        Math.abs(start.x - maxX) <= tolerance &&
+        Math.abs(end.x - maxX) <= tolerance
+
+      const selectedHasWallStart = points.some((point) =>
+        pointsMatch(point, wall.start),
+      )
+      const selectedHasWallEnd = points.some((point) =>
+        pointsMatch(point, wall.end),
+      )
+
+      if (
+        (onSelectedGableLine || onSelectedLeanToHighLine) &&
+        selectedHasWallStart &&
+        selectedHasWallEnd
+      ) {
+        addPoint(wall.start)
+        addPoint(wall.end)
+      }
+    })
+
+  if (roofType !== 'lean-to') {
+    return supportPoints
+  }
+
+  const highSideLocalX = Math.max(
+    ...supportPoints.map((point) => rotateVector(point, rotation).x),
+  )
+  const lowSideLocalX = Math.min(
+    ...supportPoints.map((point) => rotateVector(point, rotation).x),
+  )
+  const renderedExternalWalls = getRenderedWalls(walls).filter(
+    ({ wall }) => wall.kind === 'external',
+  )
+
+  return supportPoints.map((point) => {
+    const localPoint = rotateVector(point, rotation)
+
+    if (Math.abs(localPoint.x - highSideLocalX) > tolerance) {
+      return point
+    }
+
+    const renderedWall = renderedExternalWalls.find(({ wall }) => {
+        const closestPoint = getClosestPointOnSegment(
+          point,
+          wall.start,
+          wall.end,
+        )
+
+        return distance(point, closestPoint) <= tolerance
+      })
+
+    if (!renderedWall) {
+      return point
+    }
+
+    const wallPolygonLocalXs = getWallPolygon(renderedWall)
+      .map((wallPoint) => rotateVector(wallPoint, rotation).x)
+    const wallMinX = Math.min(...wallPolygonLocalXs)
+    const wallMaxX = Math.max(...wallPolygonLocalXs)
+    const highSideFaceX =
+      Math.abs(wallMinX - lowSideLocalX) <= Math.abs(wallMaxX - lowSideLocalX)
+        ? wallMinX
+        : wallMaxX
+
+    return normalizeRoofAnchorPoint(
+      rotateVector({ x: highSideFaceX, y: localPoint.y }, -rotation),
+    )
+  })
+}
+
+function getRoofPlacementPointKey(point: Point) {
+  return `${point.x.toFixed(3)}:${point.y.toFixed(3)}`
+}
+
+function pointsMatch(firstPoint: Point, secondPoint: Point, tolerance = 0.01) {
+  return distance(firstPoint, secondPoint) <= tolerance
+}
+
+function roundToRoofAnchorStep(value: number) {
+  return (
+    Math.round(value / ROOF_WALL_ANCHOR_STEP_METERS) *
+    ROOF_WALL_ANCHOR_STEP_METERS
+  )
+}
+
+function normalizeRoofAnchorPoint(point: Point) {
+  return {
+    x: Number(point.x.toFixed(6)),
+    y: Number(point.y.toFixed(6)),
+  }
+}
+
+function getRoofWallAnchorPointAtDistance(
+  wall: Wall,
+  distanceAlongWall: number,
+) {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const wallLength = Math.hypot(dx, dy)
+
+  if (wallLength <= 0.000001) {
+    return wall.start
+  }
+
+  const projectedPoint = {
+    x: wall.start.x + (dx / wallLength) * distanceAlongWall,
+    y: wall.start.y + (dy / wallLength) * distanceAlongWall,
+  }
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return normalizeRoofAnchorPoint({
+      x: roundToRoofAnchorStep(projectedPoint.x),
+      y: projectedPoint.y,
+    })
+  }
+
+  return normalizeRoofAnchorPoint({
+    x: projectedPoint.x,
+    y: roundToRoofAnchorStep(projectedPoint.y),
+  })
+}
+
+function getRoofWallAnchorPointAtStation(
+  wall: Wall,
+  station: number,
+) {
+  return getRoofWallAnchorPointAtDistance(
+    wall,
+    roundToRoofAnchorStep(station),
+  )
+}
+
+function getClosestRoofAnchorPoint(point: Point, walls: Wall[]) {
+  const cornerCandidates = walls
+    .filter((wall) => wall.kind === 'external')
+    .flatMap((wall) => [wall.start, wall.end])
+    .map((candidatePoint) => ({
+      distance: distance(point, candidatePoint),
+      point: candidatePoint,
+    }))
+    .filter((candidate) => candidate.distance <= 0.22)
+  const wallCandidate = getClosestExternalWallPoint(point, walls)
+  const candidates = [
+    ...cornerCandidates,
+    ...(wallCandidate
+      ? [{ distance: distance(point, wallCandidate), point: wallCandidate }]
+      : []),
+  ].sort((firstCandidate, secondCandidate) => firstCandidate.distance - secondCandidate.distance)
+
+  return candidates[0]?.point ?? null
+}
+
+function getClosestExternalWallPoint(point: Point, walls: Wall[]) {
+  const cornerKeys = new Set<string>()
+  const externalWalls = walls.filter((wall) => wall.kind === 'external')
+
+  externalWalls.forEach((wall, wallIndex) => {
+    const endpoints = [wall.start, wall.end]
+
+    endpoints.forEach((endpoint) => {
+      const connectsToTurningWall = externalWalls.some((otherWall, otherIndex) => {
+        if (otherIndex === wallIndex) {
+          return false
+        }
+
+        const sharesEndpoint =
+          pointsMatch(endpoint, otherWall.start, 0.03) ||
+          pointsMatch(endpoint, otherWall.end, 0.03)
+
+        if (!sharesEndpoint) {
+          return false
+        }
+
+        const wallAngle = Math.atan2(
+          wall.end.y - wall.start.y,
+          wall.end.x - wall.start.x,
+        )
+        const otherAngle = Math.atan2(
+          otherWall.end.y - otherWall.start.y,
+          otherWall.end.x - otherWall.start.x,
+        )
+        const angleDelta = Math.abs(
+          Math.atan2(Math.sin(wallAngle - otherAngle), Math.cos(wallAngle - otherAngle)),
+        )
+
+        return angleDelta > Math.PI / 18 && Math.abs(angleDelta - Math.PI) > Math.PI / 18
+      })
+
+      if (connectsToTurningWall) {
+        cornerKeys.add(getRoofPlacementPointKey(endpoint))
+      }
+    })
+  })
+
+  const candidates = walls
+    .filter((wall) => wall.kind === 'external')
+    .flatMap((wall) => {
+      const dx = wall.end.x - wall.start.x
+      const dy = wall.end.y - wall.start.y
+      const lengthSquared = dx * dx + dy * dy
+
+      if (lengthSquared <= 0.000001) {
+        return []
+      }
+
+      const rawT =
+        ((point.x - wall.start.x) * dx + (point.y - wall.start.y) * dy) /
+        lengthSquared
+      const segmentT = Math.max(0, Math.min(1, rawT))
+      const wallLength = Math.sqrt(lengthSquared)
+      const segmentPoint = getRoofWallAnchorPointAtStation(
+        wall,
+        Math.max(0, Math.min(wallLength, segmentT * wallLength)),
+      )
+      const startIsTurningCorner = cornerKeys.has(
+        getRoofPlacementPointKey(wall.start),
+      )
+      const endIsTurningCorner = cornerKeys.has(getRoofPlacementPointKey(wall.end))
+      const extensionCandidates: Array<{ distance: number; point: Point }> = []
+
+      if (segmentT > 0.02 && segmentT < 0.98) {
+        extensionCandidates.push({
+          distance: distance(point, segmentPoint),
+          point: segmentPoint,
+        })
+      }
+
+      if (startIsTurningCorner && rawT < 0) {
+        const extensionDistance = Math.min(12, Math.abs(rawT) * wallLength)
+        const extensionPoint = getRoofWallAnchorPointAtDistance(
+          wall,
+          -extensionDistance,
+        )
+
+        extensionCandidates.push({
+          distance: distance(point, extensionPoint),
+          point: extensionPoint,
+        })
+      }
+
+      if (endIsTurningCorner && rawT > 1) {
+        const extensionDistance = Math.min(12, (rawT - 1) * wallLength)
+        const extensionPoint = getRoofWallAnchorPointAtDistance(
+          wall,
+          wallLength + extensionDistance,
+        )
+
+        extensionCandidates.push({
+          distance: distance(point, extensionPoint),
+          point: extensionPoint,
+        })
+      }
+
+      return extensionCandidates
+    })
+    .filter((candidate) => candidate.distance <= 0.22)
+    .sort((firstCandidate, secondCandidate) => firstCandidate.distance - secondCandidate.distance)
+
+  return candidates[0]?.point ?? null
+}
+
 function getDimensionChevron(
   point: Point,
   rotation: number,
@@ -1876,6 +2704,36 @@ function getClosestPointOnSegment(point: Point, start: Point, end: Point): Point
     x: start.x + t * dx,
     y: start.y + t * dy,
   }
+}
+
+function pointTouchesWall(point: Point, wall: Pick<Wall, 'end' | 'start'>) {
+  return (
+    distance(point, getClosestPointOnSegment(point, wall.start, wall.end)) <=
+    WALL_DRAG_CONNECTION_TOLERANCE_METERS
+  )
+}
+
+function getConnectedWallDragIds(walls: Wall[], seedWallIds: string[]) {
+  const seedWalls = walls.filter((wall) => seedWallIds.includes(wall.id))
+  const movingWallIds = new Set(seedWalls.map((wall) => wall.id))
+
+  walls.forEach((wall) => {
+    if (movingWallIds.has(wall.id)) {
+      return
+    }
+
+    if (
+      seedWalls.some(
+        (seedWall) =>
+          pointTouchesWall(wall.start, seedWall) ||
+          pointTouchesWall(wall.end, seedWall),
+      )
+    ) {
+      movingWallIds.add(wall.id)
+    }
+  })
+
+  return [...movingWallIds]
 }
 
 function getProjectionOnSegment(point: Point, start: Point, end: Point) {
@@ -2460,22 +3318,29 @@ export function FloorplanCanvas({
   projectFileName,
   selectedModelId,
   selectedModelIds,
+  selectedRoofId,
   selectedRoomSignature,
   selectedWallId,
   selectedWallIds,
   wallHeight,
   wallKind,
   onAddWall,
+  onAddRoof,
   onDeleteModel,
+  onDeleteRoof,
   onDeleteWall,
   onExitAddWall,
   onSelectModel,
+  onSelectRoof,
   onSelectRoom,
   onSelectWall,
   onUpdateModel,
+  onUpdateRoof,
   onUpdateWall,
+  onUpdateWalls,
 }: FloorplanCanvasProps) {
   const walls = activeFloor.walls
+  const roofs = activeFloor.roofs ?? []
   const referenceFloors = useMemo(
     () => floors.filter((floor) => floor.id !== activeFloor.id),
     [activeFloor.id, floors],
@@ -2483,6 +3348,13 @@ export function FloorplanCanvas({
   const referenceWalls = useMemo(
     () => referenceFloors.flatMap((floor) => floor.walls),
     [referenceFloors],
+  )
+  const roofAttachmentWalls = useMemo(
+    () =>
+      floors
+        .filter((floor) => floor.elevation >= activeFloor.elevation)
+        .flatMap((floor) => floor.walls),
+    [activeFloor.elevation, floors],
   )
   const draftWallThickness = getDraftWallThickness(
     wallKind,
@@ -2492,7 +3364,23 @@ export function FloorplanCanvas({
     () => getSnapSegments(walls, wallKind, draftWallThickness),
     [draftWallThickness, walls, wallKind],
   )
+  const roofPlacementSnapPoints = useMemo(() => {
+    const pointsByKey = new Map<string, Point>()
+
+    roofAttachmentWalls
+      .filter((wall) => wall.kind === 'external')
+      .forEach((wall) => {
+        pointsByKey.set(getRoofPlacementPointKey(wall.start), wall.start)
+        pointsByKey.set(getRoofPlacementPointKey(wall.end), wall.end)
+      })
+
+    return Array.from(pointsByKey.values())
+  }, [roofAttachmentWalls])
   const wallTopology = useMemo(() => buildWallTopology(walls), [walls])
+  const roofAttachmentTopology = useMemo(
+    () => buildWallTopology(roofAttachmentWalls),
+    [roofAttachmentWalls],
+  )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
@@ -2549,12 +3437,31 @@ export function FloorplanCanvas({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
   const [isDraggingModel, setIsDraggingModel] = useState(false)
+  const [isDraggingRoof, setIsDraggingRoof] = useState(false)
   const [isDraggingWall, setIsDraggingWall] = useState(false)
+  const [isRoofMode, setIsRoofMode] = useState(false)
+  const [roofPlacementDirection, setRoofPlacementDirection] =
+    useState<RoofPlacementDirection>('north')
+  const [roofPlacementQuarterTurns, setRoofPlacementQuarterTurns] = useState(0)
+  const [roofPlacementEndOverhang, setRoofPlacementEndOverhang] = useState(0.15)
+  const [roofPlacementSideOverhang, setRoofPlacementSideOverhang] = useState(0.15)
+  const [roofPlacementSideNegativeOverhang, setRoofPlacementSideNegativeOverhang] =
+    useState(0.15)
+  const [roofPlacementSidePositiveOverhang, setRoofPlacementSidePositiveOverhang] =
+    useState(0.15)
+  const [hoverRoofPlacementPoint, setHoverRoofPlacementPoint] =
+    useState<Point | null>(null)
+  const [roofPlacementPitchDegrees, setRoofPlacementPitchDegrees] = useState(35)
+  const [roofPlacementSoffitColor, setRoofPlacementSoffitColor] = useState('#ffffff')
+  const [roofPlacementOverhangPitchDegrees, setRoofPlacementOverhangPitchDegrees] = useState<number | undefined>()
+  const selectedRoof = floors.flatMap((floor) => floor.roofs ?? []).find((roof) => roof.id === selectedRoofId)
+  const [roofPlacementPoints, setRoofPlacementPoints] = useState<Point[]>([])
+  const [roofPlacementType, setRoofPlacementType] =
+    useState<RoofStructure['type']>('up-and-over')
   const [transformMode, setTransformMode] =
     useState<TransformMode>('translate')
   const [wallDragPreview, setWallDragPreview] = useState<{
-    wall: Pick<Wall, 'end' | 'start'>
-    wallId: string
+    walls: Record<string, Pick<Wall, 'end' | 'start'>>
   } | null>(null)
   const [isAxisLocked, setIsAxisLocked] = useState(true)
   const [modelBoundsById, setModelBoundsById] = useState<Record<string, ModelBounds>>(
@@ -2568,6 +3475,7 @@ export function FloorplanCanvas({
   const modelMoveDragRef = useRef<ModelMoveDragState | null>(null)
   const modelRotateDragRef = useRef<ModelRotateDragState | null>(null)
   const modelScaleDragRef = useRef<ModelScaleDragState | null>(null)
+  const roofResizeDragRef = useRef<RoofResizeDragState | null>(null)
   const wallDragPreviewFrameRef = useRef<number | null>(null)
   const pendingWallDragPreviewRef = useRef<typeof wallDragPreview>(null)
   const scheduleWallDragPreview = useCallback(
@@ -2594,6 +3502,18 @@ export function FloorplanCanvas({
     },
     [],
   )
+
+  useEffect(() => {
+    if (!isRoofMode) {
+      setRoofPlacementPoints([])
+      setHoverRoofPlacementPoint(null)
+    }
+  }, [isRoofMode])
+
+  useEffect(() => {
+    setRoofPlacementPoints([])
+    setHoverRoofPlacementPoint(null)
+  }, [activeFloor.id])
 
   useEffect(() => {
     let isMounted = true
@@ -2816,8 +3736,9 @@ export function FloorplanCanvas({
     setWallDragPreview(
       nextWall
         ? {
-            wallId: wallMeasurementEdit.wallId,
-            wall: nextWall,
+            walls: {
+              [wallMeasurementEdit.wallId]: nextWall,
+            },
           }
         : null,
     )
@@ -3209,6 +4130,26 @@ export function FloorplanCanvas({
     })
   }
 
+  const wallUpdatesRespectMinimumJoinAngles = (
+    nextWallsById: Record<string, Pick<Wall, 'end' | 'start'>>,
+  ) => {
+    const nextWalls = activeFloor.walls.map((wall) =>
+      nextWallsById[wall.id] ? { ...wall, ...nextWallsById[wall.id] } : wall,
+    )
+
+    return Object.entries(nextWallsById).every(([wallId, nextWall]) =>
+      wallRespectsMinimumJoinAngles({
+        movingWall: {
+          id: wallId,
+          start: nextWall.start,
+          end: nextWall.end,
+        },
+        tolerance: WALL_JOIN_EPSILON_METERS,
+        walls: nextWalls.filter((wall) => wall.id !== wallId),
+      }),
+    )
+  }
+
   const draftWallCanBePlaced = (nextWall: Pick<Wall, 'end' | 'start'>) =>
     wallRespectsMinimumJoinAngles({
       movingWall: {
@@ -3285,6 +4226,86 @@ export function FloorplanCanvas({
     setContextMenu(null)
   }
 
+  const toggleRoofPlacementPoint = (point: Point) => {
+    setRoofPlacementPoints((currentPoints) =>
+      currentPoints.some((currentPoint) => pointsMatch(currentPoint, point))
+        ? currentPoints.filter((currentPoint) => !pointsMatch(currentPoint, point))
+        : [...currentPoints, point],
+    )
+  }
+
+  const createRoofFromPlacementPoints = () => {
+    const baseRotation =
+      roofPlacementType === 'lean-to'
+        ? getLeanToRotationFromSnappedWall(
+            roofPlacementPoints,
+            roofAttachmentWalls,
+            roofAttachmentTopology.rooms,
+          )
+        : roofPlacementType === 'flat' || roofPlacementType === 'up-and-over'
+          ? getUpAndOverRotationFromPlacementPoints(roofPlacementPoints)
+          : null
+    const rotation =
+      (baseRotation ??
+        getRoofPlacementRotation(
+          roofPlacementType,
+          roofPlacementDirection,
+        )) +
+      roofPlacementQuarterTurns * (Math.PI / 2)
+    const supportPoints = getRoofPlacementSupportPoints({
+      points: roofPlacementPoints,
+      roofType: roofPlacementType,
+      rotation,
+      walls: roofAttachmentWalls,
+    })
+    const supportBounds = getRoofSupportBounds(supportPoints, rotation)
+    const bounds = getRoofPlacementBounds({
+      overhangEnd: roofPlacementEndOverhang,
+      overhangSide: roofPlacementSideOverhang,
+      overhangSideNegative:
+        roofPlacementType === 'up-and-over'
+          ? roofPlacementSideNegativeOverhang
+          : roofPlacementSideOverhang,
+      overhangSidePositive:
+        roofPlacementType === 'up-and-over'
+          ? roofPlacementSidePositiveOverhang
+          : roofPlacementSideOverhang,
+      points: supportPoints,
+      roofType: roofPlacementType,
+      rotation,
+    })
+
+    if (!bounds || !supportBounds) {
+      return
+    }
+
+    onAddRoof({
+      depth: bounds.depth,
+      floorId: activeFloor.id,
+      overhangEnd: roofPlacementEndOverhang,
+      overhangSide: roofPlacementSideOverhang,
+      overhangSideNegative:
+        roofPlacementType === 'up-and-over'
+          ? roofPlacementSideNegativeOverhang
+          : roofPlacementSideOverhang,
+      overhangSidePositive:
+        roofPlacementType === 'up-and-over'
+          ? roofPlacementSidePositiveOverhang
+          : roofPlacementSideOverhang,
+      pitchDegrees: roofPlacementPitchDegrees,
+      overhangPitchDegrees: roofPlacementOverhangPitchDegrees,
+      soffitColor: roofPlacementSoffitColor,
+      position: bounds.position,
+      rotation,
+      supportDepth: supportBounds.depth,
+      supportPosition: supportBounds.position,
+      supportWidth: supportBounds.width,
+      type: roofPlacementType,
+      width: bounds.width,
+    })
+    setRoofPlacementPoints([])
+  }
+
   const openWallContextMenu = (
     wallId: string,
     event: KonvaEventObject<PointerEvent>,
@@ -3326,6 +4347,27 @@ export function FloorplanCanvas({
     })
   }
 
+  const openRoofContextMenu = (
+    roofId: string,
+    event: KonvaEventObject<PointerEvent>,
+  ) => {
+    event.evt.preventDefault()
+    event.cancelBubble = true
+    const containerBounds = containerRef.current?.getBoundingClientRect()
+
+    if (!containerBounds) {
+      return
+    }
+
+    onSelectRoof(roofId)
+    setContextMenu({
+      targetId: roofId,
+      targetType: 'roof',
+      x: event.evt.clientX - containerBounds.left,
+      y: event.evt.clientY - containerBounds.top,
+    })
+  }
+
   const stopMiddlePan = () => {
     syncViewportFromStage()
     middlePanRef.current = null
@@ -3352,6 +4394,16 @@ export function FloorplanCanvas({
 
     if (!isAddingWall) {
       if (event.target === event.target.getStage()) {
+        if (isRoofMode) {
+          if (hoverRoofPlacementPoint) {
+            toggleRoofPlacementPoint(hoverRoofPlacementPoint)
+            return
+          }
+
+          onSelectRoof(null)
+          return
+        }
+
         onSelectWall(null)
         onSelectModel(null)
       }
@@ -3433,6 +4485,17 @@ export function FloorplanCanvas({
     }
 
     if (!isAddingWall) {
+      if (isRoofMode) {
+        const point = getPointerPoint(event)
+        setHoverRoofPlacementPoint(
+          point ? getClosestExternalWallPoint(point, roofAttachmentWalls) : null,
+        )
+        setHoverSnapTarget(null)
+        setHoverAlignmentGuide(null)
+        setIsAxisLocked(true)
+        return
+      }
+
       setHoverSnapTarget(null)
       setHoverAlignmentGuide(null)
       setIsAxisLocked(true)
@@ -3585,17 +4648,21 @@ export function FloorplanCanvas({
     () =>
       wallDragPreview
         ? walls.map((wall) =>
-            wall.id === wallDragPreview.wallId
-              ? { ...wall, ...wallDragPreview.wall }
+            wallDragPreview.walls[wall.id]
+              ? { ...wall, ...wallDragPreview.walls[wall.id] }
               : wall,
           )
         : walls,
     [wallDragPreview, walls],
   )
+  const previewWallTopology = useMemo(
+    () => buildWallTopology(previewWalls),
+    [previewWalls],
+  )
   const renderedWalls = useMemo(() => getRenderedWalls(previewWalls), [previewWalls])
   const selectedWallMeasurementPreview =
-    wallMeasurementEdit && wallDragPreview?.wallId === wallMeasurementEdit.wallId
-      ? wallDragPreview.wall
+    wallMeasurementEdit && wallDragPreview?.walls[wallMeasurementEdit.wallId]
+      ? wallDragPreview.walls[wallMeasurementEdit.wallId]
       : wallMeasurementEdit
         ? walls.find((wall) => wall.id === wallMeasurementEdit.wallId) ?? null
         : null
@@ -4409,11 +5476,15 @@ export function FloorplanCanvas({
 
   const dimensionRulers = useMemo(
     () =>
-      walls.flatMap((wall) =>
+      previewWalls.flatMap((wall) =>
         (wall.kind === 'internal'
           ? renderOptions.internalDimensions
           : renderOptions.externalDimensions)
-          ? getDimensionGuides(wall, walls, wallTopology).map((guide, index) => {
+          ? getDimensionGuides(
+              wall,
+              previewWalls,
+              previewWallTopology,
+            ).map((guide, index) => {
       const measurementTextScale =
         viewport.scale > MEASUREMENT_TEXT_SCALE_THRESHOLD
           ? MEASUREMENT_TEXT_SCALE_THRESHOLD / viewport.scale
@@ -4568,10 +5639,336 @@ export function FloorplanCanvas({
       renderOptions.externalDimensions,
       renderOptions.internalDimensions,
       viewport.scale,
-      wallTopology,
-      walls,
+      previewWallTopology,
+      previewWalls,
     ],
   )
+  const roofFootprints = [...roofs]
+    .sort((firstRoof, secondRoof) => {
+      if (firstRoof.id === selectedRoofId) {
+        return 1
+      }
+
+      if (secondRoof.id === selectedRoofId) {
+        return -1
+      }
+
+      return 0
+    })
+    .map((roof) => {
+    const center = toCanvasPoint(roof.position)
+    const width = Math.max(roof.width, 0.3) * METERS_TO_PIXELS
+    const depth = Math.max(roof.depth, 0.3) * METERS_TO_PIXELS
+    const halfWidth = width / 2
+    const halfDepth = depth / 2
+    const rotation = (roof.rotation * 180) / Math.PI
+    const isSelectedRoof = roof.id === selectedRoofId
+    const handleRadius = Math.max(4, 7 / viewport.scale)
+    const handleStrokeWidth = Math.max(1, 2 / viewport.scale)
+    const supportBounds = getRoofPlanSupportLocalBounds(roof)
+    const cornerHandles: Array<{
+      corner: RoofResizeCorner
+      x: number
+      y: number
+    }> = [
+      { corner: 'top-left', x: supportBounds.minX * METERS_TO_PIXELS, y: supportBounds.minY * METERS_TO_PIXELS },
+      { corner: 'top-right', x: supportBounds.maxX * METERS_TO_PIXELS, y: supportBounds.minY * METERS_TO_PIXELS },
+      { corner: 'bottom-right', x: supportBounds.maxX * METERS_TO_PIXELS, y: supportBounds.maxY * METERS_TO_PIXELS },
+      { corner: 'bottom-left', x: supportBounds.minX * METERS_TO_PIXELS, y: supportBounds.maxY * METERS_TO_PIXELS },
+    ]
+    const beginResize = (
+      corner: RoofResizeCorner,
+      event: KonvaEventObject<DragEvent>,
+    ) => {
+      event.cancelBubble = true
+      roofResizeDragRef.current = {
+        corner,
+        roof: {
+          ...roof,
+          position: { ...roof.position },
+        },
+      }
+      setIsDraggingRoof(true)
+      setHoverRoofPlacementPoint(null)
+      onSelectRoof(roof.id)
+      event.target.position({
+        x: cornerHandles.find((handle) => handle.corner === corner)?.x ?? 0,
+        y: cornerHandles.find((handle) => handle.corner === corner)?.y ?? 0,
+      })
+    }
+    const resizeFromPointer = (event: KonvaEventObject<DragEvent>) => {
+      event.cancelBubble = true
+      const point = getPointerPoint(event)
+      const dragState = roofResizeDragRef.current
+
+      if (!point || !dragState || dragState.roof.id !== roof.id) {
+        event.target.position({ x: 0, y: 0 })
+        return
+      }
+
+      const startRoof = dragState.roof
+      const snappedPoint = getClosestRoofAnchorPoint(
+        point,
+        roof.type === 'lean-to' ? roofAttachmentWalls : walls,
+      )
+
+      setHoverRoofPlacementPoint(snappedPoint)
+
+      if (!snappedPoint) {
+        event.target.position({ x: 0, y: 0 })
+        return
+      }
+
+      const startSupportBounds = getRoofPlanSupportLocalBounds(startRoof)
+      const cornerSign = {
+        x:
+          dragState.corner === 'top-right' ||
+          dragState.corner === 'bottom-right'
+            ? 1
+            : -1,
+        y:
+          dragState.corner === 'bottom-left' ||
+          dragState.corner === 'bottom-right'
+            ? 1
+            : -1,
+      }
+      const oppositeLocal = {
+        x: cornerSign.x > 0 ? startSupportBounds.minX : startSupportBounds.maxX,
+        y: cornerSign.y > 0 ? startSupportBounds.minY : startSupportBounds.maxY,
+      }
+      const supportPoints = getRoofPlacementSupportPoints({
+        points: [
+          getRoofWorldPointFromLocal(startRoof, oppositeLocal),
+          snappedPoint,
+        ],
+        roofType: startRoof.type,
+        rotation: startRoof.rotation,
+        walls: startRoof.type === 'lean-to' ? roofAttachmentWalls : walls,
+      })
+      const nextSupportBounds = getRoofSupportBounds(
+        supportPoints,
+        startRoof.rotation,
+      )
+      const nextBounds = getRoofPlacementBounds({
+        overhangEnd: Math.max(0, startRoof.overhangEnd ?? 0),
+        overhangSide: Math.max(0, startRoof.overhangSide ?? 0),
+        overhangSideNegative: Math.max(
+          0,
+          startRoof.overhangSideNegative ?? startRoof.overhangSide ?? 0,
+        ),
+        overhangSidePositive: Math.max(
+          0,
+          startRoof.overhangSidePositive ?? startRoof.overhangSide ?? 0,
+        ),
+        points: supportPoints,
+        roofType: startRoof.type,
+        rotation: startRoof.rotation,
+      })
+
+      if (!nextSupportBounds || !nextBounds) {
+        event.target.position({ x: 0, y: 0 })
+        return
+      }
+
+      onUpdateRoof(roof.id, {
+        depth: nextBounds.depth,
+        position: nextBounds.position,
+        supportDepth: nextSupportBounds.depth,
+        supportPosition: nextSupportBounds.position,
+        supportWidth: nextSupportBounds.width,
+        width: nextBounds.width,
+      })
+      const updatedSupportBounds = getRoofPlanSupportLocalBounds({
+        ...startRoof,
+        depth: nextBounds.depth,
+        position: nextBounds.position,
+        supportDepth: nextSupportBounds.depth,
+        supportPosition: nextSupportBounds.position,
+        supportWidth: nextSupportBounds.width,
+        width: nextBounds.width,
+      })
+      event.target.position({
+        x:
+          (cornerSign.x > 0
+            ? updatedSupportBounds.maxX
+            : updatedSupportBounds.minX) * METERS_TO_PIXELS,
+        y:
+          (cornerSign.y > 0
+            ? updatedSupportBounds.maxY
+            : updatedSupportBounds.minY) * METERS_TO_PIXELS,
+      })
+    }
+    const endResize = (event: KonvaEventObject<DragEvent>) => {
+      event.cancelBubble = true
+      roofResizeDragRef.current = null
+      event.target.position({ x: 0, y: 0 })
+      setIsDraggingRoof(false)
+      setHoverRoofPlacementPoint(null)
+    }
+
+    return (
+      <Group
+        key={roof.id}
+        x={center.x}
+        y={center.y}
+        rotation={rotation}
+        listening={isRoofMode}
+        onClick={(event) => {
+          event.cancelBubble = true
+          onSelectRoof(isSelectedRoof ? null : roof.id)
+        }}
+        onContextMenu={(event) => openRoofContextMenu(roof.id, event)}
+        onPointerDown={(event) => {
+          if (event.evt.button === 2) {
+            openRoofContextMenu(roof.id, event)
+          }
+        }}
+        onTap={(event) => {
+          event.cancelBubble = true
+          onSelectRoof(isSelectedRoof ? null : roof.id)
+        }}
+      >
+        <Rect
+          x={-halfWidth}
+          y={-halfDepth}
+          width={width}
+          height={depth}
+          fill={roof.type === 'lean-to' ? '#dbeafe' : '#e2e8f0'}
+          opacity={0.82}
+          stroke={isSelectedRoof ? '#2563eb' : '#475569'}
+          strokeWidth={isSelectedRoof ? 3 / viewport.scale : 1.5 / viewport.scale}
+          dash={roof.type === 'lean-to' ? [10 / viewport.scale, 5 / viewport.scale] : undefined}
+        />
+        {roof.type === 'hip' ? (
+          <>
+            <Line
+              points={[-halfWidth, -halfDepth, 0, 0, halfWidth, -halfDepth]}
+              stroke="#64748b"
+              strokeWidth={1.25 / viewport.scale}
+              listening={false}
+            />
+            <Line
+              points={[-halfWidth, halfDepth, 0, 0, halfWidth, halfDepth]}
+              stroke="#64748b"
+              strokeWidth={1.25 / viewport.scale}
+              listening={false}
+            />
+          </>
+        ) : roof.type === 'up-and-over' ? (
+          <Line
+            points={[0, -halfDepth, 0, halfDepth]}
+            stroke="#64748b"
+            strokeWidth={1.5 / viewport.scale}
+            listening={false}
+          />
+        ) : roof.type === 'lean-to' ? (
+          <Line
+            points={[-halfWidth, halfDepth, halfWidth, -halfDepth]}
+            stroke="#64748b"
+            strokeWidth={1.5 / viewport.scale}
+            listening={false}
+          />
+        ) : null}
+        <Text
+          x={-halfWidth}
+          y={-12 / viewport.scale}
+          width={width}
+          align="center"
+          text={roof.type}
+          fill="#0f172a"
+          fontSize={11 / viewport.scale}
+          fontStyle="bold"
+          listening={false}
+        />
+        {isSelectedRoof
+          ? cornerHandles.map((handle) => (
+              <Circle
+                key={`${roof.id}-${handle.corner}`}
+                x={handle.x}
+                y={handle.y}
+                radius={handleRadius}
+                fill="#ffffff"
+                stroke="#2563eb"
+                strokeWidth={handleStrokeWidth}
+                draggable
+                onDragStart={(event) => beginResize(handle.corner, event)}
+                onDragMove={resizeFromPointer}
+                onDragEnd={endResize}
+              />
+            ))
+          : null}
+      </Group>
+    )
+  })
+  const roofPlacementBaseRotation =
+    roofPlacementType === 'lean-to'
+      ? getLeanToRotationFromSnappedWall(
+          roofPlacementPoints,
+          roofAttachmentWalls,
+          roofAttachmentTopology.rooms,
+        )
+      : roofPlacementType === 'flat' || roofPlacementType === 'up-and-over'
+        ? getUpAndOverRotationFromPlacementPoints(roofPlacementPoints)
+        : null
+  const roofPlacementRotation =
+    (roofPlacementBaseRotation ??
+      getRoofPlacementRotation(
+        roofPlacementType,
+        roofPlacementDirection,
+      )) +
+    roofPlacementQuarterTurns * (Math.PI / 2)
+  const roofPlacementSupportPoints = getRoofPlacementSupportPoints({
+    points: roofPlacementPoints,
+    roofType: roofPlacementType,
+    rotation: roofPlacementRotation,
+    walls: roofPlacementType === 'lean-to' ? roofAttachmentWalls : walls,
+  })
+  const roofPlacementBounds = getRoofPlacementBounds({
+    overhangEnd: roofPlacementEndOverhang,
+    overhangSide: roofPlacementSideOverhang,
+    overhangSideNegative:
+      roofPlacementType === 'up-and-over'
+        ? roofPlacementSideNegativeOverhang
+        : roofPlacementSideOverhang,
+    overhangSidePositive:
+      roofPlacementType === 'up-and-over'
+        ? roofPlacementSidePositiveOverhang
+        : roofPlacementSideOverhang,
+    points: roofPlacementSupportPoints,
+    roofType: roofPlacementType,
+    rotation: roofPlacementRotation,
+  })
+  const roofPlacementPreview = roofPlacementBounds
+    ? {
+        center: toCanvasPoint(roofPlacementBounds.position),
+        depth: roofPlacementBounds.depth * METERS_TO_PIXELS,
+        rotation: (roofPlacementRotation * 180) / Math.PI,
+        width: roofPlacementBounds.width * METERS_TO_PIXELS,
+      }
+    : null
+  const upAndOverRidgeIsHorizontal =
+    roofPlacementType === 'up-and-over' &&
+    Math.abs(Math.cos(roofPlacementRotation)) <
+      Math.abs(Math.sin(roofPlacementRotation))
+  const negativeSideOverhangLabel = upAndOverRidgeIsHorizontal
+    ? 'Lower overhang'
+    : 'Left overhang'
+  const positiveSideOverhangLabel = upAndOverRidgeIsHorizontal
+    ? 'Upper overhang'
+    : 'Right overhang'
+  const firstSideOverhangValue = upAndOverRidgeIsHorizontal
+    ? roofPlacementSidePositiveOverhang
+    : roofPlacementSideNegativeOverhang
+  const secondSideOverhangValue = upAndOverRidgeIsHorizontal
+    ? roofPlacementSideNegativeOverhang
+    : roofPlacementSidePositiveOverhang
+  const setFirstSideOverhang = upAndOverRidgeIsHorizontal
+    ? setRoofPlacementSidePositiveOverhang
+    : setRoofPlacementSideNegativeOverhang
+  const setSecondSideOverhang = upAndOverRidgeIsHorizontal
+    ? setRoofPlacementSideNegativeOverhang
+    : setRoofPlacementSidePositiveOverhang
+  const roofSnapAnchorsVisible = !selectedRoofId || isDraggingRoof
 
   return (
     <section className="editor-pane">
@@ -4606,6 +6003,17 @@ export function FloorplanCanvas({
               onClick={() => setTransformMode('scale')}
             >
               Scale
+            </button>
+            <button
+              type="button"
+              className={isRoofMode ? 'active' : ''}
+              onClick={() => {
+                const nextRoofMode = !isRoofMode
+
+                setIsRoofMode(nextRoofMode)
+              }}
+            >
+              Roof
             </button>
           </div>
           <div className="render-options">
@@ -4703,6 +6111,7 @@ export function FloorplanCanvas({
             !draftWall &&
             !isMiddlePanning &&
             !isDraggingModel &&
+            !isDraggingRoof &&
             !isDraggingWall
           }
           onPointerDown={handlePointerDown}
@@ -4720,6 +6129,7 @@ export function FloorplanCanvas({
             }
 
             setHoverAlignmentGuide(null)
+            setHoverRoofPlacementPoint(null)
 
             if (!draftWall) {
               setHoverSnapTarget(null)
@@ -4752,7 +6162,7 @@ export function FloorplanCanvas({
             ))}
           </Layer>
 
-          <Layer>
+          <Layer opacity={isRoofMode ? 0.28 : 1} listening={!isRoofMode}>
             {roomRegions}
 
             {referenceFloors.flatMap((floor) =>
@@ -4809,29 +6219,46 @@ export function FloorplanCanvas({
                     setHoverSnapTarget(null)
                     setHoverAlignmentGuide(null)
                     const pointerPoint = getPointerPoint(event)
+                    const seedWallIds = selectedWallIds.includes(renderedWall.wall.id)
+                      ? selectedWallIds
+                      : [renderedWall.wall.id]
+                    const wallIds = getConnectedWallDragIds(walls, seedWallIds)
+                    const startWalls = Object.fromEntries(
+                      wallIds.flatMap((wallId) => {
+                        const wall = walls.find(
+                          (candidateWall) => candidateWall.id === wallId,
+                        )
+
+                        return wall
+                          ? [[
+                              wallId,
+                              {
+                                start: { ...wall.start },
+                                end: { ...wall.end },
+                              },
+                            ]]
+                          : []
+                      }),
+                    )
                     wallDragRef.current = pointerPoint
                       ? {
                           type: 'wall',
                           wallId: renderedWall.wall.id,
-                          pendingWall: {
-                            start: { ...renderedWall.wall.start },
-                            end: { ...renderedWall.wall.end },
-                          },
+                          wallIds,
+                          pendingWalls: startWalls,
+                          seedWallIds,
                           startPointer: pointerPoint,
                           startWall: {
                             start: { ...renderedWall.wall.start },
                             end: { ...renderedWall.wall.end },
                           },
+                          startWalls,
                         }
                       : null
                     setWallDragPreview(
                       pointerPoint
                         ? {
-                            wallId: renderedWall.wall.id,
-                            wall: {
-                              start: { ...renderedWall.wall.start },
-                              end: { ...renderedWall.wall.end },
-                            },
+                            walls: startWalls,
                           }
                         : null,
                     )
@@ -4859,15 +6286,16 @@ export function FloorplanCanvas({
                       x: pointerPoint.x - dragState.startPointer.x,
                       y: pointerPoint.y - dragState.startPointer.y,
                     }
+                    const shouldLockAxis = event.evt.ctrlKey
+                    const shouldSnapToStep = !event.evt.shiftKey
                     const constrainedDelta =
-                      event.evt.shiftKey && Math.abs(rawDelta.x) > Math.abs(rawDelta.y)
+                      shouldLockAxis && Math.abs(rawDelta.x) > Math.abs(rawDelta.y)
                         ? { x: rawDelta.x, y: 0 }
-                        : event.evt.shiftKey
+                        : shouldLockAxis
                           ? { x: 0, y: rawDelta.y }
                           : rawDelta
-                    const delta = event.evt.ctrlKey
-                      ? constrainedDelta
-                      : {
+                    const delta = shouldSnapToStep
+                      ? {
                           x:
                             Math.round(
                               constrainedDelta.x / MODEL_TRANSLATION_STEP_METERS,
@@ -4877,33 +6305,84 @@ export function FloorplanCanvas({
                               constrainedDelta.y / MODEL_TRANSLATION_STEP_METERS,
                             ) * MODEL_TRANSLATION_STEP_METERS,
                         }
+                      : constrainedDelta
+                    const seedWallIdSet = new Set(dragState.seedWallIds)
+                    const seedWalls = dragState.seedWallIds.flatMap((wallId) => {
+                      const startWall = dragState.startWalls[wallId]
 
-                    const nextWall = {
-                      start: {
-                        x: dragState.startWall.start.x + delta.x,
-                        y: dragState.startWall.start.y + delta.y,
-                      },
-                      end: {
-                        x: dragState.startWall.end.x + delta.x,
-                        y: dragState.startWall.end.y + delta.y,
-                      },
-                    }
+                      return startWall ? [{ id: wallId, ...startWall }] : []
+                    })
+                    const nextWalls = Object.fromEntries(
+                      dragState.wallIds.flatMap((wallId) => {
+                        const startWall = dragState.startWalls[wallId]
+
+                        if (!startWall) {
+                          return []
+                        }
+
+                        if (!seedWallIdSet.has(wallId)) {
+                          const moveStart = seedWalls.some((seedWall) =>
+                            pointTouchesWall(startWall.start, seedWall),
+                          )
+                          const moveEnd = seedWalls.some((seedWall) =>
+                            pointTouchesWall(startWall.end, seedWall),
+                          )
+
+                          if (!moveStart && !moveEnd) {
+                            return []
+                          }
+
+                          return [[
+                            wallId,
+                            {
+                              start: moveStart
+                                ? {
+                                    x: startWall.start.x + delta.x,
+                                    y: startWall.start.y + delta.y,
+                                  }
+                                : startWall.start,
+                              end: moveEnd
+                                ? {
+                                    x: startWall.end.x + delta.x,
+                                    y: startWall.end.y + delta.y,
+                                  }
+                                : startWall.end,
+                            },
+                          ]]
+                        }
+
+                        return startWall
+                          ? [[
+                              wallId,
+                              {
+                                start: {
+                                  x: startWall.start.x + delta.x,
+                                  y: startWall.start.y + delta.y,
+                                },
+                                end: {
+                                  x: startWall.end.x + delta.x,
+                                  y: startWall.end.y + delta.y,
+                                },
+                              },
+                            ]]
+                          : []
+                      }),
+                    )
+                    const nextWall = nextWalls[dragState.wallId]
 
                     if (
-                      !wallUpdateRespectsMinimumJoinAngles(
-                        dragState.wallId,
-                        nextWall,
-                      )
+                      !nextWall ||
+                      !wallUpdatesRespectMinimumJoinAngles(nextWalls)
                     ) {
                       event.target.position({ x: 0, y: 0 })
                       return
                     }
 
                     dragState.pendingWall = nextWall
+                    dragState.pendingWalls = nextWalls
                     event.target.position({ x: 0, y: 0 })
                     scheduleWallDragPreview({
-                      wallId: dragState.wallId,
-                      wall: nextWall,
+                      walls: nextWalls,
                     })
                   }}
                   onDragEnd={(event) => {
@@ -4912,13 +6391,14 @@ export function FloorplanCanvas({
 
                     if (
                       dragState?.type === 'wall' &&
-                      dragState.pendingWall &&
-                      wallUpdateRespectsMinimumJoinAngles(
-                        dragState.wallId,
-                        dragState.pendingWall,
-                      )
+                      dragState.pendingWalls &&
+                      wallUpdatesRespectMinimumJoinAngles(dragState.pendingWalls)
                     ) {
-                      onUpdateWall(dragState.wallId, dragState.pendingWall)
+                      onUpdateWalls(
+                        Object.entries(dragState.pendingWalls).map(
+                          ([wallId, updates]) => ({ wallId, updates }),
+                        ),
+                      )
                     }
 
                     wallDragRef.current = null
@@ -4981,10 +6461,11 @@ export function FloorplanCanvas({
                       setWallDragPreview(
                         pointerPoint
                           ? {
-                              wallId: renderedWall.wall.id,
-                              wall: {
-                                start: { ...renderedWall.wall.start },
-                                end: { ...renderedWall.wall.end },
+                              walls: {
+                                [renderedWall.wall.id]: {
+                                  start: { ...renderedWall.wall.start },
+                                  end: { ...renderedWall.wall.end },
+                                },
                               },
                             }
                           : null,
@@ -5083,8 +6564,9 @@ export function FloorplanCanvas({
                       dragState.pendingWall = nextWall
                       event.target.position(toCanvasPoint(nextPoint))
                       scheduleWallDragPreview({
-                        wallId: dragState.wallId,
-                        wall: nextWall,
+                        walls: {
+                          [dragState.wallId]: nextWall,
+                        },
                       })
                     }}
                     onDragEnd={(event) => {
@@ -5284,7 +6766,274 @@ export function FloorplanCanvas({
               />
             ) : null}
           </Layer>
+          {isRoofMode ? (
+            <Layer>
+              {selectedRoofId ? null : roofFootprints}
+              {roofPlacementPreview ? (
+                <Group
+                  x={roofPlacementPreview.center.x}
+                  y={roofPlacementPreview.center.y}
+                  rotation={roofPlacementPreview.rotation}
+                  listening={false}
+                >
+                  <Rect
+                    x={-roofPlacementPreview.width / 2}
+                    y={-roofPlacementPreview.depth / 2}
+                    width={roofPlacementPreview.width}
+                    height={roofPlacementPreview.depth}
+                    fill="#bfdbfe"
+                    opacity={0.22}
+                    stroke="#2563eb"
+                    strokeWidth={2 / viewport.scale}
+                    dash={[10 / viewport.scale, 6 / viewport.scale]}
+                  />
+                  <Line
+                    points={[
+                      0,
+                      -roofPlacementPreview.depth / 2,
+                      0,
+                      roofPlacementPreview.depth / 2,
+                    ]}
+                    stroke="#1d4ed8"
+                    strokeWidth={1.5 / viewport.scale}
+                  />
+                  {roofPlacementType === 'lean-to' ? (
+                    <Line
+                      points={[
+                        roofPlacementPreview.width * 0.3,
+                        0,
+                        -roofPlacementPreview.width * 0.3,
+                        0,
+                      ]}
+                      stroke="#1d4ed8"
+                      strokeWidth={2 / viewport.scale}
+                      pointerAtEnding
+                      pointerLength={Math.max(8, 10 / viewport.scale)}
+                      pointerWidth={Math.max(7, 9 / viewport.scale)}
+                    />
+                  ) : null}
+                </Group>
+              ) : null}
+              {roofPlacementPoints.length > 1 ? (
+                <Line
+                  points={roofPlacementPoints.flatMap((point) => {
+                    const canvasPoint = toCanvasPoint(point)
+                    return [canvasPoint.x, canvasPoint.y]
+                  })}
+                  stroke="#2563eb"
+                  strokeWidth={1.5 / viewport.scale}
+                  dash={[6 / viewport.scale, 5 / viewport.scale]}
+                  listening={false}
+                />
+              ) : null}
+              {roofSnapAnchorsVisible
+                ? roofPlacementSnapPoints.map((point) => {
+                    const canvasPoint = toCanvasPoint(point)
+                    const isSelectedPoint = roofPlacementPoints.some(
+                      (selectedPoint) => pointsMatch(selectedPoint, point),
+                    )
+
+                    return (
+                      <Circle
+                        key={`roof-snap-${getRoofPlacementPointKey(point)}`}
+                        x={canvasPoint.x}
+                        y={canvasPoint.y}
+                        radius={Math.max(4, 6 / viewport.scale)}
+                        fill={isSelectedPoint ? '#2563eb' : '#ffffff'}
+                        stroke={isSelectedPoint ? '#1d4ed8' : '#0f172a'}
+                        strokeWidth={Math.max(1, 1.5 / viewport.scale)}
+                        onClick={(event) => {
+                          event.cancelBubble = true
+                          toggleRoofPlacementPoint(point)
+                        }}
+                        onTap={(event) => {
+                          event.cancelBubble = true
+                          toggleRoofPlacementPoint(point)
+                        }}
+                      />
+                    )
+                  })
+                : null}
+              {roofSnapAnchorsVisible && hoverRoofPlacementPoint ? (() => {
+                const canvasPoint = toCanvasPoint(hoverRoofPlacementPoint)
+                const isSelectedPoint = roofPlacementPoints.some(
+                  (selectedPoint) =>
+                    pointsMatch(selectedPoint, hoverRoofPlacementPoint),
+                )
+
+                return (
+                  <Circle
+                    key="roof-hover-wall-anchor"
+                    x={canvasPoint.x}
+                    y={canvasPoint.y}
+                    radius={Math.max(4, 6 / viewport.scale)}
+                    fill={isSelectedPoint ? '#2563eb' : '#ffffff'}
+                    opacity={0.92}
+                    stroke="#f97316"
+                    strokeWidth={Math.max(1, 2 / viewport.scale)}
+                    onClick={(event) => {
+                      event.cancelBubble = true
+                      toggleRoofPlacementPoint(hoverRoofPlacementPoint)
+                    }}
+                    onTap={(event) => {
+                      event.cancelBubble = true
+                      toggleRoofPlacementPoint(hoverRoofPlacementPoint)
+                    }}
+                  />
+                )
+              })() : null}
+              {selectedRoofId ? roofFootprints : null}
+            </Layer>
+          ) : null}
         </Stage>
+
+        {!isRoofMode && selectedRoof && selectedRoof.type !== 'flat' ? (
+          <div className="roof-placement-panel" aria-label="Selected roof settings">
+            <RoofPitchFields roof={selectedRoof} onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
+          </div>
+        ) : null}
+
+        {isRoofMode ? (
+          <div className="roof-placement-panel">
+            <label>
+              <span>Type</span>
+              <select
+                value={roofPlacementType}
+                onChange={(event) =>
+                  setRoofPlacementType(event.target.value as RoofStructure['type'])
+                }
+                >
+                <option value="flat">Flat</option>
+                <option value="up-and-over">Up and over</option>
+                <option value="hip">Hip</option>
+                <option value="lean-to">Lean-to</option>
+              </select>
+            </label>
+            {roofPlacementType === 'hip' ? (
+              <label>
+                <span>Direction</span>
+                <select
+                  value={roofPlacementDirection}
+                  onChange={(event) =>
+                    setRoofPlacementDirection(
+                      event.target.value as RoofPlacementDirection,
+                    )
+                  }
+                >
+                  <option value="north">North</option>
+                  <option value="east">East</option>
+                  <option value="south">South</option>
+                  <option value="west">West</option>
+                </select>
+              </label>
+            ) : (
+              <label>
+                <span>Direction</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setRoofPlacementQuarterTurns((value) => (value + 1) % 4)
+                  }
+                >
+                  Rotate 90
+                </button>
+              </label>
+            )}
+            <RoofPitchFields
+              roof={{ type: roofPlacementType, pitchDegrees: roofPlacementPitchDegrees, overhangPitchDegrees: roofPlacementOverhangPitchDegrees, soffitColor: roofPlacementSoffitColor }}
+              onChange={(updates) => {
+                if (updates.pitchDegrees !== undefined) setRoofPlacementPitchDegrees(updates.pitchDegrees)
+                if (updates.soffitColor !== undefined) setRoofPlacementSoffitColor(updates.soffitColor)
+                if ('overhangPitchDegrees' in updates) setRoofPlacementOverhangPitchDegrees(updates.overhangPitchDegrees)
+              }}
+            />
+            <label>
+              <span>End overhang</span>
+              <input
+                type="number"
+                min="0"
+                step="0.05"
+                value={roofPlacementEndOverhang}
+                onChange={(event) => {
+                  const parsedValue = Number.parseFloat(event.target.value)
+
+                  if (Number.isFinite(parsedValue)) {
+                    setRoofPlacementEndOverhang(Math.max(0, parsedValue))
+                  }
+                }}
+              />
+            </label>
+            {roofPlacementType === 'up-and-over' ? (
+              <>
+                <label>
+                  <span>{negativeSideOverhangLabel}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.05"
+                    value={firstSideOverhangValue}
+                    onChange={(event) => {
+                      const parsedValue = Number.parseFloat(event.target.value)
+
+                      if (Number.isFinite(parsedValue)) {
+                        setFirstSideOverhang(Math.max(0, parsedValue))
+                      }
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>{positiveSideOverhangLabel}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.05"
+                    value={secondSideOverhangValue}
+                    onChange={(event) => {
+                      const parsedValue = Number.parseFloat(event.target.value)
+
+                      if (Number.isFinite(parsedValue)) {
+                        setSecondSideOverhang(Math.max(0, parsedValue))
+                      }
+                    }}
+                  />
+                </label>
+              </>
+            ) : (
+              <label>
+                <span>Side overhang</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  value={roofPlacementSideOverhang}
+                  onChange={(event) => {
+                    const parsedValue = Number.parseFloat(event.target.value)
+
+                    if (Number.isFinite(parsedValue)) {
+                      setRoofPlacementSideOverhang(Math.max(0, parsedValue))
+                    }
+                  }}
+                />
+              </label>
+            )}
+            <div className="roof-placement-actions">
+              <button
+                type="button"
+                disabled={roofPlacementPoints.length === 0}
+                onClick={() => setRoofPlacementPoints([])}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                disabled={!roofPlacementBounds}
+                onClick={createRoofFromPlacementPoints}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {renderOptions.floorAreaSummary ? (
           <div className="floor-area-summary">
@@ -5406,13 +7155,17 @@ export function FloorplanCanvas({
               onClick={() => {
                 if (contextMenu.targetType === 'model') {
                   onDeleteModel(contextMenu.targetId)
+                } else if (contextMenu.targetType === 'roof') {
+                  onDeleteRoof(contextMenu.targetId)
                 } else {
                   onDeleteWall(contextMenu.targetId)
                 }
                 closeContextMenu()
               }}
             >
-              Delete {contextMenu.targetType}
+              {contextMenu.targetType === 'roof'
+                ? 'Delete roof segment'
+                : `Delete ${contextMenu.targetType}`}
             </button>
           </div>
         ) : null}

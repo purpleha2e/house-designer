@@ -202,3 +202,46 @@ test('room detection keeps adjacent rooms after rejected exploratory loops', () 
 
   assert.equal(topology.rooms.length, 4)
 })
+
+test('room detection ignores dangling internal walls', () => {
+  const topology = buildWallTopology([
+    wall({
+      id: 'bottom-external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 5, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'right-external',
+      kind: 'external',
+      start: { x: 5, y: 0 },
+      end: { x: 5, y: 4 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'top-external',
+      kind: 'external',
+      start: { x: 5, y: 4 },
+      end: { x: 0, y: 4 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'left-external',
+      kind: 'external',
+      start: { x: 0, y: 4 },
+      end: { x: 0, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'floating-internal',
+      kind: 'internal',
+      start: { x: 1, y: 1 },
+      end: { x: 3, y: 2 },
+      thickness: 0.1,
+    }),
+  ])
+
+  assert.equal(topology.rooms.length, 1)
+  assert.ok(topology.rooms[0].area > 15)
+})

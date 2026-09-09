@@ -7,6 +7,7 @@ import {
 import type { Point } from './types.ts'
 
 export type CeilingSlabFacadeEdge = {
+  bottomOffset?: number
   materialIndex: number
   nextPoint: Point
   normalSign: -1 | 1
@@ -101,23 +102,25 @@ export function createCeilingSlabGeometry(
 
   for (const edge of facadeEdges) {
     const start = positions.length / 3
+    const facadeBottom = edge.bottomOffset ?? 0
     const facadeDepth = depth + (edge.topOverlap ?? 0)
+    const facadeHeight = facadeDepth - facadeBottom
     const vertices = [
       {
-        position: [edge.point.x, -edge.point.y, 0],
+        position: [edge.point.x, -edge.point.y, facadeBottom],
         uv: [edge.uvStart, edge.uvBottom],
       },
       {
-        position: [edge.nextPoint.x, -edge.nextPoint.y, 0],
+        position: [edge.nextPoint.x, -edge.nextPoint.y, facadeBottom],
         uv: [edge.uvEnd, edge.uvBottom],
       },
       {
         position: [edge.nextPoint.x, -edge.nextPoint.y, facadeDepth],
-        uv: [edge.uvEnd, edge.uvBottom + facadeDepth],
+        uv: [edge.uvEnd, edge.uvBottom + facadeHeight],
       },
       {
         position: [edge.point.x, -edge.point.y, facadeDepth],
-        uv: [edge.uvStart, edge.uvBottom + facadeDepth],
+        uv: [edge.uvStart, edge.uvBottom + facadeHeight],
       },
     ]
     const triangleIndices =

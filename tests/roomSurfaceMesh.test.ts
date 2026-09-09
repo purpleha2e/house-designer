@@ -8,6 +8,8 @@ import {
   buildRoomWallSurfacePlans,
   buildRoomSurfaceWallFaces,
   buildRoomSurfaceFloorPolygons,
+  buildRoomSurfaceWallFacesFromSpans,
+  type RoomSurfaceFaceSpan,
   getRoomSurfaceKey,
 } from '../src/wallEngine/roomSurfaceMesh.ts'
 
@@ -215,6 +217,276 @@ test('room surface mesh builder keeps opening-wall diagnostics compatible', () =
   assert.deepEqual(
     faces.map((face) => face.wallId),
     ['door-wall', 'door-wall', 'door-wall'],
+  )
+})
+
+test('room surface mesh builder cuts coplanar openings from attributed neighbour skins', () => {
+  const skinWall = wall({
+    id: 'skin-wall',
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+  })
+  const doorWall = wall({
+    id: 'door-wall',
+    openings: [
+      {
+        bottom: 0,
+        center: 2,
+        height: 2,
+        id: 'door-opening',
+        modelId: 'door',
+        width: 0.9,
+      },
+    ],
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+  })
+  const span: RoomSurfaceFaceSpan = {
+    edgeEndDistance: 4,
+    edgeIndex: 0,
+    edgeStartDistance: 0,
+    endPoint: { x: 4, y: 0.1 },
+    normal: { x: 0, y: 1 },
+    roomSignature: 'room-signature',
+    sourceSegment: {
+      edgeEndDistance: 4,
+      edgeIndex: 0,
+      edgeStartDistance: 0,
+      endPoint: { x: 4, y: 0.1 },
+      normal: { x: 0, y: 1 },
+      roomSignature: 'room-signature',
+      side: 1,
+      startPoint: { x: 0, y: 0.1 },
+      wall: skinWall,
+    },
+    startPoint: { x: 0, y: 0.1 },
+  }
+
+  const faces = buildRoomSurfaceWallFacesFromSpans({
+    renderedWalls: getRenderedWalls([skinWall, doorWall]),
+    spans: [span],
+  })
+
+  assert.equal(faces.length, 3)
+  assert.deepEqual(
+    faces.map((face) => face.vertices.map((vertex) => vertex.uv)),
+    [
+      [
+        [0, 0],
+        [1.55, 0],
+        [1.55, 2.4],
+        [0, 2.4],
+      ],
+      [
+        [1.55, 2],
+        [2.45, 2],
+        [2.45, 2.4],
+        [1.55, 2.4],
+      ],
+      [
+        [2.45, 0],
+        [4, 0],
+        [4, 2.4],
+        [2.45, 2.4],
+      ],
+    ],
+  )
+  assert.ok(faces.every((face) => face.wallId === 'skin-wall'))
+})
+
+test('room surface mesh builder cuts thin-wall openings from slightly offset skins', () => {
+  const skinWall = wall({
+    id: 'skin-wall',
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+    thickness: 0.15,
+  })
+  const doorWall = wall({
+    id: 'door-wall',
+    openings: [
+      {
+        bottom: 0,
+        center: 2,
+        height: 2,
+        id: 'door-opening',
+        modelId: 'door',
+        width: 0.9,
+      },
+    ],
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+    thickness: 0.1,
+  })
+  const span: RoomSurfaceFaceSpan = {
+    edgeEndDistance: 4,
+    edgeIndex: 0,
+    edgeStartDistance: 0,
+    endPoint: { x: 4, y: 0.075 },
+    normal: { x: 0, y: 1 },
+    roomSignature: 'room-signature',
+    sourceSegment: {
+      edgeEndDistance: 4,
+      edgeIndex: 0,
+      edgeStartDistance: 0,
+      endPoint: { x: 4, y: 0.075 },
+      normal: { x: 0, y: 1 },
+      roomSignature: 'room-signature',
+      side: 1,
+      startPoint: { x: 0, y: 0.075 },
+      wall: skinWall,
+    },
+    startPoint: { x: 0, y: 0.075 },
+  }
+
+  const faces = buildRoomSurfaceWallFacesFromSpans({
+    renderedWalls: getRenderedWalls([skinWall, doorWall]),
+    spans: [span],
+  })
+
+  assert.equal(faces.length, 3)
+  assert.deepEqual(
+    faces.map((face) => face.vertices.map((vertex) => vertex.uv)),
+    [
+      [
+        [0, 0],
+        [1.55, 0],
+        [1.55, 2.4],
+        [0, 2.4],
+      ],
+      [
+        [1.55, 2],
+        [2.45, 2],
+        [2.45, 2.4],
+        [1.55, 2.4],
+      ],
+      [
+        [2.45, 0],
+        [4, 0],
+        [4, 2.4],
+        [2.45, 2.4],
+      ],
+    ],
+  )
+})
+
+test('room surface mesh builder cuts openings on the negative wall side', () => {
+  const doorWall = wall({
+    id: 'door-wall',
+    openings: [
+      {
+        bottom: 0,
+        center: 2,
+        height: 2,
+        id: 'door-opening',
+        modelId: 'door',
+        width: 0.9,
+      },
+    ],
+    start: { x: 0, y: 0 },
+    end: { x: 4, y: 0 },
+    thickness: 0.1,
+  })
+  const span: RoomSurfaceFaceSpan = {
+    edgeEndDistance: 4,
+    edgeIndex: 0,
+    edgeStartDistance: 0,
+    endPoint: { x: 4, y: -0.05 },
+    normal: { x: 0, y: -1 },
+    roomSignature: 'room-signature',
+    sourceSegment: {
+      edgeEndDistance: 4,
+      edgeIndex: 0,
+      edgeStartDistance: 0,
+      endPoint: { x: 4, y: -0.05 },
+      normal: { x: 0, y: -1 },
+      roomSignature: 'room-signature',
+      side: -1,
+      startPoint: { x: 0, y: -0.05 },
+      wall: doorWall,
+    },
+    startPoint: { x: 0, y: -0.05 },
+  }
+
+  const faces = buildRoomSurfaceWallFacesFromSpans({
+    renderedWalls: getRenderedWalls([doorWall]),
+    spans: [span],
+  })
+
+  assert.equal(faces.length, 3)
+  assert.deepEqual(
+    faces.map((face) => face.vertices.map((vertex) => vertex.uv)),
+    [
+      [
+        [0, 0],
+        [1.55, 0],
+        [1.55, 2.4],
+        [0, 2.4],
+      ],
+      [
+        [1.55, 2],
+        [2.45, 2],
+        [2.45, 2.4],
+        [1.55, 2.4],
+      ],
+      [
+        [2.45, 0],
+        [4, 0],
+        [4, 2.4],
+        [2.45, 2.4],
+      ],
+    ],
+  )
+})
+
+test('room surface mesh builder cuts openings on adjacent collinear wall splits', () => {
+  const leftWall = wall({
+    id: 'left-wall',
+    start: { x: 0, y: 0 },
+    end: { x: 2, y: 0 },
+    thickness: 0.1,
+  })
+  const doorWall = wall({
+    id: 'door-wall',
+    openings: [
+      {
+        bottom: 0,
+        center: 0.65,
+        height: 2,
+        id: 'door-opening',
+        modelId: 'door',
+        width: 0.9,
+      },
+    ],
+    start: { x: 2, y: 0 },
+    end: { x: 5, y: 0 },
+    thickness: 0.1,
+  })
+  const faces = buildRoomSurfaceWallFaces({
+    renderedWalls: getRenderedWalls([leftWall, doorWall]),
+    rooms: [
+      room({
+        polygon: [
+          { x: 0, y: -0.05 },
+          { x: 5, y: -0.05 },
+          { x: 5, y: -2 },
+          { x: 0, y: -2 },
+        ],
+      }),
+    ],
+  })
+  const lowerFaces = faces.filter((face) =>
+    face.vertices.some((vertex) => vertex.position[1] === 0),
+  )
+
+  assert.deepEqual(
+    lowerFaces
+      .map((face) => face.vertices.map((vertex) => vertex.position[0]))
+      .sort((first, second) => Math.min(...first) - Math.min(...second)),
+    [
+      [0, 2, 2, 0],
+      [2, 2.2, 2.2, 2],
+      [3.1, 5, 5, 3.1],
+    ],
   )
 })
 

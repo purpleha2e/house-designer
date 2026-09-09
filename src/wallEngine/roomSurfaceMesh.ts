@@ -308,6 +308,98 @@ function getWallOpeningRects(wall: Wall) {
     )
 }
 
+function getCoplanarOpeningRectsForSpan(
+  span: RoomSurfaceFaceSpan,
+  candidateWalls: Wall[],
+) {
+  const sourceWall = span.sourceSegment.wall
+  const sourceStartDistance = getDistanceAlongWall(sourceWall, span.startPoint)
+  const sourceEndDistance = getDistanceAlongWall(sourceWall, span.endPoint)
+  const spanStartDistance = Math.min(sourceStartDistance, sourceEndDistance)
+  const spanEndDistance = Math.max(sourceStartDistance, sourceEndDistance)
+  const spanNormal = span.normal
+  const openingRectsById = new Map<
+    string,
+    {
+      bottom: number
+      id: string
+      left: number
+      right: number
+      top: number
+    }
+  >()
+
+  candidateWalls.forEach((wall) => {
+    const wallOpenings = getWallOpeningRects(wall)
+
+    if (wallOpenings.length === 0) {
+      return
+    }
+
+    const matchingSide =
+      wall.id === sourceWall.id
+        ? span.sourceSegment.side
+        : ([1, -1] as const).find((side) => {
+            const sideNormal = getWallSideNormal(wall, side)
+            const normalDot =
+              sideNormal.x * spanNormal.x + sideNormal.y * spanNormal.y
+
+            if (normalDot < PARALLEL_DOT_THRESHOLD) {
+              return false
+            }
+
+            const sideLine = getWallSideLine({ wall, startExtension: 0, endExtension: 0 }, side)
+            const planeTolerance = Math.max(
+              MATCH_EPSILON_METERS,
+              wall.thickness * 0.35,
+            )
+
+            return (
+              getDistanceToLine(span.startPoint, sideLine.start, sideLine.end) <=
+                planeTolerance &&
+              getDistanceToLine(span.endPoint, sideLine.start, sideLine.end) <=
+                planeTolerance
+            )
+          })
+
+    if (matchingSide === undefined) {
+      return
+    }
+
+    const wallDirection = getWallDirection(wall)
+
+    wallOpenings.forEach((opening) => {
+      const openingLeftPoint = {
+        x: wall.start.x + wallDirection.x * opening.left,
+        y: wall.start.y + wallDirection.y * opening.left,
+      }
+      const openingRightPoint = {
+        x: wall.start.x + wallDirection.x * opening.right,
+        y: wall.start.y + wallDirection.y * opening.right,
+      }
+      const projectedLeft = getDistanceAlongWall(sourceWall, openingLeftPoint)
+      const projectedRight = getDistanceAlongWall(sourceWall, openingRightPoint)
+      const left = Math.min(projectedLeft, projectedRight)
+      const right = Math.max(projectedLeft, projectedRight)
+
+      if (
+        right <= spanStartDistance + MIN_FACE_LENGTH_METERS ||
+        left >= spanEndDistance - MIN_FACE_LENGTH_METERS
+      ) {
+        return
+      }
+
+      openingRectsById.set(`${wall.id}:${opening.id}`, {
+        ...opening,
+        left,
+        right,
+      })
+    })
+  })
+
+  return Array.from(openingRectsById.values())
+}
+
 function findMatchingWallSideSegments(
   start: Point,
   end: Point,
@@ -1253,6 +1345,7 @@ function buildRoomSurfaceFacesFromSpan(
   span: RoomSurfaceFaceSpan,
   index: number,
   splitDistancesByWallSide: Map<string, number[]>,
+  openingSourceWalls: Wall[],
 ) {
   const { sourceSegment } = span
   const startDistance = getDistanceAlongWall(sourceSegment.wall, span.startPoint)
@@ -1279,7 +1372,10 @@ function buildRoomSurfaceFacesFromSpan(
       distanceValue > firstDistance + endpointSplitBuffer &&
       distanceValue < secondDistance - endpointSplitBuffer,
   )
-  const openings = getWallOpeningRects(sourceSegment.wall).filter(
+  const openings = getCoplanarOpeningRectsForSpan(
+    span,
+    openingSourceWalls,
+  ).filter(
     (opening) =>
       opening.left < secondDistance - MIN_FACE_LENGTH_METERS &&
       opening.right > firstDistance + MIN_FACE_LENGTH_METERS,
@@ -1412,7 +1508,12 @@ export function buildRoomSurfaceWallFacesFromSpans(options: {
   )
 
   return options.spans.flatMap((span, index) =>
-    buildRoomSurfaceFacesFromSpan(span, index, splitDistancesByWallSide),
+    buildRoomSurfaceFacesFromSpan(
+      span,
+      index,
+      splitDistancesByWallSide,
+      options.renderedWalls.map((renderedWall) => renderedWall.wall),
+    ),
   )
 }
 

@@ -6,6 +6,7 @@ type ToolbarProps = {
   wallCount: number
   onLoadProject: () => void
   onEngineConsoleOpenChange: (isOpen: boolean) => void
+  onNewProject: () => void
   onOpenManufacturerPortal: () => void
   onSaveProject: () => void
 }
@@ -14,6 +15,7 @@ export function Toolbar({
   isEngineConsoleOpen,
   onEngineConsoleOpenChange,
   onLoadProject,
+  onNewProject,
   onOpenManufacturerPortal,
   onSaveProject,
 }: ToolbarProps) {
@@ -38,6 +40,15 @@ export function Toolbar({
             <div>
               <h1>House Designer</h1>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                onNewProject()
+                setIsProjectMenuOpen(false)
+              }}
+            >
+              New
+            </button>
             <button
               type="button"
               onClick={() => {

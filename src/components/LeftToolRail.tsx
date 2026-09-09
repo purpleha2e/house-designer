@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { RoofPitchFields } from './RoofPitchFields'
+import { useEffect, useState, type ReactNode } from 'react'
 import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import type {
   FloorLevel,
@@ -6,11 +7,20 @@ import type {
   SurfaceMaterialProduct,
   SurfaceWallSide,
   WallKind,
+  RoofStructure,
 } from '../types'
 
-type RailPanel = 'align' | 'floor' | 'materials' | 'project' | 'wall'
+type RailPanel = 'align' | 'floor' | 'materials' | 'roof' | 'wall'
 type WallMaterialMode = 'full' | 'lower'
 type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
+type HipRoofCreateOptions = {
+  floorId: string
+  pitchDegrees: number
+  overhangPitchDegrees?: number
+  soffitColor?: string
+  type: RoofStructure['type']
+  width: number
+}
 
 const MIN_INTERNAL_WALL_THICKNESS = 0.05
 const MAX_INTERNAL_WALL_THICKNESS = 0.3
@@ -62,6 +72,7 @@ type LeftToolRailProps = {
   wallKind: WallKind
   onAddEmptyFloor: () => void
   onAddFloor: () => void
+  onAddRoof: (options: HipRoofCreateOptions) => void
   onApplyMaterial: (options: {
     coverageHeight?: number
     customColor?: string
@@ -76,11 +87,9 @@ type LeftToolRailProps = {
   onCut: () => void
   onDeleteFloor: () => void
   onInternalWallThicknessChange: (thickness: number) => void
-  onLoadProject: () => void
   onOpenModelSelector: () => void
   onPaste: () => void
   onRedo: () => void
-  onSaveProject: () => void
   onSelectFloor: (floorId: string) => void
   onSlabThicknessChange: (thickness: number) => void
   onToggleAddWall: () => void
@@ -97,7 +106,7 @@ function IconButton({
   onClick,
 }: {
   active?: boolean
-  children: string
+  children: ReactNode
   disabled?: boolean
   label: string
   onClick: () => void
@@ -114,6 +123,149 @@ function IconButton({
     >
       {children}
     </button>
+  )
+}
+
+function IconSvg({
+  children,
+}: {
+  children: ReactNode
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.9"
+    >
+      {children}
+    </svg>
+  )
+}
+
+function WallIcon() {
+  return (
+    <IconSvg>
+      <path d="M4 18V7h16v11" />
+      <path d="M4 10h16" />
+      <path d="M4 14h16" />
+      <path d="M8 7v3" />
+      <path d="M13 10v4" />
+      <path d="M18 14v4" />
+    </IconSvg>
+  )
+}
+
+function FloorIcon() {
+  return (
+    <IconSvg>
+      <path d="M4 17h16" />
+      <path d="M7 13h10" />
+      <path d="M10 9h4" />
+      <path d="M5 17 10 9" />
+      <path d="m19 17-5-8" />
+    </IconSvg>
+  )
+}
+
+function RoofIcon() {
+  return (
+    <IconSvg>
+      <path d="M3 14 12 5l9 9" />
+      <path d="M6 13h12" />
+      <path d="M7 13v6h10v-6" />
+      <path d="M12 5v14" />
+    </IconSvg>
+  )
+}
+
+function ModelIcon() {
+  return (
+    <IconSvg>
+      <path d="m12 4 7 4-7 4-7-4 7-4Z" />
+      <path d="M5 8v8l7 4 7-4V8" />
+      <path d="M12 12v8" />
+    </IconSvg>
+  )
+}
+
+function MaterialIcon() {
+  return (
+    <IconSvg>
+      <path d="M6 4h12v16H6z" />
+      <path d="M6 8h12" />
+      <path d="M6 12h12" />
+      <path d="M6 16h12" />
+      <path d="M10 4v4" />
+      <path d="M14 8v4" />
+      <path d="M10 12v4" />
+      <path d="M14 16v4" />
+    </IconSvg>
+  )
+}
+
+function AlignIcon() {
+  return (
+    <IconSvg>
+      <path d="M5 5v14" />
+      <path d="M9 7h10" />
+      <path d="M9 12h7" />
+      <path d="M9 17h10" />
+      <path d="M5 12h2" />
+    </IconSvg>
+  )
+}
+
+function UndoIcon() {
+  return (
+    <IconSvg>
+      <path d="m9 7-4 4 4 4" />
+      <path d="M5 11h9a5 5 0 0 1 4.6 7" />
+    </IconSvg>
+  )
+}
+
+function RedoIcon() {
+  return (
+    <IconSvg>
+      <path d="m15 7 4 4-4 4" />
+      <path d="M19 11h-9a5 5 0 0 0-4.6 7" />
+    </IconSvg>
+  )
+}
+
+function CopyIcon() {
+  return (
+    <IconSvg>
+      <path d="M8 8h11v11H8z" />
+      <path d="M5 16V5h11" />
+    </IconSvg>
+  )
+}
+
+function CutIcon() {
+  return (
+    <IconSvg>
+      <path d="m5 5 14 14" />
+      <path d="m19 5-6 6" />
+      <circle cx="6" cy="17" r="2" />
+      <circle cx="6" cy="7" r="2" />
+    </IconSvg>
+  )
+}
+
+function PasteIcon() {
+  return (
+    <IconSvg>
+      <path d="M9 4h6l1 2h3v14H5V6h3l1-2Z" />
+      <path d="M9 4v4h6V4" />
+    </IconSvg>
   )
 }
 
@@ -135,17 +287,16 @@ export function LeftToolRail({
   wallKind,
   onAddEmptyFloor,
   onAddFloor,
+  onAddRoof,
   onApplyMaterial,
   onAlignModels,
   onCopy,
   onCut,
   onDeleteFloor,
   onInternalWallThicknessChange,
-  onLoadProject,
   onOpenModelSelector,
   onPaste,
   onRedo,
-  onSaveProject,
   onSelectFloor,
   onSlabThicknessChange,
   onToggleAddWall,
@@ -164,6 +315,12 @@ export function LeftToolRail({
   const [textureScale, setTextureScale] = useState(1)
   const [textureScaleInput, setTextureScaleInput] = useState('1')
   const [textureRotation, setTextureRotation] = useState(0)
+  const [roofFloorId, setRoofFloorId] = useState(activeFloorId)
+  const [roofType, setRoofType] = useState<RoofStructure['type']>('hip')
+  const [roofPitchDegrees, setRoofPitchDegrees] = useState(35)
+  const [roofSoffitColor, setRoofSoffitColor] = useState('#ffffff')
+  const [roofOverhangPitchDegrees, setRoofOverhangPitchDegrees] = useState<number | undefined>()
+  const [roofWidth, setRoofWidth] = useState(8)
   const [internalWallThicknessDraft, setInternalWallThicknessDraft] = useState<
     string | null
   >(null)
@@ -173,6 +330,8 @@ export function LeftToolRail({
     value: string
   } | null>(null)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId)
+  const roofTargetFloor =
+    floors.find((floor) => floor.id === roofFloorId) ?? activeFloor
   const internalWallThicknessInputValue =
     internalWallThicknessDraft ?? formatMetresInputValue(internalWallThickness)
   const wallHeightInputValue =
@@ -181,6 +340,14 @@ export function LeftToolRail({
     slabThicknessDraft?.floorId === activeFloorId
       ? slabThicknessDraft.value
       : formatMetresInputValue(activeFloor?.slabThickness ?? 0)
+
+  useEffect(() => {
+    if (floors.some((floor) => floor.id === roofFloorId)) {
+      return
+    }
+
+    setRoofFloorId(activeFloorId)
+  }, [activeFloorId, floors, roofFloorId])
 
   const updateInternalWallThickness = (value: string) => {
     setInternalWallThicknessDraft(value)
@@ -290,6 +457,8 @@ export function LeftToolRail({
         ? 'Ceiling selected'
         : selectedSurface?.type === 'portal-floor'
           ? 'Doorway floor selected'
+          : selectedSurface?.type === 'roof'
+            ? 'Roof selected'
         : selectedSurface?.type === 'wall-face' ||
             selectedSurface?.type === 'wall-surface-fragment'
           ? 'Wall selected'
@@ -339,35 +508,35 @@ export function LeftToolRail({
     <>
       <nav className="left-tool-rail" aria-label="Editor tools">
         <IconButton
-          active={openPanel === 'project'}
-          label="Project"
-          onClick={() => togglePanel('project')}
-        >
-          P
-        </IconButton>
-        <IconButton
           active={isAddingWall || openPanel === 'wall'}
           label="Wall tools"
           onClick={() => togglePanel('wall')}
         >
-          W
+          <WallIcon />
         </IconButton>
         <IconButton
           active={openPanel === 'floor'}
           label="Floor tools"
           onClick={() => togglePanel('floor')}
         >
-          F
+          <FloorIcon />
+        </IconButton>
+        <IconButton
+          active={openPanel === 'roof'}
+          label="Roof tools"
+          onClick={() => togglePanel('roof')}
+        >
+          <RoofIcon />
         </IconButton>
         <IconButton label="Add model" onClick={onOpenModelSelector}>
-          M
+          <ModelIcon />
         </IconButton>
         <IconButton
           active={openPanel === 'materials'}
           label="Materials"
           onClick={() => togglePanel('materials')}
         >
-          A
+          <MaterialIcon />
         </IconButton>
         <IconButton
           active={openPanel === 'align'}
@@ -375,42 +544,28 @@ export function LeftToolRail({
           label="Align"
           onClick={() => togglePanel('align')}
         >
-          =
+          <AlignIcon />
         </IconButton>
         <div className="left-tool-rail-divider" />
         <IconButton disabled={!canUndo} label="Undo" onClick={onUndo}>
-          U
+          <UndoIcon />
         </IconButton>
         <IconButton disabled={!canRedo} label="Redo" onClick={onRedo}>
-          R
+          <RedoIcon />
         </IconButton>
         <IconButton disabled={!canCopy} label="Copy" onClick={onCopy}>
-          C
+          <CopyIcon />
         </IconButton>
         <IconButton disabled={!canCopy} label="Cut" onClick={onCut}>
-          X
+          <CutIcon />
         </IconButton>
         <IconButton disabled={!canPaste} label="Paste" onClick={onPaste}>
-          V
+          <PasteIcon />
         </IconButton>
       </nav>
 
       {openPanel ? (
         <aside className="left-tool-flyout" aria-label={`${openPanel} tools`}>
-          {openPanel === 'project' ? (
-            <>
-              <header>
-                <h2>Project</h2>
-              </header>
-              <button type="button" onClick={onLoadProject}>
-                Load project
-              </button>
-              <button type="button" onClick={onSaveProject}>
-                Save project
-              </button>
-            </>
-          ) : null}
-
           {openPanel === 'wall' ? (
             <>
               <header>
@@ -551,6 +706,85 @@ export function LeftToolRail({
               </button>
               <button type="button" disabled={floors.length <= 1} onClick={onDeleteFloor}>
                 Delete current floor
+              </button>
+            </>
+          ) : null}
+
+          {openPanel === 'roof' ? (
+            <>
+              <header>
+                <h2>Roof</h2>
+                <p>{roofTargetFloor ? `Add to ${roofTargetFloor.name}` : 'No floor'}</p>
+              </header>
+              <label className="flyout-select">
+                <span>Floor</span>
+                <select
+                  value={roofTargetFloor?.id ?? ''}
+                  onChange={(event) => setRoofFloorId(event.target.value)}
+                >
+                  {floors.map((floor) => (
+                    <option key={floor.id} value={floor.id}>
+                      {floor.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flyout-select">
+                <span>Type</span>
+                <select
+                  value={roofType}
+                  onChange={(event) =>
+                    setRoofType(event.target.value as RoofStructure['type'])
+                  }
+                >
+                  <option value="flat">Flat</option>
+                  <option value="hip">Hip roof</option>
+                  <option value="lean-to">Lean-to</option>
+                  <option value="up-and-over">Up and over</option>
+                </select>
+              </label>
+              <RoofPitchFields
+                roof={{ type: roofType, pitchDegrees: roofPitchDegrees, overhangPitchDegrees: roofOverhangPitchDegrees, soffitColor: roofSoffitColor }}
+                onChange={(updates) => {
+                  if (updates.pitchDegrees !== undefined) setRoofPitchDegrees(updates.pitchDegrees)
+                  if (updates.soffitColor !== undefined) setRoofSoffitColor(updates.soffitColor)
+                  if ('overhangPitchDegrees' in updates) setRoofOverhangPitchDegrees(updates.overhangPitchDegrees)
+                }}
+              />
+              <label className="flyout-field">
+                <span>Width</span>
+                <div>
+                  <input
+                    type="number"
+                    min="0.3"
+                    step="0.1"
+                    value={roofWidth}
+                    onChange={(event) => {
+                      const parsedValue = Number.parseFloat(event.target.value)
+
+                      if (Number.isFinite(parsedValue)) {
+                        setRoofWidth(Math.max(0.3, parsedValue))
+                      }
+                    }}
+                  />
+                  <span>m</span>
+                </div>
+              </label>
+              <button
+                type="button"
+                disabled={!roofTargetFloor}
+                onClick={() =>
+                  onAddRoof({
+                    floorId: roofTargetFloor?.id ?? activeFloorId,
+                    pitchDegrees: roofPitchDegrees,
+                    overhangPitchDegrees: roofOverhangPitchDegrees,
+                    soffitColor: roofSoffitColor,
+                    type: roofType,
+                    width: roofWidth,
+                  })
+                }
+              >
+                Add roof
               </button>
             </>
           ) : null}

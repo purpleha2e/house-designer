@@ -19,10 +19,13 @@ export type FloorWallSurfaceMeshOptions = {
   externalFootprintWallIds?: ReadonlySet<string>
   exteriorWallSidesByWallId?: ReadonlyMap<string, WallSide>
   contextRenderedWalls?: RenderedWall[]
+  omitBottomCapFaces?: boolean
+  omitTopCapFaces?: boolean
   renderedWalls: RenderedWall[]
   roomSurfaceRendererEnabled?: boolean
   rooms: DetectedRoom[]
   useWallBodyPerimeterMesh?: boolean
+  verticalUvOffset?: number
   wallOpeningDepthsByModelId?: ReadonlyMap<string, number>
 }
 
@@ -565,10 +568,13 @@ export function buildFloorWallSurfaceFaces({
   contextRenderedWalls,
   externalFootprintWallIds,
   exteriorWallSidesByWallId,
+  omitBottomCapFaces,
+  omitTopCapFaces,
   renderedWalls,
   roomSurfaceRendererEnabled = true,
   rooms,
   useWallBodyPerimeterMesh = false,
+  verticalUvOffset = 0,
   wallOpeningDepthsByModelId,
 }: FloorWallSurfaceMeshOptions): FloorWallSurfaceFace[] {
   const walls = renderedWalls.map((renderedWall) => renderedWall.wall)
@@ -598,14 +604,20 @@ export function buildFloorWallSurfaceFaces({
   const structuralFaces = (useWallBodyPerimeterMesh
     ? buildWallBodyPerimeterMeshFaces(walls, {
         exteriorWallSidesByWallId,
+        omitBottomCapFaces,
+        omitTopCapFaces,
+        verticalUvOffset,
         wallOpeningDepthsByModelId,
       })
     : buildWallMeshFaces(contextWalls, {
         exteriorWallSidesByWallId,
+        omitBottomCapFaces,
+        omitTopCapFaces,
         omitEndpointJoinSideFacesForWallIds:
           externalFootprintWallIds && externalFootprintWallIds.size > 0
             ? externalFootprintWallIds
             : undefined,
+        verticalUvOffset,
         wallOpeningDepthsByModelId,
       })
   ).filter((face) => renderedWallIdSet.has(face.wallId))

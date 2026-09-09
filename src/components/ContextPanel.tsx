@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type {
   FloorLevel,
   PlacedModel,
@@ -28,10 +29,20 @@ type ContextPanelProps = {
   onDeleteModel: (modelId: string) => void
   onRenameRoom: (roomSignature: string, name: string) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  onUpdateWall: (wallId: string, updates: Partial<Pick<Wall, 'thickness'>>) => void
 }
+
+const MIN_WALL_THICKNESS = 0.05
+const MAX_WALL_THICKNESS = 1
 
 function getWallLength(wall: Wall) {
   return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
+}
+
+function formatMetresInputValue(value: number) {
+  return Number.isFinite(value)
+    ? value.toFixed(3).replace(/\.?0+$/, '')
+    : ''
 }
 
 function surfaceSideMatches(
@@ -85,6 +96,15 @@ function getSelectedSurfaceAssignment(
     )
   }
 
+  if (selectedSurface.type === 'roof') {
+    return surfaceAssignments.findLast(
+      (assignment) =>
+        assignment.target.type === 'roof' &&
+        assignment.target.floorId === selectedSurface.floorId &&
+        assignment.target.roofId === selectedSurface.roofId,
+    )
+  }
+
   if (selectedSurface.type === 'wall-surface-fragment') {
     const fragmentAssignment = surfaceAssignments.findLast(
       (assignment) =>
@@ -117,6 +137,8 @@ function getSurfaceTypeLabel(selectedSurface: SelectableSurface) {
       return 'Ceiling slab edge'
     case 'portal-floor':
       return 'Doorway floor'
+    case 'roof':
+      return 'Roof'
     case 'wall-surface-fragment':
       return 'Wall section'
     case 'wall-face':
@@ -151,7 +173,11 @@ export function ContextPanel({
   onDeleteModel,
   onRenameRoom,
   onUpdateModel,
+  onUpdateWall,
 }: ContextPanelProps) {
+  const [wallThicknessDraft, setWallThicknessDraft] = useState<string | null>(
+    null,
+  )
   const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
   const selectedModelIsSpotlight = selectedModel?.definition.lightKind === 'spot'
   const selectedModelIsDoor = Boolean(
@@ -179,6 +205,35 @@ export function ContextPanel({
   const selectedSurfaceColor =
     selectedSurfaceAssignment?.customColor ??
     selectedSurfaceMaterial?.pbr.baseColor
+  const wallThicknessInputValue =
+    wallThicknessDraft ?? formatMetresInputValue(selectedWall?.thickness ?? 0)
+
+  useEffect(() => {
+    setWallThicknessDraft(null)
+  }, [selectedWall?.id])
+
+  const commitWallThickness = () => {
+    if (!selectedWall || wallThicknessDraft === null) {
+      return
+    }
+
+    const parsedValue = Number.parseFloat(wallThicknessDraft)
+
+    if (!Number.isFinite(parsedValue)) {
+      setWallThicknessDraft(null)
+      return
+    }
+
+    const thickness = Math.min(
+      MAX_WALL_THICKNESS,
+      Math.max(MIN_WALL_THICKNESS, parsedValue),
+    )
+
+    setWallThicknessDraft(null)
+    if (Math.abs(thickness - selectedWall.thickness) > 0.000001) {
+      onUpdateWall(selectedWall.id, { thickness })
+    }
+  }
 
   return (
     <aside className="context-panel" aria-label="Selection details">
@@ -319,14 +374,33 @@ export function ContextPanel({
                 : '-'}
           </dd>
         </div>
-        <div>
+        <div className={selectedWall ? 'context-field' : undefined}>
           <dt>{selectedModel ? 'Depth' : 'Thickness'}</dt>
           <dd>
-            {selectedWall
-              ? `${selectedWall.thickness.toFixed(2)} m`
-              : selectedModelIsLight
+            {selectedWall ? (
+              <>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={wallThicknessInputValue}
+                  onChange={(event) => setWallThicknessDraft(event.target.value)}
+                  onBlur={commitWallThickness}
+                  onFocus={() =>
+                    setWallThicknessDraft(
+                      formatMetresInputValue(selectedWall.thickness),
+                    )
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.currentTarget.blur()
+                    }
+                  }}
+                />
+                <span>m</span>
+              </>
+            ) : selectedModelIsLight
                 ? '-'
-              : selectedModel
+                : selectedModel
                 ? `${(
                     selectedModel.definition.depth *
                     selectedModel.model.scale *

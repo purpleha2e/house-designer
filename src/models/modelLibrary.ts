@@ -90,6 +90,8 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
     const isInteriorDoor = modelId.includes('interior-door')
     const isPatioDoor =
       modelId.includes('patio-door') || modelId.includes('patio-doors')
+    const isExteriorDoor =
+      !isInteriorDoor && !isPatioDoor && modelId.includes('door')
     const isPatioDoorWithSideLights = isPatioDoor && modelId.includes('side-lights')
     const isOpenInteriorDoor = isInteriorDoor && modelId.includes('open')
     const isThreePaneWindow = isWindow && modelId.includes('three-pane')
@@ -98,9 +100,21 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
     const baseDefinition: ModelDefinition = {
       id: modelId || `model-${index + 1}`,
       name: formatModelName(fileName),
-      category: isPatioDoor || isInteriorDoor ? 'Doors' : isWindow ? 'Windows' : 'Imported',
+      category:
+        isPatioDoor || isInteriorDoor || isExteriorDoor
+          ? 'Doors'
+          : isWindow
+            ? 'Windows'
+            : 'Imported',
       color: '#2563eb',
-      height: isInteriorDoor ? 2.1 : isPatioDoor ? 2.08 : isWindow ? 1.1 : 1,
+      height:
+        isInteriorDoor || isExteriorDoor
+          ? 2.1
+          : isPatioDoor
+            ? 2.08
+            : isWindow
+              ? 1.1
+              : 1,
       openingWidth: isInteriorDoor ? 0.97 : undefined,
       objectType: isStairs ? 'stairs' : undefined,
       sourceUrl: sourceUrl as string,
@@ -109,13 +123,17 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
         ? 'interior-door'
         : isPatioDoor
           ? 'patio-door'
-          : isWindow
-            ? 'window'
-            : undefined,
+          : isExteriorDoor
+            ? 'exterior-door'
+            : isWindow
+              ? 'window'
+              : undefined,
       width: isInteriorDoor
         ? isOpenInteriorDoor
           ? 1.14
           : 0.97
+        : isExteriorDoor
+          ? 0.97
         : isPatioDoorWithSideLights
         ? 2.54
         : isPatioDoor
@@ -125,7 +143,13 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
             : isWindow
               ? 1.09
               : 1,
-      depth: isInteriorDoor ? (isOpenInteriorDoor ? 0.84 : 0.13) : isPatioDoor || isWindow ? 0.08 : 1,
+      depth: isInteriorDoor
+        ? isOpenInteriorDoor
+          ? 0.84
+          : 0.13
+        : isExteriorDoor || isPatioDoor || isWindow
+          ? 0.08
+          : 1,
     }
 
     return {

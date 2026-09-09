@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Wall } from '../src/types.ts'
+import { buildWallBodyPerimeters } from '../src/wallEngine/wallBodyPerimeter.ts'
 import {
   buildWallBodyPerimeterMeshFaces,
   buildWallMeshFaces,
@@ -48,6 +49,29 @@ test('wall mesh builder creates stable faces for a plain wall', () => {
       { role: 'cap', side: 1, wallId: 'plain' },
       { role: 'cap', side: 1, wallId: 'plain' },
     ],
+  )
+})
+
+test('wall mesh builder offsets vertical side UVs by floor elevation', () => {
+  const faces = buildWallMeshFaces(
+    [
+      wall({
+        id: 'upper-floor',
+        start: { x: 0, y: 0 },
+        end: { x: 2, y: 0 },
+        height: 2.4,
+      }),
+    ],
+    { verticalUvOffset: 2.7 },
+  )
+  const sideFace = faces.find(
+    (face) => face.wallId === 'upper-floor' && face.kind === 'side',
+  )
+
+  assert.ok(sideFace)
+  assert.deepEqual(
+    [...new Set(sideFace.vertices.map((vertex) => vertex.uv[1]))].sort(),
+    [2.7, 5.1],
   )
 })
 
@@ -110,7 +134,7 @@ test('wall mesh builder assigns side attachment cap material and uv source when 
   })
 })
 
-test('wall mesh builder keeps side attachment caps when target wall is rendered', () => {
+test('wall mesh builder omits side attachment caps when target wall is rendered', () => {
   const faces = buildWallMeshFaces([
     wall({
       id: 'target',
@@ -131,7 +155,7 @@ test('wall mesh builder keeps side attachment caps when target wall is rendered'
         face.kind === 'cap' &&
         face.endpoint === 'start',
     ),
-    true,
+    false,
   )
 })
 
@@ -492,6 +516,48 @@ test('wall mesh builder cuts floor-level doorways out of the bottom face', () =>
     }),
     false,
   )
+})
+
+test('wall mesh builder splits external doorway reveals at fallback frame depth', () => {
+  const faces = buildWallMeshFaces(
+    [
+      wall({
+        id: 'external-door-wall',
+        kind: 'external',
+        start: { x: 0, y: 0 },
+        end: { x: 4, y: 0 },
+        openings: [
+          {
+            bottom: 0,
+            center: 2,
+            height: 2.1,
+            id: 'external-door',
+            modelId: 'legacy-door-model',
+            width: 1,
+          },
+        ],
+        thickness: 0.3,
+      }),
+    ],
+    {
+      exteriorWallSidesByWallId: new Map([['external-door-wall', 1]]),
+    },
+  )
+  const exteriorReveal = faces.find(
+    (face) =>
+      face.faceId === 'external-door-wall:opening:external-door:left:1',
+  )
+  const interiorReveal = faces.find(
+    (face) =>
+      face.faceId === 'external-door-wall:opening:external-door:left:-1',
+  )
+  const exteriorZs =
+    exteriorReveal?.vertices.map((vertex) => Number(vertex.position[2].toFixed(3))) ?? []
+  const interiorZs =
+    interiorReveal?.vertices.map((vertex) => Number(vertex.position[2].toFixed(3))) ?? []
+
+  assert.deepEqual([...new Set(exteriorZs)].sort(), [0.09, 0.15])
+  assert.deepEqual([...new Set(interiorZs)].sort(), [-0.15, 0.09])
 })
 
 test('wall mesh builder merges overlapping opening reveals', () => {
@@ -897,6 +963,92 @@ test('wall body perimeter mesh extrudes the composed perimeter outline', () => {
   )
 })
 
+test('wall body perimeter keeps shallow angled wall chains as one outline', () => {
+  const perimeters = buildWallBodyPerimeters([
+    wall({
+      id: 'left',
+      start: { x: 0, y: 0 },
+      end: { x: 2, y: 0 },
+      thickness: 0.2,
+    }),
+    wall({
+      id: 'angled',
+      start: { x: 2, y: 0 },
+      end: { x: 2.8, y: 0.35 },
+      thickness: 0.2,
+    }),
+    wall({
+      id: 'right',
+      start: { x: 2.8, y: 0.35 },
+      end: { x: 4.85, y: 0.35 },
+      thickness: 0.2,
+    }),
+  ]).perimeters
+
+  assert.equal(perimeters.length, 1)
+  assert.equal(perimeters[0].holes.length, 0)
+  assert.equal(
+    perimeters[0].outline.some(
+      (point) => point.x > 1.9 && point.x < 2.1 && point.y > 0.05,
+    ),
+    true,
+  )
+  assert.equal(
+    perimeters[0].outline.some(
+      (point) => point.x > 2.7 && point.x < 2.9 && point.y < 0.3,
+    ),
+    true,
+  )
+})
+
+test('wall body perimeter mesh keeps wall side face ids stable after deleting a connected wall', () => {
+  const leftWall = wall({
+    id: 'left',
+    start: { x: 0, y: 0 },
+    end: { x: 2, y: 0 },
+    thickness: 0.2,
+  })
+  const angledWall = wall({
+    id: 'angled',
+    start: { x: 2, y: 0 },
+    end: { x: 2.8, y: 0.35 },
+    thickness: 0.2,
+  })
+  const rightWall = wall({
+    id: 'right',
+    start: { x: 2.8, y: 0.35 },
+    end: { x: 4.85, y: 0.35 },
+    thickness: 0.2,
+  })
+  const rightSideFaceIdsBeforeDelete = buildWallBodyPerimeterMeshFaces([
+    leftWall,
+    angledWall,
+    rightWall,
+  ])
+    .filter(
+      (face) =>
+        face.kind === 'side' &&
+        face.pickSource.wallId === 'right' &&
+        face.pickSource.side === 1,
+    )
+    .map((face) => face.faceId)
+    .sort()
+  const rightSideFaceIdsAfterDelete = buildWallBodyPerimeterMeshFaces([
+    angledWall,
+    rightWall,
+  ])
+    .filter(
+      (face) =>
+        face.kind === 'side' &&
+        face.pickSource.wallId === 'right' &&
+        face.pickSource.side === 1,
+    )
+    .map((face) => face.faceId)
+    .sort()
+
+  assert.deepEqual(rightSideFaceIdsAfterDelete, rightSideFaceIdsBeforeDelete)
+})
+
 test('wall body perimeter mesh preserves individual heights in a mixed-height join', () => {
   const faces = buildWallBodyPerimeterMeshFaces([
     wall({
@@ -917,7 +1069,13 @@ test('wall body perimeter mesh preserves individual heights in a mixed-height jo
 
   assert.ok(shortFaces.length > 0)
   assert.ok(tallFaces.length > 0)
-  assert.ok(faces.every((face) => face.faceId.startsWith('perimeter:')))
+  assert.ok(
+    faces.every(
+      (face) =>
+        face.faceId.startsWith('perimeter:') ||
+        face.faceId.startsWith('perimeter-wall:'),
+    ),
+  )
   assert.equal(
     Math.max(...shortFaces.flatMap((face) => face.vertices.map((vertex) => vertex.position[1]))),
     1.2,
@@ -983,7 +1141,14 @@ test('wall body perimeter mesh preserves holes while extruding rings', () => {
     }),
   ])
 
-  assert.ok(faces.some((face) => face.faceId.includes(':hole:0:side:')))
+  assert.ok(
+    faces.some(
+      (face) =>
+        face.kind === 'side' &&
+        face.faceId.startsWith('perimeter-wall:') &&
+        face.pickSource.wallId === 'bottom',
+    ),
+  )
   assert.ok(faces.some((face) => face.kind === 'top'))
   assert.ok(faces.some((face) => face.kind === 'bottom'))
 })
@@ -1034,4 +1199,61 @@ test('wall body perimeter mesh cuts side faces around openings', () => {
     'opening-wall:opening:door:top:-1',
     'opening-wall:opening:door:top:1',
   ])
+})
+
+test('wall body perimeter mesh cuts openings from joined collinear wall edges', () => {
+  const faces = buildWallBodyPerimeterMeshFaces([
+    wall({
+      id: 'left',
+      openings: [
+        {
+          bottom: 0,
+          center: 0.8,
+          height: 2,
+          id: 'left-door',
+          modelId: 'left-door-model',
+          width: 0.9,
+        },
+      ],
+      start: { x: 0, y: 0 },
+      end: { x: 1.63, y: 0 },
+      thickness: 0.1,
+    }),
+    wall({
+      id: 'right',
+      openings: [
+        {
+          bottom: 0,
+          center: 1.5,
+          height: 2,
+          id: 'right-door',
+          modelId: 'right-door-model',
+          width: 0.9,
+        },
+      ],
+      start: { x: 1.63, y: 0 },
+      end: { x: 4.75, y: 0 },
+      thickness: 0.1,
+    }),
+  ])
+  const lowerSideFaces = faces.filter(
+    (face) =>
+      face.kind === 'side' &&
+      face.vertices.some((vertex) => vertex.position[1] === 0),
+  )
+  const spans = lowerSideFaces
+    .map((face) => {
+      const xs = face.vertices.map((vertex) => vertex.position[0])
+
+      return [Math.min(...xs), Math.max(...xs)]
+    })
+    .sort((first, second) => first[0] - second[0])
+  const coversOpening = (left: number, right: number) =>
+    spans.some(
+      ([spanLeft, spanRight]) =>
+        spanLeft < right - 0.001 && spanRight > left + 0.001,
+    )
+
+  assert.equal(coversOpening(0.35, 1.25), false)
+  assert.equal(coversOpening(2.68, 3.58), false)
 })

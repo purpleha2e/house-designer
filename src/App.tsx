@@ -19,6 +19,8 @@ import { ThreeDView, clearThreeDModelAssetCaches } from './components/ThreeDView
 import type {
   FloorLevel,
   PlacedModel,
+  Point,
+  RoofStructure,
   Room,
   SelectableSurface,
   SunPosition,
@@ -48,6 +50,7 @@ import {
   updateWallAttachedModels,
 } from './modelPlacement'
 import springfield12Project from '../springfield_13.json'
+//import springfield12Project from '../sharrose_road_2.json'
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
@@ -63,8 +66,29 @@ const DEFAULT_SUN_POSITION: SunPosition = {
   azimuth: Math.atan2(6, 4),
   elevation: 0.78,
 }
+const MIN_COMMITTED_WALL_LENGTH_METERS = 0.01
+const WALL_COORDINATE_EPSILON_METERS = 0.001
 
 type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
+
+type HipRoofCreateOptions = {
+  depth?: number
+  floorId: string
+  overhangEnd?: number
+  overhangPitchDegrees?: number
+  soffitColor?: string
+  overhangSide?: number
+  overhangSideNegative?: number
+  overhangSidePositive?: number
+  pitchDegrees: number
+  position?: Point
+  rotation?: number
+  supportDepth?: number
+  supportPosition?: Point
+  supportWidth?: number
+  type: RoofStructure['type']
+  width: number
+}
 
 function createId() {
   if (typeof crypto.randomUUID === 'function') {
@@ -87,6 +111,49 @@ function createId() {
   }
 
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
+function getPointDistance(first: Point, second: Point) {
+  return Math.hypot(first.x - second.x, first.y - second.y)
+}
+
+function pointHasFiniteCoordinates(point: Point) {
+  return Number.isFinite(point.x) && Number.isFinite(point.y)
+}
+
+function wallHasValidGeometry(wall: Pick<Wall, 'end' | 'start'>) {
+  return (
+    pointHasFiniteCoordinates(wall.start) &&
+    pointHasFiniteCoordinates(wall.end) &&
+    getPointDistance(wall.start, wall.end) >= MIN_COMMITTED_WALL_LENGTH_METERS
+  )
+}
+
+function pointsMatchWithinEpsilon(first: Point, second: Point) {
+  return getPointDistance(first, second) <= WALL_COORDINATE_EPSILON_METERS
+}
+
+function wallMatchesExistingSegment(
+  candidateWall: Pick<Wall, 'end' | 'start'>,
+  existingWall: Pick<Wall, 'end' | 'start'>,
+) {
+  return (
+    (pointsMatchWithinEpsilon(candidateWall.start, existingWall.start) &&
+      pointsMatchWithinEpsilon(candidateWall.end, existingWall.end)) ||
+    (pointsMatchWithinEpsilon(candidateWall.start, existingWall.end) &&
+      pointsMatchWithinEpsilon(candidateWall.end, existingWall.start))
+  )
+}
+
+function wallDuplicatesExistingSegment(
+  candidateWall: Pick<Wall, 'end' | 'start'>,
+  walls: Wall[],
+  ignoredWallId?: string,
+) {
+  return walls.some(
+    (wall) =>
+      wall.id !== ignoredWallId && wallMatchesExistingSegment(candidateWall, wall),
+  )
 }
 
 type SavedProject = {
@@ -138,6 +205,7 @@ type ProjectSnapshot = SavedProject & {
   selectedFloorViewId: string
   selectedModelId: string | null
   selectedModelIds: string[]
+  selectedRoofId: string | null
   selectedRoomSignature: string | null
   selectedSurface: SelectableSurface | null
   selectedWallId: string | null
@@ -226,9 +294,18 @@ function selectableSurfacesMatch(
     )
   }
 
+  if (firstSurface.type === 'roof' && secondSurface.type === 'roof') {
+    return (
+      firstSurface.floorId === secondSurface.floorId &&
+      firstSurface.roofId === secondSurface.roofId
+    )
+  }
+
   if (
     firstSurface.type === 'portal-floor' ||
-    secondSurface.type === 'portal-floor'
+    secondSurface.type === 'portal-floor' ||
+    firstSurface.type === 'roof' ||
+    secondSurface.type === 'roof'
   ) {
     return false
   }
@@ -343,6 +420,10 @@ async function readTextFromLocalFile() {
 
 function cloneProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapshot {
   return structuredClone(snapshot)
+}
+
+function serializeSavedProject(project: SavedProject) {
+  return JSON.stringify(project)
 }
 
 function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
@@ -482,6 +563,7 @@ function createFallbackProject(): SavedProject {
         name: 'Floor 0',
         elevation: 0,
         models: [],
+        roofs: [],
         rooms: [],
         roomHeight: DEFAULT_ROOM_HEIGHT,
         slabThickness: DEFAULT_SLAB_THICKNESS,
@@ -525,6 +607,38 @@ function isTextEntryElement(target: EventTarget | null) {
   return target instanceof HTMLElement && target.isContentEditable
 }
 
+function getFloorWallBounds(floor: FloorLevel) {
+  const points = floor.walls.flatMap((wall) => [wall.start, wall.end])
+
+  if (points.length === 0) {
+    return null
+  }
+
+  const minX = Math.min(...points.map((point) => point.x))
+  const maxX = Math.max(...points.map((point) => point.x))
+  const minY = Math.min(...points.map((point) => point.y))
+  const maxY = Math.max(...points.map((point) => point.y))
+
+  return {
+    center: {
+      x: (minX + maxX) / 2,
+      y: (minY + maxY) / 2,
+    },
+    depth: Math.max(maxY - minY, 0.3),
+    width: Math.max(maxX - minX, 0.3),
+  }
+}
+
+function rotatePlanOffset(offset: Point, rotation: number): Point {
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+
+  return {
+    x: offset.x * cos + offset.y * sin,
+    y: -offset.x * sin + offset.y * cos,
+  }
+}
+
 function App() {
   const initialProjectRef = useRef<ReturnType<typeof createInitialProject> | null>(
     null,
@@ -551,11 +665,13 @@ function App() {
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [projectFileName, setProjectFileName] = useState('springfield_13.json')
+  //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
   const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
     null,
   )
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
+  const [selectedRoofId, setSelectedRoofId] = useState<string | null>(null)
   const [selectedSurface, setSelectedSurface] =
     useState<SelectableSurface | null>(null)
   const [selectedWallIds, setSelectedWallIds] = useState<string[]>([])
@@ -572,7 +688,7 @@ function App() {
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
-  const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(true)
+  const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
   const [modelAssetVersion, setModelAssetVersion] = useState(0)
@@ -584,6 +700,7 @@ function App() {
   const [surfaceAssignments, setSurfaceAssignments] = useState<
     SurfaceMaterialAssignment[]
   >(initialProject.surfaceAssignments)
+  const lastCleanProjectRef = useRef(serializeSavedProject(initialProject))
 
   const refreshPortalCatalog = useCallback(async () => {
     try {
@@ -625,6 +742,7 @@ function App() {
     selectedFloorViewId,
     selectedModelId,
     selectedModelIds,
+    selectedRoofId,
     selectedRoomSignature,
     selectedSurface,
     selectedWallId,
@@ -633,6 +751,21 @@ function App() {
     surfaceAssignments,
     wallKind,
   })
+
+  const getCurrentSavedProject = (): SavedProject => {
+    const normalizedFloors = floors.map((floor) =>
+      normalizeFloor(floor, modelsById),
+    )
+
+    return {
+      activeFloorId,
+      floors: normalizedFloors,
+      modelDefinitions: getSavedProjectModelDefinitions(normalizedFloors),
+      sunPosition,
+      surfaceAssignments,
+      wallKind,
+    }
+  }
 
   const restoreProjectSnapshot = (snapshot: ProjectSnapshot) => {
     setFloors(
@@ -646,6 +779,7 @@ function App() {
     setSelectedFloorViewId(snapshot.selectedFloorViewId)
     setSelectedModelId(snapshot.selectedModelId)
     setSelectedModelIds(snapshot.selectedModelIds)
+    setSelectedRoofId(snapshot.selectedRoofId ?? null)
     setSelectedRoomSignature(snapshot.selectedRoomSignature)
     setSelectedSurface(snapshot.selectedSurface ?? null)
     setSelectedWallId(snapshot.selectedWallId)
@@ -807,10 +941,19 @@ function App() {
   }, [isResizingSplit])
 
   const addWall = (wall: Pick<Wall, 'start' | 'end'>) => {
-    recordHistory()
-    const id = createId()
     const targetFloor =
       floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
+
+    if (
+      !wallHasValidGeometry(wall) ||
+      wallDuplicatesExistingSegment(wall, targetFloor.walls)
+    ) {
+      console.warn('[HouseDesigner] Ignored invalid wall geometry.', wall)
+      return
+    }
+
+    recordHistory()
+    const id = createId()
 
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
@@ -839,6 +982,7 @@ function App() {
     setSelectedRoomSignature(null)
     setSelectedModelId(null)
     setSelectedModelIds([])
+    setSelectedRoofId(null)
   }
 
   const deleteWall = (wallId: string) => {
@@ -931,6 +1075,7 @@ function App() {
     )
     setSelectedModelId(null)
     setSelectedModelIds([])
+    setSelectedRoofId(null)
   }
 
   const addFloor = ({ copyExternalWalls }: { copyExternalWalls: boolean }) => {
@@ -949,6 +1094,7 @@ function App() {
         name: `Floor ${floorNumber}`,
         elevation: previousElevation,
         models: [],
+        roofs: [],
         rooms: [],
         roomHeight: DEFAULT_ROOM_HEIGHT,
         slabThickness: DEFAULT_SLAB_THICKNESS,
@@ -972,6 +1118,7 @@ function App() {
     setSelectedRoomSignature(null)
     setSelectedModelId(null)
     setSelectedModelIds([])
+    setSelectedRoofId(null)
     setIsAddingWall(false)
   }
 
@@ -1037,6 +1184,124 @@ function App() {
     setSelectedRoomSignature(null)
     setSelectedModelId(null)
     setSelectedModelIds([])
+    setSelectedRoofId(null)
+    setIsAddingWall(false)
+  }
+
+  const addRoof = ({
+    depth,
+    floorId,
+    overhangEnd,
+    overhangPitchDegrees,
+    soffitColor,
+    overhangSide,
+    overhangSideNegative,
+    overhangSidePositive,
+    pitchDegrees,
+    position,
+    rotation,
+    supportDepth,
+    supportPosition,
+    supportWidth,
+    type,
+    width,
+  }: HipRoofCreateOptions) => {
+    const targetFloor = floors.find((floor) => floor.id === floorId) ?? activeFloor
+    const bounds = getFloorWallBounds(targetFloor)
+    const roofWidth = Math.max(0.3, width)
+    const roofDepth = Math.max(depth ?? bounds?.depth ?? roofWidth, 0.3)
+    const endOverhang = Math.max(0, overhangEnd ?? 0)
+    const sideOverhang = Math.max(0, overhangSide ?? 0)
+    const negativeSideOverhang = Math.max(
+      0,
+      overhangSideNegative ?? overhangSide ?? 0,
+    )
+    const positiveSideOverhang = Math.max(
+      0,
+      overhangSidePositive ?? overhangSide ?? 0,
+    )
+    const roofRotation = rotation ?? 0
+    const roofPosition = position ?? bounds?.center ?? { x: 0, y: 0 }
+    const supportWidthFallback =
+      type === 'hip'
+        ? undefined
+        : Math.max(
+            0.3,
+            roofWidth -
+              negativeSideOverhang -
+              (type === 'lean-to' ? 0 : positiveSideOverhang),
+          )
+    const supportDepthFallback =
+      type === 'hip'
+        ? undefined
+        : Math.max(0.3, roofDepth - endOverhang * 2)
+    const fallbackSupportLocalOffset =
+      type === 'hip'
+        ? { x: 0, y: 0 }
+        : {
+            x:
+              type === 'lean-to'
+                ? negativeSideOverhang / 2
+                : (negativeSideOverhang - positiveSideOverhang) / 2,
+            y: 0,
+          }
+    const fallbackSupportOffset = rotatePlanOffset(
+      fallbackSupportLocalOffset,
+      roofRotation,
+    )
+    const supportPositionFallback =
+      type === 'hip'
+        ? undefined
+        : {
+            x: roofPosition.x + fallbackSupportOffset.x,
+            y: roofPosition.y + fallbackSupportOffset.y,
+          }
+    const roof: RoofStructure = {
+      depth: roofDepth,
+      heightOffset: 0,
+      id: createId(),
+      overhangEnd: endOverhang,
+      overhangPitchDegrees,
+      soffitColor,
+      overhangSide: sideOverhang,
+      overhangSideNegative: negativeSideOverhang,
+      overhangSidePositive: positiveSideOverhang,
+      pitchDegrees: Math.min(75, Math.max(1, pitchDegrees)),
+      position: roofPosition,
+      rotation: roofRotation,
+      supportDepth: supportDepth ?? supportDepthFallback,
+      supportPosition: supportPosition ?? supportPositionFallback,
+      supportWidth: supportWidth ?? supportWidthFallback,
+      type,
+      width: roofWidth,
+    }
+
+    recordHistory()
+    setFloors((currentFloors) =>
+      currentFloors.map((floor) =>
+        floor.id === targetFloor.id
+          ? {
+              ...floor,
+              roofs: [...(floor.roofs ?? []), roof],
+            }
+          : floor,
+      ),
+    )
+    setActiveFloorId(targetFloor.id)
+    if (selectedFloorViewId !== ALL_FLOORS_VIEW_ID) {
+      setSelectedFloorViewId(targetFloor.id)
+    }
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setSelectedRoofId(roof.id)
+    setSelectedSurface({
+      floorId: targetFloor.id,
+      roofId: roof.id,
+      type: 'roof',
+    })
     setIsAddingWall(false)
   }
 
@@ -1073,8 +1338,50 @@ function App() {
     setSelectedRoomSignature(null)
     setSelectedModelId(model.id)
     setSelectedModelIds([model.id])
+    setSelectedRoofId(null)
     setIsAddingWall(false)
     setIsModelSelectorOpen(false)
+  }
+
+  const updateRoof = (roofId: string, updates: Partial<RoofStructure>) => {
+    recordHistory(`roof:${roofId}`)
+    setFloors((currentFloors) =>
+      currentFloors.map((floor) =>
+        (floor.roofs ?? []).some((roof) => roof.id === roofId)
+          ? {
+              ...floor,
+              roofs: (floor.roofs ?? []).map((roof) =>
+                roof.id === roofId ? { ...roof, ...updates, id: roof.id } : roof,
+              ),
+            }
+          : floor,
+      ),
+    )
+  }
+
+  const deleteRoof = (roofId: string) => {
+    recordHistory()
+    setFloors((currentFloors) =>
+      currentFloors.map((floor) => ({
+        ...floor,
+        roofs: (floor.roofs ?? []).filter((roof) => roof.id !== roofId),
+      })),
+    )
+    setSurfaceAssignments((currentAssignments) =>
+      currentAssignments.filter(
+        (assignment) =>
+          !(assignment.target.type === 'roof' && assignment.target.roofId === roofId),
+      ),
+    )
+    setSelectedRoofId((currentSelectedRoofId) =>
+      currentSelectedRoofId === roofId ? null : currentSelectedRoofId,
+    )
+    setSelectedSurface((currentSelectedSurface) =>
+      currentSelectedSurface?.type === 'roof' &&
+      currentSelectedSurface.roofId === roofId
+        ? null
+        : currentSelectedSurface,
+    )
   }
 
   const refreshModelAssets = () => {
@@ -1144,8 +1451,34 @@ function App() {
 
   const updateWallGeometry = (
     wallId: string,
-    updates: Pick<Wall, 'end' | 'start'>,
+    updates: Partial<Pick<Wall, 'end' | 'start' | 'thickness'>>,
   ) => {
+    const targetFloor =
+      floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
+    const previousWall = targetFloor.walls.find((wall) => wall.id === wallId)
+
+    if (!previousWall) {
+      return
+    }
+
+    const nextWall = {
+      ...previousWall,
+      ...updates,
+    }
+
+    if (
+      !wallHasValidGeometry(nextWall) ||
+      !Number.isFinite(nextWall.thickness) ||
+      nextWall.thickness <= 0 ||
+      wallDuplicatesExistingSegment(nextWall, targetFloor.walls, wallId)
+    ) {
+      console.warn('[HouseDesigner] Ignored invalid wall update.', {
+        previousWall,
+        updates,
+      })
+      return
+    }
+
     recordHistory(`wall:${wallId}`)
     setFloors((currentFloors) =>
       currentFloors.map((floor) => {
@@ -1170,6 +1503,83 @@ function App() {
             ...floor,
             models: nextModels,
             walls: floor.walls.map((wall) => (wall.id === wallId ? nextWall : wall)),
+          },
+          modelsById,
+        )
+      }),
+    )
+  }
+
+  const updateWallGeometries = (
+    wallUpdates: Array<{
+      wallId: string
+      updates: Pick<Wall, 'end' | 'start'>
+    }>,
+  ) => {
+    if (wallUpdates.length === 0) {
+      return
+    }
+
+    const targetFloor =
+      floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
+    const updatesByWallId = new Map(
+      wallUpdates.map(({ wallId, updates }) => [wallId, updates]),
+    )
+    const nextWalls = targetFloor.walls.map((wall) => {
+      const updates = updatesByWallId.get(wall.id)
+
+      return updates ? { ...wall, ...updates } : wall
+    })
+    const invalidWall = nextWalls.find((wall) => {
+      const wasUpdated = updatesByWallId.has(wall.id)
+
+      return (
+        wasUpdated &&
+        (!wallHasValidGeometry(wall) ||
+          !Number.isFinite(wall.thickness) ||
+          wall.thickness <= 0 ||
+          wallDuplicatesExistingSegment(wall, nextWalls, wall.id))
+      )
+    })
+
+    if (invalidWall) {
+      console.warn('[HouseDesigner] Ignored invalid wall batch update.', {
+        invalidWall,
+        wallUpdates,
+      })
+      return
+    }
+
+    recordHistory(
+      wallUpdates.length === 1 ? `wall:${wallUpdates[0].wallId}` : undefined,
+    )
+    setFloors((currentFloors) =>
+      currentFloors.map((floor) => {
+        if (floor.id !== activeFloorId) {
+          return floor
+        }
+
+        const updatesByWallId = new Map(
+          wallUpdates.map(({ wallId, updates }) => [wallId, updates]),
+        )
+        const nextWalls = floor.walls.map((wall) => {
+          const updates = updatesByWallId.get(wall.id)
+
+          return updates ? { ...wall, ...updates } : wall
+        })
+        const nextModels = nextWalls.reduce(
+          (models, wall) =>
+            updatesByWallId.has(wall.id)
+              ? updateWallAttachedModels(models, wall)
+              : models,
+          floor.models ?? [],
+        )
+
+        return syncWallOpenings(
+          {
+            ...floor,
+            models: nextModels,
+            walls: nextWalls,
           },
           modelsById,
         )
@@ -1337,6 +1747,45 @@ function App() {
     })
   }
 
+  const assignRoofMaterial = (
+    floorId: string,
+    roofId: string,
+    materialId: string | null,
+    textureScale = 1,
+    textureRotation = 0,
+    customColor?: string,
+  ) => {
+    recordHistory()
+    setSurfaceAssignments((currentAssignments) => {
+      const nextAssignments = currentAssignments.filter(
+        (assignment) =>
+          !(
+            assignment.target.type === 'roof' &&
+            assignment.target.floorId === floorId &&
+            assignment.target.roofId === roofId
+          ),
+      )
+
+      return materialId
+        ? [
+            ...nextAssignments,
+            {
+              customColor,
+              id: createId(),
+              materialId,
+              target: {
+                type: 'roof' as const,
+                floorId,
+                roofId,
+              },
+              textureRotation,
+              textureScale,
+            },
+          ]
+        : nextAssignments
+    })
+  }
+
   const assignWallMaterial = (
     wallId: string,
     materialId: string | null,
@@ -1479,27 +1928,20 @@ function App() {
   }
 
   const saveProject = async () => {
-    const normalizedFloors = floors.map((floor) => normalizeFloor(floor, modelsById))
-    const project: SavedProject = {
-      activeFloorId,
-      floors: normalizedFloors,
-      modelDefinitions: getSavedProjectModelDefinitions(normalizedFloors),
-      sunPosition,
-      surfaceAssignments,
-      wallKind,
-    }
+    const project = getCurrentSavedProject()
+    const contents = `${JSON.stringify(project, null, 2)}\n`
 
     try {
-      await saveTextToLocalFile(
-        PROJECT_FILE_NAME,
-        `${JSON.stringify(project, null, 2)}\n`,
-      )
+      await saveTextToLocalFile(PROJECT_FILE_NAME, contents)
+      lastCleanProjectRef.current = serializeSavedProject(project)
+      return true
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        return
+        return false
       }
 
       window.alert('The house design could not be saved to disk.')
+      return false
     }
   }
 
@@ -1546,11 +1988,22 @@ function App() {
           : [],
       )
       setWallKind(parsedProject.wallKind)
+      lastCleanProjectRef.current = serializeSavedProject({
+        activeFloorId: loadedActiveFloorId,
+        floors: loadedFloors,
+        modelDefinitions: getSavedProjectModelDefinitions(loadedFloors),
+        sunPosition: normalizeSunPosition(parsedProject.sunPosition),
+        surfaceAssignments: Array.isArray(parsedProject.surfaceAssignments)
+          ? parsedProject.surfaceAssignments
+          : [],
+        wallKind: parsedProject.wallKind,
+      })
       setSelectedWallId(null)
       setSelectedWallIds([])
       setSelectedRoomSignature(null)
       setSelectedModelId(null)
       setSelectedModelIds([])
+      setSelectedRoofId(null)
       setIsAddingWall(false)
       setProjectFileName(loadedFile.fileName)
       setSceneRevision((currentRevision) => currentRevision + 1)
@@ -1561,6 +2014,56 @@ function App() {
 
       window.alert('The selected house design could not be loaded.')
     }
+  }
+
+  const newProject = async () => {
+    const currentProject = getCurrentSavedProject()
+    const hasUnsavedChanges =
+      serializeSavedProject(currentProject) !== lastCleanProjectRef.current
+
+    if (hasUnsavedChanges) {
+      const saveFirst = window.confirm(
+        'Save changes before starting a new project?',
+      )
+
+      if (saveFirst) {
+        const saved = await saveProject()
+
+        if (!saved) {
+          return
+        }
+      } else if (
+        !window.confirm('Discard unsaved changes and start a new project?')
+      ) {
+        return
+      }
+    }
+
+    const project = normalizeSavedProject(createFallbackProject())
+
+    setFloors(project.floors)
+    setActiveFloorId(project.activeFloorId)
+    setSelectedFloorViewId(project.activeFloorId)
+    setSunPosition(project.sunPosition)
+    setSurfaceAssignments(project.surfaceAssignments)
+    setWallKind(project.wallKind)
+    setNewWallHeight(DEFAULT_ROOM_HEIGHT)
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setSelectedRoofId(null)
+    setSelectedSurface(null)
+    setClipboardItem(null)
+    setIsAddingWall(false)
+    setProjectFileName(PROJECT_FILE_NAME)
+    historyPastRef.current = []
+    historyFutureRef.current = []
+    historyCoalesceRef.current = null
+    updateHistoryAvailability()
+    lastCleanProjectRef.current = serializeSavedProject(project)
+    setSceneRevision((currentRevision) => currentRevision + 1)
   }
 
   const activeFloor =
@@ -1658,6 +2161,18 @@ function App() {
         selectedSurface.floorId,
         selectedSurface.wallId,
         selectedSurface.openingId,
+        materialId,
+        textureScale,
+        textureRotation,
+        customColor,
+      )
+      return
+    }
+
+    if (selectedSurface.type === 'roof') {
+      assignRoofMaterial(
+        selectedSurface.floorId,
+        selectedSurface.roofId,
         materialId,
         textureScale,
         textureRotation,
@@ -1950,6 +2465,7 @@ function App() {
       setSelectedWallIds([id])
       setSelectedModelId(null)
       setSelectedModelIds([])
+      setSelectedRoofId(null)
       setSelectedRoomSignature(null)
       setIsAddingWall(false)
       return
@@ -1990,6 +2506,7 @@ function App() {
     )
     setSelectedModelId(id)
     setSelectedModelIds([id])
+    setSelectedRoofId(null)
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -2001,6 +2518,7 @@ function App() {
     if (!modelId) {
       setSelectedModelId(null)
       setSelectedModelIds([])
+      setSelectedRoofId(null)
       return
     }
 
@@ -2026,6 +2544,7 @@ function App() {
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
+    setSelectedRoofId(null)
     setIsAddingWall(false)
   }
 
@@ -2047,12 +2566,60 @@ function App() {
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
     setSelectedSurface(null)
+    setSelectedRoofId(null)
+    setIsAddingWall(false)
+  }
+
+  const selectRoofFromThreeD = (roofId: string, floorId: string) => {
+    setActiveFloorId(floorId)
+
+    if (selectedFloorViewId !== ALL_FLOORS_VIEW_ID) {
+      setSelectedFloorViewId(floorId)
+    }
+
+    const shouldDeselect = selectedRoofId === roofId
+
+    setSelectedRoofId(shouldDeselect ? null : roofId)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setSelectedSurface(
+      shouldDeselect
+        ? null
+        : {
+            floorId,
+            roofId,
+            type: 'roof',
+          },
+    )
+    setIsAddingWall(false)
+  }
+
+  const selectRoofFromFloorplan = (roofId: string | null) => {
+    setSelectedRoofId(roofId)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setSelectedSurface(
+      roofId
+        ? {
+            floorId: activeFloor.id,
+            roofId,
+            type: 'roof',
+          }
+        : null,
+    )
     setIsAddingWall(false)
   }
 
   const clearThreeDSelection = () => {
     setSelectedModelId(null)
     setSelectedModelIds([])
+    setSelectedRoofId(null)
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -2075,6 +2642,7 @@ function App() {
     setSelectedSurface(surface)
     setSelectedModelId(null)
     setSelectedModelIds([])
+    setSelectedRoofId(surface.type === 'roof' ? surface.roofId : null)
     setSelectedWallIds([])
 
     if (surface.type === 'wall-face') {
@@ -2093,7 +2661,9 @@ function App() {
 
     setSelectedWallId(null)
     setSelectedRoomSignature(
-      surface.type === 'floor-slab-edge' || surface.type === 'portal-floor'
+      surface.type === 'floor-slab-edge' ||
+        surface.type === 'portal-floor' ||
+        surface.type === 'roof'
         ? null
         : surface.roomSignature,
     )
@@ -2103,6 +2673,7 @@ function App() {
     if (!wallId) {
       setSelectedWallId(null)
       setSelectedWallIds([])
+      setSelectedRoofId(null)
       setSelectedSurface(null)
       return
     }
@@ -2123,6 +2694,7 @@ function App() {
 
     setSelectedModelId(null)
     setSelectedModelIds([])
+    setSelectedRoofId(null)
     setSelectedRoomSignature(null)
     setSelectedSurface(null)
     setIsAddingWall(false)
@@ -2223,16 +2795,15 @@ function App() {
         wallKind={wallKind}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
+        onAddRoof={addRoof}
         onAlignModels={alignSelectedModels}
         onApplyMaterial={applyMaterialToSelectedSurface}
         onCopy={copySelection}
         onCut={cutSelection}
         onDeleteFloor={deleteActiveFloor}
-        onLoadProject={loadProject}
         onOpenModelSelector={() => setIsModelSelectorOpen(true)}
         onPaste={pasteClipboard}
         onRedo={redo}
-        onSaveProject={saveProject}
         onSelectFloor={(floorId) => {
           setSelectedFloorViewId(floorId)
 
@@ -2245,6 +2816,7 @@ function App() {
           setSelectedRoomSignature(null)
           setSelectedModelId(null)
           setSelectedModelIds([])
+          setSelectedRoofId(null)
           setIsAddingWall(false)
         }}
         onSlabThicknessChange={updateActiveFloorSlabThickness}
@@ -2263,6 +2835,7 @@ function App() {
         wallCount={totalWallCount}
         onEngineConsoleOpenChange={setIsEngineConsoleOpen}
         onLoadProject={loadProject}
+        onNewProject={newProject}
         onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
         onSaveProject={saveProject}
       />
@@ -2284,15 +2857,19 @@ function App() {
           projectFileName={projectFileName}
           selectedModelId={selectedModelId}
           selectedModelIds={selectedModelIds}
+          selectedRoofId={selectedRoofId}
           selectedWallId={selectedWallId}
           selectedWallIds={selectedWallIds}
           wallHeight={Math.min(newWallHeight, activeFloor.roomHeight)}
           wallKind={wallKind}
           onAddWall={addWall}
+          onAddRoof={addRoof}
           onDeleteModel={deleteModel}
+          onDeleteRoof={deleteRoof}
           onDeleteWall={deleteWall}
           onExitAddWall={() => setIsAddingWall(false)}
           onSelectModel={selectModel}
+          onSelectRoof={selectRoofFromFloorplan}
           selectedRoomSignature={selectedRoomSignature}
           onSelectRoom={(roomSignature) => {
             setSelectedRoomSignature(roomSignature)
@@ -2300,11 +2877,14 @@ function App() {
             setSelectedWallIds([])
             setSelectedModelId(null)
             setSelectedModelIds([])
+            setSelectedRoofId(null)
             setSelectedSurface(null)
           }}
           onSelectWall={selectWall}
           onUpdateModel={updateModel}
+          onUpdateRoof={updateRoof}
           onUpdateWall={updateWallGeometry}
+          onUpdateWalls={updateWallGeometries}
         >
           <ContextPanel
             activeFloor={activeFloor}
@@ -2331,6 +2911,7 @@ function App() {
               )
             }}
             onUpdateModel={updateModel}
+            onUpdateWall={updateWallGeometry}
           />
         </FloorplanCanvas>
         <div
@@ -2389,10 +2970,12 @@ function App() {
             clearThreeDSelection()
           }}
           onSelectModel={selectModelFromThreeD}
+          onSelectRoof={selectRoofFromThreeD}
           onSelectSurface={selectSurfaceFromThreeD}
           onLightDirectionChange={setSunPosition}
           onUpdateModel={updateModel}
           selectedModelId={selectedModelId}
+          selectedRoofId={selectedRoofId}
           selectedSurface={selectedSurface}
           selectedWallId={selectedWallId}
           sceneRevision={sceneRevision}

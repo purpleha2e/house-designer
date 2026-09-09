@@ -708,6 +708,10 @@ function solveEndpointSidePoint({
     return endpointSidePoint
   }
 
+  const effectiveChamferThreshold = Math.min(
+    chamferThreshold,
+    Math.max(wall.thickness * 1.5, wall.thickness),
+  )
   const signedDistanceFromEndpoint = dot(
     {
       x: intersection.point.x - endpointSidePoint.x,
@@ -716,8 +720,8 @@ function solveEndpointSidePoint({
     rayDirection,
   )
   const distanceAlongRay = Math.max(
-    -chamferThreshold,
-    Math.min(signedDistanceFromEndpoint, chamferThreshold),
+    -effectiveChamferThreshold,
+    Math.min(signedDistanceFromEndpoint, effectiveChamferThreshold),
   )
 
   return {
@@ -1045,7 +1049,7 @@ function buildEndpointJoinFills(
   const wallsById = new Map(walls.map((wall) => [wall.id, wall]))
 
   return graph.endpointNodes.flatMap((node) => {
-    if (node.endpoints.length < 3) {
+    if (node.endpoints.length < 2) {
       return []
     }
 
