@@ -1791,8 +1791,8 @@ function App() {
     })
   }
 
-  const assignWallMaterial = (
-    wallId: string,
+  const assignWallMaterials = (
+    wallFaces: Array<{ side: -1 | 1; wallId: string }>,
     materialId: string | null,
     coverageHeight: number,
     side: SurfaceWallSide,
@@ -1806,10 +1806,14 @@ function App() {
         (assignment) =>
           !(
             assignment.target.type === 'wall-face' &&
-            assignment.target.wallId === wallId &&
-            (side === 'both' ||
-              assignment.target.side === 'both' ||
-              assignment.target.side === side)
+            wallFaces.some(
+              (wallFace) =>
+                assignment.target.type === 'wall-face' &&
+                assignment.target.wallId === wallFace.wallId &&
+                (side === 'both' ||
+                  assignment.target.side === 'both' ||
+                  assignment.target.side === wallFace.side),
+            )
           ),
       )
 
@@ -1819,22 +1823,40 @@ function App() {
 
       return [
         ...nextAssignments,
-        {
+        ...wallFaces.map((wallFace) => ({
           coverageHeight,
           customColor,
           id: createId(),
           materialId,
           target: {
             type: 'wall-face',
-            side,
-            wallId,
+            side: side === 'both' ? 'both' : wallFace.side,
+            wallId: wallFace.wallId,
           },
           textureRotation,
           textureScale,
-        },
+        } satisfies SurfaceMaterialAssignment)),
       ]
     })
   }
+  const assignWallMaterial = (
+    wallId: string,
+    materialId: string | null,
+    coverageHeight: number,
+    side: SurfaceWallSide,
+    textureScale = 1,
+    textureRotation = 0,
+    customColor?: string,
+  ) =>
+    assignWallMaterials(
+      [{ side: side === 'both' ? 1 : side, wallId }],
+      materialId,
+      coverageHeight,
+      side,
+      textureScale,
+      textureRotation,
+      customColor,
+    )
 
   const assignWallFragmentMaterials = (
     fragments: WallSurfaceFragmentReference[],
@@ -2203,6 +2225,19 @@ function App() {
         materialId,
         wallMode === 'lower' ? coverageHeight ?? 1.2 : wall?.height ?? activeFloor.roomHeight,
         wallSide ?? 'both',
+        textureScale,
+        textureRotation,
+        customColor,
+      )
+      return
+    }
+
+    if (selectedSurface.wallFaces && selectedSurface.wallFaces.length > 0) {
+      assignWallMaterials(
+        selectedSurface.wallFaces,
+        materialId,
+        wallMode === 'lower' ? coverageHeight ?? 1.2 : wall?.height ?? activeFloor.roomHeight,
+        wallSide ?? selectedSurface.side,
         textureScale,
         textureRotation,
         customColor,

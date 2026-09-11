@@ -4,6 +4,7 @@ import type { Wall, WallSurfaceFragmentReference } from '../src/types.ts'
 import {
   appendExternalWallCapFragmentsToGroups,
   buildConnectedExternalWallSurfaceGroups,
+  buildRoomWallFaceGroups,
   buildRoomWallSurfaceGroups,
   createWallSurfacePickTarget,
   getAdjoiningWallSurfaceSelection,
@@ -240,6 +241,10 @@ test('adds perimeter side faces marked as caps to an external adjoining group', 
         fragment: exteriorFragment,
         isExterior: true,
       },
+      {
+        fragment: { fragmentId: capFragmentId, side: -1, wallId: 'external' },
+        isExterior: true,
+      },
     ],
     faces: [
       {
@@ -284,6 +289,10 @@ test('adds an external cap through its connected wall component when its own wal
         fragment: adjoiningFragment,
         isExterior: true,
       },
+      {
+        fragment: { fragmentId: capFragmentId, side: -1, wallId: 'cap-wall' },
+        isExterior: true,
+      },
     ],
     faces: [
       {
@@ -312,7 +321,7 @@ test('adds an external cap through its connected wall component when its own wal
   )
 })
 
-test('groups an external cap with its own wall side when room classification provides no exterior anchor', () => {
+test('does not add an external-wall cap classified as an internal surface', () => {
   const exteriorWall = wall('unclassified-external', [0, 0], [4, 0])
   const wallFragments = [
     {
@@ -352,26 +361,23 @@ test('groups an external cap with its own wall side when room classification pro
     walls: [exteriorWall],
   })
 
-  const expectedFragmentIds = [
-    capFragmentId,
-    'unclassified-external-side-part-a',
-    'unclassified-external-side-part-b',
-  ]
+  assert.equal(groups.size, 0)
+})
 
-  assert.deepEqual(
-    groups
-      .get(`${exteriorWall.id}:-1:unclassified-external-side-part-a`)
-      ?.map((entry) => entry.fragmentId),
-    expectedFragmentIds,
-  )
-  assert.deepEqual(
-    groups
-      .get(`${exteriorWall.id}:-1:${capFragmentId}`)
-      ?.map((entry) => entry.fragmentId),
-    expectedFragmentIds,
-  )
-  assert.equal(
-    groups.has(`${exteriorWall.id}:1:unclassified-external-side-part-a`),
-    false,
-  )
+test('groups legacy wall faces that adjoin the same room', () => {
+  const groups = buildRoomWallFaceGroups([
+    { roomSignature: 'room-a', wallFace: { side: 1, wallId: 'left' } },
+    { roomSignature: 'room-a', wallFace: { side: -1, wallId: 'back' } },
+    { roomSignature: 'room-a', wallFace: { side: 1, wallId: 'right' } },
+    { roomSignature: 'room-b', wallFace: { side: -1, wallId: 'right' } },
+  ])
+
+  assert.deepEqual(groups.get('back:-1'), [
+    { side: -1, wallId: 'back' },
+    { side: 1, wallId: 'left' },
+    { side: 1, wallId: 'right' },
+  ])
+  assert.deepEqual(groups.get('right:-1'), [
+    { side: -1, wallId: 'right' },
+  ])
 })

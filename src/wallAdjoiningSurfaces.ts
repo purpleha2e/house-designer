@@ -1,6 +1,7 @@
 import type {
   SelectableSurface,
   Wall,
+  WallFaceReference,
   WallSurfaceFragmentReference,
 } from './types.ts'
 import type { WallMeshFace } from './wallEngine/wallMesh.ts'
@@ -145,6 +146,41 @@ export function buildRoomWallSurfaceGroups(
   return groupsBySurface
 }
 
+export function buildRoomWallFaceGroups(
+  entries: Array<{ roomSignature: string; wallFace: WallFaceReference }>,
+) {
+  const fragmentsByRoomSignature = new Map<string, WallFaceReference[]>()
+
+  entries.forEach(({ roomSignature, wallFace }) => {
+    fragmentsByRoomSignature.set(roomSignature, [
+      ...(fragmentsByRoomSignature.get(roomSignature) ?? []),
+      wallFace,
+    ])
+  })
+
+  const groups = new Map<string, WallFaceReference[]>()
+
+  fragmentsByRoomSignature.forEach((roomWallFaces) => {
+    const wallFaces = [
+      ...new Map(
+        roomWallFaces.map((wallFace) => [
+          `${wallFace.wallId}:${wallFace.side}`,
+          wallFace,
+        ]),
+      ).values(),
+    ].sort(
+      (first, second) =>
+        first.wallId.localeCompare(second.wallId) || first.side - second.side,
+    )
+
+    wallFaces.forEach((wallFace) => {
+      groups.set(`${wallFace.wallId}:${wallFace.side}`, wallFaces)
+    })
+  })
+
+  return groups
+}
+
 export function appendExternalWallCapFragmentsToGroups({
   classifiedFragments,
   faces,
@@ -198,11 +234,17 @@ export function appendExternalWallCapFragmentsToGroups({
 
     return connectedWallIds
   }
+  const exteriorFragmentIds = new Set(
+    classifiedFragments
+      .filter(({ isExterior }) => isExterior)
+      .map(({ fragment }) => fragment.fragmentId),
+  )
 
   faces
     .filter(
       (face) =>
         (face.kind === 'cap' || face.pickSource.role === 'cap') &&
+        exteriorFragmentIds.has(face.faceId) &&
         typeof face.pickSource.side === 'number' &&
         wallsById.get(face.pickSource.wallId)?.kind === 'external',
     )

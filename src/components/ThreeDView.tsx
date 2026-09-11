@@ -130,6 +130,7 @@ import { buildCoplanarWallSurfaceGroups } from '../wallEngine/wallSurfaceGroups'
 import {
   appendExternalWallCapFragmentsToGroups,
   buildConnectedExternalWallSurfaceGroups,
+  buildRoomWallFaceGroups,
   buildRoomWallSurfaceGroups,
   createWallSurfacePickTarget,
   getAdjoiningWallSurfaceSelection,
@@ -2592,12 +2593,17 @@ function WallSegmentMesh({
     segment.y - wallHeight / 2,
     0,
   ] as const
-  const selectedWallSide =
-    selectedSurface?.type === 'wall-face' &&
-    selectedSurface.wallId === wallId &&
-    (!selectedWallId || selectedWallId === wallId)
-      ? selectedSurface.side
-      : null
+  const selectedWallSide = (() => {
+    if (selectedSurface?.type !== 'wall-face' || selectedWallId) {
+      return null
+    }
+
+    return (
+      selectedSurface.wallFaces?.find((wallFace) => wallFace.wallId === wallId)
+        ?.side ??
+      (selectedSurface.wallId === wallId ? selectedSurface.side : null)
+    )
+  })()
   const wallIsSelected = selectedWallSide !== null || selectedWallId === wallId
 
   if (wireframe) {
@@ -2857,6 +2863,21 @@ function WallEngineWallMeshes({
         y: center.y - normal.y * (wall.thickness + 0.08),
       })
       const detectedExteriorSide = exteriorWallSidesByWallId.get(wall.id)
+      const capTouchesRoom =
+        face.pickSource.role === 'cap' &&
+        [0.08, wall.thickness / 2 + 0.08, wall.thickness + 0.08].some(
+          (distance) =>
+            Boolean(
+              getRenderableRoomContainingPoint(rooms, {
+                x: center.x + normal.x * distance,
+                y: center.y + normal.y * distance,
+              }) ??
+                getRenderableRoomContainingPoint(rooms, {
+                  x: center.x - normal.x * distance,
+                  y: center.y - normal.y * distance,
+                }),
+            ),
+        )
 
       return [
         {
@@ -2866,13 +2887,18 @@ function WallEngineWallMeshes({
             side: face.pickSource.side,
             wallId: face.pickSource.wallId,
           },
-          isExterior: isExteriorWallSurfaceFragment({
-            detectedExteriorSide,
-            hasAdjacentRoom: Boolean(adjacentRoom),
-            hasOppositeRoom: Boolean(oppositeRoom),
-            side: face.pickSource.side,
-            wallKind: wall.kind,
-          }),
+          isExterior:
+            face.pickSource.role === 'cap'
+              ? wall.kind === 'external' &&
+                face.pickSource.side === detectedExteriorSide &&
+                !capTouchesRoom
+              : isExteriorWallSurfaceFragment({
+                  detectedExteriorSide,
+                  hasAdjacentRoom: Boolean(adjacentRoom),
+                  hasOppositeRoom: Boolean(oppositeRoom),
+                  side: face.pickSource.side,
+                  wallKind: wall.kind,
+                }),
         },
       ]
     })
@@ -2959,10 +2985,18 @@ function WallEngineWallMeshes({
     }
 
     if (selectedSurface?.type === 'wall-face') {
+      const selectedWallFaces =
+        selectedSurface.wallFaces ?? [
+          { side: selectedSurface.side, wallId: selectedSurface.wallId },
+        ]
+
       return faces.filter(
         (face) =>
-          face.pickSource.wallId === selectedSurface.wallId &&
-          face.pickSource.side === selectedSurface.side,
+          selectedWallFaces.some(
+            (wallFace) =>
+              face.pickSource.wallId === wallFace.wallId &&
+              face.pickSource.side === wallFace.side,
+          ),
       )
     }
 
@@ -8110,12 +8144,50 @@ function WallFootprintMeshes({
   )
   const pickGroupTargets = useMemo(() => {
     const targets = new Map<number, SelectableSurface>()
+    const adjoiningWallFaceGroups = buildRoomWallFaceGroups(
+      contextWalls.flatMap((wall) => {
+        const dx = wall.end.x - wall.start.x
+        const dy = wall.end.y - wall.start.y
+        const length = Math.hypot(dx, dy)
+
+        if (length <= 0.000001) {
+          return []
+        }
+
+        const normal = { x: -dy / length, y: dx / length }
+
+        return ([1, -1] as const).flatMap((side) => {
+          const roomSignatures = new Set(
+            [0.2, 0.5, 0.8].flatMap((amount) => {
+              const room = getRenderableRoomContainingPoint(rooms, {
+                x:
+                  wall.start.x + dx * amount +
+                  normal.x * side * (wall.thickness / 2 + 0.08),
+                y:
+                  wall.start.y + dy * amount +
+                  normal.y * side * (wall.thickness / 2 + 0.08),
+              })
+
+              return room ? [room.signature] : []
+            }),
+          )
+
+          return roomSignatures.size === 1
+            ? [{
+                roomSignature: [...roomSignatures][0],
+                wallFace: { side, wallId: wall.id },
+              }]
+            : []
+        })
+      }),
+    )
 
     wallFaceMaterialIndices.forEach((materialIndex, slotKey) => {
       const [wallId, sideText] = slotKey.split(':')
       const side = Number(sideText) as Exclude<SurfaceWallSide, 'both'>
 
       targets.set(materialIndex, {
+        adjoiningWallFaces: adjoiningWallFaceGroups.get(`${wallId}:${side}`),
         floorId,
         side,
         type: 'wall-face',
@@ -8124,19 +8196,13 @@ function WallFootprintMeshes({
     })
 
     return targets
-  }, [floorId, wallFaceMaterialIndices])
+  }, [contextWalls, floorId, rooms, wallFaceMaterialIndices])
   const selectedWallForHighlight =
     selectedWallId
       ? contextWalls.find((wall) => wall.id === selectedWallId) ?? null
       : selectedSurface?.type === 'wall-face'
         ? contextWalls.find((wall) => wall.id === selectedSurface.wallId) ?? null
         : null
-  const selectedMaterialIndex =
-    selectedSurface?.type === 'wall-face'
-      ? wallFaceMaterialIndices.get(
-          `${selectedSurface.wallId}:${selectedSurface.side}`,
-        ) ?? null
-      : null
   const materialGroupCount = Math.max(1, 1 + Math.max(0, ...wallFaceMaterialIndices.values()))
   const hasExternalWallFaceAssignments =
     wallKind === 'external' &&
@@ -8185,12 +8251,22 @@ function WallFootprintMeshes({
 
     if (
       selectedSurface?.type === 'wall-face' &&
-      (!selectedWallId || selectedSurface.wallId === selectedWallId)
+      !selectedWallId
     ) {
-      return selectedMaterialIndex !== null &&
-        presentMaterialIndices.has(selectedMaterialIndex)
-        ? [selectedMaterialIndex]
-        : []
+      return (
+        selectedSurface.wallFaces ?? [
+          { side: selectedSurface.side, wallId: selectedSurface.wallId },
+        ]
+      ).flatMap((wallFace) => {
+        const materialIndex = wallFaceMaterialIndices.get(
+          `${wallFace.wallId}:${wallFace.side}`,
+        )
+
+        return materialIndex !== undefined &&
+          presentMaterialIndices.has(materialIndex)
+          ? [materialIndex]
+          : []
+      })
     }
 
     const wallId =
@@ -8210,7 +8286,6 @@ function WallFootprintMeshes({
       .map(([, materialIndex]) => materialIndex)
   }, [
     explicitGeometry,
-    selectedMaterialIndex,
     selectedSurface,
     selectedWallId,
     wallFaceMaterialIndices,
@@ -17300,6 +17375,13 @@ function ModelPicker({
         const selectedSurface =
           selectAdjoining && surface.type === 'wall-surface-fragment'
             ? getAdjoiningWallSurfaceSelection(surface)
+            : selectAdjoining && surface.type === 'wall-face'
+              ? {
+                  ...surface,
+                  wallFaces: surface.adjoiningWallFaces ?? [
+                    { side: surface.side, wallId: surface.wallId },
+                  ],
+                }
             : surface
 
         emitEngineActivity({
@@ -17307,7 +17389,7 @@ function ModelPicker({
             selectedSurface.type === 'wall-surface-fragment'
               ? `${selectAdjoining ? 'Shift-selected' : 'Selected'} ${selectedSurface.fragments?.length ?? 1} wall section${(selectedSurface.fragments?.length ?? 1) === 1 ? '' : 's'}`
               : selectedSurface.type === 'wall-face'
-                ? `Picked wall ${selectedSurface.side === 1 ? 'side A' : 'side B'}`
+                ? `${selectAdjoining ? 'Shift-selected' : 'Selected'} ${selectedSurface.wallFaces?.length ?? 1} wall face${(selectedSurface.wallFaces?.length ?? 1) === 1 ? '' : 's'}`
                 : `Picked ${selectedSurface.type}`,
           minimumVisibleMs: 1800,
         })

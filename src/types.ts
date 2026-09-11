@@ -138,6 +138,11 @@ export type SurfaceMaterialAssignment = {
   textureScale?: number
 }
 
+export type WallFaceReference = {
+  side: Exclude<SurfaceWallSide, 'both'>
+  wallId: string
+}
+
 export type SelectableSurface =
   | {
       floorId: string
@@ -150,8 +155,10 @@ export type SelectableSurface =
       type: 'ceiling'
     }
   | {
+      adjoiningWallFaces?: WallFaceReference[]
       floorId: string
       side: Exclude<SurfaceWallSide, 'both'>
+      wallFaces?: WallFaceReference[]
       wallId: string
       type: 'wall-face'
     }
