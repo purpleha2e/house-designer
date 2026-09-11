@@ -39,6 +39,7 @@ export type WallMeshFace = {
   materialSource: WallMeshSource
   normal: [number, number, number]
   pickSource: WallMeshSource
+  roomSignature?: string
   uvSource: WallMeshSource
   vertices: [WallMeshVertex, WallMeshVertex, WallMeshVertex, WallMeshVertex]
   wallId: string
@@ -1534,6 +1535,69 @@ function getWallSideSourceForPerimeterEdge(
     : null
 }
 
+function getWallEndpointSideSourceForPerimeterEdge(
+  start: Point,
+  end: Point,
+  walls: Wall[],
+  exteriorWallSidesByWallId?: ReadonlyMap<string, WallSide>,
+) {
+  const midpoint = {
+    x: (start.x + end.x) / 2,
+    y: (start.y + end.y) / 2,
+  }
+  let bestDistance = Number.POSITIVE_INFINITY
+  let bestSide: WallSide | undefined
+  let bestWall: Wall | null = null
+
+  for (const wall of walls) {
+    const direction = getWallDirection(wall)
+    const normal = getWallNormal(wall)
+
+    for (const endpoint of [wall.start, wall.end]) {
+      const delta = {
+        x: midpoint.x - endpoint.x,
+        y: midpoint.y - endpoint.y,
+      }
+      const along = dot(delta, direction)
+      const across = dot(delta, normal)
+      const isCentredEndCap = Math.abs(across) < 0.01
+
+      // A partial cap has a clear side. A centred external cap spans the full
+      // wall thickness, but still belongs to the exterior wall and should use
+      // its detected exterior side rather than an arbitrary component wall.
+      if (
+        Math.abs(along) > wall.thickness / 2 + 0.08 ||
+        Math.abs(across) > wall.thickness / 2 + 0.08 ||
+        (isCentredEndCap && wall.kind !== 'external')
+      ) {
+        continue
+      }
+
+      const endpointDistance = Math.hypot(along, across)
+
+      const candidateIsExternal = wall.kind === 'external'
+      const bestIsExternal = bestWall?.kind === 'external'
+
+      if (
+        (candidateIsExternal && !bestIsExternal) ||
+        (candidateIsExternal === bestIsExternal && endpointDistance < bestDistance)
+      ) {
+        bestDistance = endpointDistance
+        bestSide = isCentredEndCap
+          ? exteriorWallSidesByWallId?.get(wall.id)
+          : across < 0
+            ? -1
+            : 1
+        bestWall = wall
+      }
+    }
+  }
+
+  return bestWall
+    ? { side: bestSide, wall: bestWall }
+    : null
+}
+
 function getOpeningRectsForPerimeterEdge(
   start: Point,
   end: Point,
@@ -1706,6 +1770,7 @@ function addPerimeterVerticalWallSideFaces({
   wallId,
   wallSide,
   walls,
+  junctionWalls = walls,
   yBottom,
   yTop,
 }: {
@@ -1719,6 +1784,7 @@ function addPerimeterVerticalWallSideFaces({
   wallId: string
   wallSide: WallSide
   walls: Wall[]
+  junctionWalls?: Wall[]
   yBottom: number
   yTop: number
 }) {
@@ -1729,8 +1795,37 @@ function addPerimeterVerticalWallSideFaces({
   const intervalStart = 0
   const intervalEnd = edgeLength
   const openings = getOpeningRectsForPerimeterEdge(start, end, walls)
+  const junctionDistances = junctionWalls.flatMap((otherWall) => {
+    if (otherWall.id === wall.id) {
+      return []
+    }
 
-  if (openings.length === 0) {
+    const otherDirection = getWallDirection(otherWall)
+    const wallDirection = getWallDirection(wall)
+
+    if (Math.abs(dot(otherDirection, wallDirection)) > 0.96) {
+      return []
+    }
+
+    return ([otherWall.start, otherWall.end] as const).flatMap((point) => {
+      const pointDistance = getDistanceToLine(start, end, point)
+      const maximumDistance =
+        (wall.thickness + otherWall.thickness) / 2 + 0.03
+
+      if (pointDistance > maximumDistance) {
+        return []
+      }
+
+      const projectedDistance = getDistanceAlongLine(start, end, point)
+
+      return projectedDistance > intervalStart + 0.0001 &&
+        projectedDistance < intervalEnd - 0.0001
+        ? [projectedDistance]
+        : []
+    })
+  })
+
+  if (openings.length === 0 && junctionDistances.length === 0) {
     addPerimeterVerticalFaceQuad({
       edgeDistanceEnd: getCanonicalWallUvDistance(wall, end),
       edgeDistanceStart: getCanonicalWallUvDistance(wall, start),
@@ -1758,6 +1853,7 @@ function addPerimeterVerticalWallSideFaces({
   const xBreaks = [
     intervalStart,
     intervalEnd,
+    ...junctionDistances,
     ...openings.flatMap((opening) => [
       Math.max(intervalStart, opening.left),
       Math.min(intervalEnd, opening.right),
@@ -1940,6 +2036,7 @@ function addPerimeterVerticalFaces({
   options,
   perimeter,
   walls,
+  junctionWalls = walls,
   yBottom,
   yTop,
 }: {
@@ -1947,6 +2044,7 @@ function addPerimeterVerticalFaces({
   options: WallMeshBuildOptions
   perimeter: WallBodyPerimeter
   walls: Wall[]
+  junctionWalls?: Wall[]
   yBottom: number
   yTop: number
 }) {
@@ -1975,13 +2073,26 @@ function addPerimeterVerticalFaces({
           wallId: matchedWallSide.wall.id,
           wallSide: matchedWallSide.side,
           walls,
+          junctionWalls,
           yBottom,
           yTop,
         })
         return
       }
 
-      const source = { role: 'cap' as const, wallId }
+      const matchedEndpointSide = getWallEndpointSideSourceForPerimeterEdge(
+        start,
+        end,
+        walls,
+        options.exteriorWallSidesByWallId,
+      )
+      const source = matchedEndpointSide
+        ? {
+            role: 'cap' as const,
+            side: matchedEndpointSide.side,
+            wallId: matchedEndpointSide.wall.id,
+          }
+        : { role: 'cap' as const, wallId }
 
       addPerimeterVerticalFaceQuad({
         edgeDistanceEnd: edgeLength,
@@ -1993,7 +2104,7 @@ function addPerimeterVerticalFaces({
         options,
         source,
         start,
-        wallId,
+        wallId: matchedEndpointSide?.wall.id ?? wallId,
         yBottom,
         yTop,
       })
@@ -2265,6 +2376,7 @@ export function buildWallBodyPerimeterMeshFaces(
       layerPlan.perimeters.forEach((layerPerimeter) => {
         addPerimeterVerticalFaces({
           faces,
+          junctionWalls: perimeterWalls,
           options,
           perimeter: layerPerimeter,
           walls: layerWalls,

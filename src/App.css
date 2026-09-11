@@ -1604,6 +1604,68 @@
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
 }
 
+.roof-placement-panel.roof-tool-flyout {
+  position: fixed;
+  z-index: 20;
+  top: 50%;
+  right: auto;
+  left: 72px;
+  transform: translateY(-50%);
+  display: grid;
+  align-items: stretch;
+  width: 230px;
+  max-width: calc(100vw - 84px);
+  max-height: calc(100svh - 24px);
+  overflow-y: auto;
+  padding: 10px;
+  border-color: rgba(203, 213, 225, 0.94);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.18);
+  backdrop-filter: blur(10px);
+}
+
+.roof-tool-flyout header {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 2px;
+}
+
+.roof-tool-flyout h2,
+.roof-tool-flyout p {
+  margin: 0;
+}
+
+.roof-tool-flyout h2 {
+  color: #172033;
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.roof-tool-flyout p {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.roof-tool-flyout label {
+  width: 100%;
+}
+
+.roof-tool-flyout input,
+.roof-tool-flyout select,
+.roof-tool-flyout label > button {
+  width: 100%;
+}
+
+.roof-tool-flyout .roof-pitch-link input {
+  width: 16px;
+}
+
+.roof-tool-flyout .roof-placement-actions button {
+  flex: 1;
+}
+
 .roof-placement-panel label {
   display: grid;
   gap: 3px;

@@ -43,6 +43,7 @@ import {
   buildWallTopology,
   getOtherNodeConnections,
   getWallEndpointNode,
+  WALL_TOPOLOGY_VERSION,
   type DetectedRoom,
   type WallTopology,
 } from '../wallTopology'
@@ -90,14 +91,15 @@ const MODEL_SCALE_STEP = 0.1
 const WALL_DRAG_CONNECTION_TOLERANCE_METERS = 0.04
 const WALL_DIRECTION_SNAP_RADIANS = Math.PI / 4
 const WALL_MODEL_SNAP_DISTANCE_METERS = 0.65
-const ROOM_HIGHLIGHT_COLORS = [
-  'rgba(14, 165, 233, 0.12)',
-  'rgba(16, 185, 129, 0.12)',
-  'rgba(245, 158, 11, 0.12)',
-  'rgba(168, 85, 247, 0.12)',
-  'rgba(244, 63, 94, 0.1)',
-  'rgba(20, 184, 166, 0.12)',
-]
+function getRoomHighlightColors(index: number) {
+  const hue = (205 + index * 137.508) % 360
+  const formattedHue = hue.toFixed(1)
+  return {
+    fill: `hsla(${formattedHue}, 78%, 52%, 0.18)`,
+    stroke: `hsl(${formattedHue}, 72%, 43%)`,
+    selectedStroke: `hsl(${formattedHue}, 86%, 31%)`,
+  }
+}
 
 type FloorplanCanvasProps = {
   activeFloor: FloorLevel
@@ -105,6 +107,7 @@ type FloorplanCanvasProps = {
   floors: FloorLevel[]
   internalWallThickness: number
   isAddingWall: boolean
+  isRoofMode: boolean
   modelAssetVersion: number
   projectFileName: string
   selectedModelId: string | null
@@ -2405,6 +2408,25 @@ function pointsMatch(firstPoint: Point, secondPoint: Point, tolerance = 0.01) {
   return distance(firstPoint, secondPoint) <= tolerance
 }
 
+function getClosestRoofPlacementSnapPoint(
+  point: Point,
+  snapPoints: Point[],
+  maximumDistance = 0.22,
+) {
+  return (
+    snapPoints
+      .map((snapPoint) => ({
+        distance: distance(point, snapPoint),
+        point: snapPoint,
+      }))
+      .filter((candidate) => candidate.distance <= maximumDistance)
+      .sort(
+        (firstCandidate, secondCandidate) =>
+          firstCandidate.distance - secondCandidate.distance,
+      )[0]?.point ?? null
+  )
+}
+
 function roundToRoofAnchorStep(value: number) {
   return (
     Math.round(value / ROOF_WALL_ANCHOR_STEP_METERS) *
@@ -3314,6 +3336,7 @@ export function FloorplanCanvas({
   floors,
   internalWallThickness,
   isAddingWall,
+  isRoofMode,
   modelAssetVersion,
   projectFileName,
   selectedModelId,
@@ -3376,10 +3399,13 @@ export function FloorplanCanvas({
 
     return Array.from(pointsByKey.values())
   }, [roofAttachmentWalls])
-  const wallTopology = useMemo(() => buildWallTopology(walls), [walls])
+  const wallTopology = useMemo(
+    () => buildWallTopology(walls),
+    [walls, WALL_TOPOLOGY_VERSION],
+  )
   const roofAttachmentTopology = useMemo(
     () => buildWallTopology(roofAttachmentWalls),
-    [roofAttachmentWalls],
+    [roofAttachmentWalls, WALL_TOPOLOGY_VERSION],
   )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
@@ -3439,7 +3465,6 @@ export function FloorplanCanvas({
   const [isDraggingModel, setIsDraggingModel] = useState(false)
   const [isDraggingRoof, setIsDraggingRoof] = useState(false)
   const [isDraggingWall, setIsDraggingWall] = useState(false)
-  const [isRoofMode, setIsRoofMode] = useState(false)
   const [roofPlacementDirection, setRoofPlacementDirection] =
     useState<RoofPlacementDirection>('north')
   const [roofPlacementQuarterTurns, setRoofPlacementQuarterTurns] = useState(0)
@@ -4395,11 +4420,6 @@ export function FloorplanCanvas({
     if (!isAddingWall) {
       if (event.target === event.target.getStage()) {
         if (isRoofMode) {
-          if (hoverRoofPlacementPoint) {
-            toggleRoofPlacementPoint(hoverRoofPlacementPoint)
-            return
-          }
-
           onSelectRoof(null)
           return
         }
@@ -4488,7 +4508,12 @@ export function FloorplanCanvas({
       if (isRoofMode) {
         const point = getPointerPoint(event)
         setHoverRoofPlacementPoint(
-          point ? getClosestExternalWallPoint(point, roofAttachmentWalls) : null,
+          point
+            ? getClosestRoofPlacementSnapPoint(
+                point,
+                roofPlacementSnapPoints,
+              )
+            : null,
         )
         setHoverSnapTarget(null)
         setHoverAlignmentGuide(null)
@@ -4657,7 +4682,7 @@ export function FloorplanCanvas({
   )
   const previewWallTopology = useMemo(
     () => buildWallTopology(previewWalls),
-    [previewWalls],
+    [previewWalls, WALL_TOPOLOGY_VERSION],
   )
   const renderedWalls = useMemo(() => getRenderedWalls(previewWalls), [previewWalls])
   const selectedWallMeasurementPreview =
@@ -4754,6 +4779,7 @@ export function FloorplanCanvas({
           const roomName =
             roomMetadataBySignature.get(room.signature) ?? `Room ${index + 1}`
           const isSelectedRoom = room.signature === selectedRoomSignature
+          const highlightColors = getRoomHighlightColors(index)
 
           return (
             <Fragment key={room.signature}>
@@ -4761,8 +4787,12 @@ export function FloorplanCanvas({
                 <Line
                   points={polygonPoints}
                   closed
-                  fill={ROOM_HIGHLIGHT_COLORS[index % ROOM_HIGHLIGHT_COLORS.length]}
-                  stroke={isSelectedRoom ? '#2563eb' : '#38bdf8'}
+                  fill={highlightColors.fill}
+                  stroke={
+                    isSelectedRoom
+                      ? highlightColors.selectedStroke
+                      : highlightColors.stroke
+                  }
                   strokeWidth={isSelectedRoom ? 2 : 1}
                   dash={[6, 6]}
                   listening
@@ -6004,17 +6034,6 @@ export function FloorplanCanvas({
             >
               Scale
             </button>
-            <button
-              type="button"
-              className={isRoofMode ? 'active' : ''}
-              onClick={() => {
-                const nextRoofMode = !isRoofMode
-
-                setIsRoofMode(nextRoofMode)
-              }}
-            >
-              Roof
-            </button>
           </div>
           <div className="render-options">
             <button
@@ -6839,8 +6858,8 @@ export function FloorplanCanvas({
                         x={canvasPoint.x}
                         y={canvasPoint.y}
                         radius={Math.max(4, 6 / viewport.scale)}
-                        fill={isSelectedPoint ? '#2563eb' : '#ffffff'}
-                        stroke={isSelectedPoint ? '#1d4ed8' : '#0f172a'}
+                        fill={isSelectedPoint ? '#22c55e' : '#ffffff'}
+                        stroke={isSelectedPoint ? '#15803d' : '#0f172a'}
                         strokeWidth={Math.max(1, 1.5 / viewport.scale)}
                         onClick={(event) => {
                           event.cancelBubble = true
@@ -6867,9 +6886,9 @@ export function FloorplanCanvas({
                     x={canvasPoint.x}
                     y={canvasPoint.y}
                     radius={Math.max(4, 6 / viewport.scale)}
-                    fill={isSelectedPoint ? '#2563eb' : '#ffffff'}
+                    fill={isSelectedPoint ? '#22c55e' : '#fff7ed'}
                     opacity={0.92}
-                    stroke="#f97316"
+                    stroke={isSelectedPoint ? '#15803d' : '#f97316'}
                     strokeWidth={Math.max(1, 2 / viewport.scale)}
                     onClick={(event) => {
                       event.cancelBubble = true
@@ -6894,7 +6913,14 @@ export function FloorplanCanvas({
         ) : null}
 
         {isRoofMode ? (
-          <div className="roof-placement-panel">
+          <div
+            className="roof-placement-panel roof-tool-flyout"
+            aria-label="Roof tools"
+          >
+            <header>
+              <h2>Roof</h2>
+              <p>Select the roof snap points on the plan.</p>
+            </header>
             <label>
               <span>Type</span>
               <select

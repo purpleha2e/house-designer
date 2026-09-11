@@ -5,6 +5,7 @@ import { getRenderedWalls, getWallPolygon, type RenderedWall } from './wallGeome
 const NODE_EPSILON_METERS = 0.25
 const GRAPH_EPSILON_METERS = 0.03
 const MIN_ROOM_AREA_SQUARE_METERS = 0.5
+export const WALL_TOPOLOGY_VERSION = 2
 type ClippingPoint = [number, number]
 type ClippingRing = ClippingPoint[]
 type ClippingPolygon = ClippingRing[]
@@ -109,6 +110,33 @@ function internalWallCanBoundRoom(wall: Wall, walls: Wall[]) {
         otherWall.id !== wall.id && pointTouchesWallBody(wall[endpoint], otherWall),
     ),
   )
+}
+
+function extendRoomDividerIntoAdjoiningWalls(
+  renderedWall: RenderedWall,
+  walls: Wall[],
+): RenderedWall {
+  const { wall } = renderedWall
+
+  if (wall.kind !== 'internal') {
+    return renderedWall
+  }
+
+  const endpointTouchesAnotherWall = (endpoint: 'start' | 'end') =>
+    walls.some(
+      (otherWall) =>
+        otherWall.id !== wall.id && pointTouchesWallBody(wall[endpoint], otherWall),
+    )
+
+  return {
+    ...renderedWall,
+    startExtension: endpointTouchesAnotherWall('start')
+      ? Math.max(renderedWall.startExtension, GRAPH_EPSILON_METERS)
+      : renderedWall.startExtension,
+    endExtension: endpointTouchesAnotherWall('end')
+      ? Math.max(renderedWall.endExtension, GRAPH_EPSILON_METERS)
+      : renderedWall.endExtension,
+  }
 }
 
 function pointIsInPolygon(point: Point, polygon: Point[]) {
@@ -323,7 +351,13 @@ function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
   const roomBoundaryWalls = walls.filter((wall) =>
     internalWallCanBoundRoom(wall, walls),
   )
-  const renderedWalls = getRenderedWalls(roomBoundaryWalls)
+  // Rendering trims side-attached dividers back to the receiving wall face.
+  // For polygon topology that edge-only contact is numerically fragile and can
+  // leave the rooms connected. Extend eligible internal dividers slightly into
+  // the adjoining body while calculating rooms only.
+  const renderedWalls = getRenderedWalls(roomBoundaryWalls).map((renderedWall) =>
+    extendRoomDividerIntoAdjoiningWalls(renderedWall, roomBoundaryWalls),
+  )
   const unionRooms = buildDetectedRoomsFromWallUnion(renderedWalls)
 
   if (unionRooms.length > 0) {

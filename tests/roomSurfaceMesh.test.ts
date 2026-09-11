@@ -72,6 +72,7 @@ test('room surface mesh builder emits wall side faces from room boundary edges',
     side: 1,
     wallId: 'north',
   })
+  assert.equal(faces[0].roomSignature, 'room-signature')
   assert.deepEqual(faces[0].normal, [0, 0, 1])
   assert.deepEqual(
     faces[0].vertices.map((vertex) => vertex.position),

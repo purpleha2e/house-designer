@@ -245,3 +245,26 @@ test('room detection ignores dangling internal walls', () => {
   assert.equal(topology.rooms.length, 1)
   assert.ok(topology.rooms[0].area > 15)
 })
+
+test('room detection separates rooms with a divider trimmed to adjoining wall faces', () => {
+  const topology = buildWallTopology([
+    wall({ id: 'bottom', kind: 'external', start: { x: 0, y: 0 }, end: { x: 5, y: 0 } }),
+    wall({ id: 'right', kind: 'external', start: { x: 5, y: 0 }, end: { x: 5, y: 5 } }),
+    wall({ id: 'top', kind: 'external', start: { x: 5, y: 5 }, end: { x: 0, y: 5 } }),
+    wall({ id: 'left', kind: 'external', start: { x: 0, y: 5 }, end: { x: 0, y: 0 } }),
+    wall({
+      id: 'vertical-divider',
+      kind: 'internal',
+      start: { x: 3, y: 0.15 },
+      end: { x: 3, y: 5 },
+    }),
+    wall({
+      id: 'face-attached-divider',
+      kind: 'internal',
+      start: { x: 0.15, y: 3 },
+      end: { x: 2.925, y: 3 },
+    }),
+  ])
+
+  assert.equal(topology.rooms.length, 3)
+})

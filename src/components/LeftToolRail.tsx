@@ -1,5 +1,4 @@
-import { RoofPitchFields } from './RoofPitchFields'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import type {
   FloorLevel,
@@ -7,20 +6,11 @@ import type {
   SurfaceMaterialProduct,
   SurfaceWallSide,
   WallKind,
-  RoofStructure,
 } from '../types'
 
-type RailPanel = 'align' | 'floor' | 'materials' | 'roof' | 'wall'
+type RailPanel = 'align' | 'floor' | 'materials' | 'wall'
 type WallMaterialMode = 'full' | 'lower'
 type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
-type HipRoofCreateOptions = {
-  floorId: string
-  pitchDegrees: number
-  overhangPitchDegrees?: number
-  soffitColor?: string
-  type: RoofStructure['type']
-  width: number
-}
 
 const MIN_INTERNAL_WALL_THICKNESS = 0.05
 const MAX_INTERNAL_WALL_THICKNESS = 0.3
@@ -62,6 +52,7 @@ type LeftToolRailProps = {
   floors: FloorLevel[]
   internalWallThickness: number
   isAddingWall: boolean
+  isRoofMode: boolean
   materials: SurfaceMaterialProduct[]
   selectedSurface: SelectableSurface | null
   selectedFloorViewId: string
@@ -72,7 +63,6 @@ type LeftToolRailProps = {
   wallKind: WallKind
   onAddEmptyFloor: () => void
   onAddFloor: () => void
-  onAddRoof: (options: HipRoofCreateOptions) => void
   onApplyMaterial: (options: {
     coverageHeight?: number
     customColor?: string
@@ -90,6 +80,7 @@ type LeftToolRailProps = {
   onOpenModelSelector: () => void
   onPaste: () => void
   onRedo: () => void
+  onRoofModeChange: (isRoofMode: boolean) => void
   onSelectFloor: (floorId: string) => void
   onSlabThicknessChange: (thickness: number) => void
   onToggleAddWall: () => void
@@ -278,6 +269,7 @@ export function LeftToolRail({
   floors,
   internalWallThickness,
   isAddingWall,
+  isRoofMode,
   materials,
   selectedSurface,
   selectedFloorViewId,
@@ -287,7 +279,6 @@ export function LeftToolRail({
   wallKind,
   onAddEmptyFloor,
   onAddFloor,
-  onAddRoof,
   onApplyMaterial,
   onAlignModels,
   onCopy,
@@ -297,6 +288,7 @@ export function LeftToolRail({
   onOpenModelSelector,
   onPaste,
   onRedo,
+  onRoofModeChange,
   onSelectFloor,
   onSlabThicknessChange,
   onToggleAddWall,
@@ -315,12 +307,6 @@ export function LeftToolRail({
   const [textureScale, setTextureScale] = useState(1)
   const [textureScaleInput, setTextureScaleInput] = useState('1')
   const [textureRotation, setTextureRotation] = useState(0)
-  const [roofFloorId, setRoofFloorId] = useState(activeFloorId)
-  const [roofType, setRoofType] = useState<RoofStructure['type']>('hip')
-  const [roofPitchDegrees, setRoofPitchDegrees] = useState(35)
-  const [roofSoffitColor, setRoofSoffitColor] = useState('#ffffff')
-  const [roofOverhangPitchDegrees, setRoofOverhangPitchDegrees] = useState<number | undefined>()
-  const [roofWidth, setRoofWidth] = useState(8)
   const [internalWallThicknessDraft, setInternalWallThicknessDraft] = useState<
     string | null
   >(null)
@@ -330,8 +316,6 @@ export function LeftToolRail({
     value: string
   } | null>(null)
   const activeFloor = floors.find((floor) => floor.id === activeFloorId)
-  const roofTargetFloor =
-    floors.find((floor) => floor.id === roofFloorId) ?? activeFloor
   const internalWallThicknessInputValue =
     internalWallThicknessDraft ?? formatMetresInputValue(internalWallThickness)
   const wallHeightInputValue =
@@ -340,14 +324,6 @@ export function LeftToolRail({
     slabThicknessDraft?.floorId === activeFloorId
       ? slabThicknessDraft.value
       : formatMetresInputValue(activeFloor?.slabThickness ?? 0)
-
-  useEffect(() => {
-    if (floors.some((floor) => floor.id === roofFloorId)) {
-      return
-    }
-
-    setRoofFloorId(activeFloorId)
-  }, [activeFloorId, floors, roofFloorId])
 
   const updateInternalWallThickness = (value: string) => {
     setInternalWallThicknessDraft(value)
@@ -422,6 +398,7 @@ export function LeftToolRail({
     }
   }
   const togglePanel = (panel: RailPanel) => {
+    onRoofModeChange(false)
     setOpenPanel((currentPanel) => (currentPanel === panel ? null : panel))
   }
   const manufacturers = Array.from(
@@ -522,9 +499,12 @@ export function LeftToolRail({
           <FloorIcon />
         </IconButton>
         <IconButton
-          active={openPanel === 'roof'}
+          active={isRoofMode}
           label="Roof tools"
-          onClick={() => togglePanel('roof')}
+          onClick={() => {
+            setOpenPanel(null)
+            onRoofModeChange(!isRoofMode)
+          }}
         >
           <RoofIcon />
         </IconButton>
@@ -706,85 +686,6 @@ export function LeftToolRail({
               </button>
               <button type="button" disabled={floors.length <= 1} onClick={onDeleteFloor}>
                 Delete current floor
-              </button>
-            </>
-          ) : null}
-
-          {openPanel === 'roof' ? (
-            <>
-              <header>
-                <h2>Roof</h2>
-                <p>{roofTargetFloor ? `Add to ${roofTargetFloor.name}` : 'No floor'}</p>
-              </header>
-              <label className="flyout-select">
-                <span>Floor</span>
-                <select
-                  value={roofTargetFloor?.id ?? ''}
-                  onChange={(event) => setRoofFloorId(event.target.value)}
-                >
-                  {floors.map((floor) => (
-                    <option key={floor.id} value={floor.id}>
-                      {floor.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flyout-select">
-                <span>Type</span>
-                <select
-                  value={roofType}
-                  onChange={(event) =>
-                    setRoofType(event.target.value as RoofStructure['type'])
-                  }
-                >
-                  <option value="flat">Flat</option>
-                  <option value="hip">Hip roof</option>
-                  <option value="lean-to">Lean-to</option>
-                  <option value="up-and-over">Up and over</option>
-                </select>
-              </label>
-              <RoofPitchFields
-                roof={{ type: roofType, pitchDegrees: roofPitchDegrees, overhangPitchDegrees: roofOverhangPitchDegrees, soffitColor: roofSoffitColor }}
-                onChange={(updates) => {
-                  if (updates.pitchDegrees !== undefined) setRoofPitchDegrees(updates.pitchDegrees)
-                  if (updates.soffitColor !== undefined) setRoofSoffitColor(updates.soffitColor)
-                  if ('overhangPitchDegrees' in updates) setRoofOverhangPitchDegrees(updates.overhangPitchDegrees)
-                }}
-              />
-              <label className="flyout-field">
-                <span>Width</span>
-                <div>
-                  <input
-                    type="number"
-                    min="0.3"
-                    step="0.1"
-                    value={roofWidth}
-                    onChange={(event) => {
-                      const parsedValue = Number.parseFloat(event.target.value)
-
-                      if (Number.isFinite(parsedValue)) {
-                        setRoofWidth(Math.max(0.3, parsedValue))
-                      }
-                    }}
-                  />
-                  <span>m</span>
-                </div>
-              </label>
-              <button
-                type="button"
-                disabled={!roofTargetFloor}
-                onClick={() =>
-                  onAddRoof({
-                    floorId: roofTargetFloor?.id ?? activeFloorId,
-                    pitchDegrees: roofPitchDegrees,
-                    overhangPitchDegrees: roofOverhangPitchDegrees,
-                    soffitColor: roofSoffitColor,
-                    type: roofType,
-                    width: roofWidth,
-                  })
-                }
-              >
-                Add roof
               </button>
             </>
           ) : null}

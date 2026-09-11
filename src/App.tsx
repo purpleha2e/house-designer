@@ -41,7 +41,11 @@ import {
   type ModelDefinition,
 } from './models/modelLibrary'
 import { loadPortalCatalog } from './portalCatalog'
-import { buildWallTopology, type DetectedRoom } from './wallTopology'
+import {
+  buildWallTopology,
+  WALL_TOPOLOGY_VERSION,
+  type DetectedRoom,
+} from './wallTopology'
 import {
   createPlacedModel,
   getWallMountForPoint,
@@ -664,6 +668,7 @@ function App() {
   )
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
+  const [isRoofMode, setIsRoofMode] = useState(false)
   const [projectFileName, setProjectFileName] = useState('springfield_13.json')
   //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
@@ -1842,22 +1847,29 @@ function App() {
   ) => {
     recordHistory()
     setSurfaceAssignments((currentAssignments) => {
-      const fragmentKeys = new Set(
-        fragments.map(
-          (fragment) => `${fragment.wallId}:${fragment.fragmentId}`,
-        ),
+      const fragmentSidesByKey = new Map(
+        fragments.map((fragment) => [
+          `${fragment.wallId}:${fragment.fragmentId}`,
+          fragment.side,
+        ]),
       )
       const nextAssignments = currentAssignments.filter(
-        (assignment) =>
-          !(
-            assignment.target.type === 'wall-surface-fragment' &&
-            fragmentKeys.has(
-              `${assignment.target.wallId}:${assignment.target.fragmentId}`,
-            ) &&
+        (assignment) => {
+          if (assignment.target.type !== 'wall-surface-fragment') {
+            return true
+          }
+
+          const fragmentSide = fragmentSidesByKey.get(
+            `${assignment.target.wallId}:${assignment.target.fragmentId}`,
+          )
+
+          return !(
+            fragmentSide &&
             (side === 'both' ||
               assignment.target.side === 'both' ||
-              assignment.target.side === side)
-          ),
+              assignment.target.side === fragmentSide)
+          )
+        },
       )
 
       if (!materialId) {
@@ -1874,7 +1886,7 @@ function App() {
           target: {
             type: 'wall-surface-fragment',
             fragmentId: fragment.fragmentId,
-            side,
+            side: side === 'both' ? 'both' : fragment.side,
             wallId: fragment.wallId,
           },
           textureRotation,
@@ -2083,7 +2095,7 @@ function App() {
     : null
   const activeDetectedRooms = useMemo(
     () => buildWallTopology(activeFloor.walls).rooms,
-    [activeFloor.walls],
+    [activeFloor.walls, WALL_TOPOLOGY_VERSION],
   )
   const selectedRoom: SelectedRoom | null = selectedRoomSignature
     ? (() => {
@@ -2785,6 +2797,7 @@ function App() {
         floors={floors}
         internalWallThickness={internalWallThickness}
         isAddingWall={isAddingWall}
+        isRoofMode={isRoofMode}
         materials={availableMaterials}
         selectedSurface={selectedSurface}
         selectedFloorViewId={selectedFloorViewId}
@@ -2795,7 +2808,6 @@ function App() {
         wallKind={wallKind}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
-        onAddRoof={addRoof}
         onAlignModels={alignSelectedModels}
         onApplyMaterial={applyMaterialToSelectedSurface}
         onCopy={copySelection}
@@ -2804,6 +2816,13 @@ function App() {
         onOpenModelSelector={() => setIsModelSelectorOpen(true)}
         onPaste={pasteClipboard}
         onRedo={redo}
+        onRoofModeChange={(nextIsRoofMode) => {
+          setIsRoofMode(nextIsRoofMode)
+
+          if (nextIsRoofMode) {
+            setIsAddingWall(false)
+          }
+        }}
         onSelectFloor={(floorId) => {
           setSelectedFloorViewId(floorId)
 
@@ -2820,7 +2839,10 @@ function App() {
           setIsAddingWall(false)
         }}
         onSlabThicknessChange={updateActiveFloorSlabThickness}
-        onToggleAddWall={() => setIsAddingWall((value) => !value)}
+        onToggleAddWall={() => {
+          setIsRoofMode(false)
+          setIsAddingWall((value) => !value)
+        }}
         onUndo={undo}
         onInternalWallThicknessChange={setInternalWallThickness}
         onWallHeightChange={setNewWallHeight}
@@ -2853,6 +2875,7 @@ function App() {
           floors={floors}
           internalWallThickness={internalWallThickness}
           isAddingWall={isAddingWall}
+          isRoofMode={isRoofMode}
           modelAssetVersion={modelAssetVersion}
           projectFileName={projectFileName}
           selectedModelId={selectedModelId}

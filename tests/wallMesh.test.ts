@@ -1257,3 +1257,153 @@ test('wall body perimeter mesh cuts openings from joined collinear wall edges', 
   assert.equal(coversOpening(0.35, 1.25), false)
   assert.equal(coversOpening(2.68, 3.58), false)
 })
+
+test('wall body perimeter assigns an exposed partial end cap to its wall side', () => {
+  const faces = buildWallBodyPerimeterMeshFaces([
+    wall({
+      id: 'external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: 4, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'internal',
+      start: { x: 4, y: 0.075 },
+      end: { x: 4, y: 3 },
+      thickness: 0.1,
+    }),
+  ])
+  const exposedEndCap = faces.find(
+    (face) =>
+      face.kind === 'side' &&
+      face.materialSource.role === 'cap' &&
+      face.materialSource.wallId === 'external' &&
+      face.materialSource.side === -1,
+  )
+
+  assert.ok(exposedEndCap)
+  assert.deepEqual(exposedEndCap.pickSource, {
+    role: 'cap',
+    side: -1,
+    wallId: 'external',
+  })
+})
+
+test('wall body perimeter assigns a full-width external end cap to its exterior side', () => {
+  const faces = buildWallBodyPerimeterMeshFaces(
+    [
+      wall({
+        id: 'external',
+        kind: 'external',
+        start: { x: 0, y: 0 },
+        end: { x: 4, y: 0 },
+        thickness: 0.3,
+      }),
+    ],
+    {
+      exteriorWallSidesByWallId: new Map([['external', -1]]),
+    },
+  )
+  const endCaps = faces.filter(
+    (face) =>
+      face.kind === 'side' &&
+      face.materialSource.role === 'cap',
+  )
+
+  assert.equal(endCaps.length, 2)
+  assert.ok(
+    endCaps.every(
+      (face) =>
+        face.materialSource.wallId === 'external' &&
+        face.materialSource.side === -1,
+    ),
+  )
+})
+
+test('wall body perimeter assigns a centred three-way corner filler to an external side', () => {
+  const faces = buildWallBodyPerimeterMeshFaces([
+    wall({
+      id: 'horizontal-external',
+      kind: 'external',
+      start: { x: 0, y: 0 },
+      end: { x: -2.4, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'vertical-external',
+      kind: 'external',
+      start: { x: 0, y: 3 },
+      end: { x: 0, y: 0 },
+      thickness: 0.3,
+    }),
+    wall({
+      id: 'centred-internal',
+      start: { x: 0, y: -3 },
+      end: { x: 0, y: 0 },
+      thickness: 0.15,
+    }),
+  ])
+  const cornerFillers = faces.filter(
+    (face) =>
+      face.kind === 'side' &&
+      face.materialSource.role === 'cap' &&
+      typeof face.materialSource.side === 'number',
+  )
+
+  assert.ok(cornerFillers.length > 0)
+  assert.ok(
+    cornerFillers.every((face) =>
+      face.materialSource.wallId.endsWith('-external'),
+    ),
+  )
+})
+
+test('wall body perimeter splits a wall side at room-dividing wall endpoints', () => {
+  const faces = buildWallBodyPerimeterMeshFaces([
+    wall({
+      id: 'spine',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 6 },
+      thickness: 0.15,
+    }),
+    wall({
+      id: 'lower-divider',
+      height: 1.7,
+      start: { x: -3, y: 2 },
+      end: { x: 0, y: 2 },
+      thickness: 0.15,
+    }),
+    wall({
+      id: 'upper-divider',
+      start: { x: -3, y: 4 },
+      end: { x: 0, y: 4 },
+      thickness: 0.15,
+    }),
+  ])
+  const spineFaces = faces.filter(
+    (face) =>
+      face.kind === 'side' &&
+      face.pickSource.wallId === 'spine' &&
+      face.pickSource.side === -1,
+  )
+  const faceBreaks = new Set(
+    spineFaces.flatMap((face) => [
+      Number(face.vertices[0].position[2].toFixed(3)),
+      Number(face.vertices[1].position[2].toFixed(3)),
+    ]),
+  )
+
+  assert.ok(faceBreaks.has(2))
+  assert.ok(faceBreaks.has(4))
+  const upperFaceBreaks = new Set(
+    spineFaces
+      .filter((face) => face.vertices[0].position[1] >= 1.7 - 0.0001)
+      .flatMap((face) => [
+        Number(face.vertices[0].position[2].toFixed(3)),
+        Number(face.vertices[1].position[2].toFixed(3)),
+      ]),
+  )
+
+  assert.ok(upperFaceBreaks.has(2))
+})

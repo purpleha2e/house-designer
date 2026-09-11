@@ -156,9 +156,11 @@ export type SelectableSurface =
       type: 'wall-face'
     }
   | {
+      adjoiningFragments?: WallSurfaceFragmentReference[]
       floorId: string
       fragmentId: string
       fragments?: WallSurfaceFragmentReference[]
+      pickedFragment?: WallSurfaceFragmentReference
       side: Exclude<SurfaceWallSide, 'both'>
       wallId: string
       type: 'wall-surface-fragment'

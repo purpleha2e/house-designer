@@ -1297,6 +1297,7 @@ function buildRoomSurfaceFaceQuad({
   endUv,
   faceId,
   normal,
+  roomSignature,
   source,
   startPoint,
   startUv,
@@ -1308,6 +1309,7 @@ function buildRoomSurfaceFaceQuad({
   endUv: number
   faceId: string
   normal: Point
+  roomSignature: string
   source: { role: 'room-surface'; side: WallSide; wallId: string }
   startPoint: Point
   startUv: number
@@ -1330,6 +1332,7 @@ function buildRoomSurfaceFaceQuad({
       cleanZero(normal.y),
     ] as [number, number, number],
     pickSource: wallSideSource,
+    roomSignature,
     uvSource: wallSideSource,
     vertices: [
       toVertex(startPoint, yBottom, [startUv, yBottom]),
@@ -1474,6 +1477,7 @@ function buildRoomSurfaceFacesFromSpan(
           endUv: getWorldUvDistance(sourceSegment.wall, subEndPoint),
           faceId: `room-surface:${span.roomSignature}:${sourceSegment.wall.id}:${sourceSegment.side}:${span.edgeIndex}:${index}:${xStart.toFixed(3)}:${xEnd.toFixed(3)}:${yBottom.toFixed(3)}:${yTop.toFixed(3)}:${xIndex}:${yIndex}`,
           normal: span.normal,
+          roomSignature: span.roomSignature,
           source,
           startPoint: subStartPoint,
           startUv: getWorldUvDistance(sourceSegment.wall, subStartPoint),

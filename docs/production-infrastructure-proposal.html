@@ -1,0 +1,602 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Production infrastructure proposal for House Designer, its professional viewer, manufacturer catalogue, and asset pipeline.">
+  <title>House Designer — Production Infrastructure Proposal</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5f6f85;
+      --line: #d8e0ea;
+      --paper: #ffffff;
+      --wash: #f3f6f9;
+      --blue: #2563eb;
+      --blue-dark: #173c8f;
+      --blue-wash: #eaf1ff;
+      --green: #15803d;
+      --green-wash: #eaf8ee;
+      --amber: #a15c05;
+      --amber-wash: #fff6df;
+      --shadow: 0 18px 45px rgba(23, 32, 51, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--wash);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+
+    a { color: var(--blue-dark); }
+
+    .page {
+      width: min(1120px, calc(100% - 32px));
+      margin: 32px auto;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: clamp(36px, 7vw, 80px);
+      background:
+        radial-gradient(circle at 92% 12%, rgba(96, 165, 250, 0.28), transparent 30%),
+        linear-gradient(135deg, #102047 0%, #173c8f 58%, #2563eb 100%);
+      color: #ffffff;
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      opacity: 0.78;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      max-width: 800px;
+      margin-bottom: 18px;
+      font-size: clamp(38px, 6vw, 68px);
+      line-height: 1.02;
+      letter-spacing: -0.045em;
+    }
+
+    .hero .lede {
+      max-width: 760px;
+      margin-bottom: 30px;
+      color: rgba(255, 255, 255, 0.84);
+      font-size: clamp(17px, 2.1vw, 22px);
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .meta span,
+    .meta a {
+      padding: 7px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      font-size: 12px;
+      font-weight: 750;
+      color: #ffffff;
+      text-decoration: none;
+    }
+
+    main { padding: clamp(26px, 5vw, 64px); }
+
+    section { margin: 0 0 64px; }
+    section:last-child { margin-bottom: 0; }
+
+    h2 {
+      margin-bottom: 16px;
+      font-size: clamp(26px, 3.6vw, 38px);
+      line-height: 1.16;
+      letter-spacing: -0.025em;
+    }
+
+    h3 {
+      margin-bottom: 10px;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .section-intro {
+      max-width: 800px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .callout {
+      margin: 24px 0;
+      padding: 18px 20px;
+      border-left: 4px solid var(--blue);
+      border-radius: 0 9px 9px 0;
+      background: var(--blue-wash);
+    }
+
+    .callout strong { color: var(--blue-dark); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #ffffff;
+    }
+
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+
+    .badge {
+      display: inline-block;
+      margin-bottom: 12px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: var(--blue-wash);
+      color: var(--blue-dark);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .badge.recommended {
+      background: var(--green-wash);
+      color: var(--green);
+    }
+
+    ul, ol { padding-left: 22px; }
+    li + li { margin-top: 7px; }
+
+    .architecture {
+      display: grid;
+      gap: 15px;
+      margin: 28px 0;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #f9fbff, #f3f6f9);
+    }
+
+    .architecture-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .node {
+      display: grid;
+      min-height: 78px;
+      place-items: center;
+      padding: 14px;
+      border: 1px solid #cbd6e6;
+      border-radius: 10px;
+      background: #ffffff;
+      color: var(--ink);
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .node.primary {
+      border-color: #89aaf5;
+      background: var(--blue-wash);
+      color: var(--blue-dark);
+    }
+
+    .arrow {
+      color: #8090a6;
+      font-size: 24px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    th { background: #f7f9fc; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: #edf1f6;
+      color: #24324a;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.9em;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 18px;
+      border-radius: 10px;
+      background: #111a2d;
+      color: #dbeafe;
+      line-height: 1.5;
+    }
+
+    pre code { padding: 0; background: none; color: inherit; }
+
+    .pipeline {
+      counter-reset: pipeline;
+      display: grid;
+      gap: 12px;
+      margin: 24px 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .pipeline li {
+      counter-increment: pipeline;
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      align-items: start;
+      margin: 0;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .pipeline li::before {
+      content: counter(pipeline);
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 22px 0;
+    }
+
+    .metric {
+      padding: 17px;
+      border-radius: 10px;
+      background: #f7f9fc;
+    }
+
+    .metric strong { display: block; font-size: 25px; line-height: 1.15; }
+    .metric span { color: var(--muted); font-size: 12px; }
+
+    .roadmap {
+      margin: 24px 0 0;
+      padding-left: 0;
+      list-style: none;
+    }
+
+    .roadmap li {
+      display: grid;
+      grid-template-columns: 78px 1fr;
+      gap: 15px;
+      margin: 0;
+      padding: 16px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .roadmap li:last-child { border-bottom: 1px solid var(--line); }
+
+    .phase {
+      color: var(--blue-dark);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .sources {
+      padding: 28px clamp(26px, 5vw, 64px);
+      border-top: 1px solid var(--line);
+      background: #f7f9fc;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .sources h2 { color: var(--ink); font-size: 20px; }
+    .sources ul { margin-bottom: 0; }
+
+    @media (max-width: 720px) {
+      .page { width: 100%; margin: 0; border: 0; border-radius: 0; }
+      .grid, .architecture-row, .metric-grid { grid-template-columns: 1fr; }
+      .roadmap li { grid-template-columns: 1fr; gap: 4px; }
+      section { margin-bottom: 48px; }
+    }
+
+    @media print {
+      body { background: #ffffff; font-size: 10pt; }
+      .page { width: 100%; margin: 0; border: 0; box-shadow: none; }
+      .hero { padding: 36px; print-color-adjust: exact; }
+      main { padding: 32px; }
+      section { break-inside: avoid-page; margin-bottom: 36px; }
+      .card, .architecture, .table-wrap, .pipeline li { break-inside: avoid; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <article class="page">
+    <header class="hero">
+      <p class="eyebrow">Product and technical strategy</p>
+      <h1>House Designer production infrastructure</h1>
+      <p class="lede">A shared platform for a public home-design experience, professional architectural delivery, manufacturer-managed products, and read-only VR presentation.</p>
+      <div class="meta">
+        <span>Proposal</span>
+        <span>10 September 2026</span>
+        <span>Web + WebXR</span>
+        <a href="business-model-and-pricing-proposal.html">Business model proposal</a>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Executive recommendation</h2>
+        <p class="section-intro">Build one multi-tenant platform with three experiences rather than two separate products: an authenticated designer, a read-only client viewer, and a restricted supplier portal.</p>
+        <div class="callout"><strong>Recommended commercial sequence:</strong> launch the professional editor and client viewer first, then add the manufacturer catalogue, public configurator, and AI furnishing capabilities on top of the same foundation.</div>
+        <div class="grid">
+          <div class="card">
+            <span class="badge recommended">Start here</span>
+            <h3>Professional delivery</h3>
+            <p>Architects, builders, and designers create projects, publish immutable revisions, and send clients a simple read-only link with walk-through and VR controls.</p>
+          </div>
+          <div class="card">
+            <span class="badge">Expansion</span>
+            <h3>Public configurator</h3>
+            <p>Consumers design their homes and furnish them manually or with AI, using only reviewed products from the manufacturer-managed catalogue.</p>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Shared production architecture</h2>
+        <p class="section-intro">The browser remains responsible for interactive editing and 3D rendering. Persistent data, permissions, uploads, and computationally expensive conversion move into managed services.</p>
+        <div class="architecture" role="img" aria-label="Production architecture flow from users to web app, application services, storage and processing workers">
+          <div class="architecture-row">
+            <div class="node">Designer</div>
+            <div class="node">Client / public user</div>
+            <div class="node">Manufacturer</div>
+          </div>
+          <div class="arrow">↓ HTTPS</div>
+          <div class="node primary">Web application + edge CDN</div>
+          <div class="arrow">↓</div>
+          <div class="architecture-row">
+            <div class="node">Authentication</div>
+            <div class="node">Application API</div>
+            <div class="node">Catalogue API</div>
+          </div>
+          <div class="arrow">↓</div>
+          <div class="architecture-row">
+            <div class="node">PostgreSQL</div>
+            <div class="node">Object storage + CDN</div>
+            <div class="node">Queue → processing workers</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Responsibility</th><th>Recommended home</th><th>Purpose</th></tr></thead>
+            <tbody>
+              <tr><td>React application</td><td>Cloudflare Pages, Vercel, or S3/CloudFront</td><td>Fast global delivery of the editor and viewer shells.</td></tr>
+              <tr><td>Authentication</td><td>Managed identity provider</td><td>Users, organisation membership, roles, password recovery, and optional SSO.</td></tr>
+              <tr><td>Project and catalogue records</td><td>Managed PostgreSQL</td><td>Tenant-aware metadata, revisions, permissions, and publishing state.</td></tr>
+              <tr><td>Models and textures</td><td>S3-compatible object storage behind a CDN</td><td>Durable, versioned delivery independent of application releases.</td></tr>
+              <tr><td>Upload API</td><td>Small serverless API</td><td>Authorisation, metadata changes, and temporary direct-upload URLs.</td></tr>
+              <tr><td>Conversion</td><td>Container workers launched from a queue</td><td>GLB inspection, resizing, KTX2 conversion, previews, and optimisation.</td></tr>
+              <tr><td>AI furnishing</td><td>Separate backend service</td><td>Selects approved catalogue IDs and produces validated placement plans.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>One pragmatic low-operations stack is Cloudflare Pages/Workers/R2, Supabase Auth/Postgres, and a Cloud Run conversion worker. A single-vendor AWS alternative is CloudFront/S3, Cognito, API Gateway/Lambda, PostgreSQL, SQS, and ECS Fargate.</p>
+      </section>
+
+      <section>
+        <h2>Current prototype and production gap</h2>
+        <p>The current portal is a useful local development implementation, but it is not a production service. Accounts and catalogue metadata use a local JSON file, sessions are held in process memory, assets are written to one machine, and conversions are spawned as local child processes.</p>
+        <div class="metric-grid">
+          <div class="metric"><strong>211 MiB</strong><span>Built-in model assets</span></div>
+          <div class="metric"><strong>425 MiB</strong><span>Current manufacturer-assets folder</span></div>
+          <div class="metric"><strong>47 MiB</strong><span>Processed KTX2 textures</span></div>
+        </div>
+        <p>Production therefore needs durable object storage, a shared database, persistent authentication, independent workers, backups, monitoring, and a CDN. The product library should not be bundled into every web-app deployment.</p>
+      </section>
+
+      <section>
+        <h2>Where assets should live</h2>
+        <p class="section-intro">Keep source files private and publish only reviewed, processed variants. Use immutable versioned paths so a cached headset never receives an unpredictable replacement.</p>
+        <pre><code>private-originals/
+  manufacturer-id/product-id/version/source.glb
+  manufacturer-id/product-id/version/source.png
+
+processed-assets/
+  manufacturer-id/product-id/version/model-vr.glb
+  manufacturer-id/product-id/version/model-desktop.glb
+  manufacturer-id/product-id/version/base-color.ktx2
+  manufacturer-id/product-id/version/normal.ktx2
+  manufacturer-id/product-id/version/thumbnail.webp
+
+private-projects/
+  organisation-id/project-id/revision.json</code></pre>
+        <ul>
+          <li><strong>Original uploads:</strong> private, retained for future reprocessing and never sent to ordinary users.</li>
+          <li><strong>Approved catalogue outputs:</strong> normally public through a cached asset domain.</li>
+          <li><strong>Firm-private assets:</strong> protected behind authenticated or time-limited CDN access.</li>
+          <li><strong>Project files:</strong> private by default and exposed only through project permissions or opaque share records.</li>
+        </ul>
+        <p>Access control is not DRM. Any model delivered into a browser can be recovered by a determined recipient, so licensing decisions should assume that viewers can inspect delivered files.</p>
+      </section>
+
+      <section>
+        <h2>Production asset pipeline</h2>
+        <ol class="pipeline">
+          <li>A manufacturer creates a draft product record.</li>
+          <li>The API checks their organisation role and issues a short-lived direct-upload URL.</li>
+          <li>The browser uploads source files into private object storage.</li>
+          <li>The API records a processing job in a durable queue.</li>
+          <li>A container worker validates and inspects the source files.</li>
+          <li>The worker creates VR and desktop GLBs, KTX2 textures, thumbnails, dimensions, polygon counts, and searchable metadata.</li>
+          <li>Processed outputs are stored under a new immutable asset version.</li>
+          <li>The product enters administrative review.</li>
+          <li>Approval publishes that version into the catalogue and CDN.</li>
+        </ol>
+        <p>Jobs should be idempotent, retried after transient failures, and moved to a dead-letter queue after repeated failures. Upload validation should include file type, size, decompression limits, geometry limits, malware scanning, quotas, and ownership/licensing declarations.</p>
+      </section>
+
+      <section>
+        <h2>Option 1 — public home design</h2>
+        <div class="grid">
+          <div class="card">
+            <h3>Consumer experience</h3>
+            <ul>
+              <li>Create, import, save, and share a house.</li>
+              <li>Browse approved catalogue products.</li>
+              <li>Place products manually.</li>
+              <li>Ask AI to furnish selected rooms.</li>
+              <li>Open the design on a headset through HTTPS.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Manufacturer experience</h3>
+            <ul>
+              <li>Upload and manage only their own products.</li>
+              <li>Supply dimensions, styles, finishes, prices, and product links.</li>
+              <li>Monitor processing and review status.</li>
+              <li>Publish updates as new versions.</li>
+              <li>Receive appropriate aggregated usage or lead analytics.</li>
+            </ul>
+          </div>
+        </div>
+        <h3>Catalogue lifecycle</h3>
+        <pre><code>draft → uploaded → processing → review → published → retired</code></pre>
+        <p>Manufacturers should not publish directly without review. The AI should return placements referencing approved catalogue asset IDs, rather than generating arbitrary unvalidated models. Useful catalogue metadata includes physical dimensions, style, colour, room suitability, mounting type, clearances, price region, availability, and retailer URL.</p>
+        <div class="callout"><strong>Commercial observation:</strong> this option has strong platform potential but introduces consumer acquisition, catalogue supply, moderation, AI quality, licensing, and high-volume infrastructure at the same time.</div>
+      </section>
+
+      <section>
+        <h2>Option 2 — professional editor and client viewer</h2>
+        <p class="section-intro">Each architecture or construction business becomes an isolated organisation containing its users, projects, private assets, published revisions, and client shares.</p>
+        <div class="grid">
+          <div class="card">
+            <h3>Authenticated designer</h3>
+            <ul>
+              <li>Create and edit cloud projects.</li>
+              <li>Use the global catalogue and firm-private assets.</li>
+              <li>Invite colleagues with organisation roles.</li>
+              <li>Publish a deliberate, immutable client revision.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Read-only client link</h3>
+            <ul>
+              <li>No modelling or material-editing controls.</li>
+              <li>Simple orbit, walk, floor, and VR controls.</li>
+              <li>Optional expiry, passcode, email gate, or revocation.</li>
+              <li>Optional practice branding and project information.</li>
+            </ul>
+          </div>
+        </div>
+        <p>A share such as <code>https://view.example.com/s/7Dk3mP9x</code> should resolve to a published project revision. Continuing design work must not silently change what a client sees; the designer explicitly republishes when a revision is ready.</p>
+        <p>The “single link” should be a hosted experience, not one enormous HTML file. The viewer downloads a small project document and only the immutable CDN assets used by that project. An offline archival export can be added later if firms require it.</p>
+      </section>
+
+      <section>
+        <h2>Identity, permissions, and data model</h2>
+        <p>Use organisation membership and roles rather than embedding permissions in UI logic. Database-level tenant policies should enforce who can read or change each record.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Entity</th><th>Responsibility</th></tr></thead>
+            <tbody>
+              <tr><td><code>organisations</code> and <code>memberships</code></td><td>Architecture firms, manufacturers, users, and roles.</td></tr>
+              <tr><td><code>manufacturers</code> and <code>products</code></td><td>Supplier identity, commercial metadata, and publication status.</td></tr>
+              <tr><td><code>asset_versions</code> and <code>asset_files</code></td><td>Immutable inputs, outputs, checksums, dimensions, and processing state.</td></tr>
+              <tr><td><code>projects</code> and <code>project_revisions</code></td><td>Editable project heads and immutable published snapshots.</td></tr>
+              <tr><td><code>project_shares</code></td><td>Opaque client links, expiry, revocation, and optional access policy.</td></tr>
+              <tr><td><code>processing_jobs</code></td><td>Audit trail and status for conversion attempts.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Catalogue visibility should support <code>public</code>, <code>organisation</code>, and <code>private</code>. Manufacturers publish global products; approved staff at architecture firms may upload private bespoke assets; clients and ordinary public users receive no upload capability.</p>
+      </section>
+
+      <section>
+        <h2>Suggested delivery roadmap</h2>
+        <ol class="roadmap">
+          <li><span class="phase">Phase 1</span><span><strong>Cloud foundation:</strong> managed identity, PostgreSQL, cloud project saving, object storage, and HTTPS deployment.</span></li>
+          <li><span class="phase">Phase 2</span><span><strong>Professional release:</strong> organisations, project roles, immutable publishing, read-only links, and reliable VR delivery.</span></li>
+          <li><span class="phase">Phase 3</span><span><strong>Asset service:</strong> direct uploads, durable queue, container conversion, validation, versioning, and firm-private libraries.</span></li>
+          <li><span class="phase">Phase 4</span><span><strong>Manufacturer network:</strong> supplier onboarding, product review, global catalogue, lifecycle management, and analytics.</span></li>
+          <li><span class="phase">Phase 5</span><span><strong>Consumer and AI:</strong> public accounts, guided design, catalogue-based furnishing, product recommendations, and lead generation.</span></li>
+        </ol>
+        <div class="callout"><strong>Why this order works:</strong> the professional product validates the core editor, publishing model, asset delivery, permissions, and VR experience with a smaller population of identifiable paying customers. The same services then support the larger public product.</div>
+      </section>
+
+      <section>
+        <h2>Immediate technical priorities</h2>
+        <ol>
+          <li>Define organisation, project revision, share, product, and asset-version schemas.</li>
+          <li>Replace local project files with a cloud project API while retaining JSON import/export.</li>
+          <li>Move models and textures out of the application bundle into versioned object storage.</li>
+          <li>Containerise the current GLB/KTX2 conversion scripts and make processing idempotent.</li>
+          <li>Add manufacturer and administrator roles with an approval workflow.</li>
+          <li>Create a dedicated read-only viewer route and publish operation.</li>
+          <li>Measure headset load time, memory, texture use, triangle count, and frame rate as release gates.</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="sources">
+      <h2>Technical references</h2>
+      <ul>
+        <li><a href="https://immersive-web.github.io/webxr/">WebXR Device API</a> — HTTPS secure-context requirement and immersive-session model.</li>
+        <li><a href="https://developers.cloudflare.com/cache/interaction-cloudflare-products/r2/">Cloudflare R2 caching</a> — serving object storage through a custom CDN domain.</li>
+        <li><a href="https://developers.cloudflare.com/r2/api/s3/presigned-urls/">Cloudflare R2 presigned URLs</a> — temporary direct upload and download permissions.</li>
+        <li><a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-overview.html">AWS CloudFront private content</a> — signed URL and signed cookie access patterns.</li>
+        <li><a href="https://developers.cloudflare.com/queues/configuration/batching-retries/">Cloudflare Queues</a> — retry and dead-letter queue behaviour.</li>
+        <li><a href="https://cloud.google.com/run/docs/create-jobs">Google Cloud Run Jobs</a> — containerised processing tasks and retry controls.</li>
+        <li><a href="https://supabase.com/docs/guides/database/postgres/row-level-security">Supabase/Postgres row-level security</a> — tenant-aware database access policies.</li>
+      </ul>
+    </footer>
+  </article>
+</body>
+</html>
