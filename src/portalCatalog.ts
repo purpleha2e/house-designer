@@ -1,4 +1,5 @@
 import type { SurfaceCategory, SurfaceFinish, SurfaceMaterialProduct } from './types'
+import { materialVariationFromMetadata } from './materials/proceduralVariation'
 import type { ModelDefinition, ModelObjectType } from './models/modelLibrary'
 
 type PortalCatalogFile = {
@@ -200,6 +201,7 @@ function portalMaterialToSurfaceMaterial(
     manufacturer: asset.manufacturer.name,
     materialType: asset.metadata.materialType || category,
     pbr: {
+      proceduralVariation: materialVariationFromMetadata(asset.metadata),
       ambientOcclusionTextureUrl: findProcessedFile(asset, 'ambientOcclusion'),
       baseColor,
       baseColorTextureUrl,

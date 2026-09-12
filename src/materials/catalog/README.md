@@ -26,3 +26,26 @@ browser paths, for example:
   }
 }
 ```
+# Procedural variation
+
+Materials can opt into `pbr.proceduralVariation`. In the asset portal, use
+**New/Modify Asset → Material → Procedural variation → On (desktop only)**.
+Existing materials default to off. Changes to the portal server require a server
+restart before saving the new metadata fields.
+
+- **General surface** adds smooth world-position colour variation to any material,
+  including solid colours. Strength, scale in metres and seed control the pattern.
+- **Brick courses** also adds individual brick colour/roughness variation. Match
+  bricks across, rows, stagger and grid offsets to the full texture tile so that
+  the softened tint boundaries follow the mortar. This is a regular grid, not
+  automatic brick detection. Zero brick strength leaves broad variation only.
+- Patterns are deterministic and broad variation continues across adjoining meshes.
+  Texture detail, normal maps and geometry are unchanged. This reduces visible
+  repetition; it does not synthesize new brick surface detail.
+- Entering VR selects the ordinary material shader; leaving VR restores the saved
+  effect. Disabled variation adds no shader calculations or texture samples.
+
+Verification: `node --test --experimental-strip-types tests/materialVariation.test.ts`.
+With Vite running, open `/tests/browser/materialVariation.html` for the isolated
+WebGL regression checks (shader compilation, wall/slab continuity, seed stability,
+ordinary rendering in the VR path, and draw-call count).

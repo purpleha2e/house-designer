@@ -95,7 +95,22 @@ export type SurfaceTarget =
       roofId: string
     }
 
+export type SurfaceMaterialVariation = {
+  enabled: boolean
+  mode: 'surface' | 'brick'
+  brickStrength: number
+  broadStrength: number
+  broadScaleMeters: number
+  seed: number
+  bricksAcross: number
+  brickRows: number
+  rowOffset: number
+  offsetU: number
+  offsetV: number
+}
+
 export type SurfaceMaterialPbr = {
+  proceduralVariation?: SurfaceMaterialVariation
   ambientOcclusionTextureUrl?: string
   baseColor?: string
   baseColorTextureUrl?: string
@@ -250,4 +265,25 @@ export type FloorLevel = {
 export type SunPosition = {
   azimuth: number
   elevation: number
+}
+
+export type ThreeDViewCameraState = {
+  position: { x: number; y: number; z: number }
+  quaternion: { w: number; x: number; y: number; z: number }
+}
+
+export type FloorplanViewportState = {
+  scale: number
+  x: number
+  y: number
+}
+
+export type SavedTwoDViewState = {
+  viewportsByFloorId: Record<string, FloorplanViewportState>
+}
+
+export type SavedThreeDViewState = {
+  camera: ThreeDViewCameraState
+  /** A floor id, or `all` when the combined storey view is active. */
+  floorViewId: string
 }

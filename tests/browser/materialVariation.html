@@ -1,0 +1,97 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Material variation WebGL regression</title>
+<pre id="result">Running…</pre>
+<script type="module">
+import * as THREE from 'three'
+import {
+  createMaterialVariationShader, defaultMaterialVariation, isMaterialVariationActive,
+} from '/src/materials/proceduralVariation.ts'
+
+// Open through Vite: /tests/browser/materialVariation.html
+// Uses an isolated scene and synthetic texture; never loads or changes a project.
+const output = document.getElementById('result')
+try {
+  const renderer = new THREE.WebGLRenderer({ antialias: false })
+  renderer.setSize(128, 128)
+  const shaderErrors = []
+  renderer.debug.onShaderError = (gl, program, vertex, fragment) => {
+    shaderErrors.push(gl.getProgramInfoLog(program), gl.getShaderInfoLog(vertex), gl.getShaderInfoLog(fragment))
+  }
+  const camera = new THREE.OrthographicCamera(-2, 2, 2, -2, 0.1, 10)
+  camera.position.z = 5
+  const target = new THREE.WebGLRenderTarget(128, 128)
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 128
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#999999'
+  ctx.fillRect(0, 0, 128, 128)
+  for (let row = 0; row < 8; row++) {
+    for (let col = -1; col < 5; col++) {
+      ctx.fillStyle = '#9f5037'
+      ctx.fillRect(col * 32 - (row % 2) * 16 + 2, row * 16 + 2, 28, 12)
+    }
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  texture.colorSpace = THREE.SRGBColorSpace
+  const settings = { ...defaultMaterialVariation, enabled: true, mode: 'brick', brickStrength: 0.5, broadStrength: 0.5 }
+
+  function render(config, { split = false, vr = false, textured = true } = {}) {
+    const scene = new THREE.Scene()
+    scene.add(new THREE.AmbientLight(0xffffff, 2))
+    const material = new THREE.MeshStandardMaterial({ map: textured ? texture : null, color: '#ffffff' })
+    if (isMaterialVariationActive(config, vr)) Object.assign(material, createMaterialVariationShader(config))
+    for (const [bottom, top] of (split ? [[-2, 0.4], [0.4, 2]] : [[-2, 2]])) {
+      const geometry = new THREE.PlaneGeometry(4, top - bottom)
+      const position = geometry.getAttribute('position')
+      const uv = geometry.getAttribute('uv')
+      const centerY = (bottom + top) / 2
+      for (let i = 0; i < uv.count; i++) {
+        uv.setXY(i, position.getX(i) + 2, position.getY(i) + centerY + 2)
+      }
+      const mesh = new THREE.Mesh(geometry, material)
+      // The slab lives in a translated group, unlike the ground-floor wall.
+      const group = new THREE.Group()
+      group.position.y = centerY
+      group.add(mesh)
+      scene.add(group)
+    }
+    renderer.setRenderTarget(target)
+    renderer.render(scene, camera)
+    const calls = renderer.info.render.calls
+    const pixels = new Uint8Array(128 * 128 * 4)
+    renderer.readRenderTargetPixels(target, 0, 0, 128, 128, pixels)
+    scene.traverse(object => object.geometry?.dispose())
+    material.dispose()
+    return { pixels, calls }
+  }
+  const difference = (a, b) => a.reduce((sum, value, i) => sum + Math.abs(value - b[i]), 0) / a.length
+  const plain = render({ ...settings, enabled: false })
+  const varied = render(settings)
+  const split = render(settings, { split: true })
+  const vr = render(settings, { vr: true })
+  const restored = render(settings)
+  const otherSeed = render({ ...settings, seed: 7 })
+  render(settings, { textured: false })
+  const general = render({ ...settings, mode: 'surface' })
+  const generalOtherBrickGrid = render({ ...settings, mode: 'surface', bricksAcross: 19, brickRows: 23 })
+  const checks = {
+    shadersCompile: shaderErrors.length === 0,
+    variationChangesPixels: difference(plain.pixels, varied.pixels) > 1,
+    continuousAcrossWallSlabGroups: difference(varied.pixels, split.pixels) < 0.1,
+    vrMatchesOrdinaryMaterial: difference(plain.pixels, vr.pixels) === 0,
+    restoredDesktopIsDeterministic: difference(varied.pixels, restored.pixels) === 0,
+    seedChangesPattern: difference(varied.pixels, otherSeed.pixels) > 1,
+    noExtraDrawCalls: plain.calls === varied.calls,
+    generalModeIgnoresBrickGrid: difference(general.pixels, generalOtherBrickGrid.pixels) === 0,
+  }
+  const pass = Object.values(checks).every(Boolean)
+  output.textContent = `${pass ? 'PASS' : 'FAIL'}\n${JSON.stringify({ checks, shaderErrors }, null, 2)}`
+  renderer.dispose()
+  texture.dispose()
+  target.dispose()
+} catch (error) {
+  output.textContent = `FAIL\n${error.stack}`
+}
+</script>

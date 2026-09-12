@@ -23,12 +23,14 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import type {
   FloorLevel,
+  FloorplanViewportState,
   PlacedModel,
   Point,
   RoofStructure,
   Wall,
   WallKind,
 } from '../types'
+import { DEFAULT_FLOORPLAN_VIEWPORT } from '../projectViewState'
 import {
   getModelAssetUrl,
   modelsById,
@@ -105,6 +107,7 @@ type FloorplanCanvasProps = {
   activeFloor: FloorLevel
   children?: ReactNode
   floors: FloorLevel[]
+  initialViewport?: FloorplanViewportState
   internalWallThickness: number
   isAddingWall: boolean
   isRoofMode: boolean
@@ -124,6 +127,10 @@ type FloorplanCanvasProps = {
   onDeleteRoof: (roofId: string) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
+  onViewportChange: (
+    floorId: string,
+    viewport: FloorplanViewportState,
+  ) => void
   onSelectModel: (modelId: string | null, additive?: boolean) => void
   onSelectRoof: (roofId: string | null) => void
   onSelectRoom: (roomSignature: string | null) => void
@@ -134,6 +141,7 @@ type FloorplanCanvasProps = {
   onUpdateWalls: (
     updates: Array<{ wallId: string; updates: Pick<Wall, 'end' | 'start'> }>,
   ) => void
+  viewportRestoreRevision: number
 }
 
 type RoofCreateOptions = {
@@ -158,12 +166,6 @@ type RoofCreateOptions = {
 type CanvasSize = {
   width: number
   height: number
-}
-
-type Viewport = {
-  x: number
-  y: number
-  scale: number
 }
 
 type TransformMode = 'rotate' | 'scale' | 'translate'
@@ -3334,6 +3336,7 @@ export function FloorplanCanvas({
   activeFloor,
   children,
   floors,
+  initialViewport,
   internalWallThickness,
   isAddingWall,
   isRoofMode,
@@ -3353,6 +3356,7 @@ export function FloorplanCanvas({
   onDeleteRoof,
   onDeleteWall,
   onExitAddWall,
+  onViewportChange,
   onSelectModel,
   onSelectRoof,
   onSelectRoom,
@@ -3361,6 +3365,7 @@ export function FloorplanCanvas({
   onUpdateRoof,
   onUpdateWall,
   onUpdateWalls,
+  viewportRestoreRevision,
 }: FloorplanCanvasProps) {
   const walls = activeFloor.walls
   const roofs = activeFloor.roofs ?? []
@@ -3409,7 +3414,27 @@ export function FloorplanCanvas({
   )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
-  const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, scale: 1 })
+  const [viewport, setViewport] = useState<FloorplanViewportState>(() => ({
+    ...(initialViewport ?? DEFAULT_FLOORPLAN_VIEWPORT),
+  }))
+  const skipNextViewportReportRef = useRef(true)
+
+  useEffect(() => {
+    skipNextViewportReportRef.current = true
+    setViewport({ ...(initialViewport ?? DEFAULT_FLOORPLAN_VIEWPORT) })
+    // The revision and floor id deliberately control restoration. The viewport
+    // prop also changes when this component reports ordinary pan/zoom updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFloor.id, viewportRestoreRevision])
+
+  useEffect(() => {
+    if (skipNextViewportReportRef.current) {
+      skipNextViewportReportRef.current = false
+      return
+    }
+
+    onViewportChange(activeFloor.id, viewport)
+  }, [activeFloor.id, onViewportChange, viewport])
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
   const [renderOptions, setRenderOptions] = useState<FloorplanRenderOptions>({
     externalDimensions: true,

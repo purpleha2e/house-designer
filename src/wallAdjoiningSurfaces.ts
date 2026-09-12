@@ -258,6 +258,7 @@ export function appendExternalWallCapFragmentsToGroups({
       const sameWallAnchor = classifiedFragments.find(
         ({ fragment, isExterior }) =>
           isExterior &&
+          fragment.fragmentId !== face.faceId &&
           fragment.wallId === face.pickSource.wallId &&
           fragment.side === side,
       )
@@ -268,7 +269,9 @@ export function appendExternalWallCapFragmentsToGroups({
         sameWallAnchor ??
         classifiedFragments.find(
           ({ fragment, isExterior }) =>
-            isExterior && connectedExternalWallIds.has(fragment.wallId),
+            isExterior &&
+            fragment.fragmentId !== face.faceId &&
+            connectedExternalWallIds.has(fragment.wallId),
         )
       const anchorKey = anchor
         ? `${anchor.fragment.wallId}:${anchor.fragment.side}:${anchor.fragment.fragmentId}`

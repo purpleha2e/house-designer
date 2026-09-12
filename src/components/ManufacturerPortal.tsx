@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { materialVariationMetadataDefaults } from '../materials/proceduralVariation'
 
 type PortalUser = {
   email: string
@@ -60,6 +61,7 @@ type PortalSession = {
 
 const portalTokenStorageKey = 'houseDesignerAssetPortalToken'
 const emptyAssetMetadata = {
+  ...materialVariationMetadataDefaults,
   category: '',
   collection: '',
   baseColor: '#ffffff',
@@ -89,6 +91,9 @@ function getAssetFormMetadata(asset: PortalAsset) {
   return {
     ...emptyAssetMetadata,
     ...asset.metadata,
+    ...Object.fromEntries(Object.entries(materialVariationMetadataDefaults).map(
+      ([key, value]) => [key, asset.metadata[key] || value],
+    )),
     baseColor: baseColor || emptyAssetMetadata.baseColor,
     category: asset.category ?? asset.metadata.category ?? '',
     collection: asset.collection ?? asset.metadata.collection ?? '',
@@ -820,6 +825,64 @@ export function ManufacturerPortal({
                       }
                     />
                   </label>
+                  <label>
+                    Procedural variation
+                    <select
+                      value={metadata.variation_enabled}
+                      onChange={(event) => setMetadataField('variation_enabled', event.target.value)}
+                    >
+                      <option value="false">Off</option>
+                      <option value="true">On (desktop only)</option>
+                    </select>
+                  </label>
+                  {metadata.variation_enabled === 'true' ? (
+                    <>
+                      <label>
+                        Variation pattern
+                        <select
+                          value={metadata.variation_mode}
+                          onChange={(event) => setMetadataField('variation_mode', event.target.value)}
+                        >
+                          <option value="surface">General surface (any material)</option>
+                          <option value="brick">Brick courses</option>
+                        </select>
+                      </label>
+                      <p className="portal-variation-help">
+                        Automatically disabled in VR. Broad colour variation works with any material
+                        and continues across adjoining surfaces.
+                        {metadata.variation_mode === 'brick'
+                          ? ' For brick tinting, match the grid to one full texture tile (including mortar). Set brick strength to zero for broad variation only.'
+                          : ' Use a low strength for subtle natural differences.'}
+                      </p>
+                      {([
+                        ['brickStrength', 'Brick variation strength', 0, 1, 0.01],
+                        ['broadStrength', 'Broad variation strength', 0, 1, 0.01],
+                        ['broadScaleMeters', 'Broad variation scale (metres)', 0.1, 100, 0.1],
+                        ['seed', 'Variation seed', 0, 65535, 1],
+                        ['bricksAcross', 'Bricks across texture tile', 1, 128, 1],
+                        ['brickRows', 'Brick rows per texture tile', 1, 128, 1],
+                        ['rowOffset', 'Alternate row stagger (fraction of brick)', 0, 1, 0.05],
+                        ['offsetU', 'Brick grid horizontal offset (fraction of tile)', 0, 1, 0.01],
+                        ['offsetV', 'Brick grid vertical offset (fraction of tile)', 0, 1, 0.01],
+                      ] as const).filter(([key]) =>
+                        metadata.variation_mode === 'brick' ||
+                        ['broadStrength', 'broadScaleMeters', 'seed'].includes(key),
+                      ).map(([key, label, min, max, step]) => (
+                        <label key={key}>
+                          {label}
+                          <input
+                            required
+                            type="number"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={metadata[`variation_${key}`]}
+                            onChange={(event) => setMetadataField(`variation_${key}`, event.target.value)}
+                          />
+                        </label>
+                      ))}
+                    </>
+                  ) : null}
                 </>
               ) : (
                 <>

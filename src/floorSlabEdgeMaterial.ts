@@ -14,6 +14,41 @@ const MAXIMUM_DIRECTION_ERROR = 0.025
 const MINIMUM_LONGITUDINAL_OVERLAP = 0.02
 const MINIMUM_LATERAL_TOLERANCE = 0.2
 
+function signedArea(points: readonly Point[]) {
+  return points.reduce((area, point, index) => {
+    const nextPoint = points[(index + 1) % points.length]
+
+    return area + point.x * nextPoint.y - nextPoint.x * point.y
+  }, 0) / 2
+}
+
+function lineIntersection(
+  firstStart: Point,
+  firstEnd: Point,
+  secondStart: Point,
+  secondEnd: Point,
+) {
+  const firstDx = firstEnd.x - firstStart.x
+  const firstDy = firstEnd.y - firstStart.y
+  const secondDx = secondEnd.x - secondStart.x
+  const secondDy = secondEnd.y - secondStart.y
+  const denominator = firstDx * secondDy - firstDy * secondDx
+
+  if (Math.abs(denominator) <= 0.000001) {
+    return null
+  }
+
+  const startDx = secondStart.x - firstStart.x
+  const startDy = secondStart.y - firstStart.y
+  const amount = (startDx * secondDy - startDy * secondDx) / denominator
+  const canonical = (value: number) => Math.round(value * 1_000_000_000) / 1_000_000_000
+
+  return {
+    x: canonical(firstStart.x + firstDx * amount),
+    y: canonical(firstStart.y + firstDy * amount),
+  }
+}
+
 function distanceOutsideInterval(value: number, minimum: number, maximum: number) {
   if (value < minimum) {
     return minimum - value
@@ -164,4 +199,71 @@ export function findFloorSlabSupportingWall(
 
   const { score: _score, ...match } = bestMatch
   return match
+}
+
+/** Projects a slab perimeter onto the exterior planes of its supporting walls. */
+export function alignFloorSlabFootprintToWallFaces(
+  footprint: readonly Point[],
+  walls: readonly Wall[],
+) {
+  if (footprint.length < 3) {
+    return [...footprint]
+  }
+
+  const counterClockwise = signedArea(footprint) > 0
+  const edgeLines = footprint.map((point, index) => {
+    const nextPoint = footprint[(index + 1) % footprint.length]
+    const match = findFloorSlabSupportingWall(point, nextPoint, walls)
+
+    if (!match) {
+      return { end: nextPoint, start: point }
+    }
+
+    const wall = match.wall
+    const dx = wall.end.x - wall.start.x
+    const dy = wall.end.y - wall.start.y
+    const length = Math.hypot(dx, dy)
+
+    if (length <= MINIMUM_EDGE_LENGTH) {
+      return { end: nextPoint, start: point }
+    }
+
+    const wallNormal = { x: -dy / length, y: dx / length }
+    const edgeDx = nextPoint.x - point.x
+    const edgeDy = nextPoint.y - point.y
+    const edgeLength = Math.hypot(edgeDx, edgeDy)
+
+    if (edgeLength <= MINIMUM_EDGE_LENGTH) {
+      return { end: nextPoint, start: point }
+    }
+
+    const outwardNormal = counterClockwise
+      ? { x: edgeDy / edgeLength, y: -edgeDx / edgeLength }
+      : { x: -edgeDy / edgeLength, y: edgeDx / edgeLength }
+    const side =
+      wallNormal.x * outwardNormal.x + wallNormal.y * outwardNormal.y >= 0
+        ? 1
+        : -1
+    const offsetX = wallNormal.x * wall.thickness * 0.5 * side
+    const offsetY = wallNormal.y * wall.thickness * 0.5 * side
+
+    return {
+      end: { x: wall.end.x + offsetX, y: wall.end.y + offsetY },
+      start: { x: wall.start.x + offsetX, y: wall.start.y + offsetY },
+    }
+  })
+
+  return footprint.map((point, index) => {
+    const previousLine = edgeLines[(index - 1 + edgeLines.length) % edgeLines.length]
+    const currentLine = edgeLines[index]
+
+    return (
+      lineIntersection(
+        previousLine.start,
+        previousLine.end,
+        currentLine.start,
+        currentLine.end,
+      ) ?? point
+    )
+  })
 }

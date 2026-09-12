@@ -15,6 +15,7 @@ import { basename, extname, join, normalize, relative, resolve } from 'node:path
 import { pathToFileURL } from 'node:url'
 import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
+import { getMaterialVariationMetadata } from './material-variation-metadata.mjs'
 
 const PORT = Number(process.env.ASSET_PORTAL_PORT ?? 5174)
 const ROOT_DIR = resolve(import.meta.dirname, '..')
@@ -1083,6 +1084,7 @@ async function handleUpload(request, response) {
     },
     inferredDimensions,
     metadata: {
+      ...getMaterialVariationMetadata(fields),
       baseColor: getMaterialBaseColorField(fields),
       colourFamily: fields.colourFamily ?? '',
       depth: fields.depth ?? '',
@@ -1276,6 +1278,7 @@ async function handleUpdateAsset(request, response, pathname) {
   metadata.files = [...retainedFiles, ...storedFiles]
   metadata.metadata = {
     ...metadata.metadata,
+    ...getMaterialVariationMetadata(fields, metadata.metadata),
     baseColor: getMaterialBaseColorField(
       fields,
       metadata.metadata?.baseColor ?? '',

@@ -448,6 +448,13 @@
   outline: none;
 }
 
+.portal-variation-help {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
 .portal-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

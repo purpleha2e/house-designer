@@ -18,10 +18,13 @@ import { Toolbar } from './components/Toolbar'
 import { ThreeDView, clearThreeDModelAssetCaches } from './components/ThreeDView'
 import type {
   FloorLevel,
+  FloorplanViewportState,
   PlacedModel,
   Point,
   RoofStructure,
   Room,
+  SavedThreeDViewState,
+  SavedTwoDViewState,
   SelectableSurface,
   SunPosition,
   SurfaceMaterialAssignment,
@@ -29,6 +32,7 @@ import type {
   Wall,
   WallKind,
   WallSurfaceFragmentReference,
+  ThreeDViewCameraState,
 } from './types'
 import {
   registerRuntimeSurfaceMaterials,
@@ -46,6 +50,12 @@ import {
   WALL_TOPOLOGY_VERSION,
   type DetectedRoom,
 } from './wallTopology'
+import { getFloorEnvelopeWalls } from './floorEnvelope'
+import {
+  ALL_FLOORS_VIEW_ID,
+  normalizeSavedThreeDViewState,
+  normalizeSavedTwoDViewState,
+} from './projectViewState'
 import {
   createPlacedModel,
   getWallMountForPoint,
@@ -62,7 +72,6 @@ const DEFAULT_INTERNAL_THICKNESS = 0.15
 const DEFAULT_ROOM_HEIGHT = 2.4
 const DEFAULT_SLAB_THICKNESS = 0.3
 const MAX_ENABLED_LIGHTS = 11
-const ALL_FLOORS_VIEW_ID = 'all'
 const PROJECT_FILE_EXTENSION = '.house.json'
 const PROJECT_FILE_NAME = `house-design${PROJECT_FILE_EXTENSION}`
 const PROJECT_FILE_MIME_TYPE = 'application/json'
@@ -166,6 +175,8 @@ type SavedProject = {
   modelDefinitions?: ModelDefinition[]
   sunPosition?: SunPosition
   surfaceAssignments?: SurfaceMaterialAssignment[]
+  threeDView?: SavedThreeDViewState
+  twoDView?: SavedTwoDViewState
   wallKind: WallKind
 }
 
@@ -542,6 +553,15 @@ function normalizeSavedProject(project: SavedProject) {
   const activeFloorId = floors.some((floor) => floor.id === project.activeFloorId)
     ? project.activeFloorId
     : floors[0].id
+  const threeDView = normalizeSavedThreeDViewState(
+    project.threeDView,
+    floors.map((floor) => floor.id),
+    activeFloorId,
+  )
+  const twoDView = normalizeSavedTwoDViewState(
+    project.twoDView,
+    floors.map((floor) => floor.id),
+  )
 
   return {
     activeFloorId,
@@ -551,6 +571,8 @@ function normalizeSavedProject(project: SavedProject) {
     surfaceAssignments: Array.isArray(project.surfaceAssignments)
       ? project.surfaceAssignments
       : [],
+    threeDView,
+    twoDView,
     wallKind: project.wallKind,
   }
 }
@@ -661,7 +683,18 @@ function App() {
     initialProject.activeFloorId,
   )
   const [selectedFloorViewId, setSelectedFloorViewId] =
-    useState<string>(initialProject.activeFloorId)
+    useState<string>(initialProject.threeDView.floorViewId)
+  const threeDViewCameraRef = useRef<ThreeDViewCameraState>(
+    initialProject.threeDView.camera,
+  )
+  const [cameraRestoreRequest, setCameraRestoreRequest] = useState({
+    revision: 0,
+    state: initialProject.threeDView.camera,
+  })
+  const floorplanViewportsRef = useRef(
+    initialProject.twoDView.viewportsByFloorId,
+  )
+  const [floorplanRestoreRevision, setFloorplanRestoreRevision] = useState(0)
   const [wallKind, setWallKind] = useState<WallKind>(initialProject.wallKind)
   const [internalWallThickness, setInternalWallThickness] = useState(
     DEFAULT_INTERNAL_THICKNESS,
@@ -706,6 +739,36 @@ function App() {
     SurfaceMaterialAssignment[]
   >(initialProject.surfaceAssignments)
   const lastCleanProjectRef = useRef(serializeSavedProject(initialProject))
+
+  const updateThreeDViewCameraState = useCallback(
+    (cameraState: ThreeDViewCameraState) => {
+      threeDViewCameraRef.current = cameraState
+    },
+    [],
+  )
+
+  const restoreThreeDViewCameraState = (cameraState: ThreeDViewCameraState) => {
+    threeDViewCameraRef.current = cameraState
+    setCameraRestoreRequest((currentRequest) => ({
+      revision: currentRequest.revision + 1,
+      state: cameraState,
+    }))
+  }
+
+  const updateFloorplanViewport = useCallback(
+    (floorId: string, viewport: FloorplanViewportState) => {
+      floorplanViewportsRef.current = {
+        ...floorplanViewportsRef.current,
+        [floorId]: viewport,
+      }
+    },
+    [],
+  )
+
+  const restoreTwoDViewState = (twoDView: SavedTwoDViewState) => {
+    floorplanViewportsRef.current = structuredClone(twoDView.viewportsByFloorId)
+    setFloorplanRestoreRevision((revision) => revision + 1)
+  }
 
   const refreshPortalCatalog = useCallback(async () => {
     try {
@@ -754,6 +817,14 @@ function App() {
     selectedWallIds,
     sunPosition,
     surfaceAssignments,
+    threeDView: {
+      camera: structuredClone(threeDViewCameraRef.current),
+      floorViewId: selectedFloorViewId,
+    },
+    twoDView: normalizeSavedTwoDViewState(
+      { viewportsByFloorId: floorplanViewportsRef.current },
+      floors.map((floor) => floor.id),
+    ),
     wallKind,
   })
 
@@ -768,6 +839,14 @@ function App() {
       modelDefinitions: getSavedProjectModelDefinitions(normalizedFloors),
       sunPosition,
       surfaceAssignments,
+      threeDView: {
+        camera: structuredClone(threeDViewCameraRef.current),
+        floorViewId: selectedFloorViewId,
+      },
+      twoDView: normalizeSavedTwoDViewState(
+        { viewportsByFloorId: floorplanViewportsRef.current },
+        normalizedFloors.map((floor) => floor.id),
+      ),
       wallKind,
     }
   }
@@ -782,6 +861,17 @@ function App() {
     )
     setActiveFloorId(snapshot.activeFloorId)
     setSelectedFloorViewId(snapshot.selectedFloorViewId)
+    if (snapshot.threeDView) {
+      restoreThreeDViewCameraState(snapshot.threeDView.camera)
+    }
+    if (snapshot.twoDView) {
+      restoreTwoDViewState(
+        normalizeSavedTwoDViewState(
+          snapshot.twoDView,
+          snapshot.floors.map((floor) => floor.id),
+        ),
+      )
+    }
     setSelectedModelId(snapshot.selectedModelId)
     setSelectedModelIds(snapshot.selectedModelIds)
     setSelectedRoofId(snapshot.selectedRoofId ?? null)
@@ -1105,12 +1195,12 @@ function App() {
         slabThickness: DEFAULT_SLAB_THICKNESS,
         walls:
           copyExternalWalls && previousFloor
-            ? previousFloor.walls
-                .filter((wall) => wall.kind === 'external')
+            ? getFloorEnvelopeWalls(previousFloor.walls)
                 .map((wall) => ({
                   ...wall,
                   id: createId(),
                   height: DEFAULT_ROOM_HEIGHT,
+                  kind: 'external' as const,
                   openings: undefined,
                 }))
             : [],
@@ -2012,9 +2102,20 @@ function App() {
       )
         ? parsedProject.activeFloorId
         : loadedFloors[0].id
+      const loadedThreeDView = normalizeSavedThreeDViewState(
+        parsedProject.threeDView,
+        loadedFloors.map((floor) => floor.id),
+        loadedActiveFloorId,
+      )
+      const loadedTwoDView = normalizeSavedTwoDViewState(
+        parsedProject.twoDView,
+        loadedFloors.map((floor) => floor.id),
+      )
 
       setActiveFloorId(loadedActiveFloorId)
-      setSelectedFloorViewId(loadedActiveFloorId)
+      setSelectedFloorViewId(loadedThreeDView.floorViewId)
+      restoreThreeDViewCameraState(loadedThreeDView.camera)
+      restoreTwoDViewState(loadedTwoDView)
       setSunPosition(normalizeSunPosition(parsedProject.sunPosition))
       setSurfaceAssignments(
         Array.isArray(parsedProject.surfaceAssignments)
@@ -2030,6 +2131,8 @@ function App() {
         surfaceAssignments: Array.isArray(parsedProject.surfaceAssignments)
           ? parsedProject.surfaceAssignments
           : [],
+        threeDView: loadedThreeDView,
+        twoDView: loadedTwoDView,
         wallKind: parsedProject.wallKind,
       })
       setSelectedWallId(null)
@@ -2077,7 +2180,9 @@ function App() {
 
     setFloors(project.floors)
     setActiveFloorId(project.activeFloorId)
-    setSelectedFloorViewId(project.activeFloorId)
+    setSelectedFloorViewId(project.threeDView.floorViewId)
+    restoreThreeDViewCameraState(project.threeDView.camera)
+    restoreTwoDViewState(project.twoDView)
     setSunPosition(project.sunPosition)
     setSurfaceAssignments(project.surfaceAssignments)
     setWallKind(project.wallKind)
@@ -2908,6 +3013,7 @@ function App() {
         <FloorplanCanvas
           activeFloor={activeFloor}
           floors={floors}
+          initialViewport={floorplanViewportsRef.current[activeFloor.id]}
           internalWallThickness={internalWallThickness}
           isAddingWall={isAddingWall}
           isRoofMode={isRoofMode}
@@ -2926,6 +3032,7 @@ function App() {
           onDeleteRoof={deleteRoof}
           onDeleteWall={deleteWall}
           onExitAddWall={() => setIsAddingWall(false)}
+          onViewportChange={updateFloorplanViewport}
           onSelectModel={selectModel}
           onSelectRoof={selectRoofFromFloorplan}
           selectedRoomSignature={selectedRoomSignature}
@@ -2943,6 +3050,7 @@ function App() {
           onUpdateRoof={updateRoof}
           onUpdateWall={updateWallGeometry}
           onUpdateWalls={updateWallGeometries}
+          viewportRestoreRevision={floorplanRestoreRevision}
         >
           <ContextPanel
             activeFloor={activeFloor}
@@ -3012,11 +3120,14 @@ function App() {
         />
         <ThreeDView
           activeFloorId={activeFloor.id}
+          cameraRestoreRevision={cameraRestoreRequest.revision}
+          cameraViewState={cameraRestoreRequest.state}
           floors={floors}
           isEngineConsoleOpen={isEngineConsoleOpen}
           lightDirection={sunPosition}
           modelAssetVersion={modelAssetVersion}
           onClearSelection={clearThreeDSelection}
+          onCameraViewStateChange={updateThreeDViewCameraState}
           onEngineConsoleOpenChange={setIsEngineConsoleOpen}
           onSelectFloor={(floorId) => {
             setActiveFloorId(floorId)

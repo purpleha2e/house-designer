@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { findFloorSlabSupportingWall } from '../src/floorSlabEdgeMaterial.ts'
+import {
+  alignFloorSlabFootprintToWallFaces,
+  findFloorSlabSupportingWall,
+} from '../src/floorSlabEdgeMaterial.ts'
 import type { Wall } from '../src/types.ts'
 
 const externalWall: Wall = {
@@ -94,4 +97,53 @@ test('does not inherit from internal or unrelated walls', () => {
     ),
     null,
   )
+})
+
+test('aligns a centre-line slab loop to the exterior wall faces', () => {
+  const points = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 3 },
+    { x: 0, y: 3 },
+  ]
+  const walls: Wall[] = points.map((start, index) => ({
+    end: points[(index + 1) % points.length],
+    height: 2.4,
+    id: `wall-${index}`,
+    kind: 'external',
+    start,
+    thickness: 0.3,
+  }))
+
+  assert.deepEqual(alignFloorSlabFootprintToWallFaces(points, walls), [
+    { x: -0.15, y: -0.15 },
+    { x: 4.15, y: -0.15 },
+    { x: 4.15, y: 3.15 },
+    { x: -0.15, y: 3.15 },
+  ])
+})
+
+test('keeps an already aligned exterior slab loop on the wall faces', () => {
+  const wallPoints = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 3 },
+    { x: 0, y: 3 },
+  ]
+  const walls: Wall[] = wallPoints.map((start, index) => ({
+    end: wallPoints[(index + 1) % wallPoints.length],
+    height: 2.4,
+    id: `wall-${index}`,
+    kind: 'external',
+    start,
+    thickness: 0.3,
+  }))
+  const exterior = [
+    { x: -0.15, y: -0.15 },
+    { x: 4.15, y: -0.15 },
+    { x: 4.15, y: 3.15 },
+    { x: -0.15, y: 3.15 },
+  ]
+
+  assert.deepEqual(alignFloorSlabFootprintToWallFaces(exterior, walls), exterior)
 })

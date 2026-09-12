@@ -54,6 +54,8 @@ import {
 import {
   Component,
   Suspense,
+  createContext,
+  useContext,
   useCallback,
   useEffect,
   memo,
@@ -75,6 +77,7 @@ import type {
   SurfaceMaterialAssignment,
   SurfaceMaterialProduct,
   SurfaceWallSide,
+  ThreeDViewCameraState,
   Wall,
   WallKind,
 } from '../types'
@@ -109,11 +112,25 @@ import {
   type RenderedWall,
 } from '../wallGeometry'
 import { buildWallTopology, type DetectedRoom } from '../wallTopology'
+import {
+  createMaterialVariationShader,
+  isMaterialVariationActive,
+  normalizeMaterialVariation,
+} from '../materials/proceduralVariation'
 import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
 import {
   findFloorSlabSupportingWall,
   type FloorSlabSupportingWall,
 } from '../floorSlabEdgeMaterial'
+import { buildCeilingSlabFootprints, getSlabRenderedWalls } from '../ceilingSlabFootprint'
+import {
+  buildHipRoofProfileFaces,
+  getHipRoofProfileHeight,
+  getPitchedRoofBreaks,
+  getPitchedRoofHeightAtX,
+  getPitchedRoofSurfaceDistance,
+} from '../roofProfile'
+import { createUpAndOverEavesGeometry } from '../roofEavesGeometry'
 import { buildWallGeometryPlans } from '../wallEngine/wallPlan'
 import {
   buildRoomWallSurfacePlans,
@@ -158,24 +175,28 @@ export function clearThreeDModelAssetCaches() {
 const WALL_ENGINE_RENDERER_ENABLED = true
 const WALL_BODY_PERIMETER_MESH_ENABLED = true
 const ROOM_SURFACE_WALL_RENDERER_ENABLED = true
+const WALL_NORMAL_MAP_SCALE = new Vector2(1, -1)
 const ROOM_SURFACE_DEBUG_OVERLAY_ENABLED = false
 const ROOM_BOUNDARY_DEBUG_OVERLAY_ENABLED = false
 const SHADER_WARMUP_ENABLED = true
-const CEILING_VISUAL_OVERLAP_METERS = 0.035
 const CEILING_VERTICAL_OVERLAP_METERS = 0.02
 const CEILING_SLAB_CAP_INSET_METERS = 0.001
 const FLOOR_BASE_VERTICAL_OFFSET_METERS = 0.008
 const FLOOR_FINISH_VERTICAL_OFFSET_METERS = 0.012
+const CEILING_VISUAL_OVERLAP_METERS = 0.035
 
 type WallEngineFace = FloorWallSurfaceFace
 
 type ThreeDViewProps = {
   activeFloorId: string
+  cameraRestoreRevision: number
+  cameraViewState: ThreeDViewCameraState
   floors: FloorLevel[]
   isEngineConsoleOpen: boolean
   lightDirection: SunPosition
   modelAssetVersion: number
   onClearSelection: () => void
+  onCameraViewStateChange: (cameraState: ThreeDViewCameraState) => void
   onEngineConsoleOpenChange: (isOpen: boolean) => void
   onLightDirectionChange: (lightDirection: SunPosition) => void
   onSelectFloor: (floorId: string) => void
@@ -1015,16 +1036,6 @@ function createCountrysideSkyTexture() {
   return texture
 }
 
-type FootprintEdge = {
-  wall: Wall
-  startKey: string
-  endKey: string
-}
-
-type FootprintCandidate = {
-  edge: FootprintEdge
-  nextKey: string
-}
 
 function getFloorPlaneBounds(floor: FloorLevel) {
   if (floor.walls.length === 0) {
@@ -1070,9 +1081,6 @@ function getFloorsPlaneBounds(floors: FloorLevel[]) {
   }
 }
 
-function getPointKey(point: Point) {
-  return `${Math.round(point.x / FOOTPRINT_EPSILON)}:${Math.round(point.y / FOOTPRINT_EPSILON)}`
-}
 
 function getSignedArea(points: Point[]) {
   return (
@@ -1136,16 +1144,6 @@ function pointIsInPolygon(point: Point, polygon: Point[]) {
   return isInside
 }
 
-function normalizeAngleRadians(angle: number) {
-  const fullCircle = Math.PI * 2
-  let normalized = angle % fullCircle
-
-  if (normalized < 0) {
-    normalized += fullCircle
-  }
-
-  return normalized
-}
 
 function getLineIntersection(
   firstStart: Point,
@@ -1180,207 +1178,8 @@ function getLineIntersection(
   }
 }
 
-function getLoopKey(loop: Point[]) {
-  return loop
-    .map((point) => getPointKey(point))
-    .sort()
-    .join('|')
-}
 
-function getExternalWallLoops(walls: Wall[]) {
-  const externalWalls = walls.filter((wall) => wall.kind !== 'internal')
 
-  if (externalWalls.length < 3) {
-    return []
-  }
-
-  const edges = externalWalls.map((wall) => ({
-    wall,
-    startKey: getPointKey(wall.start),
-    endKey: getPointKey(wall.end),
-  }))
-  const connections = new Map<string, FootprintEdge[]>()
-  const pointGroups = new Map<string, Point[]>()
-
-  for (const edge of edges) {
-    connections.set(edge.startKey, [...(connections.get(edge.startKey) ?? []), edge])
-    connections.set(edge.endKey, [...(connections.get(edge.endKey) ?? []), edge])
-    pointGroups.set(edge.startKey, [
-      ...(pointGroups.get(edge.startKey) ?? []),
-      edge.wall.start,
-    ])
-    pointGroups.set(edge.endKey, [
-      ...(pointGroups.get(edge.endKey) ?? []),
-      edge.wall.end,
-    ])
-  }
-
-  const pointsByKey = new Map(
-    [...pointGroups.entries()].map(([key, points]) => [
-      key,
-      {
-        x: points.reduce((sum, point) => sum + point.x, 0) / points.length,
-        y: points.reduce((sum, point) => sum + point.y, 0) / points.length,
-      },
-    ]),
-  )
-  const loops: Point[][] = []
-
-  for (const edge of edges) {
-    for (const [startKey, endKey] of [
-      [edge.startKey, edge.endKey],
-      [edge.endKey, edge.startKey],
-    ] as const) {
-      const rightTurnLoop = traceWallLoop(
-        edge,
-        startKey,
-        endKey,
-        connections,
-        pointsByKey,
-        true,
-      )
-
-      if (rightTurnLoop) {
-        loops.push(rightTurnLoop)
-      }
-
-      const leftTurnLoop = traceWallLoop(
-        edge,
-        startKey,
-        endKey,
-        connections,
-        pointsByKey,
-        false,
-      )
-
-      if (leftTurnLoop) {
-        loops.push(leftTurnLoop)
-      }
-    }
-  }
-
-  const uniqueLoops = new Map<string, Point[]>()
-
-  loops.forEach((loop) => {
-    const area = Math.abs(getSignedArea(loop))
-
-    if (area < 0.01 || loop.length < 3) {
-      return
-    }
-
-    const loopKey = getLoopKey(loop)
-    const existingLoop = uniqueLoops.get(loopKey)
-
-    if (!existingLoop || area > Math.abs(getSignedArea(existingLoop))) {
-      uniqueLoops.set(loopKey, loop)
-    }
-  })
-
-  return Array.from(uniqueLoops.values()).sort(
-    (firstLoop, secondLoop) =>
-      Math.abs(getSignedArea(secondLoop)) - Math.abs(getSignedArea(firstLoop)),
-  )
-}
-
-function traceWallLoop(
-  firstEdge: FootprintEdge,
-  startKey: string,
-  endKey: string,
-  connections: Map<string, FootprintEdge[]>,
-  pointsByKey: Map<string, Point>,
-  preferRightTurn: boolean,
-) {
-  const loopKeys = [startKey]
-  const visitedStates = new Set<string>()
-  let previousKey = startKey
-  let currentKey = endKey
-  let currentEdge = firstEdge
-  const maxSteps = connections.size * 4
-
-  for (let step = 0; step < maxSteps; step += 1) {
-    const stateKey = `${currentEdge.wall.id}:${previousKey}:${currentKey}`
-
-    if (visitedStates.has(stateKey)) {
-      return null
-    }
-
-    visitedStates.add(stateKey)
-    loopKeys.push(currentKey)
-
-    if (currentKey === startKey) {
-      const uniqueKeys = new Set(loopKeys.slice(0, -1))
-
-      return uniqueKeys.size >= 3
-        ? loopKeys.slice(0, -1).map((key) => pointsByKey.get(key)!)
-        : null
-    }
-
-    const candidates = (connections.get(currentKey) ?? [])
-      .map((edge): FootprintCandidate => {
-        const nextKey = edge.startKey === currentKey ? edge.endKey : edge.startKey
-        return { edge, nextKey }
-      })
-      .filter(
-        (candidate) =>
-          candidate.edge.wall.id !== currentEdge.wall.id ||
-          candidate.nextKey !== previousKey,
-      )
-
-    if (candidates.length === 0) {
-      return null
-    }
-
-    const nextCandidate = chooseNextFootprintEdge(
-      previousKey,
-      currentKey,
-      candidates,
-      pointsByKey,
-      preferRightTurn,
-    )
-
-    previousKey = currentKey
-    currentKey = nextCandidate.nextKey
-    currentEdge = nextCandidate.edge
-  }
-
-  return null
-}
-
-function chooseNextFootprintEdge(
-  previousKey: string,
-  currentKey: string,
-  candidates: FootprintCandidate[],
-  pointsByKey: Map<string, Point>,
-  preferRightTurn: boolean,
-) {
-  const previousPoint = pointsByKey.get(previousKey)!
-  const currentPoint = pointsByKey.get(currentKey)!
-  const incomingAngle = Math.atan2(
-    currentPoint.y - previousPoint.y,
-    currentPoint.x - previousPoint.x,
-  )
-
-  return candidates.reduce((bestCandidate, candidate) => {
-    const bestPoint = pointsByKey.get(bestCandidate.nextKey)!
-    const candidatePoint = pointsByKey.get(candidate.nextKey)!
-    const bestOutgoingAngle = Math.atan2(
-      bestPoint.y - currentPoint.y,
-      bestPoint.x - currentPoint.x,
-    )
-    const candidateOutgoingAngle = Math.atan2(
-      candidatePoint.y - currentPoint.y,
-      candidatePoint.x - currentPoint.x,
-    )
-    const bestTurn = preferRightTurn
-      ? normalizeAngleRadians(incomingAngle - bestOutgoingAngle)
-      : normalizeAngleRadians(bestOutgoingAngle - incomingAngle)
-    const candidateTurn = preferRightTurn
-      ? normalizeAngleRadians(incomingAngle - candidateOutgoingAngle)
-      : normalizeAngleRadians(candidateOutgoingAngle - incomingAngle)
-
-    return candidateTurn < bestTurn ? candidate : bestCandidate
-  }, candidates[0])
-}
 
 function getOffsetFootprint(loop: Point[], offset: number) {
   const isCounterClockwise = getSignedArea(loop) > 0
@@ -1446,14 +1245,6 @@ function getOffsetFootprint(loop: Point[], offset: number) {
       }
     )
   })
-}
-
-function getFloorFootprints(floor: FloorLevel) {
-  const loops = getExternalWallLoops(floor.walls)
-  const externalThickness =
-    floor.walls.find((wall) => wall.kind !== 'internal')?.thickness ?? 0
-
-  return loops.map((loop) => getOffsetFootprint(loop, externalThickness / 2))
 }
 
 function getWallClipSegmentIntersection(
@@ -1590,8 +1381,15 @@ function getIntersectionFootprint(firstFootprint: Point[], secondFootprint: Poin
   return intersectionPoints.length >= 3 ? getConvexHull(intersectionPoints) : null
 }
 
-function getCeilingSlabFootprints(upperFloor: FloorLevel | null) {
-  return upperFloor ? getFloorFootprints(upperFloor) : []
+function getCeilingSlabFootprints(
+  upperFloor: FloorLevel | null,
+  supportingFloor?: FloorLevel,
+) {
+  if (!upperFloor) {
+    return []
+  }
+
+  return buildCeilingSlabFootprints(upperFloor.walls, supportingFloor?.walls)
 }
 
 function getSceneBounds(floors: FloorLevel[]) {
@@ -5155,6 +4953,8 @@ function useSurfaceMaterialTextures(
     : {}
 }
 
+const MaterialVariationVrContext = createContext(false)
+
 function SurfaceMeshStandardMaterial({
   attach,
   depthWrite,
@@ -5192,9 +4992,24 @@ function SurfaceMeshStandardMaterial({
     repeatOverride,
   )
   const baseColor = assignment.customColor ?? material.pbr.baseColor ?? '#e2e8f0'
+  const isVr = useContext(MaterialVariationVrContext)
+  const variationSettings = material.pbr.proceduralVariation
+  const variationKey = isMaterialVariationActive(variationSettings, isVr)
+    ? JSON.stringify(normalizeMaterialVariation(variationSettings))
+    : ''
+  const variationShader = useMemo(
+    () => variationKey
+      ? createMaterialVariationShader(JSON.parse(variationKey))
+      : {},
+    [variationKey],
+  )
 
   return (
     <meshStandardMaterial
+      // Remount when the mode/settings change, including XR entry/exit, so
+      // disabled materials use the ordinary shader with no variation work.
+      key={variationKey || 'standard'}
+      {...variationShader}
       attach={attach}
       aoMap={textures.aoMap ?? null}
       color={baseColor}
@@ -7018,6 +6833,7 @@ type CeilingSlabOuterEdge = {
   material?: SurfaceMaterialProduct
   nextPoint: Point
   point: Point
+  usesDefaultExternalWallMaterial?: boolean
   uvFrame?: {
     bottom: number
     end: number
@@ -7097,10 +6913,20 @@ function CeilingSlabSolid({
             attach={`material-${edgeIndex + 1}`}
             displacementEnabled={false}
             material={edge.material}
-            polygonOffsetFactor={1}
-            polygonOffsetUnits={1}
+            // Match the wall facade's depth. A positive bias lets the wall
+            // top/ceiling underside win at the join and draw a hairline seam.
+            // The geometry already overlaps the wall vertically to seal it.
+            polygonOffsetFactor={0}
+            polygonOffsetUnits={0}
             side={DoubleSide}
             textureQuality={getWallSurfaceTextureQuality(edge.material)}
+            wireframe={wireframe}
+          />
+        ) : edge.usesDefaultExternalWallMaterial ? (
+          <ExternalWallMaterial
+            key={edgeIndex}
+            attach={`material-${edgeIndex + 1}`}
+            side={DoubleSide}
             wireframe={wireframe}
           />
         ) : (
@@ -7108,9 +6934,6 @@ function CeilingSlabSolid({
             key={edgeIndex}
             attach={`material-${edgeIndex + 1}`}
             color="#cbd5e1"
-            polygonOffset
-            polygonOffsetFactor={1}
-            polygonOffsetUnits={1}
             roughness={0.82}
             shadowSide={DoubleSide}
             side={DoubleSide}
@@ -7180,9 +7003,12 @@ function CeilingSlab({
   // A solid inter-storey slab occupies this floor's ceiling zone, but follows
   // the footprint of the storey it supports. An invisible ceiling shadow
   // blocker follows the current floor and is not structural slab geometry.
-  const footprints = isSolid
-    ? getCeilingSlabFootprints(upperFloor)
-    : getFloorFootprints(floor)
+  const footprints = useMemo(
+    () => isSolid
+      ? getCeilingSlabFootprints(upperFloor, floor)
+      : buildCeilingSlabFootprints(floor.walls),
+    [floor, isSolid, upperFloor],
+  )
   const slabBottom =
     floor.elevation +
     floor.roomHeight -
@@ -7242,6 +7068,11 @@ function CeilingSlab({
     () => slabFootprints.map(createPlanShapeWithHoles),
     [slabFootprints],
   )
+  const supportingWalls = useMemo(() => getSlabRenderedWalls(floor.walls), [floor.walls])
+  const upperSupportingWalls = useMemo(
+    () => getSlabRenderedWalls(upperFloor?.walls ?? []),
+    [upperFloor?.walls],
+  )
   const slabOuterEdges = useMemo(
     () =>
       slabShapes.map((slabShape) => {
@@ -7255,10 +7086,10 @@ function CeilingSlab({
           const supportingWall = findFloorSlabSupportingWall(
             point,
             nextPoint,
-            floor.walls,
+            supportingWalls,
           )
           const upperSupportingWall = upperFloor
-            ? findFloorSlabSupportingWall(point, nextPoint, upperFloor.walls)
+            ? findFloorSlabSupportingWall(point, nextPoint, upperSupportingWalls)
             : null
           const materialSupportingWall = supportingWall ?? upperSupportingWall
           const inheritedAssignment = materialSupportingWall
@@ -7274,6 +7105,13 @@ function CeilingSlab({
           const inheritsWallMaterial = Boolean(
             materialSupportingWall && inheritedAssignment && inheritedMaterial,
           )
+          const usesDefaultExternalWallMaterial = Boolean(
+            !inheritsWallMaterial && !edgeAssignment,
+          )
+          const edgeLength = Math.hypot(
+            nextPoint.x - point.x,
+            nextPoint.y - point.y,
+          )
 
           return {
             assignment: inheritsWallMaterial
@@ -7284,23 +7122,36 @@ function CeilingSlab({
             point,
             supportingWall,
             upperSupportingWall,
+            usesDefaultExternalWallMaterial,
             uvFrame:
-              inheritsWallMaterial && materialSupportingWall
+              (inheritsWallMaterial || usesDefaultExternalWallMaterial) &&
+              materialSupportingWall
                 ? {
-                    bottom: materialSupportingWall.wall.height,
+                    bottom: floor.elevation + floor.roomHeight,
                     end: materialSupportingWall.uvEnd,
                     normalSign: materialSupportingWall.normalSign,
                     start: materialSupportingWall.uvStart,
                   }
-                : undefined,
+                : usesDefaultExternalWallMaterial
+                  ? {
+                      bottom: floor.elevation + floor.roomHeight,
+                      end: edgeLength,
+                      normalSign: 1 as const,
+                      start: 0,
+                    }
+                  : undefined,
           }
         })
       }),
     [
       edgeAssignment,
       edgeMaterial,
+      floor.elevation,
+      floor.roomHeight,
       floor.walls,
       slabShapes,
+      supportingWalls,
+      upperSupportingWalls,
       surfaceAssignments,
       upperFloor,
     ],
@@ -7390,15 +7241,10 @@ function CeilingSlab({
                 houseDesignerRole: 'ceiling-shadow-blocker',
               }}
             >
-              <extrudeGeometry
-                args={[
-                  slabShape,
-                  {
-                    bevelEnabled: false,
-                    depth: floor.slabThickness,
-                  },
-                ]}
-              />
+              {/* A cutaway ceiling blocks sunlight at wall-top height only.
+                  An invisible extrusion above it casts phantom wall-top and
+                  ground shadows from a storey that is not being shown. */}
+              <shapeGeometry args={[slabShape]} />
               <meshStandardMaterial
                 colorWrite={false}
                 depthWrite={false}
@@ -9979,6 +9825,7 @@ function FloorPlaneSurface({
 }
 
 const ROOF_TILE_THICKNESS_METERS = 0.04
+const ROOF_INFILL_WALL_OVERLAP_METERS = 0.04
 
 type RoofVertex = [number, number, number]
 
@@ -9989,11 +9836,76 @@ type RoofGeometryBuffers = {
 }
 
 type RoofGeometries = {
+  eaves?: BufferGeometry | null
   shell: BufferGeometry
   top: BufferGeometry
 }
 
-function createSolidRoofGeometryFromFaces(faces: RoofVertex[][]): RoofGeometries {
+type RoofFaceUvProjector = (vertices: RoofVertex[]) => Array<[number, number]>
+
+type RoofPlanCutout = {
+  polygon: Point[]
+  sourceRoofId: string
+}
+
+type RoofPlaneCutout = {
+  sourceRoof: RoofStructure
+  sourceLocalMaxX: number
+  sourceLocalMinX: number
+}
+
+function getRoofFaceProjectedUvs(vertices: RoofVertex[]) {
+  if (vertices.length < 3) {
+    return vertices.map(() => [0, 0] as [number, number])
+  }
+
+  const first = new Vector3(...vertices[0])
+  const second = new Vector3(...vertices[1])
+  const third = new Vector3(...vertices[2])
+  const normal = second
+    .clone()
+    .sub(first)
+    .cross(third.clone().sub(first))
+    .normalize()
+  const longestPlanEdge = vertices.reduce<{
+    direction: Vector3
+    lengthSq: number
+  } | null>((current, vertex, index) => {
+    const nextVertex = vertices[(index + 1) % vertices.length]
+    const direction = new Vector3(
+      nextVertex[0] - vertex[0],
+      0,
+      nextVertex[2] - vertex[2],
+    )
+    const lengthSq = direction.lengthSq()
+
+    return !current || lengthSq > current.lengthSq
+      ? { direction, lengthSq }
+      : current
+  }, null)
+  const uAxis =
+    longestPlanEdge && longestPlanEdge.lengthSq > 0.000001
+      ? longestPlanEdge.direction.normalize()
+      : new Vector3(1, 0, 0)
+  const vAxis = normal.clone().cross(uAxis).normalize()
+
+  return vertices.map((vertex) => {
+    const position = new Vector3(...vertex)
+
+    return [position.dot(uAxis), position.dot(vAxis)] as [number, number]
+  })
+}
+
+function getFlippedRoofFaceProjectedUvs(vertices: RoofVertex[]) {
+  return getRoofFaceProjectedUvs(vertices).map(
+    ([u, v]) => [-u, -v] as [number, number],
+  )
+}
+
+function createSolidRoofGeometryFromFaces(
+  faces: RoofVertex[][],
+  topUvProjector: RoofFaceUvProjector = getRoofFaceProjectedUvs,
+): RoofGeometries {
   const top: RoofGeometryBuffers = { positions: [], normals: [], uvs: [] }
   const shell: RoofGeometryBuffers = { positions: [], normals: [], uvs: [] }
   const addTriangle = (
@@ -10043,11 +9955,13 @@ function createSolidRoofGeometryFromFaces(faces: RoofVertex[][]): RoofGeometries
     yOffset: number,
     preferredDirection: Vector3,
     reverse = false,
+    uvProjector: RoofFaceUvProjector = getRoofFaceProjectedUvs,
   ) => {
     const vertices = face.map(
       ([x, y, z]) => [x, y + yOffset, z] as RoofVertex,
     )
     const orderedVertices = reverse ? [...vertices].reverse() : vertices
+    const orderedUvs = uvProjector(orderedVertices)
 
     for (let index = 1; index < orderedVertices.length - 1; index += 1) {
       addTriangle(
@@ -10055,9 +9969,9 @@ function createSolidRoofGeometryFromFaces(faces: RoofVertex[][]): RoofGeometries
         orderedVertices[0],
         orderedVertices[index],
         orderedVertices[index + 1],
-        [0, 0],
-        [1, 0],
-        [1, 1],
+        orderedUvs[0],
+        orderedUvs[index],
+        orderedUvs[index + 1],
         preferredDirection,
       )
     }
@@ -10090,8 +10004,15 @@ function createSolidRoofGeometryFromFaces(faces: RoofVertex[][]): RoofGeometries
   })
 
   faces.forEach((face) => {
-    addFace(top, face, 0, new Vector3(0, 1, 0))
-    addFace(shell, face, -ROOF_TILE_THICKNESS_METERS, new Vector3(0, -1, 0), true)
+    addFace(top, face, 0, new Vector3(0, 1, 0), false, topUvProjector)
+    addFace(
+      shell,
+      face,
+      -ROOF_TILE_THICKNESS_METERS,
+      new Vector3(0, -1, 0),
+      true,
+      getRoofFaceProjectedUvs,
+    )
   })
 
   Array.from(boundaryEdges.values())
@@ -10118,9 +10039,15 @@ function createSolidRoofGeometryFromFaces(faces: RoofVertex[][]): RoofGeometries
         first,
         second,
         bottomSecond,
-        [0, 0],
-        [1, 0],
-        [1, 1],
+        [0, first[1]],
+        [
+          Math.hypot(second[0] - first[0], second[2] - first[2]),
+          second[1],
+        ],
+        [
+          Math.hypot(second[0] - first[0], second[2] - first[2]),
+          bottomSecond[1],
+        ],
         horizontalNormal,
       )
       addTriangle(
@@ -10128,9 +10055,12 @@ function createSolidRoofGeometryFromFaces(faces: RoofVertex[][]): RoofGeometries
         first,
         bottomSecond,
         bottomFirst,
-        [0, 0],
-        [1, 1],
-        [0, 1],
+        [0, first[1]],
+        [
+          Math.hypot(second[0] - first[0], second[2] - first[2]),
+          bottomSecond[1],
+        ],
+        [0, bottomFirst[1]],
         horizontalNormal,
       )
     })
@@ -10157,6 +10087,12 @@ function createSolidRoofGeometryFromFaces(faces: RoofVertex[][]): RoofGeometries
 }
 
 function createHipRoofGeometry(roof: RoofStructure) {
+  if (roof.overhangPitchDegrees !== undefined && roof.overhangPitchDegrees !== roof.pitchDegrees) {
+    return createSolidRoofGeometryFromFaces(
+      buildHipRoofProfileFaces(roof, getRoofPanelLocalExtents(roof), getRoofSupportBoundsInRoofSpace(roof)),
+      getFlippedRoofFaceProjectedUvs,
+    )
+  }
   const halfWidth = Math.max(roof.width, 0.3) / 2
   const halfDepth = Math.max(roof.depth, 0.3) / 2
   const pitchRadians =
@@ -10171,47 +10107,295 @@ function createHipRoofGeometry(roof: RoofStructure) {
     const ridgeStart: RoofVertex = [-halfWidth + halfDepth, ridgeHeight, 0]
     const ridgeEnd: RoofVertex = [halfWidth - halfDepth, ridgeHeight, 0]
 
-    return createSolidRoofGeometryFromFaces([
-      [bottomLeft, bottomRight, ridgeEnd, ridgeStart],
-      [ridgeStart, ridgeEnd, topRight, topLeft],
-      [bottomLeft, ridgeStart, topLeft],
-      [bottomRight, topRight, ridgeEnd],
-    ])
+    return createSolidRoofGeometryFromFaces(
+      [
+        [bottomLeft, bottomRight, ridgeEnd, ridgeStart],
+        [ridgeStart, ridgeEnd, topRight, topLeft],
+        [bottomLeft, ridgeStart, topLeft],
+        [bottomRight, topRight, ridgeEnd],
+      ],
+      getFlippedRoofFaceProjectedUvs,
+    )
   }
 
   const ridgeStart: RoofVertex = [0, ridgeHeight, -halfDepth + halfWidth]
   const ridgeEnd: RoofVertex = [0, ridgeHeight, halfDepth - halfWidth]
 
-  return createSolidRoofGeometryFromFaces([
-    [bottomLeft, ridgeStart, ridgeEnd, topLeft],
-    [ridgeStart, bottomRight, topRight, ridgeEnd],
-    [bottomLeft, bottomRight, ridgeStart],
-    [topLeft, ridgeEnd, topRight],
-  ])
+  return createSolidRoofGeometryFromFaces(
+    [
+      [bottomLeft, ridgeStart, ridgeEnd, topLeft],
+      [ridgeStart, bottomRight, topRight, ridgeEnd],
+      [bottomLeft, bottomRight, ridgeStart],
+      [topLeft, ridgeEnd, topRight],
+    ],
+    getFlippedRoofFaceProjectedUvs,
+  )
 }
 
-function createUpAndOverRoofGeometry(roof: RoofStructure) {
+function createFlatRoofGeometry(roof: RoofStructure) {
   const extents = getRoofPanelLocalExtents(roof)
-  const pitchRadians =
-    (Math.min(75, Math.max(1, roof.pitchDegrees)) * Math.PI) / 180
-  const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
-  const ridgeX = (supportBounds.minX + supportBounds.maxX) / 2
-  const ridgeHeight =
-    Math.tan(pitchRadians) *
-    Math.max(0.15, (supportBounds.maxX - supportBounds.minX) / 2)
-  const leftHeight = getRoofHeightAtLocalPoint(roof, { x: extents.minX, y: 0 }) ?? 0
-  const rightHeight = getRoofHeightAtLocalPoint(roof, { x: extents.maxX, y: 0 }) ?? 0
-  const frontLeft: [number, number, number] = [extents.minX, leftHeight, extents.minY]
-  const frontRight: [number, number, number] = [extents.maxX, rightHeight, extents.minY]
-  const backRight: [number, number, number] = [extents.maxX, rightHeight, extents.maxY]
-  const backLeft: [number, number, number] = [extents.minX, leftHeight, extents.maxY]
-  const ridgeFront: [number, number, number] = [ridgeX, ridgeHeight, extents.minY]
-  const ridgeBack: [number, number, number] = [ridgeX, ridgeHeight, extents.maxY]
+  const roofFace: RoofVertex[] = [
+    [extents.minX, 0, extents.minY],
+    [extents.maxX, 0, extents.minY],
+    [extents.maxX, 0, extents.maxY],
+    [extents.minX, 0, extents.maxY],
+  ]
+  const flatTopUvProjector: RoofFaceUvProjector = (vertices) =>
+    vertices.map(([x, , z]) => [x, z] as [number, number])
 
-  return createSolidRoofGeometryFromFaces([
-    [frontLeft, ridgeFront, ridgeBack, backLeft],
-    [ridgeFront, frontRight, backRight, ridgeBack],
-  ])
+  return createSolidRoofGeometryFromFaces([roofFace], flatTopUvProjector)
+}
+
+function subtractRoofPlanCutouts(
+  roof: RoofStructure,
+  polygon: Point[],
+  roofPlanCutouts: RoofPlanCutout[] = [],
+  minimumClipArea = 0.05,
+) {
+  const cutouts = roofPlanCutouts
+    .filter((cutout) => cutout.sourceRoofId !== roof.id)
+    .map((cutout) => cutout.polygon)
+    .filter((cutout) => getPolygonAreaMagnitude(cutout) >= minimumClipArea)
+
+  if (cutouts.length === 0) {
+    return [polygon]
+  }
+
+  return subtractPlanCutouts(polygon, cutouts)
+    .map((footprint) => footprint.outline)
+    .filter((outline) => getPolygonAreaMagnitude(outline) >= minimumClipArea)
+}
+
+function splitRoofPolygonsAtLocalX(
+  polygons: Point[][],
+  x: number,
+  minY: number,
+  maxY: number,
+  minimumClipArea = 0.05,
+) {
+  const splitLineStart = { x, y: minY - 1 }
+  const splitLineEnd = { x, y: maxY + 1 }
+
+  return polygons.flatMap((polygon) => {
+    const left = clipPolygonToLineSide(
+      polygon,
+      splitLineStart,
+      splitLineEnd,
+      1,
+    )
+    const right = clipPolygonToLineSide(
+      polygon,
+      splitLineStart,
+      splitLineEnd,
+      -1,
+    )
+
+    return [left, right].filter(
+      (outline) => getPolygonAreaMagnitude(outline) >= minimumClipArea,
+    )
+  })
+}
+
+function clipPolygonBySignedDistance(
+  polygon: Point[],
+  getSignedDistance: (point: Point) => number,
+) {
+  if (polygon.length < 3) {
+    return []
+  }
+
+  const clipped: Point[] = []
+
+  polygon.forEach((currentPoint, index) => {
+    const previousPoint = polygon[(index + polygon.length - 1) % polygon.length]
+    const previousDistance = getSignedDistance(previousPoint)
+    const currentDistance = getSignedDistance(currentPoint)
+    const previousInside = previousDistance >= -0.000001
+    const currentInside = currentDistance >= -0.000001
+
+    if (previousInside !== currentInside) {
+      const denominator = previousDistance - currentDistance
+      const t =
+        Math.abs(denominator) <= 0.000001
+          ? 0
+          : previousDistance / denominator
+
+      clipped.push({
+        x: previousPoint.x + (currentPoint.x - previousPoint.x) * t,
+        y: previousPoint.y + (currentPoint.y - previousPoint.y) * t,
+      })
+    }
+
+    if (currentInside) {
+      clipped.push(currentPoint)
+    }
+  })
+
+  return clipped
+}
+
+function getPolygonWindingSign(polygon: Point[]) {
+  if (polygon.length < 3) {
+    return 1 as const
+  }
+
+  const signedArea = polygon.reduce((area, point, index) => {
+    const nextPoint = polygon[(index + 1) % polygon.length]
+
+    return area + point.x * nextPoint.y - nextPoint.x * point.y
+  }, 0)
+
+  return signedArea >= 0 ? 1 : -1
+}
+
+function clipPolygonToConvexPolygon(
+  polygon: Point[],
+  clipPolygon: Point[],
+  minimumClipArea = 0.05,
+) {
+  if (polygon.length < 3 || clipPolygon.length < 3) {
+    return []
+  }
+
+  const clipWindingSign = getPolygonWindingSign(clipPolygon)
+  const clipCentroid = getPolygonCentroidPoint(clipPolygon)
+  let clipped = polygon
+
+  clipPolygon.forEach((firstPoint, index) => {
+    if (clipped.length < 3) {
+      return
+    }
+
+    const secondPoint = clipPolygon[(index + 1) % clipPolygon.length]
+    const edgeDirection = {
+      x: secondPoint.x - firstPoint.x,
+      y: secondPoint.y - firstPoint.y,
+    }
+    const centroidSide =
+      getPlanCross(edgeDirection, {
+        x: clipCentroid.x - firstPoint.x,
+        y: clipCentroid.y - firstPoint.y,
+      }) * clipWindingSign
+    const keepSign = centroidSide >= 0 ? clipWindingSign : -clipWindingSign
+
+    clipped = clipPolygonToLineSide(
+      clipped,
+      firstPoint,
+      secondPoint,
+      keepSign as -1 | 1,
+    )
+  })
+
+  return getPolygonAreaMagnitude(clipped) >= minimumClipArea ? clipped : []
+}
+
+function getRoofPlaneCutoutStripInTargetLocal(
+  targetRoof: RoofStructure,
+  cutout: RoofPlaneCutout,
+) {
+  const stripHalfDepth = 1000
+
+  return [
+    { x: cutout.sourceLocalMinX, y: -stripHalfDepth },
+    { x: cutout.sourceLocalMaxX, y: -stripHalfDepth },
+    { x: cutout.sourceLocalMaxX, y: stripHalfDepth },
+    { x: cutout.sourceLocalMinX, y: stripHalfDepth },
+  ].map((point) =>
+    getRoofLocalPoint(
+      targetRoof,
+      getRoofWorldPointFromLocal(cutout.sourceRoof, point),
+    ),
+  )
+}
+
+function subtractRoofPlaneCutouts(
+  roof: RoofStructure,
+  panelPolygon: Point[],
+  roofPlaneCutouts: RoofPlaneCutout[] = [],
+  minimumClipArea = 0.05,
+) {
+  const heightTolerance = 0.015
+  const cutouts = roofPlaneCutouts
+    .filter((cutout) => cutout.sourceRoof.id !== roof.id)
+    .map((cutout) => {
+      const stripPolygon = getRoofPlaneCutoutStripInTargetLocal(roof, cutout)
+      const stripClippedPanel = clipPolygonToConvexPolygon(
+        panelPolygon,
+        stripPolygon,
+        minimumClipArea,
+      )
+
+      if (stripClippedPanel.length < 3) {
+        return []
+      }
+
+      return clipPolygonBySignedDistance(stripClippedPanel, (point) => {
+        const worldPoint = getRoofWorldPointFromLocal(roof, point)
+        const targetHeight = getRoofWorldHeightAtPoint(roof, 0, worldPoint)
+        const sourceHeight = getRoofPlaneCutoutHeightAtWorldPoint(
+          cutout,
+          0,
+          worldPoint,
+        )
+
+        return targetHeight === null || sourceHeight === null
+          ? -1
+          : sourceHeight - targetHeight - heightTolerance
+      })
+    })
+    .filter((cutout) => getPolygonAreaMagnitude(cutout) >= minimumClipArea)
+    .filter((cutout) => cutout.length >= 3)
+
+  if (cutouts.length === 0) {
+    return [panelPolygon]
+  }
+
+  return subtractPlanCutouts(panelPolygon, cutouts)
+    .map((footprint) => footprint.outline)
+    .filter((outline) => getPolygonAreaMagnitude(outline) >= minimumClipArea)
+}
+
+function createUpAndOverRoofGeometry(
+  roof: RoofStructure,
+  roofPlanCutouts: RoofPlanCutout[] = [],
+  roofPlaneCutouts: RoofPlaneCutout[] = [],
+) {
+  const extents = getRoofPanelLocalExtents(roof)
+  const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
+  const basePolygon = [
+    { x: extents.minX, y: extents.minY },
+    { x: extents.maxX, y: extents.minY },
+    { x: extents.maxX, y: extents.maxY },
+    { x: extents.minX, y: extents.maxY },
+  ]
+  const basePanelPolygons = getPitchedRoofBreaks(roof, supportBounds).reduce(
+    (polygons, x) => splitRoofPolygonsAtLocalX(polygons, x, extents.minY, extents.maxY, 0.000001),
+    subtractRoofPlanCutouts(roof, basePolygon, roofPlanCutouts),
+  )
+  const panelPolygons = basePanelPolygons.flatMap((panelPolygon) =>
+    subtractRoofPlaneCutouts(roof, panelPolygon, roofPlaneCutouts, 0.000001),
+  )
+  const roofFaces = panelPolygons.map((panelPolygon) =>
+    panelPolygon.map((point) => [
+      point.x,
+      getRoofHeightAtLocalPoint(roof, point) ?? 0,
+      point.y,
+    ] as RoofVertex),
+  )
+  const upAndOverTopUvProjector: RoofFaceUvProjector = (vertices) =>
+    vertices.map(([x, , z]) => [
+      z,
+      getPitchedRoofSurfaceDistance(roof, supportBounds, x),
+    ])
+
+  return {
+    ...createSolidRoofGeometryFromFaces(
+      roofFaces.filter((roofFace) => roofFace.length >= 3),
+      upAndOverTopUvProjector,
+    ),
+    eaves: createUpAndOverEavesGeometry(roof, supportBounds, extents, roofFaces, ROOF_TILE_THICKNESS_METERS),
+  }
+
 }
 
 function getLeanToPanelLocalExtents(
@@ -10294,33 +10478,193 @@ function getLeanToPanelLocalExtents(
     : extents
 }
 
-function getLeanToHeightAtLocalX(roof: RoofStructure, localX: number) {
-  const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
-  const pitchRadians =
-    (Math.min(75, Math.max(1, roof.pitchDegrees)) * Math.PI) / 180
+function getPlanCross(first: Point, second: Point) {
+  return first.x * second.y - first.y * second.x
+}
 
-  return Math.max(0, localX - supportBounds.minX) * Math.tan(pitchRadians)
+function getPolygonAreaMagnitude(points: Point[]) {
+  if (points.length < 3) {
+    return 0
+  }
+
+  return Math.abs(
+    points.reduce((area, point, index) => {
+      const nextPoint = points[(index + 1) % points.length]
+
+      return area + point.x * nextPoint.y - nextPoint.x * point.y
+    }, 0) / 2,
+  )
+}
+
+function getSegmentLineIntersection(
+  segmentStart: Point,
+  segmentEnd: Point,
+  lineStart: Point,
+  lineEnd: Point,
+) {
+  const segmentDirection = {
+    x: segmentEnd.x - segmentStart.x,
+    y: segmentEnd.y - segmentStart.y,
+  }
+  const lineDirection = {
+    x: lineEnd.x - lineStart.x,
+    y: lineEnd.y - lineStart.y,
+  }
+  const denominator = getPlanCross(segmentDirection, lineDirection)
+
+  if (Math.abs(denominator) <= 0.000001) {
+    return segmentEnd
+  }
+
+  const startToLine = {
+    x: lineStart.x - segmentStart.x,
+    y: lineStart.y - segmentStart.y,
+  }
+  const t = getPlanCross(startToLine, lineDirection) / denominator
+
+  return {
+    x: segmentStart.x + segmentDirection.x * t,
+    y: segmentStart.y + segmentDirection.y * t,
+  }
+}
+
+function getRoofPlaneCutoutHeightAtWorldPoint(
+  cutout: RoofPlaneCutout,
+  floorTopElevation: number,
+  point: Point,
+) {
+  const roof = cutout.sourceRoof
+  const localPoint = getRoofLocalPoint(roof, point)
+  const xTolerance = 0.04
+
+  if (
+    localPoint.x < cutout.sourceLocalMinX - xTolerance ||
+    localPoint.x > cutout.sourceLocalMaxX + xTolerance
+  ) {
+    return null
+  }
+
+  if (roof.type === 'lean-to') {
+    return (
+      floorTopElevation +
+      (roof.heightOffset ?? 0) +
+      getLeanToHeightAtLocalX(roof, localPoint.x)
+    )
+  }
+
+  if (roof.type === 'up-and-over') {
+    const height = getPitchedRoofHeightAtX(roof, getRoofSupportBoundsInRoofSpace(roof), localPoint.x)
+    return floorTopElevation + (roof.heightOffset ?? 0) + height
+  }
+
+  if (roof.type === 'flat') {
+    return floorTopElevation + (roof.heightOffset ?? 0)
+  }
+
+  return null
+}
+
+function clipPolygonToLineSide(
+  polygon: Point[],
+  lineStart: Point,
+  lineEnd: Point,
+  keepSign: -1 | 1,
+) {
+  if (polygon.length < 3) {
+    return []
+  }
+
+  const lineDirection = {
+    x: lineEnd.x - lineStart.x,
+    y: lineEnd.y - lineStart.y,
+  }
+  const sideValue = (point: Point) =>
+    getPlanCross(lineDirection, {
+      x: point.x - lineStart.x,
+      y: point.y - lineStart.y,
+    })
+  const isInside = (point: Point) => sideValue(point) * keepSign >= -0.000001
+  const clipped: Point[] = []
+
+  polygon.forEach((currentPoint, index) => {
+    const previousPoint = polygon[(index + polygon.length - 1) % polygon.length]
+    const previousInside = isInside(previousPoint)
+    const currentInside = isInside(currentPoint)
+
+    if (currentInside !== previousInside) {
+      clipped.push(
+        getSegmentLineIntersection(
+          previousPoint,
+          currentPoint,
+          lineStart,
+          lineEnd,
+        ),
+      )
+    }
+
+    if (currentInside) {
+      clipped.push(currentPoint)
+    }
+  })
+
+  return clipped
+}
+
+function getLeanToPanelLocalPolygon(
+  roof: RoofStructure,
+  walls: Wall[] = [],
+  rooms: DetectedRoom[] = [],
+  roofPlanCutouts: RoofPlanCutout[] = [],
+): Point[][] {
+  const extents = getLeanToPanelLocalExtents(roof, walls, rooms)
+  const polygon: Point[] = [
+    { x: extents.minX, y: extents.minY },
+    { x: extents.maxX, y: extents.minY },
+    { x: extents.maxX, y: extents.maxY },
+    { x: extents.minX, y: extents.maxY },
+  ]
+
+  return subtractRoofPlanCutouts(roof, polygon, roofPlanCutouts)
+}
+
+function getLeanToHeightAtLocalX(roof: RoofStructure, localX: number) {
+  return getPitchedRoofHeightAtX(roof, getRoofSupportBoundsInRoofSpace(roof), localX)
 }
 
 function createLeanToRoofGeometry(
   roof: RoofStructure,
   walls: Wall[] = [],
   rooms: DetectedRoom[] = [],
+  roofPlanCutouts: RoofPlanCutout[] = [],
 ) {
+  const basePolygons = getLeanToPanelLocalPolygon(
+    roof,
+    walls,
+    rooms,
+    roofPlanCutouts,
+  )
+  const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
   const extents = getLeanToPanelLocalExtents(roof, walls, rooms)
-  const lowHeight = getRoofHeightAtLocalPoint(roof, { x: extents.minX, y: 0 }) ?? 0
-  const highHeight = getLeanToHeightAtLocalX(roof, extents.maxX)
-  const lowFront: [number, number, number] = [extents.minX, lowHeight, extents.minY]
-  const lowBack: [number, number, number] = [extents.minX, lowHeight, extents.maxY]
-  const highFront: [number, number, number] = [extents.maxX, highHeight, extents.minY]
-  const highBack: [number, number, number] = [extents.maxX, highHeight, extents.maxY]
+  const panelPolygons = splitRoofPolygonsAtLocalX(basePolygons, supportBounds.minX, extents.minY, extents.maxY, 0.000001)
+  const roofFaces = panelPolygons.map((panelPolygon) =>
+    panelPolygon.map((point) => [
+      point.x,
+      getLeanToHeightAtLocalX(roof, point.x),
+      point.y,
+    ] as RoofVertex),
+  )
 
-  return createSolidRoofGeometryFromFaces([
-    [lowFront, highFront, highBack, lowBack],
-  ])
+  return createSolidRoofGeometryFromFaces(
+    roofFaces.filter((roofFace) => roofFace.length >= 3),
+    (vertices) => vertices.map(([x, , z]) => [z, getPitchedRoofSurfaceDistance(roof, supportBounds, x)]),
+  )
 }
 
 function getRoofRidgeHeight(roof: RoofStructure) {
+  if (roof.type === 'flat') {
+    return 0
+  }
+
   const pitchRadians =
     (Math.min(75, Math.max(1, roof.pitchDegrees)) * Math.PI) / 180
   const supportBounds =
@@ -10349,6 +10693,270 @@ function getRoofLocalPoint(roof: RoofStructure, point: Point) {
     x: dx * cos - dy * sin,
     y: dx * sin + dy * cos,
   }
+}
+
+function getRoofWorldPointFromLocal(roof: RoofStructure, point: Point) {
+  const origin = getRoofRenderPosition(roof)
+  const cos = Math.cos(roof.rotation)
+  const sin = Math.sin(roof.rotation)
+
+  return {
+    x: origin.x + point.x * cos + point.y * sin,
+    y: origin.y - point.x * sin + point.y * cos,
+  }
+}
+
+function getRoofWorldHeightAtPoint(
+  roof: RoofStructure,
+  floorTopElevation: number,
+  point: Point,
+) {
+  const localPoint = getRoofLocalPoint(roof, point)
+  const localHeight =
+    roof.type === 'lean-to'
+      ? getLeanToHeightAtLocalX(roof, localPoint.x)
+      : getRoofHeightAtLocalPoint(roof, localPoint)
+
+  return localHeight === null
+    ? null
+    : floorTopElevation + (roof.heightOffset ?? 0) + localHeight
+}
+
+function getRoofBaseLocalPolygon(roof: RoofStructure): Point[] {
+  const extents = getRoofPanelLocalExtents(roof)
+
+  return [
+    { x: extents.minX, y: extents.minY },
+    { x: extents.maxX, y: extents.minY },
+    { x: extents.maxX, y: extents.maxY },
+    { x: extents.minX, y: extents.maxY },
+  ]
+}
+
+function getRoofFootprintLocalPolygons(
+  roof: RoofStructure,
+  walls: Wall[],
+  rooms: DetectedRoom[],
+) {
+  return roof.type === 'lean-to'
+    ? getLeanToPanelLocalPolygon(roof, walls, rooms)
+    : [getRoofBaseLocalPolygon(roof)]
+}
+
+function getRoofFootprintWorldPolygons(
+  roof: RoofStructure,
+  walls: Wall[],
+  rooms: DetectedRoom[],
+) {
+  return getRoofFootprintLocalPolygons(roof, walls, rooms).map((polygon) =>
+    polygon.map((point) => getRoofWorldPointFromLocal(roof, point)),
+  )
+}
+
+function getRoofPeakWorldHeight(roof: RoofStructure) {
+  return (roof.heightOffset ?? 0) + getRoofRidgeHeight(roof)
+}
+
+function getRoofPlaneCutoutsForSourceRoof(roof: RoofStructure): RoofPlaneCutout[] {
+  if (roof.type === 'up-and-over') {
+    const extents = getRoofPanelLocalExtents(roof)
+    const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
+
+    const breaks = [extents.minX, ...getPitchedRoofBreaks(roof, supportBounds), extents.maxX]
+    return breaks.slice(1).flatMap((maxX, index) => maxX - breaks[index] > 0.000001 ? [{
+      sourceLocalMaxX: maxX,
+      sourceLocalMinX: breaks[index],
+      sourceRoof: roof,
+    }] : [])
+  }
+
+  return []
+}
+
+function getRoofPlaneCutoutsByRoofId({
+  roofs,
+  rooms,
+  walls,
+}: {
+  roofs: RoofStructure[]
+  rooms: DetectedRoom[]
+  walls: Wall[]
+}) {
+  const peakHeightTolerance = 0.025
+  const footprints = new Map(
+    roofs.map((roof) => [
+      roof.id,
+      getRoofFootprintWorldPolygons(roof, walls, rooms),
+    ]),
+  )
+  const cutoutsByRoofId = new Map<string, RoofPlaneCutout[]>()
+
+  roofs.forEach((targetRoof) => {
+    const targetFootprints = footprints.get(targetRoof.id) ?? []
+    const targetPeakHeight = getRoofPeakWorldHeight(targetRoof)
+
+    roofs.forEach((sourceRoof) => {
+      if (
+        sourceRoof.id === targetRoof.id ||
+        getRoofPeakWorldHeight(sourceRoof) <=
+          targetPeakHeight + peakHeightTolerance
+      ) {
+        return
+      }
+
+      const sourceFootprints = footprints.get(sourceRoof.id) ?? []
+      const overlapSamples = targetFootprints.flatMap((targetFootprint) =>
+        sourceFootprints.flatMap((sourceFootprint) =>
+          getRoofFootprintOverlapSamples(targetFootprint, sourceFootprint),
+        ),
+      )
+
+      if (overlapSamples.length === 0) {
+        return
+      }
+
+      const sourceCutouts = getDominantRoofPlaneCutoutsForOverlap(
+        sourceRoof,
+        overlapSamples,
+      )
+
+      if (sourceCutouts.length === 0) {
+        return
+      }
+
+      cutoutsByRoofId.set(targetRoof.id, [
+        ...(cutoutsByRoofId.get(targetRoof.id) ?? []),
+        ...sourceCutouts,
+      ])
+    })
+  })
+
+  return cutoutsByRoofId
+}
+
+function getDominantRoofPlaneCutoutsForOverlap(
+  sourceRoof: RoofStructure,
+  overlapSamples: Point[],
+) {
+  const sourceCutouts = getRoofPlaneCutoutsForSourceRoof(sourceRoof)
+
+  if (sourceCutouts.length <= 1 || overlapSamples.length === 0) {
+    return sourceCutouts
+  }
+
+  const overlapCenterX =
+    overlapSamples.reduce(
+      (total, sample) => total + getRoofLocalPoint(sourceRoof, sample).x,
+      0,
+    ) / overlapSamples.length
+
+  const support = getRoofSupportBoundsInRoofSpace(sourceRoof)
+  const ridgeX = (support.minX + support.maxX) / 2
+  // Keep both the main slope and its eave plane on the dominant ridge side.
+  return sourceCutouts.filter((cutout) => overlapCenterX < ridgeX
+    ? cutout.sourceLocalMaxX <= ridgeX
+    : cutout.sourceLocalMinX >= ridgeX)
+}
+
+function getPolygonCentroidPoint(polygon: Point[]) {
+  const summed = polygon.reduce(
+    (total, point) => ({
+      x: total.x + point.x,
+      y: total.y + point.y,
+    }),
+    { x: 0, y: 0 },
+  )
+
+  return {
+    x: summed.x / polygon.length,
+    y: summed.y / polygon.length,
+  }
+}
+
+function getSegmentIntersectionPoint(
+  firstStart: Point,
+  firstEnd: Point,
+  secondStart: Point,
+  secondEnd: Point,
+) {
+  const firstDirection = {
+    x: firstEnd.x - firstStart.x,
+    y: firstEnd.y - firstStart.y,
+  }
+  const secondDirection = {
+    x: secondEnd.x - secondStart.x,
+    y: secondEnd.y - secondStart.y,
+  }
+  const denominator = getPlanCross(firstDirection, secondDirection)
+
+  if (Math.abs(denominator) <= 0.000001) {
+    return null
+  }
+
+  const startDelta = {
+    x: secondStart.x - firstStart.x,
+    y: secondStart.y - firstStart.y,
+  }
+  const firstT = getPlanCross(startDelta, secondDirection) / denominator
+  const secondT = getPlanCross(startDelta, firstDirection) / denominator
+
+  if (
+    firstT < -0.000001 ||
+    firstT > 1.000001 ||
+    secondT < -0.000001 ||
+    secondT > 1.000001
+  ) {
+    return null
+  }
+
+  return {
+    x: firstStart.x + firstDirection.x * firstT,
+    y: firstStart.y + firstDirection.y * firstT,
+  }
+}
+
+function getRoofFootprintOverlapSamples(
+  targetPolygon: Point[],
+  sourcePolygon: Point[],
+) {
+  const samples: Point[] = [
+    ...sourcePolygon.filter((point) =>
+      isPointInsideOrOnPolygon(point, targetPolygon),
+    ),
+    ...targetPolygon.filter((point) =>
+      isPointInsideOrOnPolygon(point, sourcePolygon),
+    ),
+  ]
+  const sourceCentroid = getPolygonCentroidPoint(sourcePolygon)
+  const targetCentroid = getPolygonCentroidPoint(targetPolygon)
+
+  if (isPointInsideOrOnPolygon(sourceCentroid, targetPolygon)) {
+    samples.push(sourceCentroid)
+  }
+
+  if (isPointInsideOrOnPolygon(targetCentroid, sourcePolygon)) {
+    samples.push(targetCentroid)
+  }
+
+  targetPolygon.forEach((targetPoint, targetIndex) => {
+    const targetNext = targetPolygon[(targetIndex + 1) % targetPolygon.length]
+
+    sourcePolygon.forEach((sourcePoint, sourceIndex) => {
+      const sourceNext = sourcePolygon[(sourceIndex + 1) % sourcePolygon.length]
+      const intersection = getSegmentIntersectionPoint(
+        targetPoint,
+        targetNext,
+        sourcePoint,
+        sourceNext,
+      )
+
+      if (intersection) {
+        samples.push(intersection)
+      }
+    })
+  })
+
+  return samples
 }
 
 function getRoofSideOverhangs(roof: RoofStructure) {
@@ -10424,36 +11032,17 @@ function getRoofHeightAtLocalPoint(roof: RoofStructure, point: Point) {
 
   const clampedX = Math.min(extents.maxX, Math.max(extents.minX, point.x))
   const clampedY = Math.min(extents.maxY, Math.max(extents.minY, point.y))
-  const pitchRadians =
-    (Math.min(75, Math.max(1, roof.pitchDegrees)) * Math.PI) / 180
-  const slope = Math.tan(pitchRadians)
 
-  if (roof.type === 'lean-to') {
-    const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
-
-    return (clampedX - supportBounds.minX) * slope
+  if (roof.type === 'flat') {
+    return 0
   }
 
-  if (roof.type === 'up-and-over') {
-    const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
-    const ridgeX = (supportBounds.minX + supportBounds.maxX) / 2
-    const supportHalfWidth = Math.max(
-      0.15,
-      (supportBounds.maxX - supportBounds.minX) / 2,
-    )
-
-    return (supportHalfWidth - Math.abs(clampedX - ridgeX)) * slope
+  const pointOnPanel = { x: clampedX, y: clampedY }
+  const supportBounds = getRoofSupportBoundsInRoofSpace(roof)
+  if (roof.type === 'lean-to' || roof.type === 'up-and-over') {
+    return getPitchedRoofHeightAtX(roof, supportBounds, clampedX)
   }
-
-  return Math.max(
-    0,
-    Math.min(
-      clampedX - extents.minX,
-      extents.maxX - clampedX,
-      clampedY - extents.minY,
-      extents.maxY - clampedY,
-    ),
-  ) * slope
+  return getHipRoofProfileHeight(roof, extents, supportBounds, pointOnPanel)
 }
 
 function getRoofHeightAtSupportLocalPoint(roof: RoofStructure, point: Point) {
@@ -10468,7 +11057,11 @@ function getRoofHeightAtSupportLocalPoint(roof: RoofStructure, point: Point) {
 function getRoofSupportBoundsInRoofSpace(roof: RoofStructure) {
   const bounds = getExplicitRoofSupportLocalBounds(roof)
 
-  if (roof.type === 'lean-to' || roof.type === 'up-and-over') {
+  if (
+    roof.type === 'flat' ||
+    roof.type === 'lean-to' ||
+    roof.type === 'up-and-over'
+  ) {
     return bounds
   }
 
@@ -10704,7 +11297,7 @@ function getRoofWithExternalWallSupportExtents(
 function getRoofInfillWallRole(
   roof: RoofStructure,
   wall: Wall,
-): 'gable' | null {
+): 'cross' | 'gable' | null {
   if (roof.type === 'hip') {
     return null
   }
@@ -10723,6 +11316,18 @@ function getRoofInfillWallRole(
       Math.abs(supportEnd.y - bounds.minY) <= tolerance) ||
     (Math.abs(supportStart.y - bounds.maxY) <= tolerance &&
       Math.abs(supportEnd.y - bounds.maxY) <= tolerance)
+  const wallMinY = Math.min(supportStart.y, supportEnd.y)
+  const wallMaxY = Math.max(supportStart.y, supportEnd.y)
+  const wallCenterY = (supportStart.y + supportEnd.y) / 2
+  const overlapsSupportDepth =
+    wallMaxY >= bounds.minY - tolerance &&
+    wallMinY <= bounds.maxY + tolerance
+  const crossesInsideLeanTo =
+    roof.type === 'lean-to' &&
+    runsAlongRoofWidth &&
+    overlapsSupportDepth &&
+    wallCenterY > bounds.minY + tolerance &&
+    wallCenterY < bounds.maxY - tolerance
 
   if (roof.type === 'up-and-over') {
     return runsAlongRoofWidth && onFrontOrBackSupport ? 'gable' : null
@@ -10730,6 +11335,10 @@ function getRoofInfillWallRole(
 
   if (runsAlongRoofWidth && onFrontOrBackSupport) {
     return 'gable'
+  }
+
+  if (crossesInsideLeanTo) {
+    return 'cross'
   }
 
   return null
@@ -10778,6 +11387,7 @@ function createRoofInfillGeometry({
   const expectedNormal = new Vector3(normal.x, 0, normal.y).normalize()
   const positions: number[] = []
   const uvs: number[] = []
+  const infillBottomY = bottomY - ROOF_INFILL_WALL_OVERLAP_METERS
   const visibleStart = {
     x: wall.start.x - unit.x * renderedWall.startExtension,
     y: wall.start.y - unit.y * renderedWall.startExtension,
@@ -10800,7 +11410,7 @@ function createRoofInfillGeometry({
   const supportTouchesEndCorner =
     Math.abs(supportBounds.maxX - centerlineWallMaxX) <= 0.03
   const wallLocalStart =
-    infillRole === 'gable'
+    infillRole === 'gable' || infillRole === 'cross'
       ? {
           x: supportTouchesStartCorner
             ? unclippedWallMinX
@@ -10809,7 +11419,7 @@ function createRoofInfillGeometry({
         }
       : visibleLocalStart
   const wallLocalEnd =
-    infillRole === 'gable'
+    infillRole === 'gable' || infillRole === 'cross'
       ? {
           x: supportTouchesEndCorner
             ? unclippedWallMaxX
@@ -10846,7 +11456,7 @@ function createRoofInfillGeometry({
   }
   const getFacePoint = (point: Point): [number, number, number] => [
     point.x + normal.x * faceOffset,
-    bottomY,
+    infillBottomY,
     point.y + normal.y * faceOffset,
   ]
   const getWallPointAtRoofLocalX = (localX: number) => {
@@ -10864,12 +11474,12 @@ function createRoofInfillGeometry({
     }
   }
   const bottomStart = getFacePoint(
-    infillRole === 'gable'
+    infillRole === 'gable' || infillRole === 'cross'
       ? getWallPointAtRoofLocalX(wallLocalStart.x)
       : visibleStart,
   )
   const bottomEnd = getFacePoint(
-    infillRole === 'gable'
+    infillRole === 'gable' || infillRole === 'cross'
       ? getWallPointAtRoofLocalX(wallLocalEnd.x)
       : visibleEnd,
   )
@@ -10881,11 +11491,11 @@ function createRoofInfillGeometry({
     y,
   ]
   const bottomStartPlan =
-    infillRole === 'gable'
+    infillRole === 'gable' || infillRole === 'cross'
       ? getWallPointAtRoofLocalX(wallLocalStart.x)
       : visibleStart
   const bottomEndPlan =
-    infillRole === 'gable'
+    infillRole === 'gable' || infillRole === 'cross'
       ? getWallPointAtRoofLocalX(wallLocalEnd.x)
       : visibleEnd
 
@@ -10911,11 +11521,11 @@ function createRoofInfillGeometry({
         roofElevation + ridgeHeight,
         ridgePoint.y + normal.y * faceOffset,
       ],
-      getContinuationUv(bottomStartPlan, bottomY),
-      getContinuationUv(bottomEndPlan, bottomY),
+      getContinuationUv(bottomStartPlan, infillBottomY),
+      getContinuationUv(bottomEndPlan, infillBottomY),
       getContinuationUv(ridgePoint, roofElevation + ridgeHeight),
     )
-  } else if (infillRole === 'gable') {
+  } else if (infillRole === 'gable' || infillRole === 'cross') {
     const startHeight = getRoofHeightAtSupportLocalPoint(roof, wallLocalStart)
     const endHeight = getRoofHeightAtSupportLocalPoint(roof, wallLocalEnd)
     const startIsHigh = startHeight >= endHeight
@@ -10927,25 +11537,32 @@ function createRoofInfillGeometry({
       bottomStart,
       bottomEnd,
       [highBottom[0], roofElevation + gableHeight, highBottom[2]],
-      getContinuationUv(bottomStartPlan, bottomY),
-      getContinuationUv(bottomEndPlan, bottomY),
+      getContinuationUv(bottomStartPlan, infillBottomY),
+      getContinuationUv(bottomEndPlan, infillBottomY),
       getContinuationUv(highPlanPoint, roofElevation + gableHeight),
     )
   } else {
-    const highWallHeight = Math.max(
-      0.01,
-      getRoofHeightAtSupportLocalPoint(roof, wallLocalStart),
-    )
-    const startHeight = highWallHeight
-    const endHeight = highWallHeight
+    const topInset = 0
+    const startHeight =
+      getRoofHeightAtSupportLocalPoint(roof, wallLocalStart) - topInset
+    const endHeight =
+      getRoofHeightAtSupportLocalPoint(roof, wallLocalEnd) - topInset
+
+    if (
+      roofElevation + Math.max(startHeight, endHeight) <=
+      infillBottomY + 0.001
+    ) {
+      return null
+    }
+
     const topStart: [number, number, number] = [
       bottomStart[0],
-      roofElevation + startHeight,
+      Math.max(infillBottomY + 0.001, roofElevation + startHeight),
       bottomStart[2],
     ]
     const topEnd: [number, number, number] = [
       bottomEnd[0],
-      roofElevation + endHeight,
+      Math.max(infillBottomY + 0.001, roofElevation + endHeight),
       bottomEnd[2],
     ]
 
@@ -10953,17 +11570,17 @@ function createRoofInfillGeometry({
       bottomStart,
       bottomEnd,
       topEnd,
-      getContinuationUv(visibleStart, bottomY),
-      getContinuationUv(visibleEnd, bottomY),
-      getContinuationUv(visibleEnd, roofElevation + endHeight),
+      getContinuationUv(bottomStartPlan, infillBottomY),
+      getContinuationUv(bottomEndPlan, infillBottomY),
+      getContinuationUv(bottomEndPlan, roofElevation + endHeight),
     )
     addTriangle(
       bottomStart,
       topEnd,
       topStart,
-      getContinuationUv(visibleStart, bottomY),
-      getContinuationUv(visibleEnd, roofElevation + endHeight),
-      getContinuationUv(visibleStart, roofElevation + startHeight),
+      getContinuationUv(bottomStartPlan, infillBottomY),
+      getContinuationUv(bottomEndPlan, roofElevation + endHeight),
+      getContinuationUv(bottomStartPlan, roofElevation + startHeight),
     )
   }
 
@@ -11038,7 +11655,7 @@ function RoofInfillMeshes({
 
           return (
             <mesh
-              castShadow={false}
+              castShadow={shadowsEnabled}
               geometry={geometry}
               key={`${roof.id}:${wall.id}:roof-infill`}
               receiveShadow={shadowsEnabled}
@@ -11049,6 +11666,7 @@ function RoofInfillMeshes({
                   assignment={assignment}
                   displacementEnabled={false}
                   material={material}
+                  normalScale={WALL_NORMAL_MAP_SCALE}
                   side={DoubleSide}
                   textureQuality={getWallSurfaceTextureQuality(material)}
                   wireframe={wireframe}
@@ -11072,6 +11690,8 @@ function HipRoofMesh({
   isSelected,
   onRegisterPickTarget,
   roof,
+  roofPlaneCutouts,
+  roofPlanCutouts,
   rooms,
   shadowsEnabled,
   surfaceAssignments,
@@ -11084,21 +11704,30 @@ function HipRoofMesh({
   isSelected: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
   roof: RoofStructure
+  roofPlaneCutouts: RoofPlaneCutout[]
+  roofPlanCutouts: RoofPlanCutout[]
   rooms: DetectedRoom[]
   shadowsEnabled: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
   wireframe: boolean
 }) {
   const groupRef = useRef<Object3D>(null!)
-  const geometries = useMemo(
+  const geometries = useMemo<RoofGeometries>(
     () =>
       roof.type === 'lean-to'
-        ? createLeanToRoofGeometry(roof, floorWalls, rooms)
+        ? createLeanToRoofGeometry(roof, floorWalls, rooms, roofPlanCutouts)
+        : roof.type === 'flat'
+          ? createFlatRoofGeometry(roof)
         : roof.type === 'up-and-over'
-        ? createUpAndOverRoofGeometry(roof)
+        ? createUpAndOverRoofGeometry(roof, roofPlanCutouts, roofPlaneCutouts)
         : createHipRoofGeometry(roof),
-    [floorWalls, roof, rooms],
+    [floorWalls, roof, roofPlaneCutouts, roofPlanCutouts, rooms],
   )
+  useEffect(() => () => {
+    geometries.top.dispose()
+    geometries.shell.dispose()
+    geometries.eaves?.dispose()
+  }, [geometries])
   const ridgeHeight = getRoofRidgeHeight(roof)
   const roofElevation = elevation + (roof.heightOffset ?? 0)
   const roofRenderPosition = getRoofRenderPosition(roof)
@@ -11126,6 +11755,7 @@ function HipRoofMesh({
       }
     }
 
+    if (geometries.eaves?.boundingBox) bounds.union(geometries.eaves.boundingBox)
     return bounds.isEmpty() ? null : bounds
   }, [geometries])
   const selectionCenter: [number, number, number] = roofBounds
@@ -11170,13 +11800,14 @@ function HipRoofMesh({
         castShadow={shadowsEnabled}
         geometry={geometries.top}
         receiveShadow={shadowsEnabled}
+        userData={{ houseDesignerRole: 'roof-top', roofId: roof.id }}
       >
         {roofAssignment && roofMaterial ? (
           <SurfaceMeshStandardMaterial
             assignment={roofAssignment}
             displacementEnabled={false}
             material={roofMaterial}
-            shadowSide={FrontSide}
+            shadowSide={BackSide}
             textureQuality="pbr"
             wireframe={wireframe}
           />
@@ -11185,7 +11816,7 @@ function HipRoofMesh({
             color="#4b5563"
             metalness={0}
             roughness={0.74}
-            shadowSide={FrontSide}
+            shadowSide={BackSide}
             wireframe={wireframe}
           />
         )}
@@ -11194,13 +11825,14 @@ function HipRoofMesh({
         castShadow={shadowsEnabled}
         geometry={geometries.shell}
         receiveShadow={false}
+        userData={{ houseDesignerRole: 'roof-shell', roofId: roof.id }}
       >
         {roofAssignment && roofMaterial ? (
           <SurfaceMeshStandardMaterial
             assignment={roofAssignment}
             displacementEnabled={false}
             material={roofMaterial}
-            shadowSide={FrontSide}
+            shadowSide={BackSide}
             textureQuality="pbr"
             wireframe={wireframe}
           />
@@ -11209,11 +11841,27 @@ function HipRoofMesh({
             color="#4b5563"
             metalness={0}
             roughness={0.74}
-            shadowSide={FrontSide}
+            shadowSide={BackSide}
             wireframe={wireframe}
           />
         )}
       </mesh>
+      {geometries.eaves ? (
+        <mesh
+          geometry={geometries.eaves}
+          castShadow={shadowsEnabled}
+          receiveShadow={false}
+          userData={{ houseDesignerRole: 'roof-eaves', roofId: roof.id }}
+        >
+          <meshStandardMaterial
+            color={roof.soffitColor ?? '#ffffff'}
+            roughness={0.7}
+            side={DoubleSide}
+            shadowSide={BackSide}
+            wireframe={wireframe}
+          />
+        </mesh>
+      ) : null}
       {isSelected ? (
         <SelectionBoundsBox
           center={selectionCenter}
@@ -11246,6 +11894,27 @@ function RoofMeshes({
   wireframe: boolean
 }) {
   const elevation = floor.elevation + floor.roomHeight
+  const renderRoofs = useMemo(
+    () =>
+      (floor.roofs ?? []).map((roof) =>
+        getRoofWithExternalWallSupportExtents(roof, floor.walls),
+      ),
+    [floor.roofs, floor.walls],
+  )
+  const roofPlanCutoutsByRoofId = useMemo(
+    () =>
+      new Map<string, RoofPlanCutout[]>(),
+    [],
+  )
+  const roofPlaneCutoutsByRoofId = useMemo(
+    () =>
+      getRoofPlaneCutoutsByRoofId({
+        roofs: renderRoofs,
+        rooms,
+        walls: floor.walls,
+      }),
+    [elevation, floor.walls, renderRoofs, rooms],
+  )
 
   return (
     <>
@@ -11257,7 +11926,8 @@ function RoofMeshes({
         surfaceAssignments={surfaceAssignments}
         wireframe={wireframe}
       />
-      {(floor.roofs ?? []).map((roof) =>
+      {renderRoofs.map((roof) =>
+        roof.type === 'flat' ||
         roof.type === 'hip' ||
         roof.type === 'lean-to' ||
         roof.type === 'up-and-over' ? (
@@ -11269,7 +11939,9 @@ function RoofMeshes({
             isActive={isActive}
             isSelected={roof.id === selectedRoofId}
             onRegisterPickTarget={onRegisterPickTarget}
-            roof={getRoofWithExternalWallSupportExtents(roof, floor.walls)}
+            roof={roof}
+            roofPlaneCutouts={roofPlaneCutoutsByRoofId.get(roof.id) ?? []}
+            roofPlanCutouts={roofPlanCutoutsByRoofId.get(roof.id) ?? []}
             rooms={rooms}
             shadowsEnabled={shadowsEnabled}
             surfaceAssignments={surfaceAssignments}
@@ -14487,6 +15159,74 @@ function CameraFovController({ fov }: { fov: number }) {
   return null
 }
 
+function CameraViewStateController({
+  onChange,
+  restoreRevision,
+  restoreState,
+}: {
+  onChange: (cameraState: ThreeDViewCameraState) => void
+  restoreRevision: number
+  restoreState: ThreeDViewCameraState
+}) {
+  const { camera, invalidate } = useThree()
+  const lastEmittedStateRef = useRef<ThreeDViewCameraState | null>(null)
+  const lastEmitTimeRef = useRef(0)
+
+  useEffect(() => {
+    camera.position.set(
+      restoreState.position.x,
+      restoreState.position.y,
+      restoreState.position.z,
+    )
+    camera.quaternion.set(
+      restoreState.quaternion.x,
+      restoreState.quaternion.y,
+      restoreState.quaternion.z,
+      restoreState.quaternion.w,
+    ).normalize()
+    camera.updateMatrixWorld()
+    lastEmittedStateRef.current = structuredClone(restoreState)
+    invalidate()
+  }, [camera, invalidate, restoreRevision, restoreState])
+
+  useFrame(({ clock }) => {
+    if (clock.elapsedTime - lastEmitTimeRef.current < 0.1) {
+      return
+    }
+
+    lastEmitTimeRef.current = clock.elapsedTime
+    const nextState: ThreeDViewCameraState = {
+      position: {
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z,
+      },
+      quaternion: {
+        w: camera.quaternion.w,
+        x: camera.quaternion.x,
+        y: camera.quaternion.y,
+        z: camera.quaternion.z,
+      },
+    }
+    const previousState = lastEmittedStateRef.current
+    const changed = !previousState ||
+      Math.abs(previousState.position.x - nextState.position.x) > 0.00001 ||
+      Math.abs(previousState.position.y - nextState.position.y) > 0.00001 ||
+      Math.abs(previousState.position.z - nextState.position.z) > 0.00001 ||
+      Math.abs(previousState.quaternion.w - nextState.quaternion.w) > 0.000001 ||
+      Math.abs(previousState.quaternion.x - nextState.quaternion.x) > 0.000001 ||
+      Math.abs(previousState.quaternion.y - nextState.quaternion.y) > 0.000001 ||
+      Math.abs(previousState.quaternion.z - nextState.quaternion.z) > 0.000001
+
+    if (changed) {
+      lastEmittedStateRef.current = nextState
+      onChange(nextState)
+    }
+  })
+
+  return null
+}
+
 function setIdsEqual(firstIds: ReadonlySet<string>, secondIds: ReadonlySet<string>) {
   if (firstIds.size !== secondIds.size) {
     return false
@@ -17554,10 +18294,13 @@ function EngineConsoleOverlay({
 
 export function ThreeDView({
   activeFloorId,
+  cameraRestoreRevision,
+  cameraViewState,
   floors,
   isEngineConsoleOpen,
   lightDirection,
   modelAssetVersion,
+  onCameraViewStateChange,
   onClearSelection,
   onEngineConsoleOpenChange,
   onLightDirectionChange,
@@ -18685,7 +19428,14 @@ export function ThreeDView({
       >
         <Canvas
           shadows={renderOptions.shadows}
-          camera={{ position: [6, 5, 8], fov: cameraFov }}
+          camera={{
+            position: [
+              cameraViewState.position.x,
+              cameraViewState.position.y,
+              cameraViewState.position.z,
+            ],
+            fov: cameraFov,
+          }}
           dpr={screenSpaceAmbientOcclusionEnabled ? 1 : [1, 1.5]}
           gl={{ antialias: true, powerPreference: 'high-performance' }}
           onCreated={({ gl }) => {
@@ -18694,7 +19444,7 @@ export function ThreeDView({
           }}
           tabIndex={0}
         >
-          <>
+          <MaterialVariationVrContext.Provider value={isXrPresenting}>
             <WebXRViewerButton
               containerRef={threeHostRef}
               onPresentingChange={handleXrPresentingChange}
@@ -18751,6 +19501,11 @@ export function ThreeDView({
             />
             {WALL_RENDER_DEBUG_ENABLED ? <SceneObjectDebugProbe /> : null}
             <CameraFovController fov={cameraFov} />
+            <CameraViewStateController
+              onChange={onCameraViewStateChange}
+              restoreRevision={cameraRestoreRevision}
+              restoreState={cameraViewState}
+            />
             <RendererLightCapabilities
               onLocalLightLimitChange={updateLocalLightLimit}
             />
@@ -19398,7 +20153,7 @@ export function ThreeDView({
                 />
               </EffectComposer>
             ) : null}
-          </>
+          </MaterialVariationVrContext.Provider>
         </Canvas>
         <div
           ref={engineStatusRef}
