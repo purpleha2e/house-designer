@@ -1,0 +1,166 @@
+{
+  "roof": {
+    "bayOutline": [
+      {
+        "x": -0.5,
+        "y": -0.5
+      },
+      {
+        "x": 0.49059761401196833,
+        "y": -0.5
+      },
+      {
+        "x": 0.5,
+        "y": 0.4878787865372901
+      },
+      {
+        "x": -0.49048224729980394,
+        "y": 0.5
+      }
+    ],
+    "depth": 2.599848595342263,
+    "heightOffset": 0,
+    "id": "eec41c1b-be49-4082-94a7-a826c8d4f7d5",
+    "overhangEnd": 0,
+    "soffitColor": "#ffffff",
+    "overhangSide": 0.35,
+    "overhangSideNegative": 0.35,
+    "overhangSidePositive": 0.35,
+    "pitchDegrees": 38,
+    "position": {
+      "x": -0.2602362235309579,
+      "y": 9.15007392067707
+    },
+    "rotation": -0.010791953099319358,
+    "supportDepth": 2.599848595342263,
+    "supportPosition": {
+      "x": -0.2602362235309579,
+      "y": 9.15007392067707
+    },
+    "supportWidth": 2.9480208500146055,
+    "type": "bay",
+    "width": 2.9480208500146055
+  },
+  "walls": [
+    {
+      "start": {
+        "x": 1.2000000000000004,
+        "y": 7.865833333333334
+      },
+      "end": {
+        "x": 1.2000000000000004,
+        "y": 8.541530571415715
+      },
+      "id": "b6474793-21eb-46ff-858e-49fc34ea4c96",
+      "kind": "external",
+      "thickness": 0.3,
+      "height": 2.4,
+      "openings": [
+        {
+          "id": "79cfce33-cc99-4454-b0c8-06508b19cccb:wall:b6474793-21eb-46ff-858e-49fc34ea4c96",
+          "modelId": "patio-doors",
+          "center": 0.6578486190411903,
+          "width": 0.03569723808238123,
+          "bottom": 0,
+          "height": 2.08
+        }
+      ]
+    },
+    {
+      "start": {
+        "x": -1.7201323633941545,
+        "y": 8.541530571415715
+      },
+      "end": {
+        "x": -4.0873885584816945,
+        "y": 8.541530571415715
+      },
+      "id": "d41b74ce-7312-43a0-8710-783a093ad78d",
+      "kind": "external",
+      "thickness": 0.3,
+      "height": 2.4,
+      "openings": [
+        {
+          "id": "88931917-3f7d-4e86-b22c-5b7da79b9f27",
+          "modelId": "patio-doors",
+          "center": 1.1672561950875397,
+          "width": 1.62,
+          "bottom": 0,
+          "height": 2.08
+        }
+      ]
+    },
+    {
+      "start": {
+        "x": 1.2000000000000004,
+        "y": 8.541530571415715
+      },
+      "end": {
+        "x": 1.2000000000000006,
+        "y": 10.434318178330289
+      },
+      "id": "60082cfa-992d-44dc-9461-7e3c4152fb04",
+      "kind": "external",
+      "thickness": 0.3,
+      "height": 2.4,
+      "openings": [
+        {
+          "id": "79cfce33-cc99-4454-b0c8-06508b19cccb",
+          "modelId": "patio-doors",
+          "center": 0.7921513809588099,
+          "width": 1.5843027619176198,
+          "bottom": 0,
+          "height": 2.08
+        }
+      ]
+    },
+    {
+      "start": {
+        "x": 1.2000000000000006,
+        "y": 10.434318178330289
+      },
+      "end": {
+        "x": -1.7201323633941548,
+        "y": 10.434318178330289
+      },
+      "id": "cf8df966-84b7-4bb0-a98f-de17e40a340d",
+      "kind": "external",
+      "thickness": 0.3,
+      "height": 2.4,
+      "openings": [
+        {
+          "id": "2705607b-d068-4564-8b34-b476aa3d699f",
+          "modelId": "window-three-pane",
+          "center": 1.4585280000000007,
+          "width": 1.6399999999999997,
+          "bottom": 0.9,
+          "height": 1.1
+        }
+      ]
+    },
+    {
+      "start": {
+        "x": -1.7201323633941548,
+        "y": 10.434318178330289
+      },
+      "end": {
+        "x": -1.7201323633941545,
+        "y": 8.541530571415715
+      },
+      "id": "9ba50953-5ce2-4d36-94ac-6abc1550aa47",
+      "kind": "external",
+      "thickness": 0.3,
+      "height": 2.4,
+      "openings": [
+        {
+          "id": "2e8582df-7d37-4baa-8f4b-d82fca288797",
+          "modelId": "patio-doors",
+          "center": 0.9927876069145736,
+          "width": 1.620000000000001,
+          "bottom": 0,
+          "height": 2.08
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { RoofPitchFields } from './RoofPitchFields'
+import { RoofConnectionFields } from './RoofConnectionFields'
+import { resolveBuildingRoofs } from '../roofBuildingGeometry'
+import { roofToWorld } from '../roofJunctions'
+import { buildBayRoofFaces, createBayRoofLayout, getBayRoofPolygon, getBayRoofWithWallSupport } from '../bayRoof'
+import { DEFAULT_ROOF_THICKNESS_METERS } from '../roofThickness'
 import {
   Fragment,
   useCallback,
@@ -10,6 +15,7 @@ import {
   type ReactNode,
 } from 'react'
 import {
+  Arrow,
   Circle,
   Group,
   Image as KonvaImage,
@@ -31,6 +37,11 @@ import type {
   WallKind,
 } from '../types'
 import { DEFAULT_FLOORPLAN_VIEWPORT } from '../projectViewState'
+import {
+  getClosestExternalWallPoint as findRoofPlacementWallAnchor,
+  buildRoofAttachmentContext,
+  getRoofPlacementSnapPoints,
+} from '../roofPlacementAnchors'
 import {
   getModelAssetUrl,
   modelsById,
@@ -87,7 +98,6 @@ const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
 const MIN_MODEL_SCALE = 0.2
 const MAX_MODEL_SCALE = 5
 const MODEL_TRANSLATION_STEP_METERS = 0.1
-const ROOF_WALL_ANCHOR_STEP_METERS = 0.1
 const MODEL_ROTATION_SNAP_RADIANS = (10 * Math.PI) / 180
 const MODEL_SCALE_STEP = 0.1
 const WALL_DRAG_CONNECTION_TOLERANCE_METERS = 0.04
@@ -135,6 +145,7 @@ type FloorplanCanvasProps = {
   onSelectRoof: (roofId: string | null) => void
   onSelectRoom: (roomSignature: string | null) => void
   onSelectWall: (wallId: string | null, additive?: boolean) => void
+  onRoofPlacementPreviewChange: (preview: RoofPlacementPreview | null) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
   onUpdateRoof: (roofId: string, updates: Partial<RoofStructure>) => void
   onUpdateWall: (wallId: string, updates: Pick<Wall, 'end' | 'start'>) => void
@@ -144,7 +155,14 @@ type FloorplanCanvasProps = {
   viewportRestoreRevision: number
 }
 
+export type RoofPlacementPreview = {
+  floorId: string
+  roof: RoofStructure
+}
+
 type RoofCreateOptions = {
+  thickness?: number
+  bayOutline?: Point[]
   depth?: number
   floorId: string
   overhangEnd?: number
@@ -155,6 +173,8 @@ type RoofCreateOptions = {
   overhangSidePositive?: number
   pitchDegrees: number
   position?: Point
+  ridgeEndChamfer?: RoofStructure['ridgeEndChamfer']
+  ridgeStartChamfer?: RoofStructure['ridgeStartChamfer']
   rotation?: number
   supportDepth?: number
   supportPosition?: Point
@@ -2289,7 +2309,7 @@ function getRoofPlacementSupportPoints({
   rotation: number
   walls: Wall[]
 }) {
-  if (points.length < 2 || roofType === 'hip') {
+  if (points.length < 2 || roofType === 'hip' || roofType === 'bay') {
     return points
   }
 
@@ -2410,77 +2430,11 @@ function pointsMatch(firstPoint: Point, secondPoint: Point, tolerance = 0.01) {
   return distance(firstPoint, secondPoint) <= tolerance
 }
 
-function getClosestRoofPlacementSnapPoint(
-  point: Point,
-  snapPoints: Point[],
-  maximumDistance = 0.22,
-) {
-  return (
-    snapPoints
-      .map((snapPoint) => ({
-        distance: distance(point, snapPoint),
-        point: snapPoint,
-      }))
-      .filter((candidate) => candidate.distance <= maximumDistance)
-      .sort(
-        (firstCandidate, secondCandidate) =>
-          firstCandidate.distance - secondCandidate.distance,
-      )[0]?.point ?? null
-  )
-}
-
-function roundToRoofAnchorStep(value: number) {
-  return (
-    Math.round(value / ROOF_WALL_ANCHOR_STEP_METERS) *
-    ROOF_WALL_ANCHOR_STEP_METERS
-  )
-}
-
 function normalizeRoofAnchorPoint(point: Point) {
   return {
     x: Number(point.x.toFixed(6)),
     y: Number(point.y.toFixed(6)),
   }
-}
-
-function getRoofWallAnchorPointAtDistance(
-  wall: Wall,
-  distanceAlongWall: number,
-) {
-  const dx = wall.end.x - wall.start.x
-  const dy = wall.end.y - wall.start.y
-  const wallLength = Math.hypot(dx, dy)
-
-  if (wallLength <= 0.000001) {
-    return wall.start
-  }
-
-  const projectedPoint = {
-    x: wall.start.x + (dx / wallLength) * distanceAlongWall,
-    y: wall.start.y + (dy / wallLength) * distanceAlongWall,
-  }
-
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return normalizeRoofAnchorPoint({
-      x: roundToRoofAnchorStep(projectedPoint.x),
-      y: projectedPoint.y,
-    })
-  }
-
-  return normalizeRoofAnchorPoint({
-    x: projectedPoint.x,
-    y: roundToRoofAnchorStep(projectedPoint.y),
-  })
-}
-
-function getRoofWallAnchorPointAtStation(
-  wall: Wall,
-  station: number,
-) {
-  return getRoofWallAnchorPointAtDistance(
-    wall,
-    roundToRoofAnchorStep(station),
-  )
 }
 
 function getClosestRoofAnchorPoint(point: Point, walls: Wall[]) {
@@ -2492,122 +2446,13 @@ function getClosestRoofAnchorPoint(point: Point, walls: Wall[]) {
       point: candidatePoint,
     }))
     .filter((candidate) => candidate.distance <= 0.22)
-  const wallCandidate = getClosestExternalWallPoint(point, walls)
+  const wallCandidate = findRoofPlacementWallAnchor(point, walls)
   const candidates = [
     ...cornerCandidates,
     ...(wallCandidate
       ? [{ distance: distance(point, wallCandidate), point: wallCandidate }]
       : []),
   ].sort((firstCandidate, secondCandidate) => firstCandidate.distance - secondCandidate.distance)
-
-  return candidates[0]?.point ?? null
-}
-
-function getClosestExternalWallPoint(point: Point, walls: Wall[]) {
-  const cornerKeys = new Set<string>()
-  const externalWalls = walls.filter((wall) => wall.kind === 'external')
-
-  externalWalls.forEach((wall, wallIndex) => {
-    const endpoints = [wall.start, wall.end]
-
-    endpoints.forEach((endpoint) => {
-      const connectsToTurningWall = externalWalls.some((otherWall, otherIndex) => {
-        if (otherIndex === wallIndex) {
-          return false
-        }
-
-        const sharesEndpoint =
-          pointsMatch(endpoint, otherWall.start, 0.03) ||
-          pointsMatch(endpoint, otherWall.end, 0.03)
-
-        if (!sharesEndpoint) {
-          return false
-        }
-
-        const wallAngle = Math.atan2(
-          wall.end.y - wall.start.y,
-          wall.end.x - wall.start.x,
-        )
-        const otherAngle = Math.atan2(
-          otherWall.end.y - otherWall.start.y,
-          otherWall.end.x - otherWall.start.x,
-        )
-        const angleDelta = Math.abs(
-          Math.atan2(Math.sin(wallAngle - otherAngle), Math.cos(wallAngle - otherAngle)),
-        )
-
-        return angleDelta > Math.PI / 18 && Math.abs(angleDelta - Math.PI) > Math.PI / 18
-      })
-
-      if (connectsToTurningWall) {
-        cornerKeys.add(getRoofPlacementPointKey(endpoint))
-      }
-    })
-  })
-
-  const candidates = walls
-    .filter((wall) => wall.kind === 'external')
-    .flatMap((wall) => {
-      const dx = wall.end.x - wall.start.x
-      const dy = wall.end.y - wall.start.y
-      const lengthSquared = dx * dx + dy * dy
-
-      if (lengthSquared <= 0.000001) {
-        return []
-      }
-
-      const rawT =
-        ((point.x - wall.start.x) * dx + (point.y - wall.start.y) * dy) /
-        lengthSquared
-      const segmentT = Math.max(0, Math.min(1, rawT))
-      const wallLength = Math.sqrt(lengthSquared)
-      const segmentPoint = getRoofWallAnchorPointAtStation(
-        wall,
-        Math.max(0, Math.min(wallLength, segmentT * wallLength)),
-      )
-      const startIsTurningCorner = cornerKeys.has(
-        getRoofPlacementPointKey(wall.start),
-      )
-      const endIsTurningCorner = cornerKeys.has(getRoofPlacementPointKey(wall.end))
-      const extensionCandidates: Array<{ distance: number; point: Point }> = []
-
-      if (segmentT > 0.02 && segmentT < 0.98) {
-        extensionCandidates.push({
-          distance: distance(point, segmentPoint),
-          point: segmentPoint,
-        })
-      }
-
-      if (startIsTurningCorner && rawT < 0) {
-        const extensionDistance = Math.min(12, Math.abs(rawT) * wallLength)
-        const extensionPoint = getRoofWallAnchorPointAtDistance(
-          wall,
-          -extensionDistance,
-        )
-
-        extensionCandidates.push({
-          distance: distance(point, extensionPoint),
-          point: extensionPoint,
-        })
-      }
-
-      if (endIsTurningCorner && rawT > 1) {
-        const extensionDistance = Math.min(12, (rawT - 1) * wallLength)
-        const extensionPoint = getRoofWallAnchorPointAtDistance(
-          wall,
-          wallLength + extensionDistance,
-        )
-
-        extensionCandidates.push({
-          distance: distance(point, extensionPoint),
-          point: extensionPoint,
-        })
-      }
-
-      return extensionCandidates
-    })
-    .filter((candidate) => candidate.distance <= 0.22)
-    .sort((firstCandidate, secondCandidate) => firstCandidate.distance - secondCandidate.distance)
 
   return candidates[0]?.point ?? null
 }
@@ -3361,6 +3206,7 @@ export function FloorplanCanvas({
   onSelectRoof,
   onSelectRoom,
   onSelectWall,
+  onRoofPlacementPreviewChange,
   onUpdateModel,
   onUpdateRoof,
   onUpdateWall,
@@ -3377,13 +3223,11 @@ export function FloorplanCanvas({
     () => referenceFloors.flatMap((floor) => floor.walls),
     [referenceFloors],
   )
-  const roofAttachmentWalls = useMemo(
-    () =>
-      floors
-        .filter((floor) => floor.elevation >= activeFloor.elevation)
-        .flatMap((floor) => floor.walls),
-    [activeFloor.elevation, floors],
+  const roofAttachmentContext = useMemo(
+    () => buildRoofAttachmentContext(floors, activeFloor.elevation),
+    [activeFloor.elevation, floors, WALL_TOPOLOGY_VERSION],
   )
+  const roofAttachmentWalls = roofAttachmentContext.walls
   const draftWallThickness = getDraftWallThickness(
     wallKind,
     internalWallThickness,
@@ -3393,24 +3237,11 @@ export function FloorplanCanvas({
     [draftWallThickness, walls, wallKind],
   )
   const roofPlacementSnapPoints = useMemo(() => {
-    const pointsByKey = new Map<string, Point>()
-
-    roofAttachmentWalls
-      .filter((wall) => wall.kind === 'external')
-      .forEach((wall) => {
-        pointsByKey.set(getRoofPlacementPointKey(wall.start), wall.start)
-        pointsByKey.set(getRoofPlacementPointKey(wall.end), wall.end)
-      })
-
-    return Array.from(pointsByKey.values())
+    return getRoofPlacementSnapPoints(roofAttachmentWalls)
   }, [roofAttachmentWalls])
   const wallTopology = useMemo(
     () => buildWallTopology(walls),
     [walls, WALL_TOPOLOGY_VERSION],
-  )
-  const roofAttachmentTopology = useMemo(
-    () => buildWallTopology(roofAttachmentWalls),
-    [roofAttachmentWalls, WALL_TOPOLOGY_VERSION],
   )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
@@ -3502,12 +3333,28 @@ export function FloorplanCanvas({
   const [hoverRoofPlacementPoint, setHoverRoofPlacementPoint] =
     useState<Point | null>(null)
   const [roofPlacementPitchDegrees, setRoofPlacementPitchDegrees] = useState(35)
+  const [roofPlacementThickness, setRoofPlacementThickness] = useState(DEFAULT_ROOF_THICKNESS_METERS)
+  const [roofPlacementRidgeStartChamfer, setRoofPlacementRidgeStartChamfer] =
+    useState<RoofStructure['ridgeStartChamfer']>()
+  const [roofPlacementRidgeEndChamfer, setRoofPlacementRidgeEndChamfer] =
+    useState<RoofStructure['ridgeEndChamfer']>()
   const [roofPlacementSoffitColor, setRoofPlacementSoffitColor] = useState('#ffffff')
   const [roofPlacementOverhangPitchDegrees, setRoofPlacementOverhangPitchDegrees] = useState<number | undefined>()
   const selectedRoof = floors.flatMap((floor) => floor.roofs ?? []).find((roof) => roof.id === selectedRoofId)
+  const selectedRoofGeometry = useMemo(() => selectedRoofId
+    ? resolveBuildingRoofs(floors).find((candidate) => candidate.roof.id === selectedRoofId)?.resolved
+    : undefined, [floors, selectedRoofId])
   const [roofPlacementPoints, setRoofPlacementPoints] = useState<Point[]>([])
   const [roofPlacementType, setRoofPlacementType] =
     useState<RoofStructure['type']>('up-and-over')
+  const bayPlacementLayout = useMemo(() => createBayRoofLayout(roofPlacementPoints), [roofPlacementPoints])
+  const bayPlacementRoof = useMemo<RoofStructure | null>(() => roofPlacementType === 'bay' && bayPlacementLayout ? {
+    ...bayPlacementLayout, type: 'bay', id: '__roof-placement-preview__',
+    pitchDegrees: roofPlacementPitchDegrees, thickness: roofPlacementThickness, overhangSide: roofPlacementSideOverhang,
+    overhangEnd: 0, overhangPitchDegrees: roofPlacementOverhangPitchDegrees, soffitColor: roofPlacementSoffitColor,
+  } : null, [bayPlacementLayout, roofPlacementType, roofPlacementPitchDegrees, roofPlacementThickness, roofPlacementSideOverhang, roofPlacementOverhangPitchDegrees, roofPlacementSoffitColor])
+  const bayPlacementGeometry = useMemo(() => bayPlacementRoof
+    ? getBayRoofWithWallSupport(bayPlacementRoof, walls) : null, [bayPlacementRoof, walls])
   const [transformMode, setTransformMode] =
     useState<TransformMode>('translate')
   const [wallDragPreview, setWallDragPreview] = useState<{
@@ -4285,12 +4132,19 @@ export function FloorplanCanvas({
   }
 
   const createRoofFromPlacementPoints = () => {
+    if (roofPlacementType === 'bay') {
+      if (bayPlacementRoof) {
+        onAddRoof({ ...bayPlacementRoof, floorId: activeFloor.id })
+        setRoofPlacementPoints([])
+      }
+      return
+    }
     const baseRotation =
       roofPlacementType === 'lean-to'
         ? getLeanToRotationFromSnappedWall(
             roofPlacementPoints,
             roofAttachmentWalls,
-            roofAttachmentTopology.rooms,
+            roofAttachmentContext.rooms,
           )
         : roofPlacementType === 'flat' || roofPlacementType === 'up-and-over'
           ? getUpAndOverRotationFromPlacementPoints(roofPlacementPoints)
@@ -4331,6 +4185,7 @@ export function FloorplanCanvas({
 
     onAddRoof({
       depth: bounds.depth,
+      thickness: roofPlacementThickness,
       floorId: activeFloor.id,
       overhangEnd: roofPlacementEndOverhang,
       overhangSide: roofPlacementSideOverhang,
@@ -4346,6 +4201,12 @@ export function FloorplanCanvas({
       overhangPitchDegrees: roofPlacementOverhangPitchDegrees,
       soffitColor: roofPlacementSoffitColor,
       position: bounds.position,
+      ridgeEndChamfer: roofPlacementType === 'up-and-over'
+        ? roofPlacementRidgeEndChamfer
+        : undefined,
+      ridgeStartChamfer: roofPlacementType === 'up-and-over'
+        ? roofPlacementRidgeStartChamfer
+        : undefined,
       rotation,
       supportDepth: supportBounds.depth,
       supportPosition: supportBounds.position,
@@ -4445,6 +4306,11 @@ export function FloorplanCanvas({
     if (!isAddingWall) {
       if (event.target === event.target.getStage()) {
         if (isRoofMode) {
+          if (hoverRoofPlacementPoint) {
+            toggleRoofPlacementPoint(hoverRoofPlacementPoint)
+            return
+          }
+
           onSelectRoof(null)
           return
         }
@@ -4533,12 +4399,7 @@ export function FloorplanCanvas({
       if (isRoofMode) {
         const point = getPointerPoint(event)
         setHoverRoofPlacementPoint(
-          point
-            ? getClosestRoofPlacementSnapPoint(
-                point,
-                roofPlacementSnapPoints,
-              )
-            : null,
+          point ? findRoofPlacementWallAnchor(point, roofAttachmentWalls) : null,
         )
         setHoverSnapTarget(null)
         setHoverAlignmentGuide(null)
@@ -5710,14 +5571,22 @@ export function FloorplanCanvas({
 
       return 0
     })
-    .map((roof) => {
+    .map((sourceRoof) => {
+    const roof = sourceRoof.type === 'bay' ? getBayRoofWithWallSupport(sourceRoof, walls) : sourceRoof
     const center = toCanvasPoint(roof.position)
     const width = Math.max(roof.width, 0.3) * METERS_TO_PIXELS
     const depth = Math.max(roof.depth, 0.3) * METERS_TO_PIXELS
     const halfWidth = width / 2
     const halfDepth = depth / 2
-    const rotation = (roof.rotation * 180) / Math.PI
+    const planRotation = roof.type === 'bay' ? -roof.rotation : roof.rotation
+    const rotation = (planRotation * 180) / Math.PI
     const isSelectedRoof = roof.id === selectedRoofId
+    const resolvedRoof = isSelectedRoof ? selectedRoofGeometry : undefined
+    const toRoofGroupPoint = ([x, , z]: [number, number, number]) => {
+      const dx = x - roof.position.x, dz = z - roof.position.y
+      const c = Math.cos(planRotation), sin = Math.sin(planRotation)
+      return [(dx * c + dz * sin) * METERS_TO_PIXELS, (-dx * sin + dz * c) * METERS_TO_PIXELS]
+    }
     const handleRadius = Math.max(4, 7 / viewport.scale)
     const handleStrokeWidth = Math.max(1, 2 / viewport.scale)
     const supportBounds = getRoofPlanSupportLocalBounds(roof)
@@ -5804,7 +5673,7 @@ export function FloorplanCanvas({
         supportPoints,
         startRoof.rotation,
       )
-      const nextBounds = getRoofPlacementBounds({
+      const nextBounds = startRoof.type === 'bay' ? nextSupportBounds : getRoofPlacementBounds({
         overhangEnd: Math.max(0, startRoof.overhangEnd ?? 0),
         overhangSide: Math.max(0, startRoof.overhangSide ?? 0),
         overhangSideNegative: Math.max(
@@ -5883,7 +5752,13 @@ export function FloorplanCanvas({
           onSelectRoof(isSelectedRoof ? null : roof.id)
         }}
       >
-        <Rect
+        {roof.type === 'bay' ? <>
+          <Line closed points={getBayRoofPolygon(roof).flatMap((p) => toRoofGroupPoint(roofToWorld(roof, 0, [p.x, 0, p.y])))}
+            fill="#dbeafe" opacity={0.82} stroke={isSelectedRoof ? '#2563eb' : '#475569'} strokeWidth={2 / viewport.scale} />
+          {buildBayRoofFaces(roof).map((face, index) => <Line key={index} closed
+            points={face.flatMap((p) => toRoofGroupPoint(roofToWorld(roof, 0, p)))}
+            stroke="#64748b" strokeWidth={1 / viewport.scale} listening={false} />)}
+        </> : <Rect
           x={-halfWidth}
           y={-halfDepth}
           width={width}
@@ -5893,7 +5768,7 @@ export function FloorplanCanvas({
           stroke={isSelectedRoof ? '#2563eb' : '#475569'}
           strokeWidth={isSelectedRoof ? 3 / viewport.scale : 1.5 / viewport.scale}
           dash={roof.type === 'lean-to' ? [10 / viewport.scale, 5 / viewport.scale] : undefined}
-        />
+        />}
         {roof.type === 'hip' ? (
           <>
             <Line
@@ -5910,12 +5785,33 @@ export function FloorplanCanvas({
             />
           </>
         ) : roof.type === 'up-and-over' ? (
-          <Line
-            points={[0, -halfDepth, 0, halfDepth]}
-            stroke="#64748b"
-            strokeWidth={1.5 / viewport.scale}
-            listening={false}
-          />
+          (() => {
+            const startDistance = Math.min(depth, (roof.ridgeStartChamfer?.distance ?? 0) * METERS_TO_PIXELS)
+            const endDistance = Math.min(depth, (roof.ridgeEndChamfer?.distance ?? 0) * METERS_TO_PIXELS)
+            const pitchSlope = Math.tan(roof.pitchDegrees * Math.PI / 180)
+            const seamWidth = (distanceValue: number, angleDegrees: number | undefined) => Math.min(
+              halfWidth,
+              distanceValue * Math.tan((angleDegrees ?? roof.pitchDegrees) * Math.PI / 180) /
+                Math.max(0.000001, pitchSlope),
+            )
+            const lineProps = {
+              listening: false,
+              stroke: '#64748b',
+              strokeWidth: 1.5 / viewport.scale,
+            }
+
+            return <>
+              <Line points={[0, -halfDepth + startDistance, 0, halfDepth - endDistance]} {...lineProps} />
+              {roof.ridgeStartChamfer ? <>
+                <Line points={[0, -halfDepth + startDistance, -seamWidth(startDistance, roof.ridgeStartChamfer.angleDegrees), -halfDepth]} {...lineProps} />
+                <Line points={[0, -halfDepth + startDistance, seamWidth(startDistance, roof.ridgeStartChamfer.angleDegrees), -halfDepth]} {...lineProps} />
+              </> : null}
+              {roof.ridgeEndChamfer ? <>
+                <Line points={[0, halfDepth - endDistance, -seamWidth(endDistance, roof.ridgeEndChamfer.angleDegrees), halfDepth]} {...lineProps} />
+                <Line points={[0, halfDepth - endDistance, seamWidth(endDistance, roof.ridgeEndChamfer.angleDegrees), halfDepth]} {...lineProps} />
+              </> : null}
+            </>
+          })()
         ) : roof.type === 'lean-to' ? (
           <Line
             points={[-halfWidth, halfDepth, halfWidth, -halfDepth]}
@@ -5935,6 +5831,18 @@ export function FloorplanCanvas({
           fontStyle="bold"
           listening={false}
         />
+        {resolvedRoof ? resolvedRoof.faces.map((face, index) => (
+          <Line key={`junction-${index}`} points={face.flatMap(toRoofGroupPoint)} closed
+            stroke="#2563eb" strokeWidth={1 / viewport.scale} dash={[5 / viewport.scale, 4 / viewport.scale]}
+            listening={false} />
+        )) : null}
+        {resolvedRoof && roof.type === 'up-and-over' ? (['A', 'B'] as const).map((label, index) => {
+          const [x, y] = toRoofGroupPoint(roofToWorld(resolvedRoof.roof, resolvedRoof.elevation,
+            [(resolvedRoof.support.minX + resolvedRoof.support.maxX) / 2, 0,
+              index === 0 ? resolvedRoof.support.minY : resolvedRoof.support.maxY]))
+          return <Text key={label} text={label} x={x + 8 / viewport.scale} y={y - 6 / viewport.scale}
+            fill="#1d4ed8" fontStyle="bold" fontSize={14 / viewport.scale} listening={false} />
+        }) : null}
         {isSelectedRoof
           ? cornerHandles.map((handle) => (
               <Circle
@@ -5960,12 +5868,12 @@ export function FloorplanCanvas({
       ? getLeanToRotationFromSnappedWall(
           roofPlacementPoints,
           roofAttachmentWalls,
-          roofAttachmentTopology.rooms,
+          roofAttachmentContext.rooms,
         )
       : roofPlacementType === 'flat' || roofPlacementType === 'up-and-over'
         ? getUpAndOverRotationFromPlacementPoints(roofPlacementPoints)
         : null
-  const roofPlacementRotation =
+  const roofPlacementRotation = roofPlacementType === 'bay' ? bayPlacementLayout?.rotation ?? 0 :
     (roofPlacementBaseRotation ??
       getRoofPlacementRotation(
         roofPlacementType,
@@ -5978,7 +5886,11 @@ export function FloorplanCanvas({
     rotation: roofPlacementRotation,
     walls: roofPlacementType === 'lean-to' ? roofAttachmentWalls : walls,
   })
-  const roofPlacementBounds = getRoofPlacementBounds({
+  const roofPlacementSupportBounds = getRoofSupportBounds(
+    roofPlacementSupportPoints,
+    roofPlacementRotation,
+  )
+  const roofPlacementBounds = roofPlacementType === 'bay' ? bayPlacementLayout : getRoofPlacementBounds({
     overhangEnd: roofPlacementEndOverhang,
     overhangSide: roofPlacementSideOverhang,
     overhangSideNegative:
@@ -5997,10 +5909,83 @@ export function FloorplanCanvas({
     ? {
         center: toCanvasPoint(roofPlacementBounds.position),
         depth: roofPlacementBounds.depth * METERS_TO_PIXELS,
+        endChamfer: roofPlacementRidgeEndChamfer,
+        pitchDegrees: roofPlacementPitchDegrees,
         rotation: (roofPlacementRotation * 180) / Math.PI,
+        startChamfer: roofPlacementRidgeStartChamfer,
         width: roofPlacementBounds.width * METERS_TO_PIXELS,
       }
     : null
+  useEffect(() => {
+    if (
+      !isRoofMode ||
+      !roofPlacementBounds ||
+      !roofPlacementSupportBounds
+    ) {
+      onRoofPlacementPreviewChange(null)
+      return
+    }
+
+    onRoofPlacementPreviewChange({
+      floorId: activeFloor.id,
+      roof: {
+        depth: roofPlacementBounds.depth,
+        thickness: roofPlacementThickness,
+        id: '__roof-placement-preview__',
+        overhangEnd: roofPlacementEndOverhang,
+        overhangPitchDegrees: roofPlacementOverhangPitchDegrees,
+        overhangSide: roofPlacementSideOverhang,
+        overhangSideNegative: roofPlacementType === 'up-and-over'
+          ? roofPlacementSideNegativeOverhang
+          : roofPlacementSideOverhang,
+        overhangSidePositive: roofPlacementType === 'up-and-over'
+          ? roofPlacementSidePositiveOverhang
+          : roofPlacementSideOverhang,
+        pitchDegrees: roofPlacementPitchDegrees,
+        position: roofPlacementBounds.position,
+        ridgeEndChamfer: roofPlacementType === 'up-and-over'
+          ? roofPlacementRidgeEndChamfer
+          : undefined,
+        ridgeStartChamfer: roofPlacementType === 'up-and-over'
+          ? roofPlacementRidgeStartChamfer
+          : undefined,
+        rotation: roofPlacementRotation,
+        soffitColor: roofPlacementSoffitColor,
+        supportDepth: roofPlacementSupportBounds.depth,
+        supportPosition: roofPlacementSupportBounds.position,
+        supportWidth: roofPlacementSupportBounds.width,
+        type: roofPlacementType,
+        width: roofPlacementBounds.width,
+        ...(bayPlacementRoof ?? {}),
+      },
+    })
+  }, [
+    activeFloor.id,
+    bayPlacementRoof,
+    isRoofMode,
+    onRoofPlacementPreviewChange,
+    roofPlacementBounds?.depth,
+    roofPlacementBounds?.position.x,
+    roofPlacementBounds?.position.y,
+    roofPlacementBounds?.width,
+    roofPlacementEndOverhang,
+    roofPlacementOverhangPitchDegrees,
+    roofPlacementPitchDegrees,
+    roofPlacementThickness,
+    roofPlacementRidgeEndChamfer,
+    roofPlacementRidgeStartChamfer,
+    roofPlacementRotation,
+    roofPlacementSideNegativeOverhang,
+    roofPlacementSideOverhang,
+    roofPlacementSidePositiveOverhang,
+    roofPlacementSoffitColor,
+    roofPlacementSupportBounds?.depth,
+    roofPlacementSupportBounds?.position.x,
+    roofPlacementSupportBounds?.position.y,
+    roofPlacementSupportBounds?.width,
+    roofPlacementType,
+  ])
+  useEffect(() => () => onRoofPlacementPreviewChange(null), [onRoofPlacementPreviewChange])
   const upAndOverRidgeIsHorizontal =
     roofPlacementType === 'up-and-over' &&
     Math.abs(Math.cos(roofPlacementRotation)) <
@@ -6813,7 +6798,11 @@ export function FloorplanCanvas({
           {isRoofMode ? (
             <Layer>
               {selectedRoofId ? null : roofFootprints}
-              {roofPlacementPreview ? (
+              {bayPlacementRoof && bayPlacementGeometry ? <Group listening={false}>
+                {buildBayRoofFaces(bayPlacementGeometry).map((face, index) => <Line key={index} closed
+                  points={face.flatMap((p) => { const [x, , y] = roofToWorld(bayPlacementRoof, 0, p); const c = toCanvasPoint({ x, y }); return [c.x, c.y] })}
+                  fill="#bfdbfe" opacity={0.6} stroke="#2563eb" strokeWidth={1.5 / viewport.scale} />)}
+              </Group> : roofPlacementPreview ? (
                 <Group
                   x={roofPlacementPreview.center.x}
                   y={roofPlacementPreview.center.y}
@@ -6831,16 +6820,43 @@ export function FloorplanCanvas({
                     strokeWidth={2 / viewport.scale}
                     dash={[10 / viewport.scale, 6 / viewport.scale]}
                   />
-                  <Line
-                    points={[
-                      0,
-                      -roofPlacementPreview.depth / 2,
-                      0,
-                      roofPlacementPreview.depth / 2,
-                    ]}
-                    stroke="#1d4ed8"
-                    strokeWidth={1.5 / viewport.scale}
-                  />
+                  {roofPlacementType === 'up-and-over' ? (() => {
+                    const halfDepth = roofPlacementPreview.depth / 2
+                    const halfWidth = roofPlacementPreview.width / 2
+                    const pitchSlope = Math.tan(roofPlacementPreview.pitchDegrees * Math.PI / 180)
+                    const startDistance = Math.min(
+                      roofPlacementPreview.depth,
+                      (roofPlacementPreview.startChamfer?.distance ?? 0) * METERS_TO_PIXELS,
+                    )
+                    const endDistance = Math.min(
+                      roofPlacementPreview.depth,
+                      (roofPlacementPreview.endChamfer?.distance ?? 0) * METERS_TO_PIXELS,
+                    )
+                    const seamWidth = (distance: number, angleDegrees: number | undefined) => Math.min(
+                      halfWidth,
+                      distance * Math.tan((angleDegrees ?? roofPlacementPreview.pitchDegrees) * Math.PI / 180) /
+                        Math.max(0.000001, pitchSlope),
+                    )
+                    const startWidth = seamWidth(startDistance, roofPlacementPreview.startChamfer?.angleDegrees)
+                    const endWidth = seamWidth(endDistance, roofPlacementPreview.endChamfer?.angleDegrees)
+                    const lineProps = { stroke: '#1d4ed8', strokeWidth: 1.5 / viewport.scale }
+
+                    return <>
+                      <Line points={[0, -halfDepth + startDistance, 0, halfDepth - endDistance]} {...lineProps} />
+                      {roofPlacementPreview.startChamfer ? <>
+                        <Line points={[0, -halfDepth + startDistance, -startWidth, -halfDepth]} {...lineProps} />
+                        <Line points={[0, -halfDepth + startDistance, startWidth, -halfDepth]} {...lineProps} />
+                      </> : null}
+                      {roofPlacementPreview.endChamfer ? <>
+                        <Line points={[0, halfDepth - endDistance, -endWidth, halfDepth]} {...lineProps} />
+                        <Line points={[0, halfDepth - endDistance, endWidth, halfDepth]} {...lineProps} />
+                      </> : null}
+                      <Text text="A" x={8 / viewport.scale} y={-halfDepth - 6 / viewport.scale}
+                        fill="#1d4ed8" fontStyle="bold" fontSize={14 / viewport.scale} />
+                      <Text text="B" x={8 / viewport.scale} y={halfDepth - 6 / viewport.scale}
+                        fill="#1d4ed8" fontStyle="bold" fontSize={14 / viewport.scale} />
+                    </>
+                  })() : null}
                   {roofPlacementType === 'lean-to' ? (
                     <Line
                       points={[
@@ -6858,7 +6874,25 @@ export function FloorplanCanvas({
                   ) : null}
                 </Group>
               ) : null}
-              {roofPlacementPoints.length > 1 ? (
+              {roofPlacementType === 'bay' ? roofPlacementPoints.map((point, index) => {
+                const p = toCanvasPoint(point)
+                return <Text key={`bay-label-${index}`} x={p.x + 9 / viewport.scale} y={p.y - 18 / viewport.scale}
+                  text={index < 2 ? `Mount ${index + 1}` : `${index + 1}`} fontSize={12 / viewport.scale}
+                  fill={index < 2 ? '#b45309' : '#1d4ed8'} fontStyle="bold" listening={false} />
+              }) : null}
+              {bayPlacementRoof ? (() => {
+                const outline = getBayRoofPolygon(bayPlacementRoof)
+                const rear = { x: (outline[0].x + outline[1].x) / 2, y: outline[0].y }
+                const end = { x: rear.x, y: rear.y + bayPlacementRoof.depth * 0.6 }
+                const points = [rear, end].flatMap((p) => {
+                  const [x, , y] = roofToWorld(bayPlacementRoof, 0, [p.x, 0, p.y])
+                  const c = toCanvasPoint({ x, y }); return [c.x, c.y]
+                })
+                return <Arrow points={points} stroke="#b45309" fill="#b45309"
+                  strokeWidth={2 / viewport.scale} pointerLength={10 / viewport.scale}
+                  pointerWidth={8 / viewport.scale} listening={false} />
+              })() : null}
+              {roofPlacementPoints.length > 1 && roofPlacementType !== 'bay' ? (
                 <Line
                   points={roofPlacementPoints.flatMap((point) => {
                     const canvasPoint = toCanvasPoint(point)
@@ -6931,9 +6965,10 @@ export function FloorplanCanvas({
           ) : null}
         </Stage>
 
-        {!isRoofMode && selectedRoof && selectedRoof.type !== 'flat' ? (
+        {!isRoofMode && selectedRoof ? (
           <div className="roof-placement-panel" aria-label="Selected roof settings">
             <RoofPitchFields roof={selectedRoof} onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
+            <RoofConnectionFields roof={selectedRoof} floors={floors} resolvedRoof={selectedRoofGeometry} onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
           </div>
         ) : null}
 
@@ -6944,7 +6979,7 @@ export function FloorplanCanvas({
           >
             <header>
               <h2>Roof</h2>
-              <p>Select the roof snap points on the plan.</p>
+              <p>{roofPlacementType === 'bay' ? 'Select the two mounting points against the wall first, then the outer bay corners. Tiles fan out from the centre of the mounting edge.' : 'Select the roof snap points on the plan.'}</p>
             </header>
             <label>
               <span>Type</span>
@@ -6958,9 +6993,12 @@ export function FloorplanCanvas({
                 <option value="up-and-over">Up and over</option>
                 <option value="hip">Hip</option>
                 <option value="lean-to">Lean-to</option>
+                <option value="bay">Bay roof</option>
               </select>
             </label>
-            {roofPlacementType === 'hip' ? (
+            {roofPlacementType === 'bay' ? <p>
+              {roofPlacementPoints.length < 2 ? 'Choose mounting points 1 and 2.' : roofPlacementPoints.length < 3 ? 'Choose the outer corners to set the outward direction.' : !bayPlacementRoof ? 'The mounting points must form the rear edge, with all other points on one side.' : 'Direction: away from the mounting edge.'}
+            </p> : roofPlacementType === 'hip' ? (
               <label>
                 <span>Direction</span>
                 <select
@@ -6991,14 +7029,25 @@ export function FloorplanCanvas({
               </label>
             )}
             <RoofPitchFields
-              roof={{ type: roofPlacementType, pitchDegrees: roofPlacementPitchDegrees, overhangPitchDegrees: roofPlacementOverhangPitchDegrees, soffitColor: roofPlacementSoffitColor }}
+              roof={{
+                type: roofPlacementType,
+                thickness: roofPlacementThickness,
+                pitchDegrees: roofPlacementPitchDegrees,
+                overhangPitchDegrees: roofPlacementOverhangPitchDegrees,
+                soffitColor: roofPlacementSoffitColor,
+                ridgeStartChamfer: roofPlacementRidgeStartChamfer,
+                ridgeEndChamfer: roofPlacementRidgeEndChamfer,
+              }}
               onChange={(updates) => {
+                if (updates.thickness !== undefined) setRoofPlacementThickness(updates.thickness)
                 if (updates.pitchDegrees !== undefined) setRoofPlacementPitchDegrees(updates.pitchDegrees)
                 if (updates.soffitColor !== undefined) setRoofPlacementSoffitColor(updates.soffitColor)
                 if ('overhangPitchDegrees' in updates) setRoofPlacementOverhangPitchDegrees(updates.overhangPitchDegrees)
+                if ('ridgeStartChamfer' in updates) setRoofPlacementRidgeStartChamfer(updates.ridgeStartChamfer)
+                if ('ridgeEndChamfer' in updates) setRoofPlacementRidgeEndChamfer(updates.ridgeEndChamfer)
               }}
             />
-            <label>
+            {roofPlacementType !== 'bay' ? <label>
               <span>End overhang</span>
               <input
                 type="number"
@@ -7013,7 +7062,7 @@ export function FloorplanCanvas({
                   }
                 }}
               />
-            </label>
+            </label> : null}
             {roofPlacementType === 'up-and-over' ? (
               <>
                 <label>
@@ -7051,7 +7100,7 @@ export function FloorplanCanvas({
               </>
             ) : (
               <label>
-                <span>Side overhang</span>
+                <span>{roofPlacementType === 'bay' ? 'Eaves overhang' : 'Side overhang'}</span>
                 <input
                   type="number"
                   min="0"

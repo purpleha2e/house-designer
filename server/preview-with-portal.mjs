@@ -13,6 +13,23 @@ async function isPortalRunning() {
   }
 }
 
+const wait = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds))
+
+async function waitForPortal(timeoutMilliseconds = 15_000) {
+  const deadline = Date.now() + timeoutMilliseconds
+
+  while (Date.now() < deadline) {
+    if (await isPortalRunning()) {
+      return true
+    }
+
+    await wait(100)
+  }
+
+  return false
+}
+
 const processes = []
 
 function spawnProcess(command, args) {
@@ -46,6 +63,14 @@ process.on('SIGTERM', () => {
 
 if (!(await isPortalRunning())) {
   spawnProcess('node', ['server/asset-portal.mjs'])
+
+  if (!(await waitForPortal())) {
+    console.error(
+      `Asset portal did not become ready at ${portalHealthUrl} within 15 seconds.`,
+    )
+    stopAll()
+    process.exit(1)
+  }
 }
 
 spawnProcess('npm', ['run', 'preview:vite', '--', '--host', '0.0.0.0'])

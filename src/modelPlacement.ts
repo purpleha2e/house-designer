@@ -1,4 +1,7 @@
-import type { FloorLevel, PlacedModel, Point, Wall, WallOpening } from './types'
+import type { FloorLevel, PlacedModel, Point, RoofEndChamfer, Wall, WallOpening } from './types'
+import { normalizeRoofEndConnection } from './roofJunctions.ts'
+import { normalizeBayOutline } from './bayRoof.ts'
+import { getRoofThickness } from './roofThickness.ts'
 import type { ModelDefinition } from './models/modelLibrary'
 
 const WINDOW_SILL_HEIGHT_METERS = 0.9
@@ -7,6 +10,30 @@ const PATIO_SIDE_LIGHT_BOTTOM_METERS = 1.02
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function normalizeRoofEndChamfer(value: unknown): RoofEndChamfer | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const candidate = value as Partial<RoofEndChamfer>
+  if (
+    typeof candidate.angleDegrees !== 'number' ||
+    !Number.isFinite(candidate.angleDegrees) ||
+    typeof candidate.distance !== 'number' ||
+    !Number.isFinite(candidate.distance) ||
+    candidate.distance <= 0
+  ) return undefined
+
+  return {
+    angleDegrees: clamp(candidate.angleDegrees, 1, 75),
+    distance: candidate.distance,
+  }
+}
+
+function normalizeRoofRotation(value: unknown) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  const quarterTurn = Math.PI / 2
+  const cardinal = Math.round(value / quarterTurn) * quarterTurn
+  return Math.abs(value - cardinal) <= 0.000001 ? cardinal : value
 }
 
 type ModelsById = ReadonlyMap<string, ModelDefinition>
@@ -576,9 +603,16 @@ export function normalizeFloor(
           return roof.type === 'flat' ||
             roof.type === 'hip' ||
             roof.type === 'lean-to' ||
-            roof.type === 'up-and-over'
+            roof.type === 'up-and-over' || roof.type === 'bay'
             ? [{
                 ...roof,
+                bayOutline: roof.type === 'bay' ? normalizeBayOutline(roof.bayOutline) : undefined,
+                baySupportOffsets: undefined,
+                thickness: getRoofThickness(roof),
+                ridgeStart: normalizeRoofEndConnection(roof.ridgeStart),
+                ridgeEnd: normalizeRoofEndConnection(roof.ridgeEnd),
+                ridgeStartChamfer: normalizeRoofEndChamfer(roof.ridgeStartChamfer),
+                ridgeEndChamfer: normalizeRoofEndChamfer(roof.ridgeEndChamfer),
                 depth,
                 heightOffset:
                   typeof roof.heightOffset === 'number' &&
@@ -630,10 +664,7 @@ export function normalizeFloor(
                     ? roof.position
                     : { x: 0, y: 0 },
                 rotation:
-                  typeof roof.rotation === 'number' &&
-                  Number.isFinite(roof.rotation)
-                    ? roof.rotation
-                    : 0,
+                  normalizeRoofRotation(roof.rotation),
                 supportDepth:
                   typeof roof.supportDepth === 'number' &&
                   Number.isFinite(roof.supportDepth)

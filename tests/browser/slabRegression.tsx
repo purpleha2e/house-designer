@@ -31,6 +31,7 @@ if (actual) {
 }
 const noop = () => {}
 createRoot(document.getElementById('root')!).render(<ThreeDView
+  roofPlacementPreview={null}
   activeFloorId={floors[activeIndex].id} floors={floors as never} isEngineConsoleOpen={false}
   lightDirection={project.sunPosition} modelAssetVersion={1}
   onClearSelection={noop} onEngineConsoleOpenChange={noop} onLightDirectionChange={noop}

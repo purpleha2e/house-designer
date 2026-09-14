@@ -7,6 +7,8 @@ export type PlanFootprint = {
   outline: Point[]
 }
 
+export type PlanCutout = Point[] | PlanFootprint
+
 const polygonClippingRuntime = polygonClipping as typeof polygonClipping & {
   default?: typeof polygonClipping
 }
@@ -14,26 +16,45 @@ const differencePolygons =
   polygonClippingRuntime.difference ?? polygonClippingRuntime.default?.difference
 
 function closeRing(points: Point[]) {
-  const firstPoint = points[0]
-  const lastPoint = points.at(-1)
+  const normalized = points
+    .map(({ x, y }) => ({
+      x: Number(x.toFixed(6)),
+      y: Number(y.toFixed(6)),
+    }))
+    .filter((point, index, allPoints) => index === 0 || Math.hypot(
+      point.x - allPoints[index - 1].x,
+      point.y - allPoints[index - 1].y,
+    ) > 0.000001)
+  const firstPoint = normalized[0]
+  const lastPoint = normalized.at(-1)
 
   if (!firstPoint || !lastPoint) {
     return []
   }
 
-  const ring = points.map((point) => [point.x, point.y] as [number, number])
-
   if (
-    Math.hypot(firstPoint.x - lastPoint.x, firstPoint.y - lastPoint.y) > 0.000001
+    normalized.length > 1 &&
+    Math.hypot(firstPoint.x - lastPoint.x, firstPoint.y - lastPoint.y) <=
+      0.000001
   ) {
-    ring.push([firstPoint.x, firstPoint.y])
+    normalized.pop()
   }
+
+  if (normalized.length < 3) return []
+
+  const ring = normalized.map(
+    (point) => [point.x, point.y] as [number, number],
+  )
+
+  ring.push([firstPoint.x, firstPoint.y])
 
   return ring
 }
 
-function toPolygon(points: Point[]): Polygon {
-  return [closeRing(points)]
+function toPolygon(cutout: PlanCutout): Polygon {
+  return Array.isArray(cutout)
+    ? [closeRing(cutout)]
+    : [closeRing(cutout.outline), ...cutout.holes.map(closeRing)]
 }
 
 function toPoints(ring: number[][]) {
@@ -57,7 +78,7 @@ function toFootprints(multiPolygon: MultiPolygon): PlanFootprint[] {
   })
 }
 
-export function subtractPlanCutouts(outline: Point[], cutouts: Point[][]) {
+export function subtractPlanCutouts(outline: Point[], cutouts: PlanCutout[]) {
   if (outline.length < 3 || cutouts.length === 0 || !differencePolygons) {
     return outline.length >= 3 ? [{ holes: [], outline }] : []
   }

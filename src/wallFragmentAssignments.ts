@@ -14,7 +14,8 @@ export function findWallFragmentAssignmentForFace(
       assignment.target.type === 'wall-surface-fragment' &&
       assignment.target.wallId === face.pickSource.wallId &&
       (assignment.target.fragmentId === face.faceId ||
-        face.faceId.startsWith(`${assignment.target.fragmentId}:uncovered:`)) &&
+        face.faceId.startsWith(`${assignment.target.fragmentId}:uncovered:`) ||
+        face.faceId.startsWith(`${assignment.target.fragmentId}:roof-region:`)) &&
       (assignment.target.side === 'both' ||
         assignment.target.side === face.pickSource.side),
   )

@@ -1,7 +1,24 @@
 import type { Point, RoofStructure } from './types.ts'
+import { buildBayRoofFaces } from './bayRoof.ts'
+
+export { DEFAULT_ROOF_THICKNESS_METERS as ROOF_TILE_THICKNESS_METERS } from './roofThickness.ts'
 
 export type RoofBounds = { minX: number; maxX: number; minY: number; maxY: number }
 export type RoofProfileVertex = [number, number, number]
+
+export function buildRoofProfileFaces(roof: RoofStructure, extents: RoofBounds, support: RoofBounds): RoofProfileVertex[][] {
+  if (roof.type === 'bay') return buildBayRoofFaces(roof)
+  if (roof.type === 'hip') return buildHipRoofProfileFaces(roof, extents, support)
+  const breaks = roof.type === 'flat' ? [] : getPitchedRoofBreaks(roof, support)
+  const xs = [...new Set([extents.minX, ...breaks.filter((x) => x > extents.minX && x < extents.maxX), extents.maxX])].sort((a, b) => a - b)
+  if (roof.type !== 'up-and-over' || (!roof.ridgeStartChamfer && !roof.ridgeEndChamfer)) {
+    return xs.slice(1).map((maxX, i) => [
+      [xs[i], extents.minY], [maxX, extents.minY], [maxX, extents.maxY], [xs[i], extents.maxY],
+    ].map(([x, z]) => [x, roof.type === 'flat' ? 0 : getPitchedRoofHeightAtX(roof, support, x), z]))
+  }
+
+  return buildChamferedGableProfileFaces(roof, extents, support, xs)
+}
 
 export function getRoofSlope(degrees: number) {
   return Math.tan(Math.min(75, Math.max(0, degrees)) * Math.PI / 180)
@@ -68,6 +85,75 @@ function clipProfilePolygon(polygon: Point[], distance: (point: Point) => number
   return result
 }
 
+type HeightProfile = (point: Point) => number
+
+function addLowestProfileFaces(
+  faces: RoofProfileVertex[][],
+  rectangle: Point[],
+  profiles: HeightProfile[],
+) {
+  profiles.forEach((height, index) => {
+    let polygon = rectangle
+    profiles.forEach((otherHeight, otherIndex) => {
+      if (otherIndex < index && rectangle.every((p) => Math.abs(otherHeight(p) - height(p)) < 0.000000001)) {
+        polygon = []
+      }
+      if (index !== otherIndex) polygon = clipProfilePolygon(polygon, (p) => otherHeight(p) - height(p))
+    })
+    const area = Math.abs(polygon.reduce((sum, p, i) => {
+      const next = polygon[(i + 1) % polygon.length]
+      return sum + p.x * next.y - next.x * p.y
+    }, 0)) / 2
+    if (area > 0.000001) faces.push(polygon.map((p) => [p.x, height(p), p.y]))
+  })
+}
+
+function buildChamferedGableProfileFaces(
+  roof: RoofStructure,
+  extents: RoofBounds,
+  support: RoofBounds,
+  xs: number[],
+) {
+  const depth = extents.maxY - extents.minY
+  const startDistance = Math.min(depth, Math.max(0, roof.ridgeStartChamfer?.distance ?? 0))
+  const endDistance = Math.min(depth, Math.max(0, roof.ridgeEndChamfer?.distance ?? 0))
+  const startInnerY = extents.minY + startDistance
+  const endInnerY = extents.maxY - endDistance
+  const ys = [...new Set([
+    extents.minY,
+    ...(startDistance > 0 ? [startInnerY] : []),
+    ...(endDistance > 0 ? [endInnerY] : []),
+    extents.maxY,
+  ])].sort((a, b) => a - b)
+  const ridgeX = (support.minX + support.maxX) / 2
+  const ridgeHeight = getPitchedRoofHeightAtX(roof, support, ridgeX)
+  const faces: RoofProfileVertex[][] = []
+
+  xs.slice(1).forEach((maxX, xi) => ys.slice(1).forEach((maxY, yi) => {
+    const minX = xs[xi]
+    const minY = ys[yi]
+    const rectangle = [
+      { x: minX, y: minY }, { x: maxX, y: minY },
+      { x: maxX, y: maxY }, { x: minX, y: maxY },
+    ]
+    const middleY = (minY + maxY) / 2
+    const profiles: HeightProfile[] = [(point) => getPitchedRoofHeightAtX(roof, support, point.x)]
+
+    if (roof.ridgeStartChamfer && startDistance > 0 && middleY <= startInnerY) {
+      const slope = getRoofSlope(roof.ridgeStartChamfer.angleDegrees)
+      profiles.push((point) => ridgeHeight - (startInnerY - point.y) * slope)
+    }
+    if (roof.ridgeEndChamfer && endDistance > 0 && middleY >= endInnerY) {
+      const slope = getRoofSlope(roof.ridgeEndChamfer.angleDegrees)
+      profiles.push((point) => ridgeHeight - (point.y - endInnerY) * slope)
+    }
+
+    addLowestProfileFaces(faces, rectangle, profiles)
+  }))
+
+  return faces
+}
+
 export function buildHipRoofProfileFaces(roof: RoofStructure, extents: RoofBounds, support: RoofBounds): RoofProfileVertex[][] {
   const xs = [...new Set([extents.minX, support.minX, support.maxX, extents.maxX])].sort((a, b) => a - b)
   const ys = [...new Set([extents.minY, support.minY, support.maxY, extents.maxY])].sort((a, b) => a - b)
@@ -75,20 +161,7 @@ export function buildHipRoofProfileFaces(roof: RoofStructure, extents: RoofBound
   const faces: RoofProfileVertex[][] = []
   xs.slice(1).forEach((maxX, xi) => ys.slice(1).forEach((maxY, yi) => {
     const rectangle = [{ x: xs[xi], y: ys[yi] }, { x: maxX, y: ys[yi] }, { x: maxX, y: maxY }, { x: xs[xi], y: maxY }]
-    profiles.forEach((height, index) => {
-      let polygon = rectangle
-      profiles.forEach((otherHeight, otherIndex) => {
-        if (otherIndex < index && rectangle.every((p) => Math.abs(otherHeight(p) - height(p)) < 0.000000001)) {
-          polygon = []
-        }
-        if (index !== otherIndex) polygon = clipProfilePolygon(polygon, (p) => otherHeight(p) - height(p))
-      })
-      const area = Math.abs(polygon.reduce((sum, p, i) => {
-        const next = polygon[(i + 1) % polygon.length]
-        return sum + p.x * next.y - next.x * p.y
-      }, 0)) / 2
-      if (area > 0.000001) faces.push(polygon.map((p) => [p.x, height(p), p.y]))
-    })
+    addLowestProfileFaces(faces, rectangle, profiles)
   }))
   return faces
 }

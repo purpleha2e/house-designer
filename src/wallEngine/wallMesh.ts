@@ -40,6 +40,7 @@ export type WallMeshFace = {
   normal: [number, number, number]
   pickSource: WallMeshSource
   roomSignature?: string
+  roofSurfaceRegion?: string
   uvSource: WallMeshSource
   vertices: [WallMeshVertex, WallMeshVertex, WallMeshVertex, WallMeshVertex]
   wallId: string

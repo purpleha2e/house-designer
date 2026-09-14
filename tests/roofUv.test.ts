@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  getGableChamferTopUvs,
   getPitchedRoofTopUvs,
   getRoofFaceProjectedUvs,
 } from '../src/roofUv.ts'
@@ -31,5 +32,15 @@ test('pitched roof UVs keep tile courses continuous and metre-scaled to the ridg
   const uvs = getPitchedRoofTopUvs(roof, support, vertices)
   close(Math.abs(uvs[3][0] - uvs[0][0]), 8)
   close(Math.abs(uvs[1][1] - uvs[0][1]), 3 * Math.SQRT2)
+  close(uvs[1][1], uvs[2][1])
+})
+
+test('gable chamfer UVs run across the gable and down its true slope', () => {
+  const vertices: Array<[number, number, number]> = [
+    [0, 3, 0], [-2, 1, 2], [2, 1, 2],
+  ]
+  const uvs = getGableChamferTopUvs(vertices)
+  close(Math.abs(uvs[2][0] - uvs[1][0]), 4)
+  close(Math.abs(uvs[1][1] - uvs[0][1]), 2 * Math.SQRT2)
   close(uvs[1][1], uvs[2][1])
 })

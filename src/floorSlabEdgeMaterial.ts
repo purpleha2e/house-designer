@@ -9,6 +9,20 @@ export type FloorSlabSupportingWall = {
   wall: Wall
 }
 
+/** Keep the material and its wall UV frame together when falling back upstairs. */
+export function findFloorSlabMaterialSupport<T>(
+  lower: FloorSlabSupportingWall | null,
+  upper: FloorSlabSupportingWall | null,
+  getMaterial: (support: FloorSlabSupportingWall) => T | undefined,
+) {
+  for (const support of [lower, upper]) {
+    if (!support) continue
+    const material = getMaterial(support)
+    if (material !== undefined) return { support, material }
+  }
+  return { support: lower ?? upper, material: undefined }
+}
+
 const MINIMUM_EDGE_LENGTH = 0.001
 const MAXIMUM_DIRECTION_ERROR = 0.025
 const MINIMUM_LONGITUDINAL_OVERLAP = 0.02

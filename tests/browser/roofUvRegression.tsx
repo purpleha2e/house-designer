@@ -35,6 +35,7 @@ const crossAssignment = {
 }
 const noop = () => {}
 createRoot(document.getElementById('root')!).render(<ThreeDView
+  roofPlacementPreview={null}
   activeFloorId={floor.id} floors={[floor] as never} isEngineConsoleOpen={false}
   lightDirection={savedProject.sunPosition} modelAssetVersion={1}
   onClearSelection={noop} onEngineConsoleOpenChange={noop} onLightDirectionChange={noop}

@@ -142,6 +142,33 @@ test('creates a wall-mounted model from the plan center', () => {
   })
 })
 
+test('ridge connections and gable chamfers survive a save/load round trip', () => {
+  const floor: FloorLevel = { id: 'floor', name: 'Floor', elevation: 0, roomHeight: 2.4,
+    slabThickness: 0.2, walls: [], rooms: [], models: [], roofs: [{
+      id: 'roof', type: 'up-and-over', width: 4, depth: 6, pitchDegrees: 37,
+      position: { x: 0, y: 0 }, rotation: 0,
+      ridgeStart: { mode: 'exposed' }, ridgeEnd: { mode: 'join', targetRoofId: 'roof-on-another-floor' },
+      ridgeStartChamfer: { angleDegrees: 37, distance: 0.8 },
+      ridgeEndChamfer: { angleDegrees: 22, distance: 1.2 },
+    }] }
+  const saved = JSON.parse(JSON.stringify(floor)) as FloorLevel
+  const [roof] = normalizeFloor(saved, modelsById).roofs
+  assert.deepEqual(roof.ridgeStart, floor.roofs![0].ridgeStart)
+  assert.deepEqual(roof.ridgeEnd, floor.roofs![0].ridgeEnd)
+  assert.deepEqual(roof.ridgeStartChamfer, floor.roofs![0].ridgeStartChamfer)
+  assert.deepEqual(roof.ridgeEndChamfer, floor.roofs![0].ridgeEndChamfer)
+})
+
+test('normalization removes floating point drift from cardinal roof rotations', () => {
+  const floor: FloorLevel = { id: 'floor', name: 'Floor', elevation: 0, roomHeight: 2.4,
+    slabThickness: 0.2, walls: [], rooms: [], models: [], roofs: [{
+      id: 'roof', type: 'up-and-over', width: 4, depth: 6, pitchDegrees: 37,
+      position: { x: 0, y: 0 }, rotation: Math.PI + 0.00000008,
+    }] }
+  const [roof] = normalizeFloor(floor, modelsById).roofs
+  assert.equal(roof.rotation, Math.PI)
+})
+
 test('wall-mounted models remember the side of the wall they were placed from', () => {
   const positiveSideMount = getWallMountForPoint({ x: 2.5, y: 0.2 }, [wall])
   const negativeSideMount = getWallMountForPoint({ x: 2.5, y: -0.2 }, [wall])

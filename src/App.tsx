@@ -10,6 +10,7 @@ import { ContextPanel } from './components/ContextPanel'
 import {
   FloorplanCanvas,
   clearFloorplanModelAssetCaches,
+  type RoofPlacementPreview,
 } from './components/FloorplanCanvas'
 import { LeftToolRail } from './components/LeftToolRail'
 import { ManufacturerPortal } from './components/ManufacturerPortal'
@@ -63,8 +64,8 @@ import {
   syncWallOpenings,
   updateWallAttachedModels,
 } from './modelPlacement'
-import springfield12Project from '../springfield_13.json'
-//import springfield12Project from '../sharrose_road_2.json'
+//import springfield12Project from '../springfield_13.json'
+import springfield12Project from '../red_house_3.json'
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
@@ -85,6 +86,8 @@ const WALL_COORDINATE_EPSILON_METERS = 0.001
 type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
 
 type HipRoofCreateOptions = {
+  thickness?: number
+  bayOutline?: Point[]
   depth?: number
   floorId: string
   overhangEnd?: number
@@ -95,6 +98,8 @@ type HipRoofCreateOptions = {
   overhangSidePositive?: number
   pitchDegrees: number
   position?: Point
+  ridgeEndChamfer?: RoofStructure['ridgeEndChamfer']
+  ridgeStartChamfer?: RoofStructure['ridgeStartChamfer']
   rotation?: number
   supportDepth?: number
   supportPosition?: Point
@@ -702,14 +707,17 @@ function App() {
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [isRoofMode, setIsRoofMode] = useState(false)
-  const [projectFileName, setProjectFileName] = useState('springfield_13.json')
+  //const [projectFileName, setProjectFileName] = useState('springfield_13.json')
   //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
+  const [projectFileName, setProjectFileName] = useState('red_house_3.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
   const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
     null,
   )
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
   const [selectedRoofId, setSelectedRoofId] = useState<string | null>(null)
+  const [roofPlacementPreview, setRoofPlacementPreview] =
+    useState<RoofPlacementPreview | null>(null)
   const [selectedSurface, setSelectedSurface] =
     useState<SelectableSurface | null>(null)
   const [selectedWallIds, setSelectedWallIds] = useState<string[]>([])
@@ -1284,6 +1292,8 @@ function App() {
   }
 
   const addRoof = ({
+    thickness,
+    bayOutline,
     depth,
     floorId,
     overhangEnd,
@@ -1294,6 +1304,8 @@ function App() {
     overhangSidePositive,
     pitchDegrees,
     position,
+    ridgeEndChamfer,
+    ridgeStartChamfer,
     rotation,
     supportDepth,
     supportPosition,
@@ -1352,6 +1364,8 @@ function App() {
             y: roofPosition.y + fallbackSupportOffset.y,
           }
     const roof: RoofStructure = {
+      thickness,
+      bayOutline: type === 'bay' ? bayOutline : undefined,
       depth: roofDepth,
       heightOffset: 0,
       id: createId(),
@@ -1363,6 +1377,8 @@ function App() {
       overhangSidePositive: positiveSideOverhang,
       pitchDegrees: Math.min(75, Math.max(1, pitchDegrees)),
       position: roofPosition,
+      ridgeEndChamfer: type === 'up-and-over' ? ridgeEndChamfer : undefined,
+      ridgeStartChamfer: type === 'up-and-over' ? ridgeStartChamfer : undefined,
       rotation: roofRotation,
       supportDepth: supportDepth ?? supportDepthFallback,
       supportPosition: supportPosition ?? supportPositionFallback,
@@ -3035,6 +3051,7 @@ function App() {
           onViewportChange={updateFloorplanViewport}
           onSelectModel={selectModel}
           onSelectRoof={selectRoofFromFloorplan}
+          onRoofPlacementPreviewChange={setRoofPlacementPreview}
           selectedRoomSignature={selectedRoomSignature}
           onSelectRoom={(roomSignature) => {
             setSelectedRoomSignature(roomSignature)
@@ -3126,6 +3143,7 @@ function App() {
           isEngineConsoleOpen={isEngineConsoleOpen}
           lightDirection={sunPosition}
           modelAssetVersion={modelAssetVersion}
+          roofPlacementPreview={roofPlacementPreview}
           onClearSelection={clearThreeDSelection}
           onCameraViewStateChange={updateThreeDViewCameraState}
           onEngineConsoleOpenChange={setIsEngineConsoleOpen}

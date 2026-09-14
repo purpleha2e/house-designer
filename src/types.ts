@@ -230,7 +230,25 @@ export type WallAttachment = {
   side?: -1 | 1
 }
 
+export type RoofEndConnection =
+  | { mode: 'automatic' | 'exposed' }
+  | { mode: 'join'; targetRoofId: string }
+
+export type RoofEndChamfer = {
+  angleDegrees: number
+  distance: number
+}
+
 export type RoofStructure = {
+  // Bay outline in support-relative coordinates; the first edge is the rear.
+  bayOutline?: Point[]
+  // Derived from supporting walls during geometry resolution, not authored.
+  baySupportOffsets?: number[]
+  thickness?: number
+  ridgeEndChamfer?: RoofEndChamfer
+  ridgeStart?: RoofEndConnection
+  ridgeStartChamfer?: RoofEndChamfer
+  ridgeEnd?: RoofEndConnection
   depth: number
   heightOffset?: number
   id: string
@@ -246,7 +264,7 @@ export type RoofStructure = {
   supportDepth?: number
   supportPosition?: Point
   supportWidth?: number
-  type: 'flat' | 'hip' | 'lean-to' | 'up-and-over'
+  type: 'flat' | 'hip' | 'lean-to' | 'up-and-over' | 'bay'
   width: number
 }
 

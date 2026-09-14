@@ -1,5 +1,5 @@
 import type { SurfaceCategory, SurfaceFinish, SurfaceMaterialProduct } from './types'
-import { materialVariationFromMetadata } from './materials/proceduralVariation'
+import { materialVariationFromMetadata } from './materials/proceduralVariation.ts'
 import type { ModelDefinition, ModelObjectType } from './models/modelLibrary'
 
 type PortalCatalogFile = {
@@ -289,10 +289,34 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
 }
 
 export async function loadPortalCatalog(): Promise<RuntimePortalCatalog> {
-  const response = await fetch('/api/portal/catalog')
+  const retryDelays = [0, 100, 250, 500, 1_000, 2_000]
+  let response: Response | undefined
+  let lastError: unknown
 
-  if (!response.ok) {
-    throw new Error('Could not load uploaded asset catalogue')
+  for (const retryDelay of retryDelays) {
+    if (retryDelay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelay))
+    }
+
+    try {
+      response = await fetch('/api/portal/catalog')
+
+      if (response.ok) {
+        break
+      }
+
+      lastError = new Error(
+        `Asset catalogue request returned ${response.status}`,
+      )
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  if (!response?.ok) {
+    throw new Error('Could not load uploaded asset catalogue', {
+      cause: lastError,
+    })
   }
 
   const data = (await response.json()) as PortalCatalogResponse

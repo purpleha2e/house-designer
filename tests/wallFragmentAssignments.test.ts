@@ -53,3 +53,17 @@ test('does not let a stale fragment assignment paint rebuilt neighbouring faces'
     undefined,
   )
 })
+
+test('roof regions inherit the original finish but a new A finish never paints B', () => {
+  const original = assignment('facade')
+  const left = assignment('facade:roof-region:/roof:0:above')
+  const right = 'facade:roof-region:/roof:1:above'
+  const hidden = 'facade:roof-region:/roof:0:below'
+  assert.equal(findWallFragmentAssignmentForFace([original], face('facade:roof-region:/roof:0:above')), original)
+  assert.equal(findWallFragmentAssignmentForFace([original, left], face(right)), original)
+  assert.equal(findWallFragmentAssignmentForFace([left], face(right)), undefined)
+  assert.equal(findWallFragmentAssignmentForFace([left], face(hidden)), undefined)
+  assert.equal(findWallFragmentAssignmentForFace([left], face('facade')), undefined)
+  assert.deepEqual(findWallFragmentAssignmentForFace(JSON.parse(JSON.stringify([left])),
+    face('facade:roof-region:/roof:0:above')), left)
+})

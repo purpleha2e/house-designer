@@ -50,6 +50,7 @@ function getSurfaceFace(face: WallMeshFace): SurfaceFace | null {
 }
 
 function facesAreConnected(first: SurfaceFace, second: SurfaceFace) {
+  if (first.face.roofSurfaceRegion !== second.face.roofSurfaceRegion) return false
   const normalDot =
     first.normalX * second.normalX + first.normalZ * second.normalZ
 
@@ -130,6 +131,8 @@ export function buildCoplanarWallSurfaceGroups(faces: WallMeshFace[]) {
 
     const references = componentIndices
       .map((index) => getFragmentReference(surfaceFaces[index].face))
+      .filter((reference, index, all) => all.findIndex(other =>
+        other.fragmentId === reference.fragmentId && other.wallId === reference.wallId && other.side === reference.side) === index)
       .sort(compareReferences)
 
     componentIndices.forEach((index) => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildHipRoofProfileFaces, getHipRoofProfileHeight, getPitchedRoofHeightAtX, getPitchedRoofSurfaceDistance, getPitchedRoofBreaks } from '../src/roofProfile.ts'
+import { buildHipRoofProfileFaces, buildRoofProfileFaces, getHipRoofProfileHeight, getPitchedRoofHeightAtX, getPitchedRoofSurfaceDistance, getPitchedRoofBreaks } from '../src/roofProfile.ts'
 import type { RoofStructure } from '../src/types.ts'
 
 const roof: RoofStructure = {
@@ -67,4 +67,31 @@ test('hip profile polygons cover the footprint once, including flat and asymmetr
       }
     }
   }
+})
+
+test('gable end chamfers replace the ridge ends with independently pitched planes', () => {
+  const adjusted: RoofStructure = {
+    ...roof,
+    ridgeStartChamfer: { angleDegrees: 37, distance: 2 },
+    ridgeEndChamfer: { angleDegrees: 22, distance: 1.5 },
+  }
+  const faces = buildRoofProfileFaces(adjusted, extents, support)
+  const area = faces.reduce((sum, face) => sum + Math.abs(face.reduce((value, point, index) => {
+    const next = face[(index + 1) % face.length]
+    return value + point[0] * next[2] - next[0] * point[2]
+  }, 0)) / 2, 0)
+  close(area, 63)
+
+  const ridgeHeight = 3 * slope(37)
+  for (const face of faces) for (const [x, y, z] of face) {
+    const mainHeight = getPitchedRoofHeightAtX(adjusted, support, x)
+    const startHeight = z <= -2.5 ? ridgeHeight - (-2.5 - z) * slope(37) : Number.POSITIVE_INFINITY
+    const endHeight = z >= 3 ? ridgeHeight - (z - 3) * slope(22) : Number.POSITIVE_INFINITY
+    close(y, Math.min(mainHeight, startHeight, endHeight))
+  }
+
+  assert.ok(faces.some((face) => face.every(([, y, z]) =>
+    z <= -2.5 + 0.000001 && Math.abs(y - (ridgeHeight - (-2.5 - z) * slope(37))) < 0.000001)))
+  assert.ok(faces.some((face) => face.every(([, y, z]) =>
+    z >= 3 - 0.000001 && Math.abs(y - (ridgeHeight - (z - 3) * slope(22))) < 0.000001)))
 })

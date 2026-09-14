@@ -1,0 +1,113 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { readFileSync } from 'node:fs'
+import { resolveBuildingRoofs, getRoofSupportBoundsInRoofSpace, getRoofWorldPointFromLocal } from '../src/roofBuildingGeometry.ts'
+import { createWallRoofClipOptions } from '../src/roofWallClipping.ts'
+import { getRoofCoverageUndersideFaces } from '../src/roofJunctions.ts'
+import { clipWallFacesToRoofUndersides } from '../src/wallEngine/wallRoofClip.ts'
+import { createWallRoofClipJob, runWallRoofClipJob } from '../src/wallEngine/wallRoofClipJob.ts'
+import { buildCoplanarWallSurfaceGroups } from '../src/wallEngine/wallSurfaceGroups.ts'
+import type { FloorLevel } from '../src/types.ts'
+import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
+import { getBaySupportPolygon } from '../src/bayRoof.ts'
+import { partitionWallFacesAtRoofs } from '../src/wallEngine/wallRoofSurfacePartitions.ts'
+
+const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roof-junctions/roof_material_regions.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+const upper = floors[1]
+const wall = upper.walls[1]
+const face: WallMeshFace = {
+  faceId: 'upper-facade', wallId: wall.id, kind: 'side', normal: [1, 0, 0],
+  materialSource: { wallId: wall.id, side: -1 }, pickSource: { wallId: wall.id, side: -1 },
+  uvSource: { wallId: wall.id, side: -1 },
+  vertices: [[6.65, 0, 1.35], [6.65, 0, 8.485368234442107], [6.65, 2.4, 8.485368234442107], [6.65, 2.4, 1.35]]
+    .map(position => ({ position, uv: [position[2], position[1] + upper.elevation] })) as WallMeshFace['vertices'],
+}
+const roofs = resolveBuildingRoofs(floors).map(({ roof, resolved, floorId }) => {
+  const b = getRoofSupportBoundsInRoofSpace(roof)
+  return { roofId: roof.id, floorId, surfaceFaces: resolved.structuralFaces,
+    undersideFaces: getRoofCoverageUndersideFaces(resolved),
+    supportPolygon: [{ x:b.minX,y:b.minY },{ x:b.maxX,y:b.minY },{ x:b.maxX,y:b.maxY },{ x:b.minX,y:b.maxY }]
+      .map(p => getRoofWorldPointFromLocal(roof, p)),
+  }
+})
+const options = createWallRoofClipOptions({ floorElevation: upper.elevation, floorId: upper.id,
+  walls: upper.walls, roofs, isInsideRoom: p => p.x < 6.5 })
+
+function hit(faces: WallMeshFace[], z: number, y: number) {
+  return faces.find(f => {
+    const points = f.vertices.slice(0, 3).map(v => [v.position[2], v.position[1]])
+    const signs = points.map((a, i) => {
+      const b = points[(i + 1) % 3]
+      return (b[0]-a[0])*(y-a[1])-(b[1]-a[1])*(z-a[0])
+    })
+    return signs.every(v => v >= -1e-7) || signs.every(v => v <= 1e-7)
+  })!
+}
+
+test('the saved adjoining roofs give A-left, A-right and B separate material regions', () => {
+  assert.ok(options.surfaceDividers.length >= 2)
+  const result = clipWallFacesToRoofUndersides([face], options)
+  const left = hit(result, 2.7, 1.8), right = hit(result, 7.5, 1.8), below = hit(result, 5, 0.8)
+  assert.ok(left && right && below, 'the complete wall remains present behind the roof')
+  assert.equal(left.roofSurfaceRegion, 'roof-exposed')
+  assert.equal(right.roofSurfaceRegion, 'roof-exposed')
+  assert.notEqual(left.faceId, right.faceId)
+  assert.notEqual(left.faceId, below.faceId)
+  const groups = buildCoplanarWallSurfaceGroups(result)
+  assert.ok(!groups.get(left.faceId)!.some(f => f.fragmentId === right.faceId || f.fragmentId === below.faceId))
+  const area = result.reduce((sum, f) => {
+    const [a,b,c] = f.vertices.map(v => v.position)
+    return sum + Math.abs((b[2]-a[2])*(c[1]-a[1])-(c[2]-a[2])*(b[1]-a[1]))/2
+  }, 0)
+  assert.ok(Math.abs(area - (8.485368234442107-1.35)*2.4) < 1e-6, 'no removed or duplicate facade area')
+  assert.ok(result.every(f => f.vertices.every(v => Math.abs(v.uv[0]-v.position[2]) < 1e-7 &&
+    Math.abs(v.uv[1]-v.position[1]-upper.elevation) < 1e-7)), 'UVs stay continuous across roof lines')
+})
+
+test('surface regions survive the worker transport and roof list reordering', () => {
+  const result = clipWallFacesToRoofUndersides([face], options)
+  assert.deepEqual(runWallRoofClipJob(structuredClone(createWallRoofClipJob([face], options))), result)
+  const reordered = createWallRoofClipOptions({ floorElevation: upper.elevation, floorId: upper.id,
+    walls: upper.walls, roofs: [...roofs].reverse(), isInsideRoom: p => p.x < 6.5 })
+  assert.deepEqual(clipWallFacesToRoofUndersides([face], reordered), result)
+  const inside = { ...face, faceId: 'inside', normal: [-1, 0, 0] as [number, number, number] }
+  assert.deepEqual(clipWallFacesToRoofUndersides([inside], options), [inside], 'the opposite wall finish is unaffected')
+})
+
+test('red_house_3 divides partial facade contacts and the angled Bay mounting edge', () => {
+  const project = JSON.parse(readFileSync(new URL('./fixtures/roof-junctions/red_house_material_regions.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const upper = project.floors[1]
+  const roofs = resolveBuildingRoofs(project.floors).map(({ roof, resolved, floorId }) => {
+    const b = getRoofSupportBoundsInRoofSpace(roof)
+    return { roofId: roof.id, floorId, surfaceFaces: resolved.structuralFaces,
+      undersideFaces: getRoofCoverageUndersideFaces(resolved),
+      supportPolygon: (roof.type === 'bay' ? getBaySupportPolygon(roof) :
+        [{ x:b.minX,y:b.minY },{ x:b.maxX,y:b.minY },{ x:b.maxX,y:b.maxY },{ x:b.minX,y:b.maxY }])
+        .map(p => getRoofWorldPointFromLocal(roof, p)),
+    }
+  })
+  // Whole-wall clipping exemptions must not control local material division,
+  // including when room detection sees occupied space beside the wall.
+  const options = createWallRoofClipOptions({ floorElevation: upper.elevation,
+    floorId: upper.id, walls: upper.walls, roofs, isInsideRoom: () => true })
+  const wallId = 'feb38193-7550-40b8-9dfb-663aa593a6df'
+  const bayId = project.floors[0].roofs!.find(r => r.type === 'bay')!.id
+  assert.ok(options.surfaceDividers.filter(d => d.wallId === wallId && d.id.startsWith(bayId)).length >= 2)
+  assert.ok(options.surfaceDividers.some(d => d.wallId === '3e626ad4-bf30-4d1a-b6cc-15fc6a33da0e'))
+  const facade: WallMeshFace = { ...face, faceId: 'red-front', wallId,
+    normal: [0, 0, 1], pickSource: { wallId, side: -1 },
+    vertices: [[-1.87,0,7.984318178330288],[1.35,0,7.984318178330288],
+      [1.35,2.4,7.984318178330288],[-1.87,2.4,7.984318178330288]]
+      .map(position => ({ position, uv: [position[0],position[1]+upper.elevation] })) as WallMeshFace['vertices'],
+  }
+  const divided = partitionWallFacesAtRoofs([facade], options.surfaceDividers, upper.elevation)
+  assert.ok(divided.some(f => f.roofSurfaceRegion === 'roof-exposed'))
+  assert.ok(divided.some(f => f.roofSurfaceRegion?.includes(':below')))
+  const groups = buildCoplanarWallSurfaceGroups(divided)
+  const belowIds = new Set(divided.filter(f => f.roofSurfaceRegion !== 'roof-exposed').map(f => f.faceId))
+  for (const f of divided.filter(f => f.roofSurfaceRegion === 'roof-exposed')) {
+    assert.ok(groups.get(f.faceId)!.every(ref => !belowIds.has(ref.fragmentId)))
+  }
+  const interior = { ...facade, faceId: 'room-face', roomSignature: 'upstairs-room' }
+  assert.deepEqual(partitionWallFacesAtRoofs([interior], options.surfaceDividers, upper.elevation), [interior])
+})

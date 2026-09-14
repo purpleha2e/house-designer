@@ -1,0 +1,1073 @@
+{
+  "floors": [
+    {
+      "id": "4720d5eb-b94e-40c7-a4e1-5dc3ed6665cc",
+      "elevation": 0,
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "7702db92-0fc8-4133-9d7b-93f699af8ce5",
+          "kind": "external",
+          "start": {
+            "x": 1.2,
+            "y": 1.5
+          },
+          "end": {
+            "x": 5.77,
+            "y": 1.5
+          },
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "3c2781c3-bc0a-4a76-8bf8-3fcf1a1c0089",
+              "modelId": "window-three-pane",
+              "center": 2.391471999999999,
+              "width": 1.6399999999999995,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 5.77,
+            "y": 1.5
+          },
+          "end": {
+            "x": 5.77,
+            "y": 7.865833333333334
+          },
+          "id": "1d6ca204-80e7-4e9c-a16a-d7edf9660dc4",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.77,
+            "y": 7.865833333333334
+          },
+          "end": {
+            "x": 1.2000000000000004,
+            "y": 7.865833333333334
+          },
+          "id": "e4f91c08-e3d1-4d8e-9588-68f150df08b0",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "7cefb524-5e20-4a59-8452-2ff9672e5a51",
+              "modelId": "patio-doors",
+              "center": 2.2283763706749493,
+              "width": 1.6200000000000006,
+              "bottom": 0,
+              "height": 2.08
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 1.275,
+            "y": 1.65
+          },
+          "end": {
+            "x": 1.2750000000000004,
+            "y": 7.865833333333335
+          },
+          "id": "3ef40461-cbfe-4812-a72e-a6aff6217327",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "af9f704f-e88e-40c4-9e5c-ce116da097e9",
+              "modelId": "panel-interior-door-closed",
+              "center": 3.981218866695457,
+              "width": 0.9751410000000003,
+              "bottom": 0,
+              "height": 2.124037
+            },
+            {
+              "id": "65b5dde2-5783-4698-88e2-42c22ac0482c",
+              "modelId": "panel-interior-door-closed",
+              "center": 4.956359866695458,
+              "width": 0.9751410000000007,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 1.2,
+            "y": 1.5
+          },
+          "end": {
+            "x": 1.2,
+            "y": 0.9931305714157143
+          },
+          "id": "4046e47d-aaec-4ec1-a7f4-c63f146eeea2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.2,
+            "y": 0.9931305714157143
+          },
+          "end": {
+            "x": -1.7951323633941552,
+            "y": 0.9931305714157146
+          },
+          "id": "06441709-a335-4cd6-8c2b-98c031648282",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "29d0fc1c-71ca-4e49-a4fe-55cc7f701fae",
+              "modelId": "window-three-pane",
+              "center": 1.4585280000000003,
+              "width": 1.6400000000000001,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -1.7951323633941552,
+            "y": 0.9931305714157146
+          },
+          "end": {
+            "x": -1.795132363394155,
+            "y": 3.2498159895533494
+          },
+          "id": "fb6f806c-3146-4939-a60d-84fdfe1ce239",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.2000000000000004,
+            "y": 7.865833333333334
+          },
+          "end": {
+            "x": 1.2000000000000004,
+            "y": 8.541530571415715
+          },
+          "id": "b6474793-21eb-46ff-858e-49fc34ea4c96",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -1.7201323633941545,
+            "y": 8.541530571415715
+          },
+          "end": {
+            "x": -4.0873885584816945,
+            "y": 8.541530571415715
+          },
+          "id": "d41b74ce-7312-43a0-8710-783a093ad78d",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "88931917-3f7d-4e86-b22c-5b7da79b9f27",
+              "modelId": "patio-doors",
+              "center": 1.1672561950875397,
+              "width": 1.62,
+              "bottom": 0,
+              "height": 2.08
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -1.720132363394155,
+            "y": 3.2498159895533494
+          },
+          "end": {
+            "x": -1.7201323633941548,
+            "y": 8.541530571415715
+          },
+          "id": "764f23f9-d8fb-4c6d-85a6-141b8478ff91",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "7b935d7a-b9a1-41ab-bd8b-92f9622ff115",
+              "modelId": "panel-interior-door-closed",
+              "center": 2.8814028771421083,
+              "width": 0.9751409999999998,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -4.0873885584816945,
+            "y": 8.541530571415715
+          },
+          "end": {
+            "x": -4.0873885584816945,
+            "y": 6.788867003346106
+          },
+          "id": "93d7c2ba-5a40-49b4-9753-b04d78e72de6",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "f955c5b8-4df5-4fe1-b542-abd42bd939a4",
+              "modelId": "window-three-pane",
+              "center": 0.8136061965427137,
+              "width": 1.6272123930854274,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -4.0873885584816945,
+            "y": 6.788867003346106
+          },
+          "end": {
+            "x": -8.417388558481694,
+            "y": 6.788867003346107
+          },
+          "id": "cf0596b4-65ba-495e-b957-4e36153e88ed",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "c993a12c-175e-424f-a280-b40874167b26",
+              "modelId": "window-three-pane",
+              "center": 2.0958899178564567,
+              "width": 1.6399999999999997,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -8.417388558481694,
+            "y": 6.788867003346107
+          },
+          "end": {
+            "x": -8.417388558481694,
+            "y": 1.5
+          },
+          "id": "473e57bf-39cb-43db-8c92-8aae2eab2c44",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -8.417388558481694,
+            "y": 1.5
+          },
+          "end": {
+            "x": -9.915208808902419,
+            "y": 1.4999999999999998
+          },
+          "id": "e994ef6f-8dfe-4b8d-b913-8b217e2caf11",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -9.915208808902419,
+            "y": 1.4999999999999998
+          },
+          "end": {
+            "x": -9.915208808902419,
+            "y": -0.16963602489774998
+          },
+          "id": "dc6e2ae5-83fb-4b2e-a266-47777135df64",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -9.915208808902419,
+            "y": -0.16963602489774998
+          },
+          "end": {
+            "x": -8.417388558481694,
+            "y": -0.16963602489774998
+          },
+          "id": "5a16c7e7-afaf-4c82-836e-bf985a4763ab",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -8.417388558481694,
+            "y": -0.16963602489774998
+          },
+          "end": {
+            "x": -8.417388558481694,
+            "y": -3.21963602489775
+          },
+          "id": "7208f1a6-79ff-4809-b4f5-09b04b6538f3",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "f523e966-c1b6-4135-af7d-2349ac97dbcb",
+              "modelId": "panel-interior-door-closed",
+              "center": 0.9250000000000002,
+              "width": 0.975141,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -8.417388558481694,
+            "y": -3.21963602489775
+          },
+          "end": {
+            "x": -5.267388558481693,
+            "y": -3.21963602489775
+          },
+          "id": "ad3667ec-43e2-42a7-84a5-713da6287716",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "c0e7e98b-a8a7-458c-acd8-078f738bb308",
+              "modelId": "window-three-pane",
+              "center": 1.5999999999999996,
+              "width": 1.6400000000000006,
+              "bottom": 0.8213957551907631,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -5.267388558481693,
+            "y": -3.21963602489775
+          },
+          "end": {
+            "x": -5.267388558481693,
+            "y": -0.1696360248977502
+          },
+          "id": "4201c55c-9617-48ce-8c2d-488946807c89",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -1.7951323633941552,
+            "y": 0.9931305714157146
+          },
+          "end": {
+            "x": -1.7951323633941552,
+            "y": -0.16963602489774998
+          },
+          "id": "d997b158-f410-47cf-96ff-3c3b1e3c84de",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -1.7951323633941552,
+            "y": -0.16963602489774998
+          },
+          "end": {
+            "x": -5.267388558481693,
+            "y": -0.1696360248977504
+          },
+          "id": "b506d23d-9023-4bef-a5d8-da744bbc670a",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "fa4afd2f-1446-4990-b783-306b47498269",
+              "modelId": "front-door",
+              "center": 0.8632440072807952,
+              "width": 0.9699999999999998,
+              "bottom": 0,
+              "height": 2.1
+            },
+            {
+              "id": "3aa5108e-de91-43e3-922b-a001e9431ae2",
+              "modelId": "portal-model-10f9b6056ee80a8db7b115b3c875f84e",
+              "center": 1.9500000000000002,
+              "width": 0.4000000276979525,
+              "bottom": 0.6147050374329367,
+              "height": 1.499999968917109
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -8.417388558481694,
+            "y": 2.8312188666954565
+          },
+          "end": {
+            "x": -2.929560698984143,
+            "y": 2.8312188666954565
+          },
+          "id": "895f2310-828c-454f-bbc9-f2b7dd685ca1",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -4.012388558481694,
+            "y": 6.638867003346106
+          },
+          "end": {
+            "x": -4.012388558481694,
+            "y": 2.831218866695456
+          },
+          "id": "54a149f5-3db6-4bbd-b500-5544d6b544e6",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "78e391f2-91f2-4f6e-8a5a-b658d25be79b",
+              "modelId": "panel-interior-door-closed",
+              "center": 0.5749999999999988,
+              "width": 0.9751409999999998,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -5.3423885584816935,
+            "y": -0.01963602489775021
+          },
+          "end": {
+            "x": -5.3423885584816935,
+            "y": 2.8312188666954565
+          },
+          "id": "c99722cb-080e-4a37-91f5-7a000f288c5f",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "c1333dde-021b-4403-a469-fb05d7e59d85",
+              "modelId": "panel-interior-door-closed",
+              "center": 1.9500000000000004,
+              "width": 0.9751410000000003,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -8.267388558481693,
+            "y": -0.09463602489774998
+          },
+          "end": {
+            "x": -5.267388558481693,
+            "y": -0.09463602489774998
+          },
+          "id": "f93b5bd6-2906-4c06-8f96-32fe3e8c7de6",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "bcf27932-3572-40ff-840e-905776986d98",
+              "modelId": "panel-interior-door-closed",
+              "center": 2.133755299476465,
+              "width": 0.9751409999999989,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -6.933633259005228,
+            "y": 2.8312188666954565
+          },
+          "end": {
+            "x": -6.933633259005228,
+            "y": -0.09463602489775003
+          },
+          "id": "19dad4c5-9413-4bfe-8d9f-dd99fbbb73e7",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "9a01f01b-098b-4cfa-883d-6a8cb3942cf2",
+              "modelId": "panel-interior-door-closed",
+              "center": 1.96735186334935,
+              "width": 0.9751409999999998,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -3.9373885584816946,
+            "y": 6.863867003346106
+          },
+          "end": {
+            "x": -1.7201323633941548,
+            "y": 6.863867003346106
+          },
+          "id": "4985137c-c5b6-4a80-b08b-33841f668038",
+          "kind": "internal",
+          "thickness": 0.15,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "66c56e63-53eb-4f2f-92cc-049ee7924d91",
+              "modelId": "panel-interior-door-closed",
+              "center": 1.1172561950875388,
+              "width": 0.9751409999999998,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 1.2000000000000004,
+            "y": 8.541530571415715
+          },
+          "end": {
+            "x": 1.2000000000000006,
+            "y": 11.534318178330288
+          },
+          "id": "60082cfa-992d-44dc-9461-7e3c4152fb04",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "79cfce33-cc99-4454-b0c8-06508b19cccb",
+              "modelId": "patio-doors",
+              "center": 0.8743027619176189,
+              "width": 1.620000000000001,
+              "bottom": 0,
+              "height": 2.08
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 1.2000000000000006,
+            "y": 11.534318178330288
+          },
+          "end": {
+            "x": -1.7201323633941548,
+            "y": 11.534318178330288
+          },
+          "id": "cf8df966-84b7-4bb0-a98f-de17e40a340d",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "2705607b-d068-4564-8b34-b476aa3d699f",
+              "modelId": "window-three-pane",
+              "center": 1.4585280000000007,
+              "width": 1.6399999999999997,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -1.7201323633941548,
+            "y": 11.534318178330288
+          },
+          "end": {
+            "x": -1.7201323633941545,
+            "y": 8.541530571415715
+          },
+          "id": "9ba50953-5ce2-4d36-94ac-6abc1550aa47",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "2e8582df-7d37-4baa-8f4b-d82fca288797",
+              "modelId": "patio-doors",
+              "center": 1.9184848449969554,
+              "width": 1.620000000000001,
+              "bottom": 0,
+              "height": 2.08
+            }
+          ]
+        }
+      ],
+      "roofs": [
+        {
+          "depth": 4.870000000000001,
+          "heightOffset": 0,
+          "id": "b490e12e-e2cc-4509-801c-33d0e68a1aa2",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 48,
+          "position": {
+            "x": 3.485,
+            "y": 4.7
+          },
+          "rotation": 1.5707963267948966,
+          "supportDepth": 4.57,
+          "supportPosition": {
+            "x": 3.485,
+            "y": 4.7
+          },
+          "supportWidth": 6.4,
+          "type": "up-and-over",
+          "width": 6.700000000000001
+        },
+        {
+          "depth": 2.052663568069611,
+          "heightOffset": 0,
+          "id": "ded6c505-6aac-4048-b57f-100b57f99cf5",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 37,
+          "position": {
+            "x": -2.903760460937925,
+            "y": 7.66519878738091
+          },
+          "rotation": 6.283185307179586,
+          "supportDepth": 1.75266356806961,
+          "supportPosition": {
+            "x": -2.903760460937925,
+            "y": 7.66519878738091
+          },
+          "supportWidth": 2.3672561950875393,
+          "type": "up-and-over",
+          "width": 2.66725619508754
+        },
+        {
+          "depth": 3.8,
+          "heightOffset": 0,
+          "id": "e7b35385-f55a-46c8-b38d-e520756f1c0b",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 37,
+          "position": {
+            "x": -9.316299,
+            "y": -0.25000000000000006
+          },
+          "rotation": 6.283185307179586,
+          "supportDepth": 3.5,
+          "supportPosition": {
+            "x": -9.241299000000001,
+            "y": -0.24999999999999994
+          },
+          "supportWidth": 1.3478200000000005,
+          "type": "lean-to",
+          "width": 1.4978200000000008
+        }
+      ]
+    },
+    {
+      "id": "1304e673-54cf-488a-8188-7f9d2b444dd8",
+      "elevation": 2.6999999999999997,
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "c4bee8af-9828-49f7-a56a-b3473bd314e8",
+          "kind": "external",
+          "start": {
+            "x": 1.2000000000000002,
+            "y": 2.5
+          },
+          "end": {
+            "x": 5.77,
+            "y": 2.4999999999999996
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.77,
+            "y": 2.4999999999999996
+          },
+          "end": {
+            "x": 5.77,
+            "y": 6.765833333333335
+          },
+          "id": "2ff7776a-a60a-4be8-bd41-0027092397d2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 5.77,
+            "y": 6.765833333333335
+          },
+          "end": {
+            "x": 1.200000000000001,
+            "y": 6.765833333333336
+          },
+          "id": "7e5fce64-7a64-4839-b6fd-9d3fb7cc90a6",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.2,
+            "y": 0.9931305714157143
+          },
+          "end": {
+            "x": -1.7951323633941552,
+            "y": 0.9931305714157146
+          },
+          "id": "044e7f75-4b93-4824-b4ba-b94d328cf14a",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "003f9193-32ba-4304-8547-8ded26fe6e57",
+              "modelId": "window-three-pane",
+              "center": 1.4815448990387234,
+              "width": 1.6400000000000001,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -1.7201323633941548,
+            "y": 6.788867003346106
+          },
+          "end": {
+            "x": -8.417388558481694,
+            "y": 6.788867003346107
+          },
+          "id": "5dc6e05e-f02e-44e6-b9a3-edf3b5a854e3",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "c5b1644e-d5c6-49ed-a833-48b0ea0d8c22",
+              "modelId": "window-three-pane",
+              "center": 1.1614125356445697,
+              "width": 1.6400000000000001,
+              "bottom": 0.9,
+              "height": 1.1
+            },
+            {
+              "id": "8ce6280a-59c9-494d-ae22-721e4e4fc77f",
+              "modelId": "window-three-pane",
+              "center": 5.011412535644569,
+              "width": 1.6400000000000006,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -8.417388558481694,
+            "y": 6.788867003346107
+          },
+          "end": {
+            "x": -8.417388558481694,
+            "y": -3.21963602489775
+          },
+          "id": "a0d4f280-a4b4-4bbc-87aa-309f5201736f",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -8.417388558481694,
+            "y": -3.21963602489775
+          },
+          "end": {
+            "x": -5.267388558481693,
+            "y": -3.21963602489775
+          },
+          "id": "9c51b3d2-e6e9-47cd-9d48-f489ab87cd1c",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "46f44017-9910-477f-b5a4-5abd4d992a15",
+              "modelId": "window-three-pane",
+              "center": 1.6358436594429695,
+              "width": 1.6399999999999997,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -5.267388558481693,
+            "y": -3.21963602489775
+          },
+          "end": {
+            "x": -5.267388558481693,
+            "y": -0.1696360248977502
+          },
+          "id": "622225ab-0a65-4356-b3d2-28167fb9053c",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -1.7951323633941552,
+            "y": 0.9931305714157146
+          },
+          "end": {
+            "x": -1.7951323633941552,
+            "y": -0.16963602489774998
+          },
+          "id": "48f2d01f-f757-41f0-a953-f983f940b3b8",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": -1.7951323633941552,
+            "y": -0.16963602489774998
+          },
+          "end": {
+            "x": -5.267388558481693,
+            "y": -0.1696360248977504
+          },
+          "id": "c148a95c-bce0-4c5b-8296-3fdf755371d5",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "fb56eec3-d206-45f3-80f8-9d6327a6f7ac",
+              "modelId": "window-three-pane",
+              "center": 1.7364125356445688,
+              "width": 1.64,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 1.2,
+            "y": 0.9931305714157143
+          },
+          "end": {
+            "x": 1.2000000000000006,
+            "y": 7.834318178330288
+          },
+          "id": "3e626ad4-bf30-4d1a-b6cc-15fc6a33da0e",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "c3d85aa4-cadb-4b89-9d14-c348027fb17c",
+              "modelId": "panel-interior-door-closed",
+              "center": 4.1000000000000005,
+              "width": 0.9751410000000003,
+              "bottom": 0,
+              "height": 2.124037
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": 1.2000000000000006,
+            "y": 7.834318178330288
+          },
+          "end": {
+            "x": -1.7201323633941548,
+            "y": 7.834318178330288
+          },
+          "id": "feb38193-7550-40b8-9dfb-663aa593a6df",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": [
+            {
+              "id": "4528c448-d900-4fb4-b1bf-e759d54a5d67",
+              "modelId": "window-three-pane",
+              "center": 1.431544899038724,
+              "width": 1.6399999999999997,
+              "bottom": 0.9,
+              "height": 1.1
+            }
+          ]
+        },
+        {
+          "start": {
+            "x": -1.7201323633941548,
+            "y": 7.834318178330288
+          },
+          "end": {
+            "x": -1.7201323633941548,
+            "y": 6.788867003346106
+          },
+          "id": "5aba74e7-69c9-4405-af7b-e4aa9c41c5ad",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        }
+      ],
+      "roofs": [
+        {
+          "depth": 7.141187606914574,
+          "heightOffset": 0,
+          "id": "70fb8978-eb5d-49ff-97aa-576781dc41c2",
+          "overhangEnd": 0.15,
+          "overhangPitchDegrees": 25,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 45,
+          "position": {
+            "x": -0.29756618169707727,
+            "y": 4.413724374873001
+          },
+          "rotation": 0,
+          "supportDepth": 6.841187606914573,
+          "supportPosition": {
+            "x": -0.29756618169707727,
+            "y": 4.413724374873001
+          },
+          "supportWidth": 2.9951323633941556,
+          "type": "up-and-over",
+          "width": 3.2951323633941554
+        },
+        {
+          "depth": 8.187422192185357,
+          "heightOffset": 0,
+          "id": "6f6901dc-8ab8-4bb6-aba8-8e5667548776",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 45,
+          "position": {
+            "x": -4.479956740743942,
+            "y": 4.632934787988881
+          },
+          "ridgeEndChamfer": {
+            "angleDegrees": 45,
+            "distance": 0.75
+          },
+          "rotation": 1.5737166771356796,
+          "supportDepth": 7.887422192185357,
+          "supportPosition": {
+            "x": -4.479956740743941,
+            "y": 4.632934787988881
+          },
+          "supportWidth": 4.28884871596293,
+          "type": "up-and-over",
+          "width": 4.58884871596293
+        },
+        {
+          "depth": 4.262767343311037,
+          "heightOffset": 0,
+          "id": "c8d08269-2e9b-496e-91a3-628e0d3e1585",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 45,
+          "position": {
+            "x": -3.5312602792408465,
+            "y": 1.8117474875511248
+          },
+          "rotation": 0,
+          "supportDepth": 3.962767343311037,
+          "supportPosition": {
+            "x": -3.5312602792408465,
+            "y": 1.8117474875511248
+          },
+          "supportWidth": 3.4722561950875233,
+          "type": "up-and-over",
+          "width": 3.7722561950875235
+        },
+        {
+          "depth": 7.400000024897764,
+          "heightOffset": 0,
+          "id": "868bc1ce-5dd3-443d-b776-ed9f4cf8cadf",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 45,
+          "position": {
+            "x": -6.84238877924084,
+            "y": 0.33036388960868457
+          },
+          "rotation": 0,
+          "supportDepth": 7.100000024897764,
+          "supportPosition": {
+            "x": -6.84238877924084,
+            "y": 0.33036388960868435
+          },
+          "supportWidth": 3.149999999999995,
+          "type": "up-and-over",
+          "width": 3.4499999999999957
+        }
+      ]
+    }
+  ]
+}
