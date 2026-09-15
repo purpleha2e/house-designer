@@ -34,7 +34,7 @@ test('repeated models share a draw mesh while retaining independent transforms a
     assert.equal(hits[0].object, models[i].mesh)
   }
   const version = batch.instanceMatrix.version
-  manager.update()
+  assert.equal(manager.update(), false, 'an unchanged frame skips GLB traversal and batch reconstruction')
   assert.equal(batch.instanceMatrix.version, version, 'idle/sun frames do not upload instance transforms')
   models[1].root.position.y = 4
   manager.update()
@@ -96,4 +96,15 @@ test('hidden parents, removal and cleanup release batches without disposing shar
   assert.equal(manager.group.children.length, 0)
   models.forEach(({ mesh }) => assert.equal(isBatchedModelSource(mesh), false))
   assert.equal(disposed, false)
+})
+
+test('explicit invalidation rebuilds batches after render properties change', () => {
+  const { manager, models } = fixture(2)
+  manager.update()
+  const originalBatch = manager.group.children[0]
+  models.forEach(({ mesh }) => { mesh.castShadow = true })
+  manager.invalidate()
+  assert.equal(manager.update(), true)
+  assert.notEqual(manager.group.children[0], originalBatch)
+  assert.equal((manager.group.children[0] as import('three').InstancedMesh).castShadow, true)
 })

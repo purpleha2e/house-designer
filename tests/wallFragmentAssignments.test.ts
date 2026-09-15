@@ -67,3 +67,31 @@ test('roof regions inherit the original finish but a new A finish never paints B
   assert.deepEqual(findWallFragmentAssignmentForFace(JSON.parse(JSON.stringify([left])),
     face('facade:roof-region:/roof:0:above')), left)
 })
+
+test('a moved roof boundary keeps the finish from the overlapping region only', () => {
+  const prefix = 'perimeter-wall:shared-wall:1:side:'
+  const brick = assignment(`${prefix}5.5807:6.6158:0:2.124:0:1.0351:roof-region:/roof:3:above`)
+  const interior = assignment(`${prefix}5.5807:6.6158:0:2.124:0:1.0351:roof-region:/roof:3:below`)
+  const rebuilt = face(`${prefix}5.7307:6.6158:0:2.124:0:0.8851:roof-region:/roof:3:above`)
+
+  assert.equal(findWallFragmentAssignmentForFace([brick, interior], rebuilt), brick)
+})
+
+test('a stale fragment finish does not cross into a separate wall area', () => {
+  const prefix = 'perimeter-wall:shared-wall:1:side:'
+  const stale = assignment(`${prefix}1:2:0:2.4:0:1`)
+  const rebuilt = face(`${prefix}3:4:0:2.4:0:1`)
+
+  assert.equal(findWallFragmentAssignmentForFace([stale], rebuilt), undefined)
+})
+
+test('legacy wall IDs without UV bounds retain brick on rebuilt exterior panels', () => {
+  const prefix = 'perimeter-wall:shared-wall:1:side:'
+  const brick = assignment(`${prefix}-10.0652:-8.5674:0:2.4`)
+  const opposite = { ...brick, id: 'opposite', materialId: 'interior',
+    target: { ...brick.target, side: -1 as const } }
+  for (const bounds of ['-10.0652:-9.9152:0:2.4:0:0.15', '-9.9152:-8.5674:0:2.4:0:1.3478']) {
+    assert.equal(findWallFragmentAssignmentForFace([brick, opposite], face(`${prefix}${bounds}`)), brick)
+  }
+  assert.equal(findWallFragmentAssignmentForFace([brick], face(`${prefix}-8:-7:0:2.4:0:1`)), undefined)
+})

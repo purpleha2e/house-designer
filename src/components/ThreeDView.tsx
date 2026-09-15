@@ -138,7 +138,7 @@ import {
 import { getBayRoofTopUvs, getGableChamferTopUvs } from '../roofUv'
 import { createUpAndOverEavesGeometry } from '../roofEavesGeometry'
 import { getRoofAbutmentPlanes, type RoofAbuttingWall } from '../roofAbutmentGeometry'
-import { isRoofRegionSubdivision } from '../wallEngine/wallRoofSurfacePartitions'
+import { findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
 import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, type ResolvedRoof } from '../roofJunctions'
 import { clipEavesInsideAdjoiningRoofs } from '../roofEavesClipping'
 import { createSolidRoofGeometryFromFaces, getFlippedRoofFaceProjectedUvs, splitRoofUndersideFaces, type RoofGeometries, type RoofFaceUvProjector, type RoofVertex } from '../roofSolidGeometry'
@@ -178,6 +178,7 @@ import type {
   RoomPortal,
   WallBodyOccluder,
 } from '../threeDLevelPreparation'
+import { refreshRenderedFloorOpenings } from '../threeDLevelPreparation'
 import type { RoofPlacementPreview } from './FloorplanCanvas'
 import {
   prepareRenderedFloorsInWorkers,
@@ -2605,6 +2606,15 @@ function WallEngineWallMeshes({
     wallOpeningDepthsByModelId,
     storeyGeometry,
   ])
+  // Inter-storey assembly calculation returns fresh arrays for every floor.
+  // Preserve an equivalent array so editing an opening on one storey does not
+  // restart roof clipping on every untouched storey.
+  const stableUncutFacesRef = useRef<{ key: string; value: WallEngineFace[] } | null>(null)
+  const uncutFacesKey = JSON.stringify(uncutFaces)
+  if (stableUncutFacesRef.current?.key !== uncutFacesKey) {
+    stableUncutFacesRef.current = { key: uncutFacesKey, value: uncutFaces }
+  }
+  const stableUncutFaces = stableUncutFacesRef.current.value
   const roofClipOptions = useMemo(() => createWallRoofClipOptions({
       floorElevation: elevation,
       floorId,
@@ -2627,24 +2637,33 @@ function WallEngineWallMeshes({
         }
       }),
       walls,
-      wallFaces: uncutFaces,
-    }), [elevation, floorId, rooms, wallClippingRoofs, walls, uncutFaces])
+      wallFaces: stableUncutFaces,
+    }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces])
   const [faces, setFaces] = useState<WallEngineFace[]>([])
   useEffect(() => {
     const controller = new AbortController()
-    const startedAt = performance.now()
-    emitEngineActivity({ message: 'Updating wall / roof geometry in background...', minimumVisibleMs: 700 })
-    clipWallFacesInWorker(uncutFaces, roofClipOptions, controller.signal).then((nextFaces) => {
-      if (controller.signal.aborted) return
-      setFaces(nextFaces)
-      recordEngineLog('wall-roof-clipping-complete', `${floorId}: ${Math.round(performance.now() - startedAt)}ms in worker`)
-    }).catch((error) => {
-      if (controller.signal.aborted) return
-      console.error('Wall / roof geometry update failed; retaining the previous geometry.', error)
-      emitEngineActivity({ message: 'Wall / roof update failed. Previous geometry retained.', minimumVisibleMs: 5000 })
-    })
-    return () => controller.abort()
-  }, [floorId, roofClipOptions, uncutFaces])
+    const timer = window.setTimeout(() => {
+      const startedAt = performance.now()
+      emitEngineActivity({ message: 'Updating wall / roof geometry in background...', minimumVisibleMs: 700 })
+      clipWallFacesInWorker(stableUncutFaces, roofClipOptions, controller.signal).then((nextFaces) => {
+        if (controller.signal.aborted) return
+        setFaces(nextFaces)
+        recordEngineLog('wall-roof-clipping-complete', `${floorId}: ${Math.round(performance.now() - startedAt)}ms in worker`)
+      }).catch((error) => {
+        if (controller.signal.aborted) return
+        console.error('Wall / roof geometry update failed; retaining the previous geometry.', error)
+        recordEngineLog(
+          'wall-roof-clipping-failed',
+          `${floorId}: ${error instanceof Error ? error.message : String(error)}`,
+        )
+        emitEngineActivity({ message: 'Wall / roof update failed. Previous geometry retained.', minimumVisibleMs: 5000 })
+      })
+    }, 80)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [floorId, roofClipOptions, stableUncutFaces])
   const roomSurfaceDebugFaces = useMemo(
     () =>
       ROOM_SURFACE_DEBUG_OVERLAY_ENABLED
@@ -2832,11 +2851,19 @@ function WallEngineWallMeshes({
         groupBy: 'face',
       })
       const pickTargets = new Map<number, SelectableSurface>()
+      const revealGroups = new Map<
+        WallSurfaceFragmentReference[],
+        WallSurfaceFragmentReference[] | undefined
+      >()
       const withReveals = (fragments: WallSurfaceFragmentReference[] | undefined) => {
         if (!fragments) return undefined
-        const extended = fragments.flatMap(fragment => [fragment,
+        const cached = revealGroups.get(fragments)
+        if (cached) return cached
+        const extended = fragments.filter(fragment => !hiddenRoofFaceIds.has(fragment.fragmentId)).flatMap(fragment => [fragment,
           ...(coplanarSurfaceGroups.get(fragment.fragmentId) ?? []).filter(ref => /:opening(?:-boundary)?:/.test(ref.fragmentId))])
-        return [...new Map(extended.map(ref => [`${ref.wallId}:${ref.side}:${ref.fragmentId}`, ref])).values()]
+        const result = [...new Map(extended.map(ref => [`${ref.wallId}:${ref.side}:${ref.fragmentId}`, ref])).values()]
+        revealGroups.set(fragments, result)
+        return result
       }
 
       nextPayload.pickTargets.forEach((target, materialIndex) => {
@@ -2852,7 +2879,7 @@ function WallEngineWallMeshes({
                 ? coplanarSurfaceGroups.get(target.fragmentId)
                 : withReveals(adjoiningSurfaceGroups.groups.get(
                 `${target.wallId}:${target.side}:${target.fragmentId}`,
-              )?.filter(fragment => !hiddenRoofFaceIds.has(fragment.fragmentId))),
+              )),
               coplanarFragments: coplanarSurfaceGroups.get(target.fragmentId),
               target,
             }),
@@ -3538,57 +3565,6 @@ function getWallMaterialAssignmentForSource(
   )
 }
 
-function getWallFragmentMaterialAssignmentForFace(
-  surfaceAssignments: SurfaceMaterialAssignment[],
-  face: WallEngineFace,
-  currentFaceIds?: ReadonlySet<string>,
-) {
-  if (typeof face.pickSource.side !== 'number') {
-    return undefined
-  }
-
-  const exactAssignment = surfaceAssignments.findLast(
-    (assignment) =>
-      assignment.target.type === 'wall-surface-fragment' &&
-      assignment.target.wallId === face.pickSource.wallId &&
-      (assignment.target.fragmentId === face.faceId ||
-        face.faceId.startsWith(`${assignment.target.fragmentId}:uncovered:`) ||
-        face.faceId.startsWith(`${assignment.target.fragmentId}:roof-region:`) ||
-        isRoofRegionSubdivision(face.faceId, assignment.target.fragmentId)) &&
-      (assignment.target.side === 'both' ||
-        assignment.target.side === face.pickSource.side),
-  )
-
-  if (exactAssignment) {
-    return exactAssignment
-  }
-
-  const sameSideAssignments = surfaceAssignments.filter(
-    (assignment) =>
-      assignment.target.type === 'wall-surface-fragment' &&
-      !assignment.target.fragmentId.includes(':roof-region:') &&
-      assignment.target.wallId === face.pickSource.wallId &&
-      (assignment.target.side === 'both' ||
-        assignment.target.side === face.pickSource.side),
-  )
-
-  if (sameSideAssignments.length === 1 &&
-    sameSideAssignments[0].target.type === 'wall-surface-fragment' &&
-    !currentFaceIds?.has(sameSideAssignments[0].target.fragmentId)) {
-    return sameSideAssignments[0]
-  }
-
-  return surfaceAssignments.findLast(
-    (assignment) =>
-      assignment.target.type === 'wall-surface-fragment' &&
-      assignment.target.wallId === face.pickSource.wallId &&
-      !assignment.target.fragmentId.includes(':roof-region:') &&
-      !currentFaceIds?.has(assignment.target.fragmentId) &&
-      (assignment.target.side === 'both' ||
-        assignment.target.side === face.pickSource.side),
-  )
-}
-
 function applyFragmentMaterialSources(
   faces: WallEngineFace[],
   surfaceAssignments: SurfaceMaterialAssignment[],
@@ -3596,7 +3572,7 @@ function applyFragmentMaterialSources(
   const currentFaceIds = new Set(faces.map((face) => face.faceId))
 
   return faces.map((face) => {
-    const fragmentAssignment = getWallFragmentMaterialAssignmentForFace(
+    const fragmentAssignment = findWallFragmentAssignmentForFace(
       surfaceAssignments,
       face,
       currentFaceIds,
@@ -6958,14 +6934,21 @@ function CeilingSlabSolid({
   depth,
   edges,
   shape,
+  topY,
   wireframe,
 }: {
   castsShadow: boolean
   depth: number
   edges: readonly CeilingSlabOuterEdge[]
   shape: Shape
+  topY: number
   wireframe: boolean
 }) {
+  const capMaterialRef = useRef<MeshStandardMaterial>(null!)
+  const capFootprint = useMemo(
+    () => shape.getPoints().map(point => ({ x: point.x, y: -point.y })),
+    [shape],
+  )
   const geometry = useMemo(
     () =>
       createCeilingSlabGeometry(
@@ -6993,6 +6976,7 @@ function CeilingSlabSolid({
   )
 
   useEffect(() => () => geometry.dispose(), [geometry])
+  useHorizontalSurfaceVisibility(capMaterialRef, topY, 'above', capFootprint)
 
   return (
     <mesh
@@ -7012,6 +6996,7 @@ function CeilingSlabSolid({
         roughness={0.82}
         shadowSide={DoubleSide}
         side={DoubleSide}
+        ref={capMaterialRef}
         wireframe={wireframe}
       />
       {edges.map((edge, edgeIndex) =>
@@ -7202,6 +7187,7 @@ function CeilingSlab({
                 depth={slabTop - slabBottom}
                 edges={slabOuterEdges[index]}
                 shape={slabShape}
+                topY={slabTop}
                 wireframe={wireframe}
               />
             </group>
@@ -7254,7 +7240,7 @@ function CeilingSlab({
           receiveShadow rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}
           userData={{ houseDesignerRole: 'ceiling-slab-underside' }}>
           <shapeGeometry args={[shape]} />
-          <meshStandardMaterial color="#e2e8f0" roughness={0.82} side={DoubleSide} wireframe={wireframe} />
+          <meshStandardMaterial color="#e2e8f0" roughness={0.82} side={BackSide} wireframe={wireframe} />
         </mesh>
       )) : null}
       {isSolid
@@ -10207,7 +10193,7 @@ function HipRoofMesh({
     if (rawEaves && eaves !== rawEaves) rawEaves.dispose()
     const structuralFaces = resolved.structuralFaces
     const supportPolygon = roofBoundsPolygon(resolved, resolved.support)
-    const { undersideFaces, soffitFaces } = splitRoofUndersideFaces(structuralFaces, supportPolygon)
+    const { undersideFaces, soffitFaces } = splitRoofUndersideFaces(structuralFaces, supportPolygon, resolved.faces)
     const solid = createSolidRoofGeometryFromFaces(
       faces, uvProjector, getRoofThickness(roof),
       structuralFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
@@ -10783,21 +10769,73 @@ function SelectableRoomSurfaceAreaMesh({
   )
 }
 
+type HorizontalSurfaceVisibilityEntry = {
+  footprint?: Point[]
+  surfaceRef: MutableRefObject<{ visible: boolean }>
+  visibleFrom: 'above' | 'below'
+  y: number
+}
+
+type HorizontalSurfaceVisibilityRegistry = Map<symbol, HorizontalSurfaceVisibilityEntry> & {
+  revision: number
+}
+
+const HorizontalSurfaceVisibilityContext =
+  createContext<HorizontalSurfaceVisibilityRegistry | null>(null)
+
+function updateHorizontalSurfaceVisibility(
+  { footprint, surfaceRef, visibleFrom, y }: HorizontalSurfaceVisibilityEntry,
+  cameraPosition: { x: number; y: number; z: number },
+) {
+  const surface = surfaceRef.current
+  if (!surface) return
+  const visibleSideDistance = visibleFrom === 'above'
+    ? cameraPosition.y - y
+    : y - cameraPosition.y
+  const isOutsideFootprint = footprint &&
+    !isPointInsideOrOnPolygon({ x: cameraPosition.x, y: cameraPosition.z }, footprint)
+  // Suppress edge-on exterior lines while preserving views through openings.
+  surface.visible = visibleSideDistance >= 0 &&
+    (!isOutsideFootprint || visibleSideDistance > 0.05)
+}
+
+function HorizontalSurfaceVisibilityController() {
+  const registry = useContext(HorizontalSurfaceVisibilityContext)
+  const lastCameraPosition = useRef<[number, number, number] | null>(null)
+  const lastRegistryRevision = useRef(-1)
+
+  useFrame(({ camera }) => {
+    if (!registry) return
+    const previous = lastCameraPosition.current
+    if (previous?.[0] === camera.position.x && previous[1] === camera.position.y &&
+      previous[2] === camera.position.z && lastRegistryRevision.current === registry.revision) return
+    lastRegistryRevision.current = registry.revision
+    lastCameraPosition.current = [camera.position.x, camera.position.y, camera.position.z]
+    registry.forEach(entry => updateHorizontalSurfaceVisibility(entry, camera.position))
+  })
+
+  return null
+}
+
 function useHorizontalSurfaceVisibility(
-  surfaceRef: MutableRefObject<Object3D>,
+  surfaceRef: MutableRefObject<{ visible: boolean }>,
   y: number,
   visibleFrom: 'above' | 'below',
+  footprint?: Point[],
 ) {
-  useFrame(({ camera }) => {
-    const surface = surfaceRef.current
+  const registry = useContext(HorizontalSurfaceVisibilityContext)
+  const key = useRef(Symbol('horizontal-surface-visibility'))
+  const camera = useThree(state => state.camera)
 
-    if (!surface) {
-      return
-    }
-
-    surface.visible =
-      visibleFrom === 'above' ? camera.position.y >= y : camera.position.y <= y
-  })
+  useLayoutEffect(() => {
+    if (!registry) return
+    const entry = { footprint, surfaceRef, visibleFrom, y }
+    registry.set(key.current, entry)
+    registry.revision++
+    // Async geometry and restored ceilings can mount while the camera is idle.
+    updateHorizontalSurfaceVisibility(entry, camera.position)
+    return () => { registry.delete(key.current); registry.revision++ }
+  }, [camera, footprint, registry, surfaceRef, visibleFrom, y])
 }
 
 function RoomFloorFinishMesh({
@@ -10822,8 +10860,10 @@ function RoomFloorFinishMesh({
     [openings, polygon],
   )
   const y = elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS
+  // The finish is physically above the base. A negative depth offset makes
+  // grazing-angle edges bleed through exterior walls.
 
-  useHorizontalSurfaceVisibility(meshRef, y, 'above')
+  useHorizontalSurfaceVisibility(meshRef, y, 'above', polygon)
 
   if (!material) {
     return null
@@ -10836,14 +10876,13 @@ function RoomFloorFinishMesh({
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={2}
+      userData={{ houseDesignerRole: 'room-floor-finish' }}
     >
       <shapeGeometry args={[shapes]} />
       <SurfaceMeshStandardMaterial
         assignment={assignment}
         displacementEnabled={false}
         material={material}
-        polygonOffsetFactor={-1}
-        polygonOffsetUnits={-1}
         side={FrontSide}
         wireframe={wireframe}
       />
@@ -10871,7 +10910,7 @@ function RoomFloorBaseMesh({
   )
   const y = elevation + FLOOR_BASE_VERTICAL_OFFSET_METERS
 
-  useHorizontalSurfaceVisibility(meshRef, y, 'above')
+  useHorizontalSurfaceVisibility(meshRef, y, 'above', polygon)
 
   return (
     <mesh
@@ -10880,6 +10919,7 @@ function RoomFloorBaseMesh({
       receiveShadow={shadowsEnabled}
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={1}
+      userData={{ houseDesignerRole: 'room-floor-base' }}
     >
       <shapeGeometry args={[shapes]} />
       <meshStandardMaterial
@@ -11589,8 +11629,10 @@ function RoomCeilingFinishMesh({
     [openings, visualPolygon],
   )
   const y = elevation + roomHeight - CEILING_VERTICAL_OVERLAP_METERS
+  // This surface already sits below the slab. Keep its actual depth so its
+  // edge cannot be pulled through the roof or walls at shallow viewing angles.
 
-  useHorizontalSurfaceVisibility(meshRef, y, 'below')
+  useHorizontalSurfaceVisibility(meshRef, y, 'below', visualPolygon)
 
   return (
     <mesh
@@ -11606,8 +11648,6 @@ function RoomCeilingFinishMesh({
         assignment={assignment}
         displacementEnabled={false}
         material={material}
-        polygonOffsetFactor={-1}
-        polygonOffsetUnits={-1}
         side={BackSide}
         wireframe={wireframe}
       /> : <meshStandardMaterial color="#e2e8f0" roughness={0.82} side={BackSide} wireframe={wireframe} />}
@@ -13783,7 +13823,9 @@ function ImportedModelContent({
         }
       }
     })
+    batching?.invalidate()
   }, [
+    batching,
     castsShadow,
     daylightEnabled,
     frustumCullingEnabled,
@@ -17018,6 +17060,9 @@ export function ThreeDView({
   surfaceAssignments,
 }: ThreeDViewProps) {
   const [importedModelBatching] = useState(() => new ImportedModelBatching())
+  const [horizontalSurfaceVisibilityRegistry] = useState<HorizontalSurfaceVisibilityRegistry>(
+    () => Object.assign(new Map(), { revision: 0 }),
+  )
   const sunPreviewDirectionRef = useRef<LightDirection | null>(null)
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
   const [transformMode, setTransformMode] = useState<TransformMode>('translate')
@@ -17130,7 +17175,23 @@ export function ThreeDView({
     [floors],
   )
   const roofGeometryKey = JSON.stringify(floors.map(({ id, elevation, roomHeight, walls, roofs }) =>
-    ({ id, elevation, roomHeight, walls, roofs, models: [], rooms: [] })))
+    ({
+      id,
+      elevation,
+      roomHeight,
+      roofs,
+      models: [],
+      rooms: [],
+      walls: walls.map(({ end, height, id: wallId, kind, start, thickness }) => ({
+        end,
+        height,
+        id: wallId,
+        kind,
+        openings: [],
+        start,
+        thickness,
+      })),
+    })))
   const wallClippingRoofs = useMemo(() => resolveBuildingRoofs(JSON.parse(roofGeometryKey)), [roofGeometryKey])
   const vrStartPosition = useMemo(
     () => getVrStartPosition(activeFloor),
@@ -17177,6 +17238,11 @@ export function ThreeDView({
   const [preparedFloors, setRenderedFloors] = useState<RenderedFloorData[]>(
     () => (canPrepareLevelsInWorkers ? [] : prepareRenderedFloorsSync(floors)),
   )
+  const preparedFloorCacheRef = useRef(new Map<string, {
+    data: RenderedFloorData
+    geometryKey: string
+    structureKey: string
+  }>())
   const renderedFloors = useMemo(() => floors.flatMap(floor => {
     const prepared = preparedFloors.find(candidate => candidate.floor.id === floor.id)
     return prepared ? [{ ...prepared, floor }] : []
@@ -17204,36 +17270,75 @@ export function ThreeDView({
     useState(canPrepareLevelsInWorkers)
 
   useEffect(() => {
-    const startedAt = performance.now()
     const controller = new AbortController()
+    const floorEntries = geometryFloors.map((floor) => {
+      const geometryKey = JSON.stringify(floor)
+      const structureKey = JSON.stringify({
+        ...floor,
+        walls: floor.walls.map(wall => ({ ...wall, openings: [] })),
+      })
+      const cached = preparedFloorCacheRef.current.get(floor.id)
+      const data = cached?.geometryKey === geometryKey
+        ? cached.data
+        : cached?.structureKey === structureKey
+          ? refreshRenderedFloorOpenings(cached.data, floor)
+          : undefined
+      return { data, floor, geometryKey, structureKey }
+    })
+    const floorsToPrepare = floorEntries
+      .filter(({ data }) => !data)
+      .map(({ floor }) => floor)
     const preparationTarget =
-      typeof Worker === 'undefined' || geometryFloors.length === 0
+      typeof Worker === 'undefined' || floorsToPrepare.length === 0
         ? 'main thread'
         : 'workers'
 
     setIsLevelPreparationPending(true)
-    recordEngineLog(
-      'level-preparation-start',
-      `${geometryFloors.length} floors on ${preparationTarget}`,
-    )
-    emitEngineActivity({
-      message: `Preparing ${pluralize(
-        geometryFloors.length,
-        'floor',
-      )} on ${preparationTarget}...`,
-      minimumVisibleMs: 700,
-    })
+    if (floorsToPrepare.length === 0) {
+      const nextPreparedFloors = floorEntries.map(({ data }) => data!)
+      preparedFloorCacheRef.current.clear()
+      floorEntries.forEach(({ floor, geometryKey, structureKey }, index) => {
+        preparedFloorCacheRef.current.set(floor.id, {
+          data: nextPreparedFloors[index], geometryKey, structureKey,
+        })
+      })
+      setRenderedFloors(nextPreparedFloors)
+      setIsLevelPreparationPending(false)
+      return () => controller.abort()
+    }
+    const timer = window.setTimeout(() => {
+      const startedAt = performance.now()
+      recordEngineLog(
+        'level-preparation-start',
+        `${floorsToPrepare.length}/${geometryFloors.length} changed floors on ${preparationTarget}`,
+      )
+      emitEngineActivity({
+        message: `Preparing ${pluralize(
+          floorsToPrepare.length,
+          'floor',
+        )} on ${preparationTarget}...`,
+        minimumVisibleMs: 700,
+      })
 
-    prepareRenderedFloorsInWorkers(geometryFloors, {
-      signal: controller.signal,
-    })
-      .then((preparedFloors) => {
+      prepareRenderedFloorsInWorkers(floorsToPrepare, {
+        signal: controller.signal,
+      })
+      .then((changedFloors) => {
         if (controller.signal.aborted) return
-        setRenderedFloors(preparedFloors)
+        const changedById = new Map(changedFloors.map(data => [data.floor.id, data]))
+        const nextPreparedFloors = floorEntries.map(({ data, floor }) =>
+          changedById.get(floor.id) ?? data!)
+        preparedFloorCacheRef.current.clear()
+        floorEntries.forEach(({ floor, geometryKey, structureKey }, index) => {
+          preparedFloorCacheRef.current.set(floor.id, {
+            data: nextPreparedFloors[index], geometryKey, structureKey,
+          })
+        })
+        setRenderedFloors(nextPreparedFloors)
         setIsLevelPreparationPending(false)
         recordEngineLog(
           'level-preparation-complete',
-          `${preparedFloors.length} floors in ${Math.round(
+          `${changedFloors.length}/${geometryFloors.length} changed floors in ${Math.round(
             performance.now() - startedAt,
           )}ms`,
         )
@@ -17251,8 +17356,10 @@ export function ThreeDView({
         )
         emitEngineActivity({ message: 'Floor update failed. Previous geometry retained.', minimumVisibleMs: 5000 })
       })
+    }, 80)
 
     return () => {
+      window.clearTimeout(timer)
       controller.abort()
     }
   }, [geometryFloors])
@@ -18161,6 +18268,7 @@ export function ThreeDView({
       >
         <StoreyGeometryContext.Provider value={storeyGeometry}>
         <ImportedModelBatchingContext.Provider value={importedModelBatching}>
+        <HorizontalSurfaceVisibilityContext.Provider value={horizontalSurfaceVisibilityRegistry}>
         <Canvas
           shadows={renderOptions.shadows}
           camera={{
@@ -18180,6 +18288,7 @@ export function ThreeDView({
           tabIndex={0}
         >
           <MaterialVariationVrContext.Provider value={isXrPresenting}>
+            <HorizontalSurfaceVisibilityController />
             <ImportedModelBatchRenderer />
             <WebXRViewerButton
               containerRef={threeHostRef}
@@ -18926,6 +19035,7 @@ export function ThreeDView({
             ) : null}
           </MaterialVariationVrContext.Provider>
         </Canvas>
+        </HorizontalSurfaceVisibilityContext.Provider>
         </ImportedModelBatchingContext.Provider>
         </StoreyGeometryContext.Provider>
         <div

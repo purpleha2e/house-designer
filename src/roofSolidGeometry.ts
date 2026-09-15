@@ -23,11 +23,15 @@ export type RoofGeometries = {
 export type RoofFaceUvProjector = (vertices: RoofVertex[]) => Array<[number, number]>
 
 /** Split room-side ceilings from exterior overhangs without changing their plane. */
-export function splitRoofUndersideFaces(faces: RoofVertex[][], supportPolygon: Point[]) {
+export function splitRoofUndersideFaces(
+  faces: RoofVertex[][],
+  supportPolygon: Point[],
+  visibleFaces: RoofVertex[][] = faces,
+) {
   const planes = footprintPlanes(supportPolygon)
   return {
     undersideFaces: faces.map(face => planes.reduce(clipRoofFace, face)).filter(face => face.length),
-    soffitFaces: faces.flatMap(face => subtractRoofVolume(face, planes)),
+    soffitFaces: visibleFaces.flatMap(face => subtractRoofVolume(face, planes)),
   }
 }
 
@@ -167,24 +171,42 @@ export function createSolidRoofGeometryFromFaces(
       ? `${firstKey}|${secondKey}`
       : `${secondKey}|${firstKey}`
   }
-  const boundaryEdges = new Map<
+  const boundaryEdges = (sourceFaces: RoofVertex[][]) => {
+    const edges = new Map<
     string,
     { count: number; first: RoofVertex; second: RoofVertex }
-  >()
+    >()
 
-  shellFaces.forEach((face) => {
-    face.forEach((first, index) => {
-      const second = face[(index + 1) % face.length]
-      const key = edgeKey(first, second)
-      const current = boundaryEdges.get(key)
+    sourceFaces.forEach((face) => {
+      face.forEach((first, index) => {
+        const second = face[(index + 1) % face.length]
+        const key = edgeKey(first, second)
+        const current = edges.get(key)
 
-      boundaryEdges.set(key, {
-        count: (current?.count ?? 0) + 1,
-        first,
-        second,
+        edges.set(key, {
+          count: (current?.count ?? 0) + 1,
+          first,
+          second,
+        })
       })
     })
-  })
+    return Array.from(edges.values()).filter(edge => edge.count === 1)
+  }
+  const structuralBoundary = boundaryEdges(shellFaces)
+  const pointOnEdge = (point: RoofVertex, edge: { first: RoofVertex; second: RoofVertex }) => {
+    const direction = edge.second.map((value, axis) => value - edge.first[axis])
+    const lengthSquared = direction.reduce((sum, value) => sum + value * value, 0)
+    if (lengthSquared < 1e-12) return false
+    const t = point.reduce((sum, value, axis) =>
+      sum + (value - edge.first[axis]) * direction[axis], 0) / lengthSquared
+    return t >= -1e-6 && t <= 1 + 1e-6 && Math.hypot(...point.map((value, axis) =>
+      value - edge.first[axis] - t * direction[axis])) < 1e-5
+  }
+  // Keep only visible portions of authored perimeter edges. Boolean roof cuts
+  // create new boundaries which must not become vertical tiled strips, while a
+  // fully hidden panel must not leave its original fascia floating on a wall.
+  const visibleShellEdges = boundaryEdges(faces).filter(edge => structuralBoundary.some(source =>
+    pointOnEdge(edge.first, source) && pointOnEdge(edge.second, source)))
 
   faces.forEach((face) => {
     addFace(top, face, 0, new Vector3(0, 1, 0), false, topUvProjector)
@@ -210,9 +232,7 @@ export function createSolidRoofGeometryFromFaces(
     )
   })
 
-  Array.from(boundaryEdges.values())
-    .filter((edge) => edge.count === 1)
-    .forEach(({ first, second }) => {
+  visibleShellEdges.forEach(({ first, second }) => {
       const bottomSecond: RoofVertex = [
         second[0],
         second[1] - thickness,

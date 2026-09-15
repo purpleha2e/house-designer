@@ -395,3 +395,34 @@ export function prepareRenderedFloorData(floor: FloorLevel): RenderedFloorData {
   }
 }
 
+/** Refresh opening-bearing wall references without rebuilding unchanged wall
+ * topology, room polygons, or boolean footprint unions. */
+export function refreshRenderedFloorOpenings(
+  prepared: RenderedFloorData,
+  floor: FloorLevel,
+): RenderedFloorData {
+  const wallsById = new Map(floor.walls.map(wall => [wall.id, wall]))
+  const refreshRenderedWall = (renderedWall: RenderedWall): RenderedWall => ({
+    ...renderedWall,
+    wall: wallsById.get(renderedWall.wall.id) ?? renderedWall.wall,
+  })
+  const renderedWalls = prepared.renderedWalls.map(refreshRenderedWall)
+  const renderedWallsById = new Map(renderedWalls.map(renderedWall => [renderedWall.wall.id, renderedWall]))
+
+  return {
+    ...prepared,
+    externalWallUnionWalls: prepared.externalWallUnionWalls.map(
+      wall => wallsById.get(wall.id) ?? wall,
+    ),
+    floor,
+    geometryContextWalls: prepared.geometryContextWalls.map(
+      wall => wallsById.get(wall.id) ?? wall,
+    ),
+    renderedWalls,
+    roomPortals: buildRoomPortals(floor, prepared.rooms),
+    wallBodyOccluders: prepared.wallBodyOccluders.map(occluder => ({
+      ...occluder,
+      renderedWall: renderedWallsById.get(occluder.wallId) ?? occluder.renderedWall,
+    })),
+  }
+}

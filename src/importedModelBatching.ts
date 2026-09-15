@@ -6,6 +6,7 @@ export const isBatchedModelSource = (object: Object3D) => batchedSources.has(obj
 
 type Member = { mesh: Mesh; modelId: string }
 type Batch = { mesh: InstancedMesh; members: Member[]; capacity: number }
+type RootSnapshot = { matrix: number[]; visible: boolean }
 
 function visibleInHierarchy(object: Object3D) {
   for (let current: Object3D | null = object; current; current = current.parent) {
@@ -48,6 +49,8 @@ export class ImportedModelBatching {
   private hidden = new Set<Mesh>()
   private matrix = new Matrix4()
   private reflection = new Matrix4().makeScale(-1, 1, 1)
+  private rootSnapshots = new Map<Object3D, RootSnapshot>()
+  private dirty = true
 
   constructor() {
     this.group.name = 'Imported model render batches'
@@ -56,9 +59,11 @@ export class ImportedModelBatching {
 
   register(root: Object3D, modelId: string) {
     this.roots.set(root, modelId)
+    this.dirty = true
     root.userData.houseDesignerBatchModelId = modelId
     return () => {
       this.roots.delete(root)
+      this.rootSnapshots.delete(root)
       delete root.userData.houseDesignerBatchModelId
       // Unmount/asset replacement must release all references to the old asset.
       this.reset()
@@ -80,9 +85,28 @@ export class ImportedModelBatching {
       batch.mesh.dispose() // Shared GLTF geometry and materials are not owned here.
     }
     this.batches.clear()
+    this.rootSnapshots.clear()
+    this.dirty = true
+  }
+
+  invalidate() {
+    this.dirty = true
   }
 
   update() {
+    let changed = this.dirty || this.rootSnapshots.size !== this.roots.size
+    for (const root of this.roots.keys()) {
+      root.updateWorldMatrix(true, false)
+      const visible = Boolean(root.parent) && visibleInHierarchy(root)
+      const previous = this.rootSnapshots.get(root)
+      if (!previous || previous.visible !== visible ||
+        root.matrixWorld.elements.some((value, index) => value !== previous.matrix[index])) {
+        changed = true
+        this.rootSnapshots.set(root, { matrix: [...root.matrixWorld.elements], visible })
+      }
+    }
+    if (!changed) return false
+    this.dirty = false
     this.restoreSources()
     const groups = new Map<string, Member[]>()
     for (const [root, modelId] of this.roots) {
@@ -149,5 +173,6 @@ export class ImportedModelBatching {
       batch.mesh.dispose()
       this.batches.delete(key)
     }
+    return true
   }
 }

@@ -45,6 +45,26 @@ test('roof underside finish stops at the support while exterior overhang becomes
     'interior material cannot reach the exterior overhang')
 })
 
+test('roof shell excludes an authored perimeter once the visible roof no longer reaches it', () => {
+  const structuralFace = [[0, 1, 0], [2, 1, 0], [2, 1, 2], [0, 1, 2]] as [number, number, number][]
+  const visibleFace = [[0, 1, 0], [1, 1, 0], [1, 1, 2], [0, 1, 2]] as [number, number, number][]
+  const geometry = createSolidRoofGeometryFromFaces([visibleFace], undefined, 0.2, [structuralFace])
+  const positions = geometry.shell.getAttribute('position')
+  for (let index = 0; index < positions.count; index++) {
+    assert.ok(positions.getX(index) <= 1 + 1e-8, 'a fully concealed fascia must not remain on the old perimeter')
+  }
+  Object.values(geometry).forEach(part => part.dispose())
+})
+
+test('soffit follows the visible roof while the room-side underside remains structural', () => {
+  const structuralFace = [[0, 1, 0], [2, 1, 0], [2, 1, 2], [0, 1, 2]] as [number, number, number][]
+  const visibleFace = [[0, 1, 0], [1, 1, 0], [1, 1, 2], [0, 1, 2]] as [number, number, number][]
+  const support = [{ x: 0.25, y: 0.25 }, { x: 0.75, y: 0.25 }, { x: 0.75, y: 1.75 }, { x: 0.25, y: 1.75 }]
+  const split = splitRoofUndersideFaces([structuralFace], support, [visibleFace])
+  assert.ok(split.undersideFaces.some(face => face.some(([x]) => x >= 0.75)), 'the interior ceiling keeps its structural coverage')
+  assert.ok(split.soffitFaces.every(face => face.every(([x]) => x <= 1 + 1e-8)), 'concealed roof cannot leave a shadow-casting soffit')
+})
+
 test('Red House junction has no extruded cut edge and a continuous underside at the former strip', () => {
   const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roof-junctions/red_house_material_regions.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
   const roofs = resolveBuildingRoofs(floors).map(r => r.resolved)

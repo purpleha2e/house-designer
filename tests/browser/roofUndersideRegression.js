@@ -5,7 +5,7 @@ export async function checkRoofUnderside() {
   const s = window.roofWallScene(), canvas = s.gl.domElement
   const original = structuredClone(window.regressionAssignments)
   const camera = { position: s.camera.position.clone(), quaternion: s.camera.quaternion.clone() }
-  const wait = () => new Promise(resolve => setTimeout(resolve, 350))
+  const wait = () => new Promise(resolve => setTimeout(resolve, 1000))
   const roofId = 'b490e12e-e2cc-4509-801c-33d0e68a1aa2'
   const find = role => {
     let mesh
@@ -22,10 +22,13 @@ export async function checkRoofUnderside() {
     return structuredClone(window.regressionSurface)
   }
   try {
-    const before = { top: find('roof-top').material.color.getHexString(), underside: find('roof-underside').material.color.getHexString(),
-      soffit: find('roof-soffit').material.color.getHexString(), map: find('roof-top').material.map?.uuid }
     const selection = await click([3.4, 4.3, 6], [3.4, 5.5, 6])
     if (selection?.type !== 'roof' || selection.roofId !== roofId || selection.part !== 'underside') throw new Error(`Wrong underside selection: ${JSON.stringify(selection)}`)
+    const baseline = replaceRoofMaterialAssignment(original, selection, null)
+    window.updateRegressionAssignments(JSON.parse(JSON.stringify(baseline))); await wait()
+    const before = { top: find('roof-top').material.color.getHexString(), underside: find('roof-underside').material.color.getHexString(),
+      soffit: find('roof-soffit').material.color.getHexString(), map: find('roof-top').material.map?.uuid }
+    if (!find('roof-soffit').castShadow) throw new Error('Visible roof overhangs must cast shadows from their soffit geometry')
     const highlight = find('roof-underside-highlight')
     if (highlight.geometry !== find('roof-underside').geometry ||
       highlight.material.color.getHexString() !== '3b82f6' ||
@@ -33,7 +36,7 @@ export async function checkRoofUnderside() {
       highlight.material.depthWrite || !highlight.material.transparent) {
       throw new Error('Underside selection must highlight its actual panels in blue, visible only from below')
     }
-    const painted = replaceRoofMaterialAssignment(original, selection, { id: 'underside-regression', materialId: 'dulux-blush-matt', customColor: '#e1dfca' })
+    const painted = replaceRoofMaterialAssignment(baseline, selection, { id: 'underside-regression', materialId: 'dulux-blush-matt', customColor: '#e1dfca' })
     window.updateRegressionAssignments(JSON.parse(JSON.stringify(painted))); await wait()
     const after = { top: find('roof-top').material.color.getHexString(), underside: find('roof-underside').material.color.getHexString(),
       soffit: find('roof-soffit').material.color.getHexString(), map: find('roof-top').material.map?.uuid }
