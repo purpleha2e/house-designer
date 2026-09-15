@@ -95,3 +95,17 @@ test('legacy wall IDs without UV bounds retain brick on rebuilt exterior panels'
   }
   assert.equal(findWallFragmentAssignmentForFace([brick], face(`${prefix}-8:-7:0:2.4:0:1`)), undefined)
 })
+
+test('rebuilt junction caps inherit the facade finish in the same roof region', () => {
+  const prefix = 'perimeter-wall:shared-wall:1:side:'
+  const oldFacade = `${prefix}1:3:0:2.4:roof-region:/roof:0:above`
+  const newFacade = `${prefix}1.1:3:0:2.4:roof-region:/roof:0:above`
+  const brick = { ...assignment(oldFacade), materialId: 'brick' }
+  const interior = assignment(`${prefix}1:3:0:2.4:roof-region:/roof:0:below`)
+  const cap = { ...face('top:23:roof-boundary-cap:19:1:0:0:roof-region:/roof:0:above'),
+    materialSource: { wallId: 'shared-wall', side: 1 as const, fragmentId: newFacade } }
+  assert.equal(findWallFragmentAssignmentForFace([brick, interior], cap), brick)
+  assert.equal(findWallFragmentAssignmentForFace([interior], cap), undefined)
+  const explicit = assignment(cap.faceId)
+  assert.equal(findWallFragmentAssignmentForFace([brick, explicit], cap), explicit)
+})

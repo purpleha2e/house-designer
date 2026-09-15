@@ -9,20 +9,29 @@ import springfield from '../../springfield_13.json'
 import '../../src/App.css'
 import { loadPortalCatalog } from '../../src/portalCatalog'
 import { registerRuntimeSurfaceMaterials } from '../../src/materials/materialCatalog'
+import { modelsById, registerRuntimeModels, type ModelDefinition } from '../../src/models/modelLibrary'
+import { normalizeFloor } from '../../src/modelPlacement'
 import type { FloorLevel, SelectableSurface, SurfaceMaterialAssignment } from '../../src/types'
-
-if (new URLSearchParams(location.search).has('materials')) {
-  registerRuntimeSurfaceMaterials((await loadPortalCatalog()).materials)
-}
 
 const noop = () => {}
 const searchParams = new URLSearchParams(location.search)
 const isSpringfield = searchParams.has('springfield')
 const isRoofTests = searchParams.has('roof-tests')
 const savedProject = isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+// Match the editor's load path: model definitions determine doorway reveals
+// and therefore the solid boundaries used when closing roof junctions.
+if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
+  registerRuntimeModels(savedProject.modelDefinitions as unknown as ModelDefinition[])
+}
+if (searchParams.has('materials')) {
+  const catalog = await loadPortalCatalog()
+  registerRuntimeSurfaceMaterials(catalog.materials)
+  registerRuntimeModels(catalog.models)
+}
 const groundOnly = searchParams.has('ground')
 const showPreview = searchParams.has('preview')
-const sourceFloors = groundOnly ? [savedProject.floors[0]] : savedProject.floors
+const sourceFloors = (groundOnly ? [savedProject.floors[0]] : savedProject.floors)
+  .map(floor => normalizeFloor(floor as unknown as FloorLevel, modelsById))
 const previewSource = sourceFloors[0].roofs?.[0]
 const floors = showPreview && previewSource
   ? sourceFloors.map((floor, index) => index === 0 ? { ...floor, roofs: [] } : floor)

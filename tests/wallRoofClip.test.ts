@@ -85,6 +85,20 @@ test('distant downward wall boundaries do not fragment an unrelated roof cap', (
   assert.deepEqual(caps([...base, ...distant]), caps(base))
 })
 
+test('a zero-depth doorway reveal cannot cut a remote vertical roof closure', () => {
+  const settings = options(() => 4, 1, 3)
+  settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)
+  const reveal: WallMeshFace = { ...topFace(), kind: 'cap', normal: [0, -1, 0],
+    faceId: 'remote-door:top-reveal',
+    vertices: [[1, 1.8, 10], [1, 1.8, 12], [1, 1.8, 12], [1, 1.8, 10]]
+      .map(position => ({ position, uv: [0, 0] })) as WallMeshFace['vertices'] }
+  const caps = (faces: WallMeshFace[]) => clipWallFacesToRoofUndersides(faces, settings)
+    .filter(face => face.faceId.includes(':roof-boundary-cap:'))
+  const expected = caps([topFace()])
+  assert.ok(expected.length > 0)
+  assert.deepEqual(caps([topFace(), reveal]), expected)
+})
+
 test('resolved roof cuts close the full thickness of an upper wall with a sloping cap', () => {
   const settings = options((x, z) => 3.2 + x * 0.5 + z * 0.2)
   settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)
@@ -132,6 +146,7 @@ test('a vertical junction closure inherits the touching facade side and UV frame
     .filter(f=>f.faceId.includes(':roof-boundary-cap:')&&f.normal[0]>0.99)
   assert.ok(caps.length > 0)
   assert.ok(caps.every(f=>f.wallId==='facade'&&f.pickSource.side===1&&f.materialSource.wallId==='facade'))
+  assert.ok(caps.every(f=>f.materialSource.fragmentId==='facade'))
   assert.ok(caps.every(f=>f.vertices.every(v=>Math.abs(v.uv[0]-(v.position[2]*2+10))<1e-7&&Math.abs(v.uv[1]-v.position[1]-2.6)<1e-7)))
 })
 

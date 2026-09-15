@@ -1,5 +1,5 @@
 {
-  "activeFloorId": "1304e673-54cf-488a-8188-7f9d2b444dd8",
+  "activeFloorId": "4720d5eb-b94e-40c7-a4e1-5dc3ed6665cc",
   "floors": [
     {
       "id": "4720d5eb-b94e-40c7-a4e1-5dc3ed6665cc",
@@ -209,24 +209,6 @@
             "offset": 1.6
           },
           "wallOpeningBottom": 0.8213957551907631
-        },
-        {
-          "flipped": false,
-          "id": "f523e966-c1b6-4135-af7d-2349ac97dbcb",
-          "mirrored": false,
-          "modelId": "panel-interior-door-closed",
-          "position": {
-            "x": -8.417388558481694,
-            "y": -1.09463602489775
-          },
-          "rotation": -1.5707963267948966,
-          "scale": 1,
-          "widthScale": 1,
-          "depthScale": 1,
-          "wallAttachment": {
-            "wallId": "7208f1a6-79ff-4809-b4f5-09b04b6538f3",
-            "offset": 0.9250000000000002
-          }
         },
         {
           "flipped": false,
@@ -458,6 +440,24 @@
           "wallAttachment": {
             "wallId": "3ef40461-cbfe-4812-a72e-a6aff6217327",
             "offset": 4.463867003346104
+          }
+        },
+        {
+          "flipped": false,
+          "id": "5be4e882-1d68-41dd-ab64-3c000deb1a3a",
+          "mirrored": false,
+          "modelId": "portal-model-4f9dbddeb700dac3cbcb663dd2f540bf",
+          "position": {
+            "x": -8.417388558481694,
+            "y": -0.8946360248977502
+          },
+          "rotation": -1.5707963267948966,
+          "scale": 1,
+          "widthScale": 1,
+          "depthScale": 1,
+          "wallAttachment": {
+            "wallId": "7208f1a6-79ff-4809-b4f5-09b04b6538f3",
+            "offset": 0.7250000000000002
           }
         }
       ],
@@ -956,12 +956,12 @@
           "height": 2.4,
           "openings": [
             {
-              "id": "f523e966-c1b6-4135-af7d-2349ac97dbcb",
-              "modelId": "panel-interior-door-closed",
-              "center": 0.9250000000000002,
-              "width": 0.975141,
+              "id": "5be4e882-1d68-41dd-ab64-3c000deb1a3a",
+              "modelId": "portal-model-4f9dbddeb700dac3cbcb663dd2f540bf",
+              "center": 0.7250000000000001,
+              "width": 0.9751408398151397,
               "bottom": 0,
-              "height": 2.124037
+              "height": 2.124036781839095
             }
           ]
         },
@@ -1803,7 +1803,7 @@
       "objectType": "interior-door",
       "previewUrl": "/manufacturer-assets/house-designer/models/4f9dbddeb700dac3cbcb663dd2f540bf/preview.png",
       "shape": "box",
-      "sourceUrl": "/manufacturer-assets/house-designer/models/4f9dbddeb700dac3cbcb663dd2f540bf/model.glb",
+      "sourceUrl": "/manufacturer-assets/house-designer/models/4f9dbddeb700dac3cbcb663dd2f540bf/processed/model.glb",
       "wallMount": "interior-door",
       "width": 0.9751408398151398
     },
@@ -11000,15 +11000,15 @@
   "threeDView": {
     "camera": {
       "position": {
-        "x": -16.92766839599374,
-        "y": 6.829729712575529,
-        "z": 22.44644945413666
+        "x": -12.4622833719599,
+        "y": 1.6541892607183935,
+        "z": -2.69911721469947
       },
       "quaternion": {
-        "w": 0.9386129314154376,
-        "x": -0.06005677664037431,
-        "y": -0.33901095584012564,
-        "z": -0.021691481730202977
+        "w": -0.527572007422208,
+        "x": 0.04482485061615254,
+        "y": 0.8452813518424315,
+        "z": 0.07181884139397482
       }
     },
     "floorViewId": "all"
@@ -11017,8 +11017,8 @@
     "viewportsByFloorId": {
       "4720d5eb-b94e-40c7-a4e1-5dc3ed6665cc": {
         "scale": 0.93312,
-        "x": 797.3780059539503,
-        "y": 435.185439439814
+        "x": 659.3780059539503,
+        "y": 347.185439439814
       },
       "1304e673-54cf-488a-8188-7f9d2b444dd8": {
         "scale": 0.648,

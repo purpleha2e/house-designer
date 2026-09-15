@@ -83,6 +83,17 @@ test('surface regions survive the worker transport and roof list reordering', ()
   assert.deepEqual(clipWallFacesToRoofUndersides([inside], options), [inside], 'the opposite wall finish is unaffected')
 })
 
+test('junction material inheritance follows the facade above and below roof contacts', () => {
+  const cap = { ...face, faceId: 'top:23:roof-boundary-cap:19:1:0:0',
+    materialSource: { ...face.materialSource, fragmentId: face.faceId } }
+  const parts = clipWallFacesToRoofUndersides([cap], options)
+  assert.ok(parts.some(part => part.faceId.includes(':above')))
+  assert.ok(parts.some(part => part.faceId.includes(':below')))
+  for (const part of parts) {
+    assert.equal(part.materialSource.fragmentId, part.faceId.replace(cap.faceId, face.faceId))
+  }
+})
+
 test('a roof ridge does not split the connected wall around a doorway', () => {
   const rectangle = (id: string, left: number, right: number, bottom: number, top: number): WallMeshFace => ({
     ...face, faceId: id,

@@ -4,9 +4,9 @@ import { isRoofRegionSubdivision } from './wallEngine/wallRoofSurfacePartitions.
 
 export function findWallFragmentAssignmentForFace(
   surfaceAssignments: SurfaceMaterialAssignment[],
-  face: Pick<WallMeshFace, 'faceId' | 'pickSource'>,
+  face: Pick<WallMeshFace, 'faceId' | 'pickSource'> & Partial<Pick<WallMeshFace, 'materialSource'>>,
   currentFaceIds?: ReadonlySet<string>,
-) {
+): SurfaceMaterialAssignment | undefined {
   if (typeof face.pickSource.side !== 'number') {
     return undefined
   }
@@ -23,6 +23,18 @@ export function findWallFragmentAssignmentForFace(
         assignment.target.side === face.pickSource.side),
   )
   if (exactAssignment) return exactAssignment
+
+  // Rebuilt roof caps have IDs derived from triangulation and cutter order.
+  // If their own saved finish no longer matches, retain the touching facade's
+  // fragment finish instead of falling back to an unrelated whole-wall paint.
+  const inheritedSource = face.materialSource
+  if (inheritedSource?.fragmentId && inheritedSource.fragmentId !== face.faceId) {
+    const inherited = findWallFragmentAssignmentForFace(surfaceAssignments, {
+      faceId: inheritedSource.fragmentId,
+      pickSource: inheritedSource,
+    }, currentFaceIds)
+    if (inherited) return inherited
+  }
 
   const faceBounds = parseWallSideFragmentBounds(face.faceId)
   if (!faceBounds) return undefined

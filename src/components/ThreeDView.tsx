@@ -90,6 +90,7 @@ import { surfaceMaterialsById } from '../materials/materialCatalog'
 import { ImportedModelBatching, isBatchedModelSource } from '../importedModelBatching'
 import { releaseLightShadowResources } from '../lightShadowResources'
 import { SunShadowCache } from '../sunShadowCache'
+import { configureAmbientOcclusionPass } from '../ambientOcclusionResources'
 import {
   getModelAssetUrl,
   modelsById,
@@ -14515,6 +14516,9 @@ function SunShadowBlockerFilter() {
       renderScene,
       renderCamera,
     ) => {
+      // Postprocessing may temporarily hide opaque objects. Honour a request
+      // to reuse shadow maps before inspecting that temporary scene state.
+      if (!shadowMap.enabled || (!shadowMap.autoUpdate && !shadowMap.needsUpdate)) return
       const blockers: Object3D[] = []
 
       renderScene.traverse((object) => {
@@ -19022,6 +19026,7 @@ export function ThreeDView({
                 resolutionScale={ambientOcclusionSettings.resolutionScale}
               >
                 <N8AO
+                  ref={configureAmbientOcclusionPass}
                   aoRadius={0.28}
                   distanceFalloff={1}
                   intensity={renderOptions.ambientOcclusionIntensity}

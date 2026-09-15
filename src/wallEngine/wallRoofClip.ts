@@ -190,7 +190,8 @@ function assignCoplanarCapSource(cap: WallMeshFace, faces: WallMeshFace[]): Wall
   const vertices = b && c ? cap.vertices.map(v => ({ ...v, uv: a.uv.map((uv, i) => uv +
     (tangent(v.position) - tangent(a.position)) / (tangent(b.position) - tangent(a.position)) * (b.uv[i] - a.uv[i]) +
     (v.position[1] - a.position[1]) / (c.position[1] - a.position[1]) * (c.uv[i] - a.uv[i])) as [number, number] })) as WallMeshFace['vertices'] : cap.vertices
-  return { ...cap, wallId: anchor.wallId, materialSource: anchor.materialSource,
+  return { ...cap, wallId: anchor.wallId,
+    materialSource: { ...anchor.materialSource, fragmentId: anchor.faceId },
     pickSource: anchor.pickSource, uvSource: anchor.uvSource, roomSignature: anchor.roomSignature, vertices }
 }
 
@@ -221,7 +222,10 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
       { ...a, position: [a.position[0], floorElevation, a.position[2]] as [number, number, number] }]
   }
   const upward = faces.filter((face) => face.normal[1] > 0.99)
-  const downward = faces.filter((face) => face.normal[1] < -0.99).map((face) => ({
+  // Flush-mounted models can leave a zero-depth lintel. Its projected edges
+  // describe an unbounded line, not an opening footprint, and would cut remote
+  // coplanar closures all the way down to the lintel height.
+  const downward = faces.filter((face) => face.normal[1] < -0.99 && hasArea(face.vertices)).map((face) => ({
     height: face.vertices[0].position[1],
     planes: [...footprintPlanes(face.vertices.map(({ position: [x, , y] }) => ({ x, y }))),
       ([, y]: [number, number, number]) => face.vertices[0].position[1] + floorElevation - y],
@@ -302,7 +306,7 @@ function buildRoofCutCaps(faces: WallMeshFace[], floorElevation: number, volumes
   const world = (face: WallMeshFace) => face.vertices.map((v): WallMeshVertex => ({
     ...v, position: [v.position[0], v.position[1] + floorElevation, v.position[2]],
   }))
-  const downward = faces.filter((face) => face.normal[1] < -0.99).map((face) => {
+  const downward = faces.filter((face) => face.normal[1] < -0.99 && hasArea(face.vertices)).map((face) => {
     const height = face.vertices[0].position[1] + floorElevation
     return { height, planes: [...footprintPlanes(face.vertices.map(({ position: [x, , y] }) => ({ x, y }))),
       ([, y]: [number, number, number]) => height - y] }

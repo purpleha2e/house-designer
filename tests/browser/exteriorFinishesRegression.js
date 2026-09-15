@@ -52,3 +52,19 @@ export async function checkExteriorFinishes() {
     state.invalidate()
   }
 }
+
+// Older saves (and rebuilt cutters) may have no matching cap-specific finish.
+// They must inherit brick from the adjoining exterior fragment on both ends.
+export async function checkInheritedJunctionFinishes() {
+  await checkExteriorFinishes()
+  const original = structuredClone(window.regressionAssignments)
+  try {
+    window.updateRegressionAssignments(JSON.parse(JSON.stringify(original.filter(
+      assignment => !assignment.target.fragmentId?.includes(':roof-boundary-cap:'),
+    ))))
+    await new Promise(resolve => setTimeout(resolve, 400))
+    return await checkExteriorFinishes()
+  } finally {
+    window.updateRegressionAssignments(original)
+  }
+}

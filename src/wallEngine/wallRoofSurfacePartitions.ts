@@ -155,6 +155,11 @@ export function partitionWallFacesAtRoofs(
       // behind the roof. Disconnected A regions remain separate components.
       return [{ ...face, roofSurfaceRegion: selectionRegion(region),
         faceId: `${face.faceId}:roof-region:${region}`,
+        // A junction cap inherits the facade fragment in this roof region,
+        // not the independently painted interior below the roof contact.
+        materialSource: face.materialSource.fragmentId
+          ? { ...face.materialSource, fragmentId: `${face.materialSource.fragmentId}:roof-region:${region}` }
+          : face.materialSource,
         vertices: [...triangle, triangle[2]] as WallMeshFace['vertices'] }]
     }))
   })
