@@ -3,7 +3,7 @@ import type { Point, Wall } from './types.ts'
 import { clipWallFacesToRoofUndersides, type ClipPlane } from './wallEngine/wallRoofClip.ts'
 import type { WallMeshFace } from './wallEngine/wallMesh.ts'
 
-export type RoofAbuttingWall = { wall: Wall; elevation: number }
+export type RoofAbuttingWall = { wall: Wall; elevation: number; floorId?: string }
 
 export function wallOverlapsRoofHeight({ wall, elevation }: RoofAbuttingWall, minY: number, maxY: number) {
   return elevation <= maxY + 0.000001 && elevation + wall.height >= minY - 0.000001
@@ -30,8 +30,37 @@ export function clipRoofGeometryAtAbuttingWalls(
   roofCenter: Point,
 ) {
   if (!walls.length) return geometry
-  const volumes = getRoofAbutmentPlanes(walls, roofCenter).map((plane) => ({
-    planes: [(point: [number, number, number]) => plane(toWorld(point))],
+  return clipRoofGeometryByVolumes(geometry, getRoofAbutmentPlanes(walls, roofCenter).map(plane => [plane]), toWorld)
+}
+
+// Keep the facade continuous across openings and collinear wall sections, but
+// stop trimming at its actual ends (including the corner's half thickness).
+export function getRoofAbutmentSpanPlanes(abutment: RoofAbuttingWall, walls: RoofAbuttingWall[]): ClipPlane[] {
+  const { wall, elevation } = abutment
+  const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
+  const ux = (wall.end.x - wall.start.x) / length
+  const uz = (wall.end.y - wall.start.y) / length
+  const along = (point: Point) => (point.x - wall.start.x) * ux + (point.y - wall.start.y) * uz
+  const across = (point: Point) => (point.x - wall.start.x) * -uz + (point.y - wall.start.y) * ux
+  const spans = walls.filter(candidate => Math.abs(candidate.elevation - elevation) < 1e-6 &&
+    Math.abs(across(candidate.wall.start)) < 1e-6 && Math.abs(across(candidate.wall.end)) < 1e-6)
+    .map(({ wall: candidate }) => ({
+      min: Math.min(along(candidate.start), along(candidate.end)) - candidate.thickness / 2,
+      max: Math.max(along(candidate.start), along(candidate.end)) + candidate.thickness / 2,
+    }))
+  const min = Math.min(-wall.thickness / 2, ...spans.map(span => span.min))
+  const max = Math.max(length + wall.thickness / 2, ...spans.map(span => span.max))
+  return [([x, , z]) => along({ x, y: z }) - min, ([x, , z]) => max - along({ x, y: z })]
+}
+
+export function clipRoofGeometryByVolumes(
+  geometry: BufferGeometry,
+  worldVolumes: ClipPlane[][],
+  toWorld: (point: [number, number, number]) => [number, number, number],
+) {
+  if (!worldVolumes.length) return geometry
+  const volumes = worldVolumes.map(planes => ({
+    planes: planes.map(plane => (point: [number, number, number]) => plane(toWorld(point))),
     protectedFootprints: [], excludedWallIds: new Set<string>(), clipSides: true,
   }))
   const position = geometry.getAttribute('position')

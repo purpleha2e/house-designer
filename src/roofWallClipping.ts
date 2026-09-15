@@ -1,4 +1,5 @@
 import type { Point, Wall } from './types.ts'
+import type { WallMeshFace } from './wallEngine/wallMesh.ts'
 import { createWallRoofSurfaceDividers } from './wallEngine/wallRoofSurfacePartitions.ts'
 
 import { footprintPlanes, roofFacePlanes, type ClipPlane, type WallRoofClipVolume } from './wallEngine/wallRoofClip.ts'
@@ -13,14 +14,24 @@ export type WallClippingRoof = {
 }
 
 export function createWallRoofClipOptions({
-  floorElevation, floorId, isInsideRoom, roofs, walls,
+  floorElevation, floorId, isInsideRoom, roofs, walls, wallFaces,
 }: {
   floorElevation: number
   floorId: string
   isInsideRoom?: (point: Point) => boolean
   roofs: WallClippingRoof[]
   walls: Wall[]
+  wallFaces?: WallMeshFace[]
 }) {
+  const wallBounds = new Map(walls.map(wall => [wall.id, { bottom: 0, top: wall.height }]))
+  for (const face of wallFaces ?? []) {
+    const bounds = wallBounds.get(face.wallId)
+    if (!bounds) continue
+    for (const vertex of face.vertices) {
+      bounds.bottom = Math.min(bounds.bottom, vertex.position[1])
+      bounds.top = Math.max(bounds.top, vertex.position[1])
+    }
+  }
   const volumes: WallRoofClipVolume[] = roofs.flatMap((roof) => {
     const abuttingWalls = walls.filter((wall) =>
       isRoofAbuttingWall({ isInsideRoom, supportPolygon: roof.supportPolygon, wall }))
@@ -62,7 +73,7 @@ export function createWallRoofClipOptions({
       // meet a roof on only part of its length, or at a slightly angled mount,
       // without qualifying for the whole-wall geometry clipping exemption.
       walls.filter(wall => wall.kind === 'external'),
-      floorElevation)
+      floorElevation, wallBounds, roof.supportPolygon)
     : [])
   return { floorElevation, volumes, surfaceDividers }
 }

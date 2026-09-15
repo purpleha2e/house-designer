@@ -83,6 +83,7 @@ type LeftToolRailProps = {
   onRoofModeChange: (isRoofMode: boolean) => void
   onSelectFloor: (floorId: string) => void
   onSlabThicknessChange: (thickness: number) => void
+  onCeilingModeChange: (mode: NonNullable<FloorLevel['ceilingMode']>) => void
   onToggleAddWall: () => void
   onUndo: () => void
   onWallHeightChange: (height: number) => void
@@ -291,6 +292,7 @@ export function LeftToolRail({
   onRoofModeChange,
   onSelectFloor,
   onSlabThicknessChange,
+  onCeilingModeChange,
   onToggleAddWall,
   onUndo,
   onWallHeightChange,
@@ -435,7 +437,7 @@ export function LeftToolRail({
         : selectedSurface?.type === 'portal-floor'
           ? 'Doorway floor selected'
           : selectedSurface?.type === 'roof'
-            ? 'Roof selected'
+            ? selectedSurface.part === 'underside' ? 'Roof underside selected' : 'Roof selected'
         : selectedSurface?.type === 'wall-face' ||
             selectedSurface?.type === 'wall-surface-fragment'
           ? 'Wall selected'
@@ -647,7 +649,7 @@ export function LeftToolRail({
                 </select>
               </label>
               <label className="flyout-field">
-                <span>Slab thickness</span>
+                <span>Intermediate floor depth</span>
                 <div>
                   <input
                     type="text"
@@ -678,6 +680,16 @@ export function LeftToolRail({
                   <span>m</span>
                 </div>
               </label>
+              {activeFloor && !floors.some(floor => floor.elevation > activeFloor.elevation) ? (
+                <label className="flyout-select">
+                  <span>Ceiling under roof</span>
+                  <select value={activeFloor.ceilingMode ?? 'horizontal'}
+                    onChange={event => onCeilingModeChange(event.target.value as 'horizontal' | 'open')}>
+                    <option value="horizontal">Horizontal ceiling</option>
+                    <option value="open">Open to roof</option>
+                  </select>
+                </label>
+              ) : null}
               <button type="button" onClick={onAddFloor}>
                 Add floor from external walls
               </button>

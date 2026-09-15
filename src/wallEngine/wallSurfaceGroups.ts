@@ -140,5 +140,29 @@ export function buildCoplanarWallSurfaceGroups(faces: WallMeshFace[]) {
     })
   })
 
+  const reveals = faces.filter(face => face.kind === 'cap' && /:opening(?:-boundary)?:/.test(face.faceId))
+  const extendedGroups = new Map<WallSurfaceFragmentReference[], WallSurfaceFragmentReference[]>()
+  for (const [id, group] of groupsByFaceId) {
+    let extended = extendedGroups.get(group)
+    if (!extended) {
+      const members = surfaceFaces.filter(f => group.some(ref => ref.fragmentId === f.face.faceId))
+      const attached = reveals.filter(reveal => members.some(member => {
+        if (reveal.pickSource.wallId !== member.face.pickSource.wallId || reveal.pickSource.side !== member.face.pickSource.side) return false
+        const edge = reveal.vertices.filter(v => Math.abs(v.position[0] * member.normalX +
+          v.position[2] * member.normalZ - member.planeOffset) < PLANE_TOLERANCE_METERS)
+        if (edge.length < 2) return false
+        const tangents = edge.map(v => -member.normalZ * v.position[0] + member.normalX * v.position[2])
+        const heights = edge.map(v => v.position[1])
+        const t = Math.min(member.maxTangent, Math.max(...tangents)) - Math.max(member.minTangent, Math.min(...tangents))
+        const y = Math.min(member.maxHeight, Math.max(...heights)) - Math.max(member.minHeight, Math.min(...heights))
+        return t >= -CONTACT_TOLERANCE_METERS && y >= -CONTACT_TOLERANCE_METERS &&
+          (t > CONTACT_TOLERANCE_METERS || y > CONTACT_TOLERANCE_METERS)
+      })).map(getFragmentReference)
+      extended = [...group, ...attached].filter((ref, i, all) => all.findIndex(other =>
+        other.fragmentId === ref.fragmentId && other.wallId === ref.wallId && other.side === ref.side) === i).sort(compareReferences)
+      extendedGroups.set(group, extended)
+    }
+    groupsByFaceId.set(id, extended)
+  }
   return groupsByFaceId
 }

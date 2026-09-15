@@ -28,6 +28,8 @@ const floors = showPreview && previewSource
   ? sourceFloors.map((floor, index) => index === 0 ? { ...floor, roofs: [] } : floor)
   : sourceFloors
 function RegressionScene() {
+  const [activeFloorId, setActiveFloorId] = useState(groundOnly ? floors[0].id : savedProject.activeFloorId)
+  const [sunPosition, setSunPosition] = useState(savedProject.sunPosition)
   const [sceneFloors, setSceneFloors] = useState(floors as unknown as FloorLevel[])
   const [selection, setSelection] = useState<string | null>(null)
   const [surfaceSelection, setSurfaceSelection] = useState<SelectableSurface | null>(null)
@@ -35,22 +37,29 @@ function RegressionScene() {
   Object.assign(window, {
     updateRegressionFloors: setSceneFloors,
     selectRegressionModel: setSelection,
+    regressionSelectedModelId: selection,
+    updateRegressionActiveFloor: setActiveFloorId,
     regressionFloors: sceneFloors,
     regressionSurface: surfaceSelection,
     regressionAssignments: assignments,
     updateRegressionAssignments: setAssignments,
+    regressionSunPosition: sunPosition,
   })
   return <ThreeDView
   roofPlacementPreview={showPreview && previewSource ? {
     floorId: sourceFloors[0].id,
     roof: { ...previewSource, id: '__roof-placement-preview__' },
   } : null}
-  activeFloorId={groundOnly ? floors[0].id : savedProject.activeFloorId} floors={sceneFloors}
+  activeFloorId={activeFloorId} floors={sceneFloors}
   cameraRestoreRevision={1} cameraViewState={savedProject.threeDView.camera}
-  isEngineConsoleOpen={false} lightDirection={savedProject.sunPosition}
+  isEngineConsoleOpen={false} lightDirection={sunPosition}
   modelAssetVersion={1} onCameraViewStateChange={noop} onClearSelection={noop}
-  onEngineConsoleOpenChange={noop} onLightDirectionChange={noop}
-  onSelectFloor={noop} onSelectModel={setSelection} onSelectRoof={noop} onSelectSurface={setSurfaceSelection}
+  onEngineConsoleOpenChange={noop} onLightDirectionChange={position => {
+    const counters = window as unknown as { regressionSunCommits?: number }
+    counters.regressionSunCommits = (counters.regressionSunCommits ?? 0) + 1
+    setSunPosition(position)
+  }}
+  onSelectFloor={noop} onSelectModel={setSelection} onSelectRoof={(roofId, floorId) => setSurfaceSelection({ type: 'roof', roofId, floorId })} onSelectSurface={setSurfaceSelection}
   onUpdateModel={noop} selectedModelId={selection} selectedRoofId={null}
   selectedSurface={surfaceSelection} selectedWallId={null} sceneRevision={1} showAllFloors
   surfaceAssignments={assignments}

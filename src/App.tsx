@@ -1,3 +1,4 @@
+import { replaceRoofMaterialAssignment } from './roofMaterialAssignments'
 import {
   useCallback,
   useEffect,
@@ -317,7 +318,8 @@ function selectableSurfacesMatch(
   if (firstSurface.type === 'roof' && secondSurface.type === 'roof') {
     return (
       firstSurface.floorId === secondSurface.floorId &&
-      firstSurface.roofId === secondSurface.roofId
+      firstSurface.roofId === secondSurface.roofId &&
+      firstSurface.part === secondSurface.part
     )
   }
 
@@ -1253,6 +1255,14 @@ function App() {
     )
   }
 
+  const updateActiveFloorCeilingMode = (ceilingMode: NonNullable<FloorLevel['ceilingMode']>) => {
+    const target = floors.find(floor => floor.id === activeFloorId)
+    if (!target || (target.ceilingMode ?? 'horizontal') === ceilingMode) return
+    recordHistory()
+    setFloors(current => current.map(floor => floor.id === activeFloorId ? { ...floor, ceilingMode } : floor))
+    setSelectedSurface(null)
+  }
+
   const deleteActiveFloor = () => {
     if (floors.length <= 1) {
       return
@@ -1865,36 +1875,14 @@ function App() {
     textureScale = 1,
     textureRotation = 0,
     customColor?: string,
+    part?: 'underside',
   ) => {
     recordHistory()
-    setSurfaceAssignments((currentAssignments) => {
-      const nextAssignments = currentAssignments.filter(
-        (assignment) =>
-          !(
-            assignment.target.type === 'roof' &&
-            assignment.target.floorId === floorId &&
-            assignment.target.roofId === roofId
-          ),
-      )
-
-      return materialId
-        ? [
-            ...nextAssignments,
-            {
-              customColor,
-              id: createId(),
-              materialId,
-              target: {
-                type: 'roof' as const,
-                floorId,
-                roofId,
-              },
-              textureRotation,
-              textureScale,
-            },
-          ]
-        : nextAssignments
-    })
+    setSurfaceAssignments(currentAssignments => replaceRoofMaterialAssignment(
+      currentAssignments,
+      { type: 'roof', floorId, roofId, ...(part ? { part } : {}) },
+      materialId ? { id: createId(), materialId, customColor, textureRotation, textureScale } : null,
+    ))
   }
 
   const assignWallMaterials = (
@@ -2332,6 +2320,7 @@ function App() {
         textureScale,
         textureRotation,
         customColor,
+        selectedSurface.part,
       )
       return
     }
@@ -2745,7 +2734,7 @@ function App() {
       setSelectedFloorViewId(floorId)
     }
 
-    const shouldDeselect = selectedRoofId === roofId
+    const shouldDeselect = selectedRoofId === roofId && selectedSurface?.type === 'roof' && !selectedSurface.part
 
     setSelectedRoofId(shouldDeselect ? null : roofId)
     setSelectedModelId(null)
@@ -2995,6 +2984,7 @@ function App() {
           setIsAddingWall(false)
         }}
         onSlabThicknessChange={updateActiveFloorSlabThickness}
+        onCeilingModeChange={updateActiveFloorCeilingMode}
         onToggleAddWall={() => {
           setIsRoofMode(false)
           setIsAddingWall((value) => !value)

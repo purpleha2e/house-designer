@@ -61,14 +61,16 @@ export function offsetEdgeTowardPoint(
 }
 
 /**
- * Builds slab caps and exterior facades in one geometry. Hole reveals are
- * intentionally owned by the opening-reveal renderer.
+ * Builds horizontal assembly caps and optional unsupported edge reveals.
+ * Wall continuations are owned by the wall engine. The renderer uses a top
+ * cap here and clips the separate underside at its own elevation.
  */
 export function createCeilingSlabGeometry(
   shape: Shape,
   depth: number,
   facadeEdges: readonly CeilingSlabFacadeEdge[],
   capInset = 0,
+  caps: 'both' | 'top' = 'both',
 ) {
   const source = new ExtrudeGeometry(shape, {
     bevelEnabled: false,
@@ -84,6 +86,7 @@ export function createCeilingSlabGeometry(
     const capEnd = capGroup.start + capGroup.count
 
     for (let index = capGroup.start; index < capEnd; index += 1) {
+      if (caps === 'top' && sourcePositions.getZ(index) <= depth / 2) continue
       positions.push(
         sourcePositions.getX(index),
         sourcePositions.getY(index),

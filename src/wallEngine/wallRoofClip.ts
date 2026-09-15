@@ -111,7 +111,7 @@ export function clipWallFacesToRoofUndersides(
   const clippedFaces = faces.flatMap((face) => {
     if (face.kind === 'bottom') return [face]
     const applicable = volumes.filter((volume) => face.kind === 'top' ||
-      (volume.clipSides && !volume.excludedWallIds.has(face.wallId)))
+      ((volume.clipSides || face.storeyBoundary) && !volume.excludedWallIds.has(face.wallId)))
     if (!applicable.length) return [face]
     let changed = false
     let polygons: WallMeshVertex[][] = [face.vertices.map((v) => ({
@@ -156,10 +156,42 @@ export function clipWallFacesToRoofUndersides(
       return [{ ...face, vertices }]
     }))
   })
+  const verticalCaps = buildVerticalRoofCutCaps(faces, floorElevation, volumes)
+    .map(cap => assignCoplanarCapSource(cap, faces))
   return partitionWallFacesAtRoofs([
     ...clippedFaces, ...buildRoofCutCaps(faces, floorElevation, volumes),
-    ...buildVerticalRoofCutCaps(faces, floorElevation, volumes),
+    ...verticalCaps,
   ], surfaceDividers, floorElevation)
+}
+
+// A cut through a perpendicular wall can close a gap in a continuous facade.
+// Its source top triangle has no wall side; inherit the touching facade instead.
+function assignCoplanarCapSource(cap: WallMeshFace, faces: WallMeshFace[]): WallMeshFace {
+  const tangent = ([x, , z]: WallMeshVertex['position']) => -cap.normal[2] * x + cap.normal[0] * z
+  const range = (face: WallMeshFace, value: (p: WallMeshVertex['position']) => number) => {
+    const values = face.vertices.map(v => value(v.position))
+    return [Math.min(...values), Math.max(...values)]
+  }
+  const [minT, maxT] = range(cap, tangent), [minY, maxY] = range(cap, p => p[1])
+  const origin = cap.vertices[0].position
+  const anchor = faces.find(face => {
+    if (face.kind !== 'side' || typeof face.pickSource.side !== 'number' ||
+      face.normal.reduce((sum, n, i) => sum + n * cap.normal[i], 0) < 0.999) return false
+    if (face.vertices.some(v => Math.abs(v.position.reduce((sum, p, i) =>
+      sum + (p - origin[i]) * cap.normal[i], 0)) > 0.002)) return false
+    const [a, b] = range(face, tangent), [bottom, top] = range(face, p => p[1])
+    return Math.min(b, maxT) >= Math.max(a, minT) - 0.002 && Math.min(top, maxY) > Math.max(bottom, minY) + 0.002
+  })
+  if (!anchor) return cap
+  const a = anchor.vertices[0]
+  const b = anchor.vertices.find(v => Math.abs(tangent(v.position) - tangent(a.position)) > EPSILON)
+  const c = anchor.vertices.find(v => Math.abs(v.position[1] - a.position[1]) > EPSILON &&
+    Math.abs(tangent(v.position) - tangent(a.position)) < EPSILON)
+  const vertices = b && c ? cap.vertices.map(v => ({ ...v, uv: a.uv.map((uv, i) => uv +
+    (tangent(v.position) - tangent(a.position)) / (tangent(b.position) - tangent(a.position)) * (b.uv[i] - a.uv[i]) +
+    (v.position[1] - a.position[1]) / (c.position[1] - a.position[1]) * (c.uv[i] - a.uv[i])) as [number, number] })) as WallMeshFace['vertices'] : cap.vertices
+  return { ...cap, wallId: anchor.wallId, materialSource: anchor.materialSource,
+    pickSource: anchor.pickSource, uvSource: anchor.uvSource, roomSignature: anchor.roomSignature, vertices }
 }
 
 // A roof footprint can cut through a wall junction before its sloping surface

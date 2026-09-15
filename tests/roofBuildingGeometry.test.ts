@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import { getRoofSupportBoundsInRoofSpace, getRoofWorldPointFromLocal, getWallSideAwayFromRoof, resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
-import { roofSurfaceHeights, roofInfillFacesForFloor, resolvedRoofWallSegments, roofToLocal } from '../src/roofJunctions.ts'
+import { roofSurfaceHeights, roofInfillFacesForFloor, resolvedRoofWallSegments, roofToLocal, resolveRoofJunctions } from '../src/roofJunctions.ts'
 import type { FloorLevel } from '../src/types.ts'
 import { getRoofCeilingCutouts } from '../src/roofCeilingClipping.ts'
 import { createUpAndOverEavesGeometry } from '../src/roofEavesGeometry.ts'
@@ -65,6 +65,29 @@ test('red house gable junction closes its wall, retains its slab and terminates 
 function fixture(name: string): FloorLevel[] {
   return JSON.parse(readFileSync(new URL(`./fixtures/roof-junctions/${name}.json`, import.meta.url), 'utf8')).floors
 }
+
+test('Red House rear gable meets the bay beyond the upper facade corner without a gap', () => {
+  const roofs = resolveBuildingRoofs(fixture('red_house_material_regions')).map(r => r.resolved)
+  const gable = roofs.find(r => r.roof.id.startsWith('ded6'))!
+  const bay = roofs.find(r => r.roof.id.startsWith('cc46'))!
+  const former = resolveRoofJunctions(roofs.map(r => ({ ...r,
+    abutments: r.abutments?.map(({ plane, top }) => ({ plane, top })),
+  }))).find(r => r.roof.id === gable.roof.id)!
+  assert.equal(roofSurfaceHeights(former.faces, { x: -1.8, y: 8.3 }).length, 0,
+    'the former infinite side abutment reproduces the exposed strip')
+  for (let z = 8; z <= 8.8; z += 0.025) {
+    for (let x = -1.92; x <= -1.45; x += 0.01) {
+      const heights = roofSurfaceHeights([...gable.faces, ...bay.faces], { x, y: z })
+      assert.ok(heights.some(height => height > 2.2 && height < 3), `rear roofs cover ${x},${z}`)
+    }
+  }
+  for (const z of [7.2, 7.6, 7.95]) {
+    assert.equal(roofSurfaceHeights(gable.faces, { x: -1.8, y: z }).length, 0,
+      'the roof still stops at the actual upper facade')
+    assert.ok(roofSurfaceHeights(gable.faces, { x: -1.91, y: z }).length,
+      'the higher roof overhang does not notch the slope before it meets the wall')
+  }
+})
 
 test('gable wall face is selected from the roof interior even when adjoining rooms make exterior detection ambiguous', () => {
   const roof = {

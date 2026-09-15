@@ -5,7 +5,7 @@ import { buildWallTopology, type DetectedRoom } from './wallTopology.ts'
 import { buildRoofProfileFaces } from './roofProfile.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import { resolveRoofJunctions, type ResolvedRoof } from './roofJunctions.ts'
-import { getRoofAbutmentPlanes, wallOverlapsRoofHeight, type RoofAbuttingWall } from './roofAbutmentGeometry.ts'
+import { getRoofAbutmentPlanes, getRoofAbutmentSpanPlanes, wallOverlapsRoofHeight, type RoofAbuttingWall } from './roofAbutmentGeometry.ts'
 import { isRoofAbuttingWall } from './roofWallClipping.ts'
 
 export type BuildingRoof = {
@@ -558,7 +558,7 @@ export function resolveBuildingRoofs(floors: FloorLevel[]): BuildingRoof[] {
         .flatMap(({ floor: candidate, rooms }) => candidate.walls
           .filter((wall) => wallOverlapsRoofHeight({ wall, elevation: candidate.elevation }, roofMinY, roofMaxY) &&
             isRoofAbuttingWall({ wall, supportPolygon, isInsideRoom: (point) => getRoomContainingPoint(rooms, point) !== null }))
-          .map((wall) => ({ wall, elevation: candidate.elevation })))
+          .map((wall) => ({ wall, elevation: candidate.elevation, floorId: candidate.id })))
       return { roof, floorId: floor.id, floorTopElevation, abuttingWalls }
     }))
     const resolved = resolveRoofJunctions(candidates.map((candidate) => ({
@@ -570,8 +570,17 @@ export function resolveBuildingRoofs(floors: FloorLevel[]): BuildingRoof[] {
         ? getLeanToPanelLocalExtents(candidate.roof, floors.find((floor) => floor.id === candidate.floorId)!.walls,
             wallFloors.find(({ floor }) => floor.id === candidate.floorId)!.rooms)
         : getRoofPanelLocalExtents(candidate.roof),
-      abutments: candidate.abuttingWalls.flatMap((wall) => getRoofAbutmentPlanes([wall], getRoofRenderPosition(candidate.roof))
-        .map((plane) => ({ plane, top: wall.elevation + wall.wall.height }))),
+      abutments: candidate.abuttingWalls.flatMap((wall) => {
+        const start = getRoofLocalPoint(candidate.roof, wall.wall.start)
+        const end = getRoofLocalPoint(candidate.roof, wall.wall.end)
+        // A side abutment ends with the facade, allowing the slope to meet a
+        // neighbouring roof beyond the corner. Ridge-end abutments still stop
+        // the whole incoming roof, including its overhang, at that facade.
+        const isSide = Math.abs(end.y - start.y) > Math.abs(end.x - start.x)
+        return getRoofAbutmentPlanes([wall], getRoofRenderPosition(candidate.roof))
+          .map((plane) => ({ plane, top: wall.elevation + wall.wall.height, floorId: wall.floorId,
+            spanPlanes: isSide ? getRoofAbutmentSpanPlanes(wall, candidate.abuttingWalls) : undefined }))
+      }),
     })))
     return candidates.map((candidate, index) => ({ ...candidate, resolved: resolved[index] }))
 }

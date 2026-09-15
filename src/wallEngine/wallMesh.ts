@@ -40,6 +40,8 @@ export type WallMeshFace = {
   normal: [number, number, number]
   pickSource: WallMeshSource
   roomSignature?: string
+  /** Facade continuation through an intermediate floor zone. */
+  storeyBoundary?: boolean
   roofSurfaceRegion?: string
   uvSource: WallMeshSource
   vertices: [WallMeshVertex, WallMeshVertex, WallMeshVertex, WallMeshVertex]

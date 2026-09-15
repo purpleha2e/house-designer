@@ -101,7 +101,8 @@ function getSelectedSurfaceAssignment(
       (assignment) =>
         assignment.target.type === 'roof' &&
         assignment.target.floorId === selectedSurface.floorId &&
-        assignment.target.roofId === selectedSurface.roofId,
+        assignment.target.roofId === selectedSurface.roofId &&
+        assignment.target.part === selectedSurface.part,
     )
   }
 
@@ -138,7 +139,7 @@ function getSurfaceTypeLabel(selectedSurface: SelectableSurface) {
     case 'portal-floor':
       return 'Doorway floor'
     case 'roof':
-      return 'Roof'
+      return selectedSurface.part === 'underside' ? 'Roof underside' : 'Roof'
     case 'wall-surface-fragment':
       return 'Wall section'
     case 'wall-face':
@@ -337,7 +338,7 @@ export function ContextPanel({
           <dd>{activeFloor.roomHeight.toFixed(2)} m</dd>
         </div>
         <div>
-          <dt>Slab</dt>
+          <dt>Floor depth</dt>
           <dd>{activeFloor.slabThickness.toFixed(2)} m</dd>
         </div>
         <div>

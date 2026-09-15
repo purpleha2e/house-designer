@@ -12,7 +12,7 @@ export type RoofJunctionInput = {
   elevation: number
   support: RoofBounds
   extents: RoofBounds
-  abutments?: { plane: ClipPlane; top: number }[]
+  abutments?: { plane: ClipPlane; top: number; spanPlanes?: ClipPlane[]; floorId?: string }[]
 }
 export type RoofConnectionStatus = {
   end: 'ridgeStart' | 'ridgeEnd'
@@ -322,7 +322,7 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
       // Below the wall top it must still abut the outside wall face.
       const joinsAcrossWall = connections.some((connection) => connection.state === 'joined' &&
         original.get(connection.targetRoofId!)!.some((face) => face.some((p) => abutment.plane(p) > EPS)))
-      faces = faces.flatMap((face) => subtractRoofVolume(face, [abutment.plane,
+      faces = faces.flatMap((face) => subtractRoofVolume(face, [abutment.plane, ...(abutment.spanPlanes ?? []),
         ...(joinsAcrossWall ? [(p: Vertex) => abutment.top - p[1]] : [])]))
     }
     return {
@@ -362,6 +362,10 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
       const peakDifference = peaks.get(target.roof.id)! - peaks.get(roof.roof.id)!
       const incoming = roof.connections.some((c) => c.state === 'joined' && c.targetRoofId === target.roof.id)
       const outgoing = target.connections.some((c) => c.state === 'joined' && c.targetRoofId === roof.roof.id)
+      // An abutting roof already stops at this storey's actual facade. Its
+      // rectangular roof support can extend past a stepped wall; treating that
+      // strip as building interior would cut a second gap below the overhang.
+      const abutsBuilding = !incoming && roof.abutments?.some(abutment => abutment.floorId === target.floorId)
       const targetWins = Math.abs(peakDifference) > RIDGE_HEIGHT_TOLERANCE ? peakDifference > 0 : incoming !== outgoing ? incoming : target.roof.id < roof.roof.id
       const buildingPlanes = clippingFootprint(target, roof)
       for (const targetFace of raw.get(target.roof.id)!) {
@@ -376,7 +380,7 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
           // Only the supported building region (plus deliberate connections)
           // encloses the space below a roof. An exposed overhang has air below
           // it; clip another panel there only if it enters the roof shell.
-          const outsideBuilding = subtractRoofVolume(face, [...planes, ...buildingPlanes, below])
+          const outsideBuilding = abutsBuilding ? [face] : subtractRoofVolume(face, [...planes, ...buildingPlanes, below])
           return outsideBuilding.flatMap((piece) => subtractRoofVolume(piece, [...planes, below,
             (point) => getRoofThickness(target.roof) - below(point)]))
         })

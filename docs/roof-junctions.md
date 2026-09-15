@@ -59,6 +59,20 @@ they do not grant permission to remove the receiving building's walls.
 
 ## Regression coverage
 
+Side abutments stop at the facade's ends, including its corner thickness, so a
+lower slope can meet another roof beyond the wall. Collinear facade sections
+share a span across openings. Ridge-end abutments still trim the full incoming
+overhang. Once a roof abuts a storey's actual walls, that storey's rectangular
+roof support cannot cut another notch under its overhang; intersecting roof
+shells still clip normally.
+
+The rear gable/bay regression in `tests/roofBuildingGeometry.test.ts` covers both
+the gap beyond the wall and the notch before the wall. Run
+`checkRearRoofGap()` from `tests/browser/rearRoofGapRegression.js` on the material
+harness to verify the rendered roof coverage and saved brick finish. Additional
+roof contacts inherit a painted wall region when all its existing boundary
+conditions still match.
+
 `tests/roofJunctions.test.ts` covers T junctions, elevation priority, both end
 settings, missing targets, bounded extensions, narrow intersections, rigid
 transforms, array order, and isolated eaves. Wall tests cover exact clipping,

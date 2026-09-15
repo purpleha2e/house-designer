@@ -91,6 +91,7 @@ export type SurfaceTarget =
     }
   | {
       type: 'roof'
+      part?: 'underside'
       floorId: string
       roofId: string
     }
@@ -201,6 +202,7 @@ export type SelectableSurface =
       floorId: string
       roofId: string
       type: 'roof'
+      part?: 'underside'
     }
 
 export type PlacedModel = {
@@ -276,6 +278,9 @@ export type FloorLevel = {
   roofs?: RoofStructure[]
   rooms: Room[]
   roomHeight: number
+  /** Top-storey ceiling; intermediate floors always retain their ceiling. */
+  ceilingMode?: 'horizontal' | 'open'
+  /** Intermediate floor assembly depth, not necessarily a concrete slab. */
   slabThickness: number
   walls: Wall[]
 }

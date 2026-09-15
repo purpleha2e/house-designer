@@ -120,6 +120,21 @@ test('a roof footprint closes a vertical cut across a wall top already split at 
     Math.abs(x - 1) < 1e-8 && y >= 1.4 - 1e-8 && y <= 2.4 + 1e-8 && (Math.abs(z) >= 0.05 - 1e-8 || y >= 1.8 - 1e-8))))
 })
 
+test('a vertical junction closure inherits the touching facade side and UV frame', () => {
+  const settings = options(() => 4, 1, 3)
+  settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)
+  settings.volumes[0].excludedWallIds = new Set(['facade'])
+  const facade: WallMeshFace = { ...sideFace(), faceId:'facade', wallId:'facade', normal:[1,0,0],
+    materialSource:{wallId:'facade',side:1}, pickSource:{wallId:'facade',side:1}, uvSource:{wallId:'facade',side:1},
+    vertices:[[1,0,-0.45],[1,0,-0.15],[1,2.4,-0.15],[1,2.4,-0.45]]
+      .map(position=>({position,uv:[position[2]*2+10,position[1]+2.6]})) as WallMeshFace['vertices'] }
+  const caps = clipWallFacesToRoofUndersides([topFace(),facade], settings)
+    .filter(f=>f.faceId.includes(':roof-boundary-cap:')&&f.normal[0]>0.99)
+  assert.ok(caps.length > 0)
+  assert.ok(caps.every(f=>f.wallId==='facade'&&f.pickSource.side===1&&f.materialSource.wallId==='facade'))
+  assert.ok(caps.every(f=>f.vertices.every(v=>Math.abs(v.uv[0]-(v.position[2]*2+10))<1e-7&&Math.abs(v.uv[1]-v.position[1]-2.6)<1e-7)))
+})
+
 test('roof cut caps respect window voids and do not duplicate overlapping roof coverage', () => {
   const settings = options(() => 4)
   settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)

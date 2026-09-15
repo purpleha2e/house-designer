@@ -16,6 +16,8 @@ export type WallBufferMaterialSlot = {
 export type WallBufferBuildOptions = {
   floorId: string
   groupBy?: 'face' | 'material' | 'pick'
+  /** Render-only batching; use a separate face/pick payload for selection. */
+  materialBatchKey?: (source: WallMeshSource) => string
 }
 
 export type WallBufferGeometryPayload = {
@@ -151,7 +153,7 @@ function pushFaceBuffers({
 
 export function buildWallBufferGeometryPayload(
   faces: WallMeshFace[],
-  { floorId, groupBy = 'material' }: WallBufferBuildOptions,
+  { floorId, groupBy = 'material', materialBatchKey }: WallBufferBuildOptions,
 ): WallBufferGeometryPayload {
   const groups: WallBufferGroup[] = []
   const materialSlots: WallBufferMaterialSlot[] = []
@@ -159,13 +161,25 @@ export function buildWallBufferGeometryPayload(
   const pickTargets = new Map<number, SelectableSurface>()
   const positions: number[] = []
   const uvs: number[] = []
+  const batchIndices = new Map<string, number>()
+  const batching = groupBy === 'material' && materialBatchKey
+  const materialIndexForFace = (face: WallMeshFace) => {
+    if (batching) {
+      const key = batching(face.materialSource)
+      const existing = batchIndices.get(key)
+      if (existing !== undefined) return existing
+      const index = materialSlots.length
+      batchIndices.set(key, index)
+      materialSlots.push({ index, source: face.materialSource })
+      return index
+    }
+    return getOrCreateMaterialIndex(materialSlots,
+      groupBy === 'pick' ? face.pickSource : face.materialSource,
+      groupBy === 'face' ? face.faceId : undefined)
+  }
   const faceEntries = faces.map((face, order) => ({
     face,
-    materialIndex: getOrCreateMaterialIndex(
-      materialSlots,
-      groupBy === 'pick' ? face.pickSource : face.materialSource,
-      groupBy === 'face' ? face.faceId : undefined,
-    ),
+    materialIndex: materialIndexForFace(face),
     order,
   }))
 
@@ -199,7 +213,7 @@ export function buildWallBufferGeometryPayload(
         })
       }
 
-      if (pickTarget && !pickTargets.has(materialIndex)) {
+      if (!batching && pickTarget && !pickTargets.has(materialIndex)) {
         pickTargets.set(materialIndex, pickTarget)
       }
     })

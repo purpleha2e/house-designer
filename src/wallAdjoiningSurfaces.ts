@@ -3,9 +3,26 @@ import type {
   Wall,
   WallFaceReference,
   WallSurfaceFragmentReference,
+  Point,
 } from './types.ts'
 import type { WallMeshFace } from './wallEngine/wallMesh.ts'
 import { buildWallTopology } from './wallTopology.ts'
+import { footprintPlanes } from './wallEngine/wallRoofClip.ts'
+
+/** Extended junction panels can cross a wall without enclosing its room side. */
+export function isWallFragmentExposedAboveAdjacentRoof(
+  face: WallMeshFace,
+  roofs: Array<{ roofId: string; supportPolygon: Point[] }>,
+) {
+  if (face.roomSignature || face.roofSurfaceRegion !== 'roof-exposed') return false
+  const length = Math.hypot(face.normal[0], face.normal[2])
+  if (length < 1e-6) return false
+  const x = face.vertices.reduce((sum, v) => sum + v.position[0], 0) / face.vertices.length + face.normal[0] / length * 0.08
+  const z = face.vertices.reduce((sum, v) => sum + v.position[2], 0) / face.vertices.length + face.normal[2] / length * 0.08
+  const regions = face.faceId.split(':roof-region:')[1]?.split('/') ?? []
+  return roofs.some(roof => regions.some(region => region.startsWith(`${roof.roofId}:`) && region.endsWith(':above')) &&
+    roof.supportPolygon.length >= 3 && footprintPlanes(roof.supportPolygon).every(plane => plane([x, 0, z]) >= -1e-6))
+}
 
 function uniqueFragments(fragments: WallSurfaceFragmentReference[]) {
   const fragmentsByKey = new Map<string, WallSurfaceFragmentReference>()

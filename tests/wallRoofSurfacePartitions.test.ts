@@ -10,7 +10,16 @@ import { buildCoplanarWallSurfaceGroups } from '../src/wallEngine/wallSurfaceGro
 import type { FloorLevel } from '../src/types.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 import { getBaySupportPolygon } from '../src/bayRoof.ts'
-import { partitionWallFacesAtRoofs } from '../src/wallEngine/wallRoofSurfacePartitions.ts'
+import { createWallRoofSurfaceDividers, partitionWallFacesAtRoofs, isRoofRegionSubdivision } from '../src/wallEngine/wallRoofSurfacePartitions.ts'
+
+test('saved roof-region finishes survive a new contact without crossing existing boundaries', () => {
+  const saved = 'wall:side:roof-region:/bay:0:above'
+  assert.ok(isRoofRegionSubdivision('wall:side:roof-region:/bay:0:above/gable:2:above', saved))
+  assert.ok(isRoofRegionSubdivision('wall:side:roof-region:/a:0:below/bay:0:above', saved))
+  assert.equal(isRoofRegionSubdivision('wall:side:roof-region:/bay:0:below/gable:2:above', saved), false)
+  assert.equal(isRoofRegionSubdivision('other:side:roof-region:/bay:0:above', saved), false)
+  assert.equal(isRoofRegionSubdivision('wall:side:roof-region:/bay:0:above', 'wall:side:roof-region:outside'), false)
+})
 
 const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roof-junctions/roof_material_regions.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
 const upper = floors[1]
@@ -74,6 +83,50 @@ test('surface regions survive the worker transport and roof list reordering', ()
   assert.deepEqual(clipWallFacesToRoofUndersides([inside], options), [inside], 'the opposite wall finish is unaffected')
 })
 
+test('a roof ridge does not split the connected wall around a doorway', () => {
+  const rectangle = (id: string, left: number, right: number, bottom: number, top: number): WallMeshFace => ({
+    ...face, faceId: id,
+    vertices: [[6.65,bottom,left],[6.65,bottom,right],[6.65,top,right],[6.65,top,left]]
+      .map(position => ({ position, uv: [position[2], position[1]] })) as WallMeshFace['vertices'],
+  })
+  const doorway = [rectangle('left', 0, 3.5, 0, 3), rectangle('lintel', 3.5, 4.5, 2, 3),
+    rectangle('right', 4.5, 8, 0, 3)]
+  const divided = partitionWallFacesAtRoofs(doorway, [
+    { id: 'roof:0', wallId: wall.id, normal: [1,0], start: [6.65,1,0], end: [6.65,3.4,4] },
+    { id: 'roof:1', wallId: wall.id, normal: [1,0], start: [6.65,3.4,4], end: [6.65,1,8] },
+  ], 0)
+  const a = hit(divided, 2, 1), c = hit(divided, 4, 2.5), d = hit(divided, 6, 1)
+  const b = hit(divided, 1, 2.5), e = hit(divided, 7, 2.5)
+  const groups = buildCoplanarWallSurfaceGroups(divided)
+  const ids = (f: WallMeshFace) => groups.get(f.faceId)!.map(ref => ref.fragmentId).sort()
+  assert.deepEqual(ids(a), ids(c))
+  assert.deepEqual(ids(a), ids(d))
+  assert.ok(!ids(a).includes(b.faceId) && !ids(a).includes(e.faceId))
+  assert.ok(!ids(b).includes(e.faceId), 'disconnected exposed triangles retain separate finishes')
+  assert.ok(a.faceId.includes('roof:0:below') && d.faceId.includes('roof:1:below'),
+    'saved face IDs retain their panel-specific paths')
+  assert.ok(divided.every(f => f.vertices.every(v => v.position[0] === 6.65 &&
+    Math.abs(v.uv[0] - v.position[2]) < 1e-7 && Math.abs(v.uv[1] - v.position[1]) < 1e-7)))
+})
+
+test('roof junction extensions only divide the face towards the local roof support', () => {
+  const wallAtOrigin = { ...wall, start: { x: 0, y: 0 }, end: { x: 0, y: 10 }, thickness: 0.3, height: 3 }
+  const panels: [number, number, number][][] = [[[-1,1.5,0],[4,1.5,0],[4,1.5,2],[-1,1.5,2]]]
+  const legacy = createWallRoofSurfaceDividers('roof', panels, [wallAtOrigin], 0)
+  assert.equal(legacy.length, 2, 'junction panel extends through both wall faces')
+  // This angled support crosses the wall further along, but not at this panel.
+  const support = [{ x:0,y:0 },{ x:4,y:0 },{ x:4,y:10 },{ x:-1,y:10 }]
+  const dividers = createWallRoofSurfaceDividers('roof', panels, [wallAtOrigin], 0, undefined, support)
+  // At z=2 this polygon reaches x=-0.2, so use a shorter contact to keep
+  // the complete local footprint inside the wall thickness on the room side.
+  const shortPanels = panels.map(f => f.map(([x,y,z]): [number,number,number] => [x,y,z/2]))
+  const local = createWallRoofSurfaceDividers('roof', shortPanels, [wallAtOrigin], 0, undefined, support)
+  assert.equal(local.length, 1)
+  assert.equal(local[0].normal[0], 1)
+  assert.equal(local[0].id, legacy.find(d => d.normal[0] === 1)!.id, 'exterior assignment IDs stay stable')
+  assert.equal(dividers.length, 2, 'a roof supported on both sides can divide both faces')
+})
+
 test('red_house_3 divides partial facade contacts and the angled Bay mounting edge', () => {
   const project = JSON.parse(readFileSync(new URL('./fixtures/roof-junctions/red_house_material_regions.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
   const upper = project.floors[1]
@@ -94,6 +147,14 @@ test('red_house_3 divides partial facade contacts and the angled Bay mounting ed
   const bayId = project.floors[0].roofs!.find(r => r.type === 'bay')!.id
   assert.ok(options.surfaceDividers.filter(d => d.wallId === wallId && d.id.startsWith(bayId)).length >= 2)
   assert.ok(options.surfaceDividers.some(d => d.wallId === '3e626ad4-bf30-4d1a-b6cc-15fc6a33da0e'))
+  const doorwayId = '3e626ad4-bf30-4d1a-b6cc-15fc6a33da0e'
+  const mainRoof = roofs.find(r => r.roofId.startsWith('b490'))!
+  const doorwayDividers = options.surfaceDividers.filter(d => d.wallId === doorwayId && d.id.startsWith(mainRoof.roofId))
+  assert.equal(doorwayDividers.length, 2)
+  assert.ok(doorwayDividers.every(d => d.normal[0] > 0.99), 'the room side must not inherit exterior roof lines')
+  const legacyDividers = createWallRoofSurfaceDividers(mainRoof.roofId, mainRoof.surfaceFaces,
+    upper.walls.filter(w => w.id === doorwayId), upper.elevation)
+  assert.deepEqual(doorwayDividers, legacyDividers.filter(d => d.normal[0] > 0.99), 'saved exterior region IDs are preserved')
   const facade: WallMeshFace = { ...face, faceId: 'red-front', wallId,
     normal: [0, 0, 1], pickSource: { wallId, side: -1 },
     vertices: [[-1.87,0,7.984318178330288],[1.35,0,7.984318178330288],

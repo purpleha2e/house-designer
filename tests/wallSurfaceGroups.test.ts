@@ -70,3 +70,14 @@ test('does not group disconnected or oppositely oriented wall surfaces', () => {
   assert.equal(groups.get('gap')?.length, 1)
   assert.equal(groups.get('opposite')?.length, 1)
 })
+
+test('wall selection includes touching reveals on its own side only', () => {
+  const wall = sideFace({ id:'wall', wallId:'door-wall', start:0, end:1 })
+  const reveal: WallMeshFace = { ...wall, faceId:'door-wall:opening:door:left:1', kind:'cap', normal:[1,0,0],
+    vertices:[[1,0,0],[1,0,-0.15],[1,2,-0.15],[1,2,0]].map(position => ({position,uv:[0,0]})) as WallMeshFace['vertices'] }
+  const otherSide = { ...reveal, faceId:'door-wall:opening:door:left:-1', pickSource:{wallId:'door-wall',side:-1 as const} }
+  const detached = { ...reveal, faceId:'door-wall:opening:far:left:1',
+    vertices:reveal.vertices.map(v => ({...v,position:[v.position[0]+4,v.position[1],v.position[2]]})) as WallMeshFace['vertices'] }
+  const group = buildCoplanarWallSurfaceGroups([wall,reveal,otherSide,detached]).get('wall')!
+  assert.deepEqual(group.map(f=>f.fragmentId).sort(), [reveal.faceId,wall.faceId].sort())
+})

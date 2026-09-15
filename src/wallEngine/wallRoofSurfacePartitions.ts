@@ -1,7 +1,17 @@
-import type { Wall } from '../types.ts'
+import type { Point, Wall } from '../types.ts'
 import type { WallMeshFace, WallMeshVertex } from './wallMesh.ts'
 
 type Position = WallMeshVertex['position']
+
+/** A new contact may subdivide a painted region without changing its finish. */
+export function isRoofRegionSubdivision(faceId: string, parentId: string) {
+  const marker = ':roof-region:'
+  const [parentBase, parentRegion] = parentId.split(marker)
+  const [faceBase, faceRegion] = faceId.split(marker)
+  if (!parentRegion || !faceRegion || parentBase !== faceBase || parentRegion === 'outside') return false
+  const parts = new Set(faceRegion.split('/').filter(Boolean))
+  return parentRegion.split('/').filter(Boolean).every(part => parts.has(part))
+}
 const EPS = 1e-7
 export type WallRoofSurfaceDivider = {
   id: string
@@ -14,6 +24,8 @@ export type WallRoofSurfaceDivider = {
 /** Contact lines on the outside facade, including the profile hidden inside an adjoining roof shell. */
 export function createWallRoofSurfaceDividers(
   roofId: string, roofFaces: Position[][], walls: Wall[], floorElevation: number,
+  wallBounds?: ReadonlyMap<string, { bottom: number; top: number }>,
+  supportPolygon?: Point[],
 ) {
   return walls.flatMap((wall) => {
     const dx = wall.end.x - wall.start.x, dz = wall.end.y - wall.start.y
@@ -39,8 +51,9 @@ export function createWallRoofSurfaceDividers(
         const start = points[0], end = points.at(-1)
         if (!start || !end || along(end) - along(start) < EPS) continue
         if (along(end) < -wall.thickness || along(start) > length + wall.thickness) continue
-        if (Math.max(start[1], end[1]) <= floorElevation + EPS ||
-          Math.min(start[1], end[1]) >= floorElevation + wall.height - EPS) continue
+        const bounds = wallBounds?.get(wall.id) ?? { bottom: 0, top: wall.height }
+        if (Math.max(start[1], end[1]) <= floorElevation + bounds.bottom + EPS ||
+          Math.min(start[1], end[1]) >= floorElevation + bounds.top - EPS) continue
         dividers.push({ id: '', wallId: wall.id, normal: [nx * sign, nz * sign], start, end })
       }
     }
@@ -50,7 +63,23 @@ export function createWallRoofSurfaceDividers(
     return dividers.filter((d, i) => !dividers.slice(0, i).some(other =>
       [...d.start, ...d.end].every((v, j) => Math.abs(v - [...other.start, ...other.end][j]) < EPS)))
       .map((d, index) => ({ ...d, id: `${roofId}:${index}` }))
+      // Junction panels can extend through an abutting wall to meet another
+      // roof. Only the side facing the roof's support footprint gets a finish
+      // boundary. Filter after numbering to preserve saved exterior face IDs.
+      .filter(d => !supportPolygon?.length || supportReachesSide(d, supportPolygon))
   })
+}
+
+function supportReachesSide(divider: WallRoofSurfaceDivider, polygon: Point[]) {
+  const dx = divider.end[0] - divider.start[0], dz = divider.end[2] - divider.start[2]
+  const length2 = dx * dx + dz * dz
+  const along = ([x, , z]: Position) =>
+    ((x - divider.start[0]) * dx + (z - divider.start[2]) * dz) / length2
+  const vertices: WallMeshVertex[] = polygon.map(p => ({ position: [p.x, 0, p.y], uv: [0, 0] }))
+  const localSupport = clip(clip(vertices, along), p => 1 - along(p))
+  return hasArea(localSupport) && localSupport.some(({ position: [x, , z] }) =>
+    (x - divider.start[0]) * divider.normal[0] +
+    (z - divider.start[2]) * divider.normal[1] > EPS)
 }
 
 function clip(vertices: WallMeshVertex[], plane: (p: Position) => number) {
@@ -76,6 +105,18 @@ function hasArea(vertices: WallMeshVertex[]) {
     const u = b.position.map((v, j) => v - a[j]), v = c.map((v, j) => v - a[j])
     return Math.hypot(u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]) > EPS
   })
+}
+
+function selectionRegion(region: string) {
+  // Panels of one roof meet at a ridge, but do not divide the wall beneath
+  // them into different finishes. Keep panel-specific paths in faceId for
+  // saved assignments; group connected covered faces by their owning roofs.
+  const coveredRoofs = region.split('/').filter(part => part.endsWith(':below'))
+    .map(part => part.slice(0, -':below'.length))
+    .map(dividerId => dividerId.slice(0, dividerId.lastIndexOf(':')))
+  return coveredRoofs.length
+    ? [...new Set(coveredRoofs)].sort().map(id => `${id}:below`).join('/')
+    : 'roof-exposed'
 }
 
 /** Partition materials without removing the weatherproof wall behind a roof. */
@@ -112,7 +153,7 @@ export function partitionWallFacesAtRoofs(
       const region = part.region || 'outside'
       // Exposed pieces may join around an eave, but can never join the wall
       // behind the roof. Disconnected A regions remain separate components.
-      return [{ ...face, roofSurfaceRegion: region.includes(':below') ? region : 'roof-exposed',
+      return [{ ...face, roofSurfaceRegion: selectionRegion(region),
         faceId: `${face.faceId}:roof-region:${region}`,
         vertices: [...triangle, triangle[2]] as WallMeshFace['vertices'] }]
     }))

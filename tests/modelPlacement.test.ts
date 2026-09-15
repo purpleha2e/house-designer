@@ -11,6 +11,14 @@ import {
 import type { FloorLevel, PlacedModel, Wall } from '../src/types.ts'
 import type { ModelDefinition } from '../src/models/modelLibrary.ts'
 
+test('top-storey ceiling preference survives project JSON and floor normalization', () => {
+  const source: FloorLevel = {id:'top',name:'Top',elevation:2.7,roomHeight:2.4,
+    slabThickness:0.3,ceilingMode:'open',walls:[],rooms:[],models:[]}
+  const loaded = normalizeFloor(JSON.parse(JSON.stringify(source)), new Map())
+  assert.equal(loaded.ceilingMode, 'open')
+  assert.equal(loaded.slabThickness, 0.3)
+})
+
 const modelsById = new Map<string, ModelDefinition>([
   [
     'window',

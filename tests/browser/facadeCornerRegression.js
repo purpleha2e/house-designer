@@ -11,23 +11,24 @@ export async function checkFacadeCorner() {
     if(!h)throw new Error('Missing facade sample')
     return h.object.material[h.face.materialIndex].color.getHexString()
   }
-  const click=async(shiftKey)=>{
-    s.camera.position.set(6,1.4,12);s.camera.lookAt(6,1.4,8.485368);s.camera.updateMatrixWorld();await wait()
+  const click=async(shiftKey,y=1.4)=>{
+    s.camera.position.set(6,y,12);s.camera.lookAt(6,y,8.485368);s.camera.updateMatrixWorld();await wait()
     const rect=canvas.getBoundingClientRect(),event={bubbles:true,button:0,pointerId:1,pointerType:'mouse',shiftKey,
       clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2}
     canvas.dispatchEvent(new PointerEvent('pointerdown',{...event,buttons:1}));canvas.dispatchEvent(new PointerEvent('pointerup',{...event,buttons:0}));await wait()
     return structuredClone(window.regressionSurface)
   }
   try{
-    const single=await click(false), adjoining=await click(true)
+    const single=await click(false), boundary=await click(false,2.55), adjoining=await click(true)
+    if(boundary?.type!==single?.type||JSON.stringify(boundary.fragments)!==JSON.stringify(single.fragments))throw new Error("The floor zone must select the same wall surface")
     if(!single?.fragments?.length||adjoining.fragments.length<=single.fragments.length)throw new Error('Shift selection did not expand around the facade corner')
     const paint=selection=>window.updateRegressionAssignments([...original,...selection.fragments.map((f,i)=>({id:`corner-${i}`,materialId:'dulux-blush-matt',target:{type:'wall-surface-fragment',...f}}))])
-    const before={B:sample(0,1.4,8.4,true),C:sample(0,1.4,8.2,true),slabC:sample(0,2.55,8.2,true,'ceiling-slab-solid')}
+    const before={B:sample(0,1.4,8.4,true),C:sample(0,1.4,8.2,true),slabC:sample(0,2.55,8.2,true)}
     paint(single);await wait()
-    const singleAfter={A:sample(6,1.4,0),slabA:sample(6,2.55,0,false,'ceiling-slab-solid'),slabC:sample(0,2.55,8.2,true,'ceiling-slab-solid')}
+    const singleAfter={A:sample(6,1.4,0),slabA:sample(6,2.55,0,false),slabC:sample(0,2.55,8.2,true)}
     if(singleAfter.A!==singleAfter.slabA||singleAfter.slabC!==before.slabC)throw new Error(`Slab inherited an unrelated face finish: ${JSON.stringify({before,singleAfter})}`)
     paint(adjoining);await wait()
-    const after={A:sample(6,1.4,0),B:sample(0,1.4,8.4,true),C:sample(0,1.4,8.2,true),slabC:sample(0,2.55,8.2,true,'ceiling-slab-solid')}
+    const after={A:sample(6,1.4,0),B:sample(0,1.4,8.4,true),C:sample(0,1.4,8.2,true),slabC:sample(0,2.55,8.2,true)}
     if(Object.values(after).some(c=>c!==after.A)||after.C===before.C)throw new Error(`Corner faces did not paint together: ${JSON.stringify({before,after})}`)
     return {passed:true,single:single.fragments.length,shift:adjoining.fragments.length,singleAfter,after}
   }finally{window.updateRegressionAssignments(original);s.camera.position.copy(camera.position);s.camera.quaternion.copy(camera.quaternion);s.camera.updateMatrixWorld()}

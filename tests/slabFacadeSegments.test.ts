@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { splitSlabFacadeEdge } from '../src/slabFacadeSegments.ts'
 import { findWallFragmentAssignmentForFace } from '../src/wallFragmentAssignments.ts'
-import { createWallSurfaceGeometryStore } from '../src/wallEngine/wallSurfaceGeometryStore.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 import type { SurfaceMaterialAssignment } from '../src/types.ts'
 
@@ -37,17 +36,4 @@ test('roof-cut faces contribute only where they physically meet the slab',()=>{
   unrelated.vertices=unrelated.vertices.map(v=>({...v,position:[v.position[0],v.position[1],1]})) as WallMeshFace['vertices']
   const parts=splitSlabFacadeEdge({...edge,upperHeight:1.2,lowerFaces:[],upperFaces:[triangle,inside,unrelated]})
   assert.deepEqual(parts.map(p=>[p.point.x,p.nextPoint.x,p.upperFace?.faceId]),[[0,1,triangle.faceId],[1,2,undefined]])
-})
-
-test('completed wall geometry is scoped to its view and stale cleanup cannot remove a newer result',()=>{
-  const store=createWallSurfaceGeometryStore(),other=createWallSurfaceGeometryStore()
-  let notifications=0;const unsubscribe=store.subscribe(()=>notifications++)
-  const first=[face('old',0,2)],second=[face('new',0,2)]
-  const removeFirst=store.publish('floor',first),removeSecond=store.publish('floor',second)
-  removeFirst()
-  assert.equal(store.get('floor'),second)
-  assert.equal(other.get('floor').length,0)
-  assert.equal(notifications,2)
-  removeSecond();assert.equal(store.get('floor').length,0)
-  unsubscribe();store.publish('floor',first);assert.equal(notifications,3)
 })

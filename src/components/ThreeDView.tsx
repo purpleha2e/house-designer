@@ -48,6 +48,8 @@ import {
   WebGLRenderTarget,
   type Camera,
   type Light,
+  type Mesh,
+  type MeshStandardMaterial,
   type Side,
   type Texture,
   type WebGLRenderer,
@@ -59,11 +61,11 @@ import {
   useContext,
   useCallback,
   useEffect,
+  useLayoutEffect,
   memo,
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type ErrorInfo,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
@@ -75,6 +77,7 @@ import type {
   Point,
   RoofStructure,
   SelectableSurface,
+  WallSurfaceFragmentReference,
   SunPosition,
   SurfaceMaterialAssignment,
   SurfaceMaterialProduct,
@@ -84,6 +87,9 @@ import type {
   WallKind,
 } from '../types'
 import { surfaceMaterialsById } from '../materials/materialCatalog'
+import { ImportedModelBatching, isBatchedModelSource } from '../importedModelBatching'
+import { releaseLightShadowResources } from '../lightShadowResources'
+import { SunShadowCache } from '../sunShadowCache'
 import {
   getModelAssetUrl,
   modelsById,
@@ -119,27 +125,24 @@ import {
   normalizeMaterialVariation,
 } from '../materials/proceduralVariation'
 import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
+import { wallMaterialBatchKey } from '../wallEngine/wallMaterialBatchKey'
 import { clipWallFacesInWorker } from '../wallEngine/wallRoofClipClient'
-import { createWallSurfaceGeometryStore } from '../wallEngine/wallSurfaceGeometryStore'
-import { splitSlabFacadeEdge } from '../slabFacadeSegments'
-import { findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
-import {
-  findFloorSlabMaterialSupport,
-  findFloorSlabSupportingWall,
-  type FloorSlabSupportingWall,
-} from '../floorSlabEdgeMaterial'
-import { buildCeilingSlabFootprints, getSlabRenderedWalls } from '../ceilingSlabFootprint'
+import { buildStoreyGeometry, getExposedAssemblyEdges, type StoreyGeometry } from '../storeyGeometry'
+import { buildCeilingSlabFootprints } from '../ceilingSlabFootprint'
 import { getRoofCeilingCutouts } from '../roofCeilingClipping'
 import { getBaySupportPolygon } from '../bayRoof'
 import { createBayRoofEavesGeometry } from '../bayRoofEaves'
 import {
   getPitchedRoofSurfaceDistance,
-  ROOF_TILE_THICKNESS_METERS,
 } from '../roofProfile'
 import { getBayRoofTopUvs, getGableChamferTopUvs } from '../roofUv'
 import { createUpAndOverEavesGeometry } from '../roofEavesGeometry'
 import { getRoofAbutmentPlanes, type RoofAbuttingWall } from '../roofAbutmentGeometry'
-import { roofToLocal, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, type ResolvedRoof } from '../roofJunctions'
+import { isRoofRegionSubdivision } from '../wallEngine/wallRoofSurfacePartitions'
+import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, type ResolvedRoof } from '../roofJunctions'
+import { clipEavesInsideAdjoiningRoofs } from '../roofEavesClipping'
+import { createSolidRoofGeometryFromFaces, getFlippedRoofFaceProjectedUvs, splitRoofUndersideFaces, type RoofGeometries, type RoofFaceUvProjector, type RoofVertex } from '../roofSolidGeometry'
+import { clipRoofShellAtJunctions } from '../roofShellClipping'
 import { getRoofThickness } from '../roofThickness'
 import { createWallRoofClipOptions } from '../roofWallClipping'
 import { buildWallGeometryPlans } from '../wallEngine/wallPlan'
@@ -163,6 +166,7 @@ import {
   createWallSurfacePickTarget,
   getAdjoiningWallSurfaceSelection,
   isExteriorWallSurfaceFragment,
+  isWallFragmentExposedAboveAdjacentRoof,
 } from '../wallAdjoiningSurfaces'
 import { getCanonicalWallUvDistance } from '../wallEngine/wallUv'
 import {
@@ -1471,12 +1475,14 @@ function getSunAppearance(elevation: number) {
 function SunLight({
   enabled,
   lightDirection,
+  previewDirectionRef,
   sceneBounds,
   shadowMapSize = 2048,
   shadows,
 }: {
   enabled: boolean
   lightDirection: LightDirection
+  previewDirectionRef: MutableRefObject<LightDirection | null>
   sceneBounds: ReturnType<typeof getSceneBounds>
   shadowMapSize?: number
   shadows: boolean
@@ -1492,18 +1498,29 @@ function SunLight({
   }, [sceneBounds])
   const horizontalDistance = Math.max(sceneBounds.size * 0.9, 12)
   const verticalDistance = Math.max(sceneBounds.maxElevation + 8, 8)
-  const lightHeight = Math.max(
-    0.8,
-    Math.sin(lightDirection.elevation) * verticalDistance,
-  )
-  const lightRadius =
-    horizontalDistance * Math.max(0.08, Math.cos(lightDirection.elevation))
-  const sunAppearance = getSunAppearance(lightDirection.elevation)
-  const lightPosition = [
-    sceneBounds.centerX + Math.cos(lightDirection.azimuth) * lightRadius,
-    lightHeight,
-    sceneBounds.centerZ + Math.sin(lightDirection.azimuth) * lightRadius,
-  ] as const
+  const lastApplied = useRef<{
+    azimuth: number; elevation: number; enabled: boolean; bounds: typeof sceneBounds
+  } | null>(null)
+  useFrame(() => {
+    const light = lightRef.current
+    if (!light) return
+    const direction = previewDirectionRef.current ?? lightDirection
+    const previous = lastApplied.current
+    if (previous?.azimuth === direction.azimuth && previous.elevation === direction.elevation &&
+      previous.enabled === enabled && previous.bounds === sceneBounds) return
+    // A drag changes only the existing light. Persisted scene state (including
+    // baked lighting) is updated once when the control is released.
+    const radius = horizontalDistance * Math.max(0.08, Math.cos(direction.elevation))
+    light.position.set(
+      sceneBounds.centerX + Math.cos(direction.azimuth) * radius,
+      Math.max(0.8, Math.sin(direction.elevation) * verticalDistance),
+      sceneBounds.centerZ + Math.sin(direction.azimuth) * radius,
+    )
+    const appearance = getSunAppearance(direction.elevation)
+    light.color.copy(appearance.color)
+    light.intensity = enabled ? appearance.intensity : 0
+    lastApplied.current = { ...direction, enabled, bounds: sceneBounds }
+  })
   const shadowCameraFar =
     horizontalDistance + verticalDistance + sceneBounds.size + sceneBounds.maxElevation
 
@@ -1515,10 +1532,9 @@ function SunLight({
       />
       <directionalLight
         ref={lightRef}
-        color={sunAppearance.color}
-        position={lightPosition}
-        intensity={enabled ? sunAppearance.intensity : 0}
+        userData={{ houseDesignerRole: 'sun-light' }}
         castShadow={enabled && shadows}
+        shadow-autoUpdate={false}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
         shadow-camera-left={-sceneBounds.size / 2}
@@ -2497,7 +2513,7 @@ function InternalWallMaterial({
   )
 }
 
-const WallSurfaceGeometryContext = createContext(createWallSurfaceGeometryStore())
+const StoreyGeometryContext = createContext<ReadonlyMap<string, StoreyGeometry>>(new Map())
 
 function WallEngineWallMeshes({
   castsShadow,
@@ -2562,7 +2578,12 @@ function WallEngineWallMeshes({
     () => getWallOpeningDepthsByModelId(walls),
     [walls],
   )
+  const storeyGeometry = useContext(StoreyGeometryContext).get(floorId)
   const uncutFaces = useMemo(() => {
+    if (storeyGeometry) {
+      const ids = new Set(renderedWalls.map(rendered => rendered.wall.id))
+      return storeyGeometry.wallFaces.filter(face => ids.has(face.wallId) || face.storeyBoundary)
+    }
     return buildFloorWallSurfaceFaces({
       contextRenderedWalls: roomSurfaceDebugRenderedWalls,
       externalFootprintWallIds,
@@ -2582,6 +2603,7 @@ function WallEngineWallMeshes({
     rooms,
     elevation,
     wallOpeningDepthsByModelId,
+    storeyGeometry,
   ])
   const roofClipOptions = useMemo(() => createWallRoofClipOptions({
       floorElevation: elevation,
@@ -2605,10 +2627,9 @@ function WallEngineWallMeshes({
         }
       }),
       walls,
-    }), [elevation, floorId, rooms, wallClippingRoofs, walls])
+      wallFaces: uncutFaces,
+    }), [elevation, floorId, rooms, wallClippingRoofs, walls, uncutFaces])
   const [faces, setFaces] = useState<WallEngineFace[]>([])
-  const surfaceGeometryStore = useContext(WallSurfaceGeometryContext)
-  useEffect(() => surfaceGeometryStore.publish(floorId, faces), [surfaceGeometryStore, floorId, faces])
   useEffect(() => {
     const controller = new AbortController()
     const startedAt = performance.now()
@@ -2684,17 +2705,32 @@ function WallEngineWallMeshes({
     [faces, surfaceAssignments],
   )
   const payload = useMemo(
-    () =>
-      buildWallBufferGeometryPayload(renderFaces, {
+    () => {
+      const keys = new Map<string, string>()
+      return buildWallBufferGeometryPayload(renderFaces, {
         floorId,
-      }),
-    [floorId, renderFaces],
+        materialBatchKey: source => {
+          const sourceKey = JSON.stringify([source.wallId, source.side, source.role, source.fragmentId])
+          const existing = keys.get(sourceKey)
+          if (existing !== undefined) return existing
+          const finish = resolveWallEngineMaterial({ source, surfaceAssignments, wallsById })
+          const key = wallMaterialBatchKey(finish.assignment, finish.fallback)
+          keys.set(sourceKey, key)
+          return key
+        },
+      })
+    },
+    [floorId, renderFaces, surfaceAssignments, wallsById],
   )
   const coplanarSurfaceGroups = useMemo(
     () => buildCoplanarWallSurfaceGroups(faces),
     [faces],
   )
   const adjoiningSurfaceGroups = useMemo(() => {
+    const roofSupports = wallClippingRoofs.map(candidate => ({
+      roofId: candidate.roof.id,
+      supportPolygon: roofBoundsPolygon(candidate.resolved, candidate.resolved.support),
+    }))
     const classifiedFragments = faces.flatMap((face) => {
       if (face.kind !== 'side' || typeof face.pickSource.side !== 'number') {
         return []
@@ -2723,7 +2759,10 @@ function WallEngineWallMeshes({
         x: face.normal[0] / normalLength,
         y: face.normal[2] / normalLength,
       }
-      const adjacentRoom =
+      // The plan room can extend behind this face, but above its roof the
+      // surface is exterior. Do not split a facade at that room's end wall.
+      const exposedAboveRoof = isWallFragmentExposedAboveAdjacentRoof(face, roofSupports)
+      const adjacentRoom = exposedAboveRoof ? undefined :
         (face.roomSignature
           ? rooms.find((room) => room.signature === face.roomSignature)
           : undefined) ??
@@ -2750,7 +2789,7 @@ function WallEngineWallMeshes({
             side: face.pickSource.side,
             wallId: face.pickSource.wallId,
           },
-          isExterior: isExteriorWallSurfaceFragment({
+          isExterior: exposedAboveRoof || isExteriorWallSurfaceFragment({
                   detectedExteriorSide,
                   hasAdjacentRoom: Boolean(adjacentRoom),
                   hasOppositeRoom: Boolean(oppositeRoom),
@@ -2779,21 +2818,26 @@ function WallEngineWallMeshes({
       groups.set(surfaceKey, fragments)
     })
 
-    return appendExternalWallCapFragmentsToGroups({
-      classifiedFragments,
-      faces,
-      groups,
-      walls,
-    })
-  }, [exteriorWallSidesByWallId, faces, rooms, walls, wallsById])
+    return {
+      groups: appendExternalWallCapFragmentsToGroups({ classifiedFragments, faces, groups, walls }),
+      roomFragmentIds: new Set(classifiedFragments.filter(f => f.adjacentRoomSignature).map(f => f.fragment.fragmentId)),
+    }
+  }, [exteriorWallSidesByWallId, faces, rooms, walls, wallsById, wallClippingRoofs])
   const pickPayload = useMemo(
     () => {
-      const hiddenRoofFaceIds = new Set(faces.filter(face => face.roofSurfaceRegion?.includes(':below')).map(face => face.faceId))
+      const hiddenRoofFaceIds = new Set(faces.filter(face => face.roofSurfaceRegion?.includes(':below') &&
+        !adjoiningSurfaceGroups.roomFragmentIds.has(face.faceId)).map(face => face.faceId))
       const nextPayload = buildWallBufferGeometryPayload(faces, {
         floorId,
         groupBy: 'face',
       })
       const pickTargets = new Map<number, SelectableSurface>()
+      const withReveals = (fragments: WallSurfaceFragmentReference[] | undefined) => {
+        if (!fragments) return undefined
+        const extended = fragments.flatMap(fragment => [fragment,
+          ...(coplanarSurfaceGroups.get(fragment.fragmentId) ?? []).filter(ref => /:opening(?:-boundary)?:/.test(ref.fragmentId))])
+        return [...new Map(extended.map(ref => [`${ref.wallId}:${ref.side}:${ref.fragmentId}`, ref])).values()]
+      }
 
       nextPayload.pickTargets.forEach((target, materialIndex) => {
           if (target.type !== 'wall-surface-fragment') {
@@ -2806,9 +2850,9 @@ function WallEngineWallMeshes({
             createWallSurfacePickTarget({
               adjoiningFragments: hiddenRoofFaceIds.has(target.fragmentId)
                 ? coplanarSurfaceGroups.get(target.fragmentId)
-                : adjoiningSurfaceGroups.get(
+                : withReveals(adjoiningSurfaceGroups.groups.get(
                 `${target.wallId}:${target.side}:${target.fragmentId}`,
-              )?.filter(fragment => !hiddenRoofFaceIds.has(fragment.fragmentId)),
+              )?.filter(fragment => !hiddenRoofFaceIds.has(fragment.fragmentId))),
               coplanarFragments: coplanarSurfaceGroups.get(target.fragmentId),
               target,
             }),
@@ -3272,14 +3316,11 @@ function RoomSurfaceGapDebugOverlay({
   )
 }
 
-function WallEngineMaterialSlot({
-  attach,
+function resolveWallEngineMaterial({
   source,
   surfaceAssignments,
   wallsById,
-  wireframe,
 }: {
-  attach: string
   source: {
     fragmentId?: string
     role?: 'cap' | 'room-surface'
@@ -3288,7 +3329,6 @@ function WallEngineMaterialSlot({
   }
   surfaceAssignments: SurfaceMaterialAssignment[]
   wallsById: Map<string, Wall>
-  wireframe: boolean
 }) {
   const wall = wallsById.get(source.wallId)
   const wallMaterialAssignments = wall
@@ -3332,6 +3372,14 @@ function WallEngineMaterialSlot({
     ? surfaceMaterialsById.get(assignment.materialId)
     : undefined
 
+  return { assignment, material, fallback: wall?.kind === 'external' ? 'external' as const : 'internal' as const }
+}
+
+function WallEngineMaterialSlot({
+  attach, source, surfaceAssignments, wallsById, wireframe,
+}: Parameters<typeof resolveWallEngineMaterial>[0] & { attach: string; wireframe: boolean }) {
+  const { assignment, material, fallback } = resolveWallEngineMaterial({ source, surfaceAssignments, wallsById })
+
   if (assignment && material) {
     return (
       <SurfaceMeshStandardMaterial
@@ -3348,7 +3396,7 @@ function WallEngineMaterialSlot({
     )
   }
 
-  return wall?.kind === 'external' ? (
+  return fallback === 'external' ? (
     <ExternalWallMaterial attach={attach} side={DoubleSide} wireframe={wireframe} />
   ) : (
     <InternalWallMaterial attach={attach} side={DoubleSide} wireframe={wireframe} />
@@ -3505,7 +3553,8 @@ function getWallFragmentMaterialAssignmentForFace(
       assignment.target.wallId === face.pickSource.wallId &&
       (assignment.target.fragmentId === face.faceId ||
         face.faceId.startsWith(`${assignment.target.fragmentId}:uncovered:`) ||
-        face.faceId.startsWith(`${assignment.target.fragmentId}:roof-region:`)) &&
+        face.faceId.startsWith(`${assignment.target.fragmentId}:roof-region:`) ||
+        isRoofRegionSubdivision(face.faceId, assignment.target.fragmentId)) &&
       (assignment.target.side === 'both' ||
         assignment.target.side === face.pickSource.side),
   )
@@ -5052,6 +5101,8 @@ function SurfaceMeshStandardMaterial({
   textureQuality?: SurfaceTextureQuality
   wireframe: boolean
 }) {
+  const materialRef = useRef<MeshStandardMaterial>(null)
+  const invalidate = useThree(state => state.invalidate)
   const textures = useSurfaceMaterialTextures(
     material,
     assignment,
@@ -5071,12 +5122,22 @@ function SurfaceMeshStandardMaterial({
       : {},
     [variationKey],
   )
+  useLayoutEffect(() => {
+    // Maps arrive asynchronously after an untextured shader may have compiled.
+    // Assigning a Three material's map alone does not rebuild that shader.
+    if (materialRef.current) {
+      materialRef.current.needsUpdate = true
+      invalidate()
+    }
+  }, [invalidate, textures.map, textures.normalMap, textures.roughnessMap,
+    textures.metalnessMap, textures.aoMap, textures.displacementMap, variationKey])
 
   return (
     <meshStandardMaterial
       // Remount when the mode/settings change, including XR entry/exit, so
       // disabled materials use the ordinary shader with no variation work.
       key={variationKey || 'standard'}
+      ref={materialRef}
       {...variationShader}
       attach={attach}
       aoMap={textures.aoMap ?? null}
@@ -6707,7 +6768,6 @@ function createFloorSlabEdgeUvGeometry({
 }
 
 const FLOOR_SLAB_EDGE_WALL_OVERLAP_METERS = CEILING_VERTICAL_OVERLAP_METERS
-const FLOOR_SLAB_EDGE_UPPER_WALL_OVERLAP_METERS = 0.02
 const FLOOR_SLAB_REVEAL_PLAN_OVERLAP_METERS = 0.002
 const FLOOR_SLAB_REVEAL_TOP_OVERLAP_METERS = 0.002
 
@@ -6890,13 +6950,7 @@ type CeilingSlabOuterEdge = {
   material?: SurfaceMaterialProduct
   nextPoint: Point
   point: Point
-  usesDefaultExternalWallMaterial?: boolean
-  uvFrame?: {
-    bottom: number
-    end: number
-    normalSign: -1 | 1
-    start: number
-  }
+
 }
 
 function CeilingSlabSolid({
@@ -6925,17 +6979,15 @@ function CeilingSlabSolid({
           return {
             materialIndex: edgeIndex + 1,
             nextPoint: edge.nextPoint,
-            normalSign: edge.uvFrame?.normalSign ?? 1,
+            normalSign: 1 as const,
             point: edge.point,
-            topOverlap: FLOOR_SLAB_EDGE_UPPER_WALL_OVERLAP_METERS,
-            uvBottom:
-              (edge.uvFrame?.bottom ?? 0) -
-              (edge.uvFrame ? FLOOR_SLAB_EDGE_WALL_OVERLAP_METERS : 0),
-            uvEnd: edge.uvFrame?.end ?? length,
-            uvStart: edge.uvFrame?.start ?? 0,
+            uvBottom: 0,
+            uvEnd: length,
+            uvStart: 0,
           }
         }),
         CEILING_SLAB_CAP_INSET_METERS,
+        'top',
       ),
     [depth, edges, shape],
   )
@@ -6970,20 +7022,10 @@ function CeilingSlabSolid({
             attach={`material-${edgeIndex + 1}`}
             displacementEnabled={false}
             material={edge.material}
-            // Match the wall facade's depth. A positive bias lets the wall
-            // top/ceiling underside win at the join and draw a hairline seam.
-            // The geometry already overlaps the wall vertically to seal it.
             polygonOffsetFactor={0}
             polygonOffsetUnits={0}
             side={DoubleSide}
             textureQuality={getWallSurfaceTextureQuality(edge.material)}
-            wireframe={wireframe}
-          />
-        ) : edge.usesDefaultExternalWallMaterial ? (
-          <ExternalWallMaterial
-            key={edgeIndex}
-            attach={`material-${edgeIndex + 1}`}
-            side={DoubleSide}
             wireframe={wireframe}
           />
         ) : (
@@ -7004,36 +7046,6 @@ function CeilingSlabSolid({
 
 const SUN_SHADOW_BLOCKER_USER_DATA = 'houseDesignerSunShadowBlocker'
 
-function getSlabEdgeWallPlaneError(
-  point: Point,
-  nextPoint: Point,
-  supportingWall: FloorSlabSupportingWall | null,
-) {
-  if (!supportingWall) {
-    return null
-  }
-
-  const wall = supportingWall.wall
-  const wallDx = wall.end.x - wall.start.x
-  const wallDz = wall.end.y - wall.start.y
-  const wallLength = Math.hypot(wallDx, wallDz)
-
-  if (wallLength <= 0.001) {
-    return null
-  }
-
-  const normalX = -wallDz / wallLength
-  const normalZ = wallDx / wallLength
-  const midpointX = (point.x + nextPoint.x) / 2
-  const midpointZ = (point.y + nextPoint.y) / 2
-  const signedDistance =
-    (midpointX - wall.start.x) * normalX +
-    (midpointZ - wall.start.y) * normalZ
-  const wallFaceDistance = (wall.thickness / 2) * supportingWall.side
-
-  return signedDistance - wallFaceDistance
-}
-
 function CeilingSlab({
   castsShadow,
   floor,
@@ -7041,6 +7053,7 @@ function CeilingSlab({
   onRegisterPickTarget,
   openings,
   roofCutouts = [],
+  undersideRoofCutouts = [],
   selectedSurface,
   sunShadowBlocker,
   surfaceAssignments,
@@ -7053,32 +7066,28 @@ function CeilingSlab({
   onRegisterPickTarget?: (target: PickTarget) => () => void
   openings: Point[][]
   roofCutouts?: PlanCutout[]
+  undersideRoofCutouts?: PlanCutout[]
   selectedSurface?: SelectableSurface | null
   sunShadowBlocker?: boolean
   surfaceAssignments?: SurfaceMaterialAssignment[]
   upperFloor: FloorLevel | null
   wireframe: boolean
 }) {
-  const surfaceGeometryStore = useContext(WallSurfaceGeometryContext)
-  const lowerSurfaceFaces = useSyncExternalStore(surfaceGeometryStore.subscribe,
-    () => surfaceGeometryStore.get(floor.id))
-  const upperSurfaceFaces = useSyncExternalStore(surfaceGeometryStore.subscribe,
-    () => surfaceGeometryStore.get(upperFloor?.id ?? ''))
+  const assembly = useContext(StoreyGeometryContext).get(floor.id)?.assembly
   // A solid inter-storey slab occupies this floor's ceiling zone, but follows
   // the footprint of the storey it supports. An invisible ceiling shadow
   // blocker follows the current floor and is not structural slab geometry.
   const footprints = useMemo(
     () => isSolid
-      ? getCeilingSlabFootprints(upperFloor, floor)
+      ? assembly?.footprints ?? []
       : buildCeilingSlabFootprints(floor.walls),
-    [floor, isSolid, upperFloor],
+    [assembly, floor, isSolid],
   )
   const slabBottom =
     floor.elevation +
     floor.roomHeight -
     (isSolid ? CEILING_VERTICAL_OVERLAP_METERS : 0)
-  const slabTop =
-    floor.elevation + floor.roomHeight + floor.slabThickness
+  const slabTop = assembly?.top ?? floor.elevation + floor.roomHeight
   useEffect(() => {
     if (!isSolid) {
       return undefined
@@ -7132,142 +7141,26 @@ function CeilingSlab({
     () => slabFootprints.map(createPlanShapeWithHoles),
     [slabFootprints],
   )
-  const supportingWalls = useMemo(() => getSlabRenderedWalls(floor.walls), [floor.walls])
-  const upperSupportingWalls = useMemo(
-    () => getSlabRenderedWalls(upperFloor?.walls ?? []),
-    [upperFloor?.walls],
-  )
-  const slabOuterEdges = useMemo(
-    () =>
-      slabShapes.map((slabShape) => {
-        const points = slabShape.getPoints().map((point) => ({
-          x: point.x,
-          y: -point.y,
-        }))
-
-        return points.flatMap((point, edgeIndex) => splitSlabFacadeEdge({
-          point, nextPoint: points[(edgeIndex + 1) % points.length],
-          lowerFaces: lowerSurfaceFaces, lowerHeight: floor.roomHeight - 0.001,
-          upperFaces: upperSurfaceFaces, upperHeight: 0.001,
-        }).map(({ point, nextPoint, lowerFace, upperFace }) => {
-          const supportingWall = findFloorSlabSupportingWall(
-            point,
-            nextPoint,
-            supportingWalls,
-          )
-          const upperSupportingWall = upperFloor
-            ? findFloorSlabSupportingWall(point, nextPoint, upperSupportingWalls)
-            : null
-          const inherited = findFloorSlabMaterialSupport(
-            supportingWall,
-            upperSupportingWall,
-            (support) => {
-              const face = support === supportingWall ? lowerFace : upperFace
-              const assignment = (face ? findWallFragmentAssignmentForFace(surfaceAssignments ?? [], face) : undefined) ??
-                getWallFaceMaterialAssignmentForSide(
-                  getWallSurfaceMaterialAssignments(surfaceAssignments ?? [], support.wall.id),
-                  support.side, support.wall.height,
-                )
-              const material = assignment
-                ? surfaceMaterialsById.get(assignment.materialId)
-                : undefined
-              return assignment && material ? { assignment, material } : undefined
-            },
-          )
-          const materialSupportingWall = inherited.support
-          const inheritedAssignment = inherited.material?.assignment
-          const inheritedMaterial = inherited.material?.material
-          const inheritsWallMaterial = Boolean(
-            materialSupportingWall && inheritedAssignment && inheritedMaterial,
-          )
-          const usesDefaultExternalWallMaterial = Boolean(
-            !inheritsWallMaterial && !edgeAssignment,
-          )
-          const edgeLength = Math.hypot(
-            nextPoint.x - point.x,
-            nextPoint.y - point.y,
-          )
-
-          return {
-            assignment: inheritsWallMaterial
-              ? inheritedAssignment
-              : edgeAssignment,
-            material: inheritsWallMaterial ? inheritedMaterial : edgeMaterial,
-            nextPoint,
-            point,
-            supportingWall,
-            upperSupportingWall,
-            lowerFragmentId: lowerFace?.faceId,
-            upperFragmentId: upperFace?.faceId,
-            usesDefaultExternalWallMaterial,
-            uvFrame:
-              (inheritsWallMaterial || usesDefaultExternalWallMaterial) &&
-              materialSupportingWall
-                ? {
-                    bottom: floor.elevation + floor.roomHeight,
-                    end: materialSupportingWall.uvEnd,
-                    normalSign: materialSupportingWall.normalSign,
-                    start: materialSupportingWall.uvStart,
-                  }
-                : usesDefaultExternalWallMaterial
-                  ? {
-                      bottom: floor.elevation + floor.roomHeight,
-                      end: edgeLength,
-                      normalSign: 1 as const,
-                      start: 0,
-                    }
-                  : undefined,
-          }
-        }))
-      }),
-    [
-      edgeAssignment,
-      edgeMaterial,
-      floor.elevation,
-      floor.roomHeight,
-      floor.walls,
-      slabShapes,
-      supportingWalls,
-      upperSupportingWalls,
-      lowerSurfaceFaces,
-      upperSurfaceFaces,
-      surfaceAssignments,
-      upperFloor,
-    ],
-  )
+  const undersideShapes = useMemo(() => footprints.flatMap(footprint =>
+    subtractPlanCutouts(footprint, [...openings, ...undersideRoofCutouts])).map(createPlanShapeWithHoles),
+    [footprints, openings, undersideRoofCutouts])
+  const slabOuterEdges = useMemo(() => slabShapes.map(shape =>
+    (assembly ? getExposedAssemblyEdges(assembly, shape.getPoints().map(p => ({ x: p.x, y: -p.y }))) : [])
+      .map(edge => ({ ...edge, assignment: edgeAssignment, material: edgeMaterial }))),
+    [assembly, slabShapes, edgeAssignment, edgeMaterial])
   useEffect(() => {
-    ceilingSlabEdgeDebugEntries.set(
-      floor.id,
-      slabOuterEdges.flatMap((edges) =>
-        edges.map((edge, edgeIndex) => ({
-          edgeIndex,
-          floorId: floor.id,
-          lowerPlaneError: getSlabEdgeWallPlaneError(
-            edge.point,
-            edge.nextPoint,
-            edge.supportingWall,
-          ),
-          lowerWallId: edge.supportingWall?.wall.id ?? null,
-          lowerFragmentId: edge.lowerFragmentId,
-          upperFragmentId: edge.upperFragmentId,
-          upperPlaneError: getSlabEdgeWallPlaneError(
-            edge.point,
-            edge.nextPoint,
-            edge.upperSupportingWall,
-          ),
-          upperWallId: edge.upperSupportingWall?.wall.id ?? null,
-          x1: Number(edge.point.x.toFixed(3)),
-          x2: Number(edge.nextPoint.x.toFixed(3)),
-          z1: Number(edge.point.y.toFixed(3)),
-          z2: Number(edge.nextPoint.y.toFixed(3)),
-        })),
-      ),
-    )
-
-    return () => {
-      ceilingSlabEdgeDebugEntries.delete(floor.id)
-    }
-  }, [floor.id, slabOuterEdges])
+    ceilingSlabEdgeDebugEntries.set(floor.id, (assembly?.edges ?? []).map((edge, edgeIndex) => ({
+      edgeIndex, floorId: floor.id,
+      lowerPlaneError: edge.wallFloorId === floor.id ? 0 : null,
+      upperPlaneError: edge.wallFloorId === upperFloor?.id ? 0 : null,
+      lowerWallId: edge.wallFloorId === floor.id ? edge.wallFace?.wallId ?? null : null,
+      upperWallId: edge.wallFloorId === upperFloor?.id ? edge.wallFace?.wallId ?? null : null,
+      lowerFragmentId: edge.wallFloorId === floor.id ? edge.wallFace?.faceId : undefined,
+      upperFragmentId: edge.wallFloorId === upperFloor?.id ? edge.wallFace?.faceId : undefined,
+      x1: edge.point.x, x2: edge.nextPoint.x, z1: edge.point.y, z2: edge.nextPoint.y,
+    })))
+    return () => { ceilingSlabEdgeDebugEntries.delete(floor.id) }
+  }, [assembly, floor.id, upperFloor?.id])
   const openingEdgeRings = useMemo(
     () => slabFootprints.flatMap((footprint) => footprint.holes),
     [slabFootprints],
@@ -7286,7 +7179,7 @@ function CeilingSlab({
   const openingRevealCenterY =
     openingRevealBottomY + openingRevealHeight / 2
 
-  if (slabShapes.length === 0) {
+  if (slabShapes.length === 0 && (!isSolid || undersideShapes.length === 0)) {
     return null
   }
 
@@ -7306,7 +7199,7 @@ function CeilingSlab({
             >
               <CeilingSlabSolid
                 castsShadow={castsShadow}
-                depth={floor.slabThickness + CEILING_VERTICAL_OVERLAP_METERS}
+                depth={slabTop - slabBottom}
                 edges={slabOuterEdges[index]}
                 shape={slabShape}
                 wireframe={wireframe}
@@ -7334,23 +7227,6 @@ function CeilingSlab({
               />
             </mesh>
           )}
-          {isSolid ? (
-            <mesh
-              position={[0, floor.elevation + floor.roomHeight - 0.002, 0]}
-              receiveShadow
-              rotation={[-Math.PI / 2, 0, 0]}
-              renderOrder={1}
-              userData={{ houseDesignerRole: 'ceiling-slab-underside' }}
-            >
-              <shapeGeometry args={[slabShape]} />
-              <meshStandardMaterial
-                color="#e2e8f0"
-                roughness={0.82}
-                side={DoubleSide}
-                wireframe={wireframe}
-              />
-            </mesh>
-          ) : null}
           {isSolid
             ? slabOuterEdges[index].map((edge, edgeIndex) => (
                 <FloorSlabEdgeFace
@@ -7360,18 +7236,27 @@ function CeilingSlab({
                   floor={floor}
                   floorId={floor.id}
                   isSelected={edgeIsSelected}
+                  height={slabTop - (floor.elevation + floor.roomHeight)}
+                  centerY={(slabTop + floor.elevation + floor.roomHeight) / 2}
                   material={edge.material}
                   nextPoint={edge.nextPoint}
                   onRegisterPickTarget={onRegisterPickTarget}
                   pickOnly
                   point={edge.point}
-                  uvFrame={edge.uvFrame}
                   wireframe={wireframe}
                 />
               ))
             : null}
         </group>
       ))}
+      {isSolid ? undersideShapes.map((shape, index) => (
+        <mesh key={`underside:${index}`} position={[0, floor.elevation + floor.roomHeight - 0.002, 0]}
+          receiveShadow rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}
+          userData={{ houseDesignerRole: 'ceiling-slab-underside' }}>
+          <shapeGeometry args={[shape]} />
+          <meshStandardMaterial color="#e2e8f0" roughness={0.82} side={DoubleSide} wireframe={wireframe} />
+        </mesh>
+      )) : null}
       {isSolid
         ? openingEdgeRings.flatMap((ring, ringIndex) =>
             ring.map((point, edgeIndex) => {
@@ -9719,7 +9604,8 @@ function surfacesMatch(
   if (firstSurface.type === 'roof' && secondSurface.type === 'roof') {
     return (
       firstSurface.floorId === secondSurface.floorId &&
-      firstSurface.roofId === secondSurface.roofId
+      firstSurface.roofId === secondSurface.roofId &&
+      firstSurface.part === secondSurface.part
     )
   }
 
@@ -9906,255 +9792,6 @@ function FloorPlaneSurface({
 }
 
 const ROOF_INFILL_WALL_OVERLAP_METERS = 0.04
-
-type RoofVertex = [number, number, number]
-
-type RoofGeometryBuffers = {
-  normals: number[]
-  positions: number[]
-  uvs: number[]
-}
-
-type RoofGeometries = {
-  eaves?: BufferGeometry | null
-  shell: BufferGeometry
-  top: BufferGeometry
-}
-
-type RoofFaceUvProjector = (vertices: RoofVertex[]) => Array<[number, number]>
-
-function getRoofFaceProjectedUvs(vertices: RoofVertex[]) {
-  if (vertices.length < 3) {
-    return vertices.map(() => [0, 0] as [number, number])
-  }
-
-  const first = new Vector3(...vertices[0])
-  const second = new Vector3(...vertices[1])
-  const third = new Vector3(...vertices[2])
-  const normal = second
-    .clone()
-    .sub(first)
-    .cross(third.clone().sub(first))
-    .normalize()
-  const longestPlanEdge = vertices.reduce<{
-    direction: Vector3
-    lengthSq: number
-  } | null>((current, vertex, index) => {
-    const nextVertex = vertices[(index + 1) % vertices.length]
-    const direction = new Vector3(
-      nextVertex[0] - vertex[0],
-      0,
-      nextVertex[2] - vertex[2],
-    )
-    const lengthSq = direction.lengthSq()
-
-    return !current || lengthSq > current.lengthSq
-      ? { direction, lengthSq }
-      : current
-  }, null)
-  const uAxis =
-    longestPlanEdge && longestPlanEdge.lengthSq > 0.000001
-      ? longestPlanEdge.direction.normalize()
-      : new Vector3(1, 0, 0)
-  const vAxis = normal.clone().cross(uAxis).normalize()
-
-  return vertices.map((vertex) => {
-    const position = new Vector3(...vertex)
-
-    return [position.dot(uAxis), position.dot(vAxis)] as [number, number]
-  })
-}
-
-function getFlippedRoofFaceProjectedUvs(vertices: RoofVertex[]) {
-  return getRoofFaceProjectedUvs(vertices).map(
-    ([u, v]) => [-u, -v] as [number, number],
-  )
-}
-
-function createSolidRoofGeometryFromFaces(
-  faces: RoofVertex[][],
-  topUvProjector: RoofFaceUvProjector = getRoofFaceProjectedUvs,
-  thickness = ROOF_TILE_THICKNESS_METERS,
-): RoofGeometries {
-  const top: RoofGeometryBuffers = { positions: [], normals: [], uvs: [] }
-  const shell: RoofGeometryBuffers = { positions: [], normals: [], uvs: [] }
-  const addTriangle = (
-    buffers: RoofGeometryBuffers,
-    first: RoofVertex,
-    second: RoofVertex,
-    third: RoofVertex,
-    uvFirst: [number, number],
-    uvSecond: [number, number],
-    uvThird: [number, number],
-    preferredDirection?: Vector3,
-  ) => {
-    const normal = new Vector3(
-      second[0] - first[0],
-      second[1] - first[1],
-      second[2] - first[2],
-    )
-      .cross(
-        new Vector3(
-          third[0] - first[0],
-          third[1] - first[1],
-          third[2] - first[2],
-        ),
-      )
-      .normalize()
-    const shouldFlip = preferredDirection
-      ? normal.dot(preferredDirection) < 0
-      : false
-    const ordered = shouldFlip ? [first, third, second] : [first, second, third]
-    const orderedUvs = shouldFlip
-      ? [uvFirst, uvThird, uvSecond]
-      : [uvFirst, uvSecond, uvThird]
-
-    if (shouldFlip) {
-      normal.negate()
-    }
-
-    ordered.forEach((position) => {
-      buffers.positions.push(...position)
-      buffers.normals.push(normal.x, normal.y, normal.z)
-    })
-    orderedUvs.forEach((uv) => buffers.uvs.push(...uv))
-  }
-  const addFace = (
-    buffers: RoofGeometryBuffers,
-    face: RoofVertex[],
-    yOffset: number,
-    preferredDirection: Vector3,
-    reverse = false,
-    uvProjector: RoofFaceUvProjector = getRoofFaceProjectedUvs,
-  ) => {
-    const vertices = face.map(
-      ([x, y, z]) => [x, y + yOffset, z] as RoofVertex,
-    )
-    const orderedVertices = reverse ? [...vertices].reverse() : vertices
-    const orderedUvs = uvProjector(orderedVertices)
-
-    for (let index = 1; index < orderedVertices.length - 1; index += 1) {
-      addTriangle(
-        buffers,
-        orderedVertices[0],
-        orderedVertices[index],
-        orderedVertices[index + 1],
-        orderedUvs[0],
-        orderedUvs[index],
-        orderedUvs[index + 1],
-        preferredDirection,
-      )
-    }
-  }
-  const edgeKey = (first: RoofVertex, second: RoofVertex) => {
-    const firstKey = first.map((value) => value.toFixed(5)).join(',')
-    const secondKey = second.map((value) => value.toFixed(5)).join(',')
-
-    return firstKey < secondKey
-      ? `${firstKey}|${secondKey}`
-      : `${secondKey}|${firstKey}`
-  }
-  const boundaryEdges = new Map<
-    string,
-    { count: number; first: RoofVertex; second: RoofVertex }
-  >()
-
-  faces.forEach((face) => {
-    face.forEach((first, index) => {
-      const second = face[(index + 1) % face.length]
-      const key = edgeKey(first, second)
-      const current = boundaryEdges.get(key)
-
-      boundaryEdges.set(key, {
-        count: (current?.count ?? 0) + 1,
-        first,
-        second,
-      })
-    })
-  })
-
-  faces.forEach((face) => {
-    addFace(top, face, 0, new Vector3(0, 1, 0), false, topUvProjector)
-    addFace(
-      shell,
-      face,
-      -thickness,
-      new Vector3(0, -1, 0),
-      true,
-      getRoofFaceProjectedUvs,
-    )
-  })
-
-  Array.from(boundaryEdges.values())
-    .filter((edge) => edge.count === 1)
-    .forEach(({ first, second }) => {
-      const bottomSecond: RoofVertex = [
-        second[0],
-        second[1] - thickness,
-        second[2],
-      ]
-      const bottomFirst: RoofVertex = [
-        first[0],
-        first[1] - thickness,
-        first[2],
-      ]
-      const horizontalNormal = new Vector3(
-        second[2] - first[2],
-        0,
-        first[0] - second[0],
-      ).normalize()
-
-      addTriangle(
-        shell,
-        first,
-        second,
-        bottomSecond,
-        [0, first[1]],
-        [
-          Math.hypot(second[0] - first[0], second[2] - first[2]),
-          second[1],
-        ],
-        [
-          Math.hypot(second[0] - first[0], second[2] - first[2]),
-          bottomSecond[1],
-        ],
-        horizontalNormal,
-      )
-      addTriangle(
-        shell,
-        first,
-        bottomSecond,
-        bottomFirst,
-        [0, first[1]],
-        [
-          Math.hypot(second[0] - first[0], second[2] - first[2]),
-          bottomSecond[1],
-        ],
-        [0, bottomFirst[1]],
-        horizontalNormal,
-      )
-    })
-
-  const createGeometry = (buffers: RoofGeometryBuffers) => {
-    const geometry = new BufferGeometry()
-
-    geometry.setAttribute(
-      'position',
-      new Float32BufferAttribute(buffers.positions, 3),
-    )
-    geometry.setAttribute('normal', new Float32BufferAttribute(buffers.normals, 3))
-    geometry.setAttribute('uv', new Float32BufferAttribute(buffers.uvs, 2))
-    geometry.computeBoundingBox()
-    geometry.computeBoundingSphere()
-
-    return geometry
-  }
-
-  return {
-    shell: createGeometry(shell),
-    top: createGeometry(top),
-  }
-}
 
 function getRoofInfillWallRole(
   roof: RoofStructure,
@@ -10426,6 +10063,47 @@ function createRoofInfillGeometry({
   return geometry
 }
 
+function RoofInfillMesh({
+  bottomY, infillFaces, exteriorSide, renderedWall, roof,
+  shadowsEnabled, surfaceAssignments, wireframe,
+}: Parameters<typeof createRoofInfillGeometry>[0] & {
+  shadowsEnabled: boolean
+  surfaceAssignments: SurfaceMaterialAssignment[]
+  wireframe: boolean
+}) {
+  const geometry = useMemo(() => createRoofInfillGeometry({
+    bottomY, infillFaces, exteriorSide, renderedWall, roof,
+  }), [bottomY, infillFaces, exteriorSide, renderedWall, roof])
+  useEffect(() => () => geometry?.dispose(), [geometry])
+  if (!geometry) return null
+  const { wall } = renderedWall
+  const assignment = getRoofInfillMaterialAssignment(surfaceAssignments, wall, exteriorSide)
+  const material = assignment ? surfaceMaterialsById.get(assignment.materialId) : null
+  return (
+    <mesh
+      castShadow={shadowsEnabled}
+      geometry={geometry}
+      userData={{ houseDesignerRole: 'roof-infill', roofId: roof.id, wallId: wall.id }}
+      receiveShadow={shadowsEnabled}
+      renderOrder={2}
+    >
+      {assignment && material ? (
+        <SurfaceMeshStandardMaterial
+          assignment={assignment}
+          displacementEnabled={false}
+          material={material}
+          normalScale={WALL_NORMAL_MAP_SCALE}
+          side={DoubleSide}
+          textureQuality={getWallSurfaceTextureQuality(material)}
+          wireframe={wireframe}
+        />
+      ) : (
+        <ExternalWallMaterial side={DoubleSide} wireframe={wireframe} />
+      )}
+    </mesh>
+  )
+}
+
 function RoofInfillMeshes({
   floor,
   resolvedRoofs,
@@ -10458,50 +10136,18 @@ function RoofInfillMeshes({
           const exteriorSide = infillRole === 'gable'
             ? getWallSideAwayFromRoof(roof, wall)
             : roomExteriorSide
-          const geometry = createRoofInfillGeometry({
-            bottomY,
-            infillFaces,
-            exteriorSide,
-            renderedWall,
-            roof,
-          })
-
-          if (!geometry) {
-            return null
-          }
-
-          const assignment = getRoofInfillMaterialAssignment(
-            surfaceAssignments,
-            wall,
-            exteriorSide,
-          )
-          const material = assignment
-            ? surfaceMaterialsById.get(assignment.materialId)
-            : null
-
           return (
-            <mesh
-              castShadow={shadowsEnabled}
-              geometry={geometry}
+            <RoofInfillMesh
               key={`${roof.id}:${wall.id}:roof-infill`}
-              userData={{ houseDesignerRole: 'roof-infill', roofId: roof.id, wallId: wall.id }}
-              receiveShadow={shadowsEnabled}
-              renderOrder={2}
-            >
-              {assignment && material ? (
-                <SurfaceMeshStandardMaterial
-                  assignment={assignment}
-                  displacementEnabled={false}
-                  material={material}
-                  normalScale={WALL_NORMAL_MAP_SCALE}
-                  side={DoubleSide}
-                  textureQuality={getWallSurfaceTextureQuality(material)}
-                  wireframe={wireframe}
-                />
-              ) : (
-                <ExternalWallMaterial side={DoubleSide} wireframe={wireframe} />
-              )}
-            </mesh>
+              bottomY={bottomY}
+              infillFaces={infillFaces}
+              exteriorSide={exteriorSide}
+              renderedWall={renderedWall}
+              roof={roof}
+              shadowsEnabled={shadowsEnabled}
+              surfaceAssignments={surfaceAssignments}
+              wireframe={wireframe}
+            />
           )
         }),
       )}
@@ -10511,10 +10157,12 @@ function RoofInfillMeshes({
 
 function HipRoofMesh({
   abuttingWalls,
+  buildingRoofs,
   elevation,
   floorId,
   isActive,
   isSelected,
+  isUndersideSelected,
   onRegisterPickTarget,
   roof,
   resolved,
@@ -10523,10 +10171,12 @@ function HipRoofMesh({
   wireframe,
 }: {
   abuttingWalls: RoofAbuttingWall[]
+  buildingRoofs: WallClippingRoof[]
   elevation: number
   floorId: string
   isActive: boolean
   isSelected: boolean
+  isUndersideSelected: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
   roof: RoofStructure
   resolved: ResolvedRoof
@@ -10535,6 +10185,7 @@ function HipRoofMesh({
   wireframe: boolean
 }) {
   const groupRef = useRef<Object3D>(null!)
+  const undersideRef = useRef<Mesh>(null!)
   const geometries = useMemo<RoofGeometries>(() => {
     const faces = resolved.faces.map((face) => face.map((p) => roofToLocal(roof, elevation, p)))
     const uvProjector: RoofFaceUvProjector = roof.type === 'up-and-over' || roof.type === 'lean-to'
@@ -10549,16 +10200,34 @@ function HipRoofMesh({
         }
       : roof.type === 'bay' ? (vertices) => getBayRoofTopUvs(roof, vertices)
       : roof.type === 'hip' ? getFlippedRoofFaceProjectedUvs : (vertices) => vertices.map(([x, , z]) => [x, z])
-    return {
-      ...createSolidRoofGeometryFromFaces(faces, uvProjector, getRoofThickness(roof)),
-      eaves: roof.type === 'up-and-over'
-        ? createUpAndOverEavesGeometry(roof, resolved.support, resolved.resolvedExtents, faces, getRoofThickness(roof))
-        : roof.type === 'bay' ? createBayRoofEavesGeometry(roof, faces, getRoofThickness(roof)) : undefined,
-    }
-  }, [elevation, resolved, roof])
+    const rawEaves = roof.type === 'up-and-over'
+      ? createUpAndOverEavesGeometry(roof, resolved.support, resolved.resolvedExtents, faces, getRoofThickness(roof))
+      : roof.type === 'bay' ? createBayRoofEavesGeometry(roof, faces, getRoofThickness(roof)) : undefined
+    const eaves = rawEaves ? clipEavesInsideAdjoiningRoofs(rawEaves, resolved, buildingRoofs.map(r => r.resolved)) : rawEaves
+    if (rawEaves && eaves !== rawEaves) rawEaves.dispose()
+    const structuralFaces = resolved.structuralFaces
+    const supportPolygon = roofBoundsPolygon(resolved, resolved.support)
+    const { undersideFaces, soffitFaces } = splitRoofUndersideFaces(structuralFaces, supportPolygon)
+    const solid = createSolidRoofGeometryFromFaces(
+      faces, uvProjector, getRoofThickness(roof),
+      structuralFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
+      undersideFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
+      soffitFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
+    )
+    const others = buildingRoofs.map(r => r.resolved)
+    const shell = clipRoofShellAtJunctions(solid.shell, resolved, others)
+    const underside = clipRoofShellAtJunctions(solid.underside, resolved, others)
+    const soffit = clipRoofShellAtJunctions(solid.soffit, resolved, others)
+    if (shell !== solid.shell) solid.shell.dispose()
+    if (underside !== solid.underside) solid.underside.dispose()
+    if (soffit !== solid.soffit) solid.soffit.dispose()
+    return { top: solid.top, shell, underside, soffit, eaves }
+  }, [buildingRoofs, elevation, resolved, roof])
   useEffect(() => () => {
     geometries.top.dispose()
     geometries.shell.dispose()
+    geometries.underside.dispose()
+    geometries.soffit.dispose()
     geometries.eaves?.dispose()
   }, [geometries])
   const ridgeHeight = getRoofRidgeHeight(roof)
@@ -10568,11 +10237,19 @@ function HipRoofMesh({
     (assignment) =>
       assignment.target.type === 'roof' &&
       assignment.target.floorId === floorId &&
-      assignment.target.roofId === roof.id,
+      assignment.target.roofId === roof.id && !assignment.target.part,
   )
   const roofMaterial = roofAssignment
     ? surfaceMaterialsById.get(roofAssignment.materialId)
     : undefined
+  const undersideAssignment = surfaceAssignments.findLast(assignment =>
+    assignment.target.type === 'roof' && assignment.target.floorId === floorId &&
+    assignment.target.roofId === roof.id && assignment.target.part === 'underside') ?? roofAssignment
+  const undersideMaterial = undersideAssignment ? surfaceMaterialsById.get(undersideAssignment.materialId) : undefined
+  useEffect(() => onRegisterPickTarget({
+    blocksCollision: false, floorId, kind: 'surface', object: undersideRef.current,
+    pickSide: FrontSide, surface: { type: 'roof', floorId, roofId: roof.id, part: 'underside' },
+  }), [floorId, onRegisterPickTarget, roof.id])
   const roofBounds = useMemo(() => {
     const bounds = new Box3()
 
@@ -10588,6 +10265,8 @@ function HipRoofMesh({
       }
     }
 
+    if (geometries.underside.boundingBox) bounds.union(geometries.underside.boundingBox)
+    if (geometries.soffit.boundingBox) bounds.union(geometries.soffit.boundingBox)
     if (geometries.eaves?.boundingBox) bounds.union(geometries.eaves.boundingBox)
     return bounds.isEmpty() ? null : bounds
   }, [geometries])
@@ -10624,78 +10303,128 @@ function HipRoofMesh({
 
   return (
     <group
-      ref={groupRef}
       position={[roofRenderPosition.x, roofElevation, roofRenderPosition.y]}
       rotation={[0, roof.rotation, 0]}
       renderOrder={isActive ? 3 : 1}
     >
-      <mesh
-        castShadow={shadowsEnabled}
-        geometry={geometries.top}
-        receiveShadow={shadowsEnabled}
-        userData={{ houseDesignerRole: 'roof-top', roofId: roof.id, abuttingWallIds: abuttingWalls.map(({ wall }) => wall.id) }}
-      >
-        {roofAssignment && roofMaterial ? (
-          <SurfaceMeshStandardMaterial
-            assignment={roofAssignment}
-            displacementEnabled={false}
-            material={roofMaterial}
-            shadowSide={BackSide}
-            textureQuality="pbr"
-            wireframe={wireframe}
-          />
-        ) : (
-          <meshStandardMaterial
-            color="#4b5563"
-            metalness={0}
-            roughness={0.74}
-            shadowSide={BackSide}
-            wireframe={wireframe}
-          />
-        )}
-      </mesh>
-      <mesh
-        castShadow={shadowsEnabled}
-        geometry={geometries.shell}
-        receiveShadow={false}
-        userData={{ houseDesignerRole: 'roof-shell', roofId: roof.id }}
-      >
-        {roofAssignment && roofMaterial ? (
-          <SurfaceMeshStandardMaterial
-            assignment={roofAssignment}
-            displacementEnabled={false}
-            material={roofMaterial}
-            shadowSide={BackSide}
-            textureQuality="pbr"
-            wireframe={wireframe}
-          />
-        ) : (
-          <meshStandardMaterial
-            color="#4b5563"
-            metalness={0}
-            roughness={0.74}
-            shadowSide={BackSide}
-            wireframe={wireframe}
-          />
-        )}
-      </mesh>
-      {geometries.eaves ? (
+      <group ref={groupRef}>
         <mesh
-          geometry={geometries.eaves}
           castShadow={shadowsEnabled}
+          geometry={geometries.top}
+          receiveShadow={shadowsEnabled}
+          userData={{ houseDesignerRole: 'roof-top', roofId: roof.id, abuttingWallIds: abuttingWalls.map(({ wall }) => wall.id) }}
+        >
+          {roofAssignment && roofMaterial ? (
+            <SurfaceMeshStandardMaterial
+              assignment={roofAssignment}
+              displacementEnabled={false}
+              material={roofMaterial}
+              shadowSide={BackSide}
+              textureQuality="pbr"
+              wireframe={wireframe}
+            />
+          ) : (
+            <meshStandardMaterial
+              color="#4b5563"
+              metalness={0}
+              roughness={0.74}
+              shadowSide={BackSide}
+              wireframe={wireframe}
+            />
+          )}
+        </mesh>
+        <mesh
+          castShadow={shadowsEnabled}
+          geometry={geometries.shell}
           receiveShadow={false}
-          userData={{ houseDesignerRole: 'roof-eaves', roofId: roof.id }}
+          userData={{ houseDesignerRole: 'roof-shell', roofId: roof.id }}
+        >
+          {roofAssignment && roofMaterial ? (
+            <SurfaceMeshStandardMaterial
+              assignment={roofAssignment}
+              displacementEnabled={false}
+              material={roofMaterial}
+              shadowSide={BackSide}
+              textureQuality="pbr"
+              wireframe={wireframe}
+            />
+          ) : (
+            <meshStandardMaterial
+              color="#4b5563"
+              metalness={0}
+              roughness={0.74}
+              shadowSide={BackSide}
+              wireframe={wireframe}
+            />
+          )}
+        </mesh>
+        {geometries.eaves ? (
+          <mesh
+            geometry={geometries.eaves}
+            castShadow={shadowsEnabled}
+            receiveShadow={false}
+            userData={{ houseDesignerRole: 'roof-eaves', roofId: roof.id }}
+          >
+            <meshStandardMaterial
+              color={roof.soffitColor ?? '#ffffff'}
+              roughness={0.7}
+              side={DoubleSide}
+              shadowSide={BackSide}
+              wireframe={wireframe}
+            />
+          </mesh>
+        ) : null}
+        <mesh
+          geometry={geometries.soffit}
+          castShadow={shadowsEnabled}
+          receiveShadow={shadowsEnabled}
+          userData={{ houseDesignerRole: 'roof-soffit', roofId: roof.id }}
         >
           <meshStandardMaterial
             color={roof.soffitColor ?? '#ffffff'}
             roughness={0.7}
-            side={DoubleSide}
+            side={FrontSide}
             shadowSide={BackSide}
             wireframe={wireframe}
           />
         </mesh>
+      </group>
+      <mesh
+        ref={undersideRef}
+        geometry={geometries.underside}
+        castShadow={shadowsEnabled}
+        receiveShadow={shadowsEnabled}
+        userData={{ houseDesignerRole: 'roof-underside', roofId: roof.id }}
+      >
+        {undersideAssignment && undersideMaterial ? (
+          <SurfaceMeshStandardMaterial assignment={undersideAssignment} material={undersideMaterial}
+            displacementEnabled={false} shadowSide={BackSide} textureQuality="pbr" wireframe={wireframe} />
+        ) : (
+          <meshStandardMaterial color="#4b5563" metalness={0} roughness={0.74}
+            shadowSide={BackSide} wireframe={wireframe} />
+        )}
+      </mesh>
+      {isUndersideSelected ? (
+        <mesh
+          geometry={geometries.underside}
+          renderOrder={9}
+          raycast={() => null}
+          userData={{ houseDesignerRole: 'roof-underside-highlight', roofId: roof.id }}
+        >
+          <meshBasicMaterial
+            color="#3b82f6"
+            depthTest
+            depthWrite={false}
+            opacity={0.28}
+            polygonOffset
+            polygonOffsetFactor={-4}
+            polygonOffsetUnits={-4}
+            side={FrontSide}
+            transparent
+          />
+        </mesh>
       ) : null}
-      {isSelected ? (
+      {isSelected && !isUndersideSelected ? (
         <SelectionBoundsBox
           center={selectionCenter}
           size={selectionSize}
@@ -10752,6 +10481,8 @@ function RoofPlacementPreviewMesh({
   useEffect(() => () => {
     previewGeometry?.geometries.top.dispose()
     previewGeometry?.geometries.shell.dispose()
+    previewGeometry?.geometries.underside.dispose()
+    previewGeometry?.geometries.soffit.dispose()
   }, [previewGeometry])
 
   if (!previewGeometry) {
@@ -10780,19 +10511,12 @@ function RoofPlacementPreviewMesh({
         />
         <Edges color="#2563eb" threshold={12} />
       </mesh>
-      <mesh
-        geometry={geometries.shell}
-        renderOrder={20}
-        userData={{ houseDesignerRole: 'roof-placement-preview-shell' }}
-      >
-        <meshBasicMaterial
-          color="#60a5fa"
-          depthWrite={false}
-          opacity={0.12}
-          side={DoubleSide}
-          transparent
-        />
-      </mesh>
+      {(['shell', 'underside'] as const).map(part => (
+        <mesh key={part} geometry={geometries[part]} renderOrder={20}
+          userData={{ houseDesignerRole: 'roof-placement-preview-shell' }}>
+          <meshBasicMaterial color="#60a5fa" depthWrite={false} opacity={0.12} side={DoubleSide} transparent />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -10805,6 +10529,7 @@ function RoofMeshes({
   renderedWalls,
   rooms,
   selectedRoofId,
+  selectedSurface,
   shadowsEnabled,
   surfaceAssignments,
   wireframe,
@@ -10816,6 +10541,7 @@ function RoofMeshes({
   renderedWalls: RenderedWall[]
   rooms: DetectedRoom[]
   selectedRoofId: string | null
+  selectedSurface: SelectableSurface | null
   shadowsEnabled: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
   wireframe: boolean
@@ -10841,11 +10567,15 @@ function RoofMeshes({
         roof.type === 'up-and-over' || roof.type === 'bay' ? (
           <HipRoofMesh
             abuttingWalls={abuttingWalls}
+            buildingRoofs={wallClippingRoofs}
             key={roof.id}
             elevation={elevation}
             floorId={floor.id}
             isActive={isActive}
             isSelected={roof.id === selectedRoofId}
+            isUndersideSelected={selectedSurface?.type === 'roof' &&
+              selectedSurface.part === 'underside' && selectedSurface.roofId === roof.id &&
+              selectedSurface.floorId === floor.id}
             onRegisterPickTarget={onRegisterPickTarget}
             roof={roof}
             resolved={resolved}
@@ -10861,6 +10591,7 @@ function RoofMeshes({
 
 function SelectableRoomSurfaces({
   ceilingOpenings,
+  showCeiling = true,
   elevation,
   floorPlane,
   floorId,
@@ -10874,6 +10605,7 @@ function SelectableRoomSurfaces({
   visibleRoomSignatures,
 }: {
   ceilingOpenings: Point[][]
+  showCeiling?: boolean
   elevation: number
   floorPlane?: ReturnType<typeof getFloorPlaneBounds> | null
   floorId: string
@@ -10900,6 +10632,7 @@ function SelectableRoomSurfaces({
             rooms={rooms}
             type="room-floor"
           />
+          {showCeiling ? (
           <SelectableRoomSurfaceAreaMesh
             elevation={elevation}
             floorId={floorId}
@@ -10911,6 +10644,7 @@ function SelectableRoomSurfaces({
             rooms={rooms}
             type="ceiling"
           />
+          ) : null}
         </>
       ) : null}
       {rooms
@@ -10939,7 +10673,7 @@ function SelectableRoomSurfaces({
                   selectedSurface={selectedSurface}
                   type="room-floor"
                 />,
-                <SelectableRoomSurfaceMesh
+                showCeiling ? <SelectableRoomSurfaceMesh
                   key={`${room.signature}:ceiling`}
                   elevation={elevation}
                   floorId={floorId}
@@ -10950,7 +10684,7 @@ function SelectableRoomSurfaces({
                   roomHeight={roomHeight}
                   selectedSurface={selectedSurface}
                   type="ceiling"
-                />,
+                /> : null,
               ]
             : []
         })}
@@ -11836,16 +11570,16 @@ function RoomCeilingFinishMesh({
   roomHeight,
   wireframe,
 }: {
-  assignment: SurfaceMaterialAssignment
+  assignment?: SurfaceMaterialAssignment
   elevation: number
-  materialId: string
+  materialId?: string
   openings: PlanCutout[]
   polygon: Point[]
   roomHeight: number
   wireframe: boolean
 }) {
   const meshRef = useRef<Object3D>(null!)
-  const material = surfaceMaterialsById.get(materialId)
+  const material = materialId ? surfaceMaterialsById.get(materialId) : undefined
   const visualPolygon = useMemo(
     () => getOffsetFootprint(polygon, CEILING_VISUAL_OVERLAP_METERS),
     [polygon],
@@ -11858,10 +11592,6 @@ function RoomCeilingFinishMesh({
 
   useHorizontalSurfaceVisibility(meshRef, y, 'below')
 
-  if (!material) {
-    return null
-  }
-
   return (
     <mesh
       ref={meshRef}
@@ -11869,9 +11599,10 @@ function RoomCeilingFinishMesh({
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={2}
+      userData={{ houseDesignerRole: 'room-ceiling-finish' }}
     >
       <shapeGeometry args={[shapes]} />
-      <SurfaceMeshStandardMaterial
+      {material && assignment ? <SurfaceMeshStandardMaterial
         assignment={assignment}
         displacementEnabled={false}
         material={material}
@@ -11879,13 +11610,14 @@ function RoomCeilingFinishMesh({
         polygonOffsetUnits={-1}
         side={BackSide}
         wireframe={wireframe}
-      />
+      /> : <meshStandardMaterial color="#e2e8f0" roughness={0.82} side={BackSide} wireframe={wireframe} />}
     </mesh>
   )
 }
 
 function RoomCeilingFinishes({
   elevation,
+  enabled = true,
   floorId,
   openings,
   roomSurfacePolygonsBySignature,
@@ -11897,6 +11629,7 @@ function RoomCeilingFinishes({
   wireframe,
 }: {
   elevation: number
+  enabled?: boolean
   floorId: string
   openings: Point[][]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
@@ -11907,6 +11640,7 @@ function RoomCeilingFinishes({
   visibleRoomSignatures?: ReadonlySet<string> | null
   wireframe: boolean
 }) {
+  if (!enabled) return null
   return (
     <group>
       {rooms
@@ -11928,12 +11662,12 @@ function RoomCeilingFinishes({
             rooms,
           )
 
-          return assignment && polygon ? (
+          return polygon ? (
             <RoomCeilingFinishMesh
               key={room.signature}
               assignment={assignment}
               elevation={elevation}
-              materialId={assignment.materialId}
+              materialId={assignment?.materialId}
               openings={[...openings, ...roofCutouts]}
               polygon={polygon}
               roomHeight={roomHeight}
@@ -13044,6 +12778,7 @@ function ModelMesh({
         />
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
+          batchable={Boolean(modelDefinition.wallMount)}
           castsShadow={castsShadow}
           daylightEnabled={daylightEnabled}
           floorId={floorId}
@@ -13769,7 +13504,22 @@ function LightModelContent({
   )
 }
 
+const ImportedModelBatchingContext = createContext<ImportedModelBatching | null>(null)
+
+function ImportedModelBatchRenderer() {
+  const batching = useContext(ImportedModelBatchingContext)
+  const { scene } = useThree()
+  useEffect(() => {
+    if (!batching) return
+    scene.add(batching.group)
+    return () => { batching.reset(); scene.remove(batching.group) }
+  }, [batching, scene])
+  useFrame(() => batching?.update())
+  return null
+}
+
 function ImportedModelContent({
+  batchable,
   blocksCollision,
   castsShadow,
   daylightEnabled,
@@ -13787,6 +13537,7 @@ function ImportedModelContent({
   targetWidth,
   wireframe,
 }: {
+  batchable: boolean
   blocksCollision: boolean
   castsShadow: boolean
   daylightEnabled: boolean
@@ -13805,6 +13556,7 @@ function ImportedModelContent({
   wireframe: boolean
 }) {
   const normalizedGroupRef = useRef<Object3D>(null!)
+  const batching = useContext(ImportedModelBatchingContext)
   const { gl } = useThree()
   useEffect(() => {
     recordEngineLog('model-load-start', getAssetFileName(sourceUrl))
@@ -13813,6 +13565,10 @@ function ImportedModelContent({
     setGltfKtx2Loader(loader, gl)
   })
   const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
+  useEffect(() => {
+    if (!batchable || !batching) return
+    return batching.register(normalizedGroupRef.current, modelId)
+  }, [batchable, batching, modelId, scene])
   const bounds = useMemo(() => {
     const box = new Box3().setFromObject(scene)
     const size = new Vector3()
@@ -14347,6 +14103,17 @@ function getLocalLightSlots({
   return slots.slice(0, MAX_REALTIME_LOCAL_LIGHTS)
 }
 
+function usePooledLightShadowResources(
+  lightRef: MutableRefObject<PointLight | SpotLight>,
+  enabled: boolean,
+) {
+  useEffect(() => {
+    const shadow = lightRef.current.shadow
+    if (!enabled) releaseLightShadowResources(shadow)
+    return () => releaseLightShadowResources(shadow)
+  }, [enabled, lightRef])
+}
+
 function PooledLocalSpotLight({
   castShadow,
   slot,
@@ -14357,6 +14124,7 @@ function PooledLocalSpotLight({
   const lightRef = useRef<SpotLight>(null!)
   const targetRef = useRef<Object3D>(null!)
   const isActiveSlot = Boolean(slot)
+  usePooledLightShadowResources(lightRef, isActiveSlot && castShadow)
   const position = slot?.position ?? ([0, -1000, 0] as [number, number, number])
   const target = slot?.target ?? ([0, -1001, 0] as [number, number, number])
 
@@ -14402,6 +14170,7 @@ function PooledLocalPointLight({
 }) {
   const lightRef = useRef<PointLight>(null!)
   const isActiveSlot = Boolean(slot)
+  usePooledLightShadowResources(lightRef, isActiveSlot && castShadow)
   const position = slot?.position ?? ([0, -1000, 0] as [number, number, number])
 
   return (
@@ -14687,6 +14456,17 @@ function SunShadowBlockerFilter() {
   useEffect(() => {
     const shadowMap = gl.shadowMap as ShadowMapWithRender
     const originalRender = shadowMap.render.bind(shadowMap)
+    const sunCache = new SunShadowCache()
+    const renderLights: typeof originalRender = (lights, renderScene, renderCamera) => {
+      if (shadowMap.enabled) {
+        for (const light of lights) {
+          if (light instanceof DirectionalLight && light.userData.houseDesignerRole === 'sun-light') {
+            sunCache.update(light, renderScene, renderCamera.layers.mask, shadowMap.type)
+          }
+        }
+      }
+      originalRender(lights, renderScene, renderCamera)
+    }
 
     const patchedRender: ShadowMapWithRender['render'] = (
       lights,
@@ -14702,7 +14482,7 @@ function SunShadowBlockerFilter() {
       })
 
       if (blockers.length === 0) {
-        originalRender(lights, renderScene, renderCamera)
+        renderLights(lights, renderScene, renderCamera)
         return
       }
 
@@ -14727,12 +14507,12 @@ function SunShadowBlockerFilter() {
       try {
         if (directionalLights.length > 0) {
           setBlockerVisibility(true)
-          originalRender(directionalLights, renderScene, renderCamera)
+          renderLights(directionalLights, renderScene, renderCamera)
         }
 
         if (otherLights.length > 0) {
           setBlockerVisibility(false)
-          originalRender(otherLights, renderScene, renderCamera)
+          renderLights(otherLights, renderScene, renderCamera)
         }
       } finally {
         blockers.forEach((object, index) => {
@@ -14777,7 +14557,6 @@ function ShaderWarmup({
 
     let cancelled = false
     let warmupTimeoutId: number | null = null
-    let restoreWarmupState: (() => void) | null = null
     onPendingChange(true)
     let compileTimeoutId: number | null = window.setTimeout(() => {
       compileTimeoutId = null
@@ -14790,21 +14569,13 @@ function ShaderWarmup({
         minimumVisibleMs: 1200,
       })
 
-      const frustumStates: Array<{ frustumCulled: boolean; object: Object3D }> = []
       let completed = false
-      const restoreFrustumStates = () => {
-        frustumStates.forEach(({ frustumCulled, object }) => {
-          object.frustumCulled = frustumCulled
-        })
-      }
-      restoreWarmupState = restoreFrustumStates
       warmupTimeoutId = window.setTimeout(() => {
         if (cancelled || completed) {
           return
         }
 
         completed = true
-        restoreFrustumStates()
         onPendingChange(false)
         recordEngineLog(
           'shader-warmup-timeout',
@@ -14816,14 +14587,8 @@ function ShaderWarmup({
         })
       }, SHADER_WARMUP_TIMEOUT_MS)
 
-      scene.traverse((object) => {
-        frustumStates.push({
-          frustumCulled: object.frustumCulled,
-          object,
-        })
-        object.frustumCulled = false
-      })
-
+      // Three's compiler traverses all materials without frustum culling.
+      // Keep the live scene's culling policy intact while compilation is pending.
       gl.compileAsync(scene, camera)
         .catch(() => {
           gl.compile(scene, camera)
@@ -14839,8 +14604,6 @@ function ShaderWarmup({
           }
 
           completed = true
-          restoreFrustumStates()
-          restoreWarmupState = null
 
           if (!cancelled) {
             recordEngineLog('shader-warmup-complete')
@@ -14869,7 +14632,6 @@ function ShaderWarmup({
         window.clearTimeout(warmupTimeoutId)
       }
 
-      restoreWarmupState?.()
       onPendingChange(false)
     }
   }, [blocked, camera, gl, invalidate, onPendingChange, scene, warmupKey])
@@ -15592,12 +15354,18 @@ function CountrysideSkybox() {
 
 function LightGimbal({
   lightDirection,
+  previewDirectionRef,
   onLightDirectionChange,
 }: {
   lightDirection: LightDirection
+  previewDirectionRef: MutableRefObject<LightDirection | null>
   onLightDirectionChange: (lightDirection: LightDirection) => void
 }) {
   const controlRef = useRef<HTMLDivElement>(null)
+  const pointerIdRef = useRef<number | null>(null)
+  const [previewDirection, setPreviewDirection] = useState<LightDirection | null>(null)
+  const displayedDirection = previewDirection ?? lightDirection
+  useEffect(() => () => { previewDirectionRef.current = null }, [previewDirectionRef])
   const handlePointer = (event: ReactPointerEvent<HTMLDivElement>) => {
     const bounds = controlRef.current?.getBoundingClientRect()
 
@@ -15612,21 +15380,34 @@ function LightGimbal({
     const radius = Math.max(bounds.width, bounds.height) / 2
     const distanceFromCenter = Math.min(1, Math.hypot(dx, dy) / radius)
 
-    onLightDirectionChange({
+    const direction = {
       azimuth: Math.atan2(dy, dx),
       elevation:
         SUN_MIN_ELEVATION +
         (1 - distanceFromCenter) * (SUN_MAX_ELEVATION - SUN_MIN_ELEVATION),
-    })
+    }
+    previewDirectionRef.current = direction
+    setPreviewDirection(direction)
+  }
+  const finishDrag = (event: ReactPointerEvent<HTMLDivElement>, commit: boolean) => {
+    if (pointerIdRef.current !== event.pointerId) return
+    pointerIdRef.current = null
+    const direction = previewDirectionRef.current
+    previewDirectionRef.current = null
+    setPreviewDirection(null)
+    if (commit && direction) onLightDirectionChange(direction)
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
   }
   const normalizedElevation =
-    (lightDirection.elevation - SUN_MIN_ELEVATION) /
+    (displayedDirection.elevation - SUN_MIN_ELEVATION) /
     (SUN_MAX_ELEVATION - SUN_MIN_ELEVATION)
   const knobDistance =
     (1 - Math.min(1, Math.max(0, normalizedElevation))) *
     LIGHT_GIMBAL_KNOB_RADIUS
-  const knobX = Math.cos(lightDirection.azimuth) * knobDistance
-  const knobY = Math.sin(lightDirection.azimuth) * knobDistance
+  const knobX = Math.cos(displayedDirection.azimuth) * knobDistance
+  const knobY = Math.sin(displayedDirection.azimuth) * knobDistance
 
   return (
     <div className="light-gimbal" aria-label="Light direction control">
@@ -15635,28 +15416,26 @@ function LightGimbal({
         className="light-gimbal-pad"
         role="slider"
         aria-label="Move light source"
-        aria-valuetext={`${Math.round((lightDirection.azimuth * 180) / Math.PI)} degrees`}
+        aria-valuetext={`${Math.round((displayedDirection.azimuth * 180) / Math.PI)} degrees`}
         tabIndex={0}
         onPointerDown={(event) => {
+          if (event.button !== 0 || pointerIdRef.current !== null) return
           event.preventDefault()
+          pointerIdRef.current = event.pointerId
           event.currentTarget.setPointerCapture(event.pointerId)
           handlePointer(event)
         }}
         onPointerMove={(event) => {
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          if (pointerIdRef.current === event.pointerId) {
             handlePointer(event)
           }
         }}
         onPointerUp={(event) => {
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId)
-          }
+          if (pointerIdRef.current === event.pointerId) handlePointer(event)
+          finishDrag(event, true)
         }}
-        onPointerCancel={(event) => {
-          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId)
-          }
-        }}
+        onPointerCancel={(event) => finishDrag(event, false)}
+        onLostPointerCapture={(event) => finishDrag(event, true)}
       >
         <span className="light-gimbal-ring" />
         <span
@@ -16144,6 +15923,8 @@ function getPickTargetPriority(target: PickTarget) {
 }
 
 function getSurfacePickKey(surface: SelectableSurface) {
+  if (surface.type === 'roof') return `${surface.floorId}:roof:${surface.roofId}:${surface.part ?? 'top'}`
+
   if (surface.type === 'wall-face') {
     return `${surface.floorId}:wall:${surface.wallId}:${surface.side}`
   }
@@ -16223,7 +16004,7 @@ function objectIsVisibleInHierarchy(object: Object3D) {
   let currentObject: Object3D | null = object
 
   while (currentObject) {
-    if (!currentObject.visible) {
+    if (!currentObject.visible && !isBatchedModelSource(currentObject)) {
       return false
     }
 
@@ -16364,6 +16145,7 @@ function withColorPickRender<T>({
     },
   )
   renderTarget.texture.colorSpace = NoColorSpace
+  const previousShadowsEnabled = gl.shadowMap.enabled
   const previousRenderTarget = gl.getRenderTarget()
   const previousClearColor = new Color()
   const previousClearAlpha = gl.getClearAlpha()
@@ -16399,7 +16181,7 @@ function withColorPickRender<T>({
   originalStates.forEach((state) => {
     originalStatesByObject.set(state.object, {
       materialVisible: state.materialVisible,
-      visible: state.visible,
+      visible: state.visible || isBatchedModelSource(state.object),
       visibleInHierarchy: state.visibleInHierarchy,
     })
   })
@@ -16507,6 +16289,9 @@ function withColorPickRender<T>({
   })
 
   try {
+    // Picking substitutes temporary materials/visibility. It must not replace
+    // a cached lighting shadow map with that temporary scene.
+    gl.shadowMap.enabled = false
     gl.setRenderTarget(renderTarget)
     gl.setScissorTest(false)
     gl.setViewport(0, 0, width, height)
@@ -16520,6 +16305,7 @@ function withColorPickRender<T>({
       width,
     })
   } finally {
+    gl.shadowMap.enabled = previousShadowsEnabled
     gl.setRenderTarget(previousRenderTarget)
     gl.setClearColor(previousClearColor, previousClearAlpha)
     gl.setScissorTest(previousScissorTest)
@@ -17231,6 +17017,8 @@ export function ThreeDView({
   showAllFloors,
   surfaceAssignments,
 }: ThreeDViewProps) {
+  const [importedModelBatching] = useState(() => new ImportedModelBatching())
+  const sunPreviewDirectionRef = useRef<LightDirection | null>(null)
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
   const [transformMode, setTransformMode] = useState<TransformMode>('translate')
   const [pickBufferDownload, setPickBufferDownload] = useState<{
@@ -17252,7 +17040,6 @@ export function ThreeDView({
   const lastVisibleStallStatusTimeRef = useRef(0)
   const latestRendererStatsRef = useRef<RendererStats | null>(null)
   const lastLoggedRendererStatsRef = useRef<RendererStats | null>(null)
-  const wallSurfaceGeometryStore = useMemo(createWallSurfaceGeometryStore, [])
   const previousShaderProgramCountRef = useRef<number | null>(null)
   const renderOptionFrameIdsRef = useRef<number[]>([])
   const stallSnapshotRef = useRef('')
@@ -17394,6 +17181,25 @@ export function ThreeDView({
     const prepared = preparedFloors.find(candidate => candidate.floor.id === floor.id)
     return prepared ? [{ ...prepared, floor }] : []
   }), [floors, preparedFloors])
+  // Build the wall source once per prepared geometry revision, then share it
+  // with the horizontal assemblies. Material/selection edits reuse this plan.
+  const preparedStoreys = useMemo(() => preparedFloors.map(data => ({
+    floor: data.floor,
+    footprints: buildCeilingSlabFootprints(data.floor.walls),
+    faces: buildFloorWallSurfaceFaces({
+      renderedWalls: data.renderedWalls,
+      rooms: data.rooms,
+      useWallBodyPerimeterMesh: WALL_BODY_PERIMETER_MESH_ENABLED,
+      roomSurfaceRendererEnabled: ROOM_SURFACE_WALL_RENDERER_ENABLED,
+      exteriorWallSidesByWallId: getExteriorWallSidesByWallId(data.geometryContextWalls, data.rooms),
+      verticalUvOffset: data.floor.elevation,
+      wallOpeningDepthsByModelId: getWallOpeningDepthsByModelId(data.geometryContextWalls),
+    }),
+  })), [preparedFloors])
+  const storeyGeometry = useMemo(() => buildStoreyGeometry(preparedStoreys,
+    new Set(renderOptions.floorSlabs
+      ? showAllFloorsInScene ? preparedStoreys.map(s => s.floor.id) : floorBelowActive ? [floorBelowActive.id] : []
+      : [])), [preparedStoreys, renderOptions.floorSlabs, showAllFloorsInScene, floorBelowActive?.id])
   const [isLevelPreparationPending, setIsLevelPreparationPending] =
     useState(canPrepareLevelsInWorkers)
 
@@ -18339,7 +18145,7 @@ export function ThreeDView({
                     checked={renderOptions.floorSlabs}
                     onChange={() => updateRenderOption('floorSlabs')}
                   />
-                  Ceiling slabs
+                  Intermediate floors
                 </label>
               </div>
             ) : null}
@@ -18353,7 +18159,8 @@ export function ThreeDView({
           initialScenePreparationPending ? 'three-host is-preparing' : 'three-host'
         }
       >
-        <WallSurfaceGeometryContext.Provider value={wallSurfaceGeometryStore}>
+        <StoreyGeometryContext.Provider value={storeyGeometry}>
+        <ImportedModelBatchingContext.Provider value={importedModelBatching}>
         <Canvas
           shadows={renderOptions.shadows}
           camera={{
@@ -18373,6 +18180,7 @@ export function ThreeDView({
           tabIndex={0}
         >
           <MaterialVariationVrContext.Provider value={isXrPresenting}>
+            <ImportedModelBatchRenderer />
             <WebXRViewerButton
               containerRef={threeHostRef}
               onPresentingChange={handleXrPresentingChange}
@@ -18464,6 +18272,7 @@ export function ThreeDView({
             <SunLight
               enabled={renderOptions.daylight}
               lightDirection={lightDirection}
+              previewDirectionRef={sunPreviewDirectionRef}
               sceneBounds={sceneBounds}
               shadowMapSize={isXrPresenting ? XR_SUN_SHADOW_MAP_SIZE : 2048}
               shadows={sunShadowsEnabled}
@@ -18589,6 +18398,7 @@ export function ThreeDView({
               )
               const upperFloor =
                 floorIndex >= 0 ? floorsByElevation[floorIndex + 1] ?? null : null
+              const hasHorizontalCeiling = Boolean(upperFloor) || floor.ceilingMode !== 'open'
               const lowerFloor =
                 floorIndex > 0 ? floorsByElevation[floorIndex - 1] ?? null : null
               const floorOpenings = lowerFloor
@@ -18606,7 +18416,7 @@ export function ThreeDView({
               )
               const slabRoofCutouts = getRoofCeilingCutouts(
                 wallClippingRoofs.map((candidate) => candidate.resolved),
-                floor.elevation + floor.roomHeight + floor.slabThickness,
+                upperFloor?.elevation ?? floor.elevation + floor.roomHeight,
               )
               const hasShadowSurface = renderOptions.shadows && isActive
               const visibleRoomsForFloor = rooms
@@ -18620,7 +18430,7 @@ export function ThreeDView({
                 !showAllFloorsInScene &&
                 ((renderOptions.floorSlabs &&
                   floor.id === floorBelowActive?.id) ||
-                  (renderOptions.shadows && isActive && !floorHasRoofs))
+                  (renderOptions.shadows && isActive && !floorHasRoofs && hasHorizontalCeiling))
 
               if (showAllFloorsInScene) {
                 return (
@@ -18640,6 +18450,7 @@ export function ThreeDView({
                           onRegisterPickTarget={registerPickTarget}
                           openings={ceilingOpenings}
                           roofCutouts={slabRoofCutouts}
+                          undersideRoofCutouts={ceilingRoofCutouts}
                           selectedSurface={selectedSurface}
                           surfaceAssignments={surfaceAssignments}
                           upperFloor={upperFloor}
@@ -18677,6 +18488,7 @@ export function ThreeDView({
                         wireframe={renderOptions.wireframe}
                       />
                       <RoomCeilingFinishes
+                        enabled={hasHorizontalCeiling}
                         elevation={floor.elevation}
                         floorId={floor.id}
                         openings={ceilingOpenings}
@@ -18689,6 +18501,7 @@ export function ThreeDView({
                         wireframe={renderOptions.wireframe}
                       />
                       <SelectableRoomSurfaces
+                        showCeiling={hasHorizontalCeiling}
                         ceilingOpenings={ceilingOpenings}
                         elevation={floor.elevation}
                         floorPlane={getFloorPlaneBounds(floor)}
@@ -18746,6 +18559,7 @@ export function ThreeDView({
                         renderedWalls={renderedWalls}
                         rooms={rooms}
                         selectedRoofId={selectedRoofId}
+                        selectedSurface={selectedSurface}
                         shadowsEnabled={renderOptions.shadows}
                         surfaceAssignments={surfaceAssignments}
                         wireframe={renderOptions.wireframe}
@@ -18772,6 +18586,7 @@ export function ThreeDView({
                         onRegisterPickTarget={registerPickTarget}
                         openings={ceilingOpenings}
                         roofCutouts={slabRoofCutouts}
+                          undersideRoofCutouts={ceilingRoofCutouts}
                         selectedSurface={selectedSurface}
                         sunShadowBlocker={isActive && !slabIsSolid && !floorHasRoofs}
                         surfaceAssignments={surfaceAssignments}
@@ -18831,6 +18646,7 @@ export function ThreeDView({
                           wireframe={renderOptions.wireframe}
                         />
                         <RoomCeilingFinishes
+                        enabled={hasHorizontalCeiling}
                           elevation={floor.elevation}
                           floorId={floor.id}
                           openings={ceilingOpenings}
@@ -18843,6 +18659,7 @@ export function ThreeDView({
                           wireframe={renderOptions.wireframe}
                         />
                         <SelectableRoomSurfaces
+                        showCeiling={hasHorizontalCeiling}
                           ceilingOpenings={ceilingOpenings}
                           elevation={floor.elevation}
                           floorPlane={floorPlane}
@@ -19063,6 +18880,7 @@ export function ThreeDView({
                       renderedWalls={renderedWalls}
                       rooms={rooms}
                       selectedRoofId={selectedRoofId}
+                      selectedSurface={selectedSurface}
                       shadowsEnabled={renderOptions.shadows}
                       surfaceAssignments={surfaceAssignments}
                       wireframe={renderOptions.wireframe}
@@ -19108,7 +18926,8 @@ export function ThreeDView({
             ) : null}
           </MaterialVariationVrContext.Provider>
         </Canvas>
-        </WallSurfaceGeometryContext.Provider>
+        </ImportedModelBatchingContext.Provider>
+        </StoreyGeometryContext.Provider>
         <div
           ref={engineStatusRef}
           className="viewport-engine-status is-idle"
@@ -19170,6 +18989,7 @@ export function ThreeDView({
         </div>
         <LightGimbal
           lightDirection={lightDirection}
+          previewDirectionRef={sunPreviewDirectionRef}
           onLightDirectionChange={onLightDirectionChange}
         />
       </div>
