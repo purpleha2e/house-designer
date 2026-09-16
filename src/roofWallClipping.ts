@@ -10,6 +10,7 @@ export type WallClippingRoof = {
   floorId: string
   undersideFaces: [number, number, number][][]
   supportPolygon: Point[]
+  enclosedFootprints?: Point[][]
   abutmentPlanes?: ClipPlane[]
 }
 
@@ -73,7 +74,7 @@ export function createWallRoofClipOptions({
       // meet a roof on only part of its length, or at a slightly angled mount,
       // without qualifying for the whole-wall geometry clipping exemption.
       walls.filter(wall => wall.kind === 'external'),
-      floorElevation, wallBounds, roof.supportPolygon)
+      floorElevation, wallBounds, roof.supportPolygon, roof.enclosedFootprints)
     : [])
   return { floorElevation, volumes, surfaceDividers }
 }

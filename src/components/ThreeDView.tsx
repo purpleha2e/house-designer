@@ -2580,7 +2580,13 @@ function WallEngineWallMeshes({
     () => getWallOpeningDepthsByModelId(walls),
     [walls],
   )
-  const storeyGeometry = useContext(StoreyGeometryContext).get(floorId)
+  const storeys = useContext(StoreyGeometryContext)
+  const storeyGeometry = storeys.get(floorId)
+  // Opening edits replace the storey map but do not change these outlines.
+  // Keep roof clipping on untouched floors stable when only that map changes.
+  const roofFootprintsKey = JSON.stringify([...new Set(wallClippingRoofs.map(roof => roof.floorId))]
+    .map(id => [id, storeys.get(id)?.footprints ?? null]))
+  const roofFootprints = useMemo(() => new Map<string, Point[][] | null>(JSON.parse(roofFootprintsKey)), [roofFootprintsKey])
   const uncutFaces = useMemo(() => {
     if (storeyGeometry) {
       const ids = new Set(renderedWalls.map(rendered => rendered.wall.id))
@@ -2625,6 +2631,7 @@ function WallEngineWallMeshes({
         return {
           roofId: candidate.roof.id,
           surfaceFaces: candidate.resolved.structuralFaces,
+          enclosedFootprints: roofFootprints.get(candidate.floorId) ?? undefined,
           floorId: candidate.floorId,
           abutmentPlanes: getRoofAbutmentPlanes(candidate.abuttingWalls, getRoofRenderPosition(candidate.roof)),
           supportPolygon: (candidate.roof.type === 'bay' ? getBaySupportPolygon(candidate.roof) : [
@@ -2639,7 +2646,7 @@ function WallEngineWallMeshes({
       }),
       walls,
       wallFaces: stableUncutFaces,
-    }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces])
+    }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces, roofFootprints])
   const [faces, setFaces] = useState<WallEngineFace[]>([])
   useEffect(() => {
     const controller = new AbortController()

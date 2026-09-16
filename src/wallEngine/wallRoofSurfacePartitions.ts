@@ -19,6 +19,8 @@ export type WallRoofSurfaceDivider = {
   normal: [number, number]
   start: Position
   end: Position
+  /** Fractions of the contact backed by the lower building, excluding open overhangs. */
+  enclosedSpans?: [number, number][]
 }
 
 /** Contact lines on the outside facade, including the profile hidden inside an adjoining roof shell. */
@@ -26,6 +28,7 @@ export function createWallRoofSurfaceDividers(
   roofId: string, roofFaces: Position[][], walls: Wall[], floorElevation: number,
   wallBounds?: ReadonlyMap<string, { bottom: number; top: number }>,
   supportPolygon?: Point[],
+  enclosedFootprints?: Point[][],
 ) {
   return walls.flatMap((wall) => {
     const dx = wall.end.x - wall.start.x, dz = wall.end.y - wall.start.y
@@ -67,7 +70,47 @@ export function createWallRoofSurfaceDividers(
       // roof. Only the side facing the roof's support footprint gets a finish
       // boundary. Filter after numbering to preserve saved exterior face IDs.
       .filter(d => !supportPolygon?.length || supportReachesSide(d, supportPolygon))
+      .map(d => enclosedFootprints === undefined ? d : {
+        ...d, enclosedSpans: enclosedContactSpans(d, enclosedFootprints),
+      })
   })
+}
+
+// Sample just outside the facade so its own wall body cannot turn an open
+// canopy into an interior. The filled floor footprint includes the actual
+// enclosing wall thickness, unlike the roof support rectangle or its overhang.
+function enclosedContactSpans(d: WallRoofSurfaceDivider, footprints: Point[][]): [number, number][] {
+  const start = { x: d.start[0] + d.normal[0] * 0.002, y: d.start[2] + d.normal[1] * 0.002 }
+  const dx = d.end[0] - d.start[0], dz = d.end[2] - d.start[2], length2 = dx * dx + dz * dz
+  const cuts = [0, 1]
+  for (const polygon of footprints) polygon.forEach((b, i) => {
+    const a = polygon[(i + polygon.length - 1) % polygon.length]
+    const da = (a.x - start.x) * dz - (a.y - start.y) * dx
+    const db = (b.x - start.x) * dz - (b.y - start.y) * dx
+    if ((da > 0) === (db > 0)) return
+    const fraction = da / (da - db)
+    const t = ((a.x + fraction * (b.x - a.x) - start.x) * dx +
+      (a.y + fraction * (b.y - a.y) - start.y) * dz) / length2
+    if (t > EPS && t < 1 - EPS) cuts.push(t)
+  })
+  cuts.sort((a, b) => a - b)
+  const contains = (polygon: Point[], t: number) => {
+    const x = start.x + t * dx, z = start.y + t * dz
+    let inside = false
+    polygon.forEach((b, i) => {
+      const a = polygon[(i + polygon.length - 1) % polygon.length]
+      if ((a.y > z) !== (b.y > z) && x < (b.x - a.x) * (z - a.y) / (b.y - a.y) + a.x) inside = !inside
+    })
+    return inside
+  }
+  const spans: [number, number][] = []
+  for (let i = 1; i < cuts.length; i++) {
+    const a = cuts[i - 1], b = cuts[i]
+    if (b - a <= EPS || !footprints.some(polygon => contains(polygon, (a + b) / 2))) continue
+    if (spans.length && Math.abs(spans.at(-1)![1] - a) < EPS) spans.at(-1)![1] = b
+    else spans.push([a, b])
+  }
+  return spans
 }
 
 function supportReachesSide(divider: WallRoofSurfaceDivider, polygon: Point[]) {
@@ -139,11 +182,24 @@ export function partitionWallFacesAtRoofs(
         const inside = clip(clip(part.vertices, t), p => 1-t(p))
         if (!hasArea(inside)) return [part]
         const outside = [clip(part.vertices, p => -t(p)), clip(part.vertices, p => t(p)-1)]
+        const below = clip(inside, p => -above(p))
+        const covered: WallMeshVertex[][] = []
+        let exposed = d.enclosedSpans === undefined ? [] : [below]
+        if (d.enclosedSpans === undefined) covered.push(below)
+        else for (const [start, end] of d.enclosedSpans) {
+          exposed = exposed.flatMap(vertices => {
+            covered.push(clip(clip(vertices, p => t(p) - start), p => end - t(p)))
+            return [clip(vertices, p => start - t(p)), clip(vertices, p => t(p) - end)].filter(hasArea)
+          })
+        }
         return [
           ...outside.map((vertices, index) => ({ vertices,
             region: `${part.region}/${d.id}:${index === 0 ? 'before' : 'after'}` })),
           { vertices: clip(inside, above), region: `${part.region}/${d.id}:above` },
-          { vertices: clip(inside, p => -above(p)), region: `${part.region}/${d.id}:below` },
+          ...covered.map(vertices => ({ vertices, region: `${part.region}/${d.id}:below` })),
+          // Keep the saved exterior identity: these pieces connect to the
+          // exposed facade above the contact, not to the room below the roof.
+          ...exposed.map(vertices => ({ vertices, region: `${part.region}/${d.id}:above` })),
         ].filter(p => hasArea(p.vertices))
       })
     }

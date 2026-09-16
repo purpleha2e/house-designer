@@ -18,6 +18,7 @@ export type FloorAssembly = {
 
 export type StoreyGeometry = {
   wallFaces: WallMeshFace[]
+  footprints: Point[][]
   assembly?: FloorAssembly
 }
 
@@ -47,7 +48,7 @@ function continueWallFace(face: WallMeshFace, point: Point, next: Point,
  */
 export function buildStoreyGeometry(storeys: PreparedStorey[], assemblyFloorIds?: ReadonlySet<string>): Map<string, StoreyGeometry> {
   const ordered = [...storeys].sort((a, b) => a.floor.elevation - b.floor.elevation)
-  const result = new Map(ordered.map(s => [s.floor.id, { wallFaces: [...s.faces] } as StoreyGeometry]))
+  const result = new Map(ordered.map(s => [s.floor.id, { wallFaces: [...s.faces], footprints: s.footprints } as StoreyGeometry]))
   for (let i = 0; i < ordered.length - 1; i++) {
     const lower = ordered[i], upper = ordered[i + 1]
     if (assemblyFloorIds && !assemblyFloorIds.has(lower.floor.id)) continue
