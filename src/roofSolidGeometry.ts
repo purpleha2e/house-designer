@@ -1,4 +1,4 @@
-import { BufferGeometry, Float32BufferAttribute, Vector3 } from 'three'
+import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2, Vector3 } from 'three'
 import { ROOF_TILE_THICKNESS_METERS } from './roofProfile.ts'
 import type { Point } from './types.ts'
 import { clipRoofFace, subtractRoofVolume } from './roofJunctions.ts'
@@ -33,6 +33,28 @@ export function splitRoofUndersideFaces(
     undersideFaces: faces.map(face => planes.reduce(clipRoofFace, face)).filter(face => face.length),
     soffitFaces: visibleFaces.flatMap(face => subtractRoofVolume(face, planes)),
   }
+}
+
+/** Split a roof surface at the actual room outlines, including concave rooms. */
+export function partitionRoofFacesByRooms(faces: RoofVertex[][], roomPolygons: Point[][]) {
+  const roomTriangles = roomPolygons.flatMap((polygon) => {
+    const outline = polygon.map(({ x, y }) => new Vector2(x, y))
+    return ShapeUtils.triangulateShape(outline, []).map((indices) =>
+      footprintPlanes(indices.map((index) => polygon[index])))
+  })
+  const inside: RoofVertex[][] = []
+  const outside: RoofVertex[][] = []
+  for (const face of faces) {
+    let remaining = [face]
+    for (const planes of roomTriangles) {
+      inside.push(...remaining.map(piece => planes.reduce(clipRoofFace, piece))
+        .filter(piece => piece.length))
+      remaining = remaining.flatMap(piece => subtractRoofVolume(piece, planes))
+      if (!remaining.length) break
+    }
+    outside.push(...remaining)
+  }
+  return { inside, outside }
 }
 
 function getRoofFaceProjectedUvs(vertices: RoofVertex[]) {

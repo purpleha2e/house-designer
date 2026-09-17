@@ -21,7 +21,10 @@ export type RoofConnectionStatus = {
   message?: string
 }
 export type ResolvedRoof = RoofJunctionInput & {
+  // The authored outer skin remains intact when roof volumes overlap.
+  // `faces` is the upper envelope used only for room-side geometry.
   faces: Vertex[][]
+  exteriorFaces: Vertex[][]
   structuralFaces: Vertex[][]
   coverageFaces: Vertex[][]
   coverageUndersideFaces?: Vertex[][]
@@ -273,7 +276,7 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
   const peaks = new Map(sorted.map((input) => [input.roof.id, Math.max(...original.get(input.roof.id)!.flat().map((p) => p[1]))]))
   const resolved = sorted.map((input): ResolvedRoof => {
     const resolvedExtents = { ...input.extents }
-    const terminationPlanes: ClipPlane[] = []
+    const terminationMasks: { plane: ClipPlane; targetRoofId: string }[] = []
     const connections: RoofConnectionStatus[] = []
     if (input.roof.type === 'up-and-over') for (const end of ['ridgeStart', 'ridgeEnd'] as const) {
       const direction = end === 'ridgeStart' ? -1 : 1
@@ -309,14 +312,36 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
           const sourceCenter = roofToWorld(input.roof, input.elevation,
             [(input.support.minX + input.support.maxX) / 2, 0, (input.support.minY + input.support.maxY) / 2])
           const side = Math.sign(roofToLocal(target.roof, target.elevation, sourceCenter)[0] - ridgeX)
-          if (side) terminationPlanes.push((point) => side * (roofToLocal(target.roof, target.elevation, point)[0] - ridgeX))
+          if (side) terminationMasks.push({
+            plane: (point) => side * (roofToLocal(target.roof, target.elevation, point)[0] - ridgeX),
+            targetRoofId: target.roof.id,
+          })
         }
       }
       connections.push({ end, state: 'joined', targetRoofId: target.roof.id })
     }
     let faces = buildRoofProfileFaces(input.roof, resolvedExtents, input.support)
       .map((face) => face.map((p) => roofToWorld(input.roof, input.elevation, p)))
-    faces = faces.map((face) => intersect(face, terminationPlanes)).filter((face) => face.length)
+    for (const { plane, targetRoofId } of terminationMasks) {
+      // The receiving ridge ends the branch only where the receiving panels
+      // actually exist. A chamfered or shorter target leaves the adjacent
+      // portion of the original roof exposed beyond that ridge.
+      for (const targetFace of original.get(targetRoofId)!) {
+        const footprint = footprintPlanes(targetFace.map(([x, , z]) => ({ x, y: z })))
+        const targetHeight = roofFaceHeight(targetFace)
+        if (!targetHeight) continue
+        faces = faces.flatMap((face) => {
+          // A connected ridge can stop under the receiving panel, but the
+          // source must reappear once it rises above the opposite slope. A
+          // footprint-only ridge cut exposed the lower roof and its wall.
+          return subtractRoofVolume(face, [
+            ...footprint,
+            (point) => -plane(point),
+            ([x, y, z]) => targetHeight({ x, y: z }) - y,
+          ])
+        })
+      }
+    }
     for (const abutment of input.abutments ?? []) {
       // A connection can pass above the receiving wall to reach its roof.
       // Below the wall top it must still abut the outside wall face.
@@ -328,6 +353,7 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
     return {
       ...input,
       faces,
+      exteriorFaces: original.get(input.roof.id)!,
       structuralFaces: faces,
       coverageFaces: [],
       connections,
@@ -421,4 +447,14 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
     })
   }
   return inputs.map((input) => resolved.find((roof) => roof.roof.id === input.roof.id)!)
+}
+
+/** The outer panels before roof-on-roof trimming, including an intentional
+ * ridge-end extension. Room-volume CSG removes the hidden part afterward. */
+export function getRoofRenderableOuterFaces(resolved: ResolvedRoof): Vertex[][] {
+  const { minY, maxY } = resolved.resolvedExtents
+  if (Math.abs(minY - resolved.extents.minY) < EPS &&
+    Math.abs(maxY - resolved.extents.maxY) < EPS) return resolved.exteriorFaces
+  return buildRoofProfileFaces(resolved.roof, resolved.resolvedExtents, resolved.support)
+    .map(face => face.map(point => roofToWorld(resolved.roof, resolved.elevation, point)))
 }

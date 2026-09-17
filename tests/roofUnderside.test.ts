@@ -5,7 +5,7 @@ import { Mesh, MeshBasicMaterial, Raycaster, Vector3, DoubleSide } from 'three'
 import type { FloorLevel, RoofStructure } from '../src/types.ts'
 import { resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
 import { roofBoundsPolygon, roofJunctionInput, resolveRoofJunctions, roofSurfaceHeights, roofToLocal, roofToWorld, type ResolvedRoof } from '../src/roofJunctions.ts'
-import { createSolidRoofGeometryFromFaces, splitRoofUndersideFaces } from '../src/roofSolidGeometry.ts'
+import { createSolidRoofGeometryFromFaces, partitionRoofFacesByRooms, splitRoofUndersideFaces } from '../src/roofSolidGeometry.ts'
 import { clipRoofShellAtJunctions } from '../src/roofShellClipping.ts'
 import { getRoofThickness } from '../src/roofThickness.ts'
 
@@ -43,6 +43,34 @@ test('roof underside finish stops at the support while exterior overhang becomes
     'the gable-end overhang is an exterior soffit')
   assert.equal(roofSurfaceHeights(split.undersideFaces, { x: 0.5, y: 2.15 }).length, 0,
     'interior material cannot reach the exterior overhang')
+})
+
+test('two rooms carve one continuous interior roof skin and leave the exterior overhang', () => {
+  const face: [number, number, number][] = [[0, 3, 0], [4, 3, 0], [4, 3, 2], [0, 3, 2]]
+  const rooms = [
+    [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }],
+    [{ x: 2, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 2 }, { x: 2, y: 2 }],
+  ]
+  const { inside, outside } = partitionRoofFacesByRooms([face], rooms)
+  for (const x of [0.5, 1.99, 2.01, 2.5]) {
+    assert.ok(roofSurfaceHeights(inside, { x, y: 1 }).length, `room ceiling missing at x=${x}`)
+    assert.equal(roofSurfaceHeights(outside, { x, y: 1 }).length, 0)
+  }
+  assert.equal(roofSurfaceHeights(inside, { x: 3.5, y: 1 }).length, 0)
+  assert.ok(roofSurfaceHeights(outside, { x: 3.5, y: 1 }).length)
+})
+
+test('a concave room leaves its notch as an exterior soffit', () => {
+  const face: [number, number, number][] = [[0, 3, 0], [3, 3, 0], [3, 3, 3], [0, 3, 3]]
+  const room = [
+    { x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 1 },
+    { x: 1, y: 1 }, { x: 1, y: 3 }, { x: 0, y: 3 },
+  ]
+  const { inside, outside } = partitionRoofFacesByRooms([face], [room])
+  assert.ok(roofSurfaceHeights(inside, { x: 0.5, y: 2 }).length)
+  assert.ok(roofSurfaceHeights(inside, { x: 2, y: 0.5 }).length)
+  assert.equal(roofSurfaceHeights(inside, { x: 2, y: 2 }).length, 0)
+  assert.ok(roofSurfaceHeights(outside, { x: 2, y: 2 }).length)
 })
 
 test('roof shell excludes an authored perimeter once the visible roof no longer reaches it', () => {

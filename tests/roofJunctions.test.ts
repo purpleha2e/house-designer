@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { resolveRoofJunctions, roofJunctionInput, roofSurfaceHeights, roofToLocal, roofToWorld, normalizeRoofEndConnection, resolvedRoofWallSegments } from '../src/roofJunctions.ts'
+import { readFileSync } from 'node:fs'
+import { resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
+import { getRoofRenderableOuterFaces, resolveRoofJunctions, roofJunctionInput, roofSurfaceHeights, roofToLocal, roofToWorld, normalizeRoofEndConnection, resolvedRoofWallSegments } from '../src/roofJunctions.ts'
 import type { RoofStructure } from '../src/types.ts'
 
 function roof(id: string, x: number, z: number, overrides: Partial<RoofStructure> = {}): RoofStructure {
@@ -11,6 +13,17 @@ function input(r: RoofStructure, elevation = 2.4, floor = 'ground') { return roo
 function height(faces: number[][][], x: number, y: number) { return Math.max(...roofSurfaceHeights(faces as [number, number, number][][], { x, y })) }
 const branch = () => roof('branch', 0, -3)
 const main = () => roof('main', 0, 2, { rotation: Math.PI / 2, depth: 10, supportDepth: 10 })
+
+test('roof_tests_2 joined branch renders the extension saved in its ridge-end setting', () => {
+  const project = JSON.parse(readFileSync(new URL('../roof_tests_2.json', import.meta.url), 'utf8'))
+  const branchRoof = resolveBuildingRoofs(project.floors).find(candidate =>
+    candidate.roof.id === '5ce7ce3c-c5d2-4a22-8032-bed5d337e865')!
+  const { resolved, roof } = branchRoof
+  assert.equal(resolved.connections[0].state, 'joined')
+  const point = roofToWorld(roof, 2.4, [0, 0, -2.9])
+  assert.equal(height(resolved.exteriorFaces, point[0], point[2]), -Infinity)
+  assert.ok(Number.isFinite(height(getRoofRenderableOuterFaces(resolved), point[0], point[2])))
+})
 
 test('a higher overhang does not cut a lower lean-to away from its supporting facade', () => {
   const leanTo = input(roof('lean', 0, 0, { type: 'lean-to', pitchDegrees: 20 }))
@@ -55,6 +68,36 @@ test('automatic T junction extends only the incoming end and stops at the receiv
   assert.equal(height(a.faces, 1, 1.5), -Infinity)
   assert.ok(Number.isFinite(height(b.faces, 1, 1.5)))
   assert.equal(height(a.coverageFaces, 0, 1), -Infinity, 'extension does not acquire wall coverage')
+})
+
+test('a joined roof remains over the wall beside the shorter chamfered receiving roof', () => {
+  // Reduced from roof_tests_1.json: the branch ends at x=4.46, while the
+  // original roof still covers the wall out to x=6.5 and z=6.78.
+  const main = roof('main-chamfer-test', 4, 4.141679810692852, {
+    width: 5.3, depth: 5.5833596213857035,
+    supportWidth: 5, supportDepth: 5.283359621385704,
+    supportPosition: { x: 4, y: 4.141679810692852 },
+    pitchDegrees: 40, overhangSide: 0.15, overhangEnd: 0.15,
+  })
+  const branch = roof('branch-chamfer-test', 1.8964936095019893, 5.883333333333333, {
+    width: 6.333333333333336, depth: 4.826915742988098,
+    supportWidth: 6.033333333333335, supportDepth: 4.5269157429880975,
+    supportPosition: { x: 1.8964936095019893, y: 5.883333333333333 },
+    pitchDegrees: 40, rotation: 3 * Math.PI / 2,
+    overhangSide: 0.15, overhangEnd: 0.15,
+    ridgeStartChamfer: { angleDegrees: 44, distance: 1 },
+  })
+  const [resolvedMain, resolvedBranch] = resolveRoofJunctions([
+    roofJunctionInput(main, 'ground', 2.4), roofJunctionInput(branch, 'ground', 2.4),
+  ])
+  assert.equal(resolvedMain.connections[1].targetRoofId, branch.id)
+  for (const z of [6.05, 6.5, 6.8]) {
+    assert.ok(Number.isFinite(height(resolvedMain.faces, 5, z)), `main roof missing beside branch at z=${z}`)
+    assert.equal(height(resolvedBranch.faces, 5, z), -Infinity)
+  }
+  assert.ok(Number.isFinite(height(resolvedBranch.faces, 3, 6.5)))
+  assert.equal(height(resolvedMain.faces, 3, 6.5), -Infinity,
+    'the connected branch still owns the area inside its actual footprint')
 })
 
 test('world elevation makes the higher receiving roof consume the lower branch across floors', () => {
@@ -141,11 +184,35 @@ test('saved end settings validate safely and preserve stable target IDs', () => 
   assert.deepEqual(normalizeRoofEndConnection({ mode: 'join', targetRoofId: 'main', stale: true }), { mode: 'join', targetRoofId: 'main' })
 })
 
-test('an incoming ridge cannot reappear beyond the receiving ridge', () => {
+test('an incoming ridge can reappear where it rises above the receiving slope', () => {
   const a = branch(); a.depth = a.supportDepth = 12
   const [resolved] = resolveRoofJunctions([input(a), input(main())])
   assert.equal(resolved.connections[1].state, 'joined')
-  assert.equal(height(resolved.faces, 0, 2.5), -Infinity)
+  assert.ok(Number.isFinite(height(resolved.faces, 0, 2.5)))
+})
+
+test('a joined roof does not hide the taller crossing panel in roof_tests_1 without chamfer', () => {
+  const main = roof('main-no-chamfer', 4, 4.141679810692852, {
+    width: 5.3, depth: 5.5833596213857035,
+    supportWidth: 5, supportDepth: 5.283359621385704,
+    supportPosition: { x: 4, y: 4.141679810692852 },
+    pitchDegrees: 40, overhangSide: 0.15, overhangEnd: 0.15,
+  })
+  const branch = roof('branch-no-chamfer', 1.8964936095019893, 5.883333333333333, {
+    width: 6.333333333333336, depth: 4.826915742988098,
+    supportWidth: 6.033333333333335, supportDepth: 4.5269157429880975,
+    supportPosition: { x: 1.8964936095019893, y: 5.883333333333333 },
+    pitchDegrees: 40, rotation: 3 * Math.PI / 2,
+    overhangSide: 0.15, overhangEnd: 0.15,
+  })
+  const [resolvedMain, resolvedBranch] = resolveRoofJunctions([
+    roofJunctionInput(main, 'ground', 2.4), roofJunctionInput(branch, 'ground', 2.4),
+  ])
+  assert.ok(Number.isFinite(height(resolvedMain.faces, 4, 6.78)))
+  assert.equal(height(resolvedBranch.faces, 4, 6.78), -Infinity)
+  assert.ok(Number.isFinite(height(resolvedMain.exteriorFaces, 3, 6.5)),
+    'the authored exterior panel is retained even where the branch owns the room envelope')
+  assert.equal(height(resolvedMain.faces, 3, 6.5), -Infinity)
 })
 
 test('wall infill captures a narrow roof panel exactly and does not bridge gaps', () => {

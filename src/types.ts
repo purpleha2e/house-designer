@@ -28,6 +28,7 @@ export type Room = {
   id: string
   name: string
   signature: string
+  ceilingMode?: 'horizontal' | 'open'
 }
 
 export type SurfaceCategory =
@@ -91,7 +92,7 @@ export type SurfaceTarget =
     }
   | {
       type: 'roof'
-      part?: 'underside'
+      part?: 'underside' | 'gable'
       floorId: string
       roofId: string
     }
@@ -202,7 +203,7 @@ export type SelectableSurface =
       floorId: string
       roofId: string
       type: 'roof'
-      part?: 'underside'
+      part?: 'underside' | 'gable'
     }
 
 export type PlacedModel = {

@@ -47,10 +47,6 @@
             "x": 1.8964936095019893,
             "y": 5.883333333333333
           },
-          "ridgeStartChamfer": {
-            "angleDegrees": 44,
-            "distance": 1
-          },
           "rotation": 4.71238898038469,
           "supportDepth": 4.5269157429880975,
           "supportPosition": {
@@ -194,8 +190,8 @@
   ],
   "modelDefinitions": [],
   "sunPosition": {
-    "azimuth": -2.321725389192837,
-    "elevation": 0.6777163938153369
+    "azimuth": 0.49180917598869855,
+    "elevation": 0.39144246385541726
   },
   "surfaceAssignments": [],
   "threeDView": {

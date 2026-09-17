@@ -5,6 +5,8 @@ import { Mesh, Raycaster, Vector3 } from 'three'
 import { ThreeDView } from '../../src/components/ThreeDView'
 import redHouse from '../../red_house_3.json'
 import roofTests from '../../roof_tests.json'
+import roofTests1 from '../../roof_tests_1.json'
+import roofTests2 from '../../roof_tests_2.json'
 import springfield from '../../springfield_13.json'
 import '../../src/App.css'
 import { loadPortalCatalog } from '../../src/portalCatalog'
@@ -17,7 +19,10 @@ const noop = () => {}
 const searchParams = new URLSearchParams(location.search)
 const isSpringfield = searchParams.has('springfield')
 const isRoofTests = searchParams.has('roof-tests')
-const savedProject = isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const isRoofTests1 = searchParams.has('roof-tests-1')
+const isRoofTests2 = searchParams.has('roof-tests-2')
+const isRedHouseDoor = searchParams.has('red-house-door')
+const savedProject = isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -112,9 +117,65 @@ setTimeout(() => {
     }
     return true
   })
+  const roofTests2JoinedTop = (() => {
+    let extended = false
+    state?.scene.traverse(object => {
+      if (!(object instanceof Mesh) || object.userData.houseDesignerRole !== 'roof-top' ||
+        object.userData.roofId !== '5ce7ce3c-c5d2-4a22-8032-bed5d337e865') return
+      const positions = object.geometry.getAttribute('position')
+      for (let i = 0; i < positions.count; i++) {
+        if (positions.getZ(i) < -2.8) extended = true
+      }
+    })
+    return extended
+  })()
+  const roofTests2CeilingShadows = (() => {
+    const blockers: Mesh[] = []
+    state?.scene.traverse(object => {
+      if (object instanceof Mesh && object.userData.houseDesignerRole === 'room-ceiling-shadow-blocker') {
+        blockers.push(object)
+      }
+    })
+    return blockers.some(mesh => mesh.castShadow && !mesh.visible) &&
+      new Raycaster(new Vector3(2.4, 4, 5.4), new Vector3(0, -1, 0))
+        .intersectObjects(blockers, false).some(hit => Math.abs(hit.point.y - 2.38) < 0.01)
+  })()
+  // The crossing roof in roof_tests_1 has only a partial supporting wall at
+  // this end. Its gable must still close the opening above the other roof.
+  const gableTarget = new Vector3(4.312, 4.25, 5.85)
+  const roofTestsGableHit = state ? new Raycaster(
+    state.camera.position.clone(),
+    gableTarget.sub(state.camera.position).normalize(),
+  ).intersectObjects(infillMeshes, false)
+    .some(hit => hit.object.userData.roofId === 'f6df8580-9ce1-48ce-88b4-3d2e03d357cc' &&
+      Math.abs(hit.point.x - 4.312) < 0.02 && hit.point.y > 4.1) : false
+  const doorHeight = 3.7
+  const doorDepth = 5.24313
+  const nearDoorGable = new Raycaster(
+    new Vector3(2, doorHeight, doorDepth), new Vector3(-1, 0, 0),
+  ).intersectObjects(infillMeshes, false).some(hit =>
+    hit.object.userData.roofId === 'b490e12e-e2cc-4509-801c-33d0e68a1aa2' &&
+    hit.point.x > 1 && hit.point.x < 1.2)
+  const nearDoorLooseStrip = infillMeshes.some(mesh => {
+    if (mesh.userData.roofId !== 'b490e12e-e2cc-4509-801c-33d0e68a1aa2' ||
+      mesh.userData.wallId !== '4046e47d-aaec-4ec1-a7f4-c63f146eeea2') return false
+    const positions = mesh.geometry.getAttribute('position')
+    for (let i = 0; i < positions.count; i++) {
+      if (positions.getY(i) < 5) return true
+    }
+    return false
+  })
+  const farGable = new Raycaster(
+    new Vector3(0, doorHeight, doorDepth), new Vector3(1, 0, 0),
+  ).intersectObjects(infillMeshes, false).some(hit =>
+    hit.object.userData.roofId === 'b490e12e-e2cc-4509-801c-33d0e68a1aa2' &&
+    hit.point.x > 5.8 && hit.point.x < 6)
   const passed = isSpringfield
     ? springfieldGable.length === 3 && springfieldGable.every(({ minX }) => minX < 5.36) && gableFilled && leanToMeetsFacade && leanToInfillBounded
+    : isRoofTests2 ? roofTests2JoinedTop && roofTests2CeilingShadows
+    : isRoofTests1 ? roofTestsGableHit
+    : isRedHouseDoor ? !nearDoorGable && !nearDoorLooseStrip && farGable
     : boundaries.length === 3 && boundaries.every(({ minX }) => Math.abs(minX - 1.35) < 1e-5)
   document.documentElement.dataset.regression = passed ? 'passed' : 'failed'
-  Object.assign(window, { roofWallRegression: { passed, groundOnly, isSpringfield, gableFilled, leanToMeetsFacade, leanToInfillBounded, boundaries } })
+  Object.assign(window, { roofWallRegression: { passed, groundOnly, isSpringfield, gableFilled, roofTests2JoinedTop, roofTests2CeilingShadows, roofTestsGableHit, nearDoorGable, nearDoorLooseStrip, farGable, leanToMeetsFacade, leanToInfillBounded, boundaries } })
 }, 12000)

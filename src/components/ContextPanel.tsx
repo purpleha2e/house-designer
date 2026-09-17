@@ -14,6 +14,7 @@ import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 
 type ContextPanelProps = {
   activeFloor: FloorLevel
+  canVaultRoom: boolean
   selectedModel: {
     definition: ModelDefinition
     model: PlacedModel
@@ -28,6 +29,7 @@ type ContextPanelProps = {
   surfaceMaterials: SurfaceMaterialProduct[]
   onDeleteModel: (modelId: string) => void
   onRenameRoom: (roomSignature: string, name: string) => void
+  onUpdateRoomCeilingMode: (roomSignature: string, mode: 'horizontal' | 'open') => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
   onUpdateWall: (wallId: string, updates: Partial<Pick<Wall, 'thickness'>>) => void
 }
@@ -139,7 +141,8 @@ function getSurfaceTypeLabel(selectedSurface: SelectableSurface) {
     case 'portal-floor':
       return 'Doorway floor'
     case 'roof':
-      return selectedSurface.part === 'underside' ? 'Roof underside' : 'Roof'
+      return selectedSurface.part === 'underside' ? 'Roof underside' :
+        selectedSurface.part === 'gable' ? 'Roof gable' : 'Roof'
     case 'wall-surface-fragment':
       return 'Wall section'
     case 'wall-face':
@@ -165,6 +168,7 @@ function getDefaultSurfaceMaterialLabel(
 
 export function ContextPanel({
   activeFloor,
+  canVaultRoom,
   selectedModel,
   selectedRoom,
   selectedSurface,
@@ -173,6 +177,7 @@ export function ContextPanel({
   surfaceMaterials,
   onDeleteModel,
   onRenameRoom,
+  onUpdateRoomCeilingMode,
   onUpdateModel,
   onUpdateWall,
 }: ContextPanelProps) {
@@ -208,6 +213,11 @@ export function ContextPanel({
     selectedSurfaceMaterial?.pbr.baseColor
   const wallThicknessInputValue =
     wallThicknessDraft ?? formatMetresInputValue(selectedWall?.thickness ?? 0)
+  const ceilingRoomSignature = selectedSurface?.type === 'ceiling' ||
+    selectedSurface?.type === 'room-floor'
+    ? selectedSurface.roomSignature
+    : !selectedSurface ? selectedRoom?.metadata.signature : undefined
+  const ceilingRoom = activeFloor.rooms.find(room => room.signature === ceilingRoomSignature)
 
   useEffect(() => {
     setWallThicknessDraft(null)
@@ -254,6 +264,24 @@ export function ContextPanel({
       </div>
 
       <dl>
+        {ceilingRoom && canVaultRoom ? (
+          <div className="context-field">
+            <dt>Ceiling</dt>
+            <dd>
+              <select
+                aria-label="Room ceiling"
+                value={ceilingRoom.ceilingMode ?? activeFloor.ceilingMode ?? 'horizontal'}
+                onChange={(event) => onUpdateRoomCeilingMode(
+                  ceilingRoom.signature,
+                  event.target.value as 'horizontal' | 'open',
+                )}
+              >
+                <option value="horizontal">Horizontal</option>
+                <option value="open">Vaulted</option>
+              </select>
+            </dd>
+          </div>
+        ) : null}
         {selectedSurface ? (
           <>
             <div>

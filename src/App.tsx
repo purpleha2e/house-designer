@@ -1091,40 +1091,13 @@ function App() {
   }
 
   const deleteWall = (wallId: string) => {
-    const wallFloor = floors.find((floor) =>
-      floor.walls.some((wall) => wall.id === wallId),
-    )
-    const wallToDelete = wallFloor?.walls.find((wall) => wall.id === wallId)
-
-    if (!wallFloor || !wallToDelete) {
+    if (!floors.some((floor) => floor.walls.some((wall) => wall.id === wallId))) {
       return
-    }
-
-    const floorsAbove = floors.filter(
-      (floor) => floor.elevation > wallFloor.elevation,
-    )
-    const shouldDeleteFloorsAbove =
-      wallToDelete.kind === 'external' && floorsAbove.length > 0
-
-    if (shouldDeleteFloorsAbove) {
-      const shouldDelete = window.confirm(
-        `Removing a wall under another floor will cause all floors above ${wallFloor.name} to be deleted.\n\nThis will delete ${floorsAbove
-          .map((floor) => floor.name)
-          .join(', ')}. Continue?`,
-      )
-
-      if (!shouldDelete) {
-        return
-      }
     }
 
     recordHistory()
     setFloors((currentFloors) =>
       currentFloors
-        .filter(
-          (floor) =>
-            !shouldDeleteFloorsAbove || floor.elevation <= wallFloor.elevation,
-        )
         .map((floor) => ({
           ...floor,
           models: (floor.models ?? []).filter(
@@ -1134,29 +1107,9 @@ function App() {
         }))
         .map((floor) => syncWallOpenings(floor, modelsById)),
     )
-    if (
-      shouldDeleteFloorsAbove &&
-      floorsAbove.some((floor) => floor.id === activeFloorId)
-    ) {
-      setActiveFloorId(wallFloor.id)
-    }
-    if (
-      shouldDeleteFloorsAbove &&
-      selectedFloorViewId !== ALL_FLOORS_VIEW_ID &&
-      floorsAbove.some((floor) => floor.id === selectedFloorViewId)
-    ) {
-      setSelectedFloorViewId(wallFloor.id)
-    }
-    setSelectedWallId((currentSelectedWallId) => {
-      const selectedWallWasDeleted =
-        currentSelectedWallId === wallId ||
-        (shouldDeleteFloorsAbove &&
-          floorsAbove.some((floor) =>
-            floor.walls.some((wall) => wall.id === currentSelectedWallId),
-          ))
-
-      return selectedWallWasDeleted ? null : currentSelectedWallId
-    })
+    setSelectedWallId((currentSelectedWallId) =>
+      currentSelectedWallId === wallId ? null : currentSelectedWallId,
+    )
     setSelectedWallIds((currentSelectedWallIds) =>
       currentSelectedWallIds.filter((selectedId) => selectedId !== wallId),
     )
@@ -1875,7 +1828,7 @@ function App() {
     textureScale = 1,
     textureRotation = 0,
     customColor?: string,
-    part?: 'underside',
+    part?: 'underside' | 'gable',
   ) => {
     recordHistory()
     setSurfaceAssignments(currentAssignments => replaceRoofMaterialAssignment(
@@ -3061,6 +3014,7 @@ function App() {
         >
           <ContextPanel
             activeFloor={activeFloor}
+            canVaultRoom={!floors.some(floor => floor.elevation > activeFloor.elevation)}
             selectedModel={selectedModel}
             selectedRoom={selectedRoom}
             selectedSurface={selectedSurface}
@@ -3082,6 +3036,17 @@ function App() {
                     : floor,
                 ),
               )
+            }}
+            onUpdateRoomCeilingMode={(roomSignature, ceilingMode) => {
+              const room = activeFloor.rooms.find(candidate => candidate.signature === roomSignature)
+              if (!room || (room.ceilingMode ?? activeFloor.ceilingMode ?? 'horizontal') === ceilingMode) return
+              recordHistory()
+              setFloors(currentFloors => currentFloors.map(floor =>
+                floor.id === activeFloor.id
+                  ? { ...floor, rooms: floor.rooms.map(candidate =>
+                    candidate.signature === roomSignature ? { ...candidate, ceilingMode } : candidate) }
+                  : floor,
+              ))
             }}
             onUpdateModel={updateModel}
             onUpdateWall={updateWallGeometry}
