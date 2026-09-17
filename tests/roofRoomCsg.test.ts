@@ -60,3 +60,21 @@ test('room volume removes a horizontal tile beneath a sloped room ceiling', () =
   if (carved !== tile) carved.dispose()
   tile.dispose()
 })
+
+test('room cutter meets the ceiling footprint without opening a roof seam', () => {
+  const panel = new BufferGeometry()
+  panel.setAttribute('position', new Float32BufferAttribute([
+    -1, 1, -1, 1, 1, -1, 1, 1, 1,
+    -1, 1, -1, 1, 1, 1, -1, 1, 1,
+  ], 3))
+  const carved = carveRoofSurfaceByRooms(panel, [{
+    face: [[0, 2, -1], [1, 2, -1], [1, 2, 1], [0, 2, 1]],
+    thickness: 0, bottomY: 0,
+  }])
+  const positions = carved.getAttribute('position')
+  const maxX = Math.max(...Array.from({ length: positions.count }, (_, index) => positions.getX(index)))
+  assert.ok(maxX >= -0.00011 && maxX <= 0,
+    `retained panel must reach within 0.11 mm of the ceiling edge; got ${maxX}`)
+  if (carved !== panel) carved.dispose()
+  panel.dispose()
+})

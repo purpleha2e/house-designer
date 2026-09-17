@@ -7,6 +7,7 @@ import type {
   SurfaceWallSide,
   WallKind,
 } from '../types'
+import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
 
 type RailPanel = 'align' | 'floor' | 'materials' | 'wall'
 type WallMaterialMode = 'full' | 'lower'
@@ -371,7 +372,7 @@ export function LeftToolRail({
     }
 
     const height = Math.min(
-      activeFloor.roomHeight,
+      MAX_WALL_HEIGHT_METERS,
       Math.max(MIN_WALL_HEIGHT, parsedValue),
     )
     onWallHeightChange(height)

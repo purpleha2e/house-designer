@@ -14,7 +14,8 @@ export type RoomRoofCut = {
 type SurfaceVertex = { position: RoofVertex; normal: RoofVertex; uv: [number, number] }
 
 const EPSILON = 1e-8
-const CUT_OVERLAP = 0.003
+const CUT_VERTICAL_OVERLAP = 0.003
+const CUT_FOOTPRINT_OVERLAP = 0.0001
 
 function interpolate(a: SurfaceVertex, b: SurfaceVertex, t: number): SurfaceVertex {
   return {
@@ -84,9 +85,11 @@ export function carveRoofSurfaceByRooms(
     if (!height) return []
     const bottom = toLocal([face[0][0], bottomY, face[0][2]])[1]
     return [[
+      // A tiny footprint overlap absorbs float error without opening a visible
+      // slit beside the retained ceiling face at roof junctions.
       ...footprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })))
-        .map(plane => ((point: RoofVertex) => plane(point) + CUT_OVERLAP) as ClipPlane),
-      (([x, y, z]: RoofVertex) => height({ x, y: z }) - thickness + CUT_OVERLAP - y) as ClipPlane,
+        .map(plane => ((point: RoofVertex) => plane(point) + CUT_FOOTPRINT_OVERLAP) as ClipPlane),
+      (([x, y, z]: RoofVertex) => height({ x, y: z }) - thickness + CUT_VERTICAL_OVERLAP - y) as ClipPlane,
       (([, y]: RoofVertex) => y - bottom) as ClipPlane,
     ]]
   })

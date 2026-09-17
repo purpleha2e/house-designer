@@ -11,6 +11,7 @@ import type {
 import type { ModelDefinition } from '../models/modelLibrary'
 import type { DetectedRoom } from '../wallTopology'
 import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
+import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
 
 type ContextPanelProps = {
   activeFloor: FloorLevel
@@ -31,9 +32,10 @@ type ContextPanelProps = {
   onRenameRoom: (roomSignature: string, name: string) => void
   onUpdateRoomCeilingMode: (roomSignature: string, mode: 'horizontal' | 'open') => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
-  onUpdateWall: (wallId: string, updates: Partial<Pick<Wall, 'thickness'>>) => void
+  onUpdateWall: (wallId: string, updates: Partial<Pick<Wall, 'height' | 'thickness'>>) => void
 }
 
+const MIN_WALL_HEIGHT = 0.05
 const MIN_WALL_THICKNESS = 0.05
 const MAX_WALL_THICKNESS = 1
 
@@ -184,6 +186,7 @@ export function ContextPanel({
   const [wallThicknessDraft, setWallThicknessDraft] = useState<string | null>(
     null,
   )
+  const [wallHeightDraft, setWallHeightDraft] = useState<string | null>(null)
   const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
   const selectedModelIsSpotlight = selectedModel?.definition.lightKind === 'spot'
   const selectedModelIsDoor = Boolean(
@@ -213,6 +216,8 @@ export function ContextPanel({
     selectedSurfaceMaterial?.pbr.baseColor
   const wallThicknessInputValue =
     wallThicknessDraft ?? formatMetresInputValue(selectedWall?.thickness ?? 0)
+  const wallHeightInputValue =
+    wallHeightDraft ?? formatMetresInputValue(selectedWall?.height ?? 0)
   const ceilingRoomSignature = selectedSurface?.type === 'ceiling' ||
     selectedSurface?.type === 'room-floor'
     ? selectedSurface.roomSignature
@@ -221,6 +226,7 @@ export function ContextPanel({
 
   useEffect(() => {
     setWallThicknessDraft(null)
+    setWallHeightDraft(null)
   }, [selectedWall?.id])
 
   const commitWallThickness = () => {
@@ -243,6 +249,29 @@ export function ContextPanel({
     setWallThicknessDraft(null)
     if (Math.abs(thickness - selectedWall.thickness) > 0.000001) {
       onUpdateWall(selectedWall.id, { thickness })
+    }
+  }
+
+  const commitWallHeight = () => {
+    if (!selectedWall || wallHeightDraft === null) {
+      return
+    }
+
+    const parsedValue = Number.parseFloat(wallHeightDraft)
+
+    if (!Number.isFinite(parsedValue)) {
+      setWallHeightDraft(null)
+      return
+    }
+
+    const height = Math.min(
+      MAX_WALL_HEIGHT_METERS,
+      Math.max(MIN_WALL_HEIGHT, parsedValue),
+    )
+
+    setWallHeightDraft(null)
+    if (Math.abs(height - selectedWall.height) > 0.000001) {
+      onUpdateWall(selectedWall.id, { height })
     }
   }
 
@@ -438,20 +467,20 @@ export function ContextPanel({
                 : '-'}
           </dd>
         </div>
-        <div>
-          <dt>Height</dt>
-          <dd>
-            {selectedWall
-              ? `${selectedWall.height.toFixed(2)} m`
-              : selectedModelIsLight && selectedModel
+        {!selectedWall ? (
+          <div>
+            <dt>Height</dt>
+            <dd>
+              {selectedModelIsLight && selectedModel
                 ? `${(selectedModel.model.height ?? selectedModel.definition.height).toFixed(2)} m`
-              : selectedModel
-                ? `${(
-                    selectedModel.definition.height * selectedModel.model.scale
-                  ).toFixed(2)} m`
-                : '-'}
-          </dd>
-        </div>
+                : selectedModel
+                  ? `${(
+                      selectedModel.definition.height * selectedModel.model.scale
+                    ).toFixed(2)} m`
+                  : '-'}
+            </dd>
+          </div>
+        ) : null}
         {selectedModel ? (
           <>
             {selectedModelIsLight ? (
@@ -639,6 +668,30 @@ export function ContextPanel({
           </>
         ) : null}
           </>
+        ) : null}
+        {selectedWall ? (
+          <div className="context-field">
+            <dt>Height</dt>
+            <dd>
+              <input
+                type="text"
+                inputMode="decimal"
+                aria-label="Wall height"
+                value={wallHeightInputValue}
+                onChange={(event) => setWallHeightDraft(event.target.value)}
+                onBlur={commitWallHeight}
+                onFocus={() =>
+                  setWallHeightDraft(formatMetresInputValue(selectedWall.height))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.currentTarget.blur()
+                  }
+                }}
+              />
+              <span>m</span>
+            </dd>
+          </div>
         ) : null}
       </dl>
     </aside>

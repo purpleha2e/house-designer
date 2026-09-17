@@ -14905,22 +14905,22 @@ function ShaderWarmup({
         })
       }, SHADER_WARMUP_TIMEOUT_MS)
 
-      // Three's compiler traverses all materials without frustum culling.
-      // Keep the live scene's culling policy intact while compilation is pending.
-      gl.compileAsync(scene, camera)
-        .catch(() => {
-          gl.compile(scene, camera)
-        })
-        .finally(() => {
-          if (warmupTimeoutId !== null) {
-            window.clearTimeout(warmupTimeoutId)
-            warmupTimeoutId = null
-          }
+      // compileAsync keeps polling material programs after this scene changes.
+      // Wall edits can dispose those materials before the poll finishes.
+      try {
+        gl.compile(scene, camera)
+      } catch (error) {
+        recordEngineLog(
+          'shader-warmup-failed',
+          error instanceof Error ? error.message : String(error),
+        )
+      } finally {
+        if (warmupTimeoutId !== null) {
+          window.clearTimeout(warmupTimeoutId)
+          warmupTimeoutId = null
+        }
 
-          if (completed) {
-            return
-          }
-
+        if (!completed) {
           completed = true
 
           if (!cancelled) {
@@ -14936,7 +14936,8 @@ function ShaderWarmup({
               }
             })
           }
-        })
+        }
+      }
     }, 120)
 
     return () => {

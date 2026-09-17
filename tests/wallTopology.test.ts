@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import type { Wall } from '../src/types.ts'
 import { buildWallTopology } from '../src/wallTopology.ts'
@@ -267,4 +268,29 @@ test('room detection separates rooms with a divider trimmed to adjoining wall fa
   ])
 
   assert.equal(topology.rooms.length, 3)
+})
+
+test('recreating the red house upper external wall restores both rooms', () => {
+  const project = JSON.parse(readFileSync(new URL('../red_house_3.json', import.meta.url), 'utf8')) as {
+    floors: Array<{ walls: Wall[] }>
+  }
+  const walls = project.floors[1].walls
+  const removedWall = walls.find((candidate) =>
+    candidate.id === '3e626ad4-bf30-4d1a-b6cc-15fc6a33da0e')
+  assert.ok(removedWall)
+
+  const replacement = {
+    ...removedWall,
+    id: 'replacement-wall',
+    openings: [],
+    end: { ...removedWall.end, x: 1.2000000000000004 },
+  }
+  const rooms = buildWallTopology([
+    ...walls.filter((candidate) => candidate.id !== removedWall.id),
+    replacement,
+  ]).rooms
+
+  assert.equal(rooms.length, 2)
+  assert.ok(Math.abs(rooms[0].area - 69.98894) < 0.001)
+  assert.ok(Math.abs(rooms[1].area - 16.93411) < 0.001)
 })

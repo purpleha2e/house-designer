@@ -53,6 +53,7 @@ import {
   type DetectedRoom,
 } from './wallTopology'
 import { getFloorEnvelopeWalls } from './floorEnvelope'
+import { MAX_WALL_HEIGHT_METERS } from './wallGeometry'
 import {
   ALL_FLOORS_VIEW_ID,
   normalizeSavedThreeDViewState,
@@ -1075,7 +1076,7 @@ function App() {
                     wallKind === 'external'
                       ? DEFAULT_THICKNESS
                       : internalWallThickness,
-                  height: Math.min(newWallHeight, targetFloor.roomHeight),
+                  height: Math.min(newWallHeight, MAX_WALL_HEIGHT_METERS),
                 },
               ],
             }
@@ -1525,7 +1526,7 @@ function App() {
 
   const updateWallGeometry = (
     wallId: string,
-    updates: Partial<Pick<Wall, 'end' | 'start' | 'thickness'>>,
+    updates: Partial<Pick<Wall, 'end' | 'height' | 'start' | 'thickness'>>,
   ) => {
     const targetFloor =
       floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
@@ -1544,6 +1545,10 @@ function App() {
       !wallHasValidGeometry(nextWall) ||
       !Number.isFinite(nextWall.thickness) ||
       nextWall.thickness <= 0 ||
+      (updates.height !== undefined &&
+        (!Number.isFinite(updates.height) ||
+          updates.height <= 0 ||
+          updates.height > MAX_WALL_HEIGHT_METERS)) ||
       wallDuplicatesExistingSegment(nextWall, targetFloor.walls, wallId)
     ) {
       console.warn('[HouseDesigner] Ignored invalid wall update.', {
@@ -2902,7 +2907,7 @@ function App() {
         selectedModelCount={selectedModelIds.length}
         selectedWallHeight={selectedSurfaceWall?.height ?? null}
         wallCount={totalWallCount}
-        wallHeight={Math.min(newWallHeight, activeFloor.roomHeight)}
+        wallHeight={Math.min(newWallHeight, MAX_WALL_HEIGHT_METERS)}
         wallKind={wallKind}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
@@ -2983,7 +2988,7 @@ function App() {
           selectedRoofId={selectedRoofId}
           selectedWallId={selectedWallId}
           selectedWallIds={selectedWallIds}
-          wallHeight={Math.min(newWallHeight, activeFloor.roomHeight)}
+          wallHeight={Math.min(newWallHeight, MAX_WALL_HEIGHT_METERS)}
           wallKind={wallKind}
           onAddWall={addWall}
           onAddRoof={addRoof}
@@ -3018,7 +3023,7 @@ function App() {
             selectedModel={selectedModel}
             selectedRoom={selectedRoom}
             selectedSurface={selectedSurface}
-            selectedWall={selectedWall}
+            selectedWall={selectedWall ?? selectedSurfaceWall ?? undefined}
             surfaceAssignments={surfaceAssignments}
             surfaceMaterials={availableMaterials}
             onDeleteModel={deleteModel}

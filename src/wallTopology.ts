@@ -5,7 +5,7 @@ import { getRenderedWalls, getWallPolygon, type RenderedWall } from './wallGeome
 const NODE_EPSILON_METERS = 0.25
 const GRAPH_EPSILON_METERS = 0.03
 const MIN_ROOM_AREA_SQUARE_METERS = 0.5
-export const WALL_TOPOLOGY_VERSION = 2
+export const WALL_TOPOLOGY_VERSION = 3
 type ClippingPoint = [number, number]
 type ClippingRing = ClippingPoint[]
 type ClippingPolygon = ClippingRing[]
@@ -244,11 +244,33 @@ function buildDetectedRoomsFromWallUnion(
     return []
   }
 
-  const union = (
-    polygonUnion as unknown as (
-      ...polygons: ClippingPolygon[]
-    ) => ClippingMultiPolygon
-  )(...wallPolygons)
+  const unionPolygons = polygonUnion as unknown as (
+    ...polygons: ClippingPolygon[]
+  ) => ClippingMultiPolygon
+  let union: ClippingMultiPolygon
+
+  try {
+    union = unionPolygons(...wallPolygons)
+  } catch (error) {
+    // Wall joins often differ only in floating-point noise. Quantize those
+    // coordinates before retrying the union, then use graph detection if the
+    // clipping library still cannot resolve the polygons.
+    const roundedWallPolygons = wallPolygons.map((polygon) =>
+      polygon.map((ring) =>
+        ring.map(([x, y]): ClippingPoint => [
+          Math.round(x * 1e6) / 1e6,
+          Math.round(y * 1e6) / 1e6,
+        ]),
+      ),
+    )
+
+    try {
+      union = unionPolygons(...roundedWallPolygons)
+    } catch (retryError) {
+      console.warn('[HouseDesigner] Wall polygon union failed; using graph room detection.', error, retryError)
+      return []
+    }
+  }
   const roomsByKey = new Map<string, DetectedRoom>()
 
   union.forEach((polygon) => {
