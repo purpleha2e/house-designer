@@ -32,7 +32,7 @@ type ContextPanelProps = {
   onRenameRoom: (roomSignature: string, name: string) => void
   onUpdateRoomCeilingMode: (roomSignature: string, mode: 'horizontal' | 'open') => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
-  onUpdateWall: (wallId: string, updates: Partial<Pick<Wall, 'height' | 'thickness'>>) => void
+  onUpdateWall: (wallId: string, updates: Partial<Pick<Wall, 'allowRoofClipHeight' | 'height' | 'thickness'>>) => void
 }
 
 const MIN_WALL_HEIGHT = 0.05
@@ -690,6 +690,22 @@ export function ContextPanel({
                 }}
               />
               <span>m</span>
+            </dd>
+          </div>
+        ) : null}
+        {selectedWall ? (
+          <div className="context-field">
+            <dt>Allow roofs to clip height</dt>
+            <dd>
+              <input
+                type="checkbox"
+                className="context-wall-roof-clip-toggle"
+                aria-label="Allow roofs to clip height"
+                checked={selectedWall.allowRoofClipHeight === true}
+                onChange={(event) => onUpdateWall(selectedWall.id, {
+                  allowRoofClipHeight: event.target.checked,
+                })}
+              />
             </dd>
           </div>
         ) : null}

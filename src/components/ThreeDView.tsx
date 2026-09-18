@@ -1,4 +1,4 @@
-import { resolveBuildingRoofs, getRoofRidgeHeight, getRoofWorldPointFromLocal, getRoofRenderPosition, getRoofSupportBoundsInRoofSpace, getRoofSupportLocalPoint, getExplicitRoofSupportLocalBounds, getRoofWithExternalWallSupportExtents, getWallSideAwayFromRoof, type BuildingRoof as WallClippingRoof } from '../roofBuildingGeometry'
+import { resolveBuildingRoofs, serializeRoofGeometryInput, getRoofRidgeHeight, getRoofWorldPointFromLocal, getRoofRenderPosition, getRoofSupportBoundsInRoofSpace, getRoofSupportLocalPoint, getExplicitRoofSupportLocalBounds, getRoofWithExternalWallSupportExtents, getWallSideAwayFromRoof, type BuildingRoof as WallClippingRoof } from '../roofBuildingGeometry'
 /* eslint-disable react-hooks/immutability */
 import {
   Edges,
@@ -141,12 +141,13 @@ import { getBayRoofTopUvs, getGableChamferTopUvs } from '../roofUv'
 import { createUpAndOverEavesGeometry } from '../roofEavesGeometry'
 import { getRoofAbutmentPlanes, type RoofAbuttingWall } from '../roofAbutmentGeometry'
 import { findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
-import { roofToLocal, roofToWorld, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, type ResolvedRoof } from '../roofJunctions'
+import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, type ResolvedRoof } from '../roofJunctions'
 import { createSolidRoofGeometryFromFaces, getFlippedRoofFaceProjectedUvs, splitRoofUndersideFaces, type RoofGeometries, type RoofFaceUvProjector, type RoofVertex } from '../roofSolidGeometry'
 import { carveRoofSurfaceByRooms, type RoomRoofCut } from '../roofRoomCsg'
 import { buildBuildingRoomVolumes, type BuildingRoomVolumes } from '../buildingRoomVolumes'
 import { getRoofThickness } from '../roofThickness'
 import { createWallRoofClipOptions } from '../roofWallClipping'
+import { buildBuildingRoofGables, getGableWallClipData, type RoofGable, type RoofGableFace } from '../roofGableGeometry'
 import { buildWallGeometryPlans } from '../wallEngine/wallPlan'
 import {
   buildRoomWallSurfacePlans,
@@ -180,7 +181,7 @@ import type {
   RoomPortal,
   WallBodyOccluder,
 } from '../threeDLevelPreparation'
-import { refreshRenderedFloorOpenings } from '../threeDLevelPreparation'
+import { refreshRenderedFloorOpenings, serializeWallGeometryInput } from '../threeDLevelPreparation'
 import type { RoofPlacementPreview } from './FloorplanCanvas'
 import {
   prepareRenderedFloorsInWorkers,
@@ -2502,6 +2503,7 @@ function InternalWallMaterial({
 }
 
 const StoreyGeometryContext = createContext<ReadonlyMap<string, StoreyGeometry>>(new Map())
+const RoofGableContext = createContext<RoofGable[]>([])
 
 function WallEngineWallMeshes({
   castsShadow,
@@ -2567,6 +2569,9 @@ function WallEngineWallMeshes({
     [walls],
   )
   const storeys = useContext(StoreyGeometryContext)
+  const gables = useContext(RoofGableContext)
+  const gableClipData = useMemo(() => getGableWallClipData(gables, wallClippingRoofs, floorId, elevation),
+    [gables, wallClippingRoofs, floorId, elevation])
   const storeyGeometry = storeys.get(floorId)
   // Opening edits replace the storey map but do not change these outlines.
   // Keep roof clipping on untouched floors stable when only that map changes.
@@ -2609,6 +2614,7 @@ function WallEngineWallMeshes({
   }
   const stableUncutFaces = stableUncutFacesRef.current.value
   const roofClipOptions = useMemo(() => createWallRoofClipOptions({
+      ...gableClipData,
       floorElevation: elevation,
       floorId,
       isInsideRoom: (point) => getRoomContainingPoint(rooms, point) !== null,
@@ -2628,11 +2634,13 @@ function WallEngineWallMeshes({
           ]).map((point) => getRoofWorldPointFromLocal(candidate.roof, point)),
           undersideFaces: getRoofCoverageUndersideFaces(candidate.resolved).map((face) => face.map(([x, y, z]) =>
             [x, y + 0.005, z] as [number, number, number])),
+          heightClipUndersideFaces: getRoofRenderableOuterFaces(candidate.resolved).map((face) => face.map(([x, y, z]) =>
+            [x, y - getRoofThickness(candidate.roof) + 0.005, z] as [number, number, number])),
         }
       }),
       walls,
       wallFaces: stableUncutFaces,
-    }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces, roofFootprints])
+    }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces, roofFootprints, gableClipData])
   const [faces, setFaces] = useState<WallEngineFace[]>([])
   useEffect(() => {
     const controller = new AbortController()
@@ -10136,45 +10144,76 @@ function RoofInfillMesh({
   )
 }
 
-function getRoofOwnedGableWalls(roof: RoofStructure, renderedWalls: RenderedWall[]) {
-  if (roof.type !== 'up-and-over') return []
-  const bounds = getExplicitRoofSupportLocalBounds(roof)
-  return (['minY', 'maxY'] as const).flatMap(end => {
-    const endY = bounds[end]
-    const supportingWall = renderedWalls.find(({ wall }) => {
-      if (getRoofInfillWallRole(roof, wall) !== 'gable') return false
-      const start = getRoofSupportLocalPoint(roof, wall.start)
-      const finish = getRoofSupportLocalPoint(roof, wall.end)
-      return Math.abs((start.y + finish.y) / 2 - endY) <
-        Math.max(0.1, wall.thickness + 0.02)
-    })
-    if (!supportingWall) return []
-    // The resolved support includes the outer half of the wall. Keep the
-    // gable on its actual wall face while extending it across the full roof.
-    const wallStart = getRoofSupportLocalPoint(roof, supportingWall.wall.start)
-    const wallEnd = getRoofSupportLocalPoint(roof, supportingWall.wall.end)
-    const wallY = (wallStart.y + wallEnd.y) / 2
-    const first = roofToWorld(roof, 0, [bounds.minX, 0, wallY])
-    const last = roofToWorld(roof, 0, [bounds.maxX, 0, wallY])
-    const followsWallDirection =
-      (last[0] - first[0]) * (supportingWall.wall.end.x - supportingWall.wall.start.x) +
-      (last[2] - first[2]) * (supportingWall.wall.end.y - supportingWall.wall.start.y) >= 0
-    const start = followsWallDirection ? first : last
-    const finish = followsWallDirection ? last : first
-    return [{
-      end,
-      renderedWall: {
-        ...supportingWall,
-        wall: {
-          ...supportingWall.wall,
-          start: { x: start[0], y: start[2] },
-          end: { x: finish[0], y: finish[2] },
-        },
-        startExtension: 0,
-        endExtension: 0,
-      },
-    }]
-  })
+function SolidGableSurface({ gable, faces, onRegisterPickTarget, shadowsEnabled, surfaceAssignments, wireframe }: {
+  gable: RoofGable; faces: RoofGableFace[]
+  onRegisterPickTarget: (target: PickTarget) => () => void
+  shadowsEnabled: boolean; surfaceAssignments: SurfaceMaterialAssignment[]; wireframe: boolean
+}) {
+  const ref = useRef<Mesh>(null!)
+  const source = faces[0]
+  const geometry = useMemo(() => {
+    const positions: number[] = [], normals: number[] = [], uvs: number[] = []
+    for (const face of faces) {
+      const length = Math.hypot(...face.plane.slice(0, 3))
+      for (let i = 1; i + 1 < face.points.length; i++) for (const index of [0, i, i + 1]) {
+        positions.push(...face.points[index])
+        normals.push(...face.plane.slice(0, 3).map(value => -value / length))
+        uvs.push(...face.uvs[index])
+      }
+    }
+    const result = new BufferGeometry()
+    result.setAttribute('position', new Float32BufferAttribute(positions, 3))
+    result.setAttribute('normal', new Float32BufferAttribute(normals, 3))
+    result.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
+    result.computeBoundingSphere()
+    return result
+  }, [faces])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  useEffect(() => onRegisterPickTarget({ blocksCollision: false,
+    floorId: source.wallFloorId ?? gable.floorId, kind: 'surface', object: ref.current,
+    surface: source.interior && source.wall && source.wallSide
+      ? { type: 'wall-face', wallId: source.wall.id, floorId: source.wallFloorId ?? gable.floorId, side: source.wallSide }
+      : { type: 'roof', roofId: gable.roofId, floorId: gable.floorId, part: 'gable' },
+  }), [gable.floorId, gable.roofId, onRegisterPickTarget, source])
+  const gableAssignment = !source.interior ? surfaceAssignments.findLast(item => item.target.type === 'roof' &&
+    item.target.floorId === gable.floorId && item.target.roofId === gable.roofId && item.target.part === 'gable') : undefined
+  const assignment = gableAssignment ?? (source.wall && source.wallSide
+    ? getRoofInfillMaterialAssignment(surfaceAssignments, source.wall, source.wallSide) : undefined)
+  const material = assignment ? surfaceMaterialsById.get(assignment.materialId) : undefined
+  return <mesh ref={ref} geometry={geometry} castShadow={shadowsEnabled} receiveShadow={shadowsEnabled}
+    userData={{ houseDesignerRole: 'roof-infill', solidGable: true, roofId: gable.roofId,
+      wallId: source.wall?.id, interior: source.interior }}>
+    {assignment && material ? <SurfaceMeshStandardMaterial assignment={assignment} displacementEnabled={false}
+      material={material} polygonOffsetFactor={0} polygonOffsetUnits={0} side={FrontSide} shadowSide={DoubleSide}
+      textureQuality={getWallSurfaceTextureQuality(material)} wireframe={wireframe} />
+      : source.interior ? <InternalWallMaterial wireframe={wireframe} />
+      : <ExternalWallMaterial shadowSide={DoubleSide} side={FrontSide} wireframe={wireframe} />}
+  </mesh>
+}
+
+function SolidGableMeshes({ gable, roofFaceSide, ...props }: Omit<Parameters<typeof SolidGableSurface>[0], 'faces'> & { roofFaceSide?: Side }) {
+  const groups = useMemo(() => {
+    const result = new Map<string, RoofGableFace[]>()
+    for (const face of gable.faces) {
+      if (roofFaceSide === FrontSide && face.interior || roofFaceSide === BackSide && !face.interior) continue
+      const key = `${face.interior}:${face.wallFloorId}:${face.wall?.id}:${face.wallSide}`
+      const group = result.get(key) ?? []
+      group.push(face)
+      result.set(key, group)
+    }
+    return [...result.entries()]
+  }, [gable, roofFaceSide])
+  return groups.map(([key, faces]) => <SolidGableSurface key={key} gable={gable} faces={faces} {...props} />)
+}
+
+function BuildingGableMeshes({ visibleFloorIds, ...props }: Omit<Parameters<typeof SolidGableMeshes>[0], 'gable'> & {
+  visibleFloorIds: string[] | null
+}) {
+  const gables = useContext(RoofGableContext)
+  const visible = useMemo(() => visibleFloorIds ? gables.map(gable => ({ ...gable,
+    faces: gable.faces.filter(face => visibleFloorIds.includes(face.spaceFloorId ?? gable.floorId)),
+  })) : gables, [gables, visibleFloorIds])
+  return visible.map(gable => <SolidGableMeshes key={gable.id} gable={gable} {...props} />)
 }
 
 function RoofInfillMeshes({
@@ -10235,24 +10274,7 @@ function RoofInfillMeshes({
             />
           )
         })
-        const roofGables = getRoofOwnedGableWalls(roof, renderedWalls).map(({ end, renderedWall }) => (
-          <RoofInfillMesh
-            key={`${roof.id}:${end}:roof-gable`}
-            bottomY={bottomY}
-            buildingRoomCuts={buildingRoomCuts}
-            floorId={floor.id}
-            infillFaces={infillFaces}
-            onRegisterPickTarget={onRegisterPickTarget}
-            exteriorSide={getWallSideAwayFromRoof(roof, renderedWall.wall)}
-            renderedWall={renderedWall}
-            roof={roof}
-            roofFaceSide={roofFaceSide}
-            shadowsEnabled={shadowsEnabled}
-            surfaceAssignments={surfaceAssignments}
-            wireframe={wireframe}
-          />
-        ))
-        return [...wallInfill, ...roofGables]
+        return wallInfill
       })}
     </>
   )
@@ -17391,8 +17413,8 @@ export function ThreeDView({
   const [, setRoomVisibilityState] =
     useState<FloorVisibilityState | null>(null)
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
-    ambientOcclusion: false,
-    ambientOcclusionIntensity: 0.85,
+    ambientOcclusion: true,
+    ambientOcclusionIntensity: 0.75,
     ambientTerm: 0.32,
     bakedLightmaps: false,
     daylight: true,
@@ -17460,27 +17482,12 @@ export function ThreeDView({
       ),
     [floors],
   )
-  const roofGeometryKey = JSON.stringify(floors.map(({ id, elevation, roomHeight, walls, roofs }) =>
-    ({
-      id,
-      elevation,
-      roomHeight,
-      roofs,
-      models: [],
-      rooms: [],
-      walls: walls.map(({ end, height, id: wallId, kind, start, thickness }) => ({
-        end,
-        height,
-        id: wallId,
-        kind,
-        openings: [],
-        start,
-        thickness,
-      })),
-    })))
+  const roofGeometryKey = serializeRoofGeometryInput(floors)
   const wallClippingRoofs = useMemo(() => resolveBuildingRoofs(JSON.parse(roofGeometryKey)), [roofGeometryKey])
-  const buildingRoomVolumes = useMemo(() => buildBuildingRoomVolumes(floors, wallClippingRoofs),
-    [floors, wallClippingRoofs])
+  const roofRoomGeometryKey = serializeWallGeometryInput(floors)
+  const roofRoomFloors = useMemo<FloorLevel[]>(() => JSON.parse(roofRoomGeometryKey), [roofRoomGeometryKey])
+  const buildingRoomVolumes = useMemo(() => buildBuildingRoomVolumes(roofRoomFloors, wallClippingRoofs),
+    [roofRoomFloors, wallClippingRoofs])
   const vrStartPosition = useMemo(
     () => getVrStartPosition(activeFloor),
     [activeFloor],
@@ -17496,27 +17503,7 @@ export function ThreeDView({
         .filter((floor) => floor.elevation < activeFloor.elevation)
         .at(-1) ?? null
     : null
-  const floorGeometryStatusKey = useMemo(
-    () =>
-      JSON.stringify(
-        floors.map((floor) => ({
-          elevation: floor.elevation,
-          id: floor.id,
-          roomHeight: floor.roomHeight,
-          slabThickness: floor.slabThickness,
-          walls: floor.walls.map((wall) => ({
-            end: wall.end,
-            height: wall.height,
-            id: wall.id,
-            kind: wall.kind,
-            openings: wall.openings,
-            start: wall.start,
-            thickness: wall.thickness,
-          })),
-        })),
-      ),
-    [floors],
-  )
+  const floorGeometryStatusKey = useMemo(() => serializeWallGeometryInput(floors), [floors])
   const canPrepareLevelsInWorkers =
     typeof Worker !== 'undefined' && floors.length > 0
   // The worker prepares wall geometry only. Furniture, lights, roof selection
@@ -17554,6 +17541,9 @@ export function ThreeDView({
     new Set(renderOptions.floorSlabs
       ? showAllFloorsInScene ? preparedStoreys.map(s => s.floor.id) : floorBelowActive ? [floorBelowActive.id] : []
       : [])), [preparedStoreys, renderOptions.floorSlabs, showAllFloorsInScene, floorBelowActive?.id])
+  const roofGables = useMemo(() => buildBuildingRoofGables(roofRoomFloors, wallClippingRoofs, buildingRoomVolumes,
+    [...storeyGeometry.values()].flatMap(storey => storey.assembly ? [storey.assembly] : [])),
+    [roofRoomFloors, wallClippingRoofs, buildingRoomVolumes, storeyGeometry])
   const [isLevelPreparationPending, setIsLevelPreparationPending] =
     useState(canPrepareLevelsInWorkers)
 
@@ -18562,6 +18552,7 @@ export function ThreeDView({
         }
       >
         <StoreyGeometryContext.Provider value={storeyGeometry}>
+        <RoofGableContext.Provider value={roofGables}>
         <ImportedModelBatchingContext.Provider value={importedModelBatching}>
         <HorizontalSurfaceVisibilityContext.Provider value={horizontalSurfaceVisibilityRegistry}>
         <Canvas
@@ -18583,6 +18574,9 @@ export function ThreeDView({
           tabIndex={0}
         >
           <MaterialVariationVrContext.Provider value={isXrPresenting}>
+            <BuildingGableMeshes visibleFloorIds={showAllFloorsInScene || renderOptions.roofsOnly ? null : visibleRenderedFloors.map(data => data.floor.id)}
+              onRegisterPickTarget={registerPickTarget} roofFaceSide={roofFaceSide}
+              shadowsEnabled={renderOptions.shadows} surfaceAssignments={surfaceAssignments} wireframe={renderOptions.wireframe} />
             {renderOptions.wireframe && renderOptions.wireframeHiddenSurfaces && !isXrPresenting ? (
               <HiddenSurfaceWireframeRenderer side={roofFaceSide ?? DoubleSide} />
             ) : null}
@@ -19370,6 +19364,7 @@ export function ThreeDView({
         </Canvas>
         </HorizontalSurfaceVisibilityContext.Provider>
         </ImportedModelBatchingContext.Provider>
+        </RoofGableContext.Provider>
         </StoreyGeometryContext.Provider>
         <div
           ref={engineStatusRef}

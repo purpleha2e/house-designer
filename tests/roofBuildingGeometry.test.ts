@@ -66,6 +66,21 @@ function fixture(name: string): FloorLevel[] {
   return JSON.parse(readFileSync(new URL(`./fixtures/roof-junctions/${name}.json`, import.meta.url), 'utf8')).floors
 }
 
+test('a roof does not terminate at a wall that allows roof height clipping', () => {
+  const wall = { id: 'side', kind: 'external' as const, height: 3.4, thickness: 0.3,
+    start: { x: 0, y: -2 }, end: { x: 0, y: 2 } }
+  const floor: FloorLevel = {
+    id: 'floor', name: 'Floor', elevation: 0, models: [], rooms: [], roomHeight: 2.4,
+    slabThickness: 0.3, walls: [wall], roofs: [{ id: 'roof', type: 'up-and-over',
+      position: { x: 2, y: 0 }, supportPosition: { x: 2, y: 0 },
+      width: 4.3, depth: 2.3, supportWidth: 4, supportDepth: 2,
+      pitchDegrees: 45, rotation: 0 }],
+  }
+  assert.ok(resolveBuildingRoofs([floor])[0].abuttingWalls.some(candidate => candidate.wall.id === wall.id))
+  floor.walls = [{ ...wall, allowRoofClipHeight: true }]
+  assert.ok(resolveBuildingRoofs([floor])[0].abuttingWalls.every(candidate => candidate.wall.id !== wall.id))
+})
+
 test('Red House rear gable meets the bay beyond the upper facade corner without a gap', () => {
   const roofs = resolveBuildingRoofs(fixture('red_house_material_regions')).map(r => r.resolved)
   const gable = roofs.find(r => r.roof.id.startsWith('ded6'))!

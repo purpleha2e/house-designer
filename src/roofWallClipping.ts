@@ -1,5 +1,6 @@
 import type { Point, Wall } from './types.ts'
 import type { WallMeshFace } from './wallEngine/wallMesh.ts'
+import type { SolidPoint } from './convexSolid.ts'
 import { createWallRoofSurfaceDividers } from './wallEngine/wallRoofSurfacePartitions.ts'
 
 import { footprintPlanes, roofFacePlanes, type ClipPlane, type WallRoofClipVolume } from './wallEngine/wallRoofClip.ts'
@@ -9,13 +10,14 @@ export type WallClippingRoof = {
   surfaceFaces?: [number, number, number][][]
   floorId: string
   undersideFaces: [number, number, number][][]
+  heightClipUndersideFaces?: [number, number, number][][]
   supportPolygon: Point[]
   enclosedFootprints?: Point[][]
   abutmentPlanes?: ClipPlane[]
 }
 
 export function createWallRoofClipOptions({
-  floorElevation, floorId, isInsideRoom, roofs, walls, wallFaces,
+  floorElevation, floorId, isInsideRoom, roofs, walls, wallFaces, gableWallIds = [], gableCeilingFaces = [],
 }: {
   floorElevation: number
   floorId: string
@@ -23,6 +25,8 @@ export function createWallRoofClipOptions({
   roofs: WallClippingRoof[]
   walls: Wall[]
   wallFaces?: WallMeshFace[]
+  gableWallIds?: string[]
+  gableCeilingFaces?: SolidPoint[][]
 }) {
   const wallBounds = new Map(walls.map(wall => [wall.id, { bottom: 0, top: wall.height }]))
   for (const face of wallFaces ?? []) {
@@ -34,8 +38,9 @@ export function createWallRoofClipOptions({
     }
   }
   const volumes: WallRoofClipVolume[] = roofs.flatMap((roof) => {
-    const abuttingWalls = walls.filter((wall) =>
+    const abuttingWalls = walls.filter((wall) => !wall.allowRoofClipHeight &&
       isRoofAbuttingWall({ isInsideRoom, supportPolygon: roof.supportPolygon, wall }))
+    const clipHeightWallIds = new Set(walls.filter((wall) => wall.allowRoofClipHeight).map((wall) => wall.id))
     const excludedWallIds = new Set(abuttingWalls.map((wall) => wall.id))
     const protectedFootprints = abuttingWalls.map((wall) => {
       const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
@@ -49,8 +54,12 @@ export function createWallRoofClipOptions({
         { x: wall.start.x - ux * half + uy * half, y: wall.start.y - uy * half - ux * half },
       ])
     })
-    const coverage = roof.undersideFaces.map(roofFacePlanes).filter((planes) => planes.length)
-    return coverage.map((coveragePlanes) => {
+    const resolvedCoverage = roof.undersideFaces.map(roofFacePlanes).filter((planes) => planes.length)
+    // Roof joins can remove part of the resolved coverage. Use the full roof
+    // profile for opted-in walls so no uncut strip remains at a join.
+    const heightCoverage = (roof.floorId === floorId ? roof.heightClipUndersideFaces ?? [] : [])
+      .map(roofFacePlanes).filter((planes) => planes.length)
+    const makeVolumes = (coverage: ClipPlane[][], selectedOnly: boolean): WallRoofClipVolume[] => coverage.map((coveragePlanes) => {
       const planes = [...coveragePlanes]
       const surfacePlane = planes.at(-1)!
       const boundaryProtections = coveragePlanes.slice(0, -1).flatMap((boundary) =>
@@ -65,8 +74,20 @@ export function createWallRoofClipOptions({
         })),
       )
       if (planes.length) planes.push(...(roof.abutmentPlanes ?? []).map((plane): ClipPlane => (point) => -plane(point)))
-      return { planes, surfacePlane, boundaryProtections, protectedFootprints, excludedWallIds, clipSides: roof.floorId !== floorId }
+      return { planes, surfacePlane, boundaryProtections,
+        protectedFootprints: selectedOnly ? [] : protectedFootprints,
+        excludedWallIds: selectedOnly ? new Set<string>() : excludedWallIds,
+        clipHeightWallIds: selectedOnly || (roof.floorId === floorId && !heightCoverage.length)
+          ? clipHeightWallIds : new Set<string>(),
+        clipSides: !selectedOnly && roof.floorId !== floorId,
+        onlySelectedWalls: selectedOnly,
+        // A roof on another floor must not erase a raised wall on this floor.
+        // Its own floor's roof provides the height cut instead.
+        skipWallIds: !selectedOnly && roof.floorId !== floorId ? clipHeightWallIds : undefined,
+      }
     })
+    return [...makeVolumes(resolvedCoverage, false),
+      ...(clipHeightWallIds.size ? makeVolumes(heightCoverage, true) : [])]
   })
   const surfaceDividers = roofs.flatMap(roof => roof.floorId !== floorId && roof.roofId && roof.surfaceFaces
     ? createWallRoofSurfaceDividers(roof.roofId, roof.surfaceFaces,
@@ -76,6 +97,16 @@ export function createWallRoofClipOptions({
       walls.filter(wall => wall.kind === 'external'),
       floorElevation, wallBounds, roof.supportPolygon, roof.enclosedFootprints)
     : [])
+  if (gableWallIds.length && gableCeilingFaces.length) {
+    // Drawn walls retain their solids below the closure, but must stop at the
+    // combined ceiling even when their saved height is taller. Keep the
+    // original cutters too: their vertical caps close perpendicular wall
+    // junctions and inherit the continuous facade's finish and selection.
+    volumes.push(...createWallRoofClipOptions({ floorElevation, floorId,
+      walls: walls.filter(wall => gableWallIds.includes(wall.id)).map(wall => ({ ...wall, allowRoofClipHeight: true })),
+      roofs: [{ floorId, supportPolygon: [], undersideFaces: [], heightClipUndersideFaces: gableCeilingFaces }],
+    }).volumes)
+  }
   return { floorElevation, volumes, surfaceDividers }
 }
 

@@ -1,0 +1,652 @@
+{
+  "activeFloorId": "8676fa00-db01-4e93-accb-f78e54ac7da0",
+  "floors": [
+    {
+      "id": "e326c998-f11a-4fa6-9533-2241b7c7812a",
+      "name": "Floor 0",
+      "elevation": 0,
+      "models": [],
+      "roofs": [
+        {
+          "thickness": 0.04,
+          "depth": 4.522375909294783,
+          "heightOffset": 0,
+          "id": "a5d8e966-ed6d-44eb-8147-4d4c9f635b36",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.25,
+          "overhangSidePositive": 0.25,
+          "pitchDegrees": 35,
+          "position": {
+            "x": 3.2343507087334253,
+            "y": 7.522299065758501
+          },
+          "rotation": 3.141592653589793,
+          "supportDepth": 4.222375909294782,
+          "supportPosition": {
+            "x": 3.2343507087334253,
+            "y": 7.522299065758501
+          },
+          "supportWidth": 3.4687014174668507,
+          "type": "up-and-over",
+          "width": 3.9687014174668507
+        }
+      ],
+      "rooms": [
+        {
+          "id": "a5246b24-4d68-4289-89db-7e4e9cefe081",
+          "name": "Room 1",
+          "signature": "545:175|545:55|55:175|55:55"
+        },
+        {
+          "id": "1bc6b7c2-48ed-4119-a1c6-b4c6eb66cb04",
+          "name": "Room 2",
+          "signature": "161:185|161:316|55:185|55:316"
+        },
+        {
+          "id": "10fd272c-8709-4142-9286-4bcf9df5a84e",
+          "name": "Room 3",
+          "signature": "171:185|171:316|294:185|294:316"
+        },
+        {
+          "id": "d48c08e1-a184-424c-900f-dfbebdbc4fa0",
+          "name": "Room 4",
+          "signature": "304:185|304:316|431:185|431:316"
+        },
+        {
+          "id": "174ac979-8e28-4946-8618-2e0fbb659d54",
+          "name": "Room 5",
+          "signature": "441:185|441:316|545:185|545:316"
+        }
+      ],
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "e4150b43-0a66-483f-badb-0a9f093e0eb4",
+          "kind": "external",
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 1.5000000000000004,
+            "y": 9.633487020405893
+          },
+          "id": "34442321-1833-44e8-9634-29a420e0a7fa",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5000000000000004,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "id": "4e6103b1-3feb-46a8-92ec-1df732c826d0",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "id": "5dff8a7c-b7b5-4d53-8e64-be827dd0a85b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5000000000000002,
+            "y": 5.411111111111111
+          },
+          "end": {
+            "x": 16.5,
+            "y": 5.411111111111111
+          },
+          "id": "46067bed-222c-4f77-8265-45040e11c7fa",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 4.968701417466851,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 4.968701417466851,
+            "y": 5.411111111111111
+          },
+          "id": "31e7b8eb-cedd-4b68-b95c-182a415acc1c",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 8.972592783112333,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 8.972592783112333,
+            "y": 5.411111111111111
+          },
+          "id": "5d2e1e6d-3dc8-4e14-9028-862aca108095",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 13.080674630391712,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 13.080674630391712,
+            "y": 5.411111111111112
+          },
+          "id": "189ea11d-53b0-45db-a98f-5a5b945379f2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        }
+      ]
+    },
+    {
+      "id": "8676fa00-db01-4e93-accb-f78e54ac7da0",
+      "name": "Floor 1",
+      "elevation": 2.6999999999999997,
+      "models": [],
+      "roofs": [
+        {
+          "thickness": 0.04,
+          "depth": 4.522375909294781,
+          "heightOffset": 0,
+          "id": "8d8264dd-442f-4b50-9c52-ce770459687c",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 35,
+          "position": {
+            "x": 6.991558285673018,
+            "y": 7.522299065758502
+          },
+          "rotation": 3.141592653589793,
+          "supportDepth": 4.22237590929478,
+          "supportPosition": {
+            "x": 6.991558285673018,
+            "y": 7.522299065758502
+          },
+          "supportWidth": 4.050000000000002,
+          "type": "up-and-over",
+          "width": 4.350000000000002
+        }
+      ],
+      "rooms": [
+        {
+          "id": "fb87ef1d-29bf-4061-ad2a-4bc68c5e817a",
+          "name": "Room 1",
+          "signature": "545:175|545:55|55:175|55:55"
+        },
+        {
+          "id": "a6b3770e-cebf-4755-86b5-9926076405d3",
+          "name": "Room 2",
+          "signature": "171:185|171:316|545:185|545:316"
+        }
+      ],
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "7fa0cb37-cfe0-463d-9fa5-7fd82c366829",
+          "kind": "external",
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 1.5000000000000002,
+            "y": 5.411111111111111
+          },
+          "id": "7dcaeba5-da16-4927-8a79-5f971a847f48",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 4.966558285673017,
+            "y": 9.633487020405891
+          },
+          "end": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "id": "753eb9f9-9475-43f6-b9dc-b9bd13458cd2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "id": "078c6f5e-9730-445d-94e4-7d26e75348d8",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5000000000000002,
+            "y": 5.411111111111111
+          },
+          "end": {
+            "x": 16.5,
+            "y": 5.411111111111111
+          },
+          "id": "fe646bfd-3cd6-45db-9793-1f6c2158391d",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 4.966558285673017,
+            "y": 9.633487020405891
+          },
+          "end": {
+            "x": 4.966558285673017,
+            "y": 5.411111111111111
+          },
+          "id": "0eff4efc-5bb6-4601-81f2-f493b8bce3a2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        }
+      ]
+    },
+    {
+      "id": "2091db78-fcdd-4a99-9cb4-9e626b9fac48",
+      "name": "Floor 2",
+      "elevation": 5.3999999999999995,
+      "models": [],
+      "roofs": [
+        {
+          "thickness": 0.04,
+          "depth": 4.52237590929478,
+          "heightOffset": 0,
+          "id": "55806fea-ee63-48a9-a0b2-90da668991f8",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.25,
+          "overhangSidePositive": 0.25,
+          "pitchDegrees": 35,
+          "position": {
+            "x": 11.066558285673018,
+            "y": 7.522299065758502
+          },
+          "rotation": 6.283185307179586,
+          "supportDepth": 4.2223759092947795,
+          "supportPosition": {
+            "x": 11.066558285673018,
+            "y": 7.522299065758502
+          },
+          "supportWidth": 4.100000000000001,
+          "type": "up-and-over",
+          "width": 4.600000000000001
+        }
+      ],
+      "rooms": [
+        {
+          "id": "1c2aac7d-a8b0-449e-8d54-e70ad0293ce2",
+          "name": "Room 1",
+          "signature": "545:175|545:55|55:175|55:55"
+        },
+        {
+          "id": "7edd2343-b51a-4f1b-800d-024303995928",
+          "name": "Room 2",
+          "signature": "306:185|306:316|545:185|545:316"
+        }
+      ],
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "40d0f7f0-50c6-47e3-8016-ee34b5ed950e",
+          "kind": "external",
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 1.5000000000000002,
+            "y": 5.411111111111111
+          },
+          "id": "53e370c8-1eac-4e35-adce-0868d03b868a",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 9.016558285673018,
+            "y": 9.633487020405891
+          },
+          "end": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "id": "dd4cbc8c-da31-4350-86e1-3c173b909ceb",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "id": "7f652873-8b76-4c4e-908b-c322737705db",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5000000000000002,
+            "y": 5.411111111111111
+          },
+          "end": {
+            "x": 16.5,
+            "y": 5.411111111111111
+          },
+          "id": "9ea0410e-c314-4846-98d0-217e6a1cb348",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 9.016558285673018,
+            "y": 5.411111111111111
+          },
+          "end": {
+            "x": 9.016558285673018,
+            "y": 9.633487020405891
+          },
+          "id": "438f6e9e-b3eb-4c4c-940e-b9d4ad219292",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        }
+      ]
+    },
+    {
+      "id": "686cd40d-be98-4d5d-80b7-d1597196cbd8",
+      "name": "Floor 3",
+      "elevation": 8.1,
+      "models": [],
+      "roofs": [
+        {
+          "thickness": 0.04,
+          "depth": 4.52237590929478,
+          "heightOffset": 0,
+          "id": "e8b8d447-59df-403c-89f6-620d2f1e3e7a",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.25,
+          "overhangSidePositive": 0.25,
+          "pitchDegrees": 35,
+          "position": {
+            "x": 14.808279142836508,
+            "y": 7.522299065758501
+          },
+          "rotation": 3.141592653589793,
+          "supportDepth": 4.2223759092947795,
+          "supportPosition": {
+            "x": 14.808279142836508,
+            "y": 7.522299065758501
+          },
+          "supportWidth": 3.383441714326981,
+          "type": "up-and-over",
+          "width": 3.883441714326981
+        },
+        {
+          "thickness": 0.04,
+          "depth": 15.299999999999999,
+          "heightOffset": 0,
+          "id": "dfa2aa3f-f647-48f2-9370-c1b72363dd38",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.25,
+          "overhangSidePositive": 0.25,
+          "pitchDegrees": 35,
+          "position": {
+            "x": 9,
+            "y": 3.4555555555555553
+          },
+          "rotation": 1.5707963267948966,
+          "supportDepth": 15,
+          "supportPosition": {
+            "x": 9,
+            "y": 3.4555555555555553
+          },
+          "supportWidth": 3.9111111111111114,
+          "type": "up-and-over",
+          "width": 4.411111111111111
+        }
+      ],
+      "rooms": [
+        {
+          "id": "74188732-7de4-46f7-8af8-eb4a346e4b68",
+          "name": "Room 1",
+          "signature": "545:175|545:55|55:175|55:55"
+        },
+        {
+          "id": "2fbac074-7158-425c-a2ae-531df1ed187f",
+          "name": "Room 2",
+          "signature": "442:185|442:316|545:185|545:316"
+        }
+      ],
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "b2b4763f-82c4-4b78-874a-9af698b2809e",
+          "kind": "external",
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5,
+            "y": 1.5
+          },
+          "end": {
+            "x": 1.5000000000000002,
+            "y": 5.411111111111111
+          },
+          "id": "5968b3fc-c42b-4122-90b4-23ec6668d883",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 13.116558285673019,
+            "y": 9.633487020405891
+          },
+          "end": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "id": "6fdba62b-52b0-48b3-9164-d61a38fe974a",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 16.5,
+            "y": 9.633487020405893
+          },
+          "end": {
+            "x": 16.5,
+            "y": 1.5
+          },
+          "id": "1603d35b-d3f0-4290-9c67-495458f09f97",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 1.5000000000000002,
+            "y": 5.411111111111111
+          },
+          "end": {
+            "x": 16.5,
+            "y": 5.411111111111111
+          },
+          "id": "f4539021-c6e3-45fd-8791-af809960d66d",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        },
+        {
+          "start": {
+            "x": 13.116558285673019,
+            "y": 5.411111111111111
+          },
+          "end": {
+            "x": 13.116558285673019,
+            "y": 9.633487020405891
+          },
+          "id": "58a6bf26-b41d-465a-941e-9cd900bf81de",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4
+        }
+      ]
+    }
+  ],
+  "modelDefinitions": [],
+  "sunPosition": {
+    "azimuth": 1.7359450042095235,
+    "elevation": 0.8903320893666361
+  },
+  "surfaceAssignments": [],
+  "threeDView": {
+    "camera": {
+      "position": {
+        "x": -6.279906729950482,
+        "y": 10.348093416298848,
+        "z": 22.068481057358817
+      },
+      "quaternion": {
+        "w": 0.9256099923702824,
+        "x": -0.10222975884871192,
+        "y": -0.36220831946490184,
+        "z": -0.040004396513776186
+      }
+    },
+    "floorViewId": "all"
+  },
+  "twoDView": {
+    "viewportsByFloorId": {
+      "e326c998-f11a-4fa6-9533-2241b7c7812a": {
+        "scale": 1.1197439999999999,
+        "x": 333.179584,
+        "y": -95.16531199999986
+      },
+      "8676fa00-db01-4e93-accb-f78e54ac7da0": {
+        "scale": 1,
+        "x": 71,
+        "y": 51
+      },
+      "2091db78-fcdd-4a99-9cb4-9e626b9fac48": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      },
+      "686cd40d-be98-4d5d-80b7-d1597196cbd8": {
+        "scale": 1,
+        "x": 222,
+        "y": 68
+      }
+    }
+  },
+  "wallKind": "external"
+}

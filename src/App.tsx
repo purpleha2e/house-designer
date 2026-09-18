@@ -1526,7 +1526,7 @@ function App() {
 
   const updateWallGeometry = (
     wallId: string,
-    updates: Partial<Pick<Wall, 'end' | 'height' | 'start' | 'thickness'>>,
+    updates: Partial<Pick<Wall, 'allowRoofClipHeight' | 'end' | 'height' | 'start' | 'thickness'>>,
   ) => {
     const targetFloor =
       floors.find((floor) => floor.id === activeFloorId) ?? floors[0]

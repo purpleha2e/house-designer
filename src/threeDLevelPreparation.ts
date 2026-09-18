@@ -44,6 +44,25 @@ export type RenderedFloorData = {
   rooms: DetectedRoom[]
 }
 
+export function serializeWallGeometryInput(floors: FloorLevel[]): string {
+  return JSON.stringify(floors.map((floor) => ({
+    elevation: floor.elevation,
+    id: floor.id,
+    roomHeight: floor.roomHeight,
+    slabThickness: floor.slabThickness,
+    walls: floor.walls.map((wall) => ({
+      allowRoofClipHeight: wall.allowRoofClipHeight,
+      end: wall.end,
+      height: wall.height,
+      id: wall.id,
+      kind: wall.kind,
+      openings: wall.openings,
+      start: wall.start,
+      thickness: wall.thickness,
+    })),
+  })))
+}
+
 function isPointOnSegment(
   point: Point,
   segmentStart: Point,

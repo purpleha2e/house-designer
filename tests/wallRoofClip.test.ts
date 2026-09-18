@@ -235,6 +235,33 @@ test('a same-floor roof can remove covered caps while preserving its supporting 
   assert.deepEqual(clipWallFacesToRoofUndersides([side, topFace()], settings), [side])
 })
 
+test('an opted-in wall is clipped and capped by a same-floor roof without clipping its neighbour', () => {
+  const side = sideFace()
+  side.vertices = side.vertices.map((vertex) => ({ ...vertex,
+    position: [vertex.position[0], vertex.position[1] === 2.4 ? 3.4 : vertex.position[1], vertex.position[2]],
+  })) as WallMeshFace['vertices']
+  const top = topFace()
+  top.vertices = top.vertices.map((vertex) => ({ ...vertex,
+    position: [vertex.position[0], 3.4, vertex.position[2]],
+  })) as WallMeshFace['vertices']
+  const neighbour = { ...side, faceId: 'neighbour:side', wallId: 'neighbour' }
+  const settings = options((x) => 4.6 + x * 0.5)
+  settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)
+  settings.volumes[0].clipSides = false
+  settings.volumes[0].clipHeightWallIds = new Set(['upper-wall'])
+  settings.volumes[0].onlySelectedWalls = true
+  const original = [side, top, neighbour]
+  const clipped = clipWallFacesToRoofUndersides(original, settings)
+  const workerResult = runWallRoofClipJob(structuredClone(createWallRoofClipJob(original, settings)))
+  assert.deepEqual(workerResult, clipped)
+  assert.deepEqual(clipped.filter((face) => face.wallId === 'neighbour'), [neighbour])
+  const selected = clipped.filter((face) => face.wallId === 'upper-wall')
+  assert.ok(selected.length > 0)
+  assert.ok(selected.every((face) => face.vertices.every(({ position: [x, y] }) =>
+    y <= 2 + x * 0.5 + 1e-7)), 'selected wall stays below the sloping roof underside')
+  assert.ok(selected.some((face) => face.faceId.includes(':roof-cap:')), 'cut top is closed')
+})
+
 test('hip profile intersections remain finite with collinear and duplicate corner vertices', () => {
   const faces = buildRoofProfileFaces({
     id: 'hip', type: 'hip', width: 8, depth: 6, pitchDegrees: 37, overhangPitchDegrees: 0,

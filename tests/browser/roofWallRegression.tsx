@@ -4,6 +4,7 @@ import { _roots } from '@react-three/fiber'
 import { Mesh, Raycaster, Vector3 } from 'three'
 import { ThreeDView } from '../../src/components/ThreeDView'
 import redHouse from '../../red_house_3.json'
+import redHouse4 from '../../red_house_4.json'
 import roofTests from '../../roof_tests.json'
 import roofTests1 from '../../roof_tests_1.json'
 import roofTests2 from '../../roof_tests_2.json'
@@ -22,7 +23,7 @@ const isRoofTests = searchParams.has('roof-tests')
 const isRoofTests1 = searchParams.has('roof-tests-1')
 const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRedHouseDoor = searchParams.has('red-house-door')
-const savedProject = isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const savedProject = searchParams.has('red-house-4') ? redHouse4 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -142,13 +143,17 @@ setTimeout(() => {
   })()
   // The crossing roof in roof_tests_1 has only a partial supporting wall at
   // this end. Its gable must still close the opening above the other roof.
-  const gableTarget = new Vector3(4.312, 4.25, 5.85)
+  // Below the adjoining roof this end is an open attic connection. Only the
+  // exposed tip above that roof should be closed by an automatic gable.
+  const gableTarget = new Vector3(4.312, 4.7, 5.85)
   const roofTestsGableHit = state ? new Raycaster(
     state.camera.position.clone(),
     gableTarget.sub(state.camera.position).normalize(),
   ).intersectObjects(infillMeshes, false)
     .some(hit => hit.object.userData.roofId === 'f6df8580-9ce1-48ce-88b4-3d2e03d357cc' &&
       Math.abs(hit.point.x - 4.312) < 0.02 && hit.point.y > 4.1) : false
+  const roofTestsAtticOpen = !new Raycaster(new Vector3(5, 4.25, 5.85), new Vector3(-1, 0, 0))
+    .intersectObjects(infillMeshes, false).some(hit => hit.point.x > 4 && hit.point.x < 4.4)
   const doorHeight = 3.7
   const doorDepth = 5.24313
   const nearDoorGable = new Raycaster(
@@ -166,16 +171,16 @@ setTimeout(() => {
     return false
   })
   const farGable = new Raycaster(
-    new Vector3(0, doorHeight, doorDepth), new Vector3(1, 0, 0),
+    new Vector3(7, 5.7, 4.7), new Vector3(-1, 0, 0),
   ).intersectObjects(infillMeshes, false).some(hit =>
     hit.object.userData.roofId === 'b490e12e-e2cc-4509-801c-33d0e68a1aa2' &&
     hit.point.x > 5.8 && hit.point.x < 6)
   const passed = isSpringfield
     ? springfieldGable.length === 3 && springfieldGable.every(({ minX }) => minX < 5.36) && gableFilled && leanToMeetsFacade && leanToInfillBounded
     : isRoofTests2 ? roofTests2JoinedTop && roofTests2CeilingShadows
-    : isRoofTests1 ? roofTestsGableHit
+    : isRoofTests1 ? roofTestsGableHit && roofTestsAtticOpen
     : isRedHouseDoor ? !nearDoorGable && !nearDoorLooseStrip && farGable
     : boundaries.length === 3 && boundaries.every(({ minX }) => Math.abs(minX - 1.35) < 1e-5)
   document.documentElement.dataset.regression = passed ? 'passed' : 'failed'
-  Object.assign(window, { roofWallRegression: { passed, groundOnly, isSpringfield, gableFilled, roofTests2JoinedTop, roofTests2CeilingShadows, roofTestsGableHit, nearDoorGable, nearDoorLooseStrip, farGable, leanToMeetsFacade, leanToInfillBounded, boundaries } })
+  Object.assign(window, { roofWallRegression: { passed, groundOnly, isSpringfield, gableFilled, roofTests2JoinedTop, roofTests2CeilingShadows, roofTestsGableHit, roofTestsAtticOpen, nearDoorGable, nearDoorLooseStrip, farGable, leanToMeetsFacade, leanToInfillBounded, boundaries } })
 }, 12000)

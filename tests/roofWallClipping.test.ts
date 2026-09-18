@@ -7,8 +7,13 @@ import { getRenderedWalls } from '../src/wallGeometry.ts'
 import { buildWallTopology } from '../src/wallTopology.ts'
 import { buildFloorWallSurfaceFaces } from '../src/wallEngine/floorWallSurfaceMesh.ts'
 import { clipWallFacesToRoofUndersides } from '../src/wallEngine/wallRoofClip.ts'
+import { createWallRoofClipJob, runWallRoofClipJob } from '../src/wallEngine/wallRoofClipJob.ts'
 import { buildRoofProfileFaces } from '../src/roofProfile.ts'
-import { getRoofSupportBoundsInRoofSpace, getRoofWorldPointFromLocal, resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
+import { getRoofRenderPosition, getRoofSupportBoundsInRoofSpace, getRoofWorldPointFromLocal, resolveBuildingRoofs, serializeRoofGeometryInput } from '../src/roofBuildingGeometry.ts'
+import { getRoofAbutmentPlanes } from '../src/roofAbutmentGeometry.ts'
+import { prepareRenderedFloorData, serializeWallGeometryInput } from '../src/threeDLevelPreparation.ts'
+import { getRoofThickness } from '../src/roofThickness.ts'
+import { getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces } from '../src/roofJunctions.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 
 function boundaryFace(z: number, top = 2.4): WallMeshFace {
@@ -136,6 +141,124 @@ test('detected room side distinguishes a contained facade from a supporting gabl
     supportPolygon,
     wall: { ...wall, start: { x: 0, y: -1 }, end: { x: 0, y: 0.05 } },
   }), false)
+})
+
+test('an opted-in wall clips against its own roof even when it would otherwise be an abutment', () => {
+  const selectedWall = { ...facade, height: 3.4, allowRoofClipHeight: true }
+  const options = createWallRoofClipOptions({
+    floorElevation: 0,
+    floorId: 'floor',
+    walls: [selectedWall],
+    roofs: [{ floorId: 'floor', supportPolygon,
+      undersideFaces: [[[0, 2.4, 0], [4, 2.4, 0], [4, 2.4, 6], [0, 2.4, 6]]],
+    }],
+  })
+  assert.equal(options.volumes.length, 1)
+  assert.equal(options.volumes[0].clipSides, false)
+  assert.equal(options.volumes[0].clipHeightWallIds?.has(selectedWall.id), true)
+  assert.equal(options.volumes[0].excludedWallIds.has(selectedWall.id), false)
+  assert.equal(options.volumes[0].protectedFootprints.length, 0)
+})
+
+test('a lower-floor roof does not erase an opted-in upper wall', () => {
+  const wall = { ...facade, height: 3.4, allowRoofClipHeight: true }
+  const face = { ...boundaryFace(2, 3.4), wallId: wall.id }
+  const options = createWallRoofClipOptions({
+    floorElevation: 0, floorId: 'upper', walls: [wall],
+    roofs: [{ floorId: 'lower', supportPolygon,
+      undersideFaces: [[[0, 2.4, 0], [4, 2.4, 0], [4, 2.4, 6], [0, 2.4, 6]]],
+    }],
+  })
+  assert.equal(options.volumes[0].skipWallIds?.has(wall.id), true)
+  assert.deepEqual(clipWallFacesToRoofUndersides([face], options), [face])
+  assert.deepEqual(runWallRoofClipJob(structuredClone(createWallRoofClipJob([face], options))), [face])
+})
+
+test('the raised Red House side wall is trimmed below the adjoining roofs when opted in', () => {
+  const project = JSON.parse(readFileSync(new URL('../red_house_4.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const floor = project.floors[0]
+  const wall = floor.walls.find(candidate => candidate.id.startsWith('93d7c2ba'))!
+  wall.height = 3.4
+  wall.allowRoofClipHeight = true
+  const rooms = buildWallTopology(floor.walls).rooms
+  const sourceFaces = buildFloorWallSurfaceFaces({
+    renderedWalls: getRenderedWalls(floor.walls), rooms,
+    useWallBodyPerimeterMesh: true, roomSurfaceRendererEnabled: true,
+  })
+  const roofs = resolveBuildingRoofs(project.floors).map(({ roof, resolved, floorId }) => {
+    const bounds = getRoofSupportBoundsInRoofSpace(roof)
+    return { floorId,
+      supportPolygon: [
+        { x: bounds.minX, y: bounds.minY }, { x: bounds.maxX, y: bounds.minY },
+        { x: bounds.maxX, y: bounds.maxY }, { x: bounds.minX, y: bounds.maxY },
+      ].map(point => getRoofWorldPointFromLocal(roof, point)),
+      undersideFaces: getRoofCoverageUndersideFaces(resolved).map(face => face.map(
+        ([x, y, z]): [number, number, number] => [x, y + 0.005, z])),
+      heightClipUndersideFaces: getRoofRenderableOuterFaces(resolved).map(face => face.map(
+        ([x, y, z]): [number, number, number] => [x, y - getRoofThickness(roof) + 0.005, z])),
+    }
+  })
+  const options = createWallRoofClipOptions({
+    floorElevation: floor.elevation, floorId: floor.id, walls: floor.walls,
+    roofs, wallFaces: sourceFaces,
+  })
+  const clipped = clipWallFacesToRoofUndersides(sourceFaces, options)
+  const sideTop = (faces: WallMeshFace[]) => Math.max(...faces
+    .filter(face => face.wallId === wall.id && face.kind === 'side')
+    .flatMap(face => face.vertices.map(vertex => vertex.position[1])))
+  assert.equal(sideTop(sourceFaces), 3.4)
+  assert.ok(sideTop(clipped) < 3.4 - 0.1, 'the side no longer protrudes to its uncut height')
+  assert.ok(clipped.some(face => face.wallId === wall.id && face.faceId.includes(':roof-cap:')),
+    'the roof cut closes the wall top')
+})
+
+test('the saved raised Red House upper wall stays below the roof after geometry serialization', () => {
+  const project = JSON.parse(readFileSync(new URL('../red_house_4.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const raisedWall = project.floors[1].walls.find(candidate => candidate.id.startsWith('3e626ad4'))!
+  raisedWall.height = 3.4
+  raisedWall.allowRoofClipHeight = true
+  const wallInput = JSON.parse(serializeWallGeometryInput(project.floors)) as FloorLevel[]
+  const prepared = prepareRenderedFloorData({ ...wallInput[1], name: '', models: [], rooms: [] })
+  const floor = prepared.floor
+  const wall = floor.walls.find(candidate => candidate.id.startsWith('3e626ad4'))!
+  assert.equal(prepared.renderedWalls.find(candidate => candidate.wall.id === wall.id)?.wall.allowRoofClipHeight, true)
+  const roofInput = JSON.parse(serializeRoofGeometryInput(project.floors)) as FloorLevel[]
+  assert.equal(roofInput[1].walls.find(candidate => candidate.id === wall.id)?.allowRoofClipHeight, true)
+  const resolvedRoofs = resolveBuildingRoofs(roofInput)
+  assert.ok(resolvedRoofs.every(roof => roof.abuttingWalls.every(candidate => candidate.wall.id !== wall.id)))
+  const rooms = prepared.rooms
+  const sourceFaces = buildFloorWallSurfaceFaces({
+    renderedWalls: prepared.renderedWalls, rooms,
+    useWallBodyPerimeterMesh: true, roomSurfaceRendererEnabled: true,
+  })
+  const roofs = resolvedRoofs.map(({ roof, resolved, floorId, abuttingWalls }) => {
+    const bounds = getRoofSupportBoundsInRoofSpace(roof)
+    return { floorId,
+      abutmentPlanes: getRoofAbutmentPlanes(abuttingWalls, getRoofRenderPosition(roof)),
+      supportPolygon: [
+        { x: bounds.minX, y: bounds.minY }, { x: bounds.maxX, y: bounds.minY },
+        { x: bounds.maxX, y: bounds.maxY }, { x: bounds.minX, y: bounds.maxY },
+      ].map(point => getRoofWorldPointFromLocal(roof, point)),
+      undersideFaces: getRoofCoverageUndersideFaces(resolved).map(face => face.map(
+        ([x, y, z]): [number, number, number] => [x, y + 0.005, z])),
+      heightClipUndersideFaces: getRoofRenderableOuterFaces(resolved).map(face => face.map(
+        ([x, y, z]): [number, number, number] => [x, y - getRoofThickness(roof) + 0.005, z])),
+    }
+  })
+  const options = createWallRoofClipOptions({ floorElevation: floor.elevation, floorId: floor.id,
+    walls: prepared.geometryContextWalls, roofs, wallFaces: sourceFaces })
+  const clipped = clipWallFacesToRoofUndersides(sourceFaces, options)
+  const wallFaces = clipped.filter(face => face.wallId === wall.id)
+  assert.ok(wallFaces.length > 0)
+  assert.ok(wallFaces.every(face => face.vertices.every(vertex => vertex.position[1] < 2.7)))
+  assert.ok(wallFaces.some(face => face.faceId.includes(':roof-cap:')))
+  const withoutOwnRoof = createWallRoofClipOptions({ floorElevation: floor.elevation, floorId: floor.id,
+    walls: prepared.geometryContextWalls, roofs: roofs.filter(candidate => candidate.floorId !== floor.id),
+    wallFaces: sourceFaces })
+  const exposedWall = clipWallFacesToRoofUndersides(sourceFaces, withoutOwnRoof)
+  assert.ok(exposedWall.some(face => face.wallId === wall.id && face.kind === 'side' &&
+    face.vertices.some(vertex => vertex.position[1] > 3.3 && vertex.position[2] > 2 && vertex.position[2] < 7)),
+  'removing the wall’s own roof leaves the raised wall continuous above the lower roof')
 })
 
 test('red_house_3 clips its shared upper wall under the continuous lower roof', () => {

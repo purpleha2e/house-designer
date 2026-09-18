@@ -1,5 +1,5 @@
 // Run on roofWallRegression.html?materials with the saved red_house_3 scene.
-export async function checkRoofJunctionFinishes() {
+export async function checkRoofJunctionFinishes({checkReveals=true}={}) {
   const {Vector3,Raycaster}=await import('/node_modules/.vite/deps/three.js')
   const s=window.roofWallScene(), canvas=s.gl.domElement
   const wait=()=>new Promise(r=>setTimeout(r,300))
@@ -36,6 +36,9 @@ export async function checkRoofJunctionFinishes() {
     paint(a);await wait()
     const after={A:wallColor(7.5),B:wallColor(6.7658),C:wallColor(6.4),hidden:wallColor(6.2,3.45),otherEnd:wallColor(2)}
     if(after.A!==after.B||after.A!==after.C||after.hidden!==before.hidden||after.otherEnd!==before.otherEnd)throw new Error(`Facade paint crossed a roof boundary: ${JSON.stringify({before,after})}`)
+    // Facade checks also run against projects with different door models;
+    // the reveal probes below are specific to the original door fixture.
+    if(!checkReveals)return {passed:true,facadeFragments:a.fragments.length,initial,after}
     window.updateRegressionAssignments(original);await wait()
     const wall=await click(4.1,3.45), oppositeBefore=revealColors(1.1)
     if(!wall.fragments.some(f=>f.fragmentId.includes(':opening:')))throw new Error('Reveals are absent from wall selection')

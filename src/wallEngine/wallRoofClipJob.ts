@@ -14,7 +14,9 @@ export type WallRoofClipJob = {
   volumes: {
     planes: number[]; surfacePlane?: number; protectedFootprints: number[][]
     boundaryProtections: { boundary: number; planes: number[] }[]
-    excludedWallIds: string[]; clipSides: boolean
+    excludedWallIds: string[]; clipSides: boolean; clipHeightWallIds?: string[]
+    onlySelectedWalls?: boolean
+    skipWallIds?: string[]
   }[]
 }
 
@@ -35,6 +37,9 @@ export function createWallRoofClipJob(faces: WallMeshFace[], options: WallRoofCl
     protectedFootprints: v.protectedFootprints.map(p => p.map(encode)),
     boundaryProtections: (v.boundaryProtections ?? []).map(p => ({ boundary: encode(p.boundary), planes: p.planes.map(encode) })),
     excludedWallIds: [...v.excludedWallIds], clipSides: v.clipSides,
+    clipHeightWallIds: [...(v.clipHeightWallIds ?? [])],
+    onlySelectedWalls: v.onlySelectedWalls,
+    skipWallIds: [...(v.skipWallIds ?? [])],
   }))
   return { faces, floorElevation: options.floorElevation, planes, volumes, surfaceDividers: options.surfaceDividers }
 }
@@ -48,6 +53,8 @@ export function runWallRoofClipJob(job: WallRoofClipJob) {
       protectedFootprints: v.protectedFootprints.map(p => p.map(i => planes[i])),
       boundaryProtections: v.boundaryProtections.map(p => ({ boundary: planes[p.boundary], planes: p.planes.map(i => planes[i]) })),
       excludedWallIds: new Set(v.excludedWallIds),
+      clipHeightWallIds: new Set(v.clipHeightWallIds ?? []),
+      skipWallIds: new Set(v.skipWallIds ?? []),
     })),
   })
 }

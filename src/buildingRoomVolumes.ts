@@ -75,7 +75,7 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
 
     ceilingFaces.push(...cap.filter(piece => piece.roofId))
     cuts.push(...cap.map(({ face, roofId }) => ({
-      face, thickness: 0, bottomY, floorId: floor.id, roofId,
+      face, thickness: 0, bottomY, floorId: floor.id, roofId, roomVolume: true,
     })))
   }
 

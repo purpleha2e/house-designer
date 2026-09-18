@@ -11,8 +11,17 @@ export type WallRoofClipVolume = {
   boundaryProtections?: { boundary: ClipPlane; planes: ClipPlane[] }[]
   excludedWallIds: ReadonlySet<string>
   clipSides: boolean
+  clipHeightWallIds?: ReadonlySet<string>
+  onlySelectedWalls?: boolean
+  skipWallIds?: ReadonlySet<string>
 }
 const EPSILON = 1e-8
+
+function clipsWallSides(volume: WallRoofClipVolume, wallId: string) {
+  if (volume.skipWallIds?.has(wallId)) return false
+  const selected = volume.clipHeightWallIds?.has(wallId) === true
+  return (volume.clipSides || selected) && (selected || !volume.excludedWallIds.has(wallId))
+}
 
 export function footprintPlanes(polygon: Point[]): ClipPlane[] {
   const area = polygon.reduce((sum, p, i) => {
@@ -110,8 +119,12 @@ export function clipWallFacesToRoofUndersides(
 ): WallMeshFace[] {
   const clippedFaces = faces.flatMap((face) => {
     if (face.kind === 'bottom') return [face]
-    const applicable = volumes.filter((volume) => face.kind === 'top' ||
-      ((volume.clipSides || face.storeyBoundary) && !volume.excludedWallIds.has(face.wallId)))
+    const applicable = volumes.filter((volume) =>
+      !volume.skipWallIds?.has(face.wallId) &&
+      (!volume.onlySelectedWalls || volume.clipHeightWallIds?.has(face.wallId)) &&
+      (face.kind === 'top' ||
+        clipsWallSides(volume, face.wallId) ||
+        (face.storeyBoundary && !volume.excludedWallIds.has(face.wallId))))
     if (!applicable.length) return [face]
     let changed = false
     let polygons: WallMeshVertex[][] = [face.vertices.map((v) => ({
@@ -231,7 +244,7 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
       ([, y]: [number, number, number]) => face.vertices[0].position[1] + floorElevation - y],
   }))
   return volumes.flatMap((volume, volumeIndex) => {
-    if (!volume.surfacePlane || !volume.clipSides) return []
+    if (!volume.surfacePlane || (!volume.clipSides && !volume.clipHeightWallIds?.size)) return []
     return volume.planes.filter((plane) => plane !== volume.surfacePlane).flatMap((boundary, boundaryIndex) => {
       const origin = boundary([0, 0, 0])
       if (Math.abs(boundary([0, 1, 0]) - origin) > EPSILON) return []
@@ -246,7 +259,7 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
         const strip = section(face, boundary)
         return hasArea(strip) ? [{ face, strip, min, max }] : []
       })
-      const retained = sections.filter(({ face, min }) => min < -EPSILON && !volume.excludedWallIds.has(face.wallId))
+      const retained = sections.filter(({ face, min }) => min < -EPSILON && clipsWallSides(volume, face.wallId))
       if (!retained.length) return []
       const acrossSections = sections.filter(({ max }) => max > EPSILON).map(({ strip }) => {
           const distances = strip.map((v) => -normal[2] * v.position[0] + normal[0] * v.position[2])
@@ -275,7 +288,7 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
           polygons = polygons.flatMap((p) => partition(p, lower.planes).outside)
         }
         for (const [otherIndex, other] of volumes.entries()) {
-          if (other === volume || !other.clipSides || other.excludedWallIds.has(face.wallId)) continue
+          if (other === volume || !clipsWallSides(other, face.wallId)) continue
           // Coplanar duplicate cutters have one owner. Opposite boundaries cut
           // the back of this cap normally, leaving only the height difference.
           const sameBoundary = other.planes.some((plane) => [[0, 0, 0], [1, 0, 0], [0, 0, 1]].every((p) =>
@@ -313,10 +326,10 @@ function buildRoofCutCaps(faces: WallMeshFace[], floorElevation: number, volumes
   })
   return volumes.flatMap((volume, volumeIndex) => {
     const surface = volume.surfacePlane
-    if (!surface || !volume.clipSides) return []
+    if (!surface || (!volume.clipSides && !volume.clipHeightWallIds?.size)) return []
     const dy = surface([0, 1, 0]) - surface([0, 0, 0])
     if (Math.abs(dy) < EPSILON) return []
-    return faces.filter((face) => face.normal[1] > 0.99 && !volume.excludedWallIds.has(face.wallId)).flatMap((face) => {
+    return faces.filter((face) => face.normal[1] > 0.99 && clipsWallSides(volume, face.wallId)).flatMap((face) => {
       let removed = partition(world(face), volume.planes).inside
       if (!hasArea(removed)) return []
       const ceiling = Math.max(...removed.map((v) => v.position[1]))
@@ -332,7 +345,7 @@ function buildRoofCutCaps(faces: WallMeshFace[], floorElevation: number, volumes
       }
       // Other roof panels may further trim a cap. Its own plane is excluded,
       // since the new face lies exactly on that boundary.
-      for (const other of volumes) if (other !== volume && other.clipSides && !other.excludedWallIds.has(face.wallId)) {
+      for (const other of volumes) if (other !== volume && clipsWallSides(other, face.wallId)) {
         if (other.surfacePlane && removed.every((v) => Math.abs(other.surfacePlane!(v.position)) < EPSILON) && volumes.indexOf(other) > volumeIndex) continue
         polygons = polygons.flatMap((p) => partition(p, other.planes).outside)
       }

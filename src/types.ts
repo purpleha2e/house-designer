@@ -12,6 +12,7 @@ export type Wall = {
   end: Point
   thickness: number
   height: number
+  allowRoofClipHeight?: boolean
   openings?: WallOpening[]
 }
 

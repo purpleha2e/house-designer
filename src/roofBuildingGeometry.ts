@@ -48,6 +48,27 @@ export function getWallSideAwayFromRoof(roof: RoofStructure, wall: Wall): -1 | 1
   return roofSide > 0 ? -1 : 1
 }
 
+export function serializeRoofGeometryInput(floors: FloorLevel[]): string {
+  return JSON.stringify(floors.map(({ id, elevation, roomHeight, walls, roofs }) => ({
+    id,
+    elevation,
+    roomHeight,
+    roofs,
+    models: [],
+    rooms: [],
+    walls: walls.map(({ allowRoofClipHeight, end, height, id: wallId, kind, start, thickness }) => ({
+      allowRoofClipHeight,
+      end,
+      height,
+      id: wallId,
+      kind,
+      openings: [],
+      start,
+      thickness,
+    })),
+  })))
+}
+
 function getRoomContainingPoint(rooms: DetectedRoom[], point: Point) {
   return rooms.find(({ polygon }) => {
     let inside = false
@@ -556,7 +577,8 @@ export function resolveBuildingRoofs(floors: FloorLevel[]): BuildingRoof[] {
       const abuttingWalls = wallFloors
         .filter(({ floor: candidate }) => candidate.elevation <= floorTopElevation + (roof.heightOffset ?? 0) + getRoofRidgeHeight(roof))
         .flatMap(({ floor: candidate, rooms }) => candidate.walls
-          .filter((wall) => wallOverlapsRoofHeight({ wall, elevation: candidate.elevation }, roofMinY, roofMaxY) &&
+          .filter((wall) => !wall.allowRoofClipHeight &&
+            wallOverlapsRoofHeight({ wall, elevation: candidate.elevation }, roofMinY, roofMaxY) &&
             isRoofAbuttingWall({ wall, supportPolygon, isInsideRoom: (point) => getRoomContainingPoint(rooms, point) !== null }))
           .map((wall) => ({ wall, elevation: candidate.elevation, floorId: candidate.id })))
       return { roof, floorId: floor.id, floorTopElevation, abuttingWalls }
