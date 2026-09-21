@@ -599,8 +599,13 @@ export function resolveBuildingRoofs(floors: FloorLevel[]): BuildingRoof[] {
         // neighbouring roof beyond the corner. Ridge-end abutments still stop
         // the whole incoming roof, including its overhang, at that facade.
         const isSide = Math.abs(end.y - start.y) > Math.abs(end.x - start.x)
-        return getRoofAbutmentPlanes([wall], getRoofRenderPosition(candidate.roof))
-          .map((plane) => ({ plane, top: wall.elevation + wall.wall.height, floorId: wall.floorId,
+        const center = getRoofRenderPosition(candidate.roof)
+        // Rendering stops just behind the visible wall face. Wall coverage
+        // crosses the full thickness so its cutter cannot erase that facade.
+        const coveragePlanes = getRoofAbutmentPlanes([wall], center, 'far')
+        return getRoofAbutmentPlanes([wall], center, 'embedded')
+          .map((plane, index) => ({ plane, coveragePlane: coveragePlanes[index],
+            top: wall.elevation + wall.wall.height, floorId: wall.floorId,
             spanPlanes: isSide ? getRoofAbutmentSpanPlanes(wall, candidate.abuttingWalls) : undefined }))
       }),
     })))

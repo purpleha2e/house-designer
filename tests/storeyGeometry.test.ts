@@ -104,6 +104,27 @@ test('the horizontal top cap does not recreate an underside at the wrong roof cu
   geometry.dispose()
 })
 
+test('an inter-storey assembly owns wall top caps inside its footprint', () => {
+  const cap: WallMeshFace = {
+    ...facade('top-cap'), kind: 'top', normal: [0, 1, 0],
+    vertices: [[0,2.4,0],[4,2.4,0],[4,2.4,0.3],[0,2.4,0.3]]
+      .map(position => ({ position, uv: [position[0], position[2]] })) as WallMeshFace['vertices'],
+  }
+  assert.ok(build([cap]).get('ground')!.wallFaces.every(face => face.faceId !== cap.faceId))
+  const bungalow = floor('bungalow', 0)
+  assert.ok(buildStoreyGeometry([{ floor: bungalow, faces: [cap], footprints: [outline] }])
+    .get(bungalow.id)!.wallFaces.some(face => face.faceId === cap.faceId))
+})
+
+test('an inter-storey assembly removes upper wall bottom caps inside its footprint', () => {
+  const cap: WallMeshFace = {
+    ...facade('bottom-cap'), kind: 'bottom', normal: [0, -1, 0],
+    vertices: [[0,0,0],[0,0,0.3],[4,0,0.3],[4,0,0]]
+      .map(position => ({ position, uv: [position[0], position[2]] })) as WallMeshFace['vertices'],
+  }
+  assert.ok(build([], [cap]).get('first')!.wallFaces.every(face => face.faceId !== cap.faceId))
+})
+
 test('an internal wall below an upper facade cannot continue its interior finish into the exterior floor zone', () => {
   const lower = floor('ground',0), upper = floor('first',2.7)
   const source = { ...facade('partition'), roomSignature:'extension' }

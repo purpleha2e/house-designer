@@ -198,6 +198,8 @@ export function ContextPanel({
         selectedModel.definition.objectType === 'interior-door' ||
         selectedModel.definition.objectType === 'patio-door'),
   )
+  const selectedModelIsStairs =
+    selectedModel?.definition.objectType === 'stairs'
   const selectedSurfaceAssignment = selectedSurface
     ? getSelectedSurfaceAssignment(selectedSurface, surfaceAssignments)
     : undefined
@@ -395,7 +397,7 @@ export function ContextPanel({
           <dd>{activeFloor.roomHeight.toFixed(2)} m</dd>
         </div>
         <div>
-          <dt>Floor depth</dt>
+          <dt>Ceiling / floor depth</dt>
           <dd>{activeFloor.slabThickness.toFixed(2)} m</dd>
         </div>
         <div>
@@ -642,6 +644,26 @@ export function ContextPanel({
                     className="context-secondary-action"
                     aria-pressed={selectedModel.model.mirrored === true}
                     title="Mirror the door to move its hinge to the other side"
+                    onClick={() =>
+                      onUpdateModel(selectedModel.model.id, {
+                        mirrored: !selectedModel.model.mirrored,
+                      })
+                    }
+                  >
+                    Mirror
+                  </button>
+                </dd>
+              </div>
+            ) : null}
+            {selectedModelIsStairs ? (
+              <div className="context-actions">
+                <dt>Stairs</dt>
+                <dd>
+                  <button
+                    type="button"
+                    className="context-secondary-action"
+                    aria-pressed={selectedModel.model.mirrored === true}
+                    title="Mirror the stairs to move features such as banisters to the other side"
                     onClick={() =>
                       onUpdateModel(selectedModel.model.id, {
                         mirrored: !selectedModel.model.mirrored,

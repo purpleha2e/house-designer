@@ -660,6 +660,12 @@
   font-weight: 650;
 }
 
+.flyout-field-help {
+  color: #7c8798;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .flyout-select select {
   width: 100%;
   padding: 0 8px;
@@ -1052,6 +1058,12 @@
   overflow: hidden;
 }
 
+.three-editor-pane:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  border: 0;
+}
+
 .view-splitter {
   position: relative;
   z-index: 8;
@@ -1275,7 +1287,8 @@
   right: 8px;
 }
 
-.render-options > button {
+.render-options > button,
+.three-fullscreen-toggle {
   height: 32px;
   min-width: 76px;
   border: 1px solid #cbd5e1;
@@ -1289,9 +1302,24 @@
 }
 
 .render-options > button:hover,
-.render-options > button:focus-visible {
+.render-options > button:focus-visible,
+.three-fullscreen-toggle:enabled:hover,
+.three-fullscreen-toggle:focus-visible {
   background: #eff6ff;
   outline: none;
+}
+
+.three-fullscreen-toggle {
+  display: inline-grid;
+  place-items: center;
+  min-width: 32px;
+  width: 32px;
+  padding: 0;
+}
+
+.three-fullscreen-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .render-options-menu {

@@ -25,6 +25,7 @@ import {
   Stage,
   Text,
 } from 'react-konva'
+import Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import type {
@@ -238,8 +239,24 @@ type ContextMenuState = {
 }
 
 type PanState = {
-  clientX: number
-  clientY: number
+  offsetX: number
+  offsetY: number
+  stageX: number
+  stageY: number
+  startClientX: number
+  startClientY: number
+}
+
+type StagePanState = {
+  offsetX: number
+  offsetY: number
+  stageX: number
+  stageY: number
+}
+
+type WheelZoomState = {
+  commitTimer: number
+  viewport: FloorplanViewportState
 }
 
 type WallDragState =
@@ -3223,9 +3240,15 @@ export function FloorplanCanvas({
     () => referenceFloors.flatMap((floor) => floor.walls),
     [referenceFloors],
   )
+  const wallTopology = useMemo(
+    () => buildWallTopology(walls),
+    [walls, WALL_TOPOLOGY_VERSION],
+  )
   const roofAttachmentContext = useMemo(
-    () => buildRoofAttachmentContext(floors, activeFloor.elevation),
-    [activeFloor.elevation, floors, WALL_TOPOLOGY_VERSION],
+    () => isRoofMode
+      ? buildRoofAttachmentContext(floors, activeFloor.elevation)
+      : { rooms: wallTopology.rooms, walls },
+    [activeFloor.elevation, floors, isRoofMode, wallTopology.rooms, walls, WALL_TOPOLOGY_VERSION],
   )
   const roofAttachmentWalls = roofAttachmentContext.walls
   const draftWallThickness = getDraftWallThickness(
@@ -3239,10 +3262,6 @@ export function FloorplanCanvas({
   const roofPlacementSnapPoints = useMemo(() => {
     return getRoofPlacementSnapPoints(roofAttachmentWalls)
   }, [roofAttachmentWalls])
-  const wallTopology = useMemo(
-    () => buildWallTopology(walls),
-    [walls, WALL_TOPOLOGY_VERSION],
-  )
   const containerRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
   const [viewport, setViewport] = useState<FloorplanViewportState>(() => ({
@@ -3367,12 +3386,24 @@ export function FloorplanCanvas({
   const lengthInputRef = useRef<HTMLInputElement>(null)
   const stageRef = useRef<KonvaStage | null>(null)
   const middlePanRef = useRef<PanState | null>(null)
+  const stagePanRef = useRef<StagePanState | null>(null)
+  const wheelZoomRef = useRef<WheelZoomState | null>(null)
+  const wheelDrawFrameRef = useRef<number | null>(null)
   const wallDragRef = useRef<WallDragState | null>(null)
   const modelMoveAxisRef = useRef<'x' | 'y' | null>(null)
   const modelMoveDragRef = useRef<ModelMoveDragState | null>(null)
   const modelRotateDragRef = useRef<ModelRotateDragState | null>(null)
   const modelScaleDragRef = useRef<ModelScaleDragState | null>(null)
   const roofResizeDragRef = useRef<RoofResizeDragState | null>(null)
+
+  useEffect(() => () => {
+    if (wheelZoomRef.current) {
+      window.clearTimeout(wheelZoomRef.current.commitTimer)
+    }
+    if (wheelDrawFrameRef.current !== null) {
+      window.cancelAnimationFrame(wheelDrawFrameRef.current)
+    }
+  }, [])
   const wallDragPreviewFrameRef = useRef<number | null>(null)
   const pendingWallDragPreviewRef = useRef<typeof wallDragPreview>(null)
   const scheduleWallDragPreview = useCallback(
@@ -4279,21 +4310,65 @@ export function FloorplanCanvas({
     })
   }
 
+  const setCompositorPanOffset = (offsetX: number, offsetY: number) => {
+    const content = stageRef.current?.getContent()
+    if (!content) return
+
+    const transform = `translate3d(${offsetX}px, ${offsetY}px, 0)`
+    content.querySelectorAll('canvas').forEach((canvas) => {
+      canvas.style.transform = transform
+      canvas.style.willChange = 'transform'
+    })
+  }
+
+  const clearCompositorPanOffset = () => {
+    const content = stageRef.current?.getContent()
+    if (!content) return
+
+    content.querySelectorAll('canvas').forEach((canvas) => {
+      canvas.style.transform = ''
+      canvas.style.willChange = ''
+    })
+  }
+
+  const commitCompositorPan = (pan: StagePanState) => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    const x = pan.stageX + pan.offsetX
+    const y = pan.stageY + pan.offsetY
+    stage.position({ x, y })
+    // Draw at the committed coordinates before removing the compositor
+    // translation, avoiding a frame that flashes back to the old position.
+    stage.draw()
+    clearCompositorPanOffset()
+    containerRef.current?.classList.remove('panning')
+    setViewport((currentViewport) => ({ ...currentViewport, x, y }))
+  }
+
   const stopMiddlePan = () => {
-    syncViewportFromStage()
+    const pan = middlePanRef.current
+    if (pan) commitCompositorPan(pan)
     middlePanRef.current = null
     setIsMiddlePanning(false)
   }
 
   const handlePointerDown = (event: KonvaEventObject<PointerEvent>) => {
+    commitWheelZoom()
     closeContextMenu()
 
     if (event.evt.button === 1) {
       event.evt.preventDefault()
+      const stage = stageRef.current
       middlePanRef.current = {
-        clientX: event.evt.clientX,
-        clientY: event.evt.clientY,
+        offsetX: 0,
+        offsetY: 0,
+        stageX: stage?.x() ?? viewport.x,
+        stageY: stage?.y() ?? viewport.y,
+        startClientX: event.evt.clientX,
+        startClientY: event.evt.clientY,
       }
+      setCompositorPanOffset(0, 0)
       setIsMiddlePanning(true)
       return
     }
@@ -4376,22 +4451,14 @@ export function FloorplanCanvas({
     if (middlePanRef.current) {
       event.evt.preventDefault()
 
-      const deltaX = event.evt.clientX - middlePanRef.current.clientX
-      const deltaY = event.evt.clientY - middlePanRef.current.clientY
-
-      middlePanRef.current = {
-        clientX: event.evt.clientX,
-        clientY: event.evt.clientY,
-      }
-      const stage = stageRef.current
-
-      if (stage) {
-        stage.position({
-          x: stage.x() + deltaX,
-          y: stage.y() + deltaY,
-        })
-        stage.batchDraw()
-      }
+      middlePanRef.current.offsetX =
+        event.evt.clientX - middlePanRef.current.startClientX
+      middlePanRef.current.offsetY =
+        event.evt.clientY - middlePanRef.current.startClientY
+      setCompositorPanOffset(
+        middlePanRef.current.offsetX,
+        middlePanRef.current.offsetY,
+      )
       return
     }
 
@@ -4481,7 +4548,33 @@ export function FloorplanCanvas({
     })
   }
 
+  const commitWheelZoom = () => {
+    const pending = wheelZoomRef.current
+    if (!pending) return
+
+    window.clearTimeout(pending.commitTimer)
+    if (wheelDrawFrameRef.current !== null) {
+      window.cancelAnimationFrame(wheelDrawFrameRef.current)
+      wheelDrawFrameRef.current = null
+    }
+    wheelZoomRef.current = null
+    setViewport({ ...pending.viewport })
+  }
+
+  const drawWheelZoomFrame = () => {
+    if (wheelDrawFrameRef.current !== null) return
+
+    wheelDrawFrameRef.current = window.requestAnimationFrame(() => {
+      wheelDrawFrameRef.current = null
+      // Pointer interaction pauses for only the short wheel gesture. Draw the
+      // visible canvases here and rebuild the more expensive hit canvases when
+      // the React viewport is committed.
+      stageRef.current?.getLayers().forEach((layer) => layer.drawScene())
+    })
+  }
+
   const zoomAroundPoint = (point: Point, nextScale: number) => {
+    commitWheelZoom()
     setViewport((currentViewport) => {
       const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale))
       const logicalPoint = {
@@ -4506,17 +4599,61 @@ export function FloorplanCanvas({
 
   const handleWheel = (event: KonvaEventObject<WheelEvent>) => {
     event.evt.preventDefault()
-    const point = event.target.getStage()?.getPointerPosition()
-    if (!point) {
-      return
-    }
+    if (middlePanRef.current || stagePanRef.current) return
 
-    zoomAroundPoint(
-      point,
-      event.evt.deltaY > 0
-        ? viewport.scale / ZOOM_STEP
-        : viewport.scale * ZOOM_STEP,
+    const stage = stageRef.current
+    const point = event.target.getStage()?.getPointerPosition()
+    if (!stage || !point) return
+
+    const currentViewport = wheelZoomRef.current?.viewport ?? {
+      x: stage.x(),
+      y: stage.y(),
+      scale: stage.scaleX(),
+    }
+    const scale = Math.min(
+      MAX_ZOOM,
+      Math.max(
+        MIN_ZOOM,
+        event.evt.deltaY > 0
+          ? currentViewport.scale / ZOOM_STEP
+          : currentViewport.scale * ZOOM_STEP,
+      ),
     )
+    const logicalPoint = {
+      x: (point.x - currentViewport.x) / currentViewport.scale,
+      y: (point.y - currentViewport.y) / currentViewport.scale,
+    }
+    const nextViewport = {
+      scale,
+      x: point.x - logicalPoint.x * scale,
+      y: point.y - logicalPoint.y * scale,
+    }
+    if (
+      nextViewport.scale === currentViewport.scale &&
+      nextViewport.x === currentViewport.x &&
+      nextViewport.y === currentViewport.y
+    ) return
+
+    const previousPending = wheelZoomRef.current
+    if (previousPending) window.clearTimeout(previousPending.commitTimer)
+
+    // Updating the Konva stage directly avoids rebuilding the large React
+    // floorplan tree for every wheel event. Konva attribute writes normally
+    // request a full scene and hit redraw, so coalesce visible redraws here.
+    const autoDrawEnabled = Konva.autoDrawEnabled
+    try {
+      Konva.autoDrawEnabled = false
+      stage.position({ x: nextViewport.x, y: nextViewport.y })
+      stage.scale({ x: scale, y: scale })
+    } finally {
+      Konva.autoDrawEnabled = autoDrawEnabled
+    }
+    drawWheelZoomFrame()
+
+    wheelZoomRef.current = {
+      viewport: nextViewport,
+      commitTimer: window.setTimeout(commitWheelZoom, 250),
+    }
   }
 
   const syncViewportFromStage = useCallback(() => {
@@ -4567,10 +4704,27 @@ export function FloorplanCanvas({
     [wallDragPreview, walls],
   )
   const previewWallTopology = useMemo(
-    () => buildWallTopology(previewWalls),
-    [previewWalls, WALL_TOPOLOGY_VERSION],
+    // Drag previews need current joins and dimension anchors, but room polygon
+    // union can wait until the edit is committed. It is the costly part of a
+    // complete topology rebuild and used to run on every pointer frame.
+    () => wallDragPreview
+      ? buildWallTopology(previewWalls, { detectRooms: false })
+      : wallTopology,
+    [previewWalls, wallDragPreview, wallTopology, WALL_TOPOLOGY_VERSION],
   )
-  const renderedWalls = useMemo(() => getRenderedWalls(previewWalls), [previewWalls])
+  const renderedWalls = useMemo(
+    () => previewWalls.flatMap((wall) => {
+      const renderedWall = previewWallTopology.renderedWallsById.get(wall.id)
+      return renderedWall ? [renderedWall] : []
+    }),
+    [previewWalls, previewWallTopology],
+  )
+  const dimensionWalls = useMemo(
+    () => wallDragPreview
+      ? previewWalls.filter((wall) => Boolean(wallDragPreview.walls[wall.id]))
+      : previewWalls,
+    [previewWalls, wallDragPreview],
+  )
   const selectedWallMeasurementPreview =
     wallMeasurementEdit && wallDragPreview?.walls[wallMeasurementEdit.wallId]
       ? wallDragPreview.walls[wallMeasurementEdit.wallId]
@@ -5223,13 +5377,8 @@ export function FloorplanCanvas({
                 const nextRotation = event.evt.ctrlKey
                   ? rotation
                   : snapRadians(rotation, MODEL_ROTATION_SNAP_RADIANS)
-                const stairSnap = getStairSnap(
-                  model.position,
-                  nextRotation,
-                )
 
                 onUpdateModel(model.id, {
-                  position: stairSnap?.position ?? model.position,
                   rotation: nextRotation,
                 })
                 event.target.position({ x: 0, y: 0 })
@@ -5392,7 +5541,7 @@ export function FloorplanCanvas({
 
   const dimensionRulers = useMemo(
     () =>
-      previewWalls.flatMap((wall) =>
+      dimensionWalls.flatMap((wall) =>
         (wall.kind === 'internal'
           ? renderOptions.internalDimensions
           : renderOptions.externalDimensions)
@@ -5555,6 +5704,7 @@ export function FloorplanCanvas({
       renderOptions.externalDimensions,
       renderOptions.internalDimensions,
       viewport.scale,
+      dimensionWalls,
       previewWallTopology,
       previewWalls,
     ],
@@ -6135,6 +6285,18 @@ export function FloorplanCanvas({
           y={viewport.y}
           scaleX={viewport.scale}
           scaleY={viewport.scale}
+          dragBoundFunc={(position) => {
+            const pan = stagePanRef.current
+            if (!pan) return position
+
+            pan.offsetX = position.x - pan.stageX
+            pan.offsetY = position.y - pan.stageY
+            setCompositorPanOffset(pan.offsetX, pan.offsetY)
+            // Keep Konva's logical stage fixed during the gesture. Moving the
+            // already painted canvases avoids redrawing the full plan and hit
+            // buffers for every pointer sample.
+            return { x: pan.stageX, y: pan.stageY }
+          }}
           draggable={
             !isAddingWall &&
             !draftWall &&
@@ -6145,12 +6307,33 @@ export function FloorplanCanvas({
           }
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
+          onDragStart={(event) => {
+            if (event.target !== event.target.getStage()) return
+            const stage = stageRef.current
+            if (!stage) return
+
+            stagePanRef.current = {
+              offsetX: 0,
+              offsetY: 0,
+              stageX: stage.x(),
+              stageY: stage.y(),
+            }
+            containerRef.current?.classList.add('panning')
+            setCompositorPanOffset(0, 0)
+          }}
           onPointerUp={(event) => {
             if (event.evt.button === 1 || middlePanRef.current) {
               stopMiddlePan()
             }
           }}
-          onDragEnd={syncViewportFromStage}
+          onDragEnd={(event) => {
+            if (event.target === event.target.getStage() && stagePanRef.current) {
+              commitCompositorPan(stagePanRef.current)
+              stagePanRef.current = null
+              return
+            }
+            syncViewportFromStage()
+          }}
           onWheel={handleWheel}
           onPointerLeave={() => {
             if (middlePanRef.current) {

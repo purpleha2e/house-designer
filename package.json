@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "asset-portal": "node server/asset-portal.mjs",
+    "benchmark:browser": "node server/benchmark-browser.mjs",
     "dev": "vite",
     "dev:all": "node server/dev-with-portal.mjs",
     "dev:portal": "node server/asset-portal.mjs",

@@ -97,6 +97,73 @@ test('wall worker trims manually raised walls to the combined roof', () => {
   assert.ok(clipped.length < faces.length * 15, 'clipping remains bounded')
 })
 
+test('a lower stepped roof does not erase the next storey facade band', () => {
+  const project = JSON.parse(readFileSync(new URL('../roof_tests_3.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const roofs = resolveBuildingRoofs(project.floors)
+  const gables = buildBuildingRoofGables(project.floors, roofs,
+    buildBuildingRoomVolumes(project.floors, roofs))
+  const storeys = buildStoreyGeometry(project.floors.map(floor => ({ floor,
+    footprints: buildCeilingSlabFootprints(floor.walls),
+    faces: buildFloorWallSurfaceFaces({ renderedWalls: getRenderedWalls(floor.walls),
+      rooms: buildWallTopology(floor.walls).rooms, useWallBodyPerimeterMesh: true }),
+  })))
+  const floor = project.floors[2]
+  const faces = storeys.get(floor.id)!.wallFaces
+  const options = createWallRoofClipOptions({ floorId: floor.id, floorElevation: floor.elevation,
+    walls: floor.walls, wallFaces: faces, roofs: [],
+    ...getGableWallClipData(gables, roofs, floor.id, floor.elevation),
+  })
+  const clipped = runWallRoofClipJob(structuredClone(createWallRoofClipJob(faces, options)))
+  const wallId = '9ea0410e-c314-4846-98d0-217e6a1cb348'
+  assert.ok(clipped.some(face => face.storeyBoundary && face.wallId === wallId &&
+    Math.min(...face.vertices.map(vertex => vertex.position[0])) <= 3 &&
+    Math.max(...face.vertices.map(vertex => vertex.position[0])) >= 3 &&
+    Math.min(...face.vertices.map(vertex => vertex.position[1])) <= 2.55 &&
+    Math.max(...face.vertices.map(vertex => vertex.position[1])) >= 2.55),
+  'the standard-height upper wall continues across the floor assembly')
+
+  const lowerFloor = project.floors[1]
+  const lowerFaces = storeys.get(lowerFloor.id)!.wallFaces
+  const lowerRooms = buildWallTopology(lowerFloor.walls).rooms
+  const lowerOptions = createWallRoofClipOptions({
+    floorId: lowerFloor.id,
+    floorElevation: lowerFloor.elevation,
+    walls: lowerFloor.walls,
+    wallFaces: lowerFaces,
+    ...getGableWallClipData(gables, roofs, lowerFloor.id, lowerFloor.elevation),
+    isInsideRoom: point => lowerRooms.some(({ polygon }) => {
+      let inside = false
+      polygon.forEach((a, index) => {
+        const b = polygon[(index + 1) % polygon.length]
+        if ((a.y > point.y) !== (b.y > point.y) &&
+          point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside
+      })
+      return inside
+    }),
+    roofs: roofs.map(({ roof, resolved, floorId, abuttingWalls }) => ({
+      floorId,
+      supportPolygon: roofBoundsPolygon(resolved, resolved.support),
+      abutmentPlanes: getRoofAbutmentPlanes(abuttingWalls, getRoofRenderPosition(roof)),
+      undersideFaces: getRoofCoverageUndersideFaces(resolved).map(face => face.map(
+        ([x, y, z]): [number, number, number] => [x, y + 0.005, z])),
+    })),
+  })
+  const lowerClipped = runWallRoofClipJob(structuredClone(createWallRoofClipJob(lowerFaces, lowerOptions)))
+  assert.ok(lowerClipped.some(face => face.kind === 'side' && face.normal[2] > 0.99 &&
+    face.vertices.every(vertex => Math.abs(vertex.position[2] - 5.561111111) < 1e-5) &&
+    Math.min(...face.vertices.map(vertex => vertex.position[0])) <= 3 &&
+    Math.max(...face.vertices.map(vertex => vertex.position[0])) >= 3 &&
+    Math.min(...face.vertices.map(vertex => vertex.position[1])) <= 2 &&
+    Math.max(...face.vertices.map(vertex => vertex.position[1])) >= 2),
+  'the first-storey facade owns the visible face beside the ground roof')
+
+  const steppedRoof = roofs.find(candidate => candidate.roof.id === '8d8264dd-442f-4b50-9c52-ce770459687c')!
+  assert.ok(Math.max(...steppedRoof.resolved.faces.flat().map(point => point[0])) < 8.88,
+    'the visible roof stops just inside the facade')
+  assert.ok(Math.max(...getRoofCoverageUndersideFaces(steppedRoof.resolved).flat().map(point => point[0])) > 9.16,
+    'the wall clipping envelope continues through the facade thickness')
+})
+
 test('convex gable solids retain closed cuts and remove internal cell boundaries', () => {
   const box = prismSolid([{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 0, y: 1 }], 0, 3, 'gable')
   const sloping = intersectSolid(box, [-1, -1, 0, 3], 'roof')!

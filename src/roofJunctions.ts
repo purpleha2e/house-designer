@@ -12,7 +12,7 @@ export type RoofJunctionInput = {
   elevation: number
   support: RoofBounds
   extents: RoofBounds
-  abutments?: { plane: ClipPlane; top: number; spanPlanes?: ClipPlane[]; floorId?: string }[]
+  abutments?: { plane: ClipPlane; coveragePlane?: ClipPlane; top: number; spanPlanes?: ClipPlane[]; floorId?: string }[]
 }
 export type RoofConnectionStatus = {
   end: 'ridgeStart' | 'ridgeEnd'
@@ -418,7 +418,8 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
   // may reach across the house but acquires no authority to cut its walls.
   for (const roof of resolved) {
     const planes = footprintPlanes(roofBoundsPolygon(roof))
-    planes.push(...(roof.abutments ?? []).map(({ plane }): ClipPlane => (p) => -plane(p)))
+    planes.push(...(roof.abutments ?? []).map(({ coveragePlane, plane }): ClipPlane =>
+      (p) => -(coveragePlane ?? plane)(p)))
     roof.coverageUndersideFaces = []
     roof.coverageFaces = resolved.flatMap((candidate) => {
       const retain = (faces: Vertex[][]) => {

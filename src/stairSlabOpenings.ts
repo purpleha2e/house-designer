@@ -15,9 +15,12 @@ export function getStairOpeningPolygon(
   localBounds?: ModelHorizontalBounds,
   widthScale = 1,
   depthScale = 1,
+  mirrored = false,
 ) {
-  const minX = (localBounds?.minX ?? -width / 2) * scale * widthScale
-  const maxX = (localBounds?.maxX ?? width / 2) * scale * widthScale
+  const sourceMinX = (localBounds?.minX ?? -width / 2) * scale * widthScale
+  const sourceMaxX = (localBounds?.maxX ?? width / 2) * scale * widthScale
+  const minX = mirrored ? -sourceMaxX : sourceMinX
+  const maxX = mirrored ? -sourceMinX : sourceMaxX
   const minZ = (localBounds?.minZ ?? -depth / 2) * scale * depthScale
   const maxZ = (localBounds?.maxZ ?? depth / 2) * scale * depthScale
   const cosine = Math.cos(rotation)
@@ -62,14 +65,10 @@ export function getModelHorizontalBounds(
 
 export function getStairSlabOpenings(
   lowerFloor: FloorLevel,
-  upperFloor: FloorLevel | null,
+  _upperFloor: FloorLevel | null,
   floors: FloorLevel[],
   modelDefinitions: ReadonlyMap<string, ModelDefinition>,
 ) {
-  if (!upperFloor) {
-    return []
-  }
-
   const slabBottom = lowerFloor.elevation + lowerFloor.roomHeight
 
   return floors.flatMap((modelFloor) => {
@@ -107,6 +106,7 @@ export function getStairSlabOpenings(
           getModelHorizontalBounds(definition),
           widthScale,
           depthScale,
+          model.mirrored === true,
         ),
       ]
     })

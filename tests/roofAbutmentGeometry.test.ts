@@ -1,16 +1,36 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BufferGeometry, Float32BufferAttribute } from 'three'
-import { clipRoofGeometryAtAbuttingWalls, getRoofAbutmentPlanes, wallOverlapsRoofHeight } from '../src/roofAbutmentGeometry.ts'
+import { clipRoofGeometryAtAbuttingWalls, clipRoofGeometryByVolumes, getRoofAbutmentPlanes, wallOverlapsRoofHeight } from '../src/roofAbutmentGeometry.ts'
 import { readFileSync } from 'node:fs'
 import type { FloorLevel } from '../src/types.ts'
 import { buildRoofProfileFaces } from '../src/roofProfile.ts'
 import { createWallRoofClipOptions } from '../src/roofWallClipping.ts'
 import { clipWallFacesToRoofUndersides } from '../src/wallEngine/wallRoofClip.ts'
+import { roofFacePlanes } from '../src/wallEngine/wallRoofClip.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 import type { Wall } from '../src/types.ts'
 
 const wall: Wall = { id: 'facade', kind: 'external', start: { x: 0, y: -1 }, end: { x: 0, y: 1 }, thickness: 0.3, height: 2.4 }
+
+test('untextured loft trim is clipped below a sloping roof underside', () => {
+  const geometry = new BufferGeometry()
+  geometry.setAttribute('position', new Float32BufferAttribute([
+    0, 5.23, 0, 2, 5.23, 0, 2, 5.32, 0,
+    0, 5.23, 0, 2, 5.32, 0, 0, 5.32, 0,
+  ], 3))
+  geometry.computeVertexNormals()
+  const planes = roofFacePlanes([[0, 5.4, -1], [2, 5.2, -1], [2, 5.2, 1], [0, 5.4, 1]])
+  const clipped = clipRoofGeometryByVolumes(geometry, [planes], point => point)
+  const positions = clipped.getAttribute('position')
+  assert.ok(positions.count > 0, 'trim inside the loft remains')
+  for (let i = 0; i < positions.count; i++) {
+    assert.ok(positions.getY(i) <= 5.4 - 0.1 * positions.getX(i) + 1e-6,
+      'trim must not project through the enclosing roof')
+  }
+  geometry.dispose()
+  clipped.dispose()
+})
 
 test('Springfield ground-floor wall cannot trim the first-floor gable roof above it', () => {
   const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roof-junctions/springfield_13.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
@@ -46,6 +66,21 @@ test('roof cuts use world coordinates for rotated roofs', () => {
   const planes = getRoofAbutmentPlanes([{ wall: { ...wall, start: { x: -1, y: 2 }, end: { x: 1, y: 2 } }, elevation: 0 }], { x: 0, y: 4 })
   assert.ok(planes[0]([0, 8, 2]) > 0)
   assert.ok(planes[0]([0, 8, 2.3]) < 0)
+})
+
+test('a roof can close behind the far wall face so the facade owns the junction', () => {
+  const [plane] = getRoofAbutmentPlanes([{ wall, elevation: 0 }], { x: 2, y: 0 }, 'far')
+  assert.ok(plane([-0.16, 5, 0]) > 0)
+  assert.ok(plane([0, 5, 0]) < 0)
+  assert.ok(plane([2, 5, 0]) < 0)
+})
+
+test('an embedded roof boundary sits just behind the visible facade', () => {
+  const [near] = getRoofAbutmentPlanes([{ wall, elevation: 0 }], { x: 2, y: 0 })
+  const [embedded] = getRoofAbutmentPlanes([{ wall, elevation: 0 }], { x: 2, y: 0 }, 'embedded')
+  assert.ok(near([0.145, 5, 0]) > 0)
+  assert.ok(embedded([0.145, 5, 0]) < 0)
+  assert.ok(embedded([0.14, 5, 0]) > 0)
 })
 
 test('a wall behind the trimmed roof boundary keeps its geometry', () => {

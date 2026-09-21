@@ -650,7 +650,10 @@ function getTopologySnappedWalls(
   }))
 }
 
-export function buildWallTopology(walls: Wall[]): WallTopology {
+export function buildWallTopology(
+  walls: Wall[],
+  { detectRooms = true }: { detectRooms?: boolean } = {},
+): WallTopology {
   const nodes: WallNode[] = []
   const nodesByEndpoint = new Map<string, WallNode>()
 
@@ -689,7 +692,7 @@ export function buildWallTopology(walls: Wall[]): WallTopology {
 
   return {
     nodes,
-    rooms: buildDetectedRooms(topologyWalls),
+    rooms: detectRooms ? buildDetectedRooms(topologyWalls) : [],
     nodesByEndpoint,
     renderedWallsById,
     wallPolygonsById,

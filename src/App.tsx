@@ -1,6 +1,7 @@
 import { replaceRoofMaterialAssignment } from './roofMaterialAssignments'
 import {
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -66,8 +67,8 @@ import {
   syncWallOpenings,
   updateWallAttachedModels,
 } from './modelPlacement'
-//import springfield12Project from '../springfield_13.json'
-import springfield12Project from '../red_house_3.json'
+import springfield12Project from '../springfield_14.json'
+//import springfield12Project from '../red_house_3.json'
 import './App.css'
 
 const DEFAULT_THICKNESS = 0.3
@@ -684,6 +685,10 @@ function App() {
 
   const initialProject = initialProjectRef.current
   const [floors, setFloors] = useState<FloorLevel[]>(initialProject.floors)
+  // Keep direct manipulation in the plan responsive while the much heavier
+  // roof and room-volume pipeline catches the 3D scene up in a background
+  // render. The 3D view receives the latest committed floor state.
+  const deferredThreeDFloors = useDeferredValue(floors)
   const [sunPosition, setSunPosition] = useState<SunPosition>(
     initialProject.sunPosition,
   )
@@ -710,9 +715,9 @@ function App() {
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [isRoofMode, setIsRoofMode] = useState(false)
-  //const [projectFileName, setProjectFileName] = useState('springfield_13.json')
+  const [projectFileName, setProjectFileName] = useState('springfield_14.json')
   //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
-  const [projectFileName, setProjectFileName] = useState('red_house_3.json')
+  //const [projectFileName, setProjectFileName] = useState('red_house_3.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
   const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
     null,
@@ -3099,7 +3104,7 @@ function App() {
           activeFloorId={activeFloor.id}
           cameraRestoreRevision={cameraRestoreRequest.revision}
           cameraViewState={cameraRestoreRequest.state}
-          floors={floors}
+          floors={deferredThreeDFloors}
           isEngineConsoleOpen={isEngineConsoleOpen}
           lightDirection={sunPosition}
           modelAssetVersion={modelAssetVersion}

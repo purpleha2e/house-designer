@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
+import { BufferGeometry, Float32BufferAttribute } from 'three'
 import { buildBuildingRoomVolumes } from '../src/buildingRoomVolumes.ts'
 import { resolveBuildingRoofs, type BuildingRoof } from '../src/roofBuildingGeometry.ts'
 import { roofBoundsPolygon, roofSurfaceHeights, roofToLocal, roofToWorld } from '../src/roofJunctions.ts'
@@ -24,6 +25,37 @@ test('enclosed rooms on both Red House storeys generate cutters', () => {
     assert.ok(cuts.some(cut => Math.abs(cut.bottomY - (floor.elevation - slabThickness - 0.01)) < 1e-6),
       `${floor.name} contributes a room volume`)
   }
+})
+
+test('an inter-storey floor cuts internal roof fragments within the trimmed slab footprint', () => {
+  const floors = fixture('springfield_14.json')
+  const ordered = [...floors].sort((a, b) => a.elevation - b.elevation)
+  const upper = ordered[2]
+  const lower = ordered[1]
+  const cuts = buildBuildingRoomVolumes(floors, resolveBuildingRoofs(floors)).cuts
+  const floorCuts = cuts.filter(cut => cut.floorAssembly && cut.floorId === upper.id)
+
+  assert.ok(floorCuts.length, 'the loft floor contributes a roof cutter')
+  assert.ok(floorCuts.every(cut => Math.abs(cut.bottomY -
+    (lower.elevation + lower.roomHeight)) < 1e-6))
+  assert.ok(floorCuts.every(cut => cut.face.every(([, y]) =>
+    Math.abs(y - upper.elevation) < 1e-6)))
+
+  const sampleCut = floorCuts[0]
+  const centerX = sampleCut.face.reduce((sum, [x]) => sum + x, 0) / sampleCut.face.length
+  const centerZ = sampleCut.face.reduce((sum, [, , z]) => sum + z, 0) / sampleCut.face.length
+  const y = upper.elevation - 0.1
+  const panel = new BufferGeometry()
+  panel.setAttribute('position', new Float32BufferAttribute([
+    centerX - 0.02, y, centerZ - 0.02,
+    centerX + 0.02, y, centerZ - 0.02,
+    centerX, y, centerZ + 0.02,
+  ], 3))
+  const carved = carveRoofSurfaceByRooms(panel, floorCuts)
+  assert.equal(carved.getAttribute('position').count, 0,
+    'roof geometry crossing the floor depth is removed inside the slab footprint')
+  if (carved !== panel) carved.dispose()
+  panel.dispose()
 })
 
 test('a roofless room has a closed horizontal volume', () => {
@@ -159,6 +191,31 @@ function renderedRoofFaces(candidate: BuildingRoof, cuts: RoomRoofCut[], part: '
   Object.values(solid).forEach(geometry => geometry.dispose())
   return worldFaces
 }
+
+test('Springfield loft floor preserves the enclosing roof tiles through the slab depth', () => {
+  const floors = fixture('springfield_14.json')
+  const roofs = resolveBuildingRoofs(floors)
+  const cuts = buildBuildingRoomVolumes(floors, roofs).cuts
+  const lower = floors[1], loft = floors[2]
+  let samples = 0
+  for (const candidate of roofs.filter(item => item.floorId === lower.id)) {
+    const visible = renderedRoofFaces(candidate, cuts, 'top')
+    for (let x = 5.4; x < 14.9; x += 0.23) for (let z = 1.2; z < 11.9; z += 0.23) {
+      const point = { x, y: z }
+      const heights = roofSurfaceHeights(candidate.resolved.faces, point)
+        .filter(y => y > lower.elevation + lower.roomHeight + 0.02 && y < loft.elevation - 0.02)
+      for (const height of heights) {
+        // Only the enclosing skin: another roof cavity can consume lower panels.
+        if (roofs.some(other => other !== candidate && roofSurfaceHeights(
+          other.resolved.faces, point).some(y => y - getRoofThickness(other.roof) > height))) continue
+        assert.ok(roofSurfaceHeights(visible, point).some(y => Math.abs(y - height) < 0.002),
+          `loft slab removed the enclosing roof at ${x}, ${height}, ${z}`)
+        samples++
+      }
+    }
+  }
+  assert.ok(samples > 20)
+})
 
 test('Red House lower rear roof stays intact beside the upper-storey facade', () => {
   const floors = fixture('red_house_3.json')

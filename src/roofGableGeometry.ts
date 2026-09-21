@@ -18,7 +18,7 @@ import {
   type ConvexSolid, type SolidPlane, type SolidPoint, type SolidFace,
 } from './convexSolid.ts'
 
-export type GableWall = { wall: Wall; floorId: string; elevation: number }
+export type GableWall = { wall: Wall; floorId: string; elevation: number; roomHeight: number }
 export type RoofGable = {
   id: string; roofId: string; floorId: string; end: 'minY' | 'maxY'
   solids: ConvexSolid[]; faces: RoofGableFace[]; walls: GableWall[]
@@ -29,14 +29,22 @@ export type RoofGableFace = SolidFace & {
   uvs: [number, number][]
 }
 
-export function getGableWallClipData(gables: RoofGable[], roofs: BuildingRoof[], floorId: string, elevation: number) {
-  const walls = gables.flatMap(gable => gable.walls.filter(wall => wall.floorId === floorId))
+export function getGableWallClipData(gables: RoofGable[], roofs: BuildingRoof[], floorId: string, _elevation: number) {
+  const floorGables = gables.filter(gable => gable.walls.some(source =>
+    source.floorId === floorId && (gable.floorId === floorId ||
+      source.wall.height > source.roomHeight + 0.001)))
+  const walls = floorGables.flatMap(gable => gable.walls.filter(wall => wall.floorId === floorId))
+  const roofIds = new Set(floorGables.map(gable => gable.roofId))
   const points = walls.flatMap(({ wall }) => wallFootprint(wall, wall.thickness))
   const bounds = points.length ? [{ x: Math.min(...points.map(p => p.x)), y: Math.min(...points.map(p => p.y)) },
     { x: Math.max(...points.map(p => p.x)), y: Math.min(...points.map(p => p.y)) },
     { x: Math.max(...points.map(p => p.x)), y: Math.max(...points.map(p => p.y)) },
     { x: Math.min(...points.map(p => p.x)), y: Math.max(...points.map(p => p.y)) }] : []
-  const ceiling = bounds.length ? buildRoomCeilingEnvelope(roofs.filter(roof => roof.floorId === floorId || roof.floorTopElevation <= elevation + 0.001)
+  // Only roofs whose gables actually use this floor's walls may height-clip
+  // them. Including every lower roof lets a stepped roof on another part of
+  // the building erase an unrelated inter-storey facade strip.
+  const ceiling = bounds.length ? buildRoomCeilingEnvelope(roofs.filter(roof =>
+    roof.floorId === floorId || roofIds.has(roof.roof.id))
     .map(candidate => {
       // Overhangs project past the supported attic. They must not trim a
       // neighbouring facade (including its continuation between storeys).
@@ -86,7 +94,9 @@ function wallFootprint(wall: Wall, extension = 0) {
  * they cut the gable even when they were authored on a different floor. */
 export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoof[], rooms: BuildingRoomVolumes,
   assemblies?: Pick<FloorAssembly, 'bottom' | 'top' | 'footprints'>[]): RoofGable[] {
-  const allWalls: GableWall[] = floors.flatMap(floor => floor.walls.map(wall => ({ wall, floorId: floor.id, elevation: floor.elevation })))
+  const allWalls: GableWall[] = floors.flatMap(floor => floor.walls.map(wall => ({
+    wall, floorId: floor.id, elevation: floor.elevation, roomHeight: floor.roomHeight,
+  })))
   const roomPlans = new Map(floors.map(floor => [floor.id, buildWallTopology(floor.walls).rooms]))
   // Preserve the authored wall solid, including its mitres and side joins.
   // Roof closures fill only the remaining volume; existing facades keep their

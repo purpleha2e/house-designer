@@ -9,6 +9,10 @@ import { getRenderedWalls } from './wallGeometry.ts'
 import { buildRoomSurfaceFloorPolygons } from './wallEngine/roomSurfaceMesh.ts'
 import { buildWallTopology } from './wallTopology.ts'
 import { footprintPlanes } from './wallEngine/wallRoofClip.ts'
+import { buildCeilingSlabFootprints } from './ceilingSlabFootprint.ts'
+import { getRoofCeilingCutouts } from './roofCeilingClipping.ts'
+import { subtractPlanCutouts } from './planarCutouts.ts'
+import { ShapeUtils, Vector2 } from 'three'
 
 export type BuildingRoomVolumes = {
   cuts: RoomRoofCut[]
@@ -24,6 +28,32 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
   const ceilingFaces: RoomCeilingFace[] = []
   const roomPolygonsByFloor = new Map<string, Point[][]>()
   const orderedFloors = [...floors].sort((a, b) => a.elevation - b.elevation)
+
+  // A floor can consume roof fragments inside the building, but its cutter
+  // must stop at the same enclosing roof boundary as the rendered slab.
+  // An untrimmed footprint cuts a horizontal slot through a loft's roof.
+  for (let index = 1; index < orderedFloors.length; index++) {
+    const lower = orderedFloors[index - 1]
+    const upper = orderedFloors[index]
+    const bottomY = lower.elevation + lower.roomHeight
+    if (upper.elevation <= bottomY + 1e-6) continue
+    const footprints = buildCeilingSlabFootprints(upper.walls, lower.walls)
+    const roofCutouts = getRoofCeilingCutouts(roofs.map(roof => roof.resolved), upper.elevation)
+    const triangles = footprints.flatMap(footprint => subtractPlanCutouts(footprint, roofCutouts))
+      .flatMap(({ outline, holes }) => {
+        const points = [outline, ...holes].flat()
+        return ShapeUtils.triangulateShape(outline.map(p => new Vector2(p.x, p.y)),
+          holes.map(hole => hole.map(p => new Vector2(p.x, p.y))))
+          .map(indices => indices.map(index => points[index]))
+      })
+    cuts.push(...triangles.map(footprint => ({
+      face: footprint.map(({ x, y }): RoofVertex => [x, upper.elevation, y]),
+      thickness: 0,
+      bottomY,
+      floorId: upper.id,
+      floorAssembly: true,
+    })))
+  }
 
   for (const [index, floor] of orderedFloors.entries()) {
     const rooms = buildWallTopology(floor.walls).rooms
@@ -57,8 +87,9 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
           faces: getRoofRenderableOuterFaces(candidate.resolved).map(face => {
             const inner = face.map(([x, y, z]): RoofVertex =>
               [x, y - getRoofThickness(candidate.roof), z])
-            return [...supportPlanes, ([, y]: RoofVertex) => y - bottomY - 0.001]
-              .reduce(clipRoofFace, inner)
+            // Keep coverage below the room base too. Dropping it lets the
+            // horizontal fallback create a void outside the roof at the eaves.
+            return supportPlanes.reduce(clipRoofFace, inner)
           }).filter(face => face.length),
         }
       }).filter(surface => surface.faces.length)

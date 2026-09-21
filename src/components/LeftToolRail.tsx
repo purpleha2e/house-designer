@@ -651,7 +651,7 @@ export function LeftToolRail({
                 </select>
               </label>
               <label className="flyout-field">
-                <span>Intermediate floor depth</span>
+                <span>Ceiling / floor depth</span>
                 <div>
                   <input
                     type="text"
@@ -681,6 +681,9 @@ export function LeftToolRail({
                   />
                   <span>m</span>
                 </div>
+                <small className="flyout-field-help">
+                  From this storey&rsquo;s wall top to the floor level above.
+                </small>
               </label>
               {activeFloor && !floors.some(floor => floor.elevation > activeFloor.elevation) ? (
                 <label className="flyout-select">

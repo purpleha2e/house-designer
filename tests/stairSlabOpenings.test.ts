@@ -74,6 +74,27 @@ test('stair opening preserves an offset model origin', () => {
   ])
 })
 
+test('stair opening mirrors offset model bounds around its origin', () => {
+  const polygon = getStairOpeningPolygon(
+    { x: 10, y: 20 },
+    0,
+    2,
+    4,
+    2,
+    { minX: 0, maxX: 2, minZ: -0.5, maxZ: 3.5 },
+    1,
+    1,
+    true,
+  )
+
+  assert.deepEqual(polygon, [
+    { x: 6, y: 19 },
+    { x: 10, y: 19 },
+    { x: 10, y: 27 },
+    { x: 6, y: 27 },
+  ])
+})
+
 test('slab openings use uploaded model local bounds', () => {
   const ground = floor('ground', 0)
   const first = floor('first', 2.7)
@@ -105,6 +126,38 @@ test('slab openings use uploaded model local bounds', () => {
   )
 })
 
+test('slab openings follow a mirrored stair model with offset local bounds', () => {
+  const ground = floor('ground', 0)
+  const first = floor('first', 2.7)
+  ground.models.push({
+    id: 'stairs-1',
+    mirrored: true,
+    modelId: 'stairs',
+    position: { x: 3, y: 4 },
+    rotation: 0,
+    scale: 1,
+  })
+  const definitions = new Map([
+    [
+      'stairs',
+      {
+        ...stairDefinition,
+        localBounds: { minX: -0.1, maxX: 0.8, minZ: 0, maxZ: 2.6 },
+      },
+    ],
+  ])
+
+  assert.deepEqual(
+    getStairSlabOpenings(ground, first, [ground, first], definitions)[0],
+    [
+      { x: 2.2, y: 4 },
+      { x: 3.1, y: 4 },
+      { x: 3.1, y: 6.6 },
+      { x: 2.2, y: 6.6 },
+    ],
+  )
+})
+
 test('stairs cut the slab above their owning floor, not the slab below', () => {
   const ground = floor('ground', 0)
   const first = floor('first', 2.7)
@@ -121,6 +174,20 @@ test('stairs cut the slab above their owning floor, not the slab below', () => {
 
   assert.equal(getStairSlabOpenings(ground, first, floors, definitions).length, 0)
   assert.equal(getStairSlabOpenings(first, second, floors, definitions).length, 1)
+})
+
+test('stairs cut a top-floor horizontal ceiling without an upper storey', () => {
+  const top = floor('top', 2.7)
+  top.models.push({
+    id: 'stairs-1',
+    modelId: 'stairs',
+    position: { x: 3, y: 4 },
+    rotation: 0,
+    scale: 1,
+  })
+  const definitions = new Map([['stairs', stairDefinition]])
+
+  assert.equal(getStairSlabOpenings(top, null, [top], definitions).length, 1)
 })
 
 test('a tall stair object cuts every slab it reaches', () => {

@@ -12,6 +12,7 @@ type StairWallSnapOptions = {
   scale: number
   widthScale?: number
   depthScale?: number
+  mirrored?: boolean
   tolerance?: number
   walls: readonly Wall[]
   width: number
@@ -39,6 +40,7 @@ export function snapStairApertureToWalls({
   scale,
   widthScale = 1,
   depthScale = 1,
+  mirrored = false,
   tolerance = STAIR_WALL_SNAP_TOLERANCE_METERS,
   walls,
   width,
@@ -52,6 +54,7 @@ export function snapStairApertureToWalls({
     localBounds ?? undefined,
     widthScale,
     depthScale,
+    mirrored,
   )
   let bestSnap: StairWallSnap | null = null
 

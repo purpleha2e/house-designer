@@ -5,21 +5,30 @@ import type { WallMeshFace } from './wallEngine/wallMesh.ts'
 
 export type RoofAbuttingWall = { wall: Wall; elevation: number; floorId?: string }
 
+const ROOF_WALL_EMBED_METERS = 0.006
+
 export function wallOverlapsRoofHeight({ wall, elevation }: RoofAbuttingWall, minY: number, maxY: number) {
   return elevation <= maxY + 0.000001 && elevation + wall.height >= minY - 0.000001
 }
 
 // Continue the adjoining facade's boundary across openings and internal-wall
 // sections, so the roof's end overhang cannot enter the neighboring rooms.
-export function getRoofAbutmentPlanes(walls: RoofAbuttingWall[], roofCenter: Point): ClipPlane[] {
+export function getRoofAbutmentPlanes(
+  walls: RoofAbuttingWall[],
+  roofCenter: Point,
+  boundary: 'near' | 'embedded' | 'far' = 'near',
+): ClipPlane[] {
   return walls.map(({ wall }): ClipPlane => {
     const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
     const ux = (wall.end.x - wall.start.x) / length
     const uz = (wall.end.y - wall.start.y) / length
     const sign = (roofCenter.x - wall.start.x) * -uz + (roofCenter.y - wall.start.y) * ux > 0 ? 1 : -1
     const across = (x: number, z: number) => sign * ((x - wall.start.x) * -uz + (z - wall.start.y) * ux)
-    const half = wall.thickness / 2
-    return ([x, , z]) => half - across(x, z)
+    // The embedded boundary gives the wall a small depth lead, avoiding a
+    // coplanar roof edge on the visible facade without changing its outline.
+    const offset = boundary === 'far' ? -wall.thickness / 2
+      : wall.thickness / 2 - (boundary === 'embedded' ? ROOF_WALL_EMBED_METERS : 0)
+    return ([x, , z]) => offset - across(x, z)
   })
 }
 
@@ -72,7 +81,7 @@ export function clipRoofGeometryByVolumes(
     const ids = [0, 1, 2].map((offset) => indices ? indices.getX(i + offset) : i + offset)
     const vertices = ids.map((index) => ({
       position: [position.getX(index), position.getY(index), position.getZ(index)] as [number, number, number],
-      uv: [uv.getX(index), uv.getY(index)] as [number, number],
+      uv: uv ? [uv.getX(index), uv.getY(index)] as [number, number] : [0, 0] as [number, number],
     }))
     faces.push({
       faceId: `roof:${i}`, kind: 'side', wallId: 'roof',

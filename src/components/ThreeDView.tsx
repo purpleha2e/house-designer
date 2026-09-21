@@ -89,6 +89,10 @@ import type {
 } from '../types'
 import { surfaceMaterialsById } from '../materials/materialCatalog'
 import { ImportedModelBatching, isBatchedModelSource } from '../importedModelBatching'
+import { pickTargetFromColorBuffer } from '../pickNeighborhood'
+import { findClosestWallFace } from '../wallPickFallback'
+import { WallViewFadeContext, isFadedWallSurface, useWallViewFade } from './WallViewFade'
+import { isProximityFadedObject, RoofViewFadeContext, useProximityViewFade } from './ProximityViewFade'
 import { releaseLightShadowResources } from '../lightShadowResources'
 import { SunShadowCache } from '../sunShadowCache'
 import { configureAmbientOcclusionPass } from '../ambientOcclusionResources'
@@ -139,9 +143,10 @@ import {
 } from '../roofProfile'
 import { getBayRoofTopUvs, getGableChamferTopUvs } from '../roofUv'
 import { createUpAndOverEavesGeometry } from '../roofEavesGeometry'
-import { getRoofAbutmentPlanes, type RoofAbuttingWall } from '../roofAbutmentGeometry'
-import { findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
-import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, type ResolvedRoof } from '../roofJunctions'
+import { clipRoofGeometryByVolumes, getRoofAbutmentPlanes, type RoofAbuttingWall } from '../roofAbutmentGeometry'
+import { roofFacePlanes, type ClipPlane } from '../wallEngine/wallRoofClip'
+import { findStoreyBoundaryAssignment, findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
+import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, subtractRoofVolume, type ResolvedRoof } from '../roofJunctions'
 import { createSolidRoofGeometryFromFaces, getFlippedRoofFaceProjectedUvs, splitRoofUndersideFaces, type RoofGeometries, type RoofFaceUvProjector, type RoofVertex } from '../roofSolidGeometry'
 import { carveRoofSurfaceByRooms, type RoomRoofCut } from '../roofRoomCsg'
 import { buildBuildingRoomVolumes, type BuildingRoomVolumes } from '../buildingRoomVolumes'
@@ -235,6 +240,8 @@ type ThreeDViewProps = {
 }
 
 type RenderOptions = {
+  fadeObstructingRoofs: boolean
+  fadeObstructingWalls: boolean
   ambientOcclusion: boolean
   ambientOcclusionIntensity: number
   ambientTerm: number
@@ -621,7 +628,7 @@ const AMBIENT_OCCLUSION_SETTINGS = {
   aoSamples: 6,
   denoiseRadius: 3,
   denoiseSamples: 3,
-  halfRes: false,
+  halfRes: true,
   resolutionScale: 0.75,
 } as const
 const FLOOR_PLANE_MARGIN = 5
@@ -674,6 +681,7 @@ const DEFAULT_LOCAL_LIGHT_DISTANCE = 10
 const DEFAULT_LOCAL_LIGHT_FALLOFF = 1.15
 const LOCAL_LIGHT_CEILING_CLEARANCE_METERS = 0.55
 const PICK_CLICK_TOLERANCE_PIXELS = 3
+const PICK_COLOR_TOLERANCE_PIXELS = 3
 const MAIN_THREAD_STALL_THRESHOLD_MS = 450
 const MAIN_THREAD_STALL_STATUS_COOLDOWN_MS = 6000
 const SCENE_PREPARATION_TIMEOUT_MS = 15000
@@ -725,6 +733,7 @@ type PickTarget =
       kind: 'material-groups'
       object: Object3D
       pickOnly?: boolean
+      resolveFallbackSurface?: (point: Vector3) => SelectableSurface | null
     }
   | {
       blocksCollision: false
@@ -2900,6 +2909,20 @@ function WallEngineWallMeshes({
     () => createWallBufferGeometry(pickPayload),
     [pickPayload],
   )
+  const resolveFallbackPickSurface = useMemo(
+    () => (point: Vector3) => {
+      const wallFace = findClosestWallFace({ x: point.x, y: point.z }, walls)
+      if (!wallFace) return null
+      return Array.from(pickPayload.pickTargets.values()).find((surface) =>
+        (surface.type === 'wall-face' || surface.type === 'wall-surface-fragment') &&
+        surface.wallId === wallFace.wallId &&
+        surface.side === wallFace.side,
+      ) ?? null
+    },
+    [pickPayload.pickTargets, walls],
+  )
+  useWallViewFade({ meshRef, pickMeshRef, geometry, payload, faces: renderFaces,
+    elevation, walls })
   const selectedFaces = useMemo(() => {
     if (selectedSurface?.type === 'wall-surface-fragment') {
       const selectedFragmentKeys = new Set(
@@ -2994,8 +3017,15 @@ function WallEngineWallMeshes({
       kind: 'material-groups',
       object,
       pickOnly: true,
+      resolveFallbackSurface: resolveFallbackPickSurface,
     })
-  }, [floorId, onRegisterPickTarget, pickGeometry, pickPayload.pickTargets])
+  }, [
+    floorId,
+    onRegisterPickTarget,
+    pickGeometry,
+    pickPayload.pickTargets,
+    resolveFallbackPickSurface,
+  ])
 
   if (payload.materialSlots.length === 0) {
     return null
@@ -3011,7 +3041,7 @@ function WallEngineWallMeshes({
         position={[0, elevation, 0]}
         receiveShadow={castsShadow}
         renderOrder={2}
-        userData={{ houseDesignerRole: 'wall-engine-render' }}
+        userData={{ houseDesignerRole: 'wall-engine-render', floorId }}
       >
         {payload.materialSlots.map((slot) => (
           <WallEngineMaterialSlot
@@ -3565,7 +3595,7 @@ function applyFragmentMaterialSources(
       surfaceAssignments,
       face,
       currentFaceIds,
-    )
+    ) ?? findStoreyBoundaryAssignment(surfaceAssignments, face, faces, currentFaceIds)
     const fragmentId =
       fragmentAssignment?.target.type === 'wall-surface-fragment'
         ? fragmentAssignment.target.fragmentId
@@ -6143,11 +6173,13 @@ type SkirtingRun = {
 
 const SkirtingRunMesh = memo(function SkirtingRunMesh({
   elevation,
+  roofClipVolumes,
   run,
   skirtingRuns,
   wireframe,
 }: {
   elevation: number
+  roofClipVolumes: ClipPlane[][]
   run: SkirtingRun
   skirtingRuns: SkirtingRun[]
   wireframe: boolean
@@ -6198,19 +6230,22 @@ const SkirtingRunMesh = memo(function SkirtingRunMesh({
         ? getSkirtingMiterPoint(run, nextRun, 'end') ?? offsetEdge.end
         : offsetEdge.end
 
-    return createSkirtingPrismGeometry({
+    const source = createSkirtingPrismGeometry({
       elevation,
       end: run.end,
       endInner,
       start: run.start,
       startInner,
     })
-  }, [elevation, run, skirtingRuns])
+    const clipped = clipRoofGeometryByVolumes(source, roofClipVolumes, point => point)
+    if (clipped !== source) source.dispose()
+    return clipped
+  }, [elevation, roofClipVolumes, run, skirtingRuns])
 
   useEffect(() => () => geometry.dispose(), [geometry])
 
   return (
-    <mesh geometry={geometry} receiveShadow>
+    <mesh geometry={geometry} receiveShadow userData={{ houseDesignerRole: 'skirting' }}>
       <meshStandardMaterial
         color="#f8fafc"
         flatShading
@@ -6228,6 +6263,7 @@ const SkirtingBoards = memo(function SkirtingBoards({
   renderedWalls,
   roomSurfacePolygonsBySignature,
   rooms,
+  wallClippingRoofs,
   wireframe,
 }: {
   elevation: number
@@ -6236,8 +6272,12 @@ const SkirtingBoards = memo(function SkirtingBoards({
   renderedWalls: RenderedWall[]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
+  wallClippingRoofs: WallClippingRoof[]
   wireframe: boolean
 }) {
+  const roofClipVolumes = useMemo(() => wallClippingRoofs.flatMap(candidate =>
+    getRoofCoverageUndersideFaces(candidate.resolved).map(roofFacePlanes)
+      .filter(planes => planes.length > 0)), [wallClippingRoofs])
   const wallBodyPerimeters = useMemo(
     () => buildWallBodyPerimeters(geometryContextWalls).perimeters,
     [geometryContextWalls],
@@ -6436,6 +6476,7 @@ const SkirtingBoards = memo(function SkirtingBoards({
         <SkirtingRunMesh
           key={run.key}
           elevation={elevation}
+          roofClipVolumes={roofClipVolumes}
           run={run}
           skirtingRuns={skirtingRuns}
           wireframe={wireframe}
@@ -7984,6 +8025,19 @@ function WallFootprintMeshes({
 
     return targets
   }, [contextWalls, floorId, rooms, wallFaceMaterialIndices])
+  const resolveFallbackPickSurface = useMemo(
+    () => (point: Vector3) => {
+      const wallFace = findClosestWallFace({ x: point.x, y: point.z }, contextWalls)
+      if (!wallFace) return null
+      const materialIndex = wallFaceMaterialIndices.get(
+        `${wallFace.wallId}:${wallFace.side}`,
+      )
+      return materialIndex === undefined
+        ? null
+        : pickGroupTargets.get(materialIndex) ?? null
+    },
+    [contextWalls, pickGroupTargets, wallFaceMaterialIndices],
+  )
   const selectedWallForHighlight =
     selectedWallId
       ? contextWalls.find((wall) => wall.id === selectedWallId) ?? null
@@ -8208,12 +8262,14 @@ function WallFootprintMeshes({
       groupTargets: pickGroupTargets,
       kind: 'material-groups',
       object,
+      resolveFallbackSurface: resolveFallbackPickSurface,
     })
   }, [
     explicitGeometry,
     floorId,
     onRegisterPickTarget,
     pickGroupTargets,
+    resolveFallbackPickSurface,
     useExplicitGeometry,
   ])
 
@@ -9726,7 +9782,7 @@ function FloorPlaneSurface({
   elevation: number
   floorPlane: NonNullable<ReturnType<typeof getFloorPlaneBounds>>
   isActive: boolean
-  openings: Point[][]
+  openings: PlanCutout[]
   receiveShadow: boolean
   wireframe: boolean
 }) {
@@ -10073,6 +10129,8 @@ function RoofInfillMesh({
     return carved
   }, [bottomY, buildingRoomCuts, exteriorSide, floorId, infillFaces, renderedWall, roof])
   const infillRole = getRoofInfillWallRole(roof, renderedWall.wall)
+  useProximityViewFade({ objectRef: frontMeshRef, eligible: infillRole === 'gable' })
+  useProximityViewFade({ objectRef: backMeshRef, eligible: infillRole === 'gable' })
   const frontWallSide = infillRole === 'gable'
     ? getWallSideAwayFromRoof(roof, renderedWall.wall) : exteriorSide
   useEffect(() => {
@@ -10150,6 +10208,7 @@ function SolidGableSurface({ gable, faces, onRegisterPickTarget, shadowsEnabled,
   shadowsEnabled: boolean; surfaceAssignments: SurfaceMaterialAssignment[]; wireframe: boolean
 }) {
   const ref = useRef<Mesh>(null!)
+  useProximityViewFade({ objectRef: ref })
   const source = faces[0]
   const geometry = useMemo(() => {
     const positions: number[] = [], normals: number[] = [], uvs: number[] = []
@@ -10388,11 +10447,23 @@ function HipRoofMesh({
   surfaceAssignments: SurfaceMaterialAssignment[]
   wireframe: boolean
 }) {
+  const fadeRef = useRef<Object3D>(null!)
   const groupRef = useRef<Object3D>(null!)
   const undersideRef = useRef<Mesh>(null!)
+  useProximityViewFade({ objectRef: fadeRef })
   const geometries = useMemo<RoofGeometries>(() => {
-    const outerFaces = getRoofRenderableOuterFaces(resolved)
+    // Visible tiles, shell and eaves follow the junction resolver's exposed
+    // panels. The untrimmed outer profile is reserved for room-volume CSG.
+    const outerFaces = resolved.faces
     const faces = outerFaces.map((face) => face.map((p) => roofToLocal(roof, elevation, p)))
+    const clipAtNearAbutments = (sourceFaces: RoofVertex[][]) => abuttingWalls.reduce((faces, abutment) => {
+      const plane = getRoofAbutmentPlanes([abutment], getRoofRenderPosition(roof))[0]
+      return faces.flatMap(face => subtractRoofVolume(face, [plane]))
+    }, sourceFaces)
+    const visibleEavesFaces = clipAtNearAbutments(outerFaces)
+    const eavesFaces = visibleEavesFaces.map(face => face.map(p => roofToLocal(roof, elevation, p)))
+    const structuralShellFaces = clipAtNearAbutments(getRoofRenderableOuterFaces(resolved))
+      .map(face => face.map(p => roofToLocal(roof, elevation, p)))
     const uvProjector: RoofFaceUvProjector = roof.type === 'up-and-over' || roof.type === 'lean-to'
       ? (vertices) => {
           if (roof.type === 'up-and-over' && vertices.length >= 3) {
@@ -10406,13 +10477,13 @@ function HipRoofMesh({
       : roof.type === 'bay' ? (vertices) => getBayRoofTopUvs(roof, vertices)
       : roof.type === 'hip' ? getFlippedRoofFaceProjectedUvs : (vertices) => vertices.map(([x, , z]) => [x, z])
     const rawEaves = roof.type === 'up-and-over'
-      ? createUpAndOverEavesGeometry(roof, resolved.support, resolved.extents, faces, getRoofThickness(roof))
+      ? createUpAndOverEavesGeometry(roof, resolved.support, resolved.extents, eavesFaces, getRoofThickness(roof))
       : roof.type === 'bay' ? createBayRoofEavesGeometry(roof, faces, getRoofThickness(roof)) : undefined
     const supportPolygon = roofBoundsPolygon(resolved, resolved.support)
     const { undersideFaces, soffitFaces } = splitRoofUndersideFaces(outerFaces, supportPolygon)
     const solid = createSolidRoofGeometryFromFaces(
       faces, uvProjector, getRoofThickness(roof),
-      faces,
+      structuralShellFaces,
       undersideFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
       soffitFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
     )
@@ -10531,6 +10602,7 @@ function HipRoofMesh({
 
   return (
     <group
+      ref={fadeRef}
       position={[roofRenderPosition.x, roofElevation, roofRenderPosition.y]}
       rotation={[0, roof.rotation, 0]}
       renderOrder={isActive ? 3 : 1}
@@ -10860,7 +10932,7 @@ function SelectableRoomSurfaces({
   floorPlane?: ReturnType<typeof getFloorPlaneBounds> | null
   floorId: string
   onRegisterPickTarget: (target: PickTarget) => () => void
-  floorOpenings: Point[][]
+  floorOpenings: PlanCutout[]
   roomHeight: number
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
@@ -11162,7 +11234,7 @@ function RoomFloorBaseMesh({
   wireframe,
 }: {
   elevation: number
-  openings: Point[][]
+  openings: PlanCutout[]
   polygon: Point[]
   shadowsEnabled: boolean
   wireframe: boolean
@@ -11206,7 +11278,7 @@ function RoomFloorBaseMeshes({
   wireframe,
 }: {
   elevation: number
-  openings: Point[][]
+  openings: PlanCutout[]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
   shadowsEnabled: boolean
@@ -11611,7 +11683,7 @@ function RoomFloorFinishes({
 }: {
   elevation: number
   floorId: string
-  openings: Point[][]
+  openings: PlanCutout[]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
   rooms: DetectedRoom[]
   surfaceAssignments: SurfaceMaterialAssignment[]
@@ -13019,6 +13091,7 @@ function ModelMesh({
           scale: uniformScale,
           widthScale,
           depthScale,
+          mirrored: model.mirrored === true,
           walls: stairSnapWalls,
           width: modelDefinition.width,
         })
@@ -13533,6 +13606,7 @@ function SolidFloorScene({
         renderedWalls={renderedWalls}
         roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
         rooms={rooms}
+        wallClippingRoofs={wallClippingRoofs}
         wireframe={wireframe}
       />
       <FakeAmbientOcclusion
@@ -15385,6 +15459,7 @@ function getStairsButtonPosition(
     getModelHorizontalBounds(definition),
     model.widthScale || 1,
     model.depthScale || 1,
+    model.mirrored === true,
   )
   const landingPoints = landing === 'lower' ? [polygon[0], polygon[1]] : [polygon[2], polygon[3]]
   const landingCenter = {
@@ -16574,6 +16649,8 @@ function withColorPickRender<T>({
   const missMaterial = createPickMaterial(0, DoubleSide)
 
   pickMaterials.push(missMaterial)
+  const fadedViewPickMaterial = new MeshDepthMaterial({ visible: false })
+  pickMaterials.push(fadedViewPickMaterial)
 
   targets.forEach((target) => {
     const renderOrder = getPickTargetPriority(target) * 100
@@ -16596,6 +16673,10 @@ function withColorPickRender<T>({
       }
 
       if (target.kind !== 'material-groups') {
+        if (isProximityFadedObject(target.object)) {
+          object.material = fadedViewPickMaterial
+          return
+        }
         const material = allocatePickMaterial(target, getPickMaterialSide(target))
 
         if (material) {
@@ -16616,6 +16697,8 @@ function withColorPickRender<T>({
         if (!surface) {
           return missMaterial
         }
+
+        if (isFadedWallSurface(target.object, surface)) return fadedViewPickMaterial
 
         return getSurfacePickMaterial(
           {
@@ -16709,16 +16792,45 @@ function performColorPick({
           Math.floor(((bounds.bottom - clientY) / bounds.height) * height),
         ),
       )
-      const pixel = new Uint8Array(4)
+      const radiusX = Math.max(
+        1,
+        Math.ceil(PICK_COLOR_TOLERANCE_PIXELS * width / bounds.width),
+      )
+      const radiusY = Math.max(
+        1,
+        Math.ceil(PICK_COLOR_TOLERANCE_PIXELS * height / bounds.height),
+      )
+      const minX = Math.max(0, pixelX - radiusX)
+      const maxX = Math.min(width - 1, pixelX + radiusX)
+      const minY = Math.max(0, pixelY - radiusY)
+      const maxY = Math.min(height - 1, pixelY + radiusY)
+      const sampleWidth = maxX - minX + 1
+      const sampleHeight = maxY - minY + 1
+      const pixels = new Uint8Array(sampleWidth * sampleHeight * 4)
 
-      gl.readRenderTargetPixels(renderTarget, pixelX, pixelY, 1, 1, pixel)
+      gl.readRenderTargetPixels(
+        renderTarget,
+        minX,
+        minY,
+        sampleWidth,
+        sampleHeight,
+        pixels,
+      )
 
-      const colorId = pixel[0] * 65536 + pixel[1] * 256 + pixel[2]
+      const candidate = pickTargetFromColorBuffer({
+        centerX: pixelX - minX,
+        centerY: pixelY - minY,
+        getPriority: getPickTargetPriority,
+        height: sampleHeight,
+        pixels,
+        targetByColorId,
+        width: sampleWidth,
+      })
 
-      return {
-        colorId,
-        pixel,
-        target: targetByColorId.get(colorId) ?? null,
+      return candidate ?? {
+        colorId: 0,
+        pixel: [0, 0, 0, 0] as [number, number, number, number],
+        target: null,
       }
     },
   })
@@ -16872,7 +16984,12 @@ function performGeometryPickFallback({
           intersectionMatchesPickSide(
             intersection,
             getPickMaterialSide(target),
-          ),
+          ) && !isProximityFadedObject(target.object) &&
+          !(target.kind === 'material-groups' && (() => {
+            const surface = target.groupTargets.get(intersection.face?.materialIndex ?? 0) ??
+              target.resolveFallbackSurface?.(intersection.point)
+            return surface && isFadedWallSurface(target.object, surface)
+          })()),
         )
         .map((intersection) => ({
           intersection,
@@ -16941,7 +17058,8 @@ function performGeometryPickFallback({
     }
 
     const materialIndex = candidate.intersection.face?.materialIndex ?? -1
-    const surface = target.groupTargets.get(materialIndex)
+    const surface = target.groupTargets.get(materialIndex) ??
+      target.resolveFallbackSurface?.(candidate.intersection.point)
 
     if (surface) {
       recordEngineLog(
@@ -17116,24 +17234,24 @@ function ModelPicker({
         return
       }
 
-      const rawPickedTarget =
-        performColorPick({
-          camera,
-          clientX: pickGesture.x,
-          clientY: pickGesture.y,
-          element,
-          gl,
-          pickTarget: pickTargetsRef,
-          scene,
-        }) ??
-        performGeometryPickFallback({
+      const colorPickedTarget = performColorPick({
+        camera,
+        clientX: pickGesture.x,
+        clientY: pickGesture.y,
+        element,
+        gl,
+        pickTarget: pickTargetsRef,
+        scene,
+      })
+      const geometryFallback = () => performGeometryPickFallback({
         camera,
         clientX: pickGesture.x,
         clientY: pickGesture.y,
         element,
         pickTarget: pickTargetsRef,
       })
-      const pickedTarget =
+      const rawPickedTarget = colorPickedTarget ?? geometryFallback()
+      let pickedTarget =
         rawPickedTarget?.kind === 'room-surface-area'
           ? resolveRoomSurfaceAreaPick({
               camera,
@@ -17143,6 +17261,13 @@ function ModelPicker({
               target: rawPickedTarget,
             })
           : rawPickedTarget
+
+      // Broad floor and ceiling pick meshes can be visible through an opening
+      // or an unmatched wall material group. If their plan point is outside a
+      // real room, keep looking along the ray instead of treating it as a miss.
+      if (!pickedTarget && colorPickedTarget?.kind === 'room-surface-area') {
+        pickedTarget = geometryFallback()
+      }
 
       if (!pickedTarget) {
         emitEngineActivity({
@@ -17375,6 +17500,8 @@ export function ThreeDView({
   } | null>(null)
   const pickBufferCaptureRef = useRef<(() => void) | null>(null)
   const threeHostRef = useRef<HTMLDivElement | null>(null)
+  const threePaneRef = useRef<HTMLElement | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const [isTransformingModel, setIsTransformingModel] = useState(false)
   const [isXrPresenting, setIsXrPresenting] = useState(false)
   const showAllFloorsInScene = showAllFloors || isXrPresenting
@@ -17413,6 +17540,8 @@ export function ThreeDView({
   const [, setRoomVisibilityState] =
     useState<FloorVisibilityState | null>(null)
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
+    fadeObstructingRoofs: true,
+    fadeObstructingWalls: true,
     ambientOcclusion: true,
     ambientOcclusionIntensity: 0.75,
     ambientTerm: 0.32,
@@ -17677,6 +17806,20 @@ export function ThreeDView({
       showAllFloorsInScene,
     ],
   )
+  const activeFloorElevation = activeFloor?.elevation ?? null
+  const inheritedRoofRenderedFloors = useMemo(() => {
+    if (showAllFloorsInScene || renderOptions.roofsOnly || activeFloorElevation === null) return []
+    const visibleFloorIds = new Set(visibleRenderedFloors.map(({ floor }) => floor.id))
+    const roofFloorIds = new Set(wallClippingRoofs.flatMap(candidate => {
+      if (candidate.floorId === activeFloorId ||
+        candidate.floorTopElevation > activeFloorElevation + 0.001) return []
+      const top = Math.max(...candidate.resolved.structuralFaces.flatMap(face => face.map(([, y]) => y)))
+      return top > activeFloorElevation + 0.001 ? [candidate.floorId] : []
+    }))
+    return renderedFloors.filter(({ floor }) =>
+      roofFloorIds.has(floor.id) && !visibleFloorIds.has(floor.id))
+  }, [activeFloorElevation, activeFloorId, renderedFloors, renderOptions.roofsOnly,
+    showAllFloorsInScene, visibleRenderedFloors, wallClippingRoofs])
   const sceneBounds = useMemo(() => getSceneBounds(floors), [floors])
   const allFloorsPlane = useMemo(
     () =>
@@ -18263,8 +18406,31 @@ export function ThreeDView({
   const localLightShadowsEnabled =
     renderOptions.shadows && renderOptions.lightShadows && !isXrPresenting
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === threePaneRef.current)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
+  const toggleFullscreen = async () => {
+    const pane = threePaneRef.current
+    if (!pane) return
+    try {
+      if (document.fullscreenElement === pane) {
+        await document.exitFullscreen()
+      } else {
+        await pane.requestFullscreen()
+      }
+    } catch (error) {
+      showEngineStatus('Unable to change fullscreen mode.', 3500)
+      recordEngineLog('fullscreen-failed', error instanceof Error ? error.message : String(error))
+    }
+  }
+
   return (
-    <section className="editor-pane">
+    <section ref={threePaneRef} className="editor-pane three-editor-pane">
       <div className="pane-header">
         <h2>3D View</h2>
         <div className="three-header-controls">
@@ -18344,6 +18510,24 @@ export function ThreeDView({
               Download PNG
             </a>
           ) : null}
+          <button
+            type="button"
+            className="three-fullscreen-toggle"
+            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+            aria-pressed={isFullscreen}
+            title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen 3D view'}
+            disabled={!document.fullscreenEnabled || isXrPresenting}
+            onClick={(event) => {
+              event.currentTarget.blur()
+              void toggleFullscreen()
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d={isFullscreen
+                ? 'M3 8h5V3m8 0v5h5M3 16h5v5m8 0v-5h5'
+                : 'M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5'} />
+            </svg>
+          </button>
           <div className="render-options">
             <button
               type="button"
@@ -18441,6 +18625,22 @@ export function ThreeDView({
                     onChange={() => updateRenderOption('occlusionCulling')}
                   />
                   Object frustum culling
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.fadeObstructingWalls}
+                    onChange={() => updateRenderOption('fadeObstructingWalls')}
+                  />
+                  Fade nearby walls (1.5 m)
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.fadeObstructingRoofs}
+                    onChange={() => updateRenderOption('fadeObstructingRoofs')}
+                  />
+                  Fade nearby roofs (1.5 m)
                 </label>
                 <label>
                   <input
@@ -18574,6 +18774,8 @@ export function ThreeDView({
           tabIndex={0}
         >
           <MaterialVariationVrContext.Provider value={isXrPresenting}>
+            <WallViewFadeContext.Provider value={renderOptions.fadeObstructingWalls && !isXrPresenting && !renderOptions.wireframe}>
+            <RoofViewFadeContext.Provider value={renderOptions.fadeObstructingRoofs && !isXrPresenting && !renderOptions.wireframe}>
             <BuildingGableMeshes visibleFloorIds={showAllFloorsInScene || renderOptions.roofsOnly ? null : visibleRenderedFloors.map(data => data.floor.id)}
               onRegisterPickTarget={registerPickTarget} roofFaceSide={roofFaceSide}
               shadowsEnabled={renderOptions.shadows} surfaceAssignments={surfaceAssignments} wireframe={renderOptions.wireframe} />
@@ -18827,9 +19029,13 @@ export function ThreeDView({
               const hasHorizontalCeiling = ceilingRoomSignatures.size > 0
               const lowerFloor =
                 floorIndex > 0 ? floorsByElevation[floorIndex - 1] ?? null : null
-              const floorOpenings = lowerFloor
-                ? getStairSlabOpenings(lowerFloor, floor, floors, modelsById)
-                : []
+              const floorOpenings: PlanCutout[] = [
+                ...(lowerFloor ? getStairSlabOpenings(lowerFloor, floor, floors, modelsById) : []),
+                ...getRoofCeilingCutouts(
+                  wallClippingRoofs.map(candidate => candidate.resolved),
+                  floor.elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS,
+                ),
+              ]
               const ceilingOpenings = getStairSlabOpenings(
                 floor,
                 upperFloor,
@@ -19016,7 +19222,7 @@ export function ThreeDView({
                         onRegisterPickTarget={registerPickTarget}
                         openings={ceilingOpenings}
                         roofCutouts={slabRoofCutouts}
-                          undersideRoofCutouts={ceilingRoofCutouts}
+                        undersideRoofCutouts={ceilingRoofCutouts}
                         selectedSurface={selectedSurface}
                         sunShadowBlocker={isActive && !slabIsSolid && !floorHasRoofs}
                         surfaceAssignments={surfaceAssignments}
@@ -19250,6 +19456,7 @@ export function ThreeDView({
                         renderedWalls={renderedWalls}
                         roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                         rooms={visibleRoomsForFloor}
+                        wallClippingRoofs={wallClippingRoofs}
                         wireframe={renderOptions.wireframe}
                       />
                     ) : null}
@@ -19325,6 +19532,26 @@ export function ThreeDView({
               )
             })}
 
+            {!renderOptions.roofsOnly ? inheritedRoofRenderedFloors.map(({ floor, renderedWalls, rooms }) => (
+              <group key={`inherited-roofs:${sceneRevision}:${floor.id}`}>
+                <RoofMeshes
+                  buildingRoomVolumes={buildingRoomVolumes}
+                  wallClippingRoofs={wallClippingRoofs}
+                  floor={floor}
+                  isActive={false}
+                  onRegisterPickTarget={registerPickTarget}
+                  renderedWalls={renderedWalls}
+                  rooms={rooms}
+                  roofFaceSide={roofFaceSide}
+                  selectedRoofId={selectedRoofId}
+                  selectedSurface={selectedSurface}
+                  shadowsEnabled={renderOptions.shadows}
+                  surfaceAssignments={surfaceAssignments}
+                  wireframe={renderOptions.wireframe}
+                />
+              </group>
+            )) : null}
+
             {!renderOptions.roofsOnly && roofPlacementPreview ? (
               <RoofPlacementPreviewMesh
                 floors={floors}
@@ -19360,6 +19587,8 @@ export function ThreeDView({
                 />
               </EffectComposer>
             ) : null}
+            </RoofViewFadeContext.Provider>
+            </WallViewFadeContext.Provider>
           </MaterialVariationVrContext.Provider>
         </Canvas>
         </HorizontalSurfaceVisibilityContext.Provider>

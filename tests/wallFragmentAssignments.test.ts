@@ -1,7 +1,33 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { SurfaceMaterialAssignment } from '../src/types.ts'
-import { findWallFragmentAssignmentForFace } from '../src/wallFragmentAssignments.ts'
+import { findStoreyBoundaryAssignment, findWallFragmentAssignmentForFace } from '../src/wallFragmentAssignments.ts'
+import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
+
+test('a floor band inherits the touching facade finish across different roof partition labels', () => {
+  const makeFace = (id: string, start: number, end: number, bottom: number, top: number,
+    storeyBoundary = false): WallMeshFace => ({
+    faceId: id, wallId: 'shared-wall', kind: 'side', normal: [0, 0, -1], storeyBoundary,
+    materialSource: { wallId: 'shared-wall', side: 1 },
+    pickSource: { wallId: 'shared-wall', side: 1 }, uvSource: { wallId: 'shared-wall', side: 1 },
+    vertices: [[start, bottom, 0], [end, bottom, 0], [end, top, 0], [start, top, 0]]
+      .map(position => ({ position, uv: [position[0], position[1]] })) as WallMeshFace['vertices'],
+  })
+  const support = makeFace('facade:roof-region:/roof:0:after', 2, 4, 0, 2.4)
+  const neighbour = makeFace('neighbour', 0, 2, 0, 2.4)
+  const band = makeFace('facade:roof-region:outside', 2, 4, 2.4, 2.7, true)
+  const brick = assignment(support.faceId), paint = assignment(neighbour.faceId)
+  const faces = [support, neighbour, band], ids = new Set(faces.map(f => f.faceId))
+  assert.equal(findWallFragmentAssignmentForFace([brick, paint], band, ids), undefined)
+  assert.equal(findStoreyBoundaryAssignment([brick, paint], band, faces, ids), brick)
+  assert.equal(findStoreyBoundaryAssignment([paint], band, faces, ids), undefined,
+    'a neighbouring finish cannot jump across the corner')
+  assert.equal(findStoreyBoundaryAssignment([brick], { ...band, storeyBoundary: false }, faces, ids), undefined)
+  const upperTriangle = makeFace('facade:roof-region:/roof:0:above', 2, 4, 2.55, 2.7, true)
+  const lowerBand = makeFace('facade:roof-region:outside', 2, 4, -0.3, 0, true)
+  assert.equal(findStoreyBoundaryAssignment([brick], upperTriangle, [...faces, upperTriangle, lowerBand], ids), brick,
+    'clipped upper triangles inherit from the base of the complete floor band')
+})
 
 function assignment(fragmentId: string): SurfaceMaterialAssignment {
   return {

@@ -10,6 +10,7 @@ export type RoomRoofCut = {
   floorId?: string
   roofId?: string
   roomVolume?: boolean
+  floorAssembly?: boolean
 }
 
 type SurfaceVertex = { position: RoofVertex; normal: RoofVertex; uv: [number, number] }

@@ -24,6 +24,23 @@ export type StoreyGeometry = {
 
 type PreparedStorey = { floor: FloorLevel; faces: WallMeshFace[]; footprints: Point[][] }
 
+function pointInOrOnPolygon(point: Point, polygon: Point[]) {
+  let inside = false
+  for (let i = 0; i < polygon.length; i++) {
+    const a = polygon[i], b = polygon[(i + 1) % polygon.length]
+    const dx = b.x - a.x, dy = b.y - a.y
+    const lengthSquared = dx * dx + dy * dy
+    if (lengthSquared > 1e-12) {
+      const t = Math.max(0, Math.min(1,
+        ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared))
+      if (Math.hypot(point.x - a.x - t * dx, point.y - a.y - t * dy) < 1e-6) return true
+    }
+    if ((a.y > point.y) !== (b.y > point.y) &&
+      point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside
+  }
+  return inside
+}
+
 /** Continue a facade in its existing plane and UV frame. Keeping the source
  * face identity makes the floor zone part of the same paint/pick surface.
  * Roof partitioning runs AFTER this, so it also divides the continuation. */
@@ -55,6 +72,25 @@ export function buildStoreyGeometry(storeys: PreparedStorey[], assemblyFloorIds?
     const bottom = lower.floor.elevation + lower.floor.roomHeight
     const top = upper.floor.elevation
     if (top <= bottom + 1e-6) continue
+    // The inter-storey assembly owns horizontal caps within the upper
+    // footprint. Leaving the lower wall's top cap there creates a visible
+    // ledge when a roof cutout removes part of the slab above it.
+    result.get(lower.floor.id)!.wallFaces = result.get(lower.floor.id)!.wallFaces.filter(face => {
+      if (face.normal[1] < 0.99 ||
+        !face.vertices.every(vertex => Math.abs(vertex.position[1] - lower.floor.roomHeight) < 1e-6)) return true
+      return !upper.footprints.some(polygon => face.vertices.every(vertex =>
+        pointInOrOnPolygon({ x: vertex.position[0], y: vertex.position[2] }, polygon)))
+    })
+    // The same assembly also covers the underside of the upper walls. Wall
+    // body perimeter meshes can otherwise emit one large horizontal bottom
+    // cap across the whole storey; where a roof crosses this level that cap
+    // becomes a visible strip through the roof junction.
+    result.get(upper.floor.id)!.wallFaces = result.get(upper.floor.id)!.wallFaces.filter(face => {
+      if (face.normal[1] > -0.99 ||
+        !face.vertices.every(vertex => Math.abs(vertex.position[1]) < 1e-6)) return true
+      return !upper.footprints.some(polygon => face.vertices.every(vertex =>
+        pointInOrOnPolygon({ x: vertex.position[0], y: vertex.position[2] }, polygon)))
+    })
     const edges = upper.footprints.flatMap(ring => ring.flatMap((point, j) =>
       splitSlabFacadeEdge({ point, nextPoint: ring[(j + 1) % ring.length],
         lowerFaces: lower.faces, lowerHeight: lower.floor.roomHeight - 0.0001,

@@ -6,6 +6,8 @@ These continuations enter the wall renderer before roof clipping. They retain th
 
 Horizontal assemblies retain independent top surfaces, undersides and stair-opening reveals. Top and bottom surfaces are cut at their own elevations: a sloping roof's intersection with the top must not remove too much underside. New edges introduced by roof cutouts do not become exposed vertical slab fascias. Existing `floor-slab-edge` material assignments apply to unsupported edges and opening reveals; wall finishes own the facade continuations.
 
+Loft assemblies use the roof-trimmed slab footprint when cutting internal roof fragments, preserving the enclosing roof skin. Room volumes retain roof coverage even below the room base so their horizontal fallback cannot cut through low eaves. Floor finishes, their pick surfaces, and skirting are also trimmed to the roof. Facade continuations inherit the finish touching their lower edge when roof partition labels change across the floor boundary. `tests/browser/loftSlabRegression.js` checks these cases in `roofWallRegression.html?springfield-14&materials`.
+
 An intermediate assembly exists only between storeys and uses the lower room's ceiling height and the next storey's actual elevation. No assembly is added above a bungalow or the highest storey. Cutaway views generate continuations only for the intermediate floors actually displayed.
 
 The UI calls the existing `slabThickness` value **Intermediate floor depth**. The saved field is retained for compatibility; it describes an assembly depth, not a particular construction material. Changing it still moves the storeys above. Roof assemblies continue using their own roof-thickness setting.
