@@ -90,6 +90,7 @@ import type {
 import { surfaceMaterialsById } from '../materials/materialCatalog'
 import { ImportedModelBatching, isBatchedModelSource } from '../importedModelBatching'
 import { pickTargetFromColorBuffer } from '../pickNeighborhood'
+import { participatesInColorPick } from '../colorPickPolicy'
 import { findClosestWallFace } from '../wallPickFallback'
 import { WallViewFadeContext, isFadedWallSurface, useWallViewFade } from './WallViewFade'
 import { isProximityFadedObject, RoofViewFadeContext, useProximityViewFade } from './ProximityViewFade'
@@ -16526,7 +16527,12 @@ function withColorPickRender<T>({
   }) => T
   scene: Object3D
 }) {
-  const targets = pickTarget.current.slice(0, 0xfffffe)
+  // The storey-sized room surface areas are deliberately broader than the
+  // real room meshes. Keep them for the raycast fallback, but do not let them
+  // write depth over visible objects on lower storeys in the colour pass.
+  const targets = pickTarget.current
+    .filter((target) => participatesInColorPick(target.kind))
+    .slice(0, 0xfffffe)
 
   if (targets.length === 0) {
     return null
@@ -16661,7 +16667,6 @@ function withColorPickRender<T>({
         originalState?.visible &&
         originalState.visibleInHierarchy &&
         (target.kind === 'surface' ||
-          target.kind === 'room-surface-area' ||
           (target.kind === 'material-groups' && target.pickOnly) ||
           originalState.materialVisible)
 
