@@ -91,6 +91,12 @@ import { surfaceMaterialsById } from '../materials/materialCatalog'
 import { ImportedModelBatching, isBatchedModelSource } from '../importedModelBatching'
 import { pickTargetFromColorBuffer } from '../pickNeighborhood'
 import { participatesInColorPick } from '../colorPickPolicy'
+import { createRoomLightMask } from '../roomLightMask'
+import {
+  applyRoomLightShader,
+  createRoomLightMaskTexture,
+  createRoomLightShaderUniforms,
+} from '../roomLightShader'
 import { findClosestWallFace } from '../wallPickFallback'
 import { WallViewFadeContext, isFadedWallSurface, useWallViewFade } from './WallViewFade'
 import { isProximityFadedObject, RoofViewFadeContext, useProximityViewFade } from './ProximityViewFade'
@@ -14686,6 +14692,137 @@ function FixedLocalLightPool({
   )
 }
 
+function RoomLightMaskController({
+  activeRenderedFloor,
+  floors,
+  localLightIds,
+  maxLights,
+  visibleRenderedFloors,
+}: {
+  activeRenderedFloor: RenderedFloorData | null
+  floors: FloorLevel[]
+  localLightIds: ReadonlySet<string>
+  maxLights: number
+  visibleRenderedFloors: RenderedFloorData[]
+}) {
+  const { invalidate, scene } = useThree()
+  const restorersRef = useRef(new Map<Material, () => void>())
+  const scanElapsedRef = useRef(Infinity)
+  const floorPlane = useMemo(
+    () => activeRenderedFloor
+      ? getFloorPlaneBounds(activeRenderedFloor.floor)
+      : null,
+    [activeRenderedFloor],
+  )
+  const mask = useMemo(
+    () => activeRenderedFloor && floorPlane
+      ? createRoomLightMask(
+          activeRenderedFloor.rooms,
+          {
+            minX: floorPlane.centerX - floorPlane.size / 2,
+            minZ: floorPlane.centerZ - floorPlane.size / 2,
+            size: floorPlane.size,
+          },
+        )
+      : createRoomLightMask([], { minX: 0, minZ: 0, size: 1 }, 1),
+    [activeRenderedFloor, floorPlane],
+  )
+  const maskTexture = useMemo(() => createRoomLightMaskTexture(mask), [mask])
+  const [uniforms] = useState(() => createRoomLightShaderUniforms(maskTexture))
+  const slots = useMemo(
+    () => activeRenderedFloor
+      ? getLocalLightSlots({
+          activeFloorId: activeRenderedFloor.floor.id,
+          localLightIds,
+          visibleRenderedFloors,
+        })
+      : [],
+    [activeRenderedFloor, localLightIds, visibleRenderedFloors],
+  )
+
+  useLayoutEffect(() => {
+    const floor = activeRenderedFloor?.floor
+    uniforms.mask.value = maskTexture
+    uniforms.enabled.value = floor && activeRenderedFloor.rooms.length > 0 ? 1 : 0
+    uniforms.maskBounds.value.set(
+      mask.bounds.minX,
+      mask.bounds.minZ,
+      mask.bounds.size,
+      mask.bounds.size,
+    )
+    const nextFloorElevation = floor
+      ? floors
+          .filter((candidate) => candidate.elevation > floor.elevation + 0.001)
+          .sort((first, second) => first.elevation - second.elevation)[0]?.elevation
+      : undefined
+    uniforms.floorRange.value.set(
+      (floor?.elevation ?? 0) - 0.08,
+      nextFloorElevation !== undefined
+        ? nextFloorElevation - 0.01
+        : (floor?.elevation ?? 0) + (floor?.roomHeight ?? 0) + 10,
+    )
+    uniforms.pointRoomIds.value.fill(0)
+    uniforms.spotRoomIds.value.fill(0)
+
+    if (floor) {
+      const modelsByInstanceId = new Map((floor.models ?? []).map((model) => [model.id, model]))
+      const getLightRoomId = (slot: LocalLightSlot) => {
+        const model = modelsByInstanceId.get(slot.id)
+        if (!model) return 0
+        const room = getRoomContainingPoint(activeRenderedFloor.rooms, model.position)
+        return room ? mask.roomIdsBySignature.get(room.signature) ?? 0 : 0
+      }
+      slots.filter((slot) => slot.kind === 'point').slice(0, maxLights)
+        .forEach((slot, index) => {
+          uniforms.pointRoomIds.value[index] = getLightRoomId(slot)
+        })
+      slots.filter((slot) => slot.kind === 'spot').slice(0, maxLights)
+        .forEach((slot, index) => {
+          uniforms.spotRoomIds.value[index] = getLightRoomId(slot)
+        })
+    }
+    invalidate()
+  }, [activeRenderedFloor, floors, invalidate, mask, maskTexture, maxLights, slots, uniforms])
+
+  const scanMaterials = useCallback(() => {
+    let changed = false
+    scene.traverse((object) => {
+      const candidate = object as Object3D & { material?: Material | Material[] }
+      const materials = Array.isArray(candidate.material)
+        ? candidate.material
+        : candidate.material
+          ? [candidate.material]
+          : []
+      materials.forEach((material) => {
+        if (restorersRef.current.has(material) ||
+          !('isMeshStandardMaterial' in material) || material.isMeshStandardMaterial !== true) return
+        restorersRef.current.set(material, applyRoomLightShader(material, uniforms))
+        changed = true
+      })
+    })
+    if (changed) invalidate()
+  }, [invalidate, scene, uniforms])
+
+  useLayoutEffect(() => {
+    scanMaterials()
+  }, [maskTexture, scanMaterials])
+
+  useFrame((_, delta) => {
+    scanElapsedRef.current += delta
+    if (scanElapsedRef.current < 0.25) return
+    scanElapsedRef.current = 0
+    scanMaterials()
+  })
+
+  useEffect(() => () => maskTexture.dispose(), [maskTexture])
+  useEffect(() => () => {
+    restorersRef.current.forEach((restore) => restore())
+    restorersRef.current.clear()
+  }, [])
+
+  return null
+}
+
 function FpsCounter({ onFpsChange }: { onFpsChange: (fps: number) => void }) {
   const frameCountRef = useRef(0)
   const elapsedRef = useRef(0)
@@ -18891,6 +19028,13 @@ export function ThreeDView({
               lightShadowsEnabled={localLightShadowsEnabled}
               maxLights={activeLocalLightLimit}
               shadowsEnabled={renderOptions.shadows}
+              visibleRenderedFloors={visibleRenderedFloors}
+            />
+            <RoomLightMaskController
+              activeRenderedFloor={activeRenderedFloor}
+              floors={floors}
+              localLightIds={localLightIds}
+              maxLights={activeLocalLightLimit}
               visibleRenderedFloors={visibleRenderedFloors}
             />
 
