@@ -69,6 +69,7 @@ const emptyAssetMetadata = {
   depth: '',
   finish: '',
   height: '',
+  imageBasedLighting: 'false',
   materialType: '',
   metalness: '0',
   modelBehavior: '',
@@ -800,6 +801,18 @@ export function ManufacturerPortal({
                     />
                   </label>
                   <label>
+                    Image-based lighting
+                    <select
+                      value={metadata.imageBasedLighting}
+                      onChange={(event) =>
+                        setMetadataField('imageBasedLighting', event.target.value)
+                      }
+                    >
+                      <option value="false">Off</option>
+                      <option value="true">On (reflections only)</option>
+                    </select>
+                  </label>
+                  <label>
                     Real width metres
                     <input
                       inputMode="decimal"
@@ -1163,6 +1176,14 @@ export function ManufacturerPortal({
                           <div>
                             <dt>Roughness</dt>
                             <dd>{metadataValue(asset, 'roughness')}</dd>
+                          </div>
+                          <div>
+                            <dt>Image-based lighting</dt>
+                            <dd>
+                              {asset.metadata.imageBasedLighting === 'true'
+                                ? 'On'
+                                : 'Off'}
+                            </dd>
                           </div>
                         </>
                       )}

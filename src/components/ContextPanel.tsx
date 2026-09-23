@@ -277,6 +277,29 @@ export function ContextPanel({
     }
   }
 
+  const updateModelMaterialOverride = (regionId: string, materialId: string) => {
+    if (!selectedModel) {
+      return
+    }
+
+    const materialOverrides = {
+      ...(selectedModel.model.materialOverrides ?? {}),
+    }
+
+    if (materialId) {
+      materialOverrides[regionId] = materialId
+    } else {
+      delete materialOverrides[regionId]
+    }
+
+    onUpdateModel(selectedModel.model.id, {
+      materialOverrides:
+        Object.keys(materialOverrides).length > 0
+          ? materialOverrides
+          : undefined,
+    })
+  }
+
   return (
     <aside className="context-panel" aria-label="Selection details">
       <div>
@@ -388,6 +411,29 @@ export function ContextPanel({
             </dd>
           </div>
         ) : null}
+        {selectedModel?.definition.materialRegions?.map((region) => (
+          <div className="context-field context-model-material" key={region.id}>
+            <dt>{region.label} material</dt>
+            <dd>
+              <select
+                aria-label={`${region.label} material`}
+                value={
+                  selectedModel.model.materialOverrides?.[region.id] ?? ''
+                }
+                onChange={(event) =>
+                  updateModelMaterialOverride(region.id, event.target.value)
+                }
+              >
+                <option value="">Original model material</option>
+                {surfaceMaterials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {getSurfaceMaterialLabel(material)}
+                  </option>
+                ))}
+              </select>
+            </dd>
+          </div>
+        ))}
         <div>
           <dt>Floor elev.</dt>
           <dd>{activeFloor.elevation.toFixed(2)} m</dd>

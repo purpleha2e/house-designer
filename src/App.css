@@ -976,6 +976,10 @@
   gap: 6px;
 }
 
+.context-model-material select {
+  width: 190px;
+}
+
 .context-field select {
   min-width: 190px;
 }

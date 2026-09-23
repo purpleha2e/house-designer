@@ -21,11 +21,17 @@ browser paths, for example:
     "ambientOcclusionTextureUrl": "/materials/sample-stone-tile/ao.jpg",
     "roughness": 0.64,
     "metalness": 0,
+    "imageBasedLighting": false,
     "repeatX": 4,
     "repeatY": 4
   }
 }
 ```
+
+`imageBasedLighting` is opt-in. For surface products it adds environment
+reflections without adding environment diffuse irradiance, preserving the
+authored base-colour lightness under the normal scene lighting controls.
+
 # Procedural variation
 
 Materials can opt into `pbr.proceduralVariation`. In the asset portal, use

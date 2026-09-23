@@ -1090,6 +1090,7 @@ async function handleUpload(request, response) {
       depth: fields.depth ?? '',
       finish: fields.finish ?? '',
       height: fields.height ?? '',
+      imageBasedLighting: fields.imageBasedLighting === 'true' ? 'true' : 'false',
       materialType: fields.materialType ?? '',
       metalness: fields.pbrMetalness ?? fields.metalness ?? '',
       modelBehavior: fields.modelBehavior ?? '',
@@ -1287,6 +1288,10 @@ async function handleUpdateAsset(request, response, pathname) {
     depth: fields.depth ?? '',
     finish: fields.finish ?? '',
     height: fields.height ?? '',
+    imageBasedLighting:
+      fields.imageBasedLighting ??
+      metadata.metadata?.imageBasedLighting ??
+      'false',
     materialType: fields.materialType ?? '',
     metalness: fields.pbrMetalness ??
       getMultipartField(fields, 'metalness', metadata.metadata?.metalness ?? ''),

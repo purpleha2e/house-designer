@@ -1,5 +1,5 @@
 {
-  "activeFloorId": "6a37b6e2-1808-4fea-8fa6-e8218ff4f000",
+  "activeFloorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
   "floors": [
     {
       "id": "e85e2210-2517-4c3d-84a8-5c25883e8043",
@@ -1446,7 +1446,11 @@
           "rotation": -3.141592653589793,
           "scale": 1,
           "widthScale": 1,
-          "depthScale": 1
+          "depthScale": 1,
+          "materialOverrides": {
+            "stairs_steps": "portal-material-69ed269b8fbbd11a893734c7a9161e67",
+            "stairs_woodwork": "portal-material-9e7827ea3cde09081ba49222404d503f"
+          }
         }
       ],
       "roofs": [
@@ -2450,12 +2454,16 @@
           "modelId": "portal-model-da3febd37075be644058a24aba790fcf",
           "position": {
             "x": 11.138555794922816,
-            "y": 10.308749054948136
+            "y": 10.341075403918879
           },
           "rotation": 3.141592653589793,
           "scale": 1,
           "widthScale": 1,
-          "depthScale": 1
+          "depthScale": 1,
+          "materialOverrides": {
+            "stairs_steps": "portal-material-69ed269b8fbbd11a893734c7a9161e67",
+            "stairs_woodwork": "portal-material-9e7827ea3cde09081ba49222404d503f"
+          }
         },
         {
           "flipped": false,
@@ -2927,7 +2935,7 @@
       "category": "Stairs",
       "color": "#64748b",
       "depth": 2.8200002387166023,
-      "height": 3.5598443673518707,
+      "height": 3.5552867577937652,
       "id": "portal-model-da3febd37075be644058a24aba790fcf",
       "localBounds": {
         "maxX": 0.40107178688049316,
@@ -2941,7 +2949,25 @@
       "previewUrl": "/manufacturer-assets/house-designer/models/da3febd37075be644058a24aba790fcf/preview.png",
       "shape": "box",
       "sourceUrl": "/manufacturer-assets/house-designer/models/da3febd37075be644058a24aba790fcf/processed/model.glb",
-      "width": 0.92789426445961
+      "width": 0.92789426445961,
+      "materialRegions": [
+        {
+          "id": "stairs_steps",
+          "label": "Steps",
+          "sourceMaterialNames": [
+            "stairs_steps"
+          ]
+        },
+        {
+          "id": "stairs_woodwork",
+          "label": "Wood",
+          "sourceMaterialNames": [
+            "stairs_woodwork",
+            "stairs_banister",
+            "stairs_spindles"
+          ]
+        }
+      ]
     }
   ],
   "sunPosition": {
@@ -12308,15 +12334,15 @@
   "threeDView": {
     "camera": {
       "position": {
-        "x": 1.9721012919282668,
-        "y": 6.86974182733745,
-        "z": 16.628657050231674
+        "x": 9.488963595360103,
+        "y": 3.6931290639132457,
+        "z": 11.555785025166657
       },
       "quaternion": {
-        "w": 0.927099596645605,
-        "x": -0.153801559693008,
-        "y": -0.33719755027068327,
-        "z": -0.055939522942233824
+        "w": 0.9499622130151234,
+        "x": -0.16446775497272748,
+        "y": -0.26166737937789647,
+        "z": -0.04530269293479199
       }
     },
     "floorViewId": "all"

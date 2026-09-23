@@ -119,6 +119,7 @@ export type SurfaceMaterialPbr = {
   baseColorTextureUrl?: string
   displacementScale?: number
   displacementTextureUrl?: string
+  imageBasedLighting?: boolean
   metalness?: number
   metalnessTextureUrl?: string
   normalTextureUrl?: string
@@ -218,6 +219,7 @@ export type PlacedModel = {
   lightPower?: number
   lightSpread?: number
   mirrored?: boolean
+  materialOverrides?: Record<string, string>
   modelId: string
   position: Point
   rotation: number

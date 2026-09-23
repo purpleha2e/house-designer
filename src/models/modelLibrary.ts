@@ -20,6 +20,29 @@ export type ModelHorizontalBounds = {
   minZ: number
 }
 
+export type ModelMaterialRegion = {
+  id: string
+  label: string
+  sourceMaterialNames: string[]
+}
+
+export const stairMaterialRegions: ModelMaterialRegion[] = [
+  {
+    id: 'stairs_steps',
+    label: 'Steps',
+    sourceMaterialNames: ['stairs_steps'],
+  },
+  {
+    id: 'stairs_woodwork',
+    label: 'Wood',
+    sourceMaterialNames: [
+      'stairs_woodwork',
+      'stairs_banister',
+      'stairs_spindles',
+    ],
+  },
+]
+
 export type ModelDefinition = {
   id: string
   name: string
@@ -34,6 +57,7 @@ export type ModelDefinition = {
   lightPower?: number
   lightSpread?: number
   localBounds?: ModelHorizontalBounds
+  materialRegions?: ModelMaterialRegion[]
   openingCenterOffset?: number
   openingWidth?: number
   previewUrl?: string
@@ -79,6 +103,9 @@ const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
     height: 2.377067,
     objectType: 'stairs',
     width: 0.85,
+  },
+  'simple-floating-stairs-simple-banister': {
+    materialRegions: stairMaterialRegions,
   },
 }
 
@@ -258,12 +285,30 @@ export const modelsById = new Map(
 )
 
 export function registerRuntimeModels(models: ModelDefinition[]) {
+  const mergedModels = models.map((model) => {
+    const existingModel = modelsById.get(model.id)
+
+    return {
+      ...existingModel,
+      ...model,
+      materialRegions:
+        model.materialRegions ??
+        existingModel?.materialRegions ??
+        (model.objectType === 'stairs' ? stairMaterialRegions : undefined),
+    }
+  })
+  const mergedModelIds = new Set(mergedModels.map((model) => model.id))
+
   modelLibrary.splice(
     0,
     modelLibrary.length,
     ...[
-      ...modelLibrary.filter((model) => !model.id.startsWith('portal-model-')),
-      ...models,
+      ...modelLibrary.filter(
+        (model) =>
+          !model.id.startsWith('portal-model-') &&
+          !mergedModelIds.has(model.id),
+      ),
+      ...mergedModels,
     ].sort((firstModel, secondModel) =>
       firstModel.category === secondModel.category
         ? firstModel.name.localeCompare(secondModel.name)
@@ -275,7 +320,7 @@ export function registerRuntimeModels(models: ModelDefinition[]) {
       modelsById.delete(modelId)
     }
   })
-  models.forEach((model) => {
+  mergedModels.forEach((model) => {
     modelsById.set(model.id, model)
   })
 }

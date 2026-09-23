@@ -9,6 +9,7 @@ import {
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
@@ -30,6 +31,7 @@ import {
   NoColorSpace,
   Object3D,
   Path,
+  PMREMGenerator,
   PointLight,
   Raycaster,
   RawShaderMaterial,
@@ -104,10 +106,20 @@ import { releaseLightShadowResources } from '../lightShadowResources'
 import { SunShadowCache } from '../sunShadowCache'
 import { configureAmbientOcclusionPass } from '../ambientOcclusionResources'
 import {
+  applyImportedPbrEnvironment,
+  normalizeImportedPbrMaterial,
+} from '../importedPbrMaterials'
+import {
   getModelAssetUrl,
   modelsById,
   type ModelDefinition,
+  type ModelMaterialRegion,
 } from '../models/modelLibrary'
+import { getModelMaterialOverrideId } from '../modelMaterialOverrides'
+import {
+  createBoxProjectedUvGeometry,
+  hasUsableTextureUvs,
+} from '../modelMaterialUvs'
 import {
   getWallMountedRevealDepth,
   WALL_MOUNT_FRAME_DEPTH_METERS,
@@ -137,6 +149,7 @@ import {
   isMaterialVariationActive,
   normalizeMaterialVariation,
 } from '../materials/proceduralVariation'
+import { withSpecularOnlyImageBasedLighting } from '../materials/imageBasedLighting'
 import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
 import { wallMaterialBatchKey } from '../wallEngine/wallMaterialBatchKey'
 import { clipWallFacesInWorker } from '../wallEngine/wallRoofClipClient'
@@ -3668,6 +3681,13 @@ const surfaceTextureCache = new Map<string, LoadedSurfaceTextures>()
 const surfaceTexturePromiseCache = new Map<string, Promise<LoadedSurfaceTextures>>()
 const sharedSurfaceTextureLoader = new TextureLoader()
 const sharedSurfaceKtx2Loader = new KTX2Loader()
+const emptySurfaceTextureRequest: SurfaceTextureRequest = {
+  entriesToLoad: [],
+  repeatX: 1,
+  repeatY: 1,
+  rotationRadians: 0,
+  textureCacheKey: '__no-surface-material__',
+}
 let sharedSurfaceKtx2LoaderRenderer: WebGLRenderer | null = null
 const WALL_TEXTURE_MAX_SIZE = 1024
 const engineActivityListeners = new Set<
@@ -4949,8 +4969,8 @@ function getOrLoadSurfaceTextures(
 }
 
 function useSurfaceMaterialTextures(
-  material: SurfaceMaterialProduct,
-  assignment: SurfaceMaterialAssignment,
+  material: SurfaceMaterialProduct | undefined,
+  assignment: SurfaceMaterialAssignment | undefined,
   displacementEnabled: boolean,
   textureQuality: SurfaceTextureQuality,
   repeatOverride?: { repeatX: number; repeatY: number },
@@ -4958,13 +4978,15 @@ function useSurfaceMaterialTextures(
   const { gl } = useThree()
   const textureRequest = useMemo(
     () =>
-      getSurfaceTextureRequest(
-        material,
-        assignment,
-        displacementEnabled,
-        textureQuality,
-        repeatOverride,
-      ),
+      material && assignment
+        ? getSurfaceTextureRequest(
+            material,
+            assignment,
+            displacementEnabled,
+            textureQuality,
+            repeatOverride,
+          )
+        : emptySurfaceTextureRequest,
     [
       assignment,
       displacementEnabled,
@@ -5073,6 +5095,10 @@ function useSurfaceMaterialTextures(
 }
 
 const MaterialVariationVrContext = createContext(false)
+const PbrEnvironmentContext = createContext<{
+  intensity: number
+  map: Texture | null
+}>({ intensity: 0, map: null })
 
 function SurfaceMeshStandardMaterial({
   attach,
@@ -5114,15 +5140,32 @@ function SurfaceMeshStandardMaterial({
   )
   const baseColor = assignment.customColor ?? material.pbr.baseColor ?? '#e2e8f0'
   const isVr = useContext(MaterialVariationVrContext)
+  const pbrEnvironment = useContext(PbrEnvironmentContext)
+  const imageBasedLightingEnabled = material.pbr.imageBasedLighting === true
+  const environmentMap = imageBasedLightingEnabled
+    ? pbrEnvironment.map
+    : null
+  const environmentProps = imageBasedLightingEnabled
+    ? {
+        envMap: environmentMap,
+        envMapIntensity: pbrEnvironment.intensity,
+      }
+    : {}
   const variationSettings = material.pbr.proceduralVariation
   const variationKey = isMaterialVariationActive(variationSettings, isVr)
     ? JSON.stringify(normalizeMaterialVariation(variationSettings))
     : ''
-  const variationShader = useMemo(
-    () => variationKey
-      ? createMaterialVariationShader(JSON.parse(variationKey))
-      : {},
-    [variationKey],
+  const surfaceMaterialShader = useMemo(
+    () => {
+      const variationShader = variationKey
+        ? createMaterialVariationShader(JSON.parse(variationKey))
+        : {}
+
+      return imageBasedLightingEnabled
+        ? withSpecularOnlyImageBasedLighting(variationShader)
+        : variationShader
+    },
+    [imageBasedLightingEnabled, variationKey],
   )
   useLayoutEffect(() => {
     // Maps arrive asynchronously after an untextured shader may have compiled.
@@ -5132,15 +5175,19 @@ function SurfaceMeshStandardMaterial({
       invalidate()
     }
   }, [invalidate, textures.map, textures.normalMap, textures.roughnessMap,
-    textures.metalnessMap, textures.aoMap, textures.displacementMap, variationKey])
+    textures.metalnessMap, textures.aoMap, textures.displacementMap, variationKey,
+    environmentMap])
 
   return (
     <meshStandardMaterial
       // Remount when the mode/settings change, including XR entry/exit, so
       // disabled materials use the ordinary shader with no variation work.
-      key={variationKey || 'standard'}
+      key={`${variationKey || 'standard'}-${
+        imageBasedLightingEnabled ? 'ibl-reflections-v1' : 'direct-lighting-v1'
+      }`}
       ref={materialRef}
-      {...variationShader}
+      {...surfaceMaterialShader}
+      {...environmentProps}
       attach={attach}
       aoMap={textures.aoMap ?? null}
       color={baseColor}
@@ -13193,7 +13240,10 @@ function ModelMesh({
         />
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
-          batchable={Boolean(modelDefinition.wallMount)}
+          batchable={
+            Boolean(modelDefinition.wallMount) &&
+            Object.keys(model.materialOverrides ?? {}).length === 0
+          }
           castsShadow={castsShadow}
           daylightEnabled={daylightEnabled}
           floorId={floorId}
@@ -13201,6 +13251,8 @@ function ModelMesh({
           isActive={isActive}
           isSelected={isSelected}
           blocksCollision={!modelDefinition.wallMount}
+          materialOverrides={model.materialOverrides}
+          materialRegions={modelDefinition.materialRegions}
           modelId={model.id}
           normalizeToDimensions={Boolean(modelDefinition.normalizeToDimensions)}
           targetDepth={modelDefinition.depth}
@@ -13934,6 +13986,177 @@ function ImportedModelBatchRenderer() {
   return null
 }
 
+function cloneImportedSceneMaterials(
+  root: Object3D,
+  materialOverrides: Record<string, string> | undefined,
+  materialRegions: ModelMaterialRegion[] | undefined,
+) {
+  const clonedMaterials = new Map<Material, Material>()
+
+  root.traverse((object) => {
+    if (!('material' in object)) {
+      return
+    }
+
+    const mesh = object as Mesh
+    const cloneMaterial = (material: Material) => {
+      const existingClone = clonedMaterials.get(material)
+
+      if (existingClone) {
+        return existingClone
+      }
+
+      const clonedMaterial = material.clone()
+      clonedMaterials.set(material, clonedMaterial)
+      return clonedMaterial
+    }
+
+    mesh.material = Array.isArray(mesh.material)
+      ? mesh.material.map(cloneMaterial)
+      : cloneMaterial(mesh.material)
+
+    const materials = Array.isArray(mesh.material)
+      ? mesh.material
+      : [mesh.material]
+    const overridesTexturedMaterial = materials.some((material) =>
+      Boolean(
+        getModelMaterialOverrideId(
+          materialOverrides,
+          materialRegions,
+          material.name,
+        ),
+      ),
+    )
+
+    if (
+      overridesTexturedMaterial &&
+      mesh.geometry instanceof BufferGeometry &&
+      !hasUsableTextureUvs(mesh.geometry)
+    ) {
+      mesh.geometry = createBoxProjectedUvGeometry(mesh.geometry)
+    }
+  })
+
+  return root
+}
+
+function ImportedModelMaterialOverride({
+  environmentIntensity,
+  environmentMap,
+  materialId,
+  region,
+  scene,
+}: {
+  environmentIntensity: number
+  environmentMap: Texture | null
+  materialId: string
+  region: ModelMaterialRegion
+  scene: Object3D
+}) {
+  const invalidate = useThree((state) => state.invalidate)
+  const isVr = useContext(MaterialVariationVrContext)
+  const surfaceMaterial = surfaceMaterialsById.get(materialId)
+  const assignment = useMemo<SurfaceMaterialAssignment>(
+    () => ({
+      id: `model-material-${region.id}`,
+      materialId,
+      target: { floorId: 'model-material', type: 'floor' },
+    }),
+    [materialId, region.id],
+  )
+  const textures = useSurfaceMaterialTextures(
+    surfaceMaterial,
+    assignment,
+    false,
+    'pbr',
+  )
+
+  useLayoutEffect(() => {
+    if (!surfaceMaterial) {
+      return
+    }
+
+    const variationSettings = surfaceMaterial.pbr.proceduralVariation
+    const variationOverrides: Partial<
+      Pick<Material, 'customProgramCacheKey' | 'onBeforeCompile'>
+    > = isMaterialVariationActive(variationSettings, isVr)
+      ? createMaterialVariationShader(normalizeMaterialVariation(variationSettings))
+      : {}
+    const shaderOverrides = surfaceMaterial.pbr.imageBasedLighting === true
+      ? withSpecularOnlyImageBasedLighting(variationOverrides)
+      : variationOverrides
+
+    scene.traverse((object) => {
+      if (!('material' in object)) {
+        return
+      }
+
+      const materials = Array.isArray(object.material)
+        ? object.material
+        : [object.material]
+
+      materials.forEach((material) => {
+        if (!material || !region.sourceMaterialNames.includes(material.name)) {
+          return
+        }
+
+        if ('color' in material && material.color instanceof Color) {
+          material.color.set(surfaceMaterial.pbr.baseColor ?? '#e2e8f0')
+        }
+        if ('map' in material) material.map = textures.map ?? null
+        if ('normalMap' in material) material.normalMap = textures.normalMap ?? null
+        if ('roughness' in material) {
+          material.roughness = surfaceMaterial.pbr.roughness ?? 0.7
+        }
+        if ('roughnessMap' in material) {
+          material.roughnessMap = textures.roughnessMap ?? null
+        }
+        if ('metalness' in material) {
+          material.metalness = surfaceMaterial.pbr.metalness ?? 0
+        }
+        if ('metalnessMap' in material) {
+          material.metalnessMap = textures.metalnessMap ?? null
+        }
+        if ('aoMap' in material) material.aoMap = textures.aoMap ?? null
+        if ('displacementMap' in material) material.displacementMap = null
+        if ('displacementScale' in material) material.displacementScale = 0
+        if ('envMap' in material) {
+          material.envMap = surfaceMaterial.pbr.imageBasedLighting === true
+            ? environmentMap
+            : null
+        }
+        if ('envMapIntensity' in material) {
+          material.envMapIntensity = surfaceMaterial.pbr.imageBasedLighting === true
+            ? environmentIntensity
+            : 0
+        }
+        if (shaderOverrides.onBeforeCompile) {
+          material.onBeforeCompile = shaderOverrides.onBeforeCompile
+        }
+        if (shaderOverrides.customProgramCacheKey) {
+          material.customProgramCacheKey = shaderOverrides.customProgramCacheKey
+        }
+
+        material.userData.houseDesignerSurfaceMaterialOverride = materialId
+        material.needsUpdate = true
+      })
+    })
+    invalidate()
+  }, [
+    environmentIntensity,
+    environmentMap,
+    invalidate,
+    isVr,
+    materialId,
+    region,
+    scene,
+    surfaceMaterial,
+    textures,
+  ])
+
+  return null
+}
+
 function ImportedModelContent({
   batchable,
   blocksCollision,
@@ -13943,6 +14166,8 @@ function ImportedModelContent({
   frustumCullingEnabled,
   isActive,
   isSelected,
+  materialOverrides,
+  materialRegions,
   modelId,
   normalizeToDimensions,
   onBoundsChange,
@@ -13961,6 +14186,8 @@ function ImportedModelContent({
   frustumCullingEnabled: boolean
   isActive: boolean
   isSelected: boolean
+  materialOverrides?: Record<string, string>
+  materialRegions?: ModelMaterialRegion[]
   modelId: string
   normalizeToDimensions: boolean
   onBoundsChange: (bounds: ModelHorizontalBounds) => void
@@ -13973,6 +14200,7 @@ function ImportedModelContent({
 }) {
   const normalizedGroupRef = useRef<Object3D>(null!)
   const batching = useContext(ImportedModelBatchingContext)
+  const pbrEnvironment = useContext(PbrEnvironmentContext)
   const { gl } = useThree()
   useEffect(() => {
     recordEngineLog('model-load-start', getAssetFileName(sourceUrl))
@@ -13980,7 +14208,55 @@ function ImportedModelContent({
   const gltf = useGLTF(sourceUrl, true, true, (loader) => {
     setGltfKtx2Loader(loader, gl)
   })
-  const scene = useMemo(() => gltf.scene.clone(true), [gltf.scene])
+  const materialOverridesKey = JSON.stringify(materialOverrides ?? {})
+  const hasMaterialOverrides = Object.keys(materialOverrides ?? {}).length > 0
+  const scene = useMemo(() => {
+    const clonedScene = gltf.scene.clone(true)
+    return hasMaterialOverrides
+      ? cloneImportedSceneMaterials(
+          clonedScene,
+          materialOverrides,
+          materialRegions,
+        )
+      : clonedScene
+  }, [
+    gltf.scene,
+    hasMaterialOverrides,
+    materialOverrides,
+    materialOverridesKey,
+    materialRegions,
+  ])
+  useEffect(() => {
+    if (!hasMaterialOverrides) {
+      return
+    }
+
+    return () => {
+      const disposedMaterials = new Set<Material>()
+      const disposedGeometries = new Set<BufferGeometry>()
+      scene.traverse((object) => {
+        if (!('material' in object)) return
+        if (
+          'geometry' in object &&
+          object.geometry instanceof BufferGeometry &&
+          object.geometry.userData.houseDesignerGeneratedUvs === true &&
+          !disposedGeometries.has(object.geometry)
+        ) {
+          disposedGeometries.add(object.geometry)
+          object.geometry.dispose()
+        }
+        const materials = Array.isArray(object.material)
+          ? object.material
+          : [object.material]
+        materials.forEach((material) => {
+          if (material && !disposedMaterials.has(material)) {
+            disposedMaterials.add(material)
+            material.dispose()
+          }
+        })
+      })
+    }
+  }, [hasMaterialOverrides, scene])
   useEffect(() => {
     if (!batchable || !batching) return
     return batching.register(normalizedGroupRef.current, modelId)
@@ -14165,22 +14441,19 @@ function ImportedModelContent({
             material.needsUpdate = true
           }
 
+          normalizeImportedPbrMaterial(material)
           if (
-            'metalness' in material &&
-            'roughness' in material &&
-            'map' in material &&
-            'normalMap' in material &&
-            'roughnessMap' in material &&
-            'metalnessMap' in material &&
-            material.metalness > 0.8 &&
-            !material.map &&
-            !material.normalMap &&
-            !material.roughnessMap &&
-            !material.metalnessMap
+            !getModelMaterialOverrideId(
+              materialOverrides,
+              materialRegions,
+              materialName,
+            )
           ) {
-            material.metalness = 0
-            material.roughness = Math.max(material.roughness, 0.55)
-            material.needsUpdate = true
+            applyImportedPbrEnvironment(
+              material,
+              pbrEnvironment.map,
+              pbrEnvironment.intensity,
+            )
           }
 
           if ('side' in material) {
@@ -14206,12 +14479,28 @@ function ImportedModelContent({
     daylightEnabled,
     frustumCullingEnabled,
     isActive,
+    materialOverrides,
+    materialRegions,
+    pbrEnvironment,
     scene,
     wireframe,
   ])
 
   return (
     <>
+      {materialRegions?.map((region) => {
+        const materialId = materialOverrides?.[region.id]
+        return materialId ? (
+          <ImportedModelMaterialOverride
+            environmentIntensity={pbrEnvironment.intensity}
+            environmentMap={pbrEnvironment.map}
+            key={region.id}
+            materialId={materialId}
+            region={region}
+            scene={scene}
+          />
+        ) : null
+      })}
       {isSelected && isActive ? (
         <SelectionBoundsBox
           center={[
@@ -15903,6 +16192,50 @@ function CountrysideSkybox() {
         />
       </mesh>
     </group>
+  )
+}
+
+function PbrEnvironmentProvider({
+  children,
+  intensity,
+}: {
+  children: ReactNode
+  intensity: number
+}) {
+  const { gl, invalidate, scene } = useThree()
+  const environmentResources = useMemo(() => {
+    const environmentScene = new RoomEnvironment()
+    const pmremGenerator = new PMREMGenerator(gl)
+    const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.04)
+
+    return { environmentScene, environmentTarget, pmremGenerator }
+  }, [gl])
+
+  useLayoutEffect(() => {
+    // IBL is opt-in per material. Never leave a scene-wide environment from
+    // an earlier renderer mount or hot reload for ordinary walls and floors.
+    scene.environment = null
+    invalidate()
+
+    return () => {
+      environmentResources.environmentTarget.dispose()
+      environmentResources.environmentScene.dispose()
+      environmentResources.pmremGenerator.dispose()
+    }
+  }, [environmentResources, invalidate, scene])
+
+  const value = useMemo(
+    () => ({
+      intensity,
+      map: environmentResources.environmentTarget.texture,
+    }),
+    [environmentResources, intensity],
+  )
+
+  return (
+    <PbrEnvironmentContext.Provider value={value}>
+      {children}
+    </PbrEnvironmentContext.Provider>
   )
 }
 
@@ -18916,6 +19249,9 @@ export function ThreeDView({
           tabIndex={0}
         >
           <MaterialVariationVrContext.Provider value={isXrPresenting}>
+            <PbrEnvironmentProvider
+              intensity={renderOptions.daylight ? 0.55 : renderOptions.lights ? 0.16 : 0}
+            >
             <WallViewFadeContext.Provider value={renderOptions.fadeObstructingWalls && !isXrPresenting && !renderOptions.wireframe}>
             <RoofViewFadeContext.Provider value={renderOptions.fadeObstructingRoofs && !isXrPresenting && !renderOptions.wireframe}>
             <BuildingGableMeshes visibleFloorIds={showAllFloorsInScene || renderOptions.roofsOnly ? null : visibleRenderedFloors.map(data => data.floor.id)}
@@ -19738,6 +20074,7 @@ export function ThreeDView({
             ) : null}
             </RoofViewFadeContext.Provider>
             </WallViewFadeContext.Provider>
+            </PbrEnvironmentProvider>
           </MaterialVariationVrContext.Provider>
         </Canvas>
         </HorizontalSurfaceVisibilityContext.Provider>

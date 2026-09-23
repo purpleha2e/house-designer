@@ -207,6 +207,7 @@ function portalMaterialToSurfaceMaterial(
       baseColorTextureUrl,
       displacementScale: 0.003,
       displacementTextureUrl: findProcessedFile(asset, 'displacement'),
+      imageBasedLighting: asset.metadata.imageBasedLighting === 'true',
       metalness: parseUnitNumber(asset.metadata.metalness) ?? 0,
       metalnessTextureUrl: findProcessedFile(asset, 'metalness'),
       normalTextureUrl: findProcessedFile(asset, 'normal'),
