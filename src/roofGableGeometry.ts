@@ -241,8 +241,9 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
       const interior = !!floor && (roomPlans.get(floor.id) ?? []).some(room => contains(room.polygon, sample))
       const source = gable.walls.find(source => source.floorId === (interior ? floor?.id : gable.floorId)) ?? gable.walls[0]
       const wall = source?.wall
+      const isVerticalWallSkin = Boolean(wall) && Math.abs(normal[1]) < 1e-7
       const side: -1 | 1 = wall && normal[0] * -(wall.end.y - wall.start.y) + normal[2] * (wall.end.x - wall.start.x) < 0 ? -1 : 1
-      return { ...face, interior, wall, wallSide: wall ? side : undefined, wallFloorId: source?.floorId, spaceFloorId: floor?.id,
+      return { ...face, interior, wall, wallSide: isVerticalWallSkin ? side : undefined, wallFloorId: source?.floorId, spaceFloorId: floor?.id,
         uvs: face.points.map(([x, y, z]) => [wall ? getCanonicalWallUvDistance(wall, { x, y: z }) : x + z, y]),
       }
     })

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import type { ModelLibrarySection } from '../models/modelLibrarySections'
 import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import type {
   FloorLevel,
@@ -78,7 +79,7 @@ type LeftToolRailProps = {
   onCut: () => void
   onDeleteFloor: () => void
   onInternalWallThicknessChange: (thickness: number) => void
-  onOpenModelSelector: () => void
+  onOpenModelSelector: (section: ModelLibrarySection) => void
   onPaste: () => void
   onRedo: () => void
   onRoofModeChange: (isRoofMode: boolean) => void
@@ -184,6 +185,17 @@ function ModelIcon() {
       <path d="m12 4 7 4-7 4-7-4 7-4Z" />
       <path d="M5 8v8l7 4 7-4V8" />
       <path d="M12 12v8" />
+    </IconSvg>
+  )
+}
+
+function OpeningIcon() {
+  return (
+    <IconSvg>
+      <path d="M5 20V4h14v16" />
+      <path d="M5 8h14" />
+      <path d="M12 4v16" />
+      <path d="M8.5 14h.01" />
     </IconSvg>
   )
 }
@@ -512,7 +524,10 @@ export function LeftToolRail({
         >
           <RoofIcon />
         </IconButton>
-        <IconButton label="Add model" onClick={onOpenModelSelector}>
+        <IconButton label="Add windows or doors" onClick={() => onOpenModelSelector('openings')}>
+          <OpeningIcon />
+        </IconButton>
+        <IconButton label="Add object" onClick={() => onOpenModelSelector('objects')}>
           <ModelIcon />
         </IconButton>
         <IconButton

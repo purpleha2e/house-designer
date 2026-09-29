@@ -209,6 +209,7 @@ export type SelectableSurface =
     }
 
 export type PlacedModel = {
+  dormerWindowModelId?: string
   flipped?: boolean
   id: string
   height?: number
@@ -222,12 +223,19 @@ export type PlacedModel = {
   materialOverrides?: Record<string, string>
   modelId: string
   position: Point
+  roofAttachment?: RoofAttachment
   rotation: number
   scale: number
   wallOpeningBottom?: number
   widthScale?: number
   depthScale?: number
   wallAttachment?: WallAttachment
+}
+
+export type RoofAttachment = {
+  localPosition: Point
+  roofId: string
+  surface: 'negative-x' | 'positive-x' | 'negative-y' | 'positive-y'
 }
 
 export type WallAttachment = {

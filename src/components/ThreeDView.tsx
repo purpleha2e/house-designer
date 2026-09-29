@@ -30,6 +30,7 @@ import {
   NearestFilter,
   NoColorSpace,
   Object3D,
+  Plane,
   Path,
   PMREMGenerator,
   PointLight,
@@ -103,7 +104,7 @@ import { findClosestWallFace } from '../wallPickFallback'
 import { WallViewFadeContext, isFadedWallSurface, useWallViewFade } from './WallViewFade'
 import { isProximityFadedObject, RoofViewFadeContext, useProximityViewFade } from './ProximityViewFade'
 import { releaseLightShadowResources } from '../lightShadowResources'
-import { SunShadowCache } from '../sunShadowCache'
+import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../sunShadowCache'
 import { configureAmbientOcclusionPass } from '../ambientOcclusionResources'
 import {
   applyImportedPbrEnvironment,
@@ -115,6 +116,17 @@ import {
   type ModelDefinition,
   type ModelMaterialRegion,
 } from '../models/modelLibrary'
+import type { ModelPlacement } from '../modelPlacement'
+import {
+  createDormerStructuralAssembly,
+  getAttachedDormerPlacement,
+  getDormerOpeningPolygon,
+  getDormerPlacementOnRoof,
+  roofSupportsDormers,
+} from '../dormerPlacement'
+import type { SolidPlane } from '../convexSolid'
+import { createDormerGeometries } from '../dormerGeometry'
+import { prepareDormerInteriors } from '../dormerInterior'
 import { getModelMaterialOverrideId } from '../modelMaterialOverrides'
 import {
   createBoxProjectedUvGeometry,
@@ -167,7 +179,7 @@ import { clipRoofGeometryByVolumes, getRoofAbutmentPlanes, type RoofAbuttingWall
 import { roofFacePlanes, type ClipPlane } from '../wallEngine/wallRoofClip'
 import { findStoreyBoundaryAssignment, findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
 import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, subtractRoofVolume, type ResolvedRoof } from '../roofJunctions'
-import { createSolidRoofGeometryFromFaces, getFlippedRoofFaceProjectedUvs, splitRoofUndersideFaces, type RoofGeometries, type RoofFaceUvProjector, type RoofVertex } from '../roofSolidGeometry'
+import { createSolidRoofGeometryFromFaces, cutRoofFacesAtDormerOpenings, getFlippedRoofFaceProjectedUvs, splitRoofUndersideFaces, type RoofGeometries, type RoofFaceUvProjector, type RoofVertex } from '../roofSolidGeometry'
 import { carveRoofSurfaceByRooms, type RoomRoofCut } from '../roofRoomCsg'
 import { buildBuildingRoomVolumes, type BuildingRoomVolumes } from '../buildingRoomVolumes'
 import { getRoofThickness } from '../roofThickness'
@@ -240,11 +252,14 @@ type ThreeDViewProps = {
   isEngineConsoleOpen: boolean
   lightDirection: SunPosition
   modelAssetVersion: number
+  placementModel: ModelDefinition | null
   roofPlacementPreview: RoofPlacementPreview | null
+  onCancelModelPlacement: () => void
   onClearSelection: () => void
   onCameraViewStateChange: (cameraState: ThreeDViewCameraState) => void
   onEngineConsoleOpenChange: (isOpen: boolean) => void
   onLightDirectionChange: (lightDirection: SunPosition) => void
+  onPlaceModel: (placement: ModelPlacement) => void
   onSelectFloor: (floorId: string) => void
   onSelectModel: (modelId: string, floorId: string) => void
   onSelectRoof: (roofId: string, floorId: string) => void
@@ -1559,8 +1574,10 @@ function SunLight({
         shadow-camera-bottom={-sceneBounds.size / 2}
         shadow-camera-near={0.5}
         shadow-camera-far={shadowCameraFar}
-        shadow-bias={0.0004}
-        shadow-normalBias={0.08}
+        // Positive depth bias pushes receivers inside adjoining solids and
+        // draws false shadow seams. Normal bias provides the separation.
+        shadow-bias={0}
+        shadow-normalBias={SUN_SHADOW_NORMAL_BIAS_METERS}
       />
     </>
   )
@@ -2512,10 +2529,12 @@ function WallSegmentMesh({
 
 function InternalWallMaterial({
   attach,
+  shadowSide = FrontSide,
   side = FrontSide,
   wireframe,
 }: {
   attach?: string
+  shadowSide?: Side
   side?: Side
   wireframe: boolean
 }) {
@@ -2524,13 +2543,15 @@ function InternalWallMaterial({
       attach={attach}
       color="#cbd5e1"
       roughness={0.72}
-      shadowSide={FrontSide}
+      shadowSide={shadowSide}
       side={side}
       wireframe={wireframe}
     />
   )
 }
 
+const DormerRoomClipContext = createContext<ReadonlyMap<string, SolidPlane[]>>(new Map())
+const DormerBaseElevationsContext = createContext<ReadonlyMap<string, number>>(new Map())
 const StoreyGeometryContext = createContext<ReadonlyMap<string, StoreyGeometry>>(new Map())
 const RoofGableContext = createContext<RoofGable[]>([])
 
@@ -3459,6 +3480,10 @@ function WallEngineMaterialSlot({
 }: Parameters<typeof resolveWallEngineMaterial>[0] & { attach: string; wireframe: boolean }) {
   const { assignment, material, fallback } = resolveWallEngineMaterial({ source, surfaceAssignments, wallsById })
 
+  // Block sunlight at the outside of the wall, before it reaches interior
+  // trim. Back-face-only shadows leak through the filter footprint where
+  // skirting meets the inside skin; zero sun depth bias prevents acne here.
+
   if (assignment && material) {
     return (
       <SurfaceMeshStandardMaterial
@@ -3468,6 +3493,7 @@ function WallEngineMaterialSlot({
         material={material}
         polygonOffsetFactor={0}
         polygonOffsetUnits={0}
+        shadowSide={DoubleSide}
         side={DoubleSide}
         textureQuality={getWallSurfaceTextureQuality(material)}
         wireframe={wireframe}
@@ -3476,9 +3502,9 @@ function WallEngineMaterialSlot({
   }
 
   return fallback === 'external' ? (
-    <ExternalWallMaterial attach={attach} side={DoubleSide} wireframe={wireframe} />
+    <ExternalWallMaterial attach={attach} shadowSide={DoubleSide} side={DoubleSide} wireframe={wireframe} />
   ) : (
-    <InternalWallMaterial attach={attach} side={DoubleSide} wireframe={wireframe} />
+    <InternalWallMaterial attach={attach} shadowSide={DoubleSide} side={DoubleSide} wireframe={wireframe} />
   )
 }
 
@@ -9825,55 +9851,25 @@ function SelectableRoomSurfaceMesh({
   )
 }
 
-function FloorPlaneSurface({
-  elevation,
-  floorPlane,
-  isActive,
-  openings,
-  receiveShadow,
-  wireframe,
-}: {
-  elevation: number
-  floorPlane: NonNullable<ReturnType<typeof getFloorPlaneBounds>>
-  isActive: boolean
-  openings: PlanCutout[]
-  receiveShadow: boolean
-  wireframe: boolean
+function LowerFloorReference({ data, activeElevation }: {
+  data: RenderedFloorData; activeElevation: number
 }) {
-  const shapes = useMemo(() => {
-    const halfSize = floorPlane.size / 2
-
-    return createPlanShapesWithCutouts(
-      [
-        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ - halfSize },
-        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ - halfSize },
-        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ + halfSize },
-        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ + halfSize },
-      ],
-      openings,
-    )
-  }, [floorPlane, openings])
-
-  return (
-    <mesh
-      position={[0, elevation - 0.01, 0]}
-      rotation={[-Math.PI / 2, 0, 0]}
-      receiveShadow={receiveShadow}
-      renderOrder={isActive ? 0 : -1}
-    >
-      <shapeGeometry args={[shapes]} />
-      <meshStandardMaterial
-        color={isActive ? '#f8fafc' : '#eef2f7'}
-        depthWrite={isActive}
-        opacity={isActive ? 1 : 0.035}
-        polygonOffset={!isActive}
-        polygonOffsetFactor={2}
-        polygonOffsetUnits={2}
-        transparent={!isActive}
-        wireframe={wireframe}
-      />
-    </mesh>
-  )
+  const { floor, externalWallUnionFootprints } = data
+  const geometry = useMemo(() => {
+    const positions: number[] = []
+    const height = Math.max(0, Math.min(floor.roomHeight, activeElevation - floor.elevation))
+    for (const footprint of externalWallUnionFootprints) {
+      const edges = createUnionFootprintEdgeGeometry(footprint, floor.elevation, height)
+      positions.push(...edges.getAttribute('position').array)
+      edges.dispose()
+    }
+    return new BufferGeometry().setAttribute('position', new Float32BufferAttribute(positions, 3))
+  }, [externalWallUnionFootprints, floor.elevation, floor.roomHeight, activeElevation])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return <lineSegments geometry={geometry} raycast={() => null}
+    userData={{ houseDesignerRole: 'lower-floor-reference', floorId: floor.id }}>
+    <lineBasicMaterial color="#64748b" transparent opacity={0.45} depthWrite={false} />
+  </lineSegments>
 }
 
 const ROOF_INFILL_WALL_OVERLAP_METERS = 0.002
@@ -10293,14 +10289,16 @@ function SolidGableSurface({ gable, faces, onRegisterPickTarget, shadowsEnabled,
   const assignment = gableAssignment ?? (source.wall && source.wallSide
     ? getRoofInfillMaterialAssignment(surfaceAssignments, source.wall, source.wallSide) : undefined)
   const material = assignment ? surfaceMaterialsById.get(assignment.materialId) : undefined
+  // These faces bound a solid, like the wall engine. Casting the sun-facing
+  // skin shadows that same skin and produces stripes across the whole gable.
   return <mesh ref={ref} geometry={geometry} castShadow={shadowsEnabled} receiveShadow={shadowsEnabled}
     userData={{ houseDesignerRole: 'roof-infill', solidGable: true, roofId: gable.roofId,
       wallId: source.wall?.id, interior: source.interior }}>
     {assignment && material ? <SurfaceMeshStandardMaterial assignment={assignment} displacementEnabled={false}
-      material={material} polygonOffsetFactor={0} polygonOffsetUnits={0} side={FrontSide} shadowSide={DoubleSide}
+      material={material} polygonOffsetFactor={0} polygonOffsetUnits={0} side={FrontSide} shadowSide={BackSide}
       textureQuality={getWallSurfaceTextureQuality(material)} wireframe={wireframe} />
-      : source.interior ? <InternalWallMaterial wireframe={wireframe} />
-      : <ExternalWallMaterial shadowSide={DoubleSide} side={FrontSide} wireframe={wireframe} />}
+      : source.interior ? <InternalWallMaterial shadowSide={BackSide} wireframe={wireframe} />
+      : <ExternalWallMaterial shadowSide={BackSide} side={FrontSide} wireframe={wireframe} />}
   </mesh>
 }
 
@@ -10473,6 +10471,7 @@ function HiddenSurfaceWireframeRenderer({ side }: { side: Side }) {
 function HipRoofMesh({
   abuttingWalls,
   buildingRoomCuts,
+  dormerOpeningPolygons,
   elevation,
   floorId,
   isActive,
@@ -10488,6 +10487,7 @@ function HipRoofMesh({
 }: {
   abuttingWalls: RoofAbuttingWall[]
   buildingRoomCuts: RoomRoofCut[]
+  dormerOpeningPolygons: Point[][]
   elevation: number
   floorId: string
   isActive: boolean
@@ -10508,7 +10508,10 @@ function HipRoofMesh({
   const geometries = useMemo<RoofGeometries>(() => {
     // Visible tiles, shell and eaves follow the junction resolver's exposed
     // panels. The untrimmed outer profile is reserved for room-volume CSG.
-    const outerFaces = resolved.faces
+    const outerFaces = cutRoofFacesAtDormerOpenings(
+      resolved.faces,
+      dormerOpeningPolygons,
+    )
     const faces = outerFaces.map((face) => face.map((p) => roofToLocal(roof, elevation, p)))
     const clipAtNearAbutments = (sourceFaces: RoofVertex[][]) => abuttingWalls.reduce((faces, abutment) => {
       const plane = getRoofAbutmentPlanes([abutment], getRoofRenderPosition(roof))[0]
@@ -10557,7 +10560,7 @@ function HipRoofMesh({
       soffit: carve(solid.soffit),
       eaves: rawEaves ? carve(rawEaves) : undefined,
     }
-  }, [buildingRoomCuts, elevation, resolved, roof])
+  }, [buildingRoomCuts, dormerOpeningPolygons, elevation, resolved, roof])
   const facingWireframe = useMemo<RoofGeometries | null>(() => {
     if (!wireframe || roofFaceSide === undefined) return null
     return {
@@ -10662,6 +10665,9 @@ function HipRoofMesh({
       renderOrder={isActive ? 3 : 1}
     >
       <group ref={groupRef}>
+        {/* The outer skin must block incoming light before it reaches the
+            interior roof/gable seam. Back-face-only casting uses the inner
+            skin at that junction and lets filtered sunlight leak through. */}
         <mesh
           castShadow={shadowsEnabled}
           geometry={facingWireframe?.top ?? geometries.top}
@@ -10674,7 +10680,7 @@ function HipRoofMesh({
               assignment={roofAssignment}
               displacementEnabled={false}
               material={roofMaterial}
-              shadowSide={BackSide}
+              shadowSide={DoubleSide}
               side={roofFaceSide}
               textureQuality="pbr"
               wireframe={wireframe}
@@ -10684,7 +10690,7 @@ function HipRoofMesh({
               color="#4b5563"
               metalness={0}
               roughness={0.74}
-              shadowSide={BackSide}
+              shadowSide={DoubleSide}
               side={roofFaceSide}
               wireframe={wireframe}
             />
@@ -10918,6 +10924,30 @@ function RoofMeshes({
   const candidates = useMemo(() => wallClippingRoofs.filter((candidate) => candidate.floorId === floor.id),
     [wallClippingRoofs, floor.id])
   const buildingRoomCuts = buildingRoomVolumes.cuts
+  const dormerOpeningsByRoofId = useMemo(() => {
+    const openings = new Map<string, Point[][]>()
+
+    for (const model of floor.models ?? []) {
+      if (!model.roofAttachment) continue
+      const definition = modelsById.get(model.modelId)
+      if (definition?.roofMount !== 'dormer') continue
+      const roofOpenings = openings.get(model.roofAttachment.roofId) ?? []
+      const attachedRoof = candidates.find(candidate => candidate.roof.id === model.roofAttachment?.roofId)?.roof
+      const windowDefinition = modelsById.get(model.dormerWindowModelId ?? '') ??
+        Array.from(modelsById.values()).find(
+          (candidate) => candidate.wallMount === 'window',
+        )
+      roofOpenings.push(getDormerOpeningPolygon(
+        model,
+        definition,
+        attachedRoof,
+        windowDefinition,
+      ))
+      openings.set(model.roofAttachment.roofId, roofOpenings)
+    }
+
+    return openings
+  }, [floor.models, candidates])
 
   return (
     <>
@@ -10941,6 +10971,7 @@ function RoofMeshes({
           <HipRoofMesh
             abuttingWalls={abuttingWalls}
             buildingRoomCuts={buildingRoomCuts}
+            dormerOpeningPolygons={dormerOpeningsByRoofId.get(roof.id) ?? []}
             key={roof.id}
             elevation={elevation}
             floorId={floor.id}
@@ -12750,8 +12781,11 @@ function ModelMesh({
   onRegisterPickTarget,
   onTransformActiveChange,
   onUpdateModel,
+  roomHeight,
   rooms,
+  roofs,
   shadowsEnabled,
+  surfaceAssignments,
   stairSnapWalls,
   transformEnabled,
   transformMode,
@@ -12772,14 +12806,19 @@ function ModelMesh({
   onRegisterPickTarget: (target: PickTarget) => () => void
   onTransformActiveChange: (isActive: boolean) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
+  roomHeight: number
   rooms: DetectedRoom[]
+  roofs: RoofStructure[]
   shadowsEnabled: boolean
+  surfaceAssignments: SurfaceMaterialAssignment[]
   stairSnapWalls: Wall[]
   transformEnabled: boolean
   transformMode: TransformMode
   walls: Wall[]
   wireframe: boolean
 }) {
+  const dormerRoomClipPlanes = useContext(DormerRoomClipContext)
+  const dormerBaseElevations = useContext(DormerBaseElevationsContext)
   const groupRef = useRef<Object3D>(null!)
   const transformModifierRef = useRef({ ctrlKey: false, shiftKey: false })
   const lastValidTransformRef = useRef<ObjectTransformSnapshot | null>(null)
@@ -12791,6 +12830,30 @@ function ModelMesh({
     return null
   }
 
+  const attachedRoof = model.roofAttachment
+    ? roofs.map(roof => getRoofWithExternalWallSupportExtents(roof, walls)).find((roof) => roof.id === model.roofAttachment?.roofId)
+    : undefined
+  const dormerPlacement = attachedRoof && model.roofAttachment
+    ? getAttachedDormerPlacement(attachedRoof, model.roofAttachment)
+    : null
+  const dormerWindowDefinition = modelDefinition.roofMount === 'dormer'
+    ? modelsById.get(model.dormerWindowModelId ?? '') ??
+      Array.from(modelsById.values()).find(
+        (definition) => definition.wallMount === 'window',
+      )
+    : undefined
+  const attachedRoofAssignment = attachedRoof
+    ? surfaceAssignments.findLast(
+        (assignment) =>
+          assignment.target.type === 'roof' &&
+          assignment.target.floorId === floorId &&
+          assignment.target.roofId === attachedRoof.id &&
+          !assignment.target.part,
+      )
+    : undefined
+  const attachedRoofMaterial = attachedRoofAssignment
+    ? surfaceMaterialsById.get(attachedRoofAssignment.materialId)
+    : undefined
   const verticalOffset =
     modelDefinition.isLight
       ? model.height ?? modelDefinition.height
@@ -12803,7 +12866,12 @@ function ModelMesh({
     !modelDefinition.isLight &&
     modelDefinition.wallMount !== 'window' &&
     modelDefinition.wallMount !== 'patio-door'
-  const floorSnapY = elevation + verticalOffset
+  const floorSnapY = dormerPlacement
+    ? elevation + roomHeight + (attachedRoof?.heightOffset ?? 0) + dormerPlacement.surfaceHeight
+    : elevation + verticalOffset
+  const dormerWallBaseY = dormerPlacement
+    ? ((dormerBaseElevations.get(model.id) ?? elevation) - floorSnapY) / Math.max(Math.abs(model.scale ?? 1), 0.001)
+    : undefined
   const wallMountWall = model.wallAttachment?.wallId
     ? walls.find((wall) => wall.id === model.wallAttachment?.wallId)
     : null
@@ -12826,8 +12894,8 @@ function ModelMesh({
     isEditableWallMountedOpening && wallMountWall
       ? getWallMountedModelRotation(wallMountWall, wallMountedDisplaySide)
       : model.rotation
-  const displayPosition =
-    isEditableWallMountedOpening && wallMountWall && model.wallAttachment
+  const displayPosition = dormerPlacement?.position ??
+    (isEditableWallMountedOpening && wallMountWall && model.wallAttachment
       ? getWallMountedModelDisplayPosition({
           definition: modelDefinition,
           importedLocalBounds,
@@ -12837,7 +12905,8 @@ function ModelMesh({
           side: wallMountedDisplaySide,
           wall: wallMountWall,
         })
-      : model.position
+      : model.position)
+  const displayRotation = dormerPlacement?.rotation ?? wallMountedDisplayRotation
   const snapObjectToFloor = () => {
     const object = groupRef.current
 
@@ -13238,6 +13307,27 @@ function ModelMesh({
           model={model}
           onRegisterPickTarget={onRegisterPickTarget}
         />
+      ) : modelDefinition.roofMount === 'dormer' ? (
+        <DormerWindowContent
+          castsShadow={castsShadow}
+          daylightEnabled={daylightEnabled}
+          definition={modelDefinition}
+          floorId={floorId}
+          frustumCullingEnabled={frustumCullingEnabled}
+          isActive={isActive}
+          isSelected={isSelected}
+          modelAssetVersion={modelAssetVersion}
+          modelId={model.id}
+          onRegisterPickTarget={onRegisterPickTarget}
+          roof={attachedRoof}
+          roofAssignment={attachedRoofAssignment}
+          roofMaterial={attachedRoofMaterial}
+          depthScale={model.depthScale ?? 1}
+          roomClipPlanes={dormerRoomClipPlanes.get(model.id)}
+          wallBaseY={dormerWallBaseY}
+          windowDefinition={dormerWindowDefinition}
+          wireframe={wireframe}
+        />
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
           batchable={
@@ -13284,7 +13374,7 @@ function ModelMesh({
     <group
       ref={groupRef}
       position={[displayPosition.x, floorSnapY, displayPosition.y]}
-      rotation={[0, -wallMountedDisplayRotation, 0]}
+      rotation={[0, -displayRotation, 0]}
       scale={[
         (model.scale ?? 1) * (model.widthScale ?? 1),
         model.scale ?? 1,
@@ -13296,7 +13386,7 @@ function ModelMesh({
     </group>
   )
 
-  if (isSelected && isActive && transformEnabled) {
+  if (isSelected && isActive && transformEnabled && !modelDefinition.roofMount) {
     return (
       <>
         {modelGroup}
@@ -13697,8 +13787,11 @@ function SolidFloorScene({
               onRegisterPickTarget={onRegisterPickTarget}
               onTransformActiveChange={onTransformActiveChange}
               onUpdateModel={onUpdateModel}
+              roomHeight={floor.roomHeight}
               rooms={rooms}
+              roofs={floor.roofs ?? []}
               shadowsEnabled={shadowsEnabled}
+              surfaceAssignments={surfaceAssignments}
               stairSnapWalls={stairSnapWalls}
               transformEnabled={transformEnabled}
               transformMode={transformMode}
@@ -13714,9 +13807,11 @@ function SolidFloorScene({
 
 function SelectionBoundsBox({
   center,
+  color = MODEL_OUTLINE_COLOR,
   size,
 }: {
   center: [number, number, number]
+  color?: string
   size: [number, number, number]
 }) {
   const scaledSize = [
@@ -13752,7 +13847,7 @@ function SelectionBoundsBox({
         <mesh key={index} position={edge.position}>
           <boxGeometry args={edge.size} />
           <meshBasicMaterial
-            color={MODEL_OUTLINE_COLOR}
+            color={color}
             depthTest={false}
             depthWrite={false}
             toneMapped={false}
@@ -17823,6 +17918,668 @@ function ModelPicker({
   return null
 }
 
+function DormerWindowContent({
+  castsShadow,
+  daylightEnabled,
+  definition,
+  floorId,
+  frustumCullingEnabled,
+  isActive = true,
+  isSelected = false,
+  modelAssetVersion,
+  modelId,
+  onRegisterPickTarget,
+  previewState,
+  roof,
+  roofAssignment,
+  roofMaterial,
+  depthScale = 1,
+  wallBaseY,
+  roomClipPlanes,
+  windowDefinition,
+  wireframe,
+}: {
+  castsShadow: boolean
+  daylightEnabled: boolean
+  definition: ModelDefinition
+  floorId?: string
+  frustumCullingEnabled: boolean
+  isActive?: boolean
+  isSelected?: boolean
+  modelAssetVersion: number
+  modelId?: string
+  onRegisterPickTarget?: (target: PickTarget) => () => void
+  previewState?: 'valid' | 'invalid'
+  roof?: RoofStructure
+  roofAssignment?: SurfaceMaterialAssignment
+  roofMaterial?: SurfaceMaterialProduct
+  depthScale?: number
+  roomClipPlanes?: SolidPlane[]
+  wallBaseY?: number
+  windowDefinition?: ModelDefinition
+  wireframe: boolean
+}) {
+  const groupRef = useRef<Object3D>(null!)
+  const ignorePickRegistration = useCallback(() => () => undefined, [])
+  const ignoreBoundsChange = useCallback(() => undefined, [])
+  const width = definition.width
+  const assembly = useMemo(() => createDormerStructuralAssembly({
+    definition,
+    hostRoof: roof,
+    depthScale,
+    ownerId: modelId ?? 'dormer-preview',
+    wallBaseY,
+    windowDefinition,
+  }), [definition, depthScale, modelId, roof, wallBaseY, windowDefinition])
+  const {
+    depth,
+    roofHalfWidth,
+    roofRise,
+    wallHeight,
+    windowBottom,
+    windowHeight,
+    windowWidth,
+  } = assembly
+  const height = wallHeight + roofRise
+  const roofSlopeLength = Math.hypot(roofHalfWidth, roofRise)
+  const roofAngle = Math.atan2(roofRise, roofHalfWidth)
+  const roofThickness = roof ? getRoofThickness(roof) : 0.08
+  const capThickness = Math.min(0.18, Math.max(0.055, roofThickness))
+  const frameThickness = Math.max(0.045, width * 0.045)
+  const previewColor = previewState === 'invalid' ? '#f97316' : '#38bdf8'
+  const wallColor = previewState ? previewColor : definition.color
+  const roofColor = previewState ? previewColor : '#374151'
+  const fasciaColor = previewState ? previewColor : roof?.soffitColor ?? '#ffffff'
+  const opacity = previewState ? 0.52 : isActive ? 1 : 0.24
+  const transparent = Boolean(previewState) || !isActive
+  const dormerRoofGeometries = useMemo(() => createDormerGeometries(assembly, depthScale, roomClipPlanes), [assembly, depthScale, roomClipPlanes])
+  useEffect(() => () => {
+    Object.values(dormerRoofGeometries).forEach(geometry => geometry.dispose())
+  }, [dormerRoofGeometries])
+
+  useEffect(() => {
+    if (!onRegisterPickTarget || !floorId || !modelId || !groupRef.current) {
+      return undefined
+    }
+    return onRegisterPickTarget({
+      blocksCollision: false,
+      floorId,
+      kind: 'model',
+      modelId,
+      object: groupRef.current,
+    })
+  }, [floorId, modelId, onRegisterPickTarget])
+
+  const material = (color: string, extraOpacity = 1) => (
+    <meshStandardMaterial
+      color={color}
+      opacity={opacity * extraOpacity}
+      roughness={color === '#7dd3fc' ? 0.18 : 0.7}
+      metalness={color === '#7dd3fc' ? 0.08 : 0}
+      transparent={transparent || extraOpacity < 1}
+      wireframe={wireframe}
+    />
+  )
+  const roofSurfaceMaterial = () =>
+    !previewState && roofAssignment && roofMaterial ? (
+      <SurfaceMeshStandardMaterial
+        assignment={roofAssignment}
+        displacementEnabled={false}
+        material={roofMaterial}
+        shadowSide={DoubleSide}
+        side={DoubleSide}
+        textureQuality="pbr"
+        wireframe={wireframe}
+      />
+    ) : material(roofColor)
+  const fallbackWindow = (
+    <>
+      <mesh position={[0, windowHeight / 2, 0.022]}>
+        <planeGeometry args={[windowWidth, windowHeight]} />
+        {material(previewState ? previewColor : '#7dd3fc', previewState ? 0.72 : 0.68)}
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh
+          key={`window-side-${side}`}
+          castShadow={castsShadow}
+          position={[side * windowWidth / 2, windowHeight / 2, 0.045]}
+        >
+          <boxGeometry args={[frameThickness, windowHeight + frameThickness, 0.075]} />
+          {material(previewState ? previewColor : '#f8fafc')}
+        </mesh>
+      ))}
+      {[0, windowHeight].map((y) => (
+        <mesh key={`window-horizontal-${y}`} castShadow={castsShadow} position={[0, y, 0.045]}>
+          <boxGeometry args={[windowWidth + frameThickness, frameThickness, 0.075]} />
+          {material(previewState ? previewColor : '#f8fafc')}
+        </mesh>
+      ))}
+    </>
+  )
+
+  return (
+    <group ref={groupRef}>
+      {isSelected ? (
+        <SelectionBoundsBox
+          center={[0, height / 2, -depth / 2]}
+          size={[width * 1.16, height, depth * 1.08]}
+        />
+      ) : null}
+      {previewState ? (
+        <>
+          <mesh castShadow={castsShadow}
+            position={[-(windowWidth + width) / 4, wallHeight / 2, -0.035]}>
+            <boxGeometry args={[(width - windowWidth) / 2, wallHeight, 0.1]} />
+            {material(wallColor)}
+          </mesh>
+          <mesh castShadow={castsShadow}
+            position={[(windowWidth + width) / 4, wallHeight / 2, -0.035]}>
+            <boxGeometry args={[(width - windowWidth) / 2, wallHeight, 0.1]} />
+            {material(wallColor)}
+          </mesh>
+          <mesh castShadow={castsShadow} position={[0, windowBottom / 2, -0.035]}>
+            <boxGeometry args={[windowWidth, windowBottom, 0.1]} />
+            {material(wallColor)}
+          </mesh>
+          <mesh castShadow={castsShadow}
+            position={[0, windowBottom + windowHeight + (wallHeight - windowBottom - windowHeight) / 2, -0.035]}>
+            <boxGeometry args={[windowWidth, wallHeight - windowBottom - windowHeight, 0.1]} />
+            {material(wallColor)}
+          </mesh>
+          {[-1, 1].map((side) => (
+            <mesh key={`preview-cheek-${side}`} castShadow={castsShadow}
+              position={[side * (width / 2 - 0.045), wallHeight / 2, -depth / 2]}>
+              <boxGeometry args={[0.09, wallHeight, depth]} />
+              {material(wallColor)}
+            </mesh>
+          ))}
+        </>
+      ) : (
+        <mesh userData={{ houseDesignerRole: 'dormer-walls', modelId }} geometry={dormerRoofGeometries.walls} castShadow={castsShadow} receiveShadow={castsShadow}>
+          <meshStandardMaterial color={wallColor} roughness={0.85} side={DoubleSide}
+            shadowSide={DoubleSide} wireframe={wireframe} />
+        </mesh>
+      )}
+      <group position={[0, windowBottom, 0.022]}>
+        {!previewState && windowDefinition?.sourceUrl ? (
+          <Suspense fallback={fallbackWindow}>
+            <ImportedModelContent
+              batchable={false}
+              blocksCollision={false}
+              castsShadow={castsShadow}
+              daylightEnabled={daylightEnabled}
+              floorId={floorId ?? 'dormer-window'}
+              frustumCullingEnabled={frustumCullingEnabled}
+              isActive={isActive}
+              isSelected={false}
+              modelId={`${modelId ?? 'dormer'}:window`}
+              normalizeToDimensions
+              onBoundsChange={ignoreBoundsChange}
+              onRegisterPickTarget={ignorePickRegistration}
+              sourceUrl={getModelAssetUrl(windowDefinition.sourceUrl, modelAssetVersion)}
+              targetDepth={Math.max(0.06, Math.min(windowDefinition.depth, 0.14))}
+              targetHeight={windowHeight}
+              targetWidth={windowWidth}
+              wireframe={wireframe}
+            />
+          </Suspense>
+        ) : fallbackWindow}
+      </group>
+      {previewState ? (
+        [-1, 1].map((side) => (
+          <mesh key={`roof-${side}`} castShadow={castsShadow}
+            position={[side * roofHalfWidth / 2, wallHeight + roofRise / 2, -depth / 2]}
+            rotation={[0, 0, -side * roofAngle]}>
+            <boxGeometry args={[roofSlopeLength, capThickness, depth * 1.1]} />
+            {roofSurfaceMaterial()}
+          </mesh>
+        ))
+      ) : (
+        <group>
+          <mesh castShadow={castsShadow} receiveShadow={castsShadow}
+            geometry={dormerRoofGeometries.top}>
+            {roofSurfaceMaterial()}
+          </mesh>
+          <mesh castShadow={castsShadow} geometry={dormerRoofGeometries.shell}>
+            {roofSurfaceMaterial()}
+          </mesh>
+          <mesh receiveShadow={castsShadow} geometry={dormerRoofGeometries.underside} userData={{ houseDesignerRole: 'dormer-ceiling', modelId }}>
+            <meshStandardMaterial color={fasciaColor} roughness={0.7}
+              side={DoubleSide} wireframe={wireframe} />
+          </mesh>
+        </group>
+      )}
+      <mesh geometry={dormerRoofGeometries.fascia} castShadow={castsShadow}>
+        {material(fasciaColor)}
+      </mesh>
+      {[-1, 1].map((side) => (
+        <mesh
+          key={`fascia-${side}`}
+          castShadow={castsShadow}
+          position={[side * roofHalfWidth / 2, wallHeight + roofRise / 2, 0.04]}
+          rotation={[0, 0, -side * roofAngle]}
+        >
+          <boxGeometry args={[roofSlopeLength + 0.05, Math.max(0.065, capThickness * 0.72), 0.065]} />
+          {material(fasciaColor)}
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+type OpeningPlacementCandidate = ModelPlacement & {
+  elevation: number
+}
+
+type OpeningPlacementPreview = {
+  candidate: OpeningPlacementCandidate | null
+  cursorPosition: [number, number, number]
+}
+
+function OpeningPlacementVisual({
+  daylightEnabled,
+  definition,
+  floors,
+  modelAssetVersion,
+  preview,
+}: {
+  daylightEnabled: boolean
+  definition: ModelDefinition
+  floors: FloorLevel[]
+  modelAssetVersion: number
+  preview: OpeningPlacementPreview
+}) {
+  const [importedLocalBounds, setImportedLocalBounds] =
+    useState<ModelHorizontalBounds | null>(null)
+  const ignorePickRegistration = useCallback(() => () => undefined, [])
+  const candidate = preview.candidate
+  const wall = candidate?.wallAttachment
+    ? floors
+        .find((floor) => floor.id === candidate.floorId)
+        ?.walls.find((item) => item.id === candidate.wallAttachment?.wallId)
+    : null
+  const attachedRoof = candidate?.roofAttachment
+    ? floors
+        .find((floor) => floor.id === candidate.floorId)
+        ?.roofs?.map(roof => getRoofWithExternalWallSupportExtents(roof, floors.find(floor => floor.id === candidate.floorId)?.walls ?? []))
+        .find((roof) => roof.id === candidate.roofAttachment?.roofId)
+    : null
+  const dormerPlacement = attachedRoof && candidate?.roofAttachment
+    ? getAttachedDormerPlacement(attachedRoof, candidate.roofAttachment)
+    : null
+  const previewModel: PlacedModel = {
+    id: '__opening-placement-preview__',
+    modelId: definition.id,
+    position: candidate?.position ?? {
+      x: preview.cursorPosition[0],
+      y: preview.cursorPosition[2],
+    },
+    rotation: candidate?.rotation ?? 0,
+    scale: 1,
+    wallAttachment: candidate?.wallAttachment,
+    wallOpeningBottom: candidate?.wallOpeningBottom,
+  }
+  const displayPosition = dormerPlacement?.position ??
+    (candidate && wall && candidate.wallAttachment
+    ? getWallMountedModelDisplayPosition({
+        definition,
+        importedLocalBounds,
+        model: previewModel,
+        offset: candidate.wallAttachment.offset,
+        rotation: candidate.rotation,
+        side: candidate.wallAttachment.side ?? 1,
+        wall,
+      })
+    : {
+        x: preview.cursorPosition[0],
+        y: preview.cursorPosition[2],
+      })
+  const openingBottom = candidate?.wallOpeningBottom ??
+    (candidate && definition.wallMount === 'window' ? 0.9 : 0)
+  const floorElevation = candidate?.elevation ?? floors[0]?.elevation ?? 0
+  const verticalPosition = dormerPlacement
+    ? floorElevation + (attachedRoof?.heightOffset ?? 0) + dormerPlacement.surfaceHeight
+    : candidate
+      ? floorElevation + openingBottom
+    : Math.max(floorElevation, preview.cursorPosition[1] - definition.height / 2)
+  const fallback = (
+    <mesh position={[0, definition.height / 2, 0]}>
+      <boxGeometry args={[
+        Math.max(definition.width, 0.2),
+        Math.max(definition.height, 0.2),
+        Math.max(definition.depth, 0.08),
+      ]} />
+      <meshBasicMaterial
+        color={candidate ? '#38bdf8' : '#f97316'}
+        transparent
+        opacity={0.42}
+        depthWrite={false}
+      />
+    </mesh>
+  )
+
+  return (
+    <group
+      position={[displayPosition.x, verticalPosition, displayPosition.y]}
+      rotation={[0, -(dormerPlacement?.rotation ?? candidate?.rotation ?? 0), 0]}
+      renderOrder={6}
+    >
+      {definition.roofMount === 'dormer' ? (
+        <DormerWindowContent
+          castsShadow={false}
+          daylightEnabled={daylightEnabled}
+          definition={definition}
+          frustumCullingEnabled={false}
+          modelAssetVersion={modelAssetVersion}
+          previewState={candidate ? 'valid' : 'invalid'}
+          roof={attachedRoof ?? undefined}
+          windowDefinition={Array.from(modelsById.values()).find(
+            (candidateDefinition) => candidateDefinition.wallMount === 'window',
+          )}
+          wireframe={false}
+        />
+      ) : definition.sourceUrl ? (
+        <Suspense fallback={fallback}>
+          <ImportedModelContent
+            batchable={false}
+            blocksCollision={false}
+            castsShadow={false}
+            daylightEnabled={daylightEnabled}
+            floorId={candidate?.floorId ?? floors[0]?.id ?? 'placement-preview'}
+            frustumCullingEnabled={false}
+            isActive
+            isSelected={false}
+            modelId="__opening-placement-preview__"
+            normalizeToDimensions={Boolean(definition.normalizeToDimensions)}
+            onBoundsChange={setImportedLocalBounds}
+            onRegisterPickTarget={ignorePickRegistration}
+            sourceUrl={getModelAssetUrl(definition.sourceUrl, modelAssetVersion)}
+            targetDepth={definition.depth}
+            targetHeight={definition.height}
+            targetWidth={definition.width}
+            wireframe={false}
+          />
+        </Suspense>
+      ) : fallback}
+      <SelectionBoundsBox
+        center={[
+          0,
+          definition.height / 2,
+          definition.roofMount === 'dormer' ? -definition.depth / 2 : 0,
+        ]}
+        color={candidate ? '#0284c7' : '#ea580c'}
+        size={[
+          Math.max(definition.width, 0.2),
+          Math.max(definition.height, 0.2),
+          Math.max(definition.depth, 0.08),
+        ]}
+      />
+    </group>
+  )
+}
+
+function OpeningPlacementController({
+  daylightEnabled,
+  definition,
+  floors,
+  modelAssetVersion,
+  onPlaceModel,
+  pickTargetsRef,
+}: {
+  daylightEnabled: boolean
+  definition: ModelDefinition
+  floors: FloorLevel[]
+  modelAssetVersion: number
+  onPlaceModel: (placement: ModelPlacement) => void
+  pickTargetsRef: MutableRefObject<PickTarget[]>
+}) {
+  const { camera, gl, invalidate } = useThree()
+  const [preview, setPreview] = useState<OpeningPlacementPreview | null>(null)
+  const candidateRef = useRef<OpeningPlacementCandidate | null>(null)
+  const gestureRef = useRef<PickGesture | null>(null)
+
+  useEffect(() => {
+    const element = gl.domElement
+    const raycaster = new Raycaster()
+    const pointer = new Vector2()
+    const plane = new Plane()
+    const hitPoint = new Vector3()
+    const normal = new Vector3()
+    const wallStart = new Vector3()
+    const floorPlane = new Plane(
+      new Vector3(0, 1, 0),
+      -(floors[0]?.elevation ?? 0),
+    )
+
+    const findCandidate = (clientX: number, clientY: number) => {
+      const bounds = element.getBoundingClientRect()
+
+      if (bounds.width <= 0 || bounds.height <= 0) return null
+
+      pointer.set(
+        ((clientX - bounds.left) / bounds.width) * 2 - 1,
+        -((clientY - bounds.top) / bounds.height) * 2 + 1,
+      )
+      raycaster.setFromCamera(pointer, camera)
+
+      let closest: (OpeningPlacementCandidate & { distance: number }) | null = null
+
+      if (definition.roofMount === 'dormer') {
+        for (const target of pickTargetsRef.current) {
+          if (target.kind !== 'roof') continue
+          const floor = floors.find((item) => item.id === target.floorId)
+          const roof = floor?.roofs?.find((item) => item.id === target.roofId)
+          if (!floor || !roof || !roofSupportsDormers(roof)) continue
+
+          target.object.updateWorldMatrix(true, false)
+          const intersection = raycaster
+            .intersectObject(target.object, true)
+            .find((item) => item.object.userData.houseDesignerRole === 'roof-top')
+          if (!intersection) continue
+
+          const placement = getDormerPlacementOnRoof(
+            roof,
+            { x: intersection.point.x, y: intersection.point.z },
+            definition.width,
+            definition.depth,
+          )
+          if (!placement) continue
+
+          const nextCandidate: OpeningPlacementCandidate & { distance: number } = {
+            distance: intersection.distance,
+            elevation: floor.elevation + floor.roomHeight,
+            floorId: floor.id,
+            position: placement.position,
+            roofAttachment: placement.roofAttachment,
+            rotation: placement.rotation,
+          }
+          if (!closest || nextCandidate.distance < closest.distance) {
+            closest = nextCandidate
+          }
+        }
+
+        if (!closest) return null
+        return {
+          elevation: closest.elevation,
+          floorId: closest.floorId,
+          position: closest.position,
+          roofAttachment: closest.roofAttachment,
+          rotation: closest.rotation,
+        }
+      }
+
+      const halfOpeningWidth = Math.max(
+        definition.openingWidth ?? definition.width,
+        0.2,
+      ) / 2
+
+      for (const floor of floors) {
+        for (const wall of floor.walls) {
+          const dx = wall.end.x - wall.start.x
+          const dz = wall.end.y - wall.start.y
+          const wallLength = Math.hypot(dx, dz)
+
+          if (wallLength <= halfOpeningWidth * 2) continue
+
+          normal.set(-dz / wallLength, 0, dx / wallLength)
+          wallStart.set(wall.start.x, floor.elevation, wall.start.y)
+          plane.setFromNormalAndCoplanarPoint(normal, wallStart)
+
+          if (!raycaster.ray.intersectPlane(plane, hitPoint)) continue
+
+          const distance = raycaster.ray.origin.distanceTo(hitPoint)
+          const offset =
+            (hitPoint.x - wall.start.x) * (dx / wallLength) +
+            (hitPoint.z - wall.start.y) * (dz / wallLength)
+          const openingBottom = definition.wallMount === 'window'
+            ? Math.max(
+                0,
+                Math.min(
+                  wall.height - definition.height,
+                  hitPoint.y - floor.elevation - definition.height / 2,
+                ),
+              )
+            : 0
+
+          if (
+            distance <= 0 ||
+            offset < halfOpeningWidth ||
+            offset > wallLength - halfOpeningWidth ||
+            hitPoint.y < floor.elevation ||
+            hitPoint.y > floor.elevation + wall.height ||
+            definition.height > wall.height
+          ) {
+            continue
+          }
+
+          const side: -1 | 1 =
+            (raycaster.ray.origin.x - wall.start.x) * normal.x +
+              (raycaster.ray.origin.z - wall.start.y) * normal.z < 0
+              ? -1
+              : 1
+          const rotation = Math.atan2(dz, dx) + (side < 0 ? Math.PI : 0)
+          const nextCandidate: OpeningPlacementCandidate & { distance: number } = {
+            distance,
+            elevation: floor.elevation,
+            floorId: floor.id,
+            position: {
+              x: wall.start.x + (dx / wallLength) * offset,
+              y: wall.start.y + (dz / wallLength) * offset,
+            },
+            rotation,
+            wallOpeningBottom: definition.wallMount === 'window'
+              ? openingBottom
+              : undefined,
+            wallAttachment: {
+              offset,
+              side,
+              wallId: wall.id,
+            },
+          }
+
+          if (!closest || distance < closest.distance) closest = nextCandidate
+        }
+      }
+
+      if (!closest) return null
+      return {
+        elevation: closest.elevation,
+        floorId: closest.floorId,
+        position: closest.position,
+        roofAttachment: closest.roofAttachment,
+        rotation: closest.rotation,
+        wallAttachment: closest.wallAttachment,
+        wallOpeningBottom: closest.wallOpeningBottom,
+      }
+    }
+
+    const updateCandidate = (event: PointerEvent) => {
+      const nextCandidate = findCandidate(event.clientX, event.clientY)
+      let closestIntersection: { distance: number; point: Vector3 } | null = null
+
+      for (const target of pickTargetsRef.current) {
+        target.object.updateWorldMatrix(true, false)
+        const intersection = raycaster.intersectObject(target.object, true)[0]
+
+        if (
+          intersection &&
+          (!closestIntersection || intersection.distance < closestIntersection.distance)
+        ) {
+          closestIntersection = {
+            distance: intersection.distance,
+            point: intersection.point,
+          }
+        }
+      }
+
+      const cursorPoint = closestIntersection?.point.clone() ??
+        raycaster.ray.intersectPlane(floorPlane, new Vector3()) ??
+        raycaster.ray.at(5, new Vector3())
+
+      candidateRef.current = nextCandidate
+      setPreview({
+        candidate: nextCandidate,
+        cursorPosition: [cursorPoint.x, cursorPoint.y, cursorPoint.z],
+      })
+      invalidate()
+    }
+    const clearCandidate = () => {
+      candidateRef.current = null
+      setPreview(null)
+      invalidate()
+    }
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.button !== 0 || event.altKey) return
+      gestureRef.current = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+      }
+    }
+    const handlePointerUp = (event: PointerEvent) => {
+      const gesture = gestureRef.current
+      gestureRef.current = null
+
+      if (
+        event.button !== 0 ||
+        !gesture ||
+        gesture.pointerId !== event.pointerId ||
+        Math.abs(event.clientX - gesture.x) > PICK_CLICK_TOLERANCE_PIXELS ||
+        Math.abs(event.clientY - gesture.y) > PICK_CLICK_TOLERANCE_PIXELS ||
+        !candidateRef.current
+      ) {
+        return
+      }
+
+      onPlaceModel(candidateRef.current)
+    }
+
+    element.addEventListener('pointermove', updateCandidate, true)
+    element.addEventListener('pointerleave', clearCandidate, true)
+    element.addEventListener('pointerdown', handlePointerDown, true)
+    element.addEventListener('pointerup', handlePointerUp, true)
+
+    return () => {
+      element.removeEventListener('pointermove', updateCandidate, true)
+      element.removeEventListener('pointerleave', clearCandidate, true)
+      element.removeEventListener('pointerdown', handlePointerDown, true)
+      element.removeEventListener('pointerup', handlePointerUp, true)
+    }
+  }, [camera, definition, floors, gl.domElement, invalidate, onPlaceModel, pickTargetsRef])
+
+  if (!preview) return null
+
+  return (
+    <OpeningPlacementVisual
+      daylightEnabled={daylightEnabled}
+      definition={definition}
+      floors={floors}
+      modelAssetVersion={modelAssetVersion}
+      preview={preview}
+    />
+  )
+}
+
 function PickBufferExporter({
   onImage,
   onReady,
@@ -17940,15 +18697,18 @@ export function ThreeDView({
   activeFloorId,
   cameraRestoreRevision,
   cameraViewState,
-  floors,
+  floors: sourceFloors,
   isEngineConsoleOpen,
   lightDirection,
   modelAssetVersion,
+  placementModel,
   roofPlacementPreview,
   onCameraViewStateChange,
   onClearSelection,
   onEngineConsoleOpenChange,
   onLightDirectionChange,
+  onCancelModelPlacement,
+  onPlaceModel,
   onSelectFloor,
   onSelectModel,
   onSelectRoof,
@@ -17962,6 +18722,9 @@ export function ThreeDView({
   showAllFloors,
   surfaceAssignments,
 }: ThreeDViewProps) {
+  const dormerInteriors = useMemo(() => prepareDormerInteriors(sourceFloors, modelsById), [sourceFloors, modelAssetVersion])
+  const floors = dormerInteriors.floors
+
   const [importedModelBatching] = useState(() => new ImportedModelBatching())
   const [horizontalSurfaceVisibilityRegistry] = useState<HorizontalSurfaceVisibilityRegistry>(
     () => Object.assign(new Map(), { revision: 0 }),
@@ -18018,7 +18781,7 @@ export function ThreeDView({
     fadeObstructingRoofs: true,
     fadeObstructingWalls: true,
     ambientOcclusion: true,
-    ambientOcclusionIntensity: 0.75,
+    ambientOcclusionIntensity: 0.25,
     ambientTerm: 0.32,
     bakedLightmaps: false,
     daylight: true,
@@ -18030,7 +18793,7 @@ export function ThreeDView({
     lights: true,
     nightFill: true,
     occlusionCulling: true,
-    referenceFloors: false,
+    referenceFloors: true,
     rearFaceOnly: false,
     roofsOnly: false,
     shadows: true,
@@ -18077,6 +18840,10 @@ export function ThreeDView({
     }
   }, [floors, modelAssetVersion])
   const activeFloor = floors.find((floor) => floor.id === activeFloorId) ?? null
+  const modelPlacementFloors = useMemo(
+    () => showAllFloorsInScene ? floors : activeFloor ? [activeFloor] : [],
+    [activeFloor, floors, showAllFloorsInScene],
+  )
   const cameraFov = getCameraFov(aspectRatioMode)
   const headHeightY = (activeFloor?.elevation ?? 0) + WALK_HEAD_HEIGHT_METERS
   const floorsByElevation = useMemo(
@@ -18259,10 +19026,12 @@ export function ThreeDView({
   const objectFrustumCullingEnabled = renderOptions.occlusionCulling
   const occlusionCullingEnabled = false
   const visibleRenderedFloors = useMemo(
+    // The floor immediately below supplies the active floor's solid slab.
+    // Its walls are drawn separately as non-interactive reference lines.
     () =>
       showAllFloorsInScene
         ? renderedFloors
-        : (renderOptions.referenceFloors
+        : (renderOptions.floorSlabs
             ? floors.filter(
                 (floor) =>
                   floor.id === activeFloorId || floor.id === floorBelowActive?.id,
@@ -18277,14 +19046,14 @@ export function ThreeDView({
       floors,
       renderedFloors,
       renderedFloorsById,
-      renderOptions.referenceFloors,
+      renderOptions.floorSlabs,
       showAllFloorsInScene,
     ],
   )
   const activeFloorElevation = activeFloor?.elevation ?? null
   const inheritedRoofRenderedFloors = useMemo(() => {
     if (showAllFloorsInScene || renderOptions.roofsOnly || activeFloorElevation === null) return []
-    const visibleFloorIds = new Set(visibleRenderedFloors.map(({ floor }) => floor.id))
+    const visibleFloorIds = new Set([activeFloorId])
     const roofFloorIds = new Set(wallClippingRoofs.flatMap(candidate => {
       if (candidate.floorId === activeFloorId ||
         candidate.floorTopElevation > activeFloorElevation + 0.001) return []
@@ -18294,7 +19063,7 @@ export function ThreeDView({
     return renderedFloors.filter(({ floor }) =>
       roofFloorIds.has(floor.id) && !visibleFloorIds.has(floor.id))
   }, [activeFloorElevation, activeFloorId, renderedFloors, renderOptions.roofsOnly,
-    showAllFloorsInScene, visibleRenderedFloors, wallClippingRoofs])
+    showAllFloorsInScene, wallClippingRoofs])
   const sceneBounds = useMemo(() => getSceneBounds(floors), [floors])
   const allFloorsPlane = useMemo(
     () =>
@@ -19202,6 +19971,7 @@ export function ThreeDView({
                   <input
                     type="checkbox"
                     checked={renderOptions.groundPlane}
+                    disabled={!showAllFloorsInScene}
                     onChange={() => updateRenderOption('groundPlane')}
                   />
                   Ground plane
@@ -19223,9 +19993,22 @@ export function ThreeDView({
       <div
         ref={threeHostRef}
         className={
-          initialScenePreparationPending ? 'three-host is-preparing' : 'three-host'
+          `three-host${initialScenePreparationPending ? ' is-preparing' : ''}${placementModel ? ' placing-opening' : ''}`
         }
       >
+        {placementModel ? (
+          <div className="model-placement-hint" role="status">
+            <strong>Place {placementModel.name}</strong>
+            <span>
+              {placementModel.roofMount === 'dormer'
+                ? 'Hover over an up-and-over or hip roof, then click to install · Esc to cancel'
+                : 'Hover over a wall, then click to install · Esc to cancel'}
+            </span>
+            <button type="button" onClick={onCancelModelPlacement}>Cancel</button>
+          </div>
+        ) : null}
+        <DormerRoomClipContext.Provider value={dormerInteriors.roomClipPlanes}>
+        <DormerBaseElevationsContext.Provider value={dormerInteriors.baseElevations}>
         <StoreyGeometryContext.Provider value={storeyGeometry}>
         <RoofGableContext.Provider value={roofGables}>
         <ImportedModelBatchingContext.Provider value={importedModelBatching}>
@@ -19254,7 +20037,7 @@ export function ThreeDView({
             >
             <WallViewFadeContext.Provider value={renderOptions.fadeObstructingWalls && !isXrPresenting && !renderOptions.wireframe}>
             <RoofViewFadeContext.Provider value={renderOptions.fadeObstructingRoofs && !isXrPresenting && !renderOptions.wireframe}>
-            <BuildingGableMeshes visibleFloorIds={showAllFloorsInScene || renderOptions.roofsOnly ? null : visibleRenderedFloors.map(data => data.floor.id)}
+            <BuildingGableMeshes visibleFloorIds={showAllFloorsInScene || renderOptions.roofsOnly ? null : [activeFloorId]}
               onRegisterPickTarget={registerPickTarget} roofFaceSide={roofFaceSide}
               shadowsEnabled={renderOptions.shadows} surfaceAssignments={surfaceAssignments} wireframe={renderOptions.wireframe} />
             {renderOptions.wireframe && renderOptions.wireframeHiddenSurfaces && !isXrPresenting ? (
@@ -19276,7 +20059,7 @@ export function ThreeDView({
               onSelectFloor={onSelectFloor}
             />
             <ModelPicker
-              active
+              active={!placementModel}
               isTransformingRef={isTransformingModelRef}
               onClearSelection={onClearSelection}
               onSelectModel={onSelectModel}
@@ -19284,6 +20067,16 @@ export function ThreeDView({
               onSelectSurface={onSelectSurface}
               pickTargetsRef={pickTargetsRef}
             />
+            {placementModel ? (
+              <OpeningPlacementController
+                daylightEnabled={renderOptions.daylight}
+                definition={placementModel}
+                floors={modelPlacementFloors}
+                modelAssetVersion={modelAssetVersion}
+                onPlaceModel={onPlaceModel}
+                pickTargetsRef={pickTargetsRef}
+              />
+            ) : null}
             <PickBufferExporter
               onImage={setPickBufferDownload}
               onReady={(capture) => {
@@ -19385,6 +20178,7 @@ export function ThreeDView({
                   rotation={[-Math.PI / 2, 0, 0]}
                   receiveShadow={renderOptions.shadows}
                   renderOrder={0}
+                  userData={{ houseDesignerRole: 'ground-plane' }}
                 >
                   <planeGeometry args={[allFloorsPlane.size, allFloorsPlane.size]} />
                   <meshStandardMaterial
@@ -19395,6 +20189,11 @@ export function ThreeDView({
                 </mesh>
               </>
             ) : null}
+
+            {!showAllFloorsInScene && !renderOptions.roofsOnly && renderOptions.referenceFloors && activeFloor
+              ? renderedFloors.filter(({ floor }) => floor.elevation < activeFloor.elevation)
+                .map(data => <LowerFloorReference key={data.floor.id} data={data} activeElevation={activeFloor.elevation} />)
+              : null}
 
             {renderOptions.roofsOnly ? renderedFloors.map(({ floor, renderedWalls, rooms }) => (
               <group key={`${sceneRevision}:${floor.id}`}>
@@ -19538,10 +20337,6 @@ export function ThreeDView({
               const hasShadowSurface = renderOptions.shadows && isActive
               const visibleRoomsForFloor = rooms
               const visibleModelsForFloor = floor.models ?? []
-              const floorPlane =
-                renderOptions.groundPlane && !showAllFloorsInScene && isActive
-                  ? getFloorPlaneBounds(floor)
-                  : null
               const floorHasRoofs = (floor.roofs ?? []).length > 0
               const shouldRenderSlab =
                 !showAllFloorsInScene &&
@@ -19690,6 +20485,15 @@ export function ThreeDView({
                 )
               }
 
+              if (!isActive) return shouldRenderSlab ? (
+                <CeilingSlab key={`${sceneRevision}:${floor.id}`}
+                  castsShadow={renderOptions.shadows} floor={floor} isSolid
+                  onRegisterPickTarget={registerPickTarget} openings={ceilingOpenings}
+                  roofCutouts={slabRoofCutouts} undersideRoofCutouts={ceilingRoofCutouts}
+                  selectedSurface={selectedSurface} surfaceAssignments={surfaceAssignments}
+                  upperFloor={upperFloor} wireframe={renderOptions.wireframe} />
+              ) : null
+
               return (
                 <group key={`${sceneRevision}:${floor.id}`}>
                   <FloorRenderBoundary
@@ -19712,16 +20516,6 @@ export function ThreeDView({
                         sunShadowBlocker={isActive && !slabIsSolid && !floorHasRoofs}
                         surfaceAssignments={surfaceAssignments}
                         upperFloor={upperFloor}
-                        wireframe={renderOptions.wireframe}
-                      />
-                    ) : null}
-                    {floorPlane ? (
-                      <FloorPlaneSurface
-                        elevation={floor.elevation}
-                        floorPlane={floorPlane}
-                        isActive={isActive}
-                        openings={floorOpenings}
-                        receiveShadow={hasShadowSurface}
                         wireframe={renderOptions.wireframe}
                       />
                     ) : null}
@@ -19786,7 +20580,7 @@ export function ThreeDView({
                         showCeiling={hasHorizontalCeiling}
                           ceilingOpenings={ceilingOpenings}
                           elevation={floor.elevation}
-                          floorPlane={floorPlane}
+                          floorPlane={null}
                           floorId={floor.id}
                           floorOpenings={floorOpenings}
                           onRegisterPickTarget={registerPickTarget}
@@ -19981,8 +20775,11 @@ export function ThreeDView({
                               onRegisterPickTarget={registerPickTarget}
                               onTransformActiveChange={setTransformingModel}
                               onUpdateModel={onUpdateModel}
+                              roomHeight={floor.roomHeight}
                               rooms={visibleRoomsForFloor}
+                              roofs={floor.roofs ?? []}
                               shadowsEnabled={renderOptions.shadows}
+                              surfaceAssignments={surfaceAssignments}
                               stairSnapWalls={
                                 upperFloor
                                   ? [...floor.walls, ...upperFloor.walls]
@@ -20034,6 +20831,21 @@ export function ThreeDView({
                   surfaceAssignments={surfaceAssignments}
                   wireframe={renderOptions.wireframe}
                 />
+                <Suspense fallback={null}>
+                  {floor.models.filter(model => model.roofAttachment &&
+                    dormerInteriors.baseElevations.get(model.id) === activeFloor?.elevation).map(model => (
+                    <ModelMesh key={model.id}
+                      daylightEnabled={renderOptions.daylight} elevation={floor.elevation} floorId={floor.id}
+                      frustumCullingEnabled={objectFrustumCullingEnabled} isActive isSelected={model.id === selectedModelId}
+                      lightMarkersVisible={false} model={model} models={floor.models} modelAssetVersion={modelAssetVersion}
+                      pickTargetsRef={pickTargetsRef} onRegisterPickTarget={registerPickTarget}
+                      onTransformActiveChange={setTransformingModel} onUpdateModel={onUpdateModel}
+                      roomHeight={floor.roomHeight} rooms={rooms} roofs={floor.roofs ?? []}
+                      shadowsEnabled={renderOptions.shadows} surfaceAssignments={surfaceAssignments}
+                      stairSnapWalls={floor.walls} transformEnabled={transformEnabled} transformMode={transformMode}
+                      walls={floor.walls} wireframe={renderOptions.wireframe} />
+                  ))}
+                </Suspense>
               </group>
             )) : null}
 
@@ -20081,6 +20893,8 @@ export function ThreeDView({
         </ImportedModelBatchingContext.Provider>
         </RoofGableContext.Provider>
         </StoreyGeometryContext.Provider>
+        </DormerBaseElevationsContext.Provider>
+        </DormerRoomClipContext.Provider>
         <div
           ref={engineStatusRef}
           className="viewport-engine-status is-idle"

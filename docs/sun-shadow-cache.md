@@ -6,8 +6,20 @@ The snapshot includes instance-buffer versions, morph weights and skeletal matri
 
 Point and spot shadows keep their existing update behaviour. Colour picking temporarily disables shadow rendering and restores the previous setting afterward; its temporary materials and visibility must never overwrite the cached lighting map.
 
+Solid gables cast their back faces, including assigned and fallback gable materials. The sun uses zero depth bias and a small normal bias: positive depth bias pushes receivers into neighbouring solids and produces self-shadow stripes and false seams at roof edges and wall/gable boundaries.
+
+Wall-engine materials cast both faces, including assigned and fallback finishes. Back-face-only wall shadows start at the inner skin, allowing filtered sunlight onto the adjacent skirting top. Casting the outside skin blocks this light across the wall's thickness. Zero sun depth bias keeps these exterior wall faces free of visible self-shadow acne.
+
+Roof top skins cast both faces. Back-face-only tops leave incoming sunlight blocked only by the inner roof skin, exactly where that skin meets the interior gable; shadow filtering then leaks a bright line along the junction. Casting the outer skin blocks sunlight before the interior seam. Roof rendering, underside casting, gable casting and geometry remain independent of this setting.
+
 ## Validation
 
 In the Red House test view, a forced fresh sun map cost 69 shadow draw calls, for 346 total calls. An unchanged frame costs 277 calls, approximately 20% fewer. Cached images were pixel-identical to fresh maps after camera movement, caster visibility changes and instance movement. Sun dragging refreshed 26 frames during the regression and returned to zero sun-shadow calls after settling. Async roof edits also refreshed the map, and their settled cached image matched a forced fresh map exactly.
 
 `tests/sunShadowCache.test.ts` covers the invalidation inputs. `tests/browser/sunShadowCacheRegression.js` checks draw counts, cached-versus-fresh pixels, camera reuse, instance/visibility edits and continuous refresh during sun dragging. Run in the Red House roof-wall browser harness with daylight and sun shadows enabled, after assets and shaders settle. Existing model-picking and light-toggle recovery checks verify pick-pass isolation and independent local-light behaviour.
+
+In `roofWallRegression.html?loft-test`, run `checkLoftShadowAcne()` from `tests/browser/loftShadowAcneRegression.js` after scene preparation. It compares sun-facing gable pixels with and without gable casting, leaving roof casting enabled in both renders. The fixed render matched all 641 samples; restoring double-sided gable casting and the former positive depth bias failed 614 samples. Close-up renders from both roof ends also verified the eave seams.
+
+`checkLoftRoofLightLeak()` from `tests/browser/loftRoofLightLeakRegression.js` samples both interior roof/gable seams against a render with direct sun disabled. All 1,600 samples matched after enabling outer-skin casting; restoring back-face-only roof top shadows leaked at 561 samples. Exterior roof checks across both slopes and low, grazing and high sun directions found no acne in 7,224 samples.
+
+In `roofWallRegression.html?loft-test&edit-floor`, `checkLoftSkirtingLightLeak()` from `tests/browser/loftSkirtingLightLeakRegression.js` checks the skirting tops from opposite room corners against a render with direct sun disabled. All 2,324 samples matched with both wall faces casting; back-face-only wall casting leaked at 343 samples. Checks of all four exterior walls at three sun directions found no visible acne in 10,752 samples (maximum channel difference 3/255).

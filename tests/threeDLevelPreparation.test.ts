@@ -43,3 +43,38 @@ test('moving an opening refreshes wall data without rebuilding floor topology', 
   assert.equal(refreshed.wallBodyOccluders[0].renderedWall, refreshed.renderedWalls[0])
   assert.equal(prepared.renderedWalls[0].wall.openings![0].center, 2)
 })
+
+test('prepares a rectangular wall loop with floating-point join residue', () => {
+  const floor: FloorLevel = {
+    id: 'ground', name: 'Ground', elevation: 0, models: [], rooms: [],
+    roomHeight: 2.4, slabThickness: 0.3,
+    walls: [
+      {
+        id: 'top', kind: 'external', thickness: 0.3, height: 2.4,
+        start: { x: 1.5, y: 1.5 },
+        end: { x: 6.816666666666666, y: 1.5 },
+      },
+      {
+        id: 'right', kind: 'external', thickness: 0.3, height: 2.4,
+        start: { x: 6.816666666666666, y: 1.5 },
+        end: { x: 6.816666666666666, y: 7.217274020214724 },
+      },
+      {
+        id: 'bottom', kind: 'external', thickness: 0.3, height: 2.4,
+        start: { x: 6.816666666666666, y: 7.217274020214724 },
+        end: { x: 1.4999999999999991, y: 7.217274020214723 },
+      },
+      {
+        id: 'left', kind: 'external', thickness: 0.3, height: 2.4,
+        start: { x: 1.4999999999999991, y: 7.217274020214723 },
+        end: { x: 1.4999999999999996, y: 1.5 },
+      },
+    ],
+  }
+
+  const prepared = prepareRenderedFloorData(floor)
+
+  assert.equal(prepared.rooms.length, 1)
+  assert.equal(prepared.externalWallUnionFootprints.length, 1)
+  assert.equal(prepared.roomSurfacePolygonsBySignature.size, 1)
+})

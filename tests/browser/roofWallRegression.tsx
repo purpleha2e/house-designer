@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { _roots } from '@react-three/fiber'
-import { Mesh, Raycaster, Vector3 } from 'three'
+import { DoubleSide, Mesh, Raycaster, Vector3 } from 'three'
 import { ThreeDView } from '../../src/components/ThreeDView'
 import redHouse from '../../red_house_3.json'
 import redHouse4 from '../../red_house_4.json'
@@ -11,11 +11,13 @@ import roofTests2 from '../../roof_tests_2.json'
 import roofTests3 from '../../roof_tests_3.json'
 import springfield from '../../springfield_13.json'
 import springfield14 from '../../springfield_14.json'
+import loftTest from '../../loft_test.json'
 import '../../src/App.css'
 import { loadPortalCatalog } from '../../src/portalCatalog'
 import { registerRuntimeSurfaceMaterials } from '../../src/materials/materialCatalog'
 import { modelsById, registerRuntimeModels, type ModelDefinition } from '../../src/models/modelLibrary'
 import { normalizeFloor } from '../../src/modelPlacement'
+import { getSurfaceSelectionFloorId } from '../../src/surfaceSelection'
 import type { FloorLevel, SelectableSurface, SurfaceMaterialAssignment } from '../../src/types'
 
 const noop = () => {}
@@ -26,7 +28,8 @@ const isRoofTests1 = searchParams.has('roof-tests-1')
 const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRoofTests3 = searchParams.has('roof-tests-3')
 const isRedHouseDoor = searchParams.has('red-house-door')
-const savedProject = searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const isLoftTest = searchParams.has('loft-test')
+const savedProject = searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -57,6 +60,7 @@ function RegressionScene() {
     selectRegressionModel: setSelection,
     regressionSelectedModelId: selection,
     updateRegressionActiveFloor: setActiveFloorId,
+    regressionActiveFloorId: activeFloorId,
     regressionFloors: sceneFloors,
     regressionSurface: surfaceSelection,
     regressionAssignments: assignments,
@@ -77,9 +81,12 @@ function RegressionScene() {
     counters.regressionSunCommits = (counters.regressionSunCommits ?? 0) + 1
     setSunPosition(position)
   }}
-  onSelectFloor={noop} onSelectModel={setSelection} onSelectRoof={(roofId, floorId) => setSurfaceSelection({ type: 'roof', roofId, floorId })} onSelectSurface={setSurfaceSelection}
+  onSelectFloor={noop} onSelectModel={setSelection} onSelectRoof={(roofId, floorId) => setSurfaceSelection({ type: 'roof', roofId, floorId })} onSelectSurface={surface => {
+    setActiveFloorId(getSurfaceSelectionFloorId(surface, activeFloorId, sceneFloors))
+    setSurfaceSelection(surface)
+  }}
   onUpdateModel={noop} selectedModelId={selection} selectedRoofId={null}
-  selectedSurface={surfaceSelection} selectedWallId={null} sceneRevision={1} showAllFloors
+  selectedSurface={surfaceSelection} selectedWallId={null} sceneRevision={1} showAllFloors={!searchParams.has('edit-floor')}
   surfaceAssignments={assignments}
 />
 }
@@ -107,6 +114,15 @@ setTimeout(() => {
   state?.scene.traverse((object) => {
     if (object instanceof Mesh && object.userData.houseDesignerRole === 'roof-infill') infillMeshes.push(object)
   })
+  const wallSolidShadows = (() => {
+    const walls: Mesh[] = []
+    state?.scene.traverse(object => {
+      if (object instanceof Mesh && object.userData.houseDesignerRole === 'wall-engine-render') walls.push(object)
+    })
+    return walls.length > 0 && walls.every(mesh =>
+      (Array.isArray(mesh.material) ? mesh.material : [mesh.material])
+        .every(material => material.shadowSide === DoubleSide))
+  })()
   const gableFilled = new Raycaster(new Vector3(16, 5.8, 7.3), new Vector3(-1, 0, 0))
     .intersectObjects(infillMeshes, false).some((hit) => hit.point.x > 14.8 && hit.point.x < 15)
   const springfieldGable = boundaries.filter(({ roofId }) => roofId === '03233f9a-f497-49c7-ac08-cc12e288c142')
@@ -207,6 +223,7 @@ setTimeout(() => {
     hit.point.x > 5.8 && hit.point.x < 6)
   const passed = isSpringfield
     ? springfieldGable.length === 3 && springfieldGable.every(({ minX }) => minX < 5.36) && gableFilled && leanToMeetsFacade && leanToInfillBounded
+    : isLoftTest ? wallSolidShadows
     : isRoofTests3 ? roofTests3EavesClipped && roofTests3FacadeBands
     : isRoofTests2 ? roofTests2JoinedTop && roofTests2CeilingShadows
     : isRoofTests1 ? roofTestsGableHit && roofTestsAtticOpen
@@ -216,5 +233,5 @@ setTimeout(() => {
   Object.assign(window, { roofWallRegression: { passed, groundOnly, isSpringfield, gableFilled,
     roofTests2JoinedTop, roofTests2CeilingShadows, roofTests3EavesClipped, roofTests3FacadeBands,
     roofTestsGableHit, roofTestsAtticOpen, nearDoorGable, nearDoorLooseStrip, farGable,
-    leanToMeetsFacade, leanToInfillBounded, boundaries } })
+    leanToMeetsFacade, leanToInfillBounded, wallSolidShadows, boundaries } })
 }, 12000)

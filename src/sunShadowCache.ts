@@ -1,5 +1,10 @@
 import type { BufferAttribute, DirectionalLight, InterleavedBufferAttribute, Material, Mesh, Object3D, Texture } from 'three'
 
+// Keep the receiver offset small enough that contact shadows remain attached
+// at wall/roof junctions, while retaining enough separation to avoid acne on
+// large coplanar wall and floor surfaces.
+export const SUN_SHADOW_NORMAL_BIAS_METERS = 0.015
+
 type ShadowMesh = Mesh & {
   instanceMatrix?: BufferAttribute
   count?: number

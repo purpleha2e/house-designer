@@ -1,0 +1,4 @@
+(async()=>{
+ const {Raycaster,Vector2}=await import('/node_modules/.vite/deps/three.js');const s=window.roofWallScene();s.scene.updateMatrixWorld(true);const r=s.gl.domElement.getBoundingClientRect();
+ return [[500,450],[440,90],[344,146],[818,187],[430,550]].map(([x,y])=>{const ray=new Raycaster();ray.setFromCamera(new Vector2((x-r.x)/r.width*2-1,-((y-r.y)/r.height*2-1)),s.camera);return [x,y,ray.intersectObjects(s.scene.children,true).slice(0,4).map(h=>({point:h.point.toArray(),name:h.object.name,data:h.object.userData,mat:h.object.material.color?.getHexString(),pos:h.object.position.toArray(),parents:[h.object.parent?.userData,h.object.parent?.parent?.userData]}))]})
+})()

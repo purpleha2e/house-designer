@@ -22,6 +22,20 @@ export type RoofGeometries = {
 
 export type RoofFaceUvProjector = (vertices: RoofVertex[]) => Array<[number, number]>
 
+/** Remove plan-view dormer footprints from both sides of a roof skin. */
+export function cutRoofFacesAtDormerOpenings(
+  faces: RoofVertex[][],
+  openings: Point[][],
+) {
+  return openings.reduce(
+    (currentFaces, opening) => {
+      const planes = footprintPlanes(opening)
+      return currentFaces.flatMap((face) => subtractRoofVolume(face, planes))
+    },
+    faces,
+  )
+}
+
 /** Split room-side ceilings from exterior overhangs without changing their plane. */
 export function splitRoofUndersideFaces(
   faces: RoofVertex[][],

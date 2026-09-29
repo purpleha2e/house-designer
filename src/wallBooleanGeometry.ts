@@ -576,12 +576,35 @@ function toPointRing(ring: [number, number][]) {
   return openRing.map(([x, y]) => ({ x, y }))
 }
 
+function quantizePolygon(polygon: Polygon): Polygon {
+  return polygon.map((ring) =>
+    ring.map(([x, y]) => [
+      Math.round(x * 1e6) / 1e6,
+      Math.round(y * 1e6) / 1e6,
+    ]),
+  )
+}
+
 function unionPolygonFootprints(wallPolygons: Polygon[]): WallUnionFootprint[] {
   if (wallPolygons.length === 0) {
     return []
   }
 
-  const unionedFootprints = unionPolygons(wallPolygons[0], ...wallPolygons.slice(1))
+  let unionedFootprints: MultiPolygon
+
+  try {
+    unionedFootprints = unionPolygons(wallPolygons[0], ...wallPolygons.slice(1))
+  } catch {
+    // Exact wall joins can differ by floating-point residue after dragging
+    // (for example 1.5 versus 1.4999999999999991). polygon-clipping can then
+    // fail to close an otherwise valid output ring. Retry on micrometre-
+    // quantized copies, matching the recovery used by wall room detection.
+    const quantizedPolygons = wallPolygons.map(quantizePolygon)
+    unionedFootprints = unionPolygons(
+      quantizedPolygons[0],
+      ...quantizedPolygons.slice(1),
+    )
+  }
 
   return toWallUnionFootprints(unionedFootprints)
 }

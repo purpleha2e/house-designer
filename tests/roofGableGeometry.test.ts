@@ -264,3 +264,21 @@ test('Red House roof-owned gables close the upper room and preserve its doorway'
   assert.equal(hit([3, 3.7, 5.2431305714], [-1, 0, 0]), undefined, 'the upstairs doorway remains open')
   assert.ok(main.some(gable => gable.faces.some(face => face.interior)), 'interior has its own finish')
 })
+
+test('loft gables restrict wall finishes to vertical skins', () => {
+  const project = JSON.parse(readFileSync(new URL('../loft_test.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const roofs = resolveBuildingRoofs(project.floors)
+  const gables = buildBuildingRoofGables(project.floors, roofs, buildBuildingRoomVolumes(project.floors, roofs))
+  const faces = gables.flatMap(gable => gable.faces)
+  const wallSkins = faces.filter(face => face.wallSide !== undefined)
+  const caps = faces.filter(face => Math.abs(face.plane[1]) > 1e-7)
+
+  assert.ok(wallSkins.length > 0)
+  assert.ok(wallSkins.every(face => Math.abs(face.plane[1]) <= 1e-7),
+    'only vertical wall skins can inherit a wall-side material')
+  assert.ok(caps.length > 0)
+  assert.ok(caps.every(face => face.wallSide === undefined),
+    'roof-contact caps cannot inherit a wall-side material')
+
+  assert.ok(wallSkins.some(face => face.interior))
+})

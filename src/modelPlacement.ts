@@ -1,8 +1,15 @@
-import type { FloorLevel, PlacedModel, Point, RoofEndChamfer, Wall, WallOpening } from './types'
+import type { FloorLevel, PlacedModel, Point, RoofAttachment, RoofEndChamfer, Wall, WallOpening } from './types'
 import { normalizeRoofEndConnection } from './roofJunctions.ts'
 import { normalizeBayOutline } from './bayRoof.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import type { ModelDefinition } from './models/modelLibrary'
+
+export type ModelPlacement = Pick<
+  PlacedModel,
+  'position' | 'roofAttachment' | 'rotation' | 'wallAttachment' | 'wallOpeningBottom'
+> & {
+  floorId: string
+}
 
 const WINDOW_SILL_HEIGHT_METERS = 0.9
 const PATIO_DOOR_WIDTH_METERS = 1.62
@@ -27,6 +34,33 @@ function normalizeRoofEndChamfer(value: unknown): RoofEndChamfer | undefined {
     angleDegrees: clamp(candidate.angleDegrees, 1, 75),
     distance: candidate.distance,
   }
+}
+
+function normalizeRoofAttachment(value: unknown): RoofAttachment | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const candidate = value as Partial<RoofAttachment>
+  const validSurfaces: RoofAttachment['surface'][] = [
+    'negative-x',
+    'positive-x',
+    'negative-y',
+    'positive-y',
+  ]
+
+  return typeof candidate.roofId === 'string' &&
+    candidate.roofId.length > 0 &&
+    candidate.localPosition &&
+    Number.isFinite(candidate.localPosition.x) &&
+    Number.isFinite(candidate.localPosition.y) &&
+    validSurfaces.includes(candidate.surface as RoofAttachment['surface'])
+    ? {
+        localPosition: {
+          x: candidate.localPosition.x,
+          y: candidate.localPosition.y,
+        },
+        roofId: candidate.roofId,
+        surface: candidate.surface as RoofAttachment['surface'],
+      }
+    : undefined
 }
 
 function normalizeRoofRotation(value: unknown) {
@@ -561,6 +595,19 @@ export function normalizeFloor(
                 ? definition.lightSpread
                 : model.lightSpread,
             mirrored: model.mirrored === true,
+            dormerWindowModelId:
+              definition?.roofMount === 'dormer'
+                ? typeof model.dormerWindowModelId === 'string' &&
+                    modelsById.get(model.dormerWindowModelId)?.wallMount === 'window'
+                  ? model.dormerWindowModelId
+                  : Array.from(modelsById.values()).find(
+                      (candidate) => candidate.wallMount === 'window',
+                    )?.id
+                : undefined,
+            roofAttachment:
+              definition?.roofMount === 'dormer'
+                ? normalizeRoofAttachment(model.roofAttachment)
+                : undefined,
             scale:
               typeof model.scale === 'number' && Number.isFinite(model.scale)
                 ? model.scale
@@ -709,6 +756,12 @@ export function createPlacedModel({
     : null
 
   return {
+    dormerWindowModelId:
+      definition?.roofMount === 'dormer'
+        ? Array.from(modelsById.values()).find(
+            (candidate) => candidate.wallMount === 'window',
+          )?.id
+        : undefined,
     flipped: false,
     height: definition?.isLight ? 1.8 : undefined,
     id,

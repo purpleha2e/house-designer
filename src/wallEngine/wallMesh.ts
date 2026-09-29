@@ -998,18 +998,16 @@ function addHorizontalFaces({
 }) {
   const startDistance = getPlanStartDistance(plan)
   const endDistance = getPlanEndDistance(plan)
-  const intervals =
-    kind === 'bottom'
-      ? subtractIntervals(
-          { end: endDistance, start: startDistance },
-          getWallOpeningRects(wall)
-            .filter((opening) => opening.bottom <= 0.0001)
-            .map((opening) => ({
-              end: Math.min(endDistance, opening.right),
-              start: Math.max(startDistance, opening.left),
-            })),
-        )
-      : [{ end: endDistance, start: startDistance }]
+  const intervals = subtractIntervals(
+    { end: endDistance, start: startDistance },
+    getWallOpeningRects(wall)
+      .filter(opening => kind === 'bottom'
+        ? opening.bottom <= 0.0001 : opening.top >= wall.height - 0.0001)
+      .map(opening => ({
+        end: Math.min(endDistance, opening.right),
+        start: Math.max(startDistance, opening.left),
+      })),
+  )
 
   intervals.forEach((interval, index) => {
     const startT = getPlanDistanceT(plan, interval.start)
@@ -1981,12 +1979,36 @@ function addPerimeterCapFaces({
   height,
   kinds = ['bottom', 'top'],
   perimeter,
+  walls,
 }: {
   faces: WallMeshFace[]
   height: number
   kinds?: Array<'bottom' | 'top'>
   perimeter: WallBodyPerimeter
+  walls?: Wall[]
 }) {
+  if (walls) {
+    for (const kind of kinds) {
+      const cuts = walls.flatMap(wall => {
+        const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
+        if (length < 1e-6) return []
+        const ux = (wall.end.x - wall.start.x) / length, uz = (wall.end.y - wall.start.y) / length
+        return getWallOpeningRects(wall).filter(opening => kind === 'bottom'
+          ? opening.bottom <= 0.0001 : opening.bottom < height && opening.top >= height - 0.0001)
+          .map(opening => ({ ...perimeter, holes: [], outline: [
+            [opening.left, -wall.thickness / 2], [opening.right, -wall.thickness / 2],
+            [opening.right, wall.thickness / 2], [opening.left, wall.thickness / 2],
+          ].map(([along, across]) => ({
+            x: wall.start.x + ux * along - uz * across,
+            y: wall.start.y + uz * along + ux * across,
+          })) }))
+      })
+      for (const part of subtractWallBodyPerimeters(perimeter, cuts)) {
+        addPerimeterCapFaces({ faces, height, kinds: [kind], perimeter: part })
+      }
+    }
+    return
+  }
   const [wallId = perimeter.componentId] = perimeter.wallIds
   const source = {
     role: 'cap' as const,
@@ -2358,6 +2380,7 @@ export function buildWallBodyPerimeterMeshFaces(
         height,
         kinds: ['bottom'],
         perimeter,
+        walls: perimeterWalls,
       })
     }
     const layers = heightLevels.map((yTop) => {
@@ -2397,6 +2420,7 @@ export function buildWallBodyPerimeterMeshFaces(
               height: yTop,
               kinds: ['top'],
               perimeter: exposedPerimeter,
+              walls: perimeterWalls,
             })
           },
         )

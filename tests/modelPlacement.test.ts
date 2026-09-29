@@ -25,6 +25,20 @@ test('top-storey ceiling preference survives project JSON and floor normalizatio
 
 const modelsById = new Map<string, ModelDefinition>([
   [
+    'dormer-window',
+    {
+      id: 'dormer-window',
+      name: 'Dormer Window',
+      category: 'Windows',
+      color: '#e5e7eb',
+      depth: 1.35,
+      height: 1.35,
+      roofMount: 'dormer',
+      shape: 'box',
+      width: 1.25,
+    },
+  ],
+  [
     'window',
     {
       id: 'window',
@@ -152,6 +166,32 @@ test('creates a wall-mounted model from the plan center', () => {
     offset: 2.5,
     side: 1,
   })
+})
+
+test('dormers default to a catalogue window and preserve a valid selection', () => {
+  const model = createPlacedModel({
+    id: 'dormer-1',
+    modelId: 'dormer-window',
+    modelsById,
+    walls: [wall],
+  })
+  assert.equal(model.dormerWindowModelId, 'window')
+
+  const floor: FloorLevel = {
+    id: 'floor', name: 'Floor', elevation: 0, roomHeight: 2.4,
+    slabThickness: 0.2, walls: [], rooms: [], roofs: [],
+    models: [{
+      ...model,
+      dormerWindowModelId: 'window',
+      roofAttachment: {
+        localPosition: { x: -1, y: 0 },
+        roofId: 'roof-1',
+        surface: 'negative-x',
+      },
+    }],
+  }
+  const [normalized] = normalizeFloor(floor, modelsById).models
+  assert.equal(normalized.dormerWindowModelId, 'window')
 })
 
 test('ridge connections and gable chamfers survive a save/load round trip', () => {

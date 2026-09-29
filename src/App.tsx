@@ -1,4 +1,5 @@
 import { replaceRoofMaterialAssignment } from './roofMaterialAssignments'
+import { getSurfaceSelectionFloorId } from './surfaceSelection'
 import {
   useCallback,
   useDeferredValue,
@@ -47,6 +48,10 @@ import {
   registerRuntimeModels,
   type ModelDefinition,
 } from './models/modelLibrary'
+import {
+  isOpeningModel,
+  type ModelLibrarySection,
+} from './models/modelLibrarySections'
 import { loadPortalCatalog } from './portalCatalog'
 import {
   buildWallTopology,
@@ -66,7 +71,12 @@ import {
   normalizeFloor,
   syncWallOpenings,
   updateWallAttachedModels,
+  type ModelPlacement,
 } from './modelPlacement'
+import {
+  findDormerPlacement,
+  getAttachedDormerPlacement,
+} from './dormerPlacement'
 import springfield12Project from '../springfield_14.json'
 //import springfield12Project from '../red_house_3.json'
 import './App.css'
@@ -741,6 +751,9 @@ function App() {
   const [splitPercent, setSplitPercent] = useState(50)
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
+  const [modelSelectorSection, setModelSelectorSection] =
+    useState<ModelLibrarySection>('objects')
+  const [pendingModelId, setPendingModelId] = useState<string | null>(null)
   const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
   const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
@@ -1385,21 +1398,32 @@ function App() {
     setIsAddingWall(false)
   }
 
-  const addModel = (modelId: string) => {
+  const addModel = (modelId: string, placement?: ModelPlacement) => {
     recordHistory()
     const activeFloorForPlacement =
-      floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
-    const model = createPlacedModel({
+      floors.find((floor) => floor.id === (placement?.floorId ?? activeFloorId)) ?? floors[0]
+    const baseModel = createPlacedModel({
       id: createId(),
       modelId,
       modelsById,
       walls: activeFloorForPlacement.walls,
     })
+    const model = placement
+      ? {
+          ...baseModel,
+          position: placement.position,
+          roofAttachment: placement.roofAttachment,
+          rotation: placement.rotation,
+          wallAttachment: placement.wallAttachment,
+          wallOpeningBottom: placement.wallOpeningBottom,
+        }
+      : baseModel
+    const targetFloorId = activeFloorForPlacement.id
 
     setFloors((currentFloors) =>
       enforceProjectLightEnabledLimit(
         currentFloors.map((floor) =>
-          floor.id === activeFloorId
+          floor.id === targetFloorId
             ? syncWallOpeningsForModelIfNeeded(
                 {
                   ...floor,
@@ -1410,9 +1434,10 @@ function App() {
             : floor,
         ),
         model.id,
-        activeFloorId,
+        targetFloorId,
       ),
     )
+    setActiveFloorId(targetFloorId)
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1420,20 +1445,52 @@ function App() {
     setSelectedModelIds([model.id])
     setSelectedRoofId(null)
     setIsAddingWall(false)
+    setPendingModelId(null)
     setIsModelSelectorOpen(false)
   }
+
+  const chooseModel = (modelId: string) => {
+    const definition = modelsById.get(modelId)
+
+    if (definition && isOpeningModel(definition)) {
+      setPendingModelId(modelId)
+      setIsAddingWall(false)
+      setIsRoofMode(false)
+      setIsModelSelectorOpen(false)
+      return
+    }
+
+    addModel(modelId)
+  }
+
+  const pendingModel = pendingModelId
+    ? modelsById.get(pendingModelId) ?? null
+    : null
 
   const updateRoof = (roofId: string, updates: Partial<RoofStructure>) => {
     recordHistory(`roof:${roofId}`)
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
         (floor.roofs ?? []).some((roof) => roof.id === roofId)
-          ? {
-              ...floor,
-              roofs: (floor.roofs ?? []).map((roof) =>
+          ? (() => {
+              const roofs = (floor.roofs ?? []).map((roof) =>
                 roof.id === roofId ? { ...roof, ...updates, id: roof.id } : roof,
-              ),
-            }
+              )
+              const updatedRoof = roofs.find((roof) => roof.id === roofId)
+              return {
+                ...floor,
+                roofs,
+                models: (floor.models ?? []).map((model) => {
+                  if (!updatedRoof || model.roofAttachment?.roofId !== roofId) return model
+                  const placement = getAttachedDormerPlacement(updatedRoof, model.roofAttachment)
+                  return placement ? {
+                    ...model,
+                    position: placement.position,
+                    rotation: placement.rotation,
+                  } : model
+                }),
+              }
+            })()
           : floor,
       ),
     )
@@ -1441,9 +1498,19 @@ function App() {
 
   const deleteRoof = (roofId: string) => {
     recordHistory()
+    const attachedModelIds = new Set(
+      floors.flatMap((floor) =>
+        (floor.models ?? [])
+          .filter((model) => model.roofAttachment?.roofId === roofId)
+          .map((model) => model.id),
+      ),
+    )
     setFloors((currentFloors) =>
       currentFloors.map((floor) => ({
         ...floor,
+        models: (floor.models ?? []).filter(
+          (model) => model.roofAttachment?.roofId !== roofId,
+        ),
         roofs: (floor.roofs ?? []).filter((roof) => roof.id !== roofId),
       })),
     )
@@ -1455,6 +1522,14 @@ function App() {
     )
     setSelectedRoofId((currentSelectedRoofId) =>
       currentSelectedRoofId === roofId ? null : currentSelectedRoofId,
+    )
+    setSelectedModelId((currentSelectedModelId) =>
+      currentSelectedModelId && attachedModelIds.has(currentSelectedModelId)
+        ? null
+        : currentSelectedModelId,
+    )
+    setSelectedModelIds((currentSelectedModelIds) =>
+      currentSelectedModelIds.filter((modelId) => !attachedModelIds.has(modelId)),
     )
     setSelectedSurface((currentSelectedSurface) =>
       currentSelectedSurface?.type === 'roof' &&
@@ -2599,11 +2674,21 @@ function App() {
     }
     const wallMount =
       definition?.wallMount ? getWallMountForPoint(pastedPosition, activeFloor.walls) : null
+    const dormerPlacement = definition?.roofMount === 'dormer'
+      ? findDormerPlacement(
+          activeFloor.roofs ?? [],
+          pastedPosition,
+          definition.width,
+          definition.depth,
+        )?.placement ?? null
+      : null
     const modelToPaste: PlacedModel = {
       ...clipboardItem.model,
       id,
-      position: wallMount?.position ?? pastedPosition,
-      rotation: wallMount?.rotation ?? clipboardItem.model.rotation,
+      position: dormerPlacement?.position ?? wallMount?.position ?? pastedPosition,
+      roofAttachment: dormerPlacement?.roofAttachment,
+      rotation:
+        dormerPlacement?.rotation ?? wallMount?.rotation ?? clipboardItem.model.rotation,
       wallAttachment: wallMount?.wallAttachment,
     }
 
@@ -2748,10 +2833,11 @@ function App() {
   }
 
   const selectSurfaceFromThreeD = (surface: SelectableSurface) => {
-    setActiveFloorId(surface.floorId)
+    const selectionFloorId = getSurfaceSelectionFloorId(surface, activeFloorId, floors)
+    setActiveFloorId(selectionFloorId)
 
     if (selectedFloorViewId !== ALL_FLOORS_VIEW_ID) {
-      setSelectedFloorViewId(surface.floorId)
+      setSelectedFloorViewId(selectionFloorId)
     }
 
     if (selectableSurfacesMatch(selectedSurface, surface)) {
@@ -2828,6 +2914,12 @@ function App() {
 
       const key = event.key.toLowerCase()
 
+      if (key === 'escape' && pendingModelId) {
+        event.preventDefault()
+        setPendingModelId(null)
+        return
+      }
+
       if (!(event.ctrlKey || event.metaKey)) {
         return
       }
@@ -2880,6 +2972,7 @@ function App() {
           selectedModel,
           selectedModelId,
           selectedModelIds,
+          pendingModelId,
           selectedRoomSignature,
           selectedWall,
           selectedWallId,
@@ -2921,7 +3014,10 @@ function App() {
         onCopy={copySelection}
         onCut={cutSelection}
         onDeleteFloor={deleteActiveFloor}
-        onOpenModelSelector={() => setIsModelSelectorOpen(true)}
+        onOpenModelSelector={(section) => {
+          setModelSelectorSection(section)
+          setIsModelSelectorOpen(true)
+        }}
         onPaste={pasteClipboard}
         onRedo={redo}
         onRoofModeChange={(nextIsRoofMode) => {
@@ -2987,6 +3083,7 @@ function App() {
           isAddingWall={isAddingWall}
           isRoofMode={isRoofMode}
           modelAssetVersion={modelAssetVersion}
+          placementModel={pendingModel}
           projectFileName={projectFileName}
           selectedModelId={selectedModelId}
           selectedModelIds={selectedModelIds}
@@ -2997,6 +3094,7 @@ function App() {
           wallKind={wallKind}
           onAddWall={addWall}
           onAddRoof={addRoof}
+          onCancelModelPlacement={() => setPendingModelId(null)}
           onDeleteModel={deleteModel}
           onDeleteRoof={deleteRoof}
           onDeleteWall={deleteWall}
@@ -3005,6 +3103,9 @@ function App() {
           onSelectModel={selectModel}
           onSelectRoof={selectRoofFromFloorplan}
           onRoofPlacementPreviewChange={setRoofPlacementPreview}
+          onPlaceModel={(placement) => {
+            if (pendingModelId) addModel(pendingModelId, placement)
+          }}
           selectedRoomSignature={selectedRoomSignature}
           onSelectRoom={(roomSignature) => {
             setSelectedRoomSignature(roomSignature)
@@ -3108,6 +3209,7 @@ function App() {
           isEngineConsoleOpen={isEngineConsoleOpen}
           lightDirection={sunPosition}
           modelAssetVersion={modelAssetVersion}
+          placementModel={pendingModel}
           roofPlacementPreview={roofPlacementPreview}
           onClearSelection={clearThreeDSelection}
           onCameraViewStateChange={updateThreeDViewCameraState}
@@ -3125,6 +3227,10 @@ function App() {
           onSelectRoof={selectRoofFromThreeD}
           onSelectSurface={selectSurfaceFromThreeD}
           onLightDirectionChange={setSunPosition}
+          onCancelModelPlacement={() => setPendingModelId(null)}
+          onPlaceModel={(placement) => {
+            if (pendingModelId) addModel(pendingModelId, placement)
+          }}
           onUpdateModel={updateModel}
           selectedModelId={selectedModelId}
           selectedRoofId={selectedRoofId}
@@ -3137,10 +3243,11 @@ function App() {
       </section>
       {isModelSelectorOpen ? (
         <ModelSelector
+          initialSection={modelSelectorSection}
           models={availableModels}
           onClose={() => setIsModelSelectorOpen(false)}
           onRefreshModels={refreshModelAssets}
-          onSelectModel={addModel}
+          onSelectModel={chooseModel}
         />
       ) : null}
     </main>

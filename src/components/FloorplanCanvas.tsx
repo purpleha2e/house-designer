@@ -46,7 +46,13 @@ import {
 import {
   getModelAssetUrl,
   modelsById,
+  type ModelDefinition,
 } from '../models/modelLibrary'
+import {
+  getWallMountForPoint as getPlacementWallMount,
+  type ModelPlacement,
+} from '../modelPlacement'
+import { findDormerPlacement } from '../dormerPlacement'
 import { snapStairApertureToWalls } from '../stairPlacement'
 import {
   endpointSnapRespectsMinimumJoinAngle,
@@ -123,6 +129,7 @@ type FloorplanCanvasProps = {
   isAddingWall: boolean
   isRoofMode: boolean
   modelAssetVersion: number
+  placementModel: ModelDefinition | null
   projectFileName: string
   selectedModelId: string | null
   selectedModelIds: string[]
@@ -134,6 +141,7 @@ type FloorplanCanvasProps = {
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
   onAddRoof: (options: RoofCreateOptions) => void
+  onCancelModelPlacement: () => void
   onDeleteModel: (modelId: string) => void
   onDeleteRoof: (roofId: string) => void
   onDeleteWall: (wallId: string) => void
@@ -147,6 +155,7 @@ type FloorplanCanvasProps = {
   onSelectRoom: (roomSignature: string | null) => void
   onSelectWall: (wallId: string | null, additive?: boolean) => void
   onRoofPlacementPreviewChange: (preview: RoofPlacementPreview | null) => void
+  onPlaceModel: (placement: ModelPlacement) => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
   onUpdateRoof: (roofId: string, updates: Partial<RoofStructure>) => void
   onUpdateWall: (wallId: string, updates: Pick<Wall, 'end' | 'start'>) => void
@@ -3203,6 +3212,7 @@ export function FloorplanCanvas({
   isAddingWall,
   isRoofMode,
   modelAssetVersion,
+  placementModel,
   projectFileName,
   selectedModelId,
   selectedModelIds,
@@ -3214,6 +3224,7 @@ export function FloorplanCanvas({
   wallKind,
   onAddWall,
   onAddRoof,
+  onCancelModelPlacement,
   onDeleteModel,
   onDeleteRoof,
   onDeleteWall,
@@ -3224,6 +3235,7 @@ export function FloorplanCanvas({
   onSelectRoom,
   onSelectWall,
   onRoofPlacementPreviewChange,
+  onPlaceModel,
   onUpdateModel,
   onUpdateRoof,
   onUpdateWall,
@@ -3351,6 +3363,9 @@ export function FloorplanCanvas({
     useState(0.15)
   const [hoverRoofPlacementPoint, setHoverRoofPlacementPoint] =
     useState<Point | null>(null)
+  const [modelPlacementPreview, setModelPlacementPreview] = useState<
+    Omit<ModelPlacement, 'floorId'> | null
+  >(null)
   const [roofPlacementPitchDegrees, setRoofPlacementPitchDegrees] = useState(35)
   const [roofPlacementThickness, setRoofPlacementThickness] = useState(DEFAULT_ROOF_THICKNESS_METERS)
   const [roofPlacementRidgeStartChamfer, setRoofPlacementRidgeStartChamfer] =
@@ -4378,6 +4393,16 @@ export function FloorplanCanvas({
       return
     }
 
+    if (placementModel) {
+      if (modelPlacementPreview) {
+        onPlaceModel({
+          ...modelPlacementPreview,
+          floorId: activeFloor.id,
+        })
+      }
+      return
+    }
+
     if (!isAddingWall) {
       if (event.target === event.target.getStage()) {
         if (isRoofMode) {
@@ -4459,6 +4484,26 @@ export function FloorplanCanvas({
         middlePanRef.current.offsetX,
         middlePanRef.current.offsetY,
       )
+      return
+    }
+
+    if (placementModel) {
+      const point = getPointerPoint(event)
+      const wallMount = point
+        ? placementModel.roofMount === 'dormer'
+          ? findDormerPlacement(
+              activeFloor.roofs ?? [],
+              point,
+              placementModel.width,
+              placementModel.depth,
+            )?.placement ?? null
+          : getPlacementWallMount(point, activeFloor.walls)
+        : null
+
+      setModelPlacementPreview(wallMount)
+      setHoverSnapTarget(null)
+      setHoverAlignmentGuide(null)
+      setHoverRoofPlacementPoint(null)
       return
     }
 
@@ -4957,11 +5002,15 @@ export function FloorplanCanvas({
     const boundsMinZ =
       modelDefinition.sourceUrl && modelBounds
         ? modelBounds.minZ * targetScaleZ
-        : -modelDefinition.depth / 2
+        : modelDefinition.roofMount === 'dormer'
+          ? -modelDefinition.depth
+          : -modelDefinition.depth / 2
     const boundsMaxZ =
       modelDefinition.sourceUrl && modelBounds
         ? modelBounds.maxZ * targetScaleZ
-        : modelDefinition.depth / 2
+        : modelDefinition.roofMount === 'dormer'
+          ? 0
+          : modelDefinition.depth / 2
     const baseWidth = Math.max(boundsMaxX - boundsMinX, 0.1)
     const baseDepth = Math.max(boundsMaxZ - boundsMinZ, 0.1)
     const width = baseWidth * modelScale * modelWidthScale * METERS_TO_PIXELS
@@ -4972,6 +5021,7 @@ export function FloorplanCanvas({
       boundsMinZ * modelScale * modelDepthScale * METERS_TO_PIXELS
     const rotation = (model.rotation * 180) / Math.PI
     const isWallMountedModel = Boolean(modelDefinition.wallMount)
+    const isRoofMountedModel = Boolean(modelDefinition.roofMount)
     const labelWidth = Math.max(72, width)
     const isSelectedModel =
       model.id === selectedModelId || selectedModelIds.includes(model.id)
@@ -5120,8 +5170,13 @@ export function FloorplanCanvas({
         x={center.x}
         y={center.y}
         rotation={rotation}
-        draggable={!isAddingWall && transformMode === 'translate'}
-        listening={!isAddingWall}
+        draggable={
+          !isAddingWall &&
+          !placementModel &&
+          !isRoofMountedModel &&
+          transformMode === 'translate'
+        }
+        listening={!isAddingWall && !placementModel}
         onClick={(event) => {
           event.cancelBubble = true
           onSelectModel(model.id, event.evt.ctrlKey || event.evt.metaKey)
@@ -6275,8 +6330,19 @@ export function FloorplanCanvas({
 
       <div
         ref={containerRef}
-        className={isMiddlePanning ? 'canvas-host panning' : 'canvas-host'}
+        className={`canvas-host${isMiddlePanning ? ' panning' : ''}${placementModel ? ' placing-opening' : ''}`}
       >
+        {placementModel ? (
+          <div className="model-placement-hint" role="status">
+            <strong>Place {placementModel.name}</strong>
+            <span>
+              {placementModel.roofMount === 'dormer'
+                ? 'Hover over an up-and-over or hip roof, then click to install · Esc to cancel'
+                : 'Hover over a wall, then click to install · Esc to cancel'}
+            </span>
+            <button type="button" onClick={onCancelModelPlacement}>Cancel</button>
+          </div>
+        ) : null}
         <Stage
           ref={stageRef}
           width={size.width}
@@ -6303,7 +6369,8 @@ export function FloorplanCanvas({
             !isMiddlePanning &&
             !isDraggingModel &&
             !isDraggingRoof &&
-            !isDraggingWall
+            !isDraggingWall &&
+            !placementModel
           }
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -6342,6 +6409,7 @@ export function FloorplanCanvas({
 
             setHoverAlignmentGuide(null)
             setHoverRoofPlacementPoint(null)
+            setModelPlacementPreview(null)
 
             if (!draftWall) {
               setHoverSnapTarget(null)
@@ -6809,6 +6877,39 @@ export function FloorplanCanvas({
 
             {modelFootprints}
 
+            {placementModel && modelPlacementPreview ? (() => {
+              const center = toCanvasPoint(modelPlacementPreview.position)
+              const width = Math.max(placementModel.width, 0.2) * METERS_TO_PIXELS
+              const depth = Math.max(placementModel.depth, 0.16) * METERS_TO_PIXELS
+
+              return (
+                <Group
+                  x={center.x}
+                  y={center.y}
+                  rotation={(modelPlacementPreview.rotation * 180) / Math.PI}
+                  listening={false}
+                >
+                  <Rect
+                    x={-width / 2}
+                    y={placementModel.roofMount === 'dormer' ? -depth : -depth / 2}
+                    width={width}
+                    height={depth}
+                    fill="#38bdf8"
+                    opacity={0.42}
+                    stroke="#0369a1"
+                    strokeWidth={2 / viewport.scale}
+                    dash={[8 / viewport.scale, 5 / viewport.scale]}
+                    cornerRadius={3 / viewport.scale}
+                  />
+                  <Line
+                    points={[-width / 2, 0, width / 2, 0]}
+                    stroke="#0284c7"
+                    strokeWidth={4 / viewport.scale}
+                  />
+                </Group>
+              )
+            })() : null}
+
             {dimensionRulers}
 
             {measurementWall ? (
@@ -6975,6 +7076,15 @@ export function FloorplanCanvas({
                 text="Click Add Wall, then drag on the grid."
                 fill="#64748b"
                 fontSize={15}
+              />
+            ) : null}
+            {placementModel ? (
+              <Rect
+                x={visibleBounds.left}
+                y={visibleBounds.top}
+                width={visibleBounds.right - visibleBounds.left}
+                height={visibleBounds.bottom - visibleBounds.top}
+                fill="rgba(0, 0, 0, 0.001)"
               />
             ) : null}
           </Layer>

@@ -8,7 +8,7 @@ import type {
   SurfaceMaterialProduct,
   Wall,
 } from '../types'
-import type { ModelDefinition } from '../models/modelLibrary'
+import { modelLibrary, type ModelDefinition } from '../models/modelLibrary'
 import type { DetectedRoom } from '../wallTopology'
 import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
@@ -200,6 +200,10 @@ export function ContextPanel({
   )
   const selectedModelIsStairs =
     selectedModel?.definition.objectType === 'stairs'
+  const selectedModelIsDormer = selectedModel?.definition.roofMount === 'dormer'
+  const dormerWindowModels = modelLibrary.filter(
+    (definition) => definition.wallMount === 'window',
+  )
   const selectedSurfaceAssignment = selectedSurface
     ? getSelectedSurfaceAssignment(selectedSurface, surfaceAssignments)
     : undefined
@@ -698,6 +702,31 @@ export function ContextPanel({
                   >
                     Mirror
                   </button>
+                </dd>
+              </div>
+            ) : null}
+            {selectedModelIsDormer && dormerWindowModels.length > 0 ? (
+              <div className="context-field">
+                <dt>Window model</dt>
+                <dd>
+                  <select
+                    aria-label="Dormer window model"
+                    value={
+                      selectedModel.model.dormerWindowModelId ??
+                      dormerWindowModels[0].id
+                    }
+                    onChange={(event) =>
+                      onUpdateModel(selectedModel.model.id, {
+                        dormerWindowModelId: event.target.value,
+                      })
+                    }
+                  >
+                    {dormerWindowModels.map((definition) => (
+                      <option key={definition.id} value={definition.id}>
+                        {definition.name}
+                      </option>
+                    ))}
+                  </select>
                 </dd>
               </div>
             ) : null}

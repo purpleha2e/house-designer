@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BoxGeometry, DirectionalLight, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Scene, Texture, WebGLRenderTarget } from 'three'
-import { SunShadowCache } from '../src/sunShadowCache.ts'
+import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../src/sunShadowCache.ts'
+
+test('sun receiver offset stays below the wall and roof contact threshold', () => {
+  assert.ok(SUN_SHADOW_NORMAL_BIAS_METERS > 0)
+  assert.ok(SUN_SHADOW_NORMAL_BIAS_METERS <= 0.02)
+})
 
 function fixture() {
   const scene = new Scene(), light = new DirectionalLight(), parent = new Group()

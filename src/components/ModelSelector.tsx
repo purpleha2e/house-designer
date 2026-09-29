@@ -1,7 +1,12 @@
-import type { CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
 import type { ModelDefinition } from '../models/modelLibrary'
+import {
+  getModelLibrarySection,
+  type ModelLibrarySection,
+} from '../models/modelLibrarySections'
 
 type ModelSelectorProps = {
+  initialSection: ModelLibrarySection
   models: ModelDefinition[]
   onClose: () => void
   onRefreshModels: () => void
@@ -9,11 +14,18 @@ type ModelSelectorProps = {
 }
 
 export function ModelSelector({
+  initialSection,
   models,
   onClose,
   onRefreshModels,
   onSelectModel,
 }: ModelSelectorProps) {
+  const [section, setSection] = useState<ModelLibrarySection>(initialSection)
+  const sectionModels = useMemo(
+    () => models.filter((model) => getModelLibrarySection(model) === section),
+    [models, section],
+  )
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <section
@@ -25,8 +37,14 @@ export function ModelSelector({
       >
         <header>
           <div>
-            <h2 id="model-selector-title">Add Model</h2>
-            <p>Choose a model to place on the active floor.</p>
+            <h2 id="model-selector-title">
+              {section === 'openings' ? 'Add an opening' : 'Add an object'}
+            </h2>
+            <p>
+              {section === 'openings'
+                ? 'Choose a window or door, then click a compatible wall or roof in the 2D or 3D view.'
+                : 'Choose an object to place on the active floor.'}
+            </p>
           </div>
           <div className="model-selector-actions">
             <button type="button" onClick={onRefreshModels}>
@@ -38,8 +56,27 @@ export function ModelSelector({
           </div>
         </header>
 
+        <nav className="model-selector-tabs" aria-label="Asset type">
+          <button
+            type="button"
+            className={section === 'openings' ? 'active' : ''}
+            aria-pressed={section === 'openings'}
+            onClick={() => setSection('openings')}
+          >
+            Windows &amp; doors
+          </button>
+          <button
+            type="button"
+            className={section === 'objects' ? 'active' : ''}
+            aria-pressed={section === 'objects'}
+            onClick={() => setSection('objects')}
+          >
+            Objects
+          </button>
+        </nav>
+
         <div className="model-grid">
-          {models.map((model) => (
+          {sectionModels.map((model) => (
             <button
               key={model.id}
               type="button"
@@ -65,9 +102,20 @@ export function ModelSelector({
                 />
               )}
               <strong>{model.name}</strong>
-              <span>{model.category}</span>
+              <span>
+                {section === 'openings'
+                  ? model.roofMount === 'dormer'
+                    ? 'Up-and-over / hip roofs'
+                    : 'Click to position'
+                  : model.category}
+              </span>
             </button>
           ))}
+          {sectionModels.length === 0 ? (
+            <p className="model-selector-empty">
+              No {section === 'openings' ? 'windows or doors' : 'objects'} are available.
+            </p>
+          ) : null}
         </div>
       </section>
     </div>

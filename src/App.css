@@ -1385,6 +1385,52 @@
   overflow: hidden;
 }
 
+.canvas-host {
+  position: relative;
+}
+
+.canvas-host.placing-opening canvas,
+.three-host.placing-opening canvas {
+  cursor: crosshair;
+}
+
+.model-placement-hint {
+  position: absolute;
+  z-index: 6;
+  top: 12px;
+  left: 50%;
+  display: grid;
+  grid-template-columns: auto auto auto;
+  align-items: center;
+  gap: 8px 12px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(14, 116, 144, 0.42);
+  border-radius: 7px;
+  background: rgba(240, 249, 255, 0.96);
+  color: #0c4a6e;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  font-size: 12px;
+  pointer-events: auto;
+  white-space: nowrap;
+}
+
+.model-placement-hint strong {
+  font-size: 13px;
+}
+
+.model-placement-hint button {
+  padding: 5px 8px;
+  border: 1px solid #7dd3fc;
+  border-radius: 5px;
+  background: #ffffff;
+  color: #075985;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+
 .three-host {
   position: relative;
   display: grid;
@@ -1891,12 +1937,42 @@
   width: min(680px, 100%);
   max-height: min(620px, calc(100svh - 48px));
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   overflow: hidden;
   border: 1px solid rgba(203, 213, 225, 0.95);
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.model-selector-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 10px 14px 0;
+}
+
+.model-selector-tabs button {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.model-selector-tabs button.active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.model-selector-tabs button:hover,
+.model-selector-tabs button:focus-visible {
+  border-color: #2563eb;
+  outline: none;
 }
 
 .model-selector header {
@@ -1963,6 +2039,13 @@
   gap: 10px;
   padding: 14px;
   overflow: auto;
+}
+
+.model-selector-empty {
+  grid-column: 1 / -1;
+  margin: 24px;
+  color: #64748b;
+  text-align: center;
 }
 
 .model-option {

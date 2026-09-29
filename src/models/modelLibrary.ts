@@ -2,6 +2,7 @@ export type ModelObjectType =
   | 'appliance'
   | 'bathroom'
   | 'decor'
+  | 'dormer-window'
   | 'exterior-door'
   | 'furniture'
   | 'interior-door'
@@ -63,6 +64,7 @@ export type ModelDefinition = {
   previewUrl?: string
   normalizeToDimensions?: boolean
   objectType?: ModelObjectType
+  roofMount?: 'dormer'
   wallMount?: 'exterior-door' | 'interior-door' | 'patio-door' | 'window'
   sourceUrl?: string
   shape: 'box' | 'light' | 'round'
@@ -187,6 +189,18 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
 )
 
 const builtInModels: ModelDefinition[] = [
+  {
+    id: 'dormer-window',
+    name: 'Dormer Window',
+    category: 'Windows',
+    color: '#e5e7eb',
+    depth: 1.35,
+    height: 1.35,
+    objectType: 'dormer-window',
+    roofMount: 'dormer',
+    shape: 'box',
+    width: 1.25,
+  },
   {
     id: 'point-light',
     name: 'Point Light',
