@@ -128,8 +128,13 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
       .replace('#include <common>', `#include <common>\n${roomLightShaderPars}`)
       .replace('#include <lights_fragment_begin>', maskedLightsChunk)
   }
-  const patchedProgramCacheKey = () =>
-    `${originalProgramCacheKey.call(material)}:house-designer-room-light-v1`
+  const patchedProgramCacheKey = () => {
+    const key = originalProgramCacheKey.call(material)
+    // Fade clones inherit the already-patched hook. Reapplying the controller
+    // must not create a second cache key for exactly the same shader.
+    const suffix = ':house-designer-room-light-v1'
+    return key.endsWith(suffix) ? key : `${key}${suffix}`
+  }
 
   material.onBeforeCompile = patchedOnBeforeCompile
   material.customProgramCacheKey = patchedProgramCacheKey

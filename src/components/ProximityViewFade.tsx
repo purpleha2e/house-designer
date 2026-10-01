@@ -12,6 +12,7 @@ import {
 import { getNearbyVisibleBoundsOpacity } from '../wallViewOcclusion'
 
 export const RoofViewFadeContext = createContext(false)
+export const RoofVisibilityContext = createContext(true)
 
 type MaterialState = Pick<Material,
   'alphaHash' | 'depthWrite' | 'forceSinglePass' | 'opacity' | 'transparent'>

@@ -22,6 +22,7 @@ import {
   Layer,
   Line,
   Rect,
+  Shape,
   Stage,
   Text,
 } from 'react-konva'
@@ -523,6 +524,48 @@ function loadModelPreview(sourceUrl: string) {
     () => modelPreviewPromiseCache.delete(sourceUrl),
   )
   return promise
+}
+
+function isPlanDoor(definition: ModelDefinition) {
+  return definition.wallMount === 'interior-door' || definition.wallMount === 'exterior-door' ||
+    definition.wallMount === 'patio-door'
+}
+
+function DoorPlanSymbol({ width, wallThickness, doubleDoor, selected = false }: {
+  width: number
+  wallThickness: number
+  doubleDoor: boolean
+  selected?: boolean
+}) {
+  const stroke = selected ? '#2563eb' : '#334155'
+  const radius = doubleDoor ? width / 2 : width
+  return <Group name="door-plan-symbol">
+    <Rect x={-width / 2} y={-wallThickness / 2 - 1} width={width} height={wallThickness + 2}
+      fill="#f8fafc" />
+    {[-1, 1].map(side => <Line key={side}
+      points={[side * width / 2, -wallThickness / 2, side * width / 2, wallThickness / 2]}
+      stroke={stroke} strokeWidth={selected ? 2 : 1.5} strokeScaleEnabled={false} />)}
+    {(doubleDoor ? [-1, 1] : [-1]).map(side => <Group key={side}
+      x={side * width / 2} y={-wallThickness / 2} scaleX={-side}>
+      <Line points={[0, 0, 0, -radius]} stroke={stroke}
+        strokeWidth={selected ? 2.5 : 2} strokeScaleEnabled={false} hitStrokeWidth={12} />
+      <Shape name="door-swing" stroke={stroke} strokeWidth={selected ? 1.75 : 1}
+        strokeScaleEnabled={false}
+        sceneFunc={(context, shape) => {
+          context.beginPath()
+          context.arc(0, 0, radius, 0, -Math.PI / 2, true)
+          context.strokeShape(shape)
+        }}
+        hitFunc={(context, shape) => {
+          // The clear swing area remains easy to select and drag.
+          context.beginPath()
+          context.moveTo(0, 0)
+          context.arc(0, 0, radius, 0, -Math.PI / 2, true)
+          context.closePath()
+          context.fillStrokeShape(shape)
+        }} fillEnabled fill="rgba(0,0,0,0)" />
+    </Group>)}
+  </Group>
 }
 
 function GLBModelPreview({
@@ -3464,7 +3507,7 @@ export function FloorplanCanvas({
       ...new Map(
         (activeFloor.models ?? [])
           .map((model) => modelsById.get(model.modelId))
-          .filter((definition) => definition?.sourceUrl)
+          .filter((definition) => definition?.sourceUrl && !isPlanDoor(definition))
           .map((definition) => [definition!.id, definition!] as const),
       ).values(),
     ]
@@ -4928,6 +4971,8 @@ export function FloorplanCanvas({
     const rotation = (getWallAngle(wall) * 180) / Math.PI
 
     return wall.openings.map((opening) => {
+      const definition = modelsById.get(opening.modelId)
+      const isDoorOpening = definition && isPlanDoor(definition) && opening.bottom === 0
       const center = toCanvasPoint({
         x: wall.start.x + direction.x * opening.center,
         y: wall.start.y + direction.y * opening.center,
@@ -4950,7 +4995,7 @@ export function FloorplanCanvas({
             offsetY={((wall.thickness + 0.08) * METERS_TO_PIXELS) / 2}
             fill="#f8fafc"
           />
-          <Line
+          {!isDoorOpening && <Line
             points={[
               (-opening.width * METERS_TO_PIXELS) / 2,
               0,
@@ -4959,7 +5004,7 @@ export function FloorplanCanvas({
             ]}
             stroke="#38bdf8"
             strokeWidth={3}
-          />
+          />}
         </Group>
       )
     })
@@ -4973,8 +5018,9 @@ export function FloorplanCanvas({
 
     const center = toCanvasPoint(model.position)
     const modelBounds = modelBoundsById[modelDefinition.id]
+    const planDoor = isPlanDoor(modelDefinition)
 
-    if (modelDefinition.sourceUrl && !modelBounds) {
+    if (modelDefinition.sourceUrl && !modelBounds && !planDoor) {
       return []
     }
 
@@ -5025,6 +5071,23 @@ export function FloorplanCanvas({
     const labelWidth = Math.max(72, width)
     const isSelectedModel =
       model.id === selectedModelId || selectedModelIds.includes(model.id)
+    // Use the actual aperture, including openings spanning joined wall segments.
+    // Keep its centre fixed while flip/mirror changes only the leaf and swing.
+    const doorOpeningEnds = planDoor ? renderedWalls.flatMap(({ wall }) => {
+      const length = getWallLength(wall)
+      if (!length) return []
+      return (wall.openings ?? []).filter(opening => opening.bottom === 0 &&
+        (opening.id === model.id || opening.id.startsWith(`${model.id}:`)))
+        .flatMap(opening => [-1, 1].map(side => {
+          const offset = opening.center + side * opening.width / 2
+          return ((wall.start.x + (wall.end.x - wall.start.x) * offset / length) - model.position.x) * Math.cos(model.rotation) +
+            ((wall.start.y + (wall.end.y - wall.start.y) * offset / length) - model.position.y) * Math.sin(model.rotation)
+        }))
+    }) : []
+    const doorMin = doorOpeningEnds.length ? Math.min(...doorOpeningEnds) :
+      -(modelDefinition.openingWidth ?? modelDefinition.width) * modelScale * modelWidthScale / 2
+    const doorMax = doorOpeningEnds.length ? Math.max(...doorOpeningEnds) : -doorMin
+    const doorWall = planDoor ? activeFloor.walls.find(wall => wall.id === model.wallAttachment?.wallId) : undefined
     const gizmoScale = 1 / viewport.scale
     const getStairSnap = (
       position: Point,
@@ -5276,7 +5339,13 @@ export function FloorplanCanvas({
           setIsDraggingModel(false)
         }}
       >
-        <Group
+        {planDoor ? <Group x={(doorMin + doorMax) * METERS_TO_PIXELS / 2}>
+          <Group rotation={model.flipped ? 180 : 0} scaleX={model.mirrored ? -1 : 1}>
+            <DoorPlanSymbol width={(doorMax - doorMin) * METERS_TO_PIXELS}
+              wallThickness={(doorWall?.thickness ?? 0.13) * METERS_TO_PIXELS}
+              doubleDoor={modelDefinition.wallMount === 'patio-door'} selected={isSelectedModel} />
+          </Group>
+        </Group> : <Group
           rotation={model.flipped ? 180 : 0}
           scaleX={model.mirrored ? -1 : 1}
         >
@@ -5319,8 +5388,8 @@ export function FloorplanCanvas({
               cornerRadius={4}
             />
           )}
-        </Group>
-        {modelDefinition.sourceUrl ? null : (
+        </Group>}
+        {modelDefinition.sourceUrl || planDoor ? null : (
           <Text
             x={0}
             y={0}
@@ -6484,16 +6553,19 @@ export function FloorplanCanvas({
                   stroke={isSelectedWall ? '#2563eb' : '#0f172a'}
                   strokeWidth={isSelectedWall ? 3 : 1}
                   lineJoin="miter"
-                  onClick={(event) =>
+                  onClick={(event) => {
+                    if (isAddingWall) return
                     onSelectWall(
                       renderedWall.wall.id,
                       event.evt.ctrlKey || event.evt.metaKey,
                     )
-                  }
+                  }}
                   onContextMenu={(event) =>
                     openWallContextMenu(renderedWall.wall.id, event)
                   }
-                  onTap={() => onSelectWall(renderedWall.wall.id)}
+                  onTap={() => {
+                    if (!isAddingWall) onSelectWall(renderedWall.wall.id)
+                  }}
                   onDragStart={(event) => {
                     event.cancelBubble = true
                     setHoverSnapTarget(null)
@@ -6889,7 +6961,10 @@ export function FloorplanCanvas({
                   rotation={(modelPlacementPreview.rotation * 180) / Math.PI}
                   listening={false}
                 >
-                  <Rect
+                  {isPlanDoor(placementModel) ? <DoorPlanSymbol
+                    width={(placementModel.openingWidth ?? placementModel.width) * METERS_TO_PIXELS}
+                    wallThickness={(activeFloor.walls.find(wall => wall.id === modelPlacementPreview.wallAttachment?.wallId)?.thickness ?? 0.13) * METERS_TO_PIXELS}
+                    doubleDoor={placementModel.wallMount === 'patio-door'} selected /> : <><Rect
                     x={-width / 2}
                     y={placementModel.roofMount === 'dormer' ? -depth : -depth / 2}
                     width={width}
@@ -6906,6 +6981,7 @@ export function FloorplanCanvas({
                     stroke="#0284c7"
                     strokeWidth={4 / viewport.scale}
                   />
+                  </>}
                 </Group>
               )
             })() : null}

@@ -3,8 +3,10 @@ import { createRoot } from 'react-dom/client'
 import { _roots } from '@react-three/fiber'
 import { DoubleSide, Mesh, Raycaster, Vector3 } from 'three'
 import { ThreeDView } from '../../src/components/ThreeDView'
+import { ContextPanel } from '../../src/components/ContextPanel'
 import redHouse from '../../red_house_3.json'
 import redHouse4 from '../../red_house_4.json'
+import redHouse5 from '../../red_house_5.json'
 import roofTests from '../../roof_tests.json'
 import roofTests1 from '../../roof_tests_1.json'
 import roofTests2 from '../../roof_tests_2.json'
@@ -14,11 +16,11 @@ import springfield14 from '../../springfield_14.json'
 import loftTest from '../../loft_test.json'
 import '../../src/App.css'
 import { loadPortalCatalog } from '../../src/portalCatalog'
-import { registerRuntimeSurfaceMaterials } from '../../src/materials/materialCatalog'
+import { registerRuntimeSurfaceMaterials, surfaceMaterialCatalog } from '../../src/materials/materialCatalog'
 import { modelsById, registerRuntimeModels, type ModelDefinition } from '../../src/models/modelLibrary'
 import { normalizeFloor } from '../../src/modelPlacement'
 import { getSurfaceSelectionFloorId } from '../../src/surfaceSelection'
-import type { FloorLevel, SelectableSurface, SurfaceMaterialAssignment } from '../../src/types'
+import type { FloorLevel, PlacedModel, SelectableSurface, SurfaceMaterialAssignment } from '../../src/types'
 
 const noop = () => {}
 const searchParams = new URLSearchParams(location.search)
@@ -29,7 +31,7 @@ const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRoofTests3 = searchParams.has('roof-tests-3')
 const isRedHouseDoor = searchParams.has('red-house-door')
 const isLoftTest = searchParams.has('loft-test')
-const savedProject = searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const savedProject = searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -67,7 +69,20 @@ function RegressionScene() {
     updateRegressionAssignments: setAssignments,
     regressionSunPosition: sunPosition,
   })
-  return <ThreeDView
+  const selectedModel = sceneFloors.flatMap(floor => floor.models).find(model => model.id === selection)
+  const selectedDefinition = selectedModel ? modelsById.get(selectedModel.modelId) : undefined
+  const updateModel = (id: string, updates: Partial<PlacedModel>) => setSceneFloors(current => current.map(floor => ({
+    ...floor, models: floor.models.map(model => model.id === id ? { ...model, ...updates } : model),
+  })))
+  return <>
+  {searchParams.has('dormer-materials') ? <ContextPanel
+    activeFloor={sceneFloors.find(floor => floor.id === activeFloorId)!} floors={sceneFloors}
+    selectedModel={selectedModel && selectedDefinition ? { model: selectedModel, definition: selectedDefinition } : null}
+    selectedRoom={null} selectedSurface={null} selectedWall={undefined} canVaultRoom={false}
+    surfaceAssignments={assignments} surfaceMaterials={surfaceMaterialCatalog}
+    onDeleteModel={noop} onRenameRoom={noop} onUpdateRoomCeilingMode={noop} onUpdateModel={updateModel} onUpdateWall={noop}
+  /> : null}
+  <ThreeDView
   roofPlacementPreview={showPreview && previewSource ? {
     floorId: sourceFloors[0].id,
     roof: { ...previewSource, id: '__roof-placement-preview__' },
@@ -85,10 +100,10 @@ function RegressionScene() {
     setActiveFloorId(getSurfaceSelectionFloorId(surface, activeFloorId, sceneFloors))
     setSurfaceSelection(surface)
   }}
-  onUpdateModel={noop} selectedModelId={selection} selectedRoofId={null}
+  onUpdateModel={updateModel} selectedModelId={selection} selectedRoofId={null}
   selectedSurface={surfaceSelection} selectedWallId={null} sceneRevision={1} showAllFloors={!searchParams.has('edit-floor')}
   surfaceAssignments={assignments}
-/>
+/></>
 }
 createRoot(document.getElementById('root')!).render(<RegressionScene />)
 

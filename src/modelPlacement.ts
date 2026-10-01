@@ -595,6 +595,10 @@ export function normalizeFloor(
                 ? definition.lightSpread
                 : model.lightSpread,
             mirrored: model.mirrored === true,
+            dormerWidth: definition?.roofMount === 'dormer' && typeof model.dormerWidth === 'number' && Number.isFinite(model.dormerWidth)
+              ? Math.max(0.5, Math.min(10, model.dormerWidth)) : undefined,
+            dormerHeight: definition?.roofMount === 'dormer' && typeof model.dormerHeight === 'number' && Number.isFinite(model.dormerHeight)
+              ? Math.max(0.5, Math.min(10, model.dormerHeight)) : undefined,
             dormerWindowModelId:
               definition?.roofMount === 'dormer'
                 ? typeof model.dormerWindowModelId === 'string' &&

@@ -2,6 +2,7 @@ import type { Point, Wall } from './types'
 
 const CONNECTION_EPSILON_METERS = 0.02
 export const MAX_WALL_HEIGHT_METERS = 10
+export const DEFAULT_EXTERNAL_WALL_THICKNESS_METERS = 0.3
 
 export type RenderedWall = {
   wall: Wall

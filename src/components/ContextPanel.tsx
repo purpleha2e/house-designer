@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   FloorLevel,
   PlacedModel,
@@ -8,13 +8,17 @@ import type {
   SurfaceMaterialProduct,
   Wall,
 } from '../types'
-import { modelLibrary, type ModelDefinition } from '../models/modelLibrary'
+import { modelLibrary, modelsById, type ModelDefinition } from '../models/modelLibrary'
+import { prepareDormerInteriors } from '../dormerInterior'
+import { createDormerStructuralAssembly } from '../dormerPlacement'
+import { DORMER_INTERIOR_MATERIAL_REGION, getDormerWallAssignment } from '../dormerMaterials'
 import type { DetectedRoom } from '../wallTopology'
 import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
 
 type ContextPanelProps = {
   activeFloor: FloorLevel
+  floors: FloorLevel[]
   canVaultRoom: boolean
   selectedModel: {
     definition: ModelDefinition
@@ -170,6 +174,7 @@ function getDefaultSurfaceMaterialLabel(
 
 export function ContextPanel({
   activeFloor,
+  floors,
   canVaultRoom,
   selectedModel,
   selectedRoom,
@@ -187,6 +192,8 @@ export function ContextPanel({
     null,
   )
   const [wallHeightDraft, setWallHeightDraft] = useState<string | null>(null)
+  const [dormerWidthDraft, setDormerWidthDraft] = useState<string | null>(null)
+  const [dormerHeightDraft, setDormerHeightDraft] = useState<string | null>(null)
   const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
   const selectedModelIsSpotlight = selectedModel?.definition.lightKind === 'spot'
   const selectedModelIsDoor = Boolean(
@@ -201,6 +208,38 @@ export function ContextPanel({
   const selectedModelIsStairs =
     selectedModel?.definition.objectType === 'stairs'
   const selectedModelIsDormer = selectedModel?.definition.roofMount === 'dormer'
+  const dormerAssembly = selectedModelIsDormer && selectedModel ? createDormerStructuralAssembly({
+    definition: selectedModel.definition, ownerId: selectedModel.model.id,
+    hostRoof: floors.flatMap(floor => floor.roofs ?? []).find(roof => roof.id === selectedModel.model.roofAttachment?.roofId),
+    windowDefinition: modelsById.get(selectedModel.model.dormerWindowModelId ?? '') ?? modelLibrary.find(model => model.wallMount === 'window'),
+    width: selectedModel.model.dormerWidth, height: selectedModel.model.dormerHeight,
+    depthScale: selectedModel.model.depthScale,
+  }) : undefined
+  const dormerWidth = dormerAssembly && selectedModel ? Math.abs(dormerAssembly.walls[0].start.x) * 2 *
+    selectedModel.model.scale * (selectedModel.model.widthScale ?? 1) : 0
+  const dormerHeight = dormerAssembly && selectedModel ? dormerAssembly.wallHeight * selectedModel.model.scale : 0
+  useEffect(() => {
+    setDormerWidthDraft(null)
+    setDormerHeightDraft(null)
+  }, [selectedModel?.model.id])
+  const commitDormerDimension = (axis: 'width' | 'height') => {
+    if (!selectedModel || !dormerAssembly) return
+    const draft = axis === 'width' ? dormerWidthDraft : dormerHeightDraft
+    const value = draft === null ? NaN : Number(draft)
+    if (Number.isFinite(value) && value > 0) {
+      const scale = selectedModel.model.scale * (axis === 'width' ? selectedModel.model.widthScale ?? 1 : 1)
+      const dimension = Math.max(0.5, Math.min(10, value / scale))
+      onUpdateModel(selectedModel.model.id, axis === 'width' ? { dormerWidth: dimension } : { dormerHeight: dimension })
+    }
+    if (axis === 'width') setDormerWidthDraft(null)
+    else setDormerHeightDraft(null)
+  }
+  const dormerContacts = useMemo(() => selectedModelIsDormer
+    ? prepareDormerInteriors(floors, modelsById).wallContacts.get(selectedModel!.model.id) ?? [] : [],
+  [floors, selectedModel, selectedModelIsDormer])
+  const dormerWallAssignment = selectedModelIsDormer && selectedModel
+    ? getDormerWallAssignment(surfaceAssignments, selectedModel.model, dormerContacts) : undefined
+  const dormerWallMaterial = surfaceMaterials.find(material => material.id === dormerWallAssignment?.materialId)
   const dormerWindowModels = modelLibrary.filter(
     (definition) => definition.wallMount === 'window',
   )
@@ -468,10 +507,17 @@ export function ContextPanel({
             <dd>{selectedRoom.detectedRoom.area.toFixed(2)} m2</dd>
           </div>
         ) : null}
-        <div>
-          <dt>Length</dt>
+        <div className={selectedModelIsDormer ? 'context-field' : undefined}>
+          <dt>{selectedModelIsDormer ? 'Width' : 'Length'}</dt>
           <dd>
-            {selectedWall
+            {selectedModelIsDormer ? <>
+              <input aria-label="Dormer width" type="text" inputMode="decimal"
+                value={dormerWidthDraft ?? formatMetresInputValue(dormerWidth)}
+                onChange={event => setDormerWidthDraft(event.target.value)}
+                onBlur={() => commitDormerDimension('width')}
+                onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} />
+              <span>m</span>
+            </> : selectedWall
               ? `${getWallLength(selectedWall).toFixed(2)} m`
               : selectedModelIsLight
                 ? '-'
@@ -520,10 +566,17 @@ export function ContextPanel({
           </dd>
         </div>
         {!selectedWall ? (
-          <div>
-            <dt>Height</dt>
+          <div className={selectedModelIsDormer ? 'context-field' : undefined}>
+            <dt>{selectedModelIsDormer ? 'Wall height' : 'Height'}</dt>
             <dd>
-              {selectedModelIsLight && selectedModel
+              {selectedModelIsDormer ? <>
+                <input aria-label="Dormer wall height" title="Front wall height above the roof mounting point, below the gable"
+                  type="text" inputMode="decimal" value={dormerHeightDraft ?? formatMetresInputValue(dormerHeight)}
+                  onChange={event => setDormerHeightDraft(event.target.value)}
+                  onBlur={() => commitDormerDimension('height')}
+                  onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} />
+                <span>m</span>
+              </> : selectedModelIsLight && selectedModel
                 ? `${(selectedModel.model.height ?? selectedModel.definition.height).toFixed(2)} m`
                 : selectedModel
                   ? `${(
@@ -729,6 +782,43 @@ export function ContextPanel({
                   </select>
                 </dd>
               </div>
+            ) : null}
+            {selectedModelIsDormer ? (
+              <>
+                <div className="context-field">
+                  <dt>Exterior walls</dt>
+                  <dd><select aria-label="Dormer exterior wall material"
+                    value={selectedModel.model.materialOverrides?.['dormer-exterior'] ?? ''}
+                    onChange={event => updateModelMaterialOverride('dormer-exterior', event.target.value)}>
+                    <option value="">Default external wall</option>
+                    {surfaceMaterials.map(material => <option key={material.id} value={material.id}>
+                      {getSurfaceMaterialLabel(material)}
+                    </option>)}
+                  </select></dd>
+                </div>
+                <div className="context-field">
+                  <dt>Interior ceiling</dt>
+                  <dd>Matches attached roof underside</dd>
+                </div>
+                <div className="context-field">
+                  <dt>Interior walls</dt>
+                  <dd>
+                    {dormerContacts.length > 0 ? (
+                      <span>Matches intersecting wall: {dormerWallMaterial
+                        ? getSurfaceMaterialLabel(dormerWallMaterial) : 'Default internal wall'}</span>
+                    ) : (
+                      <select aria-label="Dormer interior wall material"
+                        value={selectedModel.model.materialOverrides?.[DORMER_INTERIOR_MATERIAL_REGION] ?? ''}
+                        onChange={event => updateModelMaterialOverride(DORMER_INTERIOR_MATERIAL_REGION, event.target.value)}>
+                        <option value="">Default internal wall</option>
+                        {surfaceMaterials.map(material => (
+                          <option key={material.id} value={material.id}>{getSurfaceMaterialLabel(material)}</option>
+                        ))}
+                      </select>
+                    )}
+                  </dd>
+                </div>
+              </>
             ) : null}
             {selectedModelIsStairs ? (
               <div className="context-actions">

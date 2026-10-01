@@ -45,3 +45,49 @@ test('room light shader masks point and spot contributions while preserving exis
   restore()
   assert.equal(material.onBeforeCompile, originalHook)
 })
+
+test('room lighting reaches boundary surfaces between mask sample centres', () => {
+  for (const angle of [0, 0.37, Math.PI / 4]) {
+    const polygon = [{ x: -1.3, y: -0.9 }, { x: 1.3, y: -0.9 }, { x: 1.3, y: 0.9 }, { x: -1.3, y: 0.9 }]
+      .map(p => ({ x: 3.017 + p.x * Math.cos(angle) - p.y * Math.sin(angle),
+        y: 3.013 + p.x * Math.sin(angle) + p.y * Math.cos(angle) }))
+    const mask = createRoomLightMask([{ signature: 'room', polygon }], { minX: 0, minZ: 0, size: 6 }, 128)
+    const roomId = mask.roomIdsBySignature.get('room')
+    for (let edge = 0; edge < polygon.length; edge++) {
+      const a = polygon[edge], b = polygon[(edge + 1) % polygon.length]
+      for (let i = 0; i <= 100; i++) {
+        const t = i / 100
+        // Interior points arbitrarily close to the wall/ceiling perimeter
+        // must still receive that room's light, including diagonal corners.
+        const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }
+        p.x += (3.017 - p.x) * 0.0001
+        p.y += (3.013 - p.y) * 0.0001
+        assert.equal(getRoomLightMaskIdAtPoint(mask, p), roomId, `angle ${angle}, edge ${edge}, sample ${i}`)
+      }
+    }
+  }
+})
+
+test('room-light hooks inherited by fade clones reuse the same shader cache key', () => {
+  const material = new MeshStandardMaterial()
+  const uniforms = createRoomLightShaderUniforms(new DataTexture())
+  applyRoomLightShader(material, uniforms)
+  const clone = material.clone()
+  clone.onBeforeCompile = material.onBeforeCompile.bind(material)
+  clone.customProgramCacheKey = material.customProgramCacheKey.bind(material)
+  applyRoomLightShader(clone, uniforms)
+  assert.equal(clone.customProgramCacheKey(), material.customProgramCacheKey())
+})
+
+test('boundary coverage preserves room separation across a thin wall', () => {
+  const rectangle = (left: number, right: number) =>
+    [{ x: left, y: 1.017 }, { x: right, y: 1.017 }, { x: right, y: 4.013 }, { x: left, y: 4.013 }]
+  const mask = createRoomLightMask([
+    { signature: 'left', polygon: rectangle(1.017, 3.017) },
+    { signature: 'right', polygon: rectangle(3.117, 5.117) },
+  ], { minX: 0, minZ: 0, size: 6 }, 128)
+  assert.equal(getRoomLightMaskIdAtPoint(mask, { x: 3.016, y: 2 }), mask.roomIdsBySignature.get('left'))
+  assert.equal(getRoomLightMaskIdAtPoint(mask, { x: 3.118, y: 2 }), mask.roomIdsBySignature.get('right'))
+  assert.equal(getRoomLightMaskIdAtPoint(mask, { x: 3.07, y: 2 }), 0)
+  assert.equal(getRoomLightMaskIdAtPoint(mask, { x: 0.93, y: 2 }), 0)
+})

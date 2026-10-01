@@ -10,6 +10,7 @@ import {
   getRoofSlope,
 } from './roofProfile.ts'
 import { getRoofThickness } from './roofThickness.ts'
+import { DEFAULT_EXTERNAL_WALL_THICKNESS_METERS } from './wallGeometry.ts'
 import type { PlacedModel, Point, RoofAttachment, RoofStructure, Wall } from './types.ts'
 import type { ModelDefinition } from './models/modelLibrary.ts'
 
@@ -212,6 +213,35 @@ export function findDormerPlacement(
     .sort((a, b) => b.placement.surfaceHeight - a.placement.surfaceHeight)[0] ?? null
 }
 
+/** Move on the attached roof face, keeping the complete valley on that face. */
+export function getMovedDormerPlacement(
+  roof: RoofStructure,
+  model: PlacedModel,
+  definition: ModelDefinition,
+  worldPoint: Point,
+  windowDefinition?: ModelDefinition,
+): DormerPlacement | null {
+  if (!model.roofAttachment || model.roofAttachment.roofId !== roof.id) return null
+  const scale = model.scale ?? 1, widthScale = model.widthScale ?? 1, depthScale = model.depthScale ?? 1
+  const assembly = createDormerStructuralAssembly({ definition, hostRoof: roof, ownerId: model.id,
+    width: model.dormerWidth, height: model.dormerHeight, depthScale, windowDefinition })
+  const placement = getDormerPlacementOnRoof(roof, worldPoint,
+    assembly.roofHalfWidth * 2 * scale * widthScale, assembly.depth * scale * depthScale)
+  if (!placement || placement.roofAttachment.surface !== model.roofAttachment.surface) return null
+  const extents = getRoofPanelLocalExtents(roof)
+  const support = getRoofSupportBoundsInRoofSpace(roof)
+  const ridgeX = (support.minX + support.maxX) / 2
+  const footprint = getDormerOpeningPolygon({ ...model, ...placement }, definition, roof, windowDefinition)
+  const fits = footprint.every(point => {
+    const local = getRoofLocalPoint(roof, point)
+    if (local.x < extents.minX || local.x > extents.maxX || local.y < extents.minY || local.y > extents.maxY) return false
+    if (roof.type === 'up-and-over') return placement.roofAttachment.surface === 'negative-x'
+      ? local.x <= ridgeX + 1e-6 : local.x >= ridgeX - 1e-6
+    return getHipPlaneUphillRoom(local, placement.roofAttachment.surface, extents) >= -1e-6
+  })
+  return fits ? placement : null
+}
+
 /** The roof aperture beneath a dormer, expressed in world-plan coordinates. */
 export function getDormerOpeningPolygon(
   model: PlacedModel,
@@ -224,8 +254,9 @@ export function getDormerOpeningPolygon(
   const depthScale = model.depthScale ?? 1
   const assembly = createDormerStructuralAssembly({
     definition, hostRoof: roof, ownerId: model.id, windowDefinition, depthScale,
+    width: model.dormerWidth, height: model.dormerHeight,
   })
-  const halfWidth = definition.width / 2
+  const halfWidth = Math.abs(assembly.walls[0].start.x)
   const placement = roof && model.roofAttachment
     ? getAttachedDormerPlacement(roof, model.roofAttachment) : null
   const rotation = placement?.rotation ?? model.rotation
@@ -254,20 +285,29 @@ export function getDormerOpeningPolygon(
 function getDormerWallMetrics(
   definition: ModelDefinition,
   windowDefinition?: ModelDefinition,
+  requestedHeight?: number,
+  gable?: { rise: number; slope: number; thickness: number },
 ) {
   const width = definition.width
   const maximumWindowWidth = width * 0.66
+  const windowBottom = Math.max(0.12, definition.height * 0.1)
+  const head = Math.max(0.16, definition.height * 0.12)
   const maximumWindowHeight = definition.height * 0.64
   const sourceWindowWidth = Math.max(windowDefinition?.width ?? maximumWindowWidth, 0.1)
   const sourceWindowHeight = Math.max(windowDefinition?.height ?? maximumWindowHeight, 0.1)
+  // A wide, low dormer can use the gable above the eaves. Fit both top
+  // corners below the pitched lining instead of shrinking it below the eave.
+  const heightScale = requestedHeight !== undefined && gable
+    ? Math.max(0.1, requestedHeight + gable.rise - gable.thickness - windowBottom - head) /
+      (sourceWindowHeight + gable.slope * sourceWindowWidth / 2)
+    : maximumWindowHeight / sourceWindowHeight
   const windowScale = Math.min(
     maximumWindowWidth / sourceWindowWidth,
-    maximumWindowHeight / sourceWindowHeight,
+    heightScale,
   )
   const windowWidth = sourceWindowWidth * windowScale
   const windowHeight = sourceWindowHeight * windowScale
-  const windowBottom = Math.max(0.12, definition.height * 0.1)
-  const wallHeight = windowBottom + windowHeight + Math.max(0.16, definition.height * 0.12)
+  const wallHeight = requestedHeight ?? windowBottom + windowHeight + head
 
   return { wallHeight, windowBottom, windowHeight, windowWidth }
 }
@@ -280,23 +320,31 @@ export function createDormerStructuralAssembly({
   wallBaseY: requestedWallBaseY,
   depthScale = 1,
   windowDefinition,
+  width: requestedWidth,
+  height: requestedHeight,
 }: {
   definition: ModelDefinition
+  width?: number
+  height?: number
   depthScale?: number
   hostRoof?: RoofStructure
   ownerId: string
   wallBaseY?: number
   windowDefinition?: ModelDefinition
 }): DormerStructuralAssembly {
-  const width = definition.width
-  const { wallHeight, windowBottom, windowHeight, windowWidth } =
-    getDormerWallMetrics(definition, windowDefinition)
+  const width = Number.isFinite(requestedWidth) ? Math.max(0.5, requestedWidth!) : definition.width
+  const height = Number.isFinite(requestedHeight) ? Math.max(0.5, requestedHeight!) : undefined
   const hostRoofThickness = hostRoof ? getRoofThickness(hostRoof) : 0.08
-  const wallBaseY = Math.min(requestedWallBaseY ?? -hostRoofThickness, 0)
-  const wallThickness = Math.min(0.14, Math.max(0.08, hostRoofThickness * 0.6))
-  const roofHalfWidth = width * 0.58
+  const wallThickness = DEFAULT_EXTERNAL_WALL_THICKNESS_METERS
+  const roofHalfWidth = Math.max(width * 0.58, width / 2 + wallThickness / 2 + 0.08)
   const pitchDegrees = Math.min(75, Math.max(1, hostRoof?.pitchDegrees ?? 35))
+  // Embed the full external wall through the host skin at its outer face.
+  const roofEmbeddedBase = -hostRoofThickness - wallThickness / 2 * getRoofSlope(pitchDegrees) * depthScale
+  const wallBaseY = Math.min(requestedWallBaseY ?? roofEmbeddedBase, roofEmbeddedBase)
   const roofRise = roofHalfWidth * getRoofSlope(pitchDegrees)
+  const { wallHeight, windowBottom, windowHeight, windowWidth } =
+    getDormerWallMetrics({ ...definition, width }, windowDefinition, height,
+      { rise: roofRise, slope: getRoofSlope(pitchDegrees), thickness: hostRoofThickness })
   const depth = (wallHeight + roofRise) / (getRoofSlope(pitchDegrees) * depthScale)
   const wall = (
     id: string,

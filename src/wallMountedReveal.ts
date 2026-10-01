@@ -1,6 +1,7 @@
 import type { ModelDefinition } from './models/modelLibrary'
 
 export const WALL_MOUNT_FRAME_DEPTH_METERS = 0.08
+export const WINDOW_WALL_FACE_INSET_METERS = 0.02
 
 export function getWallMountedRevealDepth(
   definition: ModelDefinition,

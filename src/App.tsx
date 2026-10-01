@@ -59,7 +59,7 @@ import {
   type DetectedRoom,
 } from './wallTopology'
 import { getFloorEnvelopeWalls } from './floorEnvelope'
-import { MAX_WALL_HEIGHT_METERS } from './wallGeometry'
+import { DEFAULT_EXTERNAL_WALL_THICKNESS_METERS, MAX_WALL_HEIGHT_METERS } from './wallGeometry'
 import {
   ALL_FLOORS_VIEW_ID,
   normalizeSavedThreeDViewState,
@@ -81,7 +81,7 @@ import springfield12Project from '../springfield_14.json'
 //import springfield12Project from '../red_house_3.json'
 import './App.css'
 
-const DEFAULT_THICKNESS = 0.3
+const DEFAULT_THICKNESS = DEFAULT_EXTERNAL_WALL_THICKNESS_METERS
 const DEFAULT_INTERNAL_THICKNESS = 0.15
 const DEFAULT_ROOM_HEIGHT = 2.4
 const DEFAULT_SLAB_THICKNESS = 0.3
@@ -3125,6 +3125,7 @@ function App() {
         >
           <ContextPanel
             activeFloor={activeFloor}
+            floors={floors}
             canVaultRoom={!floors.some(floor => floor.elevation > activeFloor.elevation)}
             selectedModel={selectedModel}
             selectedRoom={selectedRoom}

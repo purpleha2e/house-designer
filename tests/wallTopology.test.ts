@@ -270,6 +270,23 @@ test('room detection separates rooms with a divider trimmed to adjoining wall fa
   assert.equal(topology.rooms.length, 3)
 })
 
+test('room detection separates consecutive dividers despite floating-point wall joins', () => {
+  const walls = [
+    wall({ id: 'top', kind: 'external', start: { x: 1.5, y: 1.5 }, end: { x: 6.5, y: 1.5 } }),
+    wall({ id: 'left', kind: 'external', start: { x: 1.5, y: 1.5 }, end: { x: 1.5000000000000004, y: 7.166764705034278 } }),
+    wall({ id: 'bottom', kind: 'external', start: { x: 1.5000000000000004, y: 7.166764705034278 }, end: { x: 6.5, y: 7.166764705034278 } }),
+    wall({ id: 'right', kind: 'external', start: { x: 6.5, y: 7.166764705034278 }, end: { x: 6.5, y: 1.5 } }),
+    wall({ id: 'lower-divider', kind: 'external', start: { x: 1.5, y: 6.216666666666665 }, end: { x: 6.5, y: 6.216666666666666 } }),
+    wall({ id: 'upper-divider', kind: 'external', start: { x: 1.5000000000000002, y: 4.383333333333333 }, end: { x: 6.5, y: 4.383333333333333 } }),
+  ]
+
+  const rooms = buildWallTopology(walls).rooms
+
+  assert.equal(rooms.length, 3)
+  assert.ok(rooms[1].polygon.every((point) => point.y <= 6.066667))
+  assert.ok(rooms[2].polygon.every((point) => point.y >= 6.366666))
+})
+
 test('recreating the red house upper external wall restores both rooms', () => {
   const project = JSON.parse(readFileSync(new URL('../red_house_3.json', import.meta.url), 'utf8')) as {
     floors: Array<{ walls: Wall[] }>

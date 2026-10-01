@@ -62,6 +62,26 @@ function polygonAreaMagnitude(polygon: Point[]) {
   }, 0))
 }
 
+function segmentIntersectsCell(start: Point, end: Point, x: number, y: number) {
+  let enter = 0
+  let exit = 1
+  for (const [origin, delta, min] of [
+    [start.x, end.x - start.x, x],
+    [start.y, end.y - start.y, y],
+  ]) {
+    if (Math.abs(delta) < 1e-12) {
+      if (origin < min || origin > min + 1) return false
+    } else {
+      const first = (min - origin) / delta
+      const second = (min + 1 - origin) / delta
+      enter = Math.max(enter, Math.min(first, second))
+      exit = Math.min(exit, Math.max(first, second))
+      if (enter > exit) return false
+    }
+  }
+  return true
+}
+
 export function createRoomLightMask(
   rooms: RoomLightMaskRoom[],
   bounds: RoomLightMaskBounds,
@@ -89,6 +109,30 @@ export function createRoomLightMask(
         pointIsInsideRoomPolygon({ x: worldX, y: worldZ }, room.polygon),
       )
       data[y * width + x] = containing?.id ?? 0
+    }
+  }
+
+  // A texel whose centre falls just outside a room can still contain its
+  // wall/ceiling join. Leaving that texel empty removes local light from a
+  // strip up to half a texel wide. Cover the room perimeter conservatively,
+  // without expanding by a whole texel or overwriting another room's ID.
+  for (const { id, room } of maskRooms) {
+    const polygon = room.polygon.map(point => ({
+      x: (point.x - bounds.minX) / bounds.size * width,
+      y: (point.y - bounds.minZ) / bounds.size * height,
+    }))
+    for (let i = 0; i < polygon.length; i++) {
+      const start = polygon[i], end = polygon[(i + 1) % polygon.length]
+      const minX = Math.max(0, Math.floor(Math.min(start.x, end.x)))
+      const maxX = Math.min(width - 1, Math.floor(Math.max(start.x, end.x)))
+      const minY = Math.max(0, Math.floor(Math.min(start.y, end.y)))
+      const maxY = Math.min(height - 1, Math.floor(Math.max(start.y, end.y)))
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          const index = y * width + x
+          if (data[index] === 0 && segmentIntersectsCell(start, end, x, y)) data[index] = id
+        }
+      }
     }
   }
 

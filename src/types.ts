@@ -209,6 +209,9 @@ export type SelectableSurface =
     }
 
 export type PlacedModel = {
+  /** Dormer body dimensions before the placed model's scale is applied. */
+  dormerWidth?: number
+  dormerHeight?: number
   dormerWindowModelId?: string
   flipped?: boolean
   id: string
