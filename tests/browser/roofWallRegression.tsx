@@ -14,11 +14,15 @@ import roofTests3 from '../../roof_tests_3.json'
 import springfield from '../../springfield_13.json'
 import springfield14 from '../../springfield_14.json'
 import loftTest from '../../loft_test.json'
+import floorTest from '../../floor_test.json'
+import roofClippingFixture from '../fixtures/roofClippingRegression.json'
+import { RoofPitchFields } from '../../src/components/RoofPitchFields'
 import '../../src/App.css'
 import { loadPortalCatalog } from '../../src/portalCatalog'
 import { registerRuntimeSurfaceMaterials, surfaceMaterialCatalog } from '../../src/materials/materialCatalog'
 import { modelsById, registerRuntimeModels, type ModelDefinition } from '../../src/models/modelLibrary'
 import { normalizeFloor } from '../../src/modelPlacement'
+import { createDormerWindow, syncDormerWindows, updateDormerWindow } from '../../src/dormerWindows'
 import { getSurfaceSelectionFloorId } from '../../src/surfaceSelection'
 import type { FloorLevel, PlacedModel, SelectableSurface, SurfaceMaterialAssignment } from '../../src/types'
 
@@ -31,7 +35,7 @@ const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRoofTests3 = searchParams.has('roof-tests-3')
 const isRedHouseDoor = searchParams.has('red-house-door')
 const isLoftTest = searchParams.has('loft-test')
-const savedProject = searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const savedProject = searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -71,16 +75,32 @@ function RegressionScene() {
   })
   const selectedModel = sceneFloors.flatMap(floor => floor.models).find(model => model.id === selection)
   const selectedDefinition = selectedModel ? modelsById.get(selectedModel.modelId) : undefined
-  const updateModel = (id: string, updates: Partial<PlacedModel>) => setSceneFloors(current => current.map(floor => ({
-    ...floor, models: floor.models.map(model => model.id === id ? { ...model, ...updates } : model),
-  })))
+  const updateModel = (id: string, updates: Partial<PlacedModel>) => setSceneFloors(current => current.map(floor => syncDormerWindows({
+    ...floor, models: floor.models.map(model => model.id === id
+      ? model.dormerAttachment ? updateDormerWindow(floor, model, updates, modelsById) : { ...model, ...updates } : model),
+  }, modelsById)))
   return <>
+  {searchParams.has('roof-clipping') ? <div style={{ position: 'absolute', zIndex: 10, top: 80, left: 10 }}>
+    <RoofPitchFields roof={sceneFloors[0].roofs![1]} onChange={updates => setSceneFloors(current => current.map((floor, index) => index === 0
+      ? { ...floor, roofs: floor.roofs!.map((roof, roofIndex) => roofIndex === 1 ? { ...roof, ...updates } : roof) } : floor))} />
+  </div> : null}
   {searchParams.has('dormer-materials') ? <ContextPanel
     activeFloor={sceneFloors.find(floor => floor.id === activeFloorId)!} floors={sceneFloors}
     selectedModel={selectedModel && selectedDefinition ? { model: selectedModel, definition: selectedDefinition } : null}
     selectedRoom={null} selectedSurface={null} selectedWall={undefined} canVaultRoom={false}
     surfaceAssignments={assignments} surfaceMaterials={surfaceMaterialCatalog}
-    onDeleteModel={noop} onRenameRoom={noop} onUpdateRoomCeilingMode={noop} onUpdateModel={updateModel} onUpdateWall={noop}
+    onDeleteModel={id => { setSceneFloors(current => current.map(floor => syncDormerWindows({ ...floor,
+      models: floor.models.filter(model => model.id !== id && model.dormerAttachment?.dormerId !== id) }, modelsById))); setSelection(null) }}
+    onAddDormerWindow={(id, modelId) => {
+      const childId = crypto.randomUUID()
+      setSceneFloors(current => current.map(floor => {
+        const child = createDormerWindow(floor, id, modelId, childId, modelsById)
+        return child ? syncDormerWindows({ ...floor, models: [...floor.models, child] }, modelsById) : floor
+      }))
+      setSelection(childId)
+    }}
+    onSelectDormerWindow={setSelection}
+    onRenameRoom={noop} onUpdateRoomCeilingMode={noop} onUpdateModel={updateModel} onUpdateWall={noop}
   /> : null}
   <ThreeDView
   roofPlacementPreview={showPreview && previewSource ? {
@@ -90,7 +110,7 @@ function RegressionScene() {
   activeFloorId={activeFloorId} floors={sceneFloors}
   cameraRestoreRevision={1} cameraViewState={savedProject.threeDView.camera}
   isEngineConsoleOpen={false} lightDirection={sunPosition}
-  modelAssetVersion={1} onCameraViewStateChange={noop} onClearSelection={noop}
+  modelAssetVersion={1} onCameraViewStateChange={noop} onClearSelection={() => { setSelection(null); setSurfaceSelection(null) }}
   onEngineConsoleOpenChange={noop} onLightDirectionChange={position => {
     const counters = window as unknown as { regressionSunCommits?: number }
     counters.regressionSunCommits = (counters.regressionSunCommits ?? 0) + 1

@@ -344,6 +344,45 @@ test('inherited dormer uses the loft floor and opens only the intersecting knee 
   assert.equal(prepareDormerInteriors(floors, new Map([['dormer', definition]])).floors, floors)
 })
 
+test('a slab-boundary loft hosts the dormer with no walls or a single knee wall', () => {
+  for (const withKneeWall of [false, true]) for (const reversed of [false, true]) {
+    const floors = fixture(), loft = floors[1]
+    loft.floorFootprints = [loft.walls.slice(0, 4).map(wall => ({ ...wall.start }))]
+    const knee = loft.walls.at(-1)!
+    // This wall alone is not an enclosure. Its endpoint order must not decide
+    // whether the dormer belongs to the loft or the storey below.
+    if (reversed) [knee.start, knee.end] = [knee.end, knee.start]
+    loft.walls = withKneeWall ? [knee] : []
+    const original = structuredClone(floors)
+    const prepared = prepareDormerInteriors(floors, new Map([[definition.id, definition]]))
+    assert.equal(prepared.baseElevations.get('d'), loft.elevation)
+    assert.deepEqual(floors, original)
+    assert.ok(prepared.floors[0].walls.every(wall => !wall.openings?.length))
+    if (!withKneeWall) {
+      assert.equal(prepared.roomClipPlanes.has('d'), false)
+      continue
+    }
+    const opening = prepared.floors[1].walls[0].openings![0]
+    assert.equal(opening.width, definition.width)
+    assert.equal(opening.height, knee.height)
+    assert.equal(prepared.wallContacts.get('d')?.[0].wallId, knee.id)
+    assert.equal(prepared.floorRecesses[0].floorId, loft.id)
+    const assembly = createDormerStructuralAssembly({ definition, hostRoof: roof, ownerId: 'd', wallBaseY: -0.9 })
+    const geometries = createDormerGeometries(assembly, 1,
+      prepared.roomClipPlanes.get('d'), prepared.wallJunctionSolids.get('d'))
+    const material = new MeshBasicMaterial({ side: DoubleSide })
+    const mesh = new Mesh(geometries.walls, [material, material])
+    for (const side of [-1, 1]) {
+      const hit = (z: number) => new Raycaster(new Vector3(0, -0.1, z), new Vector3(side, 0, 0))
+        .intersectObject(mesh)[0]
+      assert.equal(hit(-0.8), undefined, 'no cheek fin projecting into the loft')
+      assert.equal(hit(-0.25)?.face?.materialIndex, 1, 'recess retains its interior finish')
+    }
+    Object.values(geometries).forEach(geometry => geometry.dispose())
+    material.dispose()
+  }
+})
+
 test('full-height recess stays open through ordinary and perimeter wall caps after sloping roof clipping', () => {
   const wall: Wall = {
     id: 'knee', kind: 'internal', start: { x: 0, y: 0 }, end: { x: 4, y: 0 }, thickness: 0.2, height: 2.4,

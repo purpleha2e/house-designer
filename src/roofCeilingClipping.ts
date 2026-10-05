@@ -60,11 +60,13 @@ function toFootprints(multiPolygon: MultiPolygon): PlanFootprint[] {
 export function getRoofCeilingCutouts(
   roofs: ResolvedRoof[],
   ceilingElevation: number,
+  fittedFloorId?: string,
 ): PlanFootprint[] {
   // Use the exposed envelope within each roof's original coverage. Hidden
   // panels and connection extensions must not remove slabs inside the winning
   // building; separate overhangs still retain their own coverage.
-  const cutoutPolygons = roofs.flatMap((roof) =>
+  const cutoutPolygons = roofs.filter(roof => roof.roof.clipsGeometry !== false ||
+    (roof.roof.fitSupportingWalls && roof.floorId === fittedFloorId)).flatMap((roof) =>
     getRoofCoverageUndersideFaces(roof).flatMap((face) => {
     const belowCeiling = clipRoofFace(
       face,

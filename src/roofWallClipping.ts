@@ -1,11 +1,14 @@
 import type { Point, Wall } from './types.ts'
 import type { WallMeshFace } from './wallEngine/wallMesh.ts'
-import type { SolidPoint } from './convexSolid.ts'
+import type { SolidPlane, SolidPoint } from './convexSolid.ts'
 import { createWallRoofSurfaceDividers } from './wallEngine/wallRoofSurfacePartitions.ts'
+import { getWallPolygon } from './wallGeometry.ts'
 
 import { footprintPlanes, roofFacePlanes, type ClipPlane, type WallRoofClipVolume } from './wallEngine/wallRoofClip.ts'
 
 export type WallClippingRoof = {
+  clipsGeometry?: boolean
+  fitSupportingWallIds?: string[]
   roofId?: string
   surfaceFaces?: [number, number, number][][]
   floorId: string
@@ -18,9 +21,13 @@ export type WallClippingRoof = {
 
 export function createWallRoofClipOptions({
   floorElevation, floorId, isInsideRoom, roofs, walls, wallFaces, gableWallIds = [], gableCeilingFaces = [],
+  clipToInheritedRoofs = false,
+  gableWallVolumes = [],
 }: {
   floorElevation: number
   floorId: string
+  clipToInheritedRoofs?: boolean
+  gableWallVolumes?: SolidPlane[][]
   isInsideRoom?: (point: Point) => boolean
   roofs: WallClippingRoof[]
   walls: Wall[]
@@ -38,9 +45,12 @@ export function createWallRoofClipOptions({
     }
   }
   const volumes: WallRoofClipVolume[] = roofs.flatMap((roof) => {
+    const fitWallIds = new Set(roof.floorId === floorId ? roof.fitSupportingWallIds ?? [] : [])
+    if (roof.clipsGeometry === false && !fitWallIds.size) return []
     const abuttingWalls = walls.filter((wall) => !wall.allowRoofClipHeight &&
       isRoofAbuttingWall({ isInsideRoom, supportPolygon: roof.supportPolygon, wall }))
-    const clipHeightWallIds = new Set(walls.filter((wall) => wall.allowRoofClipHeight).map((wall) => wall.id))
+    const clipHeightWallIds = new Set(walls.filter((wall) => fitWallIds.has(wall.id) ||
+      (roof.clipsGeometry !== false && wall.allowRoofClipHeight)).map((wall) => wall.id))
     const excludedWallIds = new Set(abuttingWalls.map((wall) => wall.id))
     const protectedFootprints = abuttingWalls.map((wall) => {
       const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
@@ -57,6 +67,9 @@ export function createWallRoofClipOptions({
     const resolvedCoverage = roof.undersideFaces.map(roofFacePlanes).filter((planes) => planes.length)
     // Roof joins can remove part of the resolved coverage. Use the full roof
     // profile for opted-in walls so no uncut strip remains at a join.
+    // A loft inherits the joined roof envelope. Extending a neighbouring
+    // roof's original profile across its removed overlap would erase the
+    // knee wall beneath the roof that actually covers the room.
     const heightCoverage = (roof.floorId === floorId ? roof.heightClipUndersideFaces ?? [] : [])
       .map(roofFacePlanes).filter((planes) => planes.length)
     const makeVolumes = (coverage: ClipPlane[][], selectedOnly: boolean): WallRoofClipVolume[] => coverage.map((coveragePlanes) => {
@@ -77,19 +90,31 @@ export function createWallRoofClipOptions({
       return { planes, surfacePlane, boundaryProtections,
         protectedFootprints: selectedOnly ? [] : protectedFootprints,
         excludedWallIds: selectedOnly ? new Set<string>() : excludedWallIds,
-        clipHeightWallIds: selectedOnly || (roof.floorId === floorId && !heightCoverage.length)
+        clipHeightWallIds: selectedOnly || ((roof.floorId === floorId || clipToInheritedRoofs) && !heightCoverage.length)
           ? clipHeightWallIds : new Set<string>(),
         clipSides: !selectedOnly && roof.floorId !== floorId,
         onlySelectedWalls: selectedOnly,
         // A roof on another floor must not erase a raised wall on this floor.
         // Its own floor's roof provides the height cut instead.
-        skipWallIds: !selectedOnly && roof.floorId !== floorId ? clipHeightWallIds : undefined,
+        skipWallIds: !selectedOnly && roof.floorId !== floorId && !clipToInheritedRoofs ? clipHeightWallIds : undefined,
       }
     })
-    return [...makeVolumes(resolvedCoverage, false),
-      ...(clipHeightWallIds.size ? makeVolumes(heightCoverage, true) : [])]
+    const selectedCoverage = heightCoverage.length ? heightCoverage : roof.clipsGeometry === false ? resolvedCoverage : []
+    // A united perimeter cap can be owned by a different wall from the piece
+    // beneath this roof. Clip that cap spatially inside each fitted wall's
+    // thickness, while retaining ordinary wall selection for the vertical skins.
+    const fittedCapVolumes: WallRoofClipVolume[] = walls.filter(wall => fitWallIds.has(wall.id)).flatMap(wall => {
+      const footprint = footprintPlanes(getWallPolygon({ wall,
+        startExtension: wall.thickness / 2, endExtension: wall.thickness / 2 }))
+      return makeVolumes(selectedCoverage, true).map(volume => ({ ...volume,
+        planes: [...volume.planes, ...footprint], onlySelectedWalls: false, onlyTopFaces: true,
+        clipHeightWallIds: new Set<string>(),
+      }))
+    })
+    return [...(roof.clipsGeometry !== false ? makeVolumes(resolvedCoverage, false) : []),
+      ...(clipHeightWallIds.size ? makeVolumes(selectedCoverage, true) : []), ...fittedCapVolumes]
   })
-  const surfaceDividers = roofs.flatMap(roof => roof.floorId !== floorId && roof.roofId && roof.surfaceFaces
+  const surfaceDividers = roofs.flatMap(roof => roof.clipsGeometry !== false && roof.floorId !== floorId && roof.roofId && roof.surfaceFaces
     ? createWallRoofSurfaceDividers(roof.roofId, roof.surfaceFaces,
       // Material boundaries follow actual contact segments. A long facade can
       // meet a roof on only part of its length, or at a slightly angled mount,
@@ -107,7 +132,32 @@ export function createWallRoofClipOptions({
       roofs: [{ floorId, supportPolygon: [], undersideFaces: [], heightClipUndersideFaces: gableCeilingFaces }],
     }).volumes)
   }
+  // Loft partitions stop inside the enclosing gable, which owns the visible
+  // exterior and closes their buried ends. These finite solids need no caps.
+  if (clipToInheritedRoofs && gableWallVolumes.length) {
+    const internalWallIds = new Set(walls.filter(wall => wall.kind === 'internal').map(wall => wall.id))
+    volumes.push(...gableWallVolumes.map(planes => ({
+      planes: planes.map(([a, b, c, d]): ClipPlane => ([x, y, z]) => a * x + b * y + c * z + d),
+      protectedFootprints: [], excludedWallIds: new Set<string>(), clipSides: true,
+      clipHeightWallIds: internalWallIds, onlySelectedWalls: true,
+    })))
+  }
   return { floorElevation, volumes, surfaceDividers }
+}
+
+/** A roof may fit its contained perimeter walls, but not a facade extending
+ * beside it or an intentionally taller wall. Wall thickness accommodates
+ * support outlines snapped to either the centre or outside wall face. */
+export function isRoofSupportingWall(wall: Wall, supportPolygon: Point[], roomHeight: number) {
+  if (wall.kind !== 'external' || wall.height > roomHeight + 0.001 || supportPolygon.length < 3) return false
+  const tolerance = wall.thickness / 2 + 0.025
+  const planes = footprintPlanes(supportPolygon)
+  const start: SolidPoint = [wall.start.x, 0, wall.start.y]
+  const end: SolidPoint = [wall.end.x, 0, wall.end.y]
+  return Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y) > 1e-6 &&
+    planes.every(plane => plane(start) >= -tolerance && plane(end) >= -tolerance) &&
+    planes.some(plane => Math.abs(plane(start)) <= tolerance && Math.abs(plane(end)) <= tolerance &&
+      Math.abs(plane(start) - plane(end)) <= 0.01)
 }
 
 // A roof along the outside of a facade terminates against that wall. A gable

@@ -65,6 +65,8 @@ type LeftToolRailProps = {
   wallKind: WallKind
   onAddEmptyFloor: () => void
   onAddFloor: () => void
+  onAddCeilingLoftFloor: () => void
+  addLoftFloorDisabledReason: string | null
   onApplyMaterial: (options: {
     coverageHeight?: number
     customColor?: string
@@ -293,6 +295,8 @@ export function LeftToolRail({
   wallKind,
   onAddEmptyFloor,
   onAddFloor,
+  onAddCeilingLoftFloor,
+  addLoftFloorDisabledReason,
   onApplyMaterial,
   onAlignModels,
   onCopy,
@@ -450,7 +454,8 @@ export function LeftToolRail({
         : selectedSurface?.type === 'portal-floor'
           ? 'Doorway floor selected'
           : selectedSurface?.type === 'roof'
-            ? selectedSurface.part === 'underside' ? 'Roof underside selected' :
+            ? selectedSurface.part === 'gable-interior' ? 'Inside gable wall selected' :
+              selectedSurface.part === 'underside' ? 'Roof underside selected' :
               selectedSurface.part === 'gable' ? 'Roof gable selected' : 'Roof selected'
         : selectedSurface?.type === 'wall-face' ||
             selectedSurface?.type === 'wall-surface-fragment'
@@ -665,6 +670,12 @@ export function LeftToolRail({
                   ))}
                 </select>
               </label>
+              {selectedFloorViewId === 'all' && activeFloor ? (
+                <small className="flyout-field-help">
+                  All floors are visible in 3D. The 2D plan edits {activeFloor.name}.
+                  {' '}Choose a floor above to edit a different level.
+                </small>
+              ) : null}
               <label className="flyout-field">
                 <span>Ceiling / floor depth</span>
                 <div>
@@ -713,6 +724,14 @@ export function LeftToolRail({
               <button type="button" onClick={onAddFloor}>
                 Add floor from external walls
               </button>
+              <button type="button" onClick={onAddCeilingLoftFloor}
+                disabled={Boolean(addLoftFloorDisabledReason)}
+                title={addLoftFloorDisabledReason ?? undefined}>
+                Add ceiling/loft floor to this level
+              </button>
+              <small className="flyout-field-help">
+                {addLoftFloorDisabledReason ?? 'Creates a floor above this level using the ceiling / floor depth, open to the existing roof.'}
+              </small>
               <button type="button" onClick={onAddEmptyFloor}>
                 Add empty floor
               </button>

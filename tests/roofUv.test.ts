@@ -44,3 +44,20 @@ test('gable chamfer UVs run across the gable and down its true slope', () => {
   close(Math.abs(uvs[1][1] - uvs[0][1]), 2 * Math.SQRT2)
   close(uvs[1][1], uvs[2][1])
 })
+
+test('chamfer tile courses remain level after a junction inserts collinear boundary vertices', () => {
+  const roof: RoofStructure = { id: 'roof', type: 'up-and-over', width: 6, depth: 8,
+    pitchDegrees: 28, asymmetricSides: true, ridgeOffset: -0.8, ridgeHeight: 1.8,
+    position: { x: 0, y: 0 }, rotation: 0 }
+  const support = { minX: -3, maxX: 3, minY: -4, maxY: 4 }
+  const vertices: Array<[number, number, number]> = [
+    [0, 3, 0], [-1, 2, 1], [-2, 1, 2], [2, 1, 2],
+  ]
+  for (const face of [vertices, [...vertices].reverse(), [...vertices.slice(2), ...vertices.slice(0, 2)]]) {
+    const uvs = getPitchedRoofTopUvs(roof, support, face)
+    face.forEach(([x, , z], i) => {
+      close(uvs[i][0], x)
+      close(uvs[i][1], z * Math.SQRT2)
+    })
+  }
+})

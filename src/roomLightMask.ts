@@ -92,11 +92,16 @@ export function createRoomLightMask(
   const data = new Uint8Array(width * height)
   const roomIdsBySignature = new Map<string, number>()
   const maskRooms = rooms
-    .slice(0, MAX_ROOM_LIGHT_MASK_ID)
-    .map((room, index) => {
-      const id = index + 1
-      roomIdsBySignature.set(room.signature, id)
-      return { area: polygonAreaMagnitude(room.polygon), id, room }
+    .flatMap((room) => {
+      // A room can have several floor polygons, including doorway extensions.
+      // All of them must receive the same lights and share one mask ID.
+      let id = roomIdsBySignature.get(room.signature)
+      if (id === undefined) {
+        if (roomIdsBySignature.size >= MAX_ROOM_LIGHT_MASK_ID) return []
+        id = roomIdsBySignature.size + 1
+        roomIdsBySignature.set(room.signature, id)
+      }
+      return [{ area: polygonAreaMagnitude(room.polygon), id, room }]
     })
     .sort((first, second) => first.area - second.area)
 

@@ -94,6 +94,27 @@ function getModelId(fileName: string) {
 }
 
 const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
+  'window-large-single-pane': {
+    name: 'Large Single-pane Window',
+    width: 1.8, height: 2, depth: 0.08,
+    openingWidth: 1.8, openingCenterOffset: 0, objectType: 'window',
+    previewUrl: new URL('./assets/window_large_single_pane.png', import.meta.url).href,
+    localBounds: { minX: -0.9, maxX: 0.9, minZ: 0.00018126, maxZ: 0.08018126 },
+  },
+  'patio-doors-bifold-three-pane-closed': {
+    name: 'Three-pane Bifold Doors (Closed)',
+    width: 2.4, height: 2.08, depth: 0.091,
+    openingWidth: 2.4, openingCenterOffset: 0, objectType: 'patio-door',
+    previewUrl: new URL('./assets/patio_doors_bifold_three_pane_closed.png', import.meta.url).href,
+    localBounds: { minX: -1.2, maxX: 1.2, minZ: -0.00973227, maxZ: 0.08126772 },
+  },
+  'patio-doors-bifold-three-pane-open': {
+    name: 'Three-pane Bifold Doors (Open)',
+    width: 2.4, height: 2.08, depth: 0.80562534,
+    openingWidth: 2.4, openingCenterOffset: 0, objectType: 'patio-door',
+    previewUrl: new URL('./assets/patio_doors_bifold_three_pane_open.png', import.meta.url).href,
+    localBounds: { minX: -1.2, maxX: 1.2, minZ: -0.72435762, maxZ: 0.08126772 },
+  },
   'panel-interior-door-closed': {
     depth: 0.19917,
     height: 2.124037,

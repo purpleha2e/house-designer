@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { buildBayRoofFaces, createBayRoofLayout, getBayRoofPolygon, getBaySupportPolygon, normalizeBayOutline } from '../src/bayRoof.ts'
+import { buildBayRoofFaces, createBayRoofLayout, getBayRoofPolygon, getBayRoofRidge, getBaySupportPolygon, normalizeBayOutline } from '../src/bayRoof.ts'
 import { createBayRoofEavesGeometry } from '../src/bayRoofEaves.ts'
 import { getBayRoofTopUvs } from '../src/roofUv.ts'
 import { getRoofWithExternalWallSupportExtents, resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
@@ -126,4 +126,58 @@ test('save/load retains bay direction and outline, and resolved coverage exclude
   assert.equal(roofSurfaceHeights(resolved.coverageFaces, { x: 2, y: 3 }).length, 0)
   const scaled = { ...roof, width: roof.width * 2, supportWidth: roof.supportWidth! * 2 }
   close(area(getBaySupportPolygon(scaled)), area(getBaySupportPolygon(roof)) * 2)
+})
+
+test('bay ridge extends from the wall by its specified length with watertight planar facets', () => {
+  const diagonalSides = [square[0], square[1], { x: 1, y: 3 }, { x: -1, y: 3 }]
+  for (const points of [square, angled, diagonalSides]) for (const length of [0.5, 1.2]) {
+    const roof = { ...roofFor(points), bayRidgeLength: length }
+    const ridge = getBayRoofRidge(roof)
+    close(ridge.length, length)
+    close(ridge.end.y - ridge.start.y, length)
+    const faces = buildBayRoofFaces(roof)
+    close(faces.reduce((sum, face) => sum + area(face.map(([x, , y]) => ({ x, y }))), 0), area(getBayRoofPolygon(roof)))
+    const edges = new Map<string, number>()
+    const key = (a: number[], b: number[]) => [a, b].map(v => v.map(c => c.toFixed(6)).join(',')).sort().join('|')
+    for (const face of faces) {
+      face.forEach((p, i) => {
+        const edge = key(p, face[(i + 1) % face.length])
+        edges.set(edge, (edges.get(edge) ?? 0) + 1)
+      })
+      const [a, b, c] = face
+      const u = b.map((v, i) => v - a[i]), v = c.map((value, i) => value - a[i])
+      const normal = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]]
+      for (const p of face) close(p.reduce((sum, value, i) => sum + (value-a[i])*normal[i], 0), 0)
+      const uvs = getBayRoofTopUvs(roof, face)
+      for (let first = 0; first < face.length; first++) for (let second = first + 1; second < face.length; second++) {
+        close(Math.hypot(uvs[first][0] - uvs[second][0], uvs[first][1] - uvs[second][1]),
+          Math.hypot(...face[first].map((value, i) => value - face[second][i])))
+      }
+    }
+    assert.equal(edges.get(key([ridge.start.x, ridge.height, ridge.start.y], [ridge.end.x, ridge.height, ridge.end.y])), 2,
+      'the ridge is shared by its two side facets')
+    assert.ok([...edges.values()].every(count => count === 1 || count === 2), 'no duplicate or non-manifold facets')
+    const worldStart = roofToWorld(roof, 0, [ridge.start.x, ridge.height, ridge.start.y])
+    const worldEnd = roofToWorld(roof, 0, [ridge.end.x, ridge.height, ridge.end.y])
+    close(Math.hypot(...worldStart.map((value, i) => value - worldEnd[i])), length)
+    const loaded = normalizeFloor(JSON.parse(JSON.stringify(floorFor(roof))), new Map()).roofs![0]
+    close(loaded.bayRidgeLength!, length)
+    assert.deepEqual(buildBayRoofFaces(loaded), faces)
+    const eaves = createBayRoofEavesGeometry(roof, faces, 0.04)!
+    assert.ok(Array.from(eaves.getAttribute('position').array).every(Number.isFinite))
+    eaves.dispose()
+  }
+})
+
+test('bay ridge clamps before the front edge and missing or invalid values preserve the pointed roof', () => {
+  const roof = roofFor()
+  const long = getBayRoofRidge({ ...roof, bayRidgeLength: 100 })
+  close(long.length, 2.95)
+  assert.ok(long.height > 0)
+  for (const value of [undefined, -1, NaN, Infinity]) {
+    assert.deepEqual(buildBayRoofFaces({ ...roof, bayRidgeLength: value }), buildBayRoofFaces(roof))
+  }
+  const narrow = roofFor([square[0], square[1], { x: -1, y: 3 }])
+  assert.ok(getBayRoofRidge({ ...narrow, bayRidgeLength: 100 }).length < narrow.depth - 0.05,
+    'asymmetric bays clamp to the centre-line boundary rather than bounding-box depth')
 })

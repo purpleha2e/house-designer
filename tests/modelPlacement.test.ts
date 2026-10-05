@@ -168,14 +168,15 @@ test('creates a wall-mounted model from the plan center', () => {
   })
 })
 
-test('dormers default to a catalogue window and preserve a valid selection', () => {
+test('new dormers start without a window and preserve that choice on load', () => {
   const model = createPlacedModel({
     id: 'dormer-1',
     modelId: 'dormer-window',
     modelsById,
     walls: [wall],
   })
-  assert.equal(model.dormerWindowModelId, 'window')
+  assert.equal(model.dormerWindowModelId, undefined)
+  assert.deepEqual(model.dormerWindowOpenings, [])
 
   const floor: FloorLevel = {
     id: 'floor', name: 'Floor', elevation: 0, roomHeight: 2.4,
@@ -192,6 +193,7 @@ test('dormers default to a catalogue window and preserve a valid selection', () 
   }
   const [normalized] = normalizeFloor(floor, modelsById).models
   assert.equal(normalized.dormerWindowModelId, 'window')
+  assert.deepEqual(normalized.dormerWindowOpenings, [])
 })
 
 test('ridge connections and gable chamfers survive a save/load round trip', () => {

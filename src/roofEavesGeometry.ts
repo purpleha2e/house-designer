@@ -1,6 +1,7 @@
 import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2 } from 'three'
 import type { RoofStructure } from './types.ts'
 import { getPitchedRoofHeightAtX, type RoofBounds, type RoofProfileVertex } from './roofProfile.ts'
+import { roofFaceHeight } from './roofJunctions.ts'
 
 const FASCIA_HEIGHT = 0.16
 const REAR_FACE_REVEAL = 0.01
@@ -38,78 +39,42 @@ export function createUpAndOverEavesGeometry(
       face.every(([x]) => side * (x - wallX) >= -0.000001) &&
       face.some(([x]) => side * (x - wallX) > 0.000001),
     )
-    const edges = new Map<string, { a: RoofProfileVertex; b: RoofProfileVertex; count: number }>()
-    const rearIntervals: Array<{ maxZ: number; minZ: number }> = []
+    const edges = new Map<string, { a: RoofProfileVertex; b: RoofProfileVertex; bottomA: number; bottomB: number; count: number }>()
     for (const face of faces) {
+      const height = roofFaceHeight(face)
+      if (!height) continue
+      // A chamfer can lower the eave along the ridge direction. Its box must
+      // follow that panel instead of rising back to the unchamfered eave.
+      const bottomAt = (x: number, z: number) => Math.min(bottom,
+        height({ x: side * (x - edgeX) > 0 ? x : edgeX, y: z }) - tileThickness - FASCIA_HEIGHT)
       const outline = face.map(([x, , z]) => new Vector2(x, z))
       for (const indices of ShapeUtils.triangulateShape(outline, [])) {
         const vertices = indices.map((i) => {
           const vertex = revealRear(face[i])
-          return [vertex[0], bottom, vertex[2]] as RoofProfileVertex
+          return [vertex[0], bottomAt(vertex[0], vertex[2]), vertex[2]] as RoofProfileVertex
         })
         triangle(vertices[0], vertices[1], vertices[2])
       }
       face.forEach((a, i) => {
         const b = face[(i + 1) % face.length]
         const key = [a, b].map((v) => `${v[0].toFixed(6)}:${v[2].toFixed(6)}`).sort().join('|')
-        edges.set(key, { a, b, count: (edges.get(key)?.count ?? 0) + 1 })
+        edges.set(key, { a, b, bottomA: bottomAt(a[0], a[2]), bottomB: bottomAt(b[0], b[2]), count: (edges.get(key)?.count ?? 0) + 1 })
       })
-      const rearVertices = face.filter(([x]) => Math.abs(x - wallX) < 0.000001)
-
-      if (rearVertices.length >= 2) {
-        rearIntervals.push({
-          maxZ: Math.max(...rearVertices.map((vertex) => vertex[2])),
-          minZ: Math.min(...rearVertices.map((vertex) => vertex[2])),
-        })
-      }
     }
-    for (const { a, b, count } of edges.values()) {
-      const isRear =
-        Math.abs(a[0] - wallX) < 0.000001 &&
-        Math.abs(b[0] - wallX) < 0.000001
-
-      // The rear is built explicitly below. Other exposed boundaries close the
-      // fascia and both ends of the soffit box.
-      if (count !== 1 || isRear) continue
+    for (const { a, b, bottomA: baseA, bottomB: baseB, count } of edges.values()) {
+      // Include the rear using its actual panel edge, so pitch/chamfer breaks
+      // remain continuous across both skins of the soffit box.
+      if (count !== 1) continue
       const revealedA = revealRear(a)
       const revealedB = revealRear(b)
       const topA: RoofProfileVertex = [revealedA[0], a[1] - tileThickness, a[2]]
       const topB: RoofProfileVertex = [revealedB[0], b[1] - tileThickness, b[2]]
-      const bottomA: RoofProfileVertex = [revealedA[0], bottom, a[2]]
-      const bottomB: RoofProfileVertex = [revealedB[0], bottom, b[2]]
+      const bottomA: RoofProfileVertex = [revealedA[0], baseA, a[2]]
+      const bottomB: RoofProfileVertex = [revealedB[0], baseB, b[2]]
       triangle(topA, bottomB, bottomA)
       triangle(topA, topB, bottomB)
     }
 
-    const mergedRearIntervals = rearIntervals
-      .sort((first, second) => first.minZ - second.minZ)
-      .reduce<Array<{ maxZ: number; minZ: number }>>((merged, interval) => {
-        const previous = merged.at(-1)
-
-        if (previous && interval.minZ <= previous.maxZ + 0.000001) {
-          previous.maxZ = Math.max(previous.maxZ, interval.maxZ)
-        } else {
-          merged.push({ ...interval })
-        }
-
-        return merged
-      }, [])
-    const rearTop = getPitchedRoofHeightAtX(roof, support, wallX) - tileThickness
-
-    mergedRearIntervals.forEach(({ maxZ, minZ }) => {
-      const topMin: RoofProfileVertex = [rearX, rearTop, minZ]
-      const topMax: RoofProfileVertex = [rearX, rearTop, maxZ]
-      const bottomMin: RoofProfileVertex = [rearX, bottom, minZ]
-      const bottomMax: RoofProfileVertex = [rearX, bottom, maxZ]
-
-      if (side === -1) {
-        triangle(topMin, bottomMax, bottomMin)
-        triangle(topMin, topMax, bottomMax)
-      } else {
-        triangle(topMin, bottomMin, bottomMax)
-        triangle(topMin, bottomMax, topMax)
-      }
-    })
   }
 
   if (positions.length === 0) return null

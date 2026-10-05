@@ -47,6 +47,7 @@ export type WallBodyPerimeterOptions = WallGraphOptions & {
 const POINT_EPSILON = 0.000001
 const MIN_WALL_LENGTH = 0.0001
 const DEFAULT_CHAMFER_THRESHOLD = 1
+const MIN_POINTED_CORNER_ANGLE = Math.PI / 4
 const ENDPOINT_ATTACHMENT_TOLERANCE = 0.03
 const COORDINATE_PRECISION = 1_000_000_000
 
@@ -385,19 +386,18 @@ function getTargetsForEndpointSide({
 }): EndpointSideTarget[] {
   const inward = getEndpointInwardDirection(wall, endpoint)
   const sideNormal = getSideNormal(wall, side)
-  const sideAttachmentDirectionSign = cross(inward, sideNormal) >= 0 ? 1 : -1
+  // Winding depends on both the side and the endpoint being solved.
+  const directionSign = cross(inward, sideNormal) >= 0 ? 1 : -1
   const endpointPoint = getEndpointPoint(wall, endpoint)
   const ranked = getEndpointTargetCandidates(targets)
     .map((candidate) => {
-      const directionSign =
-        candidate.target.source === 'endpoint'
-          ? side === 1 ? -1 : 1
-          : sideAttachmentDirectionSign
-
       return {
         candidate,
         directionSign,
-        sourcePriority: candidate.target.source === 'side' ? 0 : 1,
+        // A face attachment has a preferred host. At a corner, all nearby
+        // endpoint neighbours must compete in angular order on each side.
+        sourcePriority:
+          candidate.target.source === 'side' && !candidate.target.endpoint ? 0 : 1,
         snapDistance: distance(candidate.target.point, endpointPoint),
         turn: getDirectedTurn(inward, candidate.direction, directionSign),
       }
@@ -670,6 +670,63 @@ function solveEndpointSidePoint({
     return endpointSidePoint
   }
 
+  const cornerTarget = selectedTargets[0].target
+  if (
+    cornerTarget.endpoint &&
+    cornerTarget.source === 'endpoint' &&
+    targets.every((target) => target.wall.id === cornerTarget.wall.id)
+  ) {
+    // A two-wall corner meets at the intersection of the offset side lines.
+    // The rectangular end cap is not a boundary here: intersecting it first
+    // truncates acute miters and can even fold the wall body back on itself.
+    const targetSide = getOppositeEndpointSide(
+      wall, endpoint, side, cornerTarget.wall, cornerTarget.endpoint,
+    )
+    const targetPoint = getWallSidePoint(cornerTarget.wall, cornerTarget.endpoint, targetSide)
+    const targetDirection = getWallDirection(cornerTarget.wall)
+    const miter = rayIntersection(rayOrigin, rayDirection, targetPoint, targetDirection) ??
+      rayIntersection(rayOrigin, rayDirection, targetPoint, {
+        x: -targetDirection.x, y: -targetDirection.y,
+      })
+    if (miter) {
+      const inward = getEndpointInwardDirection(wall, endpoint)
+      const targetInward = getEndpointInwardDirection(cornerTarget.wall, cornerTarget.endpoint)
+      const angle = Math.acos(Math.max(-1, Math.min(1, dot(inward, targetInward))))
+      const extension = dot({
+        x: miter.point.x - endpointSidePoint.x,
+        y: miter.point.y - endpointSidePoint.y,
+      }, rayDirection)
+      if (angle + POINT_EPSILON >= MIN_POINTED_CORNER_ANGLE || extension <= 0) {
+        return miter.point
+      }
+
+      // Below 45 degrees, clip the outer tip against one plane perpendicular
+      // to the corner bisector. Both arms use the same plane, including when
+      // their thicknesses differ. Keep the inner intersection intact.
+      const bisectorLength = Math.hypot(inward.x + targetInward.x, inward.y + targetInward.y)
+      const bisector = {
+        x: -(inward.x + targetInward.x) / bisectorLength,
+        y: -(inward.y + targetInward.y) / bisectorLength,
+      }
+      const sourceEndpoint = getEndpointPoint(wall, endpoint)
+      const targetEndpoint = getEndpointPoint(cornerTarget.wall, cornerTarget.endpoint)
+      const center = {
+        x: (sourceEndpoint.x + targetEndpoint.x) / 2,
+        y: (sourceEndpoint.y + targetEndpoint.y) / 2,
+      }
+      const limit = Math.max(wall.thickness, cornerTarget.wall.thickness) /
+        (2 * Math.sin(MIN_POINTED_CORNER_ANGLE / 2))
+      const clippedExtension = (limit - dot({
+        x: endpointSidePoint.x - center.x,
+        y: endpointSidePoint.y - center.y,
+      }, bisector)) / dot(rayDirection, bisector)
+      return {
+        x: endpointSidePoint.x + rayDirection.x * Math.min(extension, clippedExtension),
+        y: endpointSidePoint.y + rayDirection.y * Math.min(extension, clippedExtension),
+      }
+    }
+  }
+
   const intersection = selectedTargets
     .map((selectedTarget) => {
       const target = selectedTarget.target
@@ -708,10 +765,14 @@ function solveEndpointSidePoint({
     return endpointSidePoint
   }
 
-  const effectiveChamferThreshold = Math.min(
-    chamferThreshold,
-    Math.max(wall.thickness * 1.5, wall.thickness),
+  // A partition attached to an external cap keeps a short local return.
+  // Perimeter joins need the full miter allowance, including near-straight
+  // continuations whose offset faces meet beyond 1.5 wall thicknesses.
+  const effectiveChamferThreshold = wall.kind === 'internal' && targets.some(
+    (target) => target.source === 'side' && target.wall.kind === 'external',
   )
+    ? Math.min(chamferThreshold, wall.thickness * 1.5)
+    : chamferThreshold
   const signedDistanceFromEndpoint = dot(
     {
       x: intersection.point.x - endpointSidePoint.x,
@@ -936,6 +997,21 @@ function buildEndpointTargetsByKey(walls: Wall[], graph: WallGraph) {
         wall: targetWall,
       })
 
+      // Two external endpoints form one corner even when their saved points
+      // differ slightly. Solve both arms against the same neighbouring faces.
+      if (
+        targetEndpoint &&
+        attachedWall.kind === 'external' &&
+        targetWall.kind === 'external'
+      ) {
+        addTarget(`${targetWall.id}:${targetEndpoint}`, {
+          endpoint: attachment.attachedEndpoint.endpoint,
+          point: getEndpointPoint(targetWall, targetEndpoint),
+          source: 'side',
+          wall: attachedWall,
+        })
+      }
+
     }
   })
 
@@ -1017,12 +1093,15 @@ function buildExternalEndpointSideAttachmentJoinFills(
     }
 
     const attachedEndpoint = attachment.attachedEndpoint.endpoint
+    const targetSidePoints = sidePointsByWallId.get(targetWall.id)
     const fill = orientRing(
       convexHull([
         attachedSidePoints[attachedEndpoint][1],
         attachedSidePoints[attachedEndpoint][-1],
-        getWallSidePoint(targetWall, targetEndpoint, 1),
-        getWallSidePoint(targetWall, targetEndpoint, -1),
+        targetSidePoints?.[targetEndpoint][1] ??
+          getWallSidePoint(targetWall, targetEndpoint, 1),
+        targetSidePoints?.[targetEndpoint][-1] ??
+          getWallSidePoint(targetWall, targetEndpoint, -1),
       ]),
       false,
     )
@@ -1053,6 +1132,8 @@ function buildEndpointJoinFills(
       return []
     }
 
+    // Fill only between solved corners: raw rectangular end caps can protrude
+    // past the miter and introduce small extra facets in the shared perimeter.
     const points = node.endpoints.flatMap((endpoint) => {
       const sidePoints = sidePointsByWallId.get(endpoint.wallId)
       const wall = wallsById.get(endpoint.wallId)
@@ -1061,8 +1142,6 @@ function buildEndpointJoinFills(
         ? [
             sidePoints[endpoint.endpoint][1],
             sidePoints[endpoint.endpoint][-1],
-            getWallSidePoint(wall, endpoint.endpoint, 1),
-            getWallSidePoint(wall, endpoint.endpoint, -1),
           ]
         : []
     })

@@ -93,7 +93,9 @@ export type SurfaceTarget =
     }
   | {
       type: 'roof'
-      part?: 'underside' | 'gable'
+      part?: 'underside' | 'gable' | 'gable-interior'
+      gableEnd?: 'minY' | 'maxY' | 'minX' | 'maxX'
+      spaceFloorId?: string
       floorId: string
       roofId: string
     }
@@ -205,7 +207,9 @@ export type SelectableSurface =
       floorId: string
       roofId: string
       type: 'roof'
-      part?: 'underside' | 'gable'
+      part?: 'underside' | 'gable' | 'gable-interior'
+      gableEnd?: 'minY' | 'maxY' | 'minX' | 'maxX'
+      spaceFloorId?: string
     }
 
 export type PlacedModel = {
@@ -213,6 +217,10 @@ export type PlacedModel = {
   dormerWidth?: number
   dormerHeight?: number
   dormerWindowModelId?: string
+  /** Derived local openings; an empty array means a windowless dormer. */
+  dormerWindowOpenings?: WallOpening[]
+  /** Position on the parent dormer's front, in its unscaled local metres. */
+  dormerAttachment?: { dormerId: string; offset: number; bottom: number }
   flipped?: boolean
   id: string
   height?: number
@@ -259,9 +267,24 @@ export type RoofEndChamfer = {
 export type RoofStructure = {
   // Bay outline in support-relative coordinates; the first edge is the rear.
   bayOutline?: Point[]
+  /** Ridge length from the mounting edge towards the bay front, in metres. */
+  bayRidgeLength?: number
   // Derived from supporting walls during geometry resolution, not authored.
   baySupportOffsets?: number[]
   thickness?: number
+  /** Whether this roof may trim house geometry and other roofs. Defaults to true. */
+  clipsGeometry?: boolean
+  /** Trim this roof's supporting wall tops independently of general clipping. */
+  fitSupportingWalls?: boolean
+  /** Gable slopes share a fixed ridge instead of equal eave heights. */
+  asymmetricSides?: boolean
+  /** The mounted side meets the support height; its pitch follows the ridge. */
+  mountSide?: 'auto' | 'side1' | 'side2' | 'free'
+  /** Ridge displacement from the support centre towards side 2, in metres. */
+  ridgeOffset?: number
+  /** Ridge height above the roof's wall-top datum, before heightOffset. */
+  ridgeHeight?: number
+  ridgeHeightTargetRoofId?: string
   ridgeEndChamfer?: RoofEndChamfer
   ridgeStart?: RoofEndConnection
   ridgeStartChamfer?: RoofEndChamfer
@@ -285,7 +308,21 @@ export type RoofStructure = {
   width: number
 }
 
+export type GroundImage = {
+  /** Embedded image, so the project remains portable. */
+  dataUrl: string
+  name: string
+  position: Point
+  width: number
+  length: number
+  opacity: number
+  visible: boolean
+}
+
 export type FloorLevel = {
+  groundImage?: GroundImage
+  /** Independent slab boundary for a loft, without perimeter walls. */
+  floorFootprints?: Point[][]
   id: string
   name: string
   elevation: number

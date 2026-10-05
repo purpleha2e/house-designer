@@ -5,7 +5,7 @@ import {
   getRoofWorldPointFromLocal,
 } from './roofBuildingGeometry.ts'
 import {
-  getHipRoofProfileHeight,
+  getGableRidgeX, getHipRoofProfileHeight,
   getPitchedRoofHeightAtX,
   getRoofSlope,
 } from './roofProfile.ts'
@@ -138,7 +138,7 @@ export function getDormerPlacementOnRoof(
   const localPosition = getRoofLocalPoint(roof, worldPoint)
   const extents = getRoofPanelLocalExtents(roof)
   const support = getRoofSupportBoundsInRoofSpace(roof)
-  const ridgeX = (support.minX + support.maxX) / 2
+  const ridgeX = getGableRidgeX(roof, support)
   const surface: RoofAttachment['surface'] = roof.type === 'up-and-over'
     ? localPosition.x <= ridgeX ? 'negative-x' : 'positive-x'
     : getHipSurface(localPosition, extents)
@@ -224,13 +224,14 @@ export function getMovedDormerPlacement(
   if (!model.roofAttachment || model.roofAttachment.roofId !== roof.id) return null
   const scale = model.scale ?? 1, widthScale = model.widthScale ?? 1, depthScale = model.depthScale ?? 1
   const assembly = createDormerStructuralAssembly({ definition, hostRoof: roof, ownerId: model.id,
+    windowOpenings: model.dormerWindowOpenings,
     width: model.dormerWidth, height: model.dormerHeight, depthScale, windowDefinition })
   const placement = getDormerPlacementOnRoof(roof, worldPoint,
     assembly.roofHalfWidth * 2 * scale * widthScale, assembly.depth * scale * depthScale)
   if (!placement || placement.roofAttachment.surface !== model.roofAttachment.surface) return null
   const extents = getRoofPanelLocalExtents(roof)
   const support = getRoofSupportBoundsInRoofSpace(roof)
-  const ridgeX = (support.minX + support.maxX) / 2
+  const ridgeX = getGableRidgeX(roof, support)
   const footprint = getDormerOpeningPolygon({ ...model, ...placement }, definition, roof, windowDefinition)
   const fits = footprint.every(point => {
     const local = getRoofLocalPoint(roof, point)
@@ -253,6 +254,7 @@ export function getDormerOpeningPolygon(
   const widthScale = model.widthScale ?? 1
   const depthScale = model.depthScale ?? 1
   const assembly = createDormerStructuralAssembly({
+    windowOpenings: model.dormerWindowOpenings,
     definition, hostRoof: roof, ownerId: model.id, windowDefinition, depthScale,
     width: model.dormerWidth, height: model.dormerHeight,
   })
@@ -322,6 +324,7 @@ export function createDormerStructuralAssembly({
   windowDefinition,
   width: requestedWidth,
   height: requestedHeight,
+  windowOpenings,
 }: {
   definition: ModelDefinition
   width?: number
@@ -331,6 +334,7 @@ export function createDormerStructuralAssembly({
   ownerId: string
   wallBaseY?: number
   windowDefinition?: ModelDefinition
+  windowOpenings?: Wall['openings']
 }): DormerStructuralAssembly {
   const width = Number.isFinite(requestedWidth) ? Math.max(0.5, requestedWidth!) : definition.width
   const height = Number.isFinite(requestedHeight) ? Math.max(0.5, requestedHeight!) : undefined
@@ -387,7 +391,8 @@ export function createDormerStructuralAssembly({
     wallBaseY,
     wallHeight,
     walls: [
-      wall('front-wall', { x: -width / 2, y: 0 }, { x: width / 2, y: 0 }, [frontOpening]),
+      wall('front-wall', { x: -width / 2, y: 0 }, { x: width / 2, y: 0 },
+        windowOpenings?.map(opening => ({ ...opening, bottom: opening.bottom - wallBaseY })) ?? [frontOpening]),
       wall('left-cheek', { x: -width / 2, y: 0 }, { x: -width / 2, y: -depth }),
       wall('right-cheek', { x: width / 2, y: -depth }, { x: width / 2, y: 0 }),
     ],

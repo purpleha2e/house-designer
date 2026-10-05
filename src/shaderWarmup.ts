@@ -13,9 +13,11 @@ const fadingRoofRoles = new Set([
 export function createShaderWarmupSnapshot(scene: Object3D, options: {
   fadeWalls: boolean
   fadeRoofs: boolean
+  createExtraMaterials?: (source: Material, object: Object3D) => Material[]
 }) {
   const root = new Group()
   const materials = new Map<Material, Map<string, Material>>()
+  const extraMaterials = new Set<Material>()
   const cloneMaterial = (source: Material, variant: 'original' | 'wall-fade' | 'roof-fade') => {
     let variants = materials.get(source)
     if (!variants) materials.set(source, variants = new Map())
@@ -55,6 +57,24 @@ export function createShaderWarmupSnapshot(scene: Object3D, options: {
         : cloneMaterial(source.material, variant)
       root.add(proxy)
     }
+    const extras = options.createExtraMaterials?.(Array.isArray(source.material) ? source.material[0] : source.material, object)
+    if (extras?.length) {
+      // Extra variants use the same geometry/transform without touching live materials.
+      const originals = Array.isArray(source.material) ? source.material : [source.material]
+      const highlightMaterials = originals.map((material, index) => index === 0 ? extras :
+        options.createExtraMaterials?.(material, object) ?? [])
+      for (let variant = 0; variant < extras.length; variant++) {
+        const proxy = source.clone(false) as Renderable
+        proxy.matrix.copy(source.matrixWorld)
+        proxy.matrixWorld.copy(source.matrixWorld)
+        proxy.matrixAutoUpdate = false
+        proxy.visible = true
+        const entries = highlightMaterials.map(variants => variants[variant])
+        entries.forEach(material => extraMaterials.add(material))
+        proxy.material = Array.isArray(source.material) ? entries : entries[0]
+        root.add(proxy)
+      }
+    }
   })
   let disposed = false
   return {
@@ -63,6 +83,7 @@ export function createShaderWarmupSnapshot(scene: Object3D, options: {
       if (disposed) return
       disposed = true
       materials.forEach(variants => variants.forEach(material => material.dispose()))
+      extraMaterials.forEach(material => material.dispose())
       root.clear()
     },
   }

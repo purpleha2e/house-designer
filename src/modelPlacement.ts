@@ -2,6 +2,8 @@ import type { FloorLevel, PlacedModel, Point, RoofAttachment, RoofEndChamfer, Wa
 import { normalizeRoofEndConnection } from './roofJunctions.ts'
 import { normalizeBayOutline } from './bayRoof.ts'
 import { getRoofThickness } from './roofThickness.ts'
+import { migrateDormerWindows, syncDormerWindows } from './dormerWindows.ts'
+import { createDormerStructuralAssembly } from './dormerPlacement.ts'
 import type { ModelDefinition } from './models/modelLibrary'
 
 export type ModelPlacement = Pick<
@@ -500,6 +502,7 @@ export function syncWallOpenings(
   floor: FloorLevel,
   modelsById: ModelsById,
 ): FloorLevel {
+  floor = syncDormerWindows(floor, modelsById)
   const modelIds = new Set((floor.models ?? []).map((model) => model.id))
   const modelOpeningsByWallId = new Map<string, WallOpening[]>()
 
@@ -548,7 +551,7 @@ export function normalizeFloor(
   floor: FloorLevel,
   modelsById: ModelsById,
 ): FloorLevel {
-  return syncWallOpenings({
+  return migrateDormerWindows(syncWallOpenings({
     ...floor,
     models: Array.isArray(floor.models)
       ? floor.models.map((model) => {
@@ -658,8 +661,19 @@ export function normalizeFloor(
             ? [{
                 ...roof,
                 bayOutline: roof.type === 'bay' ? normalizeBayOutline(roof.bayOutline) : undefined,
+                bayRidgeLength: roof.type === 'bay' && Number.isFinite(roof.bayRidgeLength)
+                  ? Math.max(0, roof.bayRidgeLength!) : undefined,
                 baySupportOffsets: undefined,
                 thickness: getRoofThickness(roof),
+                clipsGeometry: roof.clipsGeometry !== false,
+                fitSupportingWalls: roof.fitSupportingWalls === true,
+                asymmetricSides: roof.type === 'up-and-over' && roof.asymmetricSides === true,
+                mountSide: roof.type === 'up-and-over' && ['auto', 'side1', 'side2', 'free'].includes(roof.mountSide ?? '')
+                  ? roof.mountSide : undefined,
+                ridgeOffset: roof.type === 'up-and-over' && Number.isFinite(roof.ridgeOffset) ? roof.ridgeOffset : undefined,
+                ridgeHeight: roof.type === 'up-and-over' && Number.isFinite(roof.ridgeHeight) ? roof.ridgeHeight : undefined,
+                ridgeHeightTargetRoofId: roof.type === 'up-and-over' && typeof roof.ridgeHeightTargetRoofId === 'string'
+                  && roof.ridgeHeightTargetRoofId.length ? roof.ridgeHeightTargetRoofId : undefined,
                 ridgeStart: normalizeRoofEndConnection(roof.ridgeStart),
                 ridgeEnd: normalizeRoofEndConnection(roof.ridgeEnd),
                 ridgeStartChamfer: normalizeRoofEndChamfer(roof.ridgeStartChamfer),
@@ -739,7 +753,7 @@ export function normalizeFloor(
             : []
         })
       : [],
-  }, modelsById)
+  }, modelsById), modelsById)
 }
 
 export function createPlacedModel({
@@ -760,12 +774,9 @@ export function createPlacedModel({
     : null
 
   return {
-    dormerWindowModelId:
-      definition?.roofMount === 'dormer'
-        ? Array.from(modelsById.values()).find(
-            (candidate) => candidate.wallMount === 'window',
-          )?.id
-        : undefined,
+    dormerWindowOpenings: definition?.roofMount === 'dormer' ? [] : undefined,
+    dormerHeight: definition?.roofMount === 'dormer'
+      ? createDormerStructuralAssembly({ definition, ownerId: id }).wallHeight : undefined,
     flipped: false,
     height: definition?.isLight ? 1.8 : undefined,
     id,

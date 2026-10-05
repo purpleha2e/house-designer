@@ -9,6 +9,13 @@ const square = [
   { x: 0, y: 4 },
 ]
 
+test('floor fragments collapsed by rounding do not invalidate a dormer floor cut', () => {
+  const sliver = [{ x: 1, y: 1 }, { x: 1.0000001, y: 1 }, { x: 1, y: 1.0000001 }]
+  assert.deepEqual(subtractPlanCutouts(square, [sliver]), [{ outline: square, holes: [] }])
+  assert.deepEqual(subtractPlanCutouts(sliver, [square]), [])
+  assert.deepEqual(subtractPlanCutouts(square, [{ outline: square, holes: [sliver] }]), [])
+})
+
 test('subtracting an enclosed stair opening creates a floor footprint hole', () => {
   const result = subtractPlanCutouts(square, [
     [

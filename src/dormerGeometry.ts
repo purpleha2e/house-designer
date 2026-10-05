@@ -54,7 +54,7 @@ export function createDormerGeometries(
   roomPlanes: SolidPlane[] = [],
   wallJunctionSolids: SolidPlane[][] = [],
 ) {
-  const { wallBaseY, wallHeight, roofHalfWidth, roofRise, depth, windowBottom, windowHeight, windowWidth } = assembly
+  const { wallBaseY, wallHeight, roofHalfWidth, roofRise, depth } = assembly
   const halfWidth = Math.abs(assembly.walls[0].start.x)
   const halfWall = assembly.walls[0].thickness / 2
   const frontRoofEdge = halfWall + 0.04
@@ -64,13 +64,18 @@ export function createDormerGeometries(
   const ridge = wallHeight + roofRise
   const ceiling: SolidPlane[] = [[-slope, -1, 0, ridge - thickness], [slope, -1, 0, ridge - thickness]]
   const front = clip(box(-halfWidth - halfWall, halfWidth + halfWall, -halfWall, halfWall, wallBaseY, ridge, 'wall'), ceiling, 'wall')
-  const window = box(-windowWidth / 2, windowWidth / 2, -halfWall - 1, halfWall + 1, windowBottom, windowBottom + windowHeight, 'window')
   // Without a knee wall this is a roof opening, not a floor-height bay. The
   // front apron must stop at the lining just like the cheeks.
   const belowRoof: SolidPlane = [0, -1, -hostSlope, -thickness + 0.003]
   const frontWalls = roomPlanes.length ? front
     : front.flatMap(solid => subtractSolid(solid, [belowRoof], 'wall'))
-  const walls = frontWalls.flatMap(solid => subtractSolid(solid, window.planes, 'reveal'))
+  let walls = frontWalls
+  for (const opening of assembly.walls[0].openings ?? []) {
+    const center = opening.center - halfWidth, bottom = opening.bottom + wallBaseY
+    const window = box(center - opening.width / 2, center + opening.width / 2,
+      -halfWall - 1, halfWall + 1, bottom, bottom + opening.height, 'window')
+    walls = walls.flatMap(solid => subtractSolid(solid, window.planes, 'reveal'))
+  }
   for (const side of [-1, 1]) {
     // The roof lining clips the upper cheeks at the valley. Lower returns can
     // continue behind that valley to meet a knee wall in a wide, low dormer.

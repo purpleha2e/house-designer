@@ -28,6 +28,30 @@ function boundaryFace(z: number, top = 2.4): WallMeshFace {
   }
 }
 
+test('a loft knee wall clips to the inherited roof while a raised storey wall stays independent', () => {
+  const wall: Wall = { id: 'knee', kind: 'internal', start: { x: 0, y: 0 }, end: { x: 4, y: 0 },
+    thickness: 0.15, height: 2.4, allowRoofClipHeight: true,
+    openings: [{ id: 'dormer-recess', modelId: 'dormer', center: 2, width: 1.2, bottom: 0, height: 2.4 }] }
+  const faces = buildFloorWallSurfaceFaces({ renderedWalls: getRenderedWalls([wall]), rooms: [], useWallBodyPerimeterMesh: true })
+  const underside: [number, number, number][][] = [[[-1, 3.7, -1], [5, 3.7, -1], [5, 3.7, 1], [-1, 3.7, 1]]]
+  // The original profile can continue below the joined roof envelope. A loft
+  // must follow the resolved underside, not this removed neighbouring slope.
+  const originalProfile = underside.map(face => face.map(([x, , z]): [number, number, number] => [x, 2.8, z]))
+  for (const inherited of [false, true]) {
+    const options = createWallRoofClipOptions({ floorElevation: 2.7, floorId: 'loft', walls: [wall],
+      clipToInheritedRoofs: inherited, roofs: [{ floorId: 'ground', supportPolygon: [],
+        undersideFaces: underside, heightClipUndersideFaces: originalProfile }] })
+    const clipped = runWallRoofClipJob(createWallRoofClipJob(faces, options))
+    const top = Math.max(...clipped.flatMap(face => face.vertices.map(vertex => vertex.position[1])))
+    assert.ok(Math.abs(top - (inherited ? 1 : 2.4)) < 1e-6)
+    assert.ok(clipped.some(face => face.kind === 'side'))
+    if (inherited) for (const face of clipped.filter(face => face.normal[1] > 0.5)) {
+      const center = face.vertices.reduce((sum, vertex) => sum + vertex.position[0], 0) / face.vertices.length
+      assert.ok(center <= 1.4 + 1e-6 || center >= 2.6 - 1e-6, 'top cap must leave the dormer opening clear')
+    }
+  }
+})
+
 test('a shared roof coverage edge preserves the wall beneath the higher adjoining panel', () => {
   const lower: [number, number, number][] = [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]]
   const higher: [number, number, number][] = [[0, 3, -1], [1, 3.5, -1], [1, 3.5, 0], [0, 3, 0]]

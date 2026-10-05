@@ -1,6 +1,6 @@
 import type { Point, RoofEndConnection, RoofStructure } from './types.ts'
 import { getBayRoofPolygon, getBaySupportPolygon } from './bayRoof.ts'
-import { buildRoofProfileFaces, type RoofBounds, type RoofProfileVertex as Vertex } from './roofProfile.ts'
+import { buildRoofProfileFaces, getGableRidgeX, type RoofBounds, type RoofProfileVertex as Vertex } from './roofProfile.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import { footprintPlanes, type ClipPlane } from './wallEngine/wallRoofClip.ts'
 
@@ -25,11 +25,14 @@ export type ResolvedRoof = RoofJunctionInput & {
   // `faces` is the upper envelope used only for room-side geometry.
   faces: Vertex[][]
   exteriorFaces: Vertex[][]
+  extendedExteriorFaces?: Vertex[][]
   structuralFaces: Vertex[][]
   coverageFaces: Vertex[][]
   coverageUndersideFaces?: Vertex[][]
   connections: RoofConnectionStatus[]
   resolvedExtents: RoofBounds
+  joinedEaveFaces?: Vertex[][]
+  joinedEaveCutFaces?: Vertex[][]
 }
 
 export function getRoofCoverageUndersideFaces(roof: ResolvedRoof): Vertex[][] {
@@ -253,7 +256,7 @@ export function resolvedRoofWallSegments(faces: Vertex[][], start: Point, end: P
 // Find the interval where the source ridge ray crosses the target footprint.
 // This bounds extensions by an actual building, never by an infinite roof plane.
 function targetInterval(source: RoofJunctionInput, target: RoofJunctionInput, direction: number) {
-  const x = (source.support.minX + source.support.maxX) / 2
+  const x = getGableRidgeX(source.roof, source.support)
   const z = direction < 0 ? source.support.minY : source.support.maxY
   const origin = roofToWorld(source.roof, source.elevation, [x, 0, z])
   const ahead = roofToWorld(source.roof, source.elevation, [x, 0, z + direction])
@@ -276,14 +279,16 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
   const peaks = new Map(sorted.map((input) => [input.roof.id, Math.max(...original.get(input.roof.id)!.flat().map((p) => p[1]))]))
   const resolved = sorted.map((input): ResolvedRoof => {
     const resolvedExtents = { ...input.extents }
-    const terminationMasks: { plane: ClipPlane; targetRoofId: string }[] = []
+    const terminationMasks: { plane: ClipPlane; targetRoofId: string; direction: number }[] = []
     const connections: RoofConnectionStatus[] = []
     if (input.roof.type === 'up-and-over') for (const end of ['ridgeStart', 'ridgeEnd'] as const) {
       const direction = end === 'ridgeStart' ? -1 : 1
       const setting = input.roof[end] ?? { mode: 'automatic' }
       if (setting.mode === 'exposed') { connections.push({ end, state: 'exposed' }); continue }
       const candidates = sorted.flatMap((target) => {
-        if (target.roof.id === input.roof.id) return []
+        // An explicit join shapes the incoming roof; it does not give the
+        // receiving roof permission to cut the rest of the house.
+        if (target.roof.id === input.roof.id || (target.roof.clipsGeometry === false && setting.mode !== 'join')) return []
         if (setting.mode === 'join' && target.roof.id !== setting.targetRoofId) return []
         const interval = targetInterval(input, target, direction)
         if (!interval) return []
@@ -303,18 +308,22 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
       // real surface intersection. Pitch and original wall coverage stay fixed.
       const targetZ = [target.extents.minY, target.extents.maxY].map((z) =>
         roofToLocal(input.roof, input.elevation, roofToWorld(target.roof, target.elevation,
-          [(target.support.minX + target.support.maxX) / 2, 0, z]))[2])
-      if (peaks.get(input.roof.id)! <= peaks.get(target.roof.id)! + RIDGE_HEIGHT_TOLERANCE) {
+          [getGableRidgeX(target.roof, target.support), 0, z]))[2])
+      // A deliberately joined branch must reach the receiving ridge even
+      // when its own ridge is slightly higher. Leaving it at the wall end
+      // exposes a triangular gable above the receiving slope.
+      if (setting.mode === 'join' || peaks.get(input.roof.id)! <= peaks.get(target.roof.id)! + RIDGE_HEIGHT_TOLERANCE) {
         if (direction < 0) resolvedExtents.minY = Math.min(resolvedExtents.minY, ...targetZ)
         else resolvedExtents.maxY = Math.max(resolvedExtents.maxY, ...targetZ)
         if (target.roof.type === 'up-and-over') {
-          const ridgeX = (target.support.minX + target.support.maxX) / 2
+          const ridgeX = getGableRidgeX(target.roof, target.support)
           const sourceCenter = roofToWorld(input.roof, input.elevation,
-            [(input.support.minX + input.support.maxX) / 2, 0, (input.support.minY + input.support.maxY) / 2])
+            [getGableRidgeX(input.roof, input.support), 0, (input.support.minY + input.support.maxY) / 2])
           const side = Math.sign(roofToLocal(target.roof, target.elevation, sourceCenter)[0] - ridgeX)
           if (side) terminationMasks.push({
             plane: (point) => side * (roofToLocal(target.roof, target.elevation, point)[0] - ridgeX),
             targetRoofId: target.roof.id,
+            direction,
           })
         }
       }
@@ -322,6 +331,33 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
     }
     let faces = buildRoofProfileFaces(input.roof, resolvedExtents, input.support)
       .map((face) => face.map((p) => roofToWorld(input.roof, input.elevation, p)))
+    for (const connection of connections) {
+      if (connection.state !== 'joined') continue
+      const direction = connection.end === 'ridgeStart' ? -1 : 1
+      const authoredEnd = direction < 0 ? input.extents.minY : input.extents.maxY
+      const target = sorted.find(candidate => candidate.roof.id === connection.targetRoofId)!
+      const targetPlanes = footprintPlanes(roofBoundsPolygon(target, target.support))
+      const generated: ClipPlane = point => direction * (roofToLocal(input.roof, input.elevation, point)[2] - authoredEnd)
+      // A ridge ray can meet a narrower or rotated receiver. Only the part of
+      // the extension entering that building is a join; the side strips must
+      // not continue past its gable as unsupported roof panels.
+      faces = faces.flatMap(face => [
+        clipRoofFace(face, point => -generated(point)),
+        intersect(face, [generated, ...targetPlanes]),
+      ].filter(piece => piece.length))
+    }
+    for (const { plane, direction } of terminationMasks) {
+      // Generated joining material ends at the receiving ridge. Extending a
+      // rectangular branch through a rotated roof can otherwise leave a flap
+      // beyond its far eave once the overlapping middle has been subtracted.
+      // Keep authored coverage beyond the ridge: only trim the added extension.
+      const authoredEnd = direction < 0 ? input.extents.minY : input.extents.maxY
+      faces = faces.flatMap(face => subtractRoofVolume(face, [
+        point => direction * (roofToLocal(input.roof, input.elevation, point)[2] - authoredEnd),
+        point => -plane(point),
+      ]))
+    }
+    const extendedExteriorFaces = faces
     for (const { plane, targetRoofId } of terminationMasks) {
       // The receiving ridge ends the branch only where the receiving panels
       // actually exist. A chamfered or shorter target leaves the adjacent
@@ -354,12 +390,56 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
       ...input,
       faces,
       exteriorFaces: original.get(input.roof.id)!,
+      extendedExteriorFaces,
       structuralFaces: faces,
       coverageFaces: [],
       connections,
       resolvedExtents,
     }
   })
+  // Unequal eave heights can leave a joined branch facing a vertical fascia.
+  // Continue the receiving pitch down to the incoming panels, bounded by
+  // their authored footprint and the receiving panel's other edges.
+  const joinedEavePairs = new Set<string>()
+  for (const target of resolved) {
+    if (target.roof.type !== 'up-and-over' || !target.roof.asymmetricSides) continue
+    const patches: Vertex[][] = []
+    for (const source of resolved) {
+      if (!source.connections.some(c => c.state === 'joined' && c.targetRoofId === target.roof.id)) continue
+      const before = patches.length
+      for (const face of original.get(target.roof.id)!) for (const side of [-1, 1]) {
+        const edgeX = side < 0 ? target.extents.minX : target.extents.maxX
+        const local = face.map(p => roofToLocal(target.roof, target.elevation, p))
+        const edge = local.findIndex((a, i) => Math.abs(a[0] - edgeX) < EPS &&
+          Math.abs(local[(i + 1) % local.length][0] - edgeX) < EPS &&
+          Math.abs(a[2] - local[(i + 1) % local.length][2]) > EPS)
+        if (edge < 0) continue
+        const height = roofFaceHeight(face)!
+        const edgePoint = face[edge]
+        const planes = footprintPlanes(face.map(([x, , y]) => ({ x, y })))
+          .filter(plane => Math.abs(plane(edgePoint)) > EPS || Math.abs(plane(face[(edge + 1) % face.length])) > EPS)
+        for (const sourceFace of original.get(source.roof.id)!) {
+          const sourceHeight = roofFaceHeight(sourceFace)!
+          const patch = intersect(sourceFace.map(([x, , z]): Vertex => [x, height({ x, y: z }), z]), [
+            ...planes,
+            p => side * (roofToLocal(target.roof, target.elevation, p)[0] - edgeX),
+            ([x, y, z]) => y - sourceHeight({ x, y: z }),
+          ])
+          if (patch.length && area(patch) > EPS) patches.push(patch)
+        }
+      }
+      if (patches.length > before) joinedEavePairs.add([source.roof.id, target.roof.id].sort().join(':'))
+    }
+    if (patches.length) {
+      target.joinedEaveFaces = patches
+      target.faces = [...target.faces, ...patches]
+      target.structuralFaces = [...target.structuralFaces, ...patches]
+      target.extendedExteriorFaces = [...(target.extendedExteriorFaces ?? target.exteriorFaces), ...patches]
+    }
+  }
+  for (const roof of resolved) roof.joinedEaveCutFaces = resolved.filter(other => other !== roof &&
+    joinedEavePairs.has([roof.roof.id, other.roof.id].sort().join(':')))
+    .flatMap(other => other.structuralFaces)
   const raw = new Map(
     resolved.map((roof) => [roof.roof.id, roof.structuralFaces]),
   )
@@ -370,13 +450,18 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
     return [roof.roof.id, footprintPlanes(roofBoundsPolygon(roof, bounds))]
   }))
   const clippingFootprint = (target: ResolvedRoof, source: ResolvedRoof) => {
-    const connected = source.connections.some((connection) => connection.state === 'joined' && connection.targetRoofId === target.roof.id)
-    if (!connected || target.roof.type !== 'up-and-over') return buildingFootprints.get(target.roof.id)!
-    // A connected branch terminates at the receiving facade, including below
-    // its gable-end overhang. Otherwise a small difference in the two eave
-    // positions can carry a low tile/soffit strip past that facade.
-    return footprintPlanes(roofBoundsPolygon(target, {
-      ...target.support,
+    const connected = source.connections.some(c => c.state === 'joined' && c.targetRoofId === target.roof.id)
+    if (connected && joinedEavePairs.has([source.roof.id, target.roof.id].sort().join(':'))) {
+      const xs = target.joinedEaveFaces!.flatMap(face => face.map(p => roofToLocal(target.roof, target.elevation, p)[0]))
+      return footprintPlanes(roofBoundsPolygon(target, { ...target.support,
+        minX: Math.min(...xs) < target.extents.minX - EPS ? target.extents.minX : target.support.minX,
+        maxX: Math.max(...xs) > target.extents.maxX + EPS ? target.extents.maxX : target.support.maxX,
+      }))
+    }
+    // Unequal eaves retain original coverage beneath the raised overhang.
+    // Ordinary gable abutments still stop their low eave at the facade.
+    if (!connected || target.roof.type !== 'up-and-over' || target.roof.asymmetricSides) return buildingFootprints.get(target.roof.id)!
+    return footprintPlanes(roofBoundsPolygon(target, { ...target.support,
       minY: Math.min(target.resolvedExtents.minY, target.support.minY),
       maxY: Math.max(target.resolvedExtents.maxY, target.support.maxY),
     }))
@@ -388,11 +473,16 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
       const peakDifference = peaks.get(target.roof.id)! - peaks.get(roof.roof.id)!
       const incoming = roof.connections.some((c) => c.state === 'joined' && c.targetRoofId === target.roof.id)
       const outgoing = target.connections.some((c) => c.state === 'joined' && c.targetRoofId === roof.roof.id)
+      const joinedPair = incoming || outgoing
+      // A join combines the two bounded roof surfaces. Either slope can hide
+      // the other locally, even when neither roof may cut house geometry.
+      // The earlier extension/abutment masks still protect the receiving gable.
+      if (target.roof.clipsGeometry === false && !joinedPair) continue
       // An abutting roof already stops at this storey's actual facade. Its
       // rectangular roof support can extend past a stepped wall; treating that
       // strip as building interior would cut a second gap below the overhang.
-      const abutsBuilding = !incoming && roof.abutments?.some(abutment => abutment.floorId === target.floorId)
-      const targetWins = Math.abs(peakDifference) > RIDGE_HEIGHT_TOLERANCE ? peakDifference > 0 : incoming !== outgoing ? incoming : target.roof.id < roof.roof.id
+      const abutsBuilding = !joinedPair && roof.abutments?.some(abutment => abutment.floorId === target.floorId)
+      const targetWins = (!joinedPair && roof.roof.clipsGeometry === false) || (Math.abs(peakDifference) > RIDGE_HEIGHT_TOLERANCE ? peakDifference > 0 : incoming !== outgoing ? incoming : target.roof.id < roof.roof.id)
       const buildingPlanes = clippingFootprint(target, roof)
       for (const targetFace of raw.get(target.roof.id)!) {
         const height = roofFaceHeight(targetFace)
@@ -406,7 +496,8 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
           // Only the supported building region (plus deliberate connections)
           // encloses the space below a roof. An exposed overhang has air below
           // it; clip another panel there only if it enters the roof shell.
-          const outsideBuilding = abutsBuilding ? [face] : subtractRoofVolume(face, [...planes, ...buildingPlanes, below])
+          const outsideBuilding = abutsBuilding ? [face] : subtractRoofVolume(face, [...planes,
+            ...(target.joinedEaveFaces?.includes(targetFace) ? [] : buildingPlanes), below])
           return outsideBuilding.flatMap((piece) => subtractRoofVolume(piece, [...planes, below,
             (point) => getRoofThickness(target.roof) - below(point)]))
         })
@@ -429,6 +520,7 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
       }
       const faces = candidate.faces.map((face) => intersect(face, planes)).filter((face) => face.length)
       if (candidate === roof) return retain(faces)
+      if (candidate.roof.clipsGeometry === false) return []
       // Another roof replaces this wall envelope only where it consumed the
       // original panel. Vertically separated overhangs keep separate coverage.
       const buildingPlanes = clippingFootprint(candidate, roof)
@@ -453,9 +545,11 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
 /** The outer panels before roof-on-roof trimming, including an intentional
  * ridge-end extension. Room-volume CSG removes the hidden part afterward. */
 export function getRoofRenderableOuterFaces(resolved: ResolvedRoof): Vertex[][] {
+  if (resolved.joinedEaveFaces?.length && resolved.extendedExteriorFaces) return resolved.extendedExteriorFaces
   const { minY, maxY } = resolved.resolvedExtents
   if (Math.abs(minY - resolved.extents.minY) < EPS &&
     Math.abs(maxY - resolved.extents.maxY) < EPS) return resolved.exteriorFaces
+  if (resolved.extendedExteriorFaces) return resolved.extendedExteriorFaces
   return buildRoofProfileFaces(resolved.roof, resolved.resolvedExtents, resolved.support)
     .map(face => face.map(point => roofToWorld(resolved.roof, resolved.elevation, point)))
 }

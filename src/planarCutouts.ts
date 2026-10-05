@@ -52,9 +52,9 @@ function closeRing(points: Point[]) {
 }
 
 function toPolygon(cutout: PlanCutout): Polygon {
-  return Array.isArray(cutout)
-    ? [closeRing(cutout)]
-    : [closeRing(cutout.outline), ...cutout.holes.map(closeRing)]
+  const outline = closeRing(Array.isArray(cutout) ? cutout : cutout.outline)
+  if (!outline.length) return []
+  return [outline, ...(Array.isArray(cutout) ? [] : cutout.holes.map(closeRing).filter(ring => ring.length))]
 }
 
 function toPoints(ring: number[][]) {
@@ -83,7 +83,8 @@ export function subtractPlanCutouts(outline: Point[], cutouts: PlanCutout[]) {
     return outline.length >= 3 ? [{ holes: [], outline }] : []
   }
 
-  return toFootprints(
-    differencePolygons(toPolygon(outline), ...cutouts.map(toPolygon)),
-  )
+  const polygon = toPolygon(outline)
+  if (!polygon.length) return []
+  const cutters = cutouts.map(toPolygon).filter(candidate => candidate.length)
+  return toFootprints(cutters.length ? differencePolygons(polygon, ...cutters) : [polygon])
 }

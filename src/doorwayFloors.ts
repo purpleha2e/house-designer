@@ -21,7 +21,6 @@ export function buildDoorwayFloorPatches(walls: Wall[], rooms: RoomFloor[], open
   const replacedPortals = new Set<string>()
   const covered: PlanCutout[] = [...rooms.map(room => room.polygon), ...openings]
   for (const wall of walls) {
-    if (wall.kind !== 'internal') continue
     const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
     if (length < 1e-6) continue
     const dx = (wall.end.x - wall.start.x) / length, dy = (wall.end.y - wall.start.y) / length
@@ -43,6 +42,11 @@ export function buildDoorwayFloorPatches(walls: Wall[], rooms: RoomFloor[], open
         return undefined
       })
       if (!adjoining[0] && !adjoining[1]) continue
+      // An external wall can still divide two rooms (including thin partitions
+      // drawn in external-wall mode). Only a true exterior opening needs its
+      // own threshold; room floors meet through any opening between rooms.
+      if (wall.kind !== 'internal' &&
+        (!adjoining[0] || !adjoining[1] || adjoining[0].signature === adjoining[1].signature)) continue
       replacedPortals.add(doorwayFloorKey(wall.id, opening.id))
       for (const [index, side] of [-1, 1].entries()) {
         const room = adjoining[index] ?? adjoining[1 - index]!

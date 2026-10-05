@@ -1,0 +1,1032 @@
+{
+  "floors": [
+    {
+      "id": "a5e1058b-f220-4fef-9e1f-5cb871e2e0c5",
+      "name": "Floor 0",
+      "elevation": 0,
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "id": "2fb307f7-514b-47b1-bc17-93cbd2b6d801",
+          "kind": "external",
+          "start": {
+            "x": 4.540168842243398,
+            "y": -0.8876985374434798
+          },
+          "end": {
+            "x": 8.102178207004272,
+            "y": -0.8876985374434798
+          },
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 8.102178207004272,
+            "y": -0.8876985374434798
+          },
+          "end": {
+            "x": 8.102178207004272,
+            "y": 6.876008850781876
+          },
+          "id": "b13f5698-f850-40ee-a7d0-d29da6791f6b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 8.102178207004272,
+            "y": 6.876008850781876
+          },
+          "end": {
+            "x": 5.896513785942659,
+            "y": 6.876008850781876
+          },
+          "id": "5b6882e3-06b3-4cf1-a57c-6d7216c6b6c8",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892901,
+            "y": 6.876008850781876
+          },
+          "end": {
+            "x": 6.370947086892902,
+            "y": 17.463963453533882
+          },
+          "id": "71490a72-68c4-4eec-88e1-92c6c05578d2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892902,
+            "y": 17.463963453533882
+          },
+          "end": {
+            "x": 6.051567924957679,
+            "y": 17.463963453533882
+          },
+          "id": "1f50e172-a68b-429e-8b27-6f2c9442945a",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.051567924957679,
+            "y": 17.463963453533882
+          },
+          "end": {
+            "x": 6.051567924957679,
+            "y": 18.18040857438819
+          },
+          "id": "3bffaca7-ba36-4359-a28e-68e5564c1056",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.051567924957679,
+            "y": 18.18040857438819
+          },
+          "end": {
+            "x": 3.6445150108640845,
+            "y": 18.18040857438819
+          },
+          "id": "db43181c-810a-4ce1-8f2a-8aa49c4d00c3",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 3.6445150108640845,
+            "y": 18.18040857438819
+          },
+          "end": {
+            "x": 3.6445150108640845,
+            "y": 17.453963453533877
+          },
+          "id": "f9e24329-9468-40df-bef3-e89b20c6ec3b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 3.6445150108640845,
+            "y": 17.453963453533877
+          },
+          "end": {
+            "x": 2.9947619232117204,
+            "y": 17.453963453533877
+          },
+          "id": "6b935185-1c2c-4e6f-9cff-0a2fc9891793",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.9947619232117204,
+            "y": 17.453963453533877
+          },
+          "end": {
+            "x": 2.9947619232117204,
+            "y": 17.743924178647404
+          },
+          "id": "ace86128-0a5e-4de0-84fc-642964a1737f",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.6670647391229108,
+            "y": 17.743924178647404
+          },
+          "end": {
+            "x": 2.9947619232117204,
+            "y": 17.743924178647404
+          },
+          "id": "1e96fe63-1bf8-41fb-8680-3f4a9ef065be",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.6670647391229108,
+            "y": 17.743924178647404
+          },
+          "end": {
+            "x": 2.1498589245548856,
+            "y": 18.26112999321543
+          },
+          "id": "6f3eaf21-7a95-467b-82df-ea784cae6124",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.1498589245548856,
+            "y": 18.26112999321543
+          },
+          "end": {
+            "x": 0.43379570999845485,
+            "y": 18.26112999321543
+          },
+          "id": "fd1c14e0-db95-4cd4-9ee2-d238a4975142",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 0.43379570999845485,
+            "y": 18.26112999321543
+          },
+          "end": {
+            "x": -0.13944290605232146,
+            "y": 17.687891377164654
+          },
+          "id": "2db2bb77-87f3-4415-8f32-4225faf16f7c",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": -0.13944290605232146,
+            "y": 17.687891377164654
+          },
+          "end": {
+            "x": -0.4771028049430308,
+            "y": 17.687891377164654
+          },
+          "id": "92d6243d-ec5f-414b-8c82-fe5e889fcd23",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": -0.4771028049430308,
+            "y": 17.687891377164654
+          },
+          "end": {
+            "x": -0.47710280494303003,
+            "y": 4.901592948908245
+          },
+          "id": "89449d53-aced-4ee0-942b-428b545186c9",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": -0.47710280494303003,
+            "y": 4.901592948908245
+          },
+          "end": {
+            "x": 4.540168842243398,
+            "y": 4.901592948908245
+          },
+          "id": "b79625cc-003b-4c41-af3d-b4289027a193",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 4.540168842243398,
+            "y": 4.901592948908245
+          },
+          "end": {
+            "x": 4.540168842243398,
+            "y": -0.8876985374434798
+          },
+          "id": "a037bb0d-d213-4c09-8e04-55db7993df05",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 8.102178207004272,
+            "y": 2.4399015548986243
+          },
+          "end": {
+            "x": 5.670852969218107,
+            "y": 2.439901554898624
+          },
+          "id": "1a3a09c9-165a-4c75-8e1f-ccc70f591118",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 5.670852969218107,
+            "y": 2.439901554898624
+          },
+          "end": {
+            "x": 5.670852969218107,
+            "y": 4.254487696157504
+          },
+          "id": "821d09b1-39d4-47b0-973e-cc80aa3e7383",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 5.670852969218107,
+            "y": 4.254487696157504
+          },
+          "end": {
+            "x": 8.102178207004272,
+            "y": 4.254487696157504
+          },
+          "id": "126dbfc8-8afb-40b4-94b0-3524819e7d7a",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 5.946513785942659,
+            "y": 6.726008850781875
+          },
+          "end": {
+            "x": 5.946513785942659,
+            "y": 4.254487696157504
+          },
+          "id": "68299558-3b6f-4b79-a9fa-edb8e5b23777",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": -0.47710280494303037,
+            "y": 10.172701554898623
+          },
+          "end": {
+            "x": 0.051833745311033796,
+            "y": 10.172701554898623
+          },
+          "id": "f68cf9df-2e10-4797-ba84-1bc46a118129",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.663106144820481,
+            "y": 10.172701554898623
+          },
+          "end": {
+            "x": 3.6710367364935665,
+            "y": 10.172701554898623
+          },
+          "id": "3593a3ea-00ec-4dfb-862a-ed8c20849dd2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.9947619232117204,
+            "y": 17.453963453533877
+          },
+          "end": {
+            "x": 2.9947619232117204,
+            "y": 16.199389276473823
+          },
+          "id": "b4eba2e0-7123-4150-8cda-4e9a2d2b359f",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 3.0697619232117206,
+            "y": 16.199389276473823
+          },
+          "end": {
+            "x": 3.069761923211721,
+            "y": 10.172701554898623
+          },
+          "id": "429ae4b4-b439-458d-a8bb-40a060e25b72",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 3.0697619232117206,
+            "y": 14.47676764653099
+          },
+          "end": {
+            "x": -0.4771028049430308,
+            "y": 14.47676764653099
+          },
+          "id": "be1ec976-3c2c-4711-850d-3869d4478aa2",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892902,
+            "y": 13.528767646530987
+          },
+          "end": {
+            "x": 3.974319374572087,
+            "y": 13.528767646530987
+          },
+          "id": "fb4e868d-637d-4743-aace-2ccdf199ec09",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892902,
+            "y": 14.464767646530989
+          },
+          "end": {
+            "x": 3.974319374572087,
+            "y": 14.464767646530989
+          },
+          "id": "b6493299-ae48-4358-97d0-f8929ad538d5",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 3.974319374572087,
+            "y": 13.528767646530987
+          },
+          "end": {
+            "x": 3.974319374572087,
+            "y": 14.464767646530989
+          },
+          "id": "5438a043-31c0-4160-945b-021bc91c1ff8",
+          "kind": "internal",
+          "thickness": 0.1,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892902,
+            "y": 16.33076764653099
+          },
+          "end": {
+            "x": 4.568480364203425,
+            "y": 16.33076764653099
+          },
+          "id": "0b7d9a0d-28ac-45d7-9454-c970aa8b9e64",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892901,
+            "y": 11.467853143218877
+          },
+          "end": {
+            "x": 9.267451548876343,
+            "y": 11.467853143218877
+          },
+          "id": "359246c4-11c4-48da-8735-0825b1781b62",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 9.267451548876343,
+            "y": 11.467853143218877
+          },
+          "end": {
+            "x": 9.267451548876343,
+            "y": 6.207441620938564
+          },
+          "id": "6245cd92-f383-4e37-8110-39f87552a41b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 9.267451548876343,
+            "y": 6.207441620938564
+          },
+          "end": {
+            "x": 8.102178207004272,
+            "y": 6.207441620938564
+          },
+          "id": "a4ad9339-f9af-4888-a610-2a4f1252d4cc",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        }
+      ],
+      "roofs": [
+        {
+          "thickness": 0.04,
+          "depth": 6.189291486351725,
+          "heightOffset": 0,
+          "id": "d907d31a-2159-4108-9620-c9f80d5724d7",
+          "overhangEnd": 0.2,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": false,
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.2,
+          "overhangSidePositive": 0.2,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 6.321173524623834,
+            "y": 2.006947205732383
+          },
+          "rotation": 0,
+          "supportDepth": 5.7892914863517255,
+          "supportPosition": {
+            "x": 6.321173524623835,
+            "y": 2.0069472057323825
+          },
+          "supportWidth": 3.5620093647608737,
+          "type": "up-and-over",
+          "width": 3.962009364760873,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
+        },
+        {
+          "thickness": 0.04,
+          "bayOutline": [
+            {
+              "x": -0.5,
+              "y": -0.5
+            },
+            {
+              "x": 0.5,
+              "y": -0.5
+            },
+            {
+              "x": 0.5,
+              "y": 0.5
+            },
+            {
+              "x": -0.5,
+              "y": 0.5
+            }
+          ],
+          "bayRidgeLength": 0.8,
+          "depth": 2.2389836841593116,
+          "heightOffset": 0,
+          "id": "316c6436-0af8-4dc5-9790-ad4352f645cc",
+          "overhangEnd": 0,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": false,
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 4.820947043446451,
+            "y": 17.450259488610648
+          },
+          "rotation": 0,
+          "supportDepth": 2.2389836841593116,
+          "supportPosition": {
+            "x": 4.820947043446451,
+            "y": 17.450259488610648
+          },
+          "supportWidth": 3.100000086892902,
+          "type": "bay",
+          "width": 3.100000086892902,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
+        },
+        {
+          "thickness": 0.04,
+          "depth": 5.560411143218876,
+          "heightOffset": 0,
+          "id": "b7a4bdaa-64b8-4ec7-9800-8b99100dc3d3",
+          "overhangEnd": 0.15,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": true,
+          "overhangSide": 0.15,
+          "overhangSideNegative": 0.15,
+          "overhangSidePositive": 0.15,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 8.909815,
+            "y": 8.83764757160944
+          },
+          "rotation": 3.141592653589793,
+          "supportDepth": 5.260411143218875,
+          "supportPosition": {
+            "x": 8.834815,
+            "y": 8.83764757160944
+          },
+          "supportWidth": 1.165274000000002,
+          "type": "lean-to",
+          "width": 1.3152740000000023,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
+        },
+        {
+          "thickness": 0.04,
+          "depth": 5.659097999999999,
+          "heightOffset": 0,
+          "id": "09d33248-d778-4dd4-b13e-903f2e45cb49",
+          "overhangEnd": 0.2,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": false,
+          "overhangSide": 0.2,
+          "overhangSideNegative": 0.2,
+          "overhangSidePositive": 0.2,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 0.4517245975284848,
+            "y": 7.531141999999999
+          },
+          "rotation": 0,
+          "supportDepth": 5.259098,
+          "supportPosition": {
+            "x": 0.5517245975284848,
+            "y": 7.531142
+          },
+          "supportWidth": 2.0576548049430303,
+          "type": "lean-to",
+          "width": 2.25765480494303,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
+        }
+      ],
+      "models": [],
+      "rooms": []
+    },
+    {
+      "id": "db559ff8-8f78-4b2c-8093-d57d78580c07",
+      "name": "Floor 1",
+      "elevation": 2.6999999999999997,
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [
+        {
+          "start": {
+            "x": 6.370947086892901,
+            "y": 11.467853143218877
+          },
+          "end": {
+            "x": 6.370947086892901,
+            "y": 16.35428526292765
+          },
+          "id": "24bfefb2-5ab2-4cdc-9350-fef393cfcd22",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892901,
+            "y": 16.35428526292765
+          },
+          "end": {
+            "x": 2.9947619232117204,
+            "y": 16.35428526292765
+          },
+          "id": "3d23a789-2321-4337-8422-5b029465d6d0",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.9947619232117204,
+            "y": 16.35428526292765
+          },
+          "end": {
+            "x": 2.9947619232117204,
+            "y": 17.743924178647404
+          },
+          "id": "3252367c-db4e-46af-8c7e-24dc79ca2403",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.6670647391229108,
+            "y": 17.743924178647404
+          },
+          "end": {
+            "x": 2.9947619232117204,
+            "y": 17.743924178647404
+          },
+          "id": "bb02fa78-d5d2-471b-994a-23a8b4640b98",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.6670647391229108,
+            "y": 17.743924178647404
+          },
+          "end": {
+            "x": 2.1498589245548856,
+            "y": 18.26112999321543
+          },
+          "id": "7ae79160-064b-44db-a88a-24c502361488",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 2.1498589245548856,
+            "y": 18.26112999321543
+          },
+          "end": {
+            "x": 0.43379570999845485,
+            "y": 18.26112999321543
+          },
+          "id": "702b75a4-1aa8-436c-9077-6860acc1106e",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 0.43379570999845485,
+            "y": 18.26112999321543
+          },
+          "end": {
+            "x": -0.13944290605232146,
+            "y": 17.687891377164654
+          },
+          "id": "1c8cb8e3-ea41-4b34-8391-d04a7eec074b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": -0.13944290605232146,
+            "y": 17.687891377164654
+          },
+          "end": {
+            "x": -0.4771028049430308,
+            "y": 17.687891377164654
+          },
+          "id": "1c416e90-7f93-4fa1-a9d8-c17c521f5248",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": -0.4771028049430308,
+            "y": 17.687891377164654
+          },
+          "end": {
+            "x": -0.47710280494303037,
+            "y": 10.160690667143697
+          },
+          "id": "ddb019b5-cc88-4862-a03f-0182fb728f3b",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 1.73055217385635,
+            "y": 4.901592948908246
+          },
+          "end": {
+            "x": 8.102178207004272,
+            "y": 4.901592948908245
+          },
+          "id": "a6d57d01-085b-4efb-99c5-553dc1b3eb82",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 6.370947086892901,
+            "y": 11.467853143218877
+          },
+          "end": {
+            "x": 8.102178207004272,
+            "y": 11.467853143218877
+          },
+          "id": "3b9a14db-f2c3-4944-ab7c-006906d8175e",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 8.102178207004272,
+            "y": 11.467853143218877
+          },
+          "end": {
+            "x": 8.102178207004272,
+            "y": 4.901592948908245
+          },
+          "id": "d11a78ae-efce-43ea-9484-18fbf53c7efe",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": -0.47710280494303037,
+            "y": 10.160690667143697
+          },
+          "end": {
+            "x": 1.73055217385635,
+            "y": 10.160690667143697
+          },
+          "id": "6cccfa67-4575-4c05-a025-316c33a128dd",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        },
+        {
+          "start": {
+            "x": 1.73055217385635,
+            "y": 10.160690667143697
+          },
+          "end": {
+            "x": 1.7305521738563503,
+            "y": 4.901592948908246
+          },
+          "id": "8ecffc14-801e-47be-8c0d-76c1abf496f2",
+          "kind": "external",
+          "thickness": 0.3,
+          "height": 2.4,
+          "openings": []
+        }
+      ],
+      "roofs": [
+        {
+          "thickness": 0.04,
+          "depth": 6.96626019431063,
+          "heightOffset": 0,
+          "id": "8e321618-2fa0-4ea5-99ec-8210302fe639",
+          "overhangEnd": 0.2,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": false,
+          "overhangSide": 0.2,
+          "overhangSideNegative": 0.2,
+          "overhangSidePositive": 0.2,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 4.9163651904303105,
+            "y": 8.18472304606356
+          },
+          "rotation": 0,
+          "supportDepth": 6.5662601943106305,
+          "supportPosition": {
+            "x": 4.9163651904303105,
+            "y": 8.184723046063562
+          },
+          "supportWidth": 6.371626033147922,
+          "type": "up-and-over",
+          "width": 6.771626033147921,
+          "ridgeStart": {
+            "mode": "automatic"
+          },
+          "ridgeEnd": {
+            "mode": "join",
+            "targetRoofId": "b46c5b90-ecdc-4d0f-a6a5-976b793c7270"
+          },
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
+        },
+        {
+          "thickness": 0.04,
+          "depth": 7.248049891835931,
+          "heightOffset": 0,
+          "id": "b46c5b90-ecdc-4d0f-a6a5-976b793c7270",
+          "overhangEnd": 0.2,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": false,
+          "overhangSide": 0.2,
+          "overhangSideNegative": 0.2,
+          "overhangSidePositive": 0.2,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 2.9469221409749355,
+            "y": 13.257487965035674
+          },
+          "ridgeEndChamfer": {
+            "angleDegrees": 28,
+            "distance": 3.45
+          },
+          "rotation": -1.5707963267948966,
+          "supportDepth": 6.848049891835931,
+          "supportPosition": {
+            "x": 2.9469221409749355,
+            "y": 13.257487965035674
+          },
+          "supportWidth": 6.193594595783953,
+          "type": "up-and-over",
+          "width": 6.5935945957839515,
+          "fitSupportingWalls": true,
+          "asymmetricSides": true,
+          "mountSide": "free",
+          "ridgeOffset": -0.846797297891976,
+          "ridgeHeight": 1.0027680254555706,
+          "ridgeHeightTargetRoofId": "8e321618-2fa0-4ea5-99ec-8210302fe639"
+        },
+        {
+          "thickness": 0.04,
+          "depth": 4.356033178647403,
+          "heightOffset": 0,
+          "id": "b9c4f4d7-2ea6-4bc2-8b59-481280115509",
+          "overhangEnd": 0.2,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": false,
+          "overhangSide": 0.2,
+          "overhangSideNegative": 0.2,
+          "overhangSidePositive": 0.2,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 1.2588295591343448,
+            "y": 15.765907589323703
+          },
+          "rotation": 3.141592653589793,
+          "supportDepth": 3.956033178647404,
+          "supportPosition": {
+            "x": 1.2588295591343448,
+            "y": 15.765907589323703
+          },
+          "supportWidth": 3.4718647281547517,
+          "type": "up-and-over",
+          "width": 3.871864728154752,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false,
+          "ridgeEnd": {
+            "mode": "join",
+            "targetRoofId": "b46c5b90-ecdc-4d0f-a6a5-976b793c7270"
+          }
+        },
+        {
+          "thickness": 0.04,
+          "bayOutline": [
+            {
+              "x": -0.5,
+              "y": -0.5
+            },
+            {
+              "x": 0.5,
+              "y": -0.5
+            },
+            {
+              "x": 0.31571195237712174,
+              "y": 0.5
+            },
+            {
+              "x": -0.29574664012184276,
+              "y": 0.5
+            }
+          ],
+          "bayRidgeLength": 0,
+          "depth": 0.5732386160507765,
+          "heightOffset": 0,
+          "id": "52b7c534-90c4-4d43-b3f2-4324a941d311",
+          "overhangEnd": 0,
+          "overhangPitchDegrees": 28,
+          "soffitColor": "#ffffff",
+          "clipsGeometry": false,
+          "overhangSide": 0.2,
+          "overhangSideNegative": 0.2,
+          "overhangSidePositive": 0.2,
+          "pitchDegrees": 28,
+          "position": {
+            "x": 1.2638109165352946,
+            "y": 17.97451068519004
+          },
+          "rotation": 0,
+          "supportDepth": 0.5732386160507765,
+          "supportPosition": {
+            "x": 1.2638109165352946,
+            "y": 17.97451068519004
+          },
+          "supportWidth": 2.806507645175232,
+          "type": "bay",
+          "width": 2.806507645175232,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
+        }
+      ],
+      "models": [],
+      "rooms": []
+    }
+  ]
+}

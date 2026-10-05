@@ -30,6 +30,17 @@ export function getBayRoofTopUvs(roof: RoofStructure, vertices: RoofUvVertex[]):
     ? normal[0] * edge.dx + normal[2] * edge.dz
     : (centre.x - edge.a.x) * edge.dx + (centre.y - edge.a.y) * edge.dz
   const edge = edges.reduce((best, next) => score(next) > score(best) ? next : best)
+  // A ridge beside a diagonal mounting-side edge adds a rear facet whose
+  // fall line differs from that eave. Project it in its own plane so tiles
+  // retain their metre scale instead of stretching along the chosen eave.
+  if (sloped && Math.abs(normal[0] * edge.ux + normal[2] * edge.uz) > 1e-7 * Math.hypot(...normal)) {
+    const horizontalLength = Math.hypot(normal[0], normal[2])
+    const sign = normal[2] * edge.ux - normal[0] * edge.uz >= 0 ? 1 : -1
+    const ux = sign * normal[2] / horizontalLength, uz = -sign * normal[0] / horizontalLength
+    const length = Math.hypot(...normal)
+    const v = [normal[1] * uz / length, (normal[2] * ux - normal[0] * uz) / length, -normal[1] * ux / length]
+    return vertices.map(([x, y, z]) => [x * ux + z * uz, x * v[0] + y * v[1] + z * v[2]])
+  }
   const slope = (normal[0] * edge.dx + normal[2] * edge.dz) / Math.max(1e-8, normal[1])
   const scale = Math.hypot(1, slope)
   return vertices.map(([x, y, z]) => [x * edge.ux + z * edge.uz,
@@ -119,6 +130,20 @@ export function getPitchedRoofTopUvs(
   supportBounds: RoofBounds,
   vertices: RoofUvVertex[],
 ) {
+  if (roof.type === 'up-and-over' && vertices.length >= 3) {
+    // Junctions insert collinear boundary points. Use the whole polygon's
+    // area normal rather than its first triangle to identify a chamfer.
+    let nx = 0, ny = 0, nz = 0
+    const origin = vertices[0]
+    for (let i = 1; i + 1 < vertices.length; i++) {
+      const a = vertices[i].map((value, axis) => value - origin[axis])
+      const b = vertices[i + 1].map((value, axis) => value - origin[axis])
+      nx += a[1] * b[2] - a[2] * b[1]
+      ny += a[2] * b[0] - a[0] * b[2]
+      nz += a[0] * b[1] - a[1] * b[0]
+    }
+    if (Math.abs(nz) > Math.hypot(nx, ny, nz) * 1e-6) return getGableChamferTopUvs(vertices)
+  }
   return vertices.map(([x, , z]) => [
     z,
     getPitchedRoofSurfaceDistance(roof, supportBounds, x),

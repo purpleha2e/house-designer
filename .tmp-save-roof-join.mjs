@@ -1,0 +1,17 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import assert from 'node:assert/strict';
+import {resolveBuildingRoofs} from './src/roofBuildingGeometry.ts';
+const original=JSON.parse(readFileSync('colin_house_v2.json','utf8'));
+const joined=structuredClone(original);
+const roof=joined.floors.flatMap(f=>f.roofs??[]).find(r=>r.id==='b9c4f4d7-2ea6-4bc2-8b59-481280115509');
+assert.ok(roof);
+roof.ridgeEnd={mode:'join',targetRoofId:'b46c5b90-ecdc-4d0f-a6a5-976b793c7270'};
+const resolved=resolveBuildingRoofs(joined.floors).find(r=>r.roof.id===roof.id);
+assert.equal(resolved.resolved.connections.find(c=>c.end==='ridgeEnd').state,'joined');
+const verification=structuredClone(joined);
+const verifiedRoof=verification.floors.flatMap(f=>f.roofs??[]).find(r=>r.id===roof.id);
+if(original.floors.flatMap(f=>f.roofs??[]).find(r=>r.id===roof.id).ridgeEnd===undefined)delete verifiedRoof.ridgeEnd;
+else verifiedRoof.ridgeEnd=original.floors.flatMap(f=>f.roofs??[]).find(r=>r.id===roof.id).ridgeEnd;
+assert.deepEqual(verification,original);
+writeFileSync('colin_house_v2_joined.json',JSON.stringify(joined,null,2)+'\n',{flag:'wx'});
+console.log('Created colin_house_v2_joined.json; only the smaller roof End B connection changed.');

@@ -112,23 +112,53 @@ export function getBayRoofPolygon(roof: RoofStructure) {
   return offsetBayPolygon(support, support.map((_, i) => i === 0 ? 0 : Math.max(0, roof.overhangSide ?? 0)))
 }
 
-export function buildBayRoofFaces(roof: RoofStructure): Vertex[][] {
-  const support = getBaySupportPolygon(roof), outer = getBayRoofPolygon(roof)
-  const slope = Math.tan(Math.max(1, Math.min(75, roof.pitchDegrees)) * Math.PI / 180)
-  const eaveSlope = Math.tan(Math.max(0, Math.min(75, roof.overhangPitchDegrees ?? roof.pitchDegrees)) * Math.PI / 180)
+export function getBayRoofRidge(roof: RoofStructure) {
+  const support = getBaySupportPolygon(roof)
   const mounts = getBayMountPolygon(roof)
-  const apex = { x: (mounts[0].x + mounts[1].x) / 2, y: (mounts[0].y + mounts[1].y) / 2 }
+  const start = { x: (mounts[0].x + mounts[1].x) / 2, y: (mounts[0].y + mounts[1].y) / 2 }
+  // Intersect the centre line with every convex support edge. A narrow or
+  // asymmetric bay can end before its bounding-box depth.
+  const runs = support.slice(1).flatMap((a, i) => {
+    const b = support[(i + 2) % support.length]
+    const dx = b.x - a.x
+    if (dx >= -EPS) return []
+    return [cross(a, b, start) / -dx]
+  })
+  const maxLength = Math.max(0, Math.min(...runs) - 0.05)
+  const requested = Number.isFinite(roof.bayRidgeLength) ? roof.bayRidgeLength! : 0
+  const length = Math.min(maxLength, Math.max(0, requested))
+  const end = { x: start.x, y: start.y + length }
+  const slope = Math.tan(Math.max(1, Math.min(75, roof.pitchDegrees)) * Math.PI / 180)
   const distances = support.slice(1).map((a, i) => {
     const b = support[(i + 2) % support.length]
-    return Math.abs(cross(a, b, apex)) / Math.hypot(b.x - a.x, b.y - a.y)
+    return Math.abs(cross(a, b, end)) / Math.hypot(b.x - a.x, b.y - a.y)
   })
-  const height = Math.min(...distances) * slope
+  return { start, end, length, maxLength, height: Math.min(...distances) * slope }
+}
+
+export function buildBayRoofFaces(roof: RoofStructure): Vertex[][] {
+  const support = getBaySupportPolygon(roof), outer = getBayRoofPolygon(roof)
+  const ridge = getBayRoofRidge(roof)
+  const apex = ridge.end, height = ridge.height
+  const ridgeStart: Vertex = [ridge.start.x, height, ridge.start.y]
+  const ridgeEnd: Vertex = [apex.x, height, apex.y]
+  const eaveSlope = Math.tan(Math.max(0, Math.min(75, roof.overhangPitchDegrees ?? roof.pitchDegrees)) * Math.PI / 180)
   return support.slice(1).flatMap((a, i): Vertex[][] => {
     const index = i + 1, next = (index + 1) % support.length, b = support[next]
     const overhang = Math.max(0, roof.overhangSide ?? 0)
     const outerHeight = -overhang * eaveSlope
+    const first = index === 1, last = next === 0
+    const aVertex: Vertex = [a.x, 0, a.y], bVertex: Vertex = [b.x, 0, b.y]
+    let panels: Vertex[][] = [[ridgeEnd, aVertex, bVertex]]
+    if (ridge.length > EPS && (first || last)) {
+      // Parallel side eaves form one planar panel beside the ridge. Other
+      // outlines retain triangular facets rather than a twisted quadrilateral.
+      panels = Math.abs(a.x - b.x) < EPS
+        ? [first ? [ridgeStart, aVertex, bVertex, ridgeEnd] : [ridgeStart, ridgeEnd, aVertex, bVertex]]
+        : [...panels, first ? [ridgeStart, aVertex, ridgeEnd] : [ridgeStart, ridgeEnd, bVertex]]
+    }
     return [
-      [[apex.x, height, apex.y], [a.x, 0, a.y], [b.x, 0, b.y]],
+      ...panels,
       ...(overhang > 0 ? [[[a.x, 0, a.y], [outer[index].x, outerHeight, outer[index].y],
         [outer[next].x, outerHeight, outer[next].y], [b.x, 0, b.y]] as Vertex[]] : []),
     ]

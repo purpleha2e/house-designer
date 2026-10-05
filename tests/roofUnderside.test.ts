@@ -84,6 +84,30 @@ test('roof shell excludes an authored perimeter once the visible roof no longer 
   Object.values(geometry).forEach(part => part.dispose())
 })
 
+test('an embedded roof keeps continuous eave edges up to the wall-facing shell trim', () => {
+  const structuralFace = [[0, 1, 0.006], [2, 2, 0.006], [2, 2, 4], [0, 1, 4]] as [number, number, number][]
+  // The visible skin embeds 6 mm into the wall and is split at the end overhang.
+  const visibleFaces = [
+    [[0, 1, 0], [2, 2, 0], [2, 2, 3.8], [0, 1, 3.8]],
+    [[0, 1, 3.8], [2, 2, 3.8], [2, 2, 4], [0, 1, 4]],
+  ] as [number, number, number][][]
+  const geometry = createSolidRoofGeometryFromFaces(visibleFaces, undefined, 0.04, [structuralFace])
+  const mesh = new Mesh(geometry.shell, new MeshBasicMaterial({ side: DoubleSide }))
+  mesh.updateMatrixWorld()
+  for (const z of [0.01, 1, 2, 3.79, 3.81, 3.99]) {
+    assert.ok(new Raycaster(new Vector3(-1, 0.98, z), new Vector3(1, 0, 0)).intersectObject(mesh).length,
+      `left eave thickness must remain continuous at z=${z}`)
+    assert.ok(new Raycaster(new Vector3(3, 1.98, z), new Vector3(-1, 0, 0)).intersectObject(mesh).length,
+      `right eave thickness must remain continuous at z=${z}`)
+  }
+  assert.equal(new Raycaster(new Vector3(-1, 0.98, 0.003), new Vector3(1, 0, 0)).intersectObject(mesh).length, 0,
+    'the edge still stops at the shell trim instead of embedding into the wall')
+  assert.equal(new Raycaster(new Vector3(1, 1.48, -1), new Vector3(0, 0, 1), 0, 1.1).intersectObject(mesh).length, 0,
+    'the wall-facing cut must not gain an extruded tile strip')
+  Object.values(geometry).forEach(part => part.dispose())
+  mesh.material.dispose()
+})
+
 test('soffit follows the visible roof while the room-side underside remains structural', () => {
   const structuralFace = [[0, 1, 0], [2, 1, 0], [2, 1, 2], [0, 1, 2]] as [number, number, number][]
   const visibleFace = [[0, 1, 0], [1, 1, 0], [1, 1, 2], [0, 1, 2]] as [number, number, number][]

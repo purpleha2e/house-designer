@@ -10,7 +10,7 @@ import { getWallPolygon } from './wallGeometry.ts'
 import { buildWallTopology } from './wallTopology.ts'
 import { buildWallBodyPerimeters } from './wallEngine/wallBodyPerimeter.ts'
 import { footprintPlanes } from './wallEngine/wallRoofClip.ts'
-import { buildCeilingSlabFootprints } from './ceilingSlabFootprint.ts'
+import { getFloorSlabFootprints } from './ceilingSlabFootprint.ts'
 import type { FloorAssembly } from './storeyGeometry.ts'
 import { ShapeUtils, Vector2 } from 'three'
 import {
@@ -20,7 +20,7 @@ import {
 
 export type GableWall = { wall: Wall; floorId: string; elevation: number; roomHeight: number }
 export type RoofGable = {
-  id: string; roofId: string; floorId: string; end: 'minY' | 'maxY'
+  id: string; roofId: string; floorId: string; end: 'minY' | 'maxY' | 'minX' | 'maxX'
   solids: ConvexSolid[]; faces: RoofGableFace[]; walls: GableWall[]
 }
 export type RoofGableFace = SolidFace & {
@@ -30,7 +30,8 @@ export type RoofGableFace = SolidFace & {
 }
 
 export function getGableWallClipData(gables: RoofGable[], roofs: BuildingRoof[], floorId: string, _elevation: number) {
-  const floorGables = gables.filter(gable => gable.walls.some(source =>
+  const clippingRoofIds = new Set(roofs.filter(roof => roof.roof.clipsGeometry !== false).map(roof => roof.roof.id))
+  const floorGables = gables.filter(gable => clippingRoofIds.has(gable.roofId) && gable.walls.some(source =>
     source.floorId === floorId && (gable.floorId === floorId ||
       source.wall.height > source.roomHeight + 0.001)))
   const walls = floorGables.flatMap(gable => gable.walls.filter(wall => wall.floorId === floorId))
@@ -44,7 +45,7 @@ export function getGableWallClipData(gables: RoofGable[], roofs: BuildingRoof[],
   // them. Including every lower roof lets a stepped roof on another part of
   // the building erase an unrelated inter-storey facade strip.
   const ceiling = bounds.length ? buildRoomCeilingEnvelope(roofs.filter(roof =>
-    roof.floorId === floorId || roofIds.has(roof.roof.id))
+    roof.roof.clipsGeometry !== false && (roof.floorId === floorId || roofIds.has(roof.roof.id)))
     .map(candidate => {
       // Overhangs project past the supported attic. They must not trim a
       // neighbouring facade (including its continuation between storeys).
@@ -73,7 +74,13 @@ export function roofUnderPlanes(face: SolidPoint[], bottom: number): SolidPlane[
   const height = roofFaceHeight(face)
   if (!height) return []
   const h = height({ x: 0, y: 0 })
-  return [...polygonPrismPlanes(face.map(([x, , y]) => ({ x, y })), bottom, Math.max(...face.map(p => p[1])) + 1).slice(2),
+  // A chamfer meeting a pitch break can repeat its corner. A zero-length
+  // footprint edge creates a NaN plane and silently removes the whole infill.
+  const outline = face.filter((point, i) => {
+    const previous = face[(i + face.length - 1) % face.length]
+    return Math.hypot(point[0] - previous[0], point[2] - previous[2]) > 1e-8
+  }).map(([x, , y]) => ({ x, y }))
+  return [...polygonPrismPlanes(outline, bottom, Math.max(...face.map(p => p[1])) + 1).slice(2),
     [0, 1, 0, -bottom], [height({ x: 1, y: 0 }) - h, -1, height({ x: 0, y: 1 }) - h, h]]
 }
 function contains(polygon: Point[], point: Point) {
@@ -97,7 +104,12 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
   const allWalls: GableWall[] = floors.flatMap(floor => floor.walls.map(wall => ({
     wall, floorId: floor.id, elevation: floor.elevation, roomHeight: floor.roomHeight,
   })))
-  const roomPlans = new Map(floors.map(floor => [floor.id, buildWallTopology(floor.walls).rooms]))
+  const roomPlans = new Map(floors.map(floor => [floor.id, buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }).rooms]))
+  const independentFloorIds = new Set(floors.filter(floor => floor.floorFootprints?.length).map(floor => floor.id))
+  const loftInteriorVolumes = new Map([...independentFloorIds].map(floorId => [floorId,
+    rooms.cuts.filter(cut => cut.roomVolume && cut.floorId === floorId && cut.roofId)
+      .map(cut => roofUnderPlanes(cut.face.map(([x, y, z]) => [x, y - cut.thickness, z]), cut.bottomY)),
+  ]))
   // Preserve the authored wall solid, including its mitres and side joins.
   // Roof closures fill only the remaining volume; existing facades keep their
   // wall selections and fragment finishes on either side of an adjoining roof.
@@ -105,6 +117,9 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
     const byId = new Map(floor.walls.map(wall => [wall.id, wall]))
     return buildWallBodyPerimeters(floor.walls).wallBodies.flatMap(body => {
       const wall = byId.get(body.wallId)!
+      // A loft partition terminates inside the enclosing gable. Letting it
+      // replace the gable volume exposes its end finish on the brick facade.
+      if (independentFloorIds.has(floor.id) && wall.kind === 'internal') return []
       return ShapeUtils.triangulateShape(body.points.map(p => new Vector2(p.x, p.y)), []).map(indices =>
         polygonPrismPlanes(indices.map(index => body.points[index]), floor.elevation, floor.elevation + wall.height))
     })
@@ -113,7 +128,7 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
   const floorAssemblies = assemblies ?? orderedFloors.slice(0, -1).flatMap((floor, index) => {
     const upper = orderedFloors[index + 1], bottom = floor.elevation + floor.roomHeight
     return upper.elevation > bottom + 1e-6
-      ? [{ bottom, top: upper.elevation, footprints: buildCeilingSlabFootprints(upper.walls) }] : []
+      ? [{ bottom, top: upper.elevation, footprints: getFloorSlabFootprints(upper) }] : []
   })
   // The floor assembly owns this entire solid, including facade continuations.
   // Subtract its actual footprint, so gables cannot duplicate the floor band.
@@ -133,27 +148,37 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
     const bottom = floorTopElevation + (roof.heightOffset ?? 0)
     const top = Math.max(...roofFaces.flatMap(face => face.map(p => p[1])))
     if (top <= bottom) continue
-    for (const end of ['minY', 'maxY'] as const) {
-      const sign = end === 'minY' ? -1 : 1
-      const matching = allWalls.filter(({ wall, elevation }) => {
+    const joinedEave = resolved.connections.some(connection => connection.state === 'joined' &&
+      roofs.some(other => other.roof.id === connection.targetRoofId && other.resolved.joinedEaveFaces?.length))
+    const ends: RoofGable['end'][] = ['minY', 'maxY', ...((roof.asymmetricSides && roof.fitSupportingWalls) || joinedEave ? ['minX', 'maxX'] as const : [])]
+    for (const end of ends) {
+      const sideInfill = end === 'minX' || end === 'maxX'
+      const section = (p: Point) => sideInfill ? { x: p.y, y: p.x } : p
+      const sign = end === 'minY' || end === 'minX' ? -1 : 1
+      const sectionMin = sideInfill ? bounds.minY : bounds.minX
+      const sectionMax = sideInfill ? bounds.maxY : bounds.maxX
+      const matching = allWalls.filter(({ wall, elevation, floorId: wallFloorId }) => {
+        if (sideInfill && (wallFloorId !== floorId || !candidate.supportingWallIds.includes(wall.id))) return false
         if (wall.kind !== 'external' || elevation > top || elevation + wall.height < bottom - 0.01) return false
-        const a = getRoofSupportLocalPoint(roof, wall.start), b = getRoofSupportLocalPoint(roof, wall.end)
+        const a = section(getRoofSupportLocalPoint(roof, wall.start)), b = section(getRoofSupportLocalPoint(roof, wall.end))
         return Math.abs(a.y - b.y) < 0.01 &&
           Math.abs((a.y + b.y) / 2 - bounds[end]) <= wall.thickness / 2 + 0.025 &&
-          Math.min(a.x, b.x) < bounds.maxX && Math.max(a.x, b.x) > bounds.minX
+          Math.min(a.x, b.x) < sectionMax && Math.max(a.x, b.x) > sectionMin
       }).sort((a, b) => Number(b.floorId === floorId) - Number(a.floorId === floorId) || b.wall.thickness - a.wall.thickness)
       const support = matching[0]
+      if (sideInfill && !support) continue
       const thickness = support?.wall.thickness ?? 0.3
-      const center = support ? (getRoofSupportLocalPoint(roof, support.wall.start).y +
-        getRoofSupportLocalPoint(roof, support.wall.end).y) / 2 : bounds[end] - sign * thickness / 2
+      const center = support ? (section(getRoofSupportLocalPoint(roof, support.wall.start)).y +
+        section(getRoofSupportLocalPoint(roof, support.wall.end)).y) / 2 : bounds[end] - sign * thickness / 2
       const polygon = [
-        { x: bounds.minX, y: center - thickness / 2 }, { x: bounds.maxX, y: center - thickness / 2 },
-        { x: bounds.maxX, y: center + thickness / 2 }, { x: bounds.minX, y: center + thickness / 2 },
-      ].map(point => getRoofWorldPointFromLocal(roof, point))
+        { x: sectionMin, y: center - thickness / 2 }, { x: sectionMax, y: center - thickness / 2 },
+        { x: sectionMax, y: center + thickness / 2 }, { x: sectionMin, y: center + thickness / 2 },
+      ].map(point => getRoofWorldPointFromLocal(roof, section(point)))
       const id = `${roof.id}:${end}`
       const blank = prismSolid(polygon, bottom, top + 0.01, id)
-      const outer = getRoofWorldPointFromLocal(roof, { x: 0, y: center + sign * thickness / 2 })
-      const normal = { x: sign * Math.sin(roof.rotation), y: sign * Math.cos(roof.rotation) }
+      const outer = getRoofWorldPointFromLocal(roof, section({ x: 0, y: center + sign * thickness / 2 }))
+      const normal = sideInfill ? { x: sign * Math.cos(roof.rotation), y: -sign * Math.sin(roof.rotation) }
+        : { x: sign * Math.sin(roof.rotation), y: sign * Math.cos(roof.rotation) }
       // Test the end boundary against the adjoining space, then carry that
       // opening through the gable's thickness. Simply subtracting overlapping
       // roof footprints leaves two internal gables at a flush end-to-end join.
@@ -162,15 +187,25 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
         const offset = outer.x * normal.x + outer.y * normal.y + 1e-6
         return [a - along * normal.x, b, c - along * normal.y, d + along * offset]
       }
-      let solids = roofFaces.flatMap(face => {
-        const piece = intersection(blank, roofUnderPlanes(face, bottom), id)
+      const blanks = sideInfill ? matching.map(source => intersection(blank,
+        polygonPrismPlanes(wallFootprint(source.wall, source.wall.thickness / 2), bottom, top + 0.01), id))
+        .filter((solid): solid is ConvexSolid => Boolean(solid)) : [blank]
+      let solids = blanks.flatMap(base => roofFaces.flatMap(face => {
+        const piece = intersection(base, roofUnderPlanes(face, bottom), id)
         return piece ? [piece] : []
-      })
+      }))
       // Suppress any roof end within the supported space of another roof.
       // Overhangs do not turn an exterior end into an interior partition.
       for (const other of roofSurfaces) {
         if (other.candidate.roof.id === roof.id) continue
-        const footprint = polygonPrismPlanes(roofBoundsPolygon(other.candidate.resolved, other.candidate.resolved.support), -100, 100).slice(2)
+        const joinedEnd = !sideInfill && resolved.connections.some(connection => connection.state === 'joined' &&
+          connection.end === (end === 'minY' ? 'ridgeStart' : 'ridgeEnd') &&
+          connection.targetRoofId === other.candidate.roof.id)
+        if (other.candidate.roof.clipsGeometry === false && !joinedEnd) continue
+        // An overhang does not consume the wall below surviving incoming
+        // tiles. Keep that low infill; only the supported attic is a void.
+        const footprint = polygonPrismPlanes(roofBoundsPolygon(other.candidate.resolved,
+          other.candidate.resolved.support), -100, 100).slice(2)
         for (const face of other.faces) {
           const planes = [...roofUnderPlanes(face, other.candidate.floorTopElevation + (other.candidate.roof.heightOffset ?? 0)), ...footprint].map(atEnd)
           solids = solids.flatMap(solid => subtractSolid(solid, planes, id))
@@ -180,10 +215,24 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
       // divides two joined roof spaces. It uses the highest ceiling there.
       for (const source of matching) {
         const footprint = wallFootprint(source.wall, source.wall.thickness / 2)
-        const ceiling = buildRoomCeilingEnvelope(roofSurfaces.filter(other => other.candidate.floorId === source.floorId ||
-          other.candidate.floorTopElevation <= source.elevation + 0.001).map(other => ({
-          roofId: other.candidate.roof.id, faces: other.faces, thickness: 0,
-        })), [footprint])
+        const joinsThisEnd = (other: BuildingRoof) => sideInfill
+          ? Boolean(other.resolved.joinedEaveFaces?.length) && resolved.connections.some(connection =>
+            connection.state === 'joined' && connection.targetRoofId === other.roof.id)
+          : (
+          resolved.connections.some(connection => connection.state === 'joined' &&
+            connection.end === (end === 'minY' ? 'ridgeStart' : 'ridgeEnd') && connection.targetRoofId === other.roof.id) ||
+          other.resolved.connections.some(connection => connection.state === 'joined' && connection.targetRoofId === roof.id))
+        const ceiling = buildRoomCeilingEnvelope(roofSurfaces.filter(other => (other.candidate.roof.clipsGeometry !== false ||
+          joinsThisEnd(other.candidate)) &&
+          (other.candidate.floorId === source.floorId || other.candidate.floorTopElevation <= source.elevation + 0.001)).map(other => {
+          const surface = { roofId: other.candidate.roof.id, faces: other.faces, thickness: 0 }
+          if (!joinsThisEnd(other.candidate) || sideInfill) return surface
+          // The receiving gable owns its facade plane. Carrying this return
+          // out beneath the receiver's overhang makes a brick tooth project
+          // in front of it, even though the incoming tiles stop at the join.
+          const supportPlanes = footprintPlanes(roofBoundsPolygon(other.candidate.resolved, other.candidate.resolved.support))
+          return { ...surface, faces: surface.faces.map(face => supportPlanes.reduce(clipRoofFace, face)).filter(face => face.length) }
+        }), [footprint])
         const authored = prismSolid(footprint, Math.max(bottom, source.elevation),
           Math.max(top, ...ceiling.flatMap(item => item.face.map(p => p[1]))) + 0.01, id)
         const band = polygonPrismPlanes(polygon, bottom, 100)
@@ -196,6 +245,10 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
       // leaves the real wall thickness intact. Ignore roof-only support cuts.
       for (const cut of rooms.cuts) {
         if (!cut.roomVolume || !cut.floorId || cut.floorId === floorId || cut.bottomY < bottom - 0.35) continue
+        // A loft slab reaches the outside facade; its outline is not an inset
+        // room enclosure that can replace the existing gable. Actual roof
+        // joins, authored walls, openings and floor assemblies own their cuts.
+        if (independentFloorIds.has(cut.floorId)) continue
         const planes = roofUnderPlanes(cut.face.map(([x, y, z]) => [x, y - cut.thickness, z]), cut.bottomY)
         solids = solids.flatMap(solid => subtractSolid(solid, planes, id))
       }
@@ -238,13 +291,27 @@ export function buildBuildingRoofGables(floors: FloorLevel[], roofs: BuildingRoo
       const floor = [...floors].sort((a, b) => b.elevation - a.elevation).find(floor => floor.elevation <= midpoint[1] + 1e-6)
       const normal = face.plane.slice(0, 3).map(value => -value)
       const sample = { x: midpoint[0] + normal[0] * 0.04, y: midpoint[2] + normal[2] * 0.04 }
-      const interior = !!floor && (roomPlans.get(floor.id) ?? []).some(room => contains(room.polygon, sample))
+      // An independent slab can also extend outside or above a lower roof.
+      // Only space beneath an enclosing roof is the loft's interior; exposed
+      // gable faces beside stepped roofs must retain their exterior finish.
+      const loftVolumes = floor ? loftInteriorVolumes.get(floor.id) : undefined
+      const insideLoft = !loftVolumes || loftVolumes.some(planes => planes.length > 0 &&
+        planes.every(plane => planeDistance(plane, [sample.x, midpoint[1], sample.y]) >= -1e-6))
+      const interior = !!floor && insideLoft && (roomPlans.get(floor.id) ?? []).some(room => contains(room.polygon, sample))
       const source = gable.walls.find(source => source.floorId === (interior ? floor?.id : gable.floorId)) ?? gable.walls[0]
       const wall = source?.wall
       const isVerticalWallSkin = Boolean(wall) && Math.abs(normal[1]) < 1e-7
       const side: -1 | 1 = wall && normal[0] * -(wall.end.y - wall.start.y) + normal[2] * (wall.end.x - wall.start.x) < 0 ? -1 : 1
+      // Returns have a different tangent from their source wall. Project along
+      // each vertical skin so brick widths do not collapse to a single texel.
+      const horizontalLength = Math.hypot(normal[0], normal[2])
+      const tangent = horizontalLength > 1e-7 ? { x: normal[2] / horizontalLength, y: -normal[0] / horizontalLength } : null
+      if (tangent && (tangent.x < -1e-6 || (Math.abs(tangent.x) <= 1e-6 && tangent.y < -1e-6))) {
+        tangent.x *= -1; tangent.y *= -1
+      }
       return { ...face, interior, wall, wallSide: isVerticalWallSkin ? side : undefined, wallFloorId: source?.floorId, spaceFloorId: floor?.id,
-        uvs: face.points.map(([x, y, z]) => [wall ? getCanonicalWallUvDistance(wall, { x, y: z }) : x + z, y]),
+        uvs: face.points.map(([x, y, z]) => [isVerticalWallSkin && tangent ? x * tangent.x + z * tangent.y
+          : wall ? getCanonicalWallUvDistance(wall, { x, y: z }) : x + z, y]),
       }
     })
   }

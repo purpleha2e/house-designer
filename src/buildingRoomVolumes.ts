@@ -9,7 +9,7 @@ import { getRenderedWalls } from './wallGeometry.ts'
 import { buildRoomSurfaceFloorPolygons } from './wallEngine/roomSurfaceMesh.ts'
 import { buildWallTopology } from './wallTopology.ts'
 import { footprintPlanes } from './wallEngine/wallRoofClip.ts'
-import { buildCeilingSlabFootprints } from './ceilingSlabFootprint.ts'
+import { getFloorSlabFootprints } from './ceilingSlabFootprint.ts'
 import { getRoofCeilingCutouts } from './roofCeilingClipping.ts'
 import { subtractPlanCutouts } from './planarCutouts.ts'
 import { ShapeUtils, Vector2 } from 'three'
@@ -37,7 +37,7 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
     const upper = orderedFloors[index]
     const bottomY = lower.elevation + lower.roomHeight
     if (upper.elevation <= bottomY + 1e-6) continue
-    const footprints = buildCeilingSlabFootprints(upper.walls, lower.walls)
+    const footprints = getFloorSlabFootprints(upper, lower)
     const roofCutouts = getRoofCeilingCutouts(roofs.map(roof => roof.resolved), upper.elevation)
     const triangles = footprints.flatMap(footprint => subtractPlanCutouts(footprint, roofCutouts))
       .flatMap(({ outline, holes }) => {
@@ -56,7 +56,7 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
   }
 
   for (const [index, floor] of orderedFloors.entries()) {
-    const rooms = buildWallTopology(floor.walls).rooms
+    const rooms = buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }).rooms
     const innerPolygons = buildRoomSurfaceFloorPolygons({
       renderedWalls: getRenderedWalls(floor.walls), rooms,
     })
@@ -74,8 +74,8 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
     // Including it would raise that room's cutter through the intervening
     // floor and remove a lower roof where it meets the upper facade.
     const roofSurfaces: RoomRoofSurface[] = roofs
-      .filter(candidate => candidate.floorId === floor.id ||
-        candidate.floorTopElevation <= floor.elevation + 0.001)
+      .filter(candidate => candidate.roof.clipsGeometry !== false && (candidate.floorId === floor.id ||
+        candidate.floorTopElevation <= floor.elevation + 0.001))
       .map(candidate => {
         // An eave may project over another room without becoming that room's
         // ceiling. Only the roof's supported interior can cap a room volume.
@@ -114,6 +114,7 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
   // junctions and gable ends. Remove panels entering that space as well, but
   // stop at the inner skin so the outer roof and its full thickness survive.
   for (const candidate of roofs) {
+    if (candidate.roof.clipsGeometry === false) continue
     const floor = orderedFloors.find(item => item.id === candidate.floorId)
     if (!floor) continue
     const support = roofBoundsPolygon(candidate.resolved, candidate.resolved.support)

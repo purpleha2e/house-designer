@@ -2,17 +2,46 @@ import type { FloorLevel, Point, Wall } from './types.ts'
 import { buildWallTopology } from './wallTopology.ts'
 
 export function buildRoofAttachmentContext(floors: FloorLevel[], elevation: number) {
-  const attachmentFloors = floors.filter((floor) => floor.elevation >= elevation)
+  const topologies = floors.filter((floor) => floor.elevation >= elevation)
+    .map((floor) => buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }))
   return {
-    walls: attachmentFloors.flatMap((floor) => floor.walls),
+    // Roof anchors must agree with the visible wall joins. Authored endpoints
+    // can differ even though wall topology has already snapped them together.
+    walls: topologies.flatMap((topology) =>
+      Array.from(topology.renderedWallsById.values(), ({ wall }) => wall)),
     // Upper-storey walls are valid snap targets, but their rooms must be
     // detected separately. Stacking storeys into one wall union creates false
     // room boundaries and can fail on coincident wall polygons.
-    rooms: attachmentFloors.flatMap((floor) => buildWallTopology(floor.walls).rooms),
+    rooms: topologies.flatMap((topology) => topology.rooms),
   }
 }
 
 const ROOF_WALL_ANCHOR_STEP_METERS = 0.1
+
+/** Snap each plan axis independently to selected roof mounting points. */
+export function alignRoofPlacementPoint(point: Point, anchors: Point[], tolerance: number) {
+  const nearest = (axis: 'x' | 'y') => anchors.reduce<number | undefined>((best, anchor) =>
+    Math.abs(point[axis] - anchor[axis]) <= tolerance &&
+      (best === undefined || Math.abs(point[axis] - anchor[axis]) < Math.abs(point[axis] - best))
+      ? anchor[axis] : best, undefined)
+  const x = nearest('x'), y = nearest('y')
+  return { point: { x: x ?? point.x, y: y ?? point.y }, vertical: x, horizontal: y }
+}
+
+/** The mounting wall is the high edge; the selected footprint is the low side. */
+export function getLeanToRotationFromMountingWall(wall: Wall, points: Point[], fallbackExteriorSide: -1 | 1) {
+  const dx = wall.end.x - wall.start.x, dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+  if (length < 1e-6) return null
+  const normal = { x: -dy / length, y: dx / length }
+  const distances = points.map(point => (point.x - wall.start.x) * normal.x +
+    (point.y - wall.start.y) * normal.y).filter(value => Math.abs(value) > wall.thickness / 2 + 0.02)
+  // Room membership is only a fallback while both selected points are on the
+  // wall. Stacked storeys can have a room on each side of the same plan line.
+  const side = distances.length && distances.every(value => value > 0) ? 1
+    : distances.length && distances.every(value => value < 0) ? -1 : fallbackExteriorSide
+  return Math.atan2(normal.y * side, -normal.x * side)
+}
 
 function distance(firstPoint: Point, secondPoint: Point) {
   return Math.hypot(
@@ -36,7 +65,7 @@ function cross(first: Point, second: Point) {
   return first.x * second.y - first.y * second.x
 }
 
-function getExternalWallContinuationPoints(walls: Wall[]) {
+function getExternalWallContinuationPoints(walls: Wall[], includeProjected = true) {
   const externalWalls = walls.filter((wall) => wall.kind === 'external')
   const pointsByKey = new Map<string, Point>()
 
@@ -79,6 +108,10 @@ function getExternalWallContinuationPoints(walls: Wall[]) {
       if (targetT < -targetTolerance || targetT > 1 + targetTolerance) {
         return
       }
+      const sourceTolerance = joinTolerance / Math.hypot(sourceVector.x, sourceVector.y)
+      if (!includeProjected && (sourceT < -sourceTolerance || sourceT > 1 + sourceTolerance)) {
+        return
+      }
 
       const point = normalizePoint({
         x: sourceWall.start.x + sourceVector.x * sourceT,
@@ -91,7 +124,7 @@ function getExternalWallContinuationPoints(walls: Wall[]) {
   return Array.from(pointsByKey.values())
 }
 
-export function getRoofPlacementSnapPoints(walls: Wall[]) {
+export function getRoofPlacementSnapPoints(walls: Wall[], { includeProjected = true } = {}) {
   const pointsByKey = new Map<string, Point>()
 
   walls
@@ -100,7 +133,7 @@ export function getRoofPlacementSnapPoints(walls: Wall[]) {
       pointsByKey.set(pointKey(wall.start), wall.start)
       pointsByKey.set(pointKey(wall.end), wall.end)
     })
-  getExternalWallContinuationPoints(walls).forEach((point) => {
+  getExternalWallContinuationPoints(walls, includeProjected).forEach((point) => {
     pointsByKey.set(pointKey(point), point)
   })
 

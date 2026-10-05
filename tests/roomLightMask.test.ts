@@ -3,6 +3,8 @@ import test from 'node:test'
 import { DataTexture, MeshStandardMaterial } from 'three'
 import { createRoomLightMask, getRoomLightMaskIdAtPoint } from '../src/roomLightMask.ts'
 import { applyRoomLightShader, createRoomLightShaderUniforms } from '../src/roomLightShader.ts'
+import { buildDoorwayFloorPatches } from '../src/doorwayFloors.ts'
+import type { Point, Wall } from '../src/types.ts'
 
 test('room light mask gives enclosed rooms distinct ids and leaves exterior points global', () => {
   const mask = createRoomLightMask([
@@ -90,4 +92,40 @@ test('boundary coverage preserves room separation across a thin wall', () => {
   assert.equal(getRoomLightMaskIdAtPoint(mask, { x: 3.118, y: 2 }), mask.roomIdsBySignature.get('right'))
   assert.equal(getRoomLightMaskIdAtPoint(mask, { x: 3.07, y: 2 }), 0)
   assert.equal(getRoomLightMaskIdAtPoint(mask, { x: 0.93, y: 2 }), 0)
+})
+
+test('doorway floor strips receive their adjoining room lights without lighting the solid wall', () => {
+  for (const angle of [0, 0.37]) {
+    const transform = (p: Point) => ({
+      x: 4 + p.x * Math.cos(angle) - p.y * Math.sin(angle),
+      y: 4 + p.x * Math.sin(angle) + p.y * Math.cos(angle),
+    })
+    const rectangle = (left: number, right: number) =>
+      [{ x: left, y: -2 }, { x: right, y: -2 }, { x: right, y: 2 }, { x: left, y: 2 }].map(transform)
+    const rooms = [
+      { signature: 'left', polygon: rectangle(-2, -0.05) },
+      { signature: 'right', polygon: rectangle(0.05, 2) },
+    ]
+    const wall: Wall = {
+      id: 'partition', kind: 'external', thickness: 0.1, height: 2.4,
+      start: transform({ x: 0, y: -2 }), end: transform({ x: 0, y: 2 }),
+      openings: [{ id: 'door', modelId: 'door', center: 2, width: 1, bottom: 0, height: 2.1 }],
+    }
+    const { patches } = buildDoorwayFloorPatches([wall], rooms)
+    const mask = createRoomLightMask([...rooms, ...patches.map(patch => ({
+      signature: patch.roomSignature, polygon: patch.outline,
+    }))], { minX: 0, minZ: 0, size: 8 })
+    assert.equal(mask.roomIdsBySignature.size, 2)
+    for (const [signature, x] of [['left', -0.025], ['right', 0.025]] as const) {
+      const id = mask.roomIdsBySignature.get(signature)
+      assert.ok(id)
+      assert.equal(getRoomLightMaskIdAtPoint(mask, transform({ x: x * 40, y: 0 })), id)
+      for (let y = -0.4; y <= 0.4; y += 0.02) {
+        assert.equal(getRoomLightMaskIdAtPoint(mask, transform({ x, y })), id,
+          `doorway strip must get ${signature} light at ${angle} radians`)
+      }
+    }
+    assert.equal(getRoomLightMaskIdAtPoint(mask, transform({ x: 0, y: 1 })), 0,
+      'the uncut wall beyond the doorway must still block room lighting')
+  }
 })

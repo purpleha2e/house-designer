@@ -1,5 +1,6 @@
-import { replaceRoofMaterialAssignment } from './roofMaterialAssignments'
+import { replaceRoofMaterialAssignment, roofSurfaceTargetsMatch } from './roofMaterialAssignments'
 import { getSurfaceSelectionFloorId } from './surfaceSelection'
+import type { ModelTransformPreview } from './modelTransformPreview'
 import {
   useCallback,
   useDeferredValue,
@@ -59,6 +60,8 @@ import {
   type DetectedRoom,
 } from './wallTopology'
 import { getFloorEnvelopeWalls } from './floorEnvelope'
+import { createCeilingLoftFloor, getAddLoftFloorDisabledReason } from './loftFloor'
+import { createDormerWindow, syncDormerWindows, updateDormerWindow } from './dormerWindows'
 import { DEFAULT_EXTERNAL_WALL_THICKNESS_METERS, MAX_WALL_HEIGHT_METERS } from './wallGeometry'
 import {
   ALL_FLOORS_VIEW_ID,
@@ -77,8 +80,7 @@ import {
   findDormerPlacement,
   getAttachedDormerPlacement,
 } from './dormerPlacement'
-import springfield12Project from '../springfield_14.json'
-//import springfield12Project from '../red_house_3.json'
+import { defaultProject } from './defaultProject'
 import './App.css'
 
 const DEFAULT_THICKNESS = DEFAULT_EXTERNAL_WALL_THICKNESS_METERS
@@ -99,8 +101,17 @@ const WALL_COORDINATE_EPSILON_METERS = 0.001
 type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
 
 type HipRoofCreateOptions = {
+  asymmetricSides?: boolean
+  ridgeOffset?: number
+  ridgeHeight?: number
+  ridgeHeightTargetRoofId?: string
+  mountSide?: RoofStructure['mountSide']
+  heightOffset?: number
+  fitSupportingWalls?: boolean
+  clipsGeometry?: boolean
   thickness?: number
   bayOutline?: Point[]
+  bayRidgeLength?: number
   depth?: number
   floorId: string
   overhangEnd?: number
@@ -328,11 +339,7 @@ function selectableSurfacesMatch(
   }
 
   if (firstSurface.type === 'roof' && secondSurface.type === 'roof') {
-    return (
-      firstSurface.floorId === secondSurface.floorId &&
-      firstSurface.roofId === secondSurface.roofId &&
-      firstSurface.part === secondSurface.part
-    )
+    return roofSurfaceTargetsMatch(firstSurface, secondSurface)
   }
 
   if (
@@ -631,10 +638,8 @@ function createFallbackProject(): SavedProject {
 }
 
 function createInitialProject() {
-  const defaultProject = springfield12Project as SavedProject
-
-  if (isSavedProject(defaultProject)) {
-    return normalizeSavedProject(defaultProject)
+  if (isSavedProject(defaultProject.data)) {
+    return normalizeSavedProject(defaultProject.data)
   }
 
   return normalizeSavedProject(createFallbackProject())
@@ -653,7 +658,7 @@ function isTextEntryElement(target: EventTarget | null) {
 }
 
 function getFloorWallBounds(floor: FloorLevel) {
-  const points = floor.walls.flatMap((wall) => [wall.start, wall.end])
+  const points = [...floor.walls.flatMap((wall) => [wall.start, wall.end]), ...(floor.floorFootprints?.flat() ?? [])]
 
   if (points.length === 0) {
     return null
@@ -699,6 +704,11 @@ function App() {
   // roof and room-volume pipeline catches the 3D scene up in a background
   // render. The 3D view receives the latest committed floor state.
   const deferredThreeDFloors = useDeferredValue(floors)
+  const modelTransformPreviewRef = useRef<ModelTransformPreview | null>(null)
+  useEffect(() => {
+    // Retain the final live transform until the deferred 3D props catch up.
+    if (modelTransformPreviewRef.current?.committed) modelTransformPreviewRef.current = null
+  }, [deferredThreeDFloors])
   const [sunPosition, setSunPosition] = useState<SunPosition>(
     initialProject.sunPosition,
   )
@@ -725,9 +735,7 @@ function App() {
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [isRoofMode, setIsRoofMode] = useState(false)
-  const [projectFileName, setProjectFileName] = useState('springfield_14.json')
-  //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
-  //const [projectFileName, setProjectFileName] = useState('red_house_3.json')
+  const [projectFileName, setProjectFileName] = useState(defaultProject.fileName)
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
   const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
     null,
@@ -927,7 +935,7 @@ function App() {
   ) => {
     const definition = modelsById.get(modelId)
 
-    return definition?.wallMount ? syncWallOpenings(floor, modelsById) : floor
+    return definition?.wallMount ? syncWallOpenings(floor, modelsById) : syncDormerWindows(floor, modelsById)
   }
 
   const recordHistory = (coalesceKey?: string) => {
@@ -998,8 +1006,10 @@ function App() {
     setFloors((currentFloors) => {
       let changed = false
 
-      const nextFloors = currentFloors.map((floor) => {
-        const detectedRooms = buildWallTopology(floor.walls).rooms
+      const nextFloors = currentFloors.map((inputFloor) => {
+        const floor = syncDormerWindows(inputFloor, modelsById)
+        if (floor !== inputFloor) changed = true
+        const detectedRooms = buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }).rooms
         const roomMetadataBySignature = new Map(
           (floor.rooms ?? []).map((room) => [room.signature, room]),
         )
@@ -1090,6 +1100,7 @@ function App() {
                   ...wall,
                   id,
                   kind: wallKind,
+                  allowRoofClipHeight: floor.floorFootprints?.length ? true : undefined,
                   thickness:
                     wallKind === 'external'
                       ? DEFAULT_THICKNESS
@@ -1199,6 +1210,31 @@ function App() {
     setIsAddingWall(false)
   }
 
+  const addCeilingLoftFloor = () => {
+    const loft = createCeilingLoftFloor(floors, activeFloorId, createId())
+    if (!loft) return
+    recordHistory()
+    const sourceViewport = floorplanViewportsRef.current[activeFloorId]
+    if (sourceViewport) {
+      floorplanViewportsRef.current = {
+        ...floorplanViewportsRef.current,
+        [loft.id]: { ...sourceViewport },
+      }
+    }
+    setFloors(currentFloors => [...currentFloors, loft])
+    setActiveFloorId(loft.id)
+    setSelectedFloorViewId(loft.id)
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoomSignature(null)
+    setSelectedSurface(null)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setSelectedRoofId(null)
+    setIsAddingWall(false)
+    setIsRoofMode(false)
+  }
+
   const updateActiveFloorSlabThickness = (slabThickness: number) => {
     const targetFloor = floors.find((floor) => floor.id === activeFloorId)
 
@@ -1274,8 +1310,17 @@ function App() {
   }
 
   const addRoof = ({
+    asymmetricSides,
+    ridgeOffset,
+    ridgeHeight,
+    ridgeHeightTargetRoofId,
+    mountSide,
+    heightOffset,
+    fitSupportingWalls,
+    clipsGeometry,
     thickness,
     bayOutline,
+    bayRidgeLength,
     depth,
     floorId,
     overhangEnd,
@@ -1346,14 +1391,22 @@ function App() {
             y: roofPosition.y + fallbackSupportOffset.y,
           }
     const roof: RoofStructure = {
+      asymmetricSides: type === 'up-and-over' && asymmetricSides === true,
+      mountSide: type === 'up-and-over' ? mountSide : undefined,
+      ridgeOffset: type === 'up-and-over' ? ridgeOffset : undefined,
+      ridgeHeight: type === 'up-and-over' ? ridgeHeight : undefined,
+      ridgeHeightTargetRoofId: type === 'up-and-over' ? ridgeHeightTargetRoofId : undefined,
       thickness,
       bayOutline: type === 'bay' ? bayOutline : undefined,
+      bayRidgeLength: type === 'bay' ? bayRidgeLength : undefined,
       depth: roofDepth,
-      heightOffset: 0,
+      heightOffset: heightOffset ?? 0,
+      fitSupportingWalls,
       id: createId(),
       overhangEnd: endOverhang,
       overhangPitchDegrees,
       soffitColor,
+      clipsGeometry,
       overhangSide: sideOverhang,
       overhangSideNegative: negativeSideOverhang,
       overhangSidePositive: positiveSideOverhang,
@@ -1451,6 +1504,12 @@ function App() {
 
   const chooseModel = (modelId: string) => {
     const definition = modelsById.get(modelId)
+    const dormer = activeFloor.models.find(model => model.id === selectedModelId &&
+      modelsById.get(model.modelId)?.roofMount === 'dormer')
+    if (definition?.wallMount === 'window' && dormer) {
+      addWindowToDormer(dormer.id, modelId)
+      return
+    }
 
     if (definition && isOpeningModel(definition)) {
       setPendingModelId(modelId)
@@ -1466,6 +1525,27 @@ function App() {
   const pendingModel = pendingModelId
     ? modelsById.get(pendingModelId) ?? null
     : null
+
+  const addWindowToDormer = (dormerId: string, modelId: string) => {
+    const floor = floors.find(floor => floor.models.some(model => model.id === dormerId))
+    if (!floor) return
+    const existing = floor.models.find(model => model.dormerAttachment?.dormerId === dormerId)
+    const window = existing ? updateDormerWindow(floor, existing, { modelId, materialOverrides: undefined }, modelsById)
+      : createDormerWindow(floor, dormerId, modelId, createId(), modelsById)
+    if (!window) return
+    recordHistory()
+    setFloors(current => current.map(candidate => candidate.id === floor.id
+      ? syncDormerWindows({ ...candidate, models: [...candidate.models.filter(model => model.id !== window.id), window] }, modelsById) : candidate))
+    setActiveFloorId(floor.id)
+    setSelectedModelId(window.id)
+    setSelectedModelIds([window.id])
+    setSelectedSurface(null)
+    setSelectedWallId(null)
+    setSelectedWallIds([])
+    setSelectedRoofId(null)
+    setPendingModelId(null)
+    setIsModelSelectorOpen(false)
+  }
 
   const updateRoof = (roofId: string, updates: Partial<RoofStructure>) => {
     recordHistory(`roof:${roofId}`)
@@ -1505,11 +1585,14 @@ function App() {
           .map((model) => model.id),
       ),
     )
+    floors.flatMap(floor => floor.models).forEach(model => {
+      if (model.dormerAttachment && attachedModelIds.has(model.dormerAttachment.dormerId)) attachedModelIds.add(model.id)
+    })
     setFloors((currentFloors) =>
       currentFloors.map((floor) => ({
         ...floor,
         models: (floor.models ?? []).filter(
-          (model) => model.roofAttachment?.roofId !== roofId,
+          (model) => !attachedModelIds.has(model.id),
         ),
         roofs: (floor.roofs ?? []).filter((roof) => roof.id !== roofId),
       })),
@@ -1569,6 +1652,7 @@ function App() {
               }
 
               const nextModel = { ...model, ...updates, id: model.id }
+              if (model.dormerAttachment) return updateDormerWindow(floor, model, updates, modelsById)
               const definition = modelsById.get(model.modelId)
               const wallMount =
                 definition?.wallMount && updates.position && !updates.wallAttachment
@@ -1907,18 +1991,16 @@ function App() {
   }
 
   const assignRoofMaterial = (
-    floorId: string,
-    roofId: string,
+    target: Extract<SelectableSurface, { type: 'roof' }>,
     materialId: string | null,
     textureScale = 1,
     textureRotation = 0,
     customColor?: string,
-    part?: 'underside' | 'gable',
   ) => {
     recordHistory()
     setSurfaceAssignments(currentAssignments => replaceRoofMaterialAssignment(
       currentAssignments,
-      { type: 'roof', floorId, roofId, ...(part ? { part } : {}) },
+      target,
       materialId ? { id: createId(), materialId, customColor, textureRotation, textureScale } : null,
     ))
   }
@@ -2063,11 +2145,11 @@ function App() {
       currentFloors.map((floor) => {
         const nextFloor = {
           ...floor,
-          models: (floor.models ?? []).filter((model) => model.id !== modelId),
+          models: (floor.models ?? []).filter((model) => model.id !== modelId && model.dormerAttachment?.dormerId !== modelId),
         }
 
         if (!modelCutsOpenings) {
-          return nextFloor
+          return syncDormerWindows(nextFloor, modelsById)
         }
 
         return syncWallOpenings(
@@ -2263,8 +2345,12 @@ function App() {
       })()
     : null
   const activeDetectedRooms = useMemo(
-    () => buildWallTopology(activeFloor.walls).rooms,
-    [activeFloor.walls, WALL_TOPOLOGY_VERSION],
+    () => buildWallTopology(activeFloor.walls, { floorFootprints: activeFloor.floorFootprints }).rooms,
+    [activeFloor.walls, activeFloor.floorFootprints, WALL_TOPOLOGY_VERSION],
+  )
+  const addLoftFloorDisabledReason = useMemo(
+    () => getAddLoftFloorDisabledReason(floors, activeFloorId),
+    [floors, activeFloorId],
   )
   const selectedRoom: SelectedRoom | null = selectedRoomSignature
     ? (() => {
@@ -2352,13 +2438,11 @@ function App() {
 
     if (selectedSurface.type === 'roof') {
       assignRoofMaterial(
-        selectedSurface.floorId,
-        selectedSurface.roofId,
+        selectedSurface,
         materialId,
         textureScale,
         textureRotation,
         customColor,
-        selectedSurface.part,
       )
       return
     }
@@ -3009,6 +3093,8 @@ function App() {
         wallKind={wallKind}
         onAddEmptyFloor={() => addFloor({ copyExternalWalls: false })}
         onAddFloor={() => addFloor({ copyExternalWalls: true })}
+        onAddCeilingLoftFloor={addCeilingLoftFloor}
+        addLoftFloorDisabledReason={addLoftFloorDisabledReason}
         onAlignModels={alignSelectedModels}
         onApplyMaterial={applyMaterialToSelectedSurface}
         onCopy={copySelection}
@@ -3076,6 +3162,11 @@ function App() {
         } as CSSProperties}
       >
         <FloorplanCanvas
+          onGroundImageChange={image => {
+            recordHistory()
+            setFloors(current => current.map(floor => floor.id === activeFloor.id ? { ...floor, groundImage: image } : floor))
+          }}
+          modelTransformPreviewRef={modelTransformPreviewRef}
           activeFloor={activeFloor}
           floors={floors}
           initialViewport={floorplanViewportsRef.current[activeFloor.id]}
@@ -3134,6 +3225,11 @@ function App() {
             surfaceAssignments={surfaceAssignments}
             surfaceMaterials={availableMaterials}
             onDeleteModel={deleteModel}
+            onAddDormerWindow={addWindowToDormer}
+            onSelectDormerWindow={modelId => {
+              setSelectedModelId(modelId)
+              setSelectedModelIds([modelId])
+            }}
             onRenameRoom={(roomSignature, name) => {
               recordHistory()
               setFloors((currentFloors) =>
@@ -3203,6 +3299,7 @@ function App() {
           }}
         />
         <ThreeDView
+          modelTransformPreviewRef={modelTransformPreviewRef}
           activeFloorId={activeFloor.id}
           cameraRestoreRevision={cameraRestoreRequest.revision}
           cameraViewState={cameraRestoreRequest.state}

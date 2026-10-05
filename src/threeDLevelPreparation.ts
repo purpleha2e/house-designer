@@ -50,6 +50,7 @@ export function serializeWallGeometryInput(floors: FloorLevel[]): string {
     id: floor.id,
     roomHeight: floor.roomHeight,
     slabThickness: floor.slabThickness,
+    floorFootprints: floor.floorFootprints,
     walls: floor.walls.map((wall) => ({
       allowRoofClipHeight: wall.allowRoofClipHeight,
       end: wall.end,
@@ -319,7 +320,7 @@ function getExternalWallUnionWallGroups(walls: Wall[]) {
 }
 
 export function prepareRenderedFloorData(floor: FloorLevel): RenderedFloorData {
-  const topology = buildWallTopology(floor.walls)
+  const topology = buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints })
   const baseRenderedWalls = floor.walls
     .map((wall) => topology.renderedWallsById.get(wall.id))
     .filter((renderedWall): renderedWall is RenderedWall =>

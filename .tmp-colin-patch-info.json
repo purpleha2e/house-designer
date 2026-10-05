@@ -1,0 +1,118 @@
+[
+  {
+    "id": "a5e1058b-f220-4fef-9e1f-5cb871e2e0c5",
+    "groups": [
+      {
+        "start": 0,
+        "count": 1530,
+        "materialIndex": 0,
+        "bounds": [
+          -0.627102792263031,
+          0,
+          -1.03769850730896,
+          9.417451858520508,
+          2.4000000953674316,
+          18.411130905151367
+        ],
+        "color": "94a3b8",
+        "opacity": 1,
+        "map": false
+      },
+      {
+        "start": 1530,
+        "count": 792,
+        "materialIndex": 1,
+        "bounds": [
+          -0.627102792263031,
+          0,
+          -1.03769850730896,
+          9.417451858520508,
+          2.700000047683716,
+          18.411130905151367
+        ],
+        "color": "ffffff",
+        "opacity": 1,
+        "map": true
+      },
+      {
+        "start": 2322,
+        "count": 414,
+        "materialIndex": 2,
+        "bounds": [
+          -0.32710281014442444,
+          0,
+          2.389901638031006,
+          7.952178001403809,
+          2.4000000953674316,
+          16.19938850402832
+        ],
+        "color": "cbd5e1",
+        "opacity": 1,
+        "map": false
+      }
+    ],
+    "data": {},
+    "r3f": [
+      "root",
+      "type",
+      "parent",
+      "children",
+      "props",
+      "object",
+      "eventCount",
+      "handlers",
+      "isHidden"
+    ],
+    "fiber": null
+  },
+  {
+    "id": "db559ff8-8f78-4b2c-8093-d57d78580c07",
+    "groups": [
+      {
+        "start": 0,
+        "count": 780,
+        "materialIndex": 0,
+        "bounds": [
+          -0.627102792263031,
+          2.399999988079071,
+          4.751593112945557,
+          8.252178192138672,
+          5.100000095367431,
+          18.411130905151367
+        ],
+        "color": "ffffff",
+        "opacity": 1,
+        "map": true
+      },
+      {
+        "start": 780,
+        "count": 342,
+        "materialIndex": 1,
+        "bounds": [
+          -0.32710281014442444,
+          2.399999988079071,
+          5.051592826843262,
+          7.952178001403809,
+          5.100000095367431,
+          18.111129760742188
+        ],
+        "color": "94a3b8",
+        "opacity": 1,
+        "map": false
+      }
+    ],
+    "data": {},
+    "r3f": [
+      "root",
+      "type",
+      "parent",
+      "children",
+      "props",
+      "object",
+      "eventCount",
+      "handlers",
+      "isHidden"
+    ],
+    "fiber": null
+  }
+]

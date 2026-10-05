@@ -19,9 +19,18 @@ follow the roof when it rotates. Dashed lines show the resolved panels in plan.
    25 mm are treated as equal for connection priority; at a T, the incoming end
    terminates at the receiving ridge. Coincident panels have a deterministic
    owner, independent of array order.
-2. Extend the lower or equal incoming gable towards the receiving ridge without
+2. Automatic connections extend the lower or equal incoming gable towards the receiving ridge without
    changing its pitch, ridge height, or saved footprint. Never extend roof planes
-   infinitely. A higher incoming roof retains its authored extent and consumes
+   infinitely. An explicit join also extends a higher incoming ridge. It can
+   join a target with **Clip house geometry** turned off. Joined roofs trim each
+   other's overlapping slopes: the locally higher surface remains visible.
+   This applies only to that pair and does not grant either roof permission to
+   cut unrelated roofs, walls or slabs. A roof can therefore stop against the
+   receiving gable while still cutting the receiving slope at their side junction.
+   Generated extensions stay inside the receiver's supported footprint, so a
+   wider branch cannot leave tile strips beyond the receiving gable. Original
+   roof coverage beside that gable remains intact.
+   A higher automatically connected roof retains its authored extent and consumes
    the lower roof where they overlap.
 3. Compute valleys from the actual bounded panel intersections. Remove the
    portions inside another roof's supported building region, preserving the
@@ -42,8 +51,24 @@ follow the roof when it rotates. Dashed lines show the resolved panels in plan.
    An overhang requires an exposed supporting panel: no isolated fascia strips
    in front of a winning gable. Connected branches stop below the receiving
    gable's end overhang rather than carrying low eaves beyond its facade.
-   Close upper-wall cuts across their thickness, including vertical steps at
-   footprint boundaries, preserving window voids, UVs, and material/picking references. Infill extends
+   Close upper-wall cuts across their thickness, including steps at footprint
+   boundaries, preserving window voids, UVs, and material/picking references.
+   Joined-end infill also stops beneath the receiver's eave,
+   including a passive receiver, so exposed gable caps cannot protrude beside it.
+   At a joined gable, infill follows the combined underside inside the roofs'
+   support footprints. The receiving gable owns its facade plane; an incoming
+   wall cannot grow a high brick return beneath the receiving overhang.
+   Where original incoming tiles survive outside that support, retain their
+   low wall infill up to their own underside rather than leaving a hole.
+   This also closes the lower corner where the incoming slope cuts the gable.
+   Unequal joined eaves preserve original tiles beneath a raised gable overhang
+   so the neighbouring wall cap is not exposed. At an asymmetric side, the
+   receiving pitch continues locally down to the incoming roof, bounded by
+   that roof's authored footprint. Fascia follows this connection and is
+   removed inside the other roof. Supporting brickwork closes beneath it.
+   Tile orientation uses the whole panel normal, including when junctions
+   insert collinear boundary points into a chamfer face.
+   Unconnected ends remain independent. Infill extends
    walls only to resolved roofs on their own storey, so a lower lean-to's end
    walls cannot grow up to an unrelated upstairs gable. Horizontal room ceilings
    are cut where they would rise through the resolved roof underside, including
@@ -56,6 +81,58 @@ follow the roof when it rotates. Dashed lines show the resolved panels in plan.
 The automatic rules deliberately leave ambiguous relationships unresolved.
 Explicit end connections supply intent where geometry alone cannot determine it;
 they do not grant permission to remove the receiving building's walls.
+
+## Roof height
+
+**Vertical offset (m)** moves the whole roof relative to its floor's normal
+wall-top height. Negative values lower it, positive values raise it, and zero
+restores the normal height. Pitch and plan dimensions remain unchanged.
+The offset is available during placement and when editing an existing roof.
+
+Enable **Fit supporting walls to roof** when lowering a roof onto its walls.
+This trims and caps the contained external wall tops on that roof's floor.
+It leaves taller walls, facades continuing beyond the roof, and other floors
+independent. It works with **Clip house geometry** turned off and preserves
+authored wall heights, endpoints, openings and finishes. Turning it off restores
+the authored walls. Fitting trims existing walls; raising a roof does not extend
+their authored heights.
+Fitting also trims that floor's horizontal room ceiling beneath the roof.
+Shared perimeter caps are cut within the fitted wall thickness even when an
+adjoining wall owns the combined cap. Other floors and slabs retain their
+separate clipping rules.
+
+## Asymmetric gable roofs
+
+For an **Up and over** roof, enable **Asymmetric sides**. **Ridge offset (m)**
+moves the ridge sideways while keeping its height fixed. Positive moves towards
+Side 2, negative towards Side 1; the sides are labelled on the selected plan.
+**Mount at wall height** defaults to the shorter side. That side stays at its
+support height (including the vertical offset), and its pitch adjusts to meet
+the ridge. The other side retains the selected pitch and can reach a lower eave.
+Choose **Side 1** or **Side 2** to anchor a particular side. **Free eave heights**
+retains equal pitches and allows both eaves to move relative to the supports.
+Existing asymmetric roofs without a saved choice use the automatic mounted side.
+The controls show each eave's height above the floor and both effective pitches.
+Linked overhang pitches and tile spacing follow each side's actual slope.
+Chamfered ends carry their lowered profile through the fascia and soffit too.
+
+Choose **Manual height** and enter the ridge height **Above wall tops (m)**,
+or use **Match Floor … · Roof …** to keep its ridge at another roof's highest
+point. A height link follows changes to the target roof, including across floors.
+Unlinking retains the currently matched height. Missing targets and circular
+links report a warning and use the saved manual height.
+
+Enable **Fit supporting walls to roof** to trim the lower side's wall without
+changing its saved height. Where the other eave is raised, roof-owned infill
+continues the actual supporting wall up to the underside, including chamfers.
+It preserves the wall's facade plane and does not invent walls across unsupported
+spans. Gable infill follows the offset peak. End connections
+remain independent: matching heights does not itself join roof panels; choose
+**Join** on end A or B to join the adjoining roof. These controls are available
+during creation and when editing, with live plan and 3D previews.
+
+With a manual ridge height, the vertical offset still translates the whole roof.
+A linked ridge stays anchored to its target's world height instead.
 
 ## Regression coverage
 
@@ -77,6 +154,24 @@ conditions still match.
 settings, missing targets, bounded extensions, narrow intersections, rigid
 transforms, array order, and isolated eaves. Wall tests cover exact clipping,
 facade caps, sloping closures, opening voids, and save/load behaviour.
+
+`tests/asymmetricRoof.test.ts` covers unequal eaves, ridge offsets, chamfers,
+continuous tile distances, height-link chains and failure fallbacks, offset
+ridge joins, dormer side selection and save/load. `tests/roofHeight.test.ts`
+checks closure of fitted walls and gables beneath an asymmetric roof. Browser
+checks in `roofHeightRegression.mjs` and `bayRoofPlacementRegression.mjs` cover
+editing and creation with live 2D and 3D changes.
+
+`asymmetricRoofJunctionRegression.mjs` checks the saved stepped roof contact:
+the generated tile patch and exposed infill cap are absent, the original
+coverage remains, and the brick gable and facade share one boundary.
+Add `--finishing` to check the lowered saved roof: the wall cap closes beneath
+the tiles, the raised eave has continuous brick below it, and the horizontal ceiling no longer protrudes. The chamfer fascia
+and shared perimeter cap also have geometry regressions.
+Use `--anchored` to check automatic mounting of the same saved roof: the actual
+rendered edge meets the 5.10 m mount, the 6.87 m shared ridge remains, the incoming
+eave is retained, and no joining extension is generated. The historical free-eave
+fixtures explicitly select `mountSide: "free"` to preserve that coverage.
 
 `tests/fixtures/roof-junctions` contains geometry-only snapshots of red_house_3
 and Springfield_13 so continued modelling does not change the test inputs.

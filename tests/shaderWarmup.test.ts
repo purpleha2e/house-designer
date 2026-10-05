@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BoxGeometry, DoubleSide, FrontSide, InstancedMesh, Mesh, MeshStandardMaterial, Scene } from 'three'
+import { BoxGeometry, DoubleSide, FrontSide, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Scene } from 'three'
 import { createShaderWarmupSnapshot } from '../src/shaderWarmup.ts'
 
 test('warm-up includes hidden surfaces and fade variants without altering the live scene', () => {
@@ -56,4 +56,32 @@ test('warm-up preserves instancing, mirrored transforms and shared materials', (
   assert.ok(copy.matrixWorld.determinant() < 0)
   assert.equal(copy.material, (snapshot.root.children[1] as Mesh).material)
   snapshot.dispose()
+})
+
+test('selection variants are prepared and retained with each material slot until scene cleanup', () => {
+  const scene = new Scene()
+  const originals = [new MeshStandardMaterial(), new MeshStandardMaterial({ side: DoubleSide })]
+  const mesh = new Mesh(new BoxGeometry(), originals)
+  mesh.visible = false
+  scene.add(mesh)
+  let releases = 0
+  const snapshot = createShaderWarmupSnapshot(scene, {
+    fadeWalls: false, fadeRoofs: false,
+    createExtraMaterials(source) {
+      const material = new MeshBasicMaterial({ side: source.side, transparent: true, opacity: 0.28 })
+      material.addEventListener('dispose', () => releases++)
+      return [material]
+    },
+  })
+  const selection = snapshot.root.children[1] as Mesh<BoxGeometry, MeshBasicMaterial[]>
+  assert.equal(selection.visible, true)
+  assert.equal(selection.geometry, mesh.geometry)
+  assert.equal(selection.material.length, 2)
+  assert.equal(selection.material[1].side, DoubleSide)
+  assert.equal(mesh.visible, false)
+  assert.equal(mesh.material, originals)
+  assert.equal(releases, 0)
+  snapshot.dispose()
+  snapshot.dispose()
+  assert.equal(releases, 2)
 })

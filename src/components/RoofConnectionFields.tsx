@@ -15,6 +15,7 @@ export function RoofConnectionFields({ roof, floors, onChange, resolvedRoof }: {
   const resolved = useMemo(() => resolvedRoof ?? resolveBuildingRoofs(floors).find((candidate) => candidate.roof.id === roof.id)?.resolved, [roof.id, floors, resolvedRoof])
   if (roof.type !== 'up-and-over') return null
   return <div className="roof-connections" aria-label="Ridge connections">
+    <small>Joined roofs trim overlapping slopes on both sides while keeping the receiving gable boundary.</small>
     {(['ridgeStart', 'ridgeEnd'] as const).map((end, index) => {
       const connection = roof[end] ?? { mode: 'automatic' }
       const status = resolved?.connections.find((candidate) => candidate.end === end)

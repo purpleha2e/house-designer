@@ -16,6 +16,7 @@ export type WallRoofClipJob = {
     boundaryProtections: { boundary: number; planes: number[] }[]
     excludedWallIds: string[]; clipSides: boolean; clipHeightWallIds?: string[]
     onlySelectedWalls?: boolean
+    onlyTopFaces?: boolean
     skipWallIds?: string[]
   }[]
 }
@@ -39,6 +40,7 @@ export function createWallRoofClipJob(faces: WallMeshFace[], options: WallRoofCl
     excludedWallIds: [...v.excludedWallIds], clipSides: v.clipSides,
     clipHeightWallIds: [...(v.clipHeightWallIds ?? [])],
     onlySelectedWalls: v.onlySelectedWalls,
+    onlyTopFaces: v.onlyTopFaces,
     skipWallIds: [...(v.skipWallIds ?? [])],
   }))
   return { faces, floorElevation: options.floorElevation, planes, volumes, surfaceDividers: options.surfaceDividers }

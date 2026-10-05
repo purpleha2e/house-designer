@@ -24,7 +24,40 @@ export function getRoofSlope(degrees: number) {
   return Math.tan(Math.min(75, Math.max(0, degrees)) * Math.PI / 180)
 }
 
+export function getGableRidgeX(roof: RoofStructure, bounds: RoofBounds) {
+  const centre = (bounds.minX + bounds.maxX) / 2
+  const limit = Math.max(0, (bounds.maxX - bounds.minX) / 2 - 0.05)
+  const offset = roof.asymmetricSides && Number.isFinite(roof.ridgeOffset) ? roof.ridgeOffset! : 0
+  return centre + Math.max(-limit, Math.min(limit, offset))
+}
+
+export function getGableRidgeHeight(roof: RoofStructure, bounds: RoofBounds) {
+  return roof.asymmetricSides && Number.isFinite(roof.ridgeHeight) ? roof.ridgeHeight!
+    : (bounds.maxX - bounds.minX) / 2 * getRoofSlope(roof.pitchDegrees)
+}
+
+/** The ridge and one support height determine that side's pitch. The other
+ * side retains the authored pitch and can descend below its wall tops. */
+export function getPitchedRoofSideSlope(roof: RoofStructure, bounds: RoofBounds, x: number) {
+  const authored = getRoofSlope(roof.pitchDegrees)
+  if (roof.type !== 'up-and-over' || !roof.asymmetricSides || roof.mountSide === 'free') return authored
+  const ridge = getGableRidgeX(roof, bounds), height = getGableRidgeHeight(roof, bounds)
+  if (height < 0) return authored
+  const side = roof.mountSide === 'side1' ? -1 : roof.mountSide === 'side2' ? 1
+    : ridge <= (bounds.minX + bounds.maxX) / 2 ? -1 : 1
+  if ((x <= ridge ? -1 : 1) !== side) return authored
+  const run = side < 0 ? ridge - bounds.minX : bounds.maxX - ridge
+  return height / Math.max(0.05, run)
+}
+
 export function getPitchedRoofHeightAtX(roof: RoofStructure, bounds: RoofBounds, x: number) {
+  if (roof.type === 'up-and-over' && roof.asymmetricSides) {
+    const ridgeX = getGableRidgeX(roof, bounds), height = getGableRidgeHeight(roof, bounds)
+    const within = Math.max(bounds.minX, Math.min(bounds.maxX, x))
+    const slope = getPitchedRoofSideSlope(roof, bounds, x)
+    return height - Math.abs(within - ridgeX) * slope -
+      Math.abs(x - within) * (roof.overhangPitchDegrees === undefined ? slope : getRoofSlope(roof.overhangPitchDegrees))
+  }
   const run = roof.type === 'lean-to'
     ? x - bounds.minX
     : Math.min(x - bounds.minX, bounds.maxX - x)
@@ -36,18 +69,18 @@ export function getPitchedRoofHeightAtX(roof: RoofStructure, bounds: RoofBounds,
 export function getPitchedRoofBreaks(roof: RoofStructure, bounds: RoofBounds) {
   return roof.type === 'lean-to'
     ? [bounds.minX]
-    : [bounds.minX, (bounds.minX + bounds.maxX) / 2, bounds.maxX]
+    : [bounds.minX, getGableRidgeX(roof, bounds), bounds.maxX]
 }
 
 // Distance along the surface, keeping tile UVs continuous across the pitch break.
 export function getPitchedRoofSurfaceDistance(roof: RoofStructure, bounds: RoofBounds, x: number) {
-  const mainSlope = getRoofSlope(roof.pitchDegrees)
-  const eaveSlope = getRoofSlope(roof.overhangPitchDegrees ?? roof.pitchDegrees)
-  const ridgeX = (bounds.minX + bounds.maxX) / 2
+  const mainSlope = getPitchedRoofSideSlope(roof, bounds, x)
+  const eaveSlope = roof.overhangPitchDegrees === undefined ? mainSlope : getRoofSlope(roof.overhangPitchDegrees)
+  const ridgeX = getGableRidgeX(roof, bounds)
   const distance = roof.type === 'lean-to' ? x - bounds.minX : Math.abs(x - ridgeX)
   const mainRun = roof.type === 'lean-to'
     ? Math.max(0, distance)
-    : Math.min(distance, (bounds.maxX - bounds.minX) / 2)
+    : Math.min(distance, x < ridgeX ? ridgeX - bounds.minX : bounds.maxX - ridgeX)
   return mainRun * Math.hypot(1, mainSlope) +
     (distance - mainRun) * Math.hypot(1, eaveSlope)
 }
@@ -125,7 +158,7 @@ function buildChamferedGableProfileFaces(
     ...(endDistance > 0 ? [endInnerY] : []),
     extents.maxY,
   ])].sort((a, b) => a - b)
-  const ridgeX = (support.minX + support.maxX) / 2
+  const ridgeX = getGableRidgeX(roof, support)
   const ridgeHeight = getPitchedRoofHeightAtX(roof, support, ridgeX)
   const faces: RoofProfileVertex[][] = []
 

@@ -21,6 +21,19 @@ export type DormerFloorRecess = {
 }
 
 function insideFloor(point: Point, floor: FloorLevel) {
+  // Slab-only lofts have an explicit enclosure; their partition walls are not
+  // a closed boundary and must not determine which storey hosts the dormer.
+  if (floor.floorFootprints?.length) {
+    return floor.floorFootprints.some(ring => {
+      let inside = false
+      for (let index = 0; index < ring.length; index++) {
+        const a = ring[index], b = ring[(index + 1) % ring.length]
+        if ((a.y > point.y) !== (b.y > point.y) &&
+          point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside
+      }
+      return inside
+    })
+  }
   let inside = false
   const external = floor.walls.filter(wall => wall.kind === 'external')
   for (const wall of external.length ? external : floor.walls) {
@@ -49,6 +62,7 @@ export function prepareDormerInteriors(floors: FloorLevel[], definitions: Readon
     const windowDefinition = definitions.get(model.dormerWindowModelId ?? '') ??
       [...definitions.values()].find(candidate => candidate.wallMount === 'window')
     const assembly = createDormerStructuralAssembly({ definition, hostRoof: roof, ownerId: model.id, windowDefinition,
+      windowOpenings: model.dormerWindowOpenings,
       width: model.dormerWidth, height: model.dormerHeight })
     // A roof-mounted front can lie at/outside the eave or just below the loft
     // slab. Find the floor occupied by the recess, not only its mounting point.

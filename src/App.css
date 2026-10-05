@@ -1138,10 +1138,10 @@
 }
 
 .floorplan-header-controls {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: inline-flex;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 8px;
   align-items: flex-start;
   gap: 8px;
 }
@@ -1155,6 +1155,11 @@
 
 .floorplan-header-controls .render-options-menu {
   right: 0;
+}
+
+.floorplan-header-controls .ground-image-menu {
+  left: 0;
+  right: auto;
 }
 
 .three-header-controls {
@@ -1681,13 +1686,17 @@
 .roof-placement-panel {
   position: absolute;
   z-index: 3;
-  top: 64px;
+  top: var(--floorplan-menu-bottom, 116px);
+  left: var(--floorplan-menu-left, 64px);
   right: 12px;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: end;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - var(--floorplan-menu-left, 64px) - 12px);
+  max-height: calc(100% - var(--floorplan-menu-bottom, 116px) - 12px);
+  overflow-y: auto;
+  box-sizing: border-box;
   padding: 8px;
   border: 1px solid rgba(148, 163, 184, 0.65);
   border-radius: 6px;
@@ -1696,18 +1705,10 @@
 }
 
 .roof-placement-panel.roof-tool-flyout {
-  position: fixed;
-  z-index: 20;
-  top: 50%;
   right: auto;
-  left: 72px;
-  transform: translateY(-50%);
   display: grid;
   align-items: stretch;
-  width: 230px;
-  max-width: calc(100vw - 84px);
-  max-height: calc(100svh - 24px);
-  overflow-y: auto;
+  width: 252px;
   padding: 10px;
   border-color: rgba(203, 213, 225, 0.94);
   border-radius: 8px;
@@ -1827,6 +1828,22 @@
   border: 1px solid #d5dce7;
   border-radius: 5px;
 }
+
+.roof-ridge-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  margin: 0;
+  padding: 8px;
+  min-width: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+}
+.roof-tool-flyout .roof-ridge-fields { display: grid; }
+.roof-ridge-fields select { max-width: 240px; }
+.roof-eave-heights { display: grid; gap: 3px; font-size: 11px; color: #475569; }
+.roof-ridge-fields .roof-connection-warning { color: #9a3412; }
 
 .roof-chamfer-values {
   display: flex;
@@ -2158,3 +2175,58 @@
 .roof-connection select { width: 100%; }
 .roof-connection small { color: #475569; font-size: 11px; font-weight: 400; }
 .roof-connection .roof-connection-warning { color: #9a3412; }
+.model-scale-readout {
+  position: absolute;
+  right: 18px;
+  bottom: 24px;
+  z-index: 20;
+  min-width: 190px;
+  padding: 14px 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.97);
+  color: #172554;
+  box-shadow: 0 8px 28px rgba(15, 23, 42, 0.16);
+  pointer-events: auto;
+}
+
+.model-transform-fields { display: grid; gap: 6px; margin: 12px 0; }
+.model-scale-readout.is-left { left: 18px; right: auto; }
+.model-transform-field label { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.model-transform-input { display: flex; align-items: center; gap: 6px; }
+.model-transform-input > span { width: 14px; color: #64748b; }
+.model-transform-input input {
+  width: 92px;
+  padding: 5px 7px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  color: inherit;
+  background: white;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.model-transform-input input:focus { outline: 2px solid #93c5fd; outline-offset: 1px; }
+.model-transform-input input:disabled { opacity: 1; background: #f8fafc; }
+.model-transform-input input[aria-invalid="true"] { border-color: #dc2626; }
+.model-transform-field small[role="alert"] { display: block; color: #b91c1c; margin-top: 3px; }
+.model-scale-readout small { color: #64748b; font-size: 11px; }
+.render-options-menu.ground-image-menu {
+  min-width: 260px;
+  max-width: min(330px, 85vw);
+}
+.ground-image-menu label {
+  flex-wrap: wrap;
+}
+.ground-image-menu input[type="file"],
+.ground-image-menu input[type="range"] {
+  width: 100%;
+  min-width: 0;
+}
+.ground-image-menu span {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.ground-image-name {
+  overflow-wrap: anywhere;
+}

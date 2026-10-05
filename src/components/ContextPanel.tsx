@@ -15,6 +15,8 @@ import { DORMER_INTERIOR_MATERIAL_REGION, getDormerWallAssignment } from '../dor
 import type { DetectedRoom } from '../wallTopology'
 import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
+import { roofSurfaceTargetsMatch } from '../roofMaterialAssignments'
+import { updateModelTransformField } from '../modelTransformFields'
 
 type ContextPanelProps = {
   activeFloor: FloorLevel
@@ -33,6 +35,8 @@ type ContextPanelProps = {
   surfaceAssignments: SurfaceMaterialAssignment[]
   surfaceMaterials: SurfaceMaterialProduct[]
   onDeleteModel: (modelId: string) => void
+  onAddDormerWindow: (dormerId: string, modelId: string) => void
+  onSelectDormerWindow: (modelId: string) => void
   onRenameRoom: (roomSignature: string, name: string) => void
   onUpdateRoomCeilingMode: (roomSignature: string, mode: 'horizontal' | 'open') => void
   onUpdateModel: (modelId: string, updates: Partial<PlacedModel>) => void
@@ -108,9 +112,7 @@ function getSelectedSurfaceAssignment(
     return surfaceAssignments.findLast(
       (assignment) =>
         assignment.target.type === 'roof' &&
-        assignment.target.floorId === selectedSurface.floorId &&
-        assignment.target.roofId === selectedSurface.roofId &&
-        assignment.target.part === selectedSurface.part,
+        roofSurfaceTargetsMatch(assignment.target, selectedSurface),
     )
   }
 
@@ -147,6 +149,7 @@ function getSurfaceTypeLabel(selectedSurface: SelectableSurface) {
     case 'portal-floor':
       return 'Doorway floor'
     case 'roof':
+      if (selectedSurface.part === 'gable-interior') return 'Inside gable wall'
       return selectedSurface.part === 'underside' ? 'Roof underside' :
         selectedSurface.part === 'gable' ? 'Roof gable' : 'Roof'
     case 'wall-surface-fragment':
@@ -183,6 +186,8 @@ export function ContextPanel({
   surfaceAssignments,
   surfaceMaterials,
   onDeleteModel,
+  onAddDormerWindow,
+  onSelectDormerWindow,
   onRenameRoom,
   onUpdateRoomCeilingMode,
   onUpdateModel,
@@ -194,6 +199,7 @@ export function ContextPanel({
   const [wallHeightDraft, setWallHeightDraft] = useState<string | null>(null)
   const [dormerWidthDraft, setDormerWidthDraft] = useState<string | null>(null)
   const [dormerHeightDraft, setDormerHeightDraft] = useState<string | null>(null)
+  const [dormerWindowChoice, setDormerWindowChoice] = useState('')
   const selectedModelIsLight = Boolean(selectedModel?.definition.isLight)
   const selectedModelIsSpotlight = selectedModel?.definition.lightKind === 'spot'
   const selectedModelIsDoor = Boolean(
@@ -208,7 +214,12 @@ export function ContextPanel({
   const selectedModelIsStairs =
     selectedModel?.definition.objectType === 'stairs'
   const selectedModelIsDormer = selectedModel?.definition.roofMount === 'dormer'
+  const selectedModelIsDormerWindow = Boolean(selectedModel?.model.dormerAttachment)
+  const selectedModelIsWindow = selectedModel?.definition.wallMount === 'window'
+  const attachedDormerWindow = selectedModelIsDormer && selectedModel
+    ? floors.flatMap(floor => floor.models).find(model => model.dormerAttachment?.dormerId === selectedModel.model.id) : undefined
   const dormerAssembly = selectedModelIsDormer && selectedModel ? createDormerStructuralAssembly({
+    windowOpenings: selectedModel.model.dormerWindowOpenings,
     definition: selectedModel.definition, ownerId: selectedModel.model.id,
     hostRoof: floors.flatMap(floor => floor.roofs ?? []).find(roof => roof.id === selectedModel.model.roofAttachment?.roofId),
     windowDefinition: modelsById.get(selectedModel.model.dormerWindowModelId ?? '') ?? modelLibrary.find(model => model.wallMount === 'window'),
@@ -566,7 +577,7 @@ export function ContextPanel({
           </dd>
         </div>
         {!selectedWall ? (
-          <div className={selectedModelIsDormer ? 'context-field' : undefined}>
+          <div className={selectedModelIsDormer || selectedModelIsWindow ? 'context-field' : undefined}>
             <dt>{selectedModelIsDormer ? 'Wall height' : 'Height'}</dt>
             <dd>
               {selectedModelIsDormer ? <>
@@ -575,6 +586,22 @@ export function ContextPanel({
                   onChange={event => setDormerHeightDraft(event.target.value)}
                   onBlur={() => commitDormerDimension('height')}
                   onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} />
+                <span>m</span>
+              </> : selectedModelIsWindow && selectedModel ? <>
+                <input key={`${selectedModel.model.id}:${selectedModel.model.scale}`} aria-label="Window height"
+                  type="number" min="0.01" step="0.01"
+                  defaultValue={Number((selectedModel.definition.height * selectedModel.model.scale).toFixed(3))}
+                  onBlur={event => {
+                    const value = Number(event.target.value)
+                    if (!Number.isFinite(value) || value <= 0) {
+                      event.target.value = String(selectedModel.definition.height * selectedModel.model.scale)
+                      return
+                    }
+                    const definition = selectedModel.definition
+                    const bounds = definition.localBounds ?? { minX: -definition.width / 2, maxX: definition.width / 2,
+                      minZ: -definition.depth / 2, maxZ: definition.depth / 2 }
+                    onUpdateModel(selectedModel.model.id, updateModelTransformField(selectedModel.model, bounds, 'height', value, definition.height))
+                  }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} />
                 <span>m</span>
               </> : selectedModelIsLight && selectedModel
                 ? `${(selectedModel.model.height ?? selectedModel.definition.height).toFixed(2)} m`
@@ -758,21 +785,24 @@ export function ContextPanel({
                 </dd>
               </div>
             ) : null}
-            {selectedModelIsDormer && dormerWindowModels.length > 0 ? (
+            {(selectedModelIsDormer || selectedModelIsDormerWindow) && dormerWindowModels.length > 0 ? (
               <div className="context-field">
                 <dt>Window model</dt>
                 <dd>
                   <select
                     aria-label="Dormer window model"
-                    value={
-                      selectedModel.model.dormerWindowModelId ??
-                      dormerWindowModels[0].id
-                    }
-                    onChange={(event) =>
-                      onUpdateModel(selectedModel.model.id, {
-                        dormerWindowModelId: event.target.value,
-                      })
-                    }
+                    value={selectedModelIsDormerWindow ? selectedModel.model.modelId : attachedDormerWindow?.modelId ?? (dormerWindowChoice || dormerWindowModels[0].id)}
+                    disabled={Boolean(attachedDormerWindow)}
+                    onChange={(event) => {
+                      if (!selectedModelIsDormerWindow) { setDormerWindowChoice(event.target.value); return }
+                      const definition = modelsById.get(event.target.value)!
+                      const current = selectedModel.model, previous = selectedModel.definition
+                      const scale = current.scale * previous.height / definition.height
+                      onUpdateModel(current.id, { modelId: definition.id, scale,
+                        widthScale: previous.width * current.scale * (current.widthScale ?? 1) / (definition.width * scale),
+                        depthScale: previous.depth * current.scale * (current.depthScale ?? 1) / (definition.depth * scale),
+                        materialOverrides: undefined })
+                    }}
                   >
                     {dormerWindowModels.map((definition) => (
                       <option key={definition.id} value={definition.id}>
@@ -780,9 +810,35 @@ export function ContextPanel({
                       </option>
                     ))}
                   </select>
+                  {selectedModelIsDormer ? <button type="button" onClick={() => attachedDormerWindow
+                    ? onSelectDormerWindow(attachedDormerWindow.id)
+                    : onAddDormerWindow(selectedModel.model.id, dormerWindowChoice || dormerWindowModels[0].id)}>
+                    {attachedDormerWindow ? 'Select window' : 'Add window'}
+                  </button> : null}
                 </dd>
               </div>
             ) : null}
+            {selectedModelIsDormerWindow ? (['width', 'height', 'bottom'] as const).map(axis => {
+              const model = selectedModel.model, definition = selectedModel.definition
+              const parentScale = floors.flatMap(floor => floor.models).find(parent => parent.id === model.dormerAttachment!.dormerId)?.scale ?? 1
+              const value = axis === 'width' ? definition.width * model.scale * (model.widthScale ?? 1)
+                : axis === 'height' ? definition.height * model.scale : model.dormerAttachment!.bottom * parentScale
+              const label = axis === 'bottom' ? 'Sill above dormer base' : `Window ${axis}`
+              return <div className="context-field" key={axis}><dt>{label}</dt><dd>
+                <input key={`${model.id}:${value}`} aria-label={label} type="number" min="0.05" step="0.01"
+                  defaultValue={Number(value.toFixed(3))} onBlur={event => {
+                    const number = Number(event.target.value)
+                    if (!Number.isFinite(number) || number <= 0) { event.target.value = String(value); return }
+                    if (axis === 'bottom') onUpdateModel(model.id, { dormerAttachment: { ...model.dormerAttachment!, bottom: number / parentScale } })
+                    else if (axis === 'width') onUpdateModel(model.id, { widthScale: number / (definition.width * model.scale) })
+                    else {
+                      const scale = number / definition.height
+                      onUpdateModel(model.id, { scale, widthScale: (model.widthScale ?? 1) * model.scale / scale,
+                        depthScale: (model.depthScale ?? 1) * model.scale / scale })
+                    }
+                  }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} /><span>m</span>
+              </dd></div>
+            }) : null}
             {selectedModelIsDormer ? (
               <>
                 <div className="context-field">

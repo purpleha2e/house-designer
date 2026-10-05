@@ -8,6 +8,8 @@ export function getSurfaceSelectionFloorId(
   activeFloorId: string,
   floors: readonly Pick<FloorLevel, 'id' | 'elevation' | 'roofs'>[],
 ) {
+  if (surface.type === 'roof' && surface.part === 'gable-interior' &&
+    floors.some(floor => floor.id === surface.spaceFloorId)) return surface.spaceFloorId!
   if (surface.type === 'roof' && surface.part === 'underside') {
     const active = floors.find(floor => floor.id === activeFloorId)
     const owner = floors.find(floor => floor.id === surface.floorId)

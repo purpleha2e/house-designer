@@ -1,11 +1,15 @@
 import * as polygonClipping from 'polygon-clipping'
 import type { Polygon } from 'polygon-clipping'
-import type { Point, Wall } from './types.ts'
+import type { FloorLevel, Point, Wall } from './types.ts'
 import { buildWallBodyPerimeters } from './wallEngine/wallBodyPerimeter.ts'
 import { buildWallTopology } from './wallTopology.ts'
 
 const runtime = polygonClipping as typeof polygonClipping & { default?: typeof polygonClipping }
 const union = runtime.union ?? runtime.default!.union
+
+export function getFloorSlabFootprints(floor: FloorLevel, supportingFloor?: FloorLevel): Point[][] {
+  return floor.floorFootprints ?? buildCeilingSlabFootprints(floor.walls, supportingFloor?.walls)
+}
 
 function closeRing(points: Point[]) {
   return [...points, points[0]].map(point => [point.x, point.y] as [number, number])

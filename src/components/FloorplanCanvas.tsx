@@ -1,14 +1,17 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { RoofPitchFields } from './RoofPitchFields'
+import { RoofRidgeFields } from './RoofRidgeFields'
+import { buildRoofProfileFaces, getGableRidgeX } from '../roofProfile'
 import { RoofConnectionFields } from './RoofConnectionFields'
 import { resolveBuildingRoofs } from '../roofBuildingGeometry'
-import { roofToWorld } from '../roofJunctions'
-import { buildBayRoofFaces, createBayRoofLayout, getBayRoofPolygon, getBayRoofWithWallSupport } from '../bayRoof'
+import { roofJunctionInput, roofToWorld } from '../roofJunctions'
+import { buildBayRoofFaces, createBayRoofLayout, getBayRoofPolygon, getBayRoofRidge, getBayRoofWithWallSupport } from '../bayRoof'
 import { DEFAULT_ROOF_THICKNESS_METERS } from '../roofThickness'
 import {
   Fragment,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,10 +30,18 @@ import {
   Text,
 } from 'react-konva'
 import Konva from 'konva'
+import { resizeHandles, resizeObjectFromHandle, type HandleBounds, type ResizeHandle } from '../objectHandles'
+import type { ModelTransformPreviewRef } from '../modelTransformPreview'
+import { getModelTransformValues, updateModelTransformField } from '../modelTransformFields'
+import { ObjectTransformPanel } from './ObjectTransformPanel'
+import { GroundImageControls, GroundImageLayer } from './GroundImage'
+import { getWallDragDelta } from '../wallDragModifiers'
+import { getTransformDragDelta, getTransformRotation } from '../transformModifiers'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
 import type {
   FloorLevel,
+  GroundImage,
   FloorplanViewportState,
   PlacedModel,
   Point,
@@ -41,8 +52,10 @@ import type {
 import { DEFAULT_FLOORPLAN_VIEWPORT } from '../projectViewState'
 import {
   getClosestExternalWallPoint as findRoofPlacementWallAnchor,
+  alignRoofPlacementPoint,
   buildRoofAttachmentContext,
   getRoofPlacementSnapPoints,
+  getLeanToRotationFromMountingWall,
 } from '../roofPlacementAnchors'
 import {
   getModelAssetUrl,
@@ -60,6 +73,7 @@ import {
   wallRespectsMinimumJoinAngles,
 } from '../wallJoinConstraints'
 import { getRenderedWalls, getWallPolygon } from '../wallGeometry'
+import { buildWallBodyPerimeters } from '../wallEngine/wallBodyPerimeter'
 import {
   buildWallTopology,
   getOtherNodeConnections,
@@ -106,8 +120,6 @@ const DRAFT_EXTERNAL_WALL_THICKNESS = 0.3
 const MIN_MODEL_SCALE = 0.2
 const MAX_MODEL_SCALE = 5
 const MODEL_TRANSLATION_STEP_METERS = 0.1
-const MODEL_ROTATION_SNAP_RADIANS = (10 * Math.PI) / 180
-const MODEL_SCALE_STEP = 0.1
 const WALL_DRAG_CONNECTION_TOLERANCE_METERS = 0.04
 const WALL_DIRECTION_SNAP_RADIANS = Math.PI / 4
 const WALL_MODEL_SNAP_DISTANCE_METERS = 0.65
@@ -122,6 +134,8 @@ function getRoomHighlightColors(index: number) {
 }
 
 type FloorplanCanvasProps = {
+  onGroundImageChange?: (image: GroundImage | undefined) => void
+  modelTransformPreviewRef?: ModelTransformPreviewRef
   activeFloor: FloorLevel
   children?: ReactNode
   floors: FloorLevel[]
@@ -172,8 +186,17 @@ export type RoofPlacementPreview = {
 }
 
 type RoofCreateOptions = {
+  asymmetricSides?: boolean
+  ridgeOffset?: number
+  ridgeHeight?: number
+  ridgeHeightTargetRoofId?: string
+  mountSide?: RoofStructure['mountSide']
+  heightOffset?: number
+  fitSupportingWalls?: boolean
+  clipsGeometry?: boolean
   thickness?: number
   bayOutline?: Point[]
+  bayRidgeLength?: number
   depth?: number
   floorId: string
   overhangEnd?: number
@@ -213,6 +236,8 @@ type ModelRotateDragState = {
   modelId: string
   startAngle: number
   startRotation: number
+  center: Point
+  localCenter: Point
 }
 
 type ModelScaleDragState = {
@@ -661,10 +686,6 @@ function dot(first: Point, second: Point) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
-}
-
-function snapRadians(angle: number, increment: number) {
-  return Math.round(angle / increment) * increment
 }
 
 function parseLengthInput(value: string) {
@@ -2069,23 +2090,8 @@ function getLeanToRotationFromSnappedWall(
     return null
   }
 
-  const length = distance(selectedWall.start, selectedWall.end)
-
-  if (length <= 0.000001) {
-    return null
-  }
-
-  const unit = {
-    x: (selectedWall.end.x - selectedWall.start.x) / length,
-    y: (selectedWall.end.y - selectedWall.start.y) / length,
-  }
   const exteriorSide = getExteriorWallSide(selectedWall, rooms)
-  const exteriorNormal = {
-    x: -unit.y * exteriorSide,
-    y: unit.x * exteriorSide,
-  }
-
-  return Math.atan2(exteriorNormal.y, -exteriorNormal.x)
+  return getLeanToRotationFromMountingWall(selectedWall, points, exteriorSide)
 }
 
 function getUpAndOverRotationFromPlacementPoints(points: Point[]) {
@@ -2452,7 +2458,14 @@ function getRoofPlacementSupportPoints({
     ...supportPoints.map((point) => rotateVector(point, rotation).x),
   )
   const renderedExternalWalls = getRenderedWalls(walls).filter(
-    ({ wall }) => wall.kind === 'external',
+    ({ wall }) => {
+      if (wall.kind !== 'external') return false
+      const start = rotateVector(wall.start, rotation)
+      const end = rotateVector(wall.end, rotation)
+      // At a corner, a crossing end wall may be closer than the mounting
+      // facade. Only a wall parallel to the high edge can set its side face.
+      return Math.abs(end.x - start.x) <= 0.001
+    },
   )
 
   return supportPoints.map((point) => {
@@ -3247,6 +3260,7 @@ function applyAlignmentGuide(point: Point, guide: AlignmentGuide | null): Point 
 }
 
 export function FloorplanCanvas({
+  onGroundImageChange,
   activeFloor,
   children,
   floors,
@@ -3280,11 +3294,14 @@ export function FloorplanCanvas({
   onRoofPlacementPreviewChange,
   onPlaceModel,
   onUpdateModel,
+  modelTransformPreviewRef,
   onUpdateRoof,
   onUpdateWall,
   onUpdateWalls,
   viewportRestoreRevision,
 }: FloorplanCanvasProps) {
+  const [groundImageEditing, setGroundImageEditing] = useState(false)
+  useEffect(() => { setGroundImageEditing(false) }, [activeFloor.id])
   const walls = activeFloor.walls
   const roofs = activeFloor.roofs ?? []
   const referenceFloors = useMemo(
@@ -3296,8 +3313,8 @@ export function FloorplanCanvas({
     [referenceFloors],
   )
   const wallTopology = useMemo(
-    () => buildWallTopology(walls),
-    [walls, WALL_TOPOLOGY_VERSION],
+    () => buildWallTopology(walls, { floorFootprints: activeFloor.floorFootprints }),
+    [walls, activeFloor.floorFootprints, WALL_TOPOLOGY_VERSION],
   )
   const roofAttachmentContext = useMemo(
     () => isRoofMode
@@ -3310,14 +3327,23 @@ export function FloorplanCanvas({
     wallKind,
     internalWallThickness,
   )
+  const floorBoundarySnapSegments = useMemo<SnapSegment[]>(
+    () => activeFloor.floorFootprints?.flatMap(ring => ring.map((start, index) => ({
+      start, end: ring[(index + 1) % ring.length], label: 'Floor edge',
+    }))) ?? [],
+    [activeFloor.floorFootprints],
+  )
   const activeSnapSegments = useMemo(
-    () => getSnapSegments(walls, wallKind, draftWallThickness),
-    [draftWallThickness, walls, wallKind],
+    () => [...getSnapSegments(walls, wallKind, draftWallThickness), ...floorBoundarySnapSegments],
+    [draftWallThickness, walls, wallKind, floorBoundarySnapSegments],
   )
   const roofPlacementSnapPoints = useMemo(() => {
-    return getRoofPlacementSnapPoints(roofAttachmentWalls)
+    // Distant wall projections remain available through hover snapping, but
+    // showing every intersection permanently obscures the actual wall joins.
+    return getRoofPlacementSnapPoints(roofAttachmentWalls, { includeProjected: false })
   }, [roofAttachmentWalls])
   const containerRef = useRef<HTMLDivElement>(null)
+  const floorplanMenuRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<CanvasSize>({ width: 600, height: 600 })
   const [viewport, setViewport] = useState<FloorplanViewportState>(() => ({
     ...(initialViewport ?? DEFAULT_FLOORPLAN_VIEWPORT),
@@ -3393,6 +3419,10 @@ export function FloorplanCanvas({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
   const [isDraggingModel, setIsDraggingModel] = useState(false)
+  const [modelTransformPreview, setModelTransformPreview] = useState<{
+    modelId: string; updates: Partial<PlacedModel>
+    dimensions?: { width: number; length: number; scaleX: number; scaleY: number; scaleZ: number }
+  } | null>(null)
   const [isDraggingRoof, setIsDraggingRoof] = useState(false)
   const [isDraggingWall, setIsDraggingWall] = useState(false)
   const [roofPlacementDirection, setRoofPlacementDirection] =
@@ -3411,6 +3441,11 @@ export function FloorplanCanvas({
   >(null)
   const [roofPlacementPitchDegrees, setRoofPlacementPitchDegrees] = useState(35)
   const [roofPlacementThickness, setRoofPlacementThickness] = useState(DEFAULT_ROOF_THICKNESS_METERS)
+  const [roofPlacementClipsGeometry, setRoofPlacementClipsGeometry] = useState(true)
+  const [roofPlacementHeightOffset, setRoofPlacementHeightOffset] = useState(0)
+  const [roofPlacementFitSupportingWalls, setRoofPlacementFitSupportingWalls] = useState(false)
+  const [roofPlacementRidgeSettings, setRoofPlacementRidgeSettings] = useState<Pick<RoofStructure, 'asymmetricSides' | 'mountSide' | 'ridgeOffset' | 'ridgeHeight' | 'ridgeHeightTargetRoofId'>>({})
+  const [roofPlacementBayRidgeLength, setRoofPlacementBayRidgeLength] = useState(0.5)
   const [roofPlacementRidgeStartChamfer, setRoofPlacementRidgeStartChamfer] =
     useState<RoofStructure['ridgeStartChamfer']>()
   const [roofPlacementRidgeEndChamfer, setRoofPlacementRidgeEndChamfer] =
@@ -3418,18 +3453,22 @@ export function FloorplanCanvas({
   const [roofPlacementSoffitColor, setRoofPlacementSoffitColor] = useState('#ffffff')
   const [roofPlacementOverhangPitchDegrees, setRoofPlacementOverhangPitchDegrees] = useState<number | undefined>()
   const selectedRoof = floors.flatMap((floor) => floor.roofs ?? []).find((roof) => roof.id === selectedRoofId)
-  const selectedRoofGeometry = useMemo(() => selectedRoofId
-    ? resolveBuildingRoofs(floors).find((candidate) => candidate.roof.id === selectedRoofId)?.resolved
+  const selectedRoofCandidate = useMemo(() => selectedRoofId
+    ? resolveBuildingRoofs(floors).find((candidate) => candidate.roof.id === selectedRoofId)
     : undefined, [floors, selectedRoofId])
+  const selectedRoofGeometry = selectedRoofCandidate?.resolved
   const [roofPlacementPoints, setRoofPlacementPoints] = useState<Point[]>([])
   const [roofPlacementType, setRoofPlacementType] =
     useState<RoofStructure['type']>('up-and-over')
   const bayPlacementLayout = useMemo(() => createBayRoofLayout(roofPlacementPoints), [roofPlacementPoints])
   const bayPlacementRoof = useMemo<RoofStructure | null>(() => roofPlacementType === 'bay' && bayPlacementLayout ? {
     ...bayPlacementLayout, type: 'bay', id: '__roof-placement-preview__',
+    clipsGeometry: roofPlacementClipsGeometry,
+    heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
+    bayRidgeLength: roofPlacementBayRidgeLength,
     pitchDegrees: roofPlacementPitchDegrees, thickness: roofPlacementThickness, overhangSide: roofPlacementSideOverhang,
     overhangEnd: 0, overhangPitchDegrees: roofPlacementOverhangPitchDegrees, soffitColor: roofPlacementSoffitColor,
-  } : null, [bayPlacementLayout, roofPlacementType, roofPlacementPitchDegrees, roofPlacementThickness, roofPlacementSideOverhang, roofPlacementOverhangPitchDegrees, roofPlacementSoffitColor])
+  } : null, [bayPlacementLayout, roofPlacementType, roofPlacementClipsGeometry, roofPlacementHeightOffset, roofPlacementFitSupportingWalls, roofPlacementBayRidgeLength, roofPlacementPitchDegrees, roofPlacementThickness, roofPlacementSideOverhang, roofPlacementOverhangPitchDegrees, roofPlacementSoffitColor])
   const bayPlacementGeometry = useMemo(() => bayPlacementRoof
     ? getBayRoofWithWallSupport(bayPlacementRoof, walls) : null, [bayPlacementRoof, walls])
   const [transformMode, setTransformMode] =
@@ -3452,16 +3491,50 @@ export function FloorplanCanvas({
   const modelMoveDragRef = useRef<ModelMoveDragState | null>(null)
   const modelRotateDragRef = useRef<ModelRotateDragState | null>(null)
   const modelScaleDragRef = useRef<ModelScaleDragState | null>(null)
+  const modelHandleDragRef = useRef<{
+    modelId: string; handle: ResizeHandle; point: Point; position: Point
+    rotation: number; widthScale: number; depthScale: number; bounds: HandleBounds
+  } | null>(null)
   const roofResizeDragRef = useRef<RoofResizeDragState | null>(null)
+  const modelTransformFrameRef = useRef<number | null>(null)
+  const pendingModelTransformRef = useRef<typeof modelTransformPreview>(null)
+  const previewModelTransform = (modelId: string, updates: Partial<PlacedModel>, dimensions?: {
+    width: number; length: number; scaleX: number; scaleY: number; scaleZ: number
+  }) => {
+    pendingModelTransformRef.current = { modelId, updates, dimensions }
+    if (modelTransformFrameRef.current !== null) return
+    modelTransformFrameRef.current = window.requestAnimationFrame(() => {
+      modelTransformFrameRef.current = null
+      if (modelTransformPreviewRef) modelTransformPreviewRef.current = pendingModelTransformRef.current
+      setModelTransformPreview(pendingModelTransformRef.current)
+    })
+  }
+  const commitModelTransformPreview = () => {
+    if (modelTransformFrameRef.current !== null) {
+      window.cancelAnimationFrame(modelTransformFrameRef.current)
+      modelTransformFrameRef.current = null
+    }
+    const preview = pendingModelTransformRef.current
+    pendingModelTransformRef.current = null
+    if (preview) {
+      if (modelTransformPreviewRef) modelTransformPreviewRef.current = { ...preview, committed: true }
+      onUpdateModel(preview.modelId, preview.updates)
+    }
+    setModelTransformPreview(null)
+  }
 
   useEffect(() => () => {
+    if (modelTransformFrameRef.current !== null) {
+      window.cancelAnimationFrame(modelTransformFrameRef.current)
+    }
+    if (modelTransformPreviewRef) modelTransformPreviewRef.current = null
     if (wheelZoomRef.current) {
       window.clearTimeout(wheelZoomRef.current.commitTimer)
     }
     if (wheelDrawFrameRef.current !== null) {
       window.cancelAnimationFrame(wheelDrawFrameRef.current)
     }
-  }, [])
+  }, [modelTransformPreviewRef])
   const wallDragPreviewFrameRef = useRef<number | null>(null)
   const pendingWallDragPreviewRef = useRef<typeof wallDragPreview>(null)
   const scheduleWallDragPreview = useCallback(
@@ -3644,6 +3717,21 @@ export function FloorplanCanvas({
     console.table(diagnostic.dimensionGuides)
     console.groupEnd()
   }, [selectedWallId, wallTopology, walls])
+
+  useLayoutEffect(() => {
+    const menu = floorplanMenuRef.current
+    const pane = menu?.parentElement
+    if (!menu || !pane) return
+    // Match the actual menu height, including controls wrapping on narrow panes.
+    const updateRoofPanelPosition = () => {
+      pane.style.setProperty('--floorplan-menu-bottom', `${menu.offsetTop + menu.offsetHeight + 8}px`)
+      pane.style.setProperty('--floorplan-menu-left', `${menu.offsetLeft}px`)
+    }
+    updateRoofPanelPosition()
+    const observer = new ResizeObserver(updateRoofPanelPosition)
+    observer.observe(menu)
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const element = containerRef.current
@@ -3928,9 +4016,9 @@ export function FloorplanCanvas({
     point: Point,
     event: PointerEvent,
   ) => {
-    const basePoint = event.ctrlKey ? point : snapToWallDirection(start, point)
+    const basePoint = event.ctrlKey && !event.shiftKey ? point : snapToWallDirection(start, point)
 
-    if (event.shiftKey) {
+    if (event.ctrlKey || event.shiftKey) {
       return basePoint
     }
 
@@ -4028,29 +4116,6 @@ export function FloorplanCanvas({
         }))
     )
 
-  const getWallEndpointSnapTarget = (
-    point: Point,
-    wall: Wall,
-    endpoint: 'end' | 'start',
-    oppositeEndpoint: Point,
-  ) => {
-    const activeWalls = activeFloor.walls.filter(
-      (candidateWall) => candidateWall.id !== wall.id,
-    )
-    const snapSegments = getSnapSegments(activeWalls, wall.kind, wall.thickness)
-    const snapTarget = getSnapTarget(point, snapSegments)
-
-    return wallEndpointSnapIsValid({
-      activeWalls,
-      endpoint,
-      oppositeEndpoint,
-      snapTarget,
-      wall,
-    })
-      ? snapTarget
-      : null
-  }
-
   const getWallEndpointDirectionalSnapTarget = (
     point: Point,
     rayEnd: Point,
@@ -4065,7 +4130,7 @@ export function FloorplanCanvas({
       point,
       rayEnd,
       rayStart: oppositeEndpoint,
-      segments: getSnapSegments(activeWalls, wall.kind, wall.thickness),
+      segments: [...getSnapSegments(activeWalls, wall.kind, wall.thickness), ...floorBoundarySnapSegments],
     })
 
     return wallEndpointSnapIsValid({
@@ -4223,7 +4288,9 @@ export function FloorplanCanvas({
   const createRoofFromPlacementPoints = () => {
     if (roofPlacementType === 'bay') {
       if (bayPlacementRoof) {
-        onAddRoof({ ...bayPlacementRoof, floorId: activeFloor.id })
+        onAddRoof({ ...bayPlacementRoof,
+          bayRidgeLength: getBayRoofRidge(bayPlacementGeometry ?? bayPlacementRoof).length,
+          floorId: activeFloor.id })
         setRoofPlacementPoints([])
       }
       return
@@ -4274,6 +4341,9 @@ export function FloorplanCanvas({
 
     onAddRoof({
       depth: bounds.depth,
+      ...(roofPlacementType === 'up-and-over' ? roofPlacementRidgeSettings : {}),
+      clipsGeometry: roofPlacementClipsGeometry,
+      heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
       thickness: roofPlacementThickness,
       floorId: activeFloor.id,
       overhangEnd: roofPlacementEndOverhang,
@@ -4436,6 +4506,8 @@ export function FloorplanCanvas({
       return
     }
 
+    if (groundImageEditing) return
+
     if (placementModel) {
       if (modelPlacementPreview) {
         onPlaceModel({
@@ -4502,11 +4574,11 @@ export function FloorplanCanvas({
 
     const point = getPointerPoint(event)
     if (point) {
-      const alignmentGuide = event.evt.shiftKey
+      const alignmentGuide = event.evt.ctrlKey
         ? null
         : hoverAlignmentGuide ?? getClosestAlignmentGuide(point, snapWalls)
       const alignedPoint = applyAlignmentGuide(point, alignmentGuide)
-      const snappedPoint = event.evt.shiftKey
+      const snappedPoint = event.evt.ctrlKey
         ? point
         : hoverSnapTarget?.point ?? snapToPreferredConnection(alignedPoint)
       setDraftWall({ start: snappedPoint, end: snappedPoint })
@@ -4553,8 +4625,17 @@ export function FloorplanCanvas({
     if (!isAddingWall) {
       if (isRoofMode) {
         const point = getPointerPoint(event)
+        const anchor = roofPlacementPoints.at(-1)
+        const delta = point && anchor ? getTransformDragDelta({ x: point.x - anchor.x, y: point.y - anchor.y }, event.evt) : null
+        const wallPoint = point && !event.evt.ctrlKey ? findRoofPlacementWallAnchor(point, roofAttachmentWalls) : null
+        const alignment = point ? alignRoofPlacementPoint(point, roofPlacementPoints,
+          8 / (METERS_TO_PIXELS * viewport.scale)) : null
+        const alignedPoint = alignment && (alignment.vertical !== undefined || alignment.horizontal !== undefined)
+          ? { x: alignment.vertical ?? wallPoint?.x ?? alignment.point.x,
+            y: alignment.horizontal ?? wallPoint?.y ?? alignment.point.y } : wallPoint
         setHoverRoofPlacementPoint(
-          point ? findRoofPlacementWallAnchor(point, roofAttachmentWalls) : null,
+          point ? event.evt.shiftKey && anchor && delta ? { x: anchor.x + delta.x, y: anchor.y + delta.y }
+            : event.evt.ctrlKey ? point : alignedPoint : null,
         )
         setHoverSnapTarget(null)
         setHoverAlignmentGuide(null)
@@ -4574,15 +4655,15 @@ export function FloorplanCanvas({
     }
 
     if (!draftWall) {
-      setHoverSnapTarget(getPreferredSnapPreviewTarget(point))
+      setHoverSnapTarget(event.evt.ctrlKey ? null : getPreferredSnapPreviewTarget(point))
       setHoverAlignmentGuide(
-        event.evt.shiftKey ? null : getClosestAlignmentGuide(point, snapWalls),
+        event.evt.ctrlKey ? null : getClosestAlignmentGuide(point, snapWalls),
       )
       return
     }
 
     const pointerEnd = getDraftEndPoint(draftWall.start, point, event.evt)
-    const basePoint = event.evt.ctrlKey
+    const basePoint = event.evt.ctrlKey && !event.evt.shiftKey
       ? point
       : snapToWallDirection(draftWall.start, point)
     const alignmentGuide =
@@ -4595,8 +4676,8 @@ export function FloorplanCanvas({
             walls: snapWalls,
           })
     const snapPreviewPoint = applyAlignmentGuide(basePoint, alignmentGuide)
-    const snapPreviewTarget = event.evt.ctrlKey
-      ? getPreferredSnapPreviewTarget(snapPreviewPoint)
+    const snapPreviewTarget = event.evt.ctrlKey || event.evt.shiftKey
+      ? null
       : getPreferredDirectionalSnapTarget({
           point: snapPreviewPoint,
           rayEnd: basePoint,
@@ -4611,8 +4692,8 @@ export function FloorplanCanvas({
         ? snapPreviewTarget
         : null
 
-    setIsAxisLocked(!event.evt.ctrlKey)
-    setHoverSnapTarget(event.evt.shiftKey ? null : validSnapPreviewTarget)
+    setIsAxisLocked(!event.evt.ctrlKey || event.evt.shiftKey)
+    setHoverSnapTarget(validSnapPreviewTarget)
     setHoverAlignmentGuide(alignmentGuide)
     setDraftWall({
       ...draftWall,
@@ -4807,6 +4888,15 @@ export function FloorplanCanvas({
     }),
     [previewWalls, previewWallTopology],
   )
+  const wallPlan = useMemo(
+    () => buildWallBodyPerimeters(renderedWalls.map(({ wall }) => wall)),
+    [renderedWalls],
+  )
+  const wallPlanPerimeters = wallPlan.perimeters
+  const wallPlanPolygonsById = useMemo(
+    () => new Map(wallPlan.wallBodies.map(({ wallId, points }) => [wallId, points])),
+    [wallPlan],
+  )
   const dimensionWalls = useMemo(
     () => wallDragPreview
       ? previewWalls.filter((wall) => Boolean(wallDragPreview.walls[wall.id]))
@@ -4883,7 +4973,7 @@ export function FloorplanCanvas({
         const rooms =
           floor.id === activeFloor.id
             ? wallTopology.rooms
-            : buildWallTopology(floor.walls).rooms
+            : buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }).rooms
         const area = rooms.reduce((total, room) => total + room.area, 0)
 
         return {
@@ -5009,7 +5099,11 @@ export function FloorplanCanvas({
       )
     })
   }), [renderedWalls])
-  const modelFootprints = (activeFloor.models ?? []).flatMap((model) => {
+  const transformPanelModels: { model: PlacedModel; bounds: HandleBounds; baseHeight: number; window: boolean }[] = []
+  const modelFootprints = (activeFloor.models ?? []).flatMap((storedModel) => {
+    const model = modelTransformPreview?.modelId === storedModel.id
+      ? { ...storedModel, ...modelTransformPreview.updates }
+      : storedModel
     const modelDefinition = modelsById.get(model.modelId)
 
     if (!modelDefinition) {
@@ -5068,6 +5162,18 @@ export function FloorplanCanvas({
     const rotation = (model.rotation * 180) / Math.PI
     const isWallMountedModel = Boolean(modelDefinition.wallMount)
     const isRoofMountedModel = Boolean(modelDefinition.roofMount)
+    const hasCombinedHandles = !isWallMountedModel && !isRoofMountedModel && !modelDefinition.isLight
+    if (model.id === selectedModelId && (hasCombinedHandles || modelDefinition.wallMount === 'window')) {
+      transformPanelModels.push({ model, bounds: { minX: boundsMinX, maxX: boundsMaxX, minZ: boundsMinZ, maxZ: boundsMaxZ },
+        baseHeight: modelDefinition.height, window: modelDefinition.wallMount === 'window' })
+    }
+    const handleCenterLocal = hasCombinedHandles ? {
+      x: (boundsMinX + boundsMaxX) / 2 * modelScale * modelWidthScale *
+        (model.flipped ? -1 : 1) * (model.mirrored ? -1 : 1),
+      y: (boundsMinZ + boundsMaxZ) / 2 * modelScale * modelDepthScale * (model.flipped ? -1 : 1),
+    } : { x: 0, y: 0 }
+    const handleCenterOffset = rotateVector(handleCenterLocal, model.rotation)
+    const handleCenter = { x: model.position.x + handleCenterOffset.x, y: model.position.y + handleCenterOffset.y }
     const labelWidth = Math.max(72, width)
     const isSelectedModel =
       model.id === selectedModelId || selectedModelIds.includes(model.id)
@@ -5115,7 +5221,7 @@ export function FloorplanCanvas({
           })
         : null
     const getPointerAngleFromModelCenter = (point: Point) =>
-      Math.atan2(point.y - model.position.y, point.x - model.position.x)
+      Math.atan2(point.y - handleCenter.y, point.x - handleCenter.x)
     const getPointerScaleDistance = (
       point: Point,
       axis: ModelScaleDragState['axis'],
@@ -5144,6 +5250,8 @@ export function FloorplanCanvas({
             modelId: model.id,
             startAngle: getPointerAngleFromModelCenter(point),
             startRotation: model.rotation,
+            center: handleCenter,
+            localCenter: handleCenterLocal,
           }
         : null
     }
@@ -5198,33 +5306,17 @@ export function FloorplanCanvas({
         dragState.axis === 'x'
           ? dragState.startDepthScale
           : dragState.startDepthScale * rawScale
-      const nextWidthScale = event.evt.ctrlKey
-        ? clamp(widthScale, MIN_MODEL_SCALE, MAX_MODEL_SCALE)
-        : clamp(
-            Math.round(widthScale / MODEL_SCALE_STEP) * MODEL_SCALE_STEP,
-            MIN_MODEL_SCALE,
-            MAX_MODEL_SCALE,
-          )
-      const nextDepthScale = event.evt.ctrlKey
-        ? clamp(depthScale, MIN_MODEL_SCALE, MAX_MODEL_SCALE)
-        : clamp(
-            Math.round(depthScale / MODEL_SCALE_STEP) * MODEL_SCALE_STEP,
-            MIN_MODEL_SCALE,
-            MAX_MODEL_SCALE,
-          )
-      const stairSnap = getStairSnap(
-        model.position,
-        model.rotation,
-        modelScale,
-        nextWidthScale,
-        nextDepthScale,
-      )
-
-      onUpdateModel(model.id, {
-        position: stairSnap?.position ?? model.position,
+      const proportionalFactor = clamp(rawScale,
+        Math.max(MIN_MODEL_SCALE / dragState.startWidthScale, MIN_MODEL_SCALE / dragState.startDepthScale),
+        Math.min(MAX_MODEL_SCALE / dragState.startWidthScale, MAX_MODEL_SCALE / dragState.startDepthScale))
+      const nextWidthScale = event.evt.shiftKey ? dragState.startWidthScale * proportionalFactor : clamp(widthScale, MIN_MODEL_SCALE, MAX_MODEL_SCALE)
+      const nextDepthScale = event.evt.shiftKey ? dragState.startDepthScale * proportionalFactor : clamp(depthScale, MIN_MODEL_SCALE, MAX_MODEL_SCALE)
+      previewModelTransform(model.id, {
+        position: model.position,
         widthScale: nextWidthScale,
         depthScale: nextDepthScale,
-      })
+      }, { width: baseWidth * modelScale * nextWidthScale, length: baseDepth * modelScale * nextDepthScale,
+        scaleX: modelScale * nextWidthScale, scaleY: modelScale, scaleZ: modelScale * nextDepthScale })
     }
 
     return (
@@ -5266,16 +5358,7 @@ export function FloorplanCanvas({
             x: dragState?.axis === 'y' ? 0 : rawDelta.x,
             y: dragState?.axis === 'x' ? 0 : rawDelta.y,
           }
-          const delta = event.evt.ctrlKey
-            ? constrainedDelta
-            : {
-                x:
-                  Math.round(constrainedDelta.x / MODEL_TRANSLATION_STEP_METERS) *
-                  MODEL_TRANSLATION_STEP_METERS,
-                y:
-                  Math.round(constrainedDelta.y / MODEL_TRANSLATION_STEP_METERS) *
-                  MODEL_TRANSLATION_STEP_METERS,
-              }
+          const delta = getTransformDragDelta(constrainedDelta, event.evt)
           const pointerPosition = dragState
             ? {
                 x: dragState.startPosition.x + delta.x,
@@ -5285,7 +5368,7 @@ export function FloorplanCanvas({
           const wallMount = isWallMountedModel
             ? getWallMountForPoint(pointerPosition, activeFloor.walls)
             : null
-          const stairSnap = getStairSnap(pointerPosition)
+          const stairSnap = event.evt.ctrlKey || event.evt.shiftKey ? null : getStairSnap(pointerPosition)
 
           if (wallMount) {
             event.target.position(toCanvasPoint(wallMount.position))
@@ -5294,6 +5377,12 @@ export function FloorplanCanvas({
             event.target.position(toCanvasPoint(stairSnap.position))
           } else {
             event.target.position(toCanvasPoint(pointerPosition))
+          }
+          if (modelTransformPreviewRef) {
+            modelTransformPreviewRef.current = { modelId: model.id, updates: {
+              position: wallMount?.position ?? stairSnap?.position ?? pointerPosition,
+              rotation: wallMount?.rotation ?? model.rotation,
+            } }
           }
         }}
         onDragStart={(event) => {
@@ -5317,7 +5406,7 @@ export function FloorplanCanvas({
           const wallMount = isWallMountedModel
             ? getWallMountForPoint(pointerPosition, activeFloor.walls)
             : null
-          const stairSnap = getStairSnap(pointerPosition)
+          const stairSnap = event.evt.ctrlKey || event.evt.shiftKey ? null : getStairSnap(pointerPosition)
           const nextPosition =
             wallMount?.position ?? stairSnap?.position ?? pointerPosition
           const updates = {
@@ -5334,6 +5423,7 @@ export function FloorplanCanvas({
           }
 
           onUpdateModel(model.id, updates)
+          if (modelTransformPreviewRef) modelTransformPreviewRef.current = { modelId: model.id, updates, committed: true }
           modelMoveDragRef.current = null
           modelMoveAxisRef.current = null
           setIsDraggingModel(false)
@@ -5405,7 +5495,9 @@ export function FloorplanCanvas({
           />
         )}
         {isSelectedModel && transformMode === 'translate' ? (
-          <Group rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
+          <Group x={handleCenterLocal.x * METERS_TO_PIXELS} y={handleCenterLocal.y * METERS_TO_PIXELS}
+            rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
+            {!hasCombinedHandles ? <>
             <Line
               points={[0, 0, 52, 0]}
               stroke="#dc2626"
@@ -5442,6 +5534,7 @@ export function FloorplanCanvas({
                 modelMoveAxisRef.current = 'y'
               }}
             />
+            </> : null}
             <Rect
               x={-7}
               y={-7}
@@ -5456,8 +5549,9 @@ export function FloorplanCanvas({
             />
           </Group>
         ) : null}
-        {isSelectedModel && transformMode === 'rotate' ? (
-          <Group rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
+        {isSelectedModel && (transformMode === 'rotate' || (hasCombinedHandles && transformMode === 'translate')) ? (
+          <Group x={handleCenterLocal.x * METERS_TO_PIXELS} y={handleCenterLocal.y * METERS_TO_PIXELS}
+            rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
             <Circle
               x={0}
               y={0}
@@ -5471,6 +5565,7 @@ export function FloorplanCanvas({
               x={0}
               y={0}
               radius={28}
+              fillEnabled={false}
               stroke="#2563eb"
               strokeWidth={3}
               hitStrokeWidth={18}
@@ -5496,19 +5591,20 @@ export function FloorplanCanvas({
 
                 const rotation =
                   dragState.startRotation +
-                  getPointerAngleFromModelCenter(point) -
+                  Math.atan2(point.y - dragState.center.y, point.x - dragState.center.x) -
                   dragState.startAngle
-                const nextRotation = event.evt.ctrlKey
-                  ? rotation
-                  : snapRadians(rotation, MODEL_ROTATION_SNAP_RADIANS)
+                const nextRotation = getTransformRotation(rotation, event.evt)
 
-                onUpdateModel(model.id, {
+                const centerOffset = rotateVector(dragState.localCenter, nextRotation)
+                previewModelTransform(model.id, {
                   rotation: nextRotation,
+                  position: { x: dragState.center.x - centerOffset.x, y: dragState.center.y - centerOffset.y },
                 })
                 event.target.position({ x: 0, y: 0 })
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                commitModelTransformPreview()
                 modelRotateDragRef.current = null
                 event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
@@ -5516,6 +5612,70 @@ export function FloorplanCanvas({
             />
           </Group>
         ) : null}
+        {isSelectedModel && hasCombinedHandles && transformMode === 'translate' ? (() => {
+          const flipX = (model.flipped ? -1 : 1) * (model.mirrored ? -1 : 1)
+          const flipZ = model.flipped ? -1 : 1
+          const bounds = {
+            minX: flipX < 0 ? -boundsMaxX : boundsMinX,
+            maxX: flipX < 0 ? -boundsMinX : boundsMaxX,
+            minZ: flipZ < 0 ? -boundsMaxZ : boundsMinZ,
+            maxZ: flipZ < 0 ? -boundsMinZ : boundsMaxZ,
+          }
+          const left = bounds.minX * modelScale * modelWidthScale * METERS_TO_PIXELS
+          const right = bounds.maxX * modelScale * modelWidthScale * METERS_TO_PIXELS
+          const top = bounds.minZ * modelScale * modelDepthScale * METERS_TO_PIXELS
+          const bottom = bounds.maxZ * modelScale * modelDepthScale * METERS_TO_PIXELS
+          return <Group>
+            <Rect x={left} y={top} width={right - left} height={bottom - top}
+              stroke="#2563eb" strokeWidth={1.5 * gizmoScale} dash={[5 * gizmoScale, 4 * gizmoScale]} listening={false} />
+            {resizeHandles.map((handle, index) => {
+              const x = handle.x < 0 ? left : handle.x > 0 ? right : (left + right) / 2
+              const y = handle.z < 0 ? top : handle.z > 0 ? bottom : (top + bottom) / 2
+              return <Rect key={index} x={x} y={y} offsetX={4.5} offsetY={4.5}
+                width={9} height={9} scaleX={gizmoScale} scaleY={gizmoScale}
+                fill="white" stroke="#2563eb" strokeWidth={2} hitStrokeWidth={16} draggable
+                dragBoundFunc={function (this: Konva.Node) { return this.getAbsolutePosition() }}
+                onPointerDown={event => {
+                  event.cancelBubble = true
+                  const point = getPointerPoint(event)
+                  modelHandleDragRef.current = point ? {
+                    modelId: model.id, handle, point, position: { ...model.position },
+                    rotation: model.rotation, widthScale: modelWidthScale, depthScale: modelDepthScale, bounds,
+                  } : null
+                }}
+                onDragStart={event => {
+                  event.cancelBubble = true
+                  setIsDraggingModel(true)
+                }}
+                onDragMove={event => {
+                  event.cancelBubble = true
+                  const state = modelHandleDragRef.current
+                  const point = getPointerPoint(event)
+                  if (state && point && state.modelId === model.id) {
+                    const result = resizeObjectFromHandle({ bounds: state.bounds, handle: state.handle,
+                      rotation: -state.rotation, scaleX: modelScale * state.widthScale,
+                      scaleZ: modelScale * state.depthScale,
+                      deltaX: point.x - state.point.x, deltaZ: point.y - state.point.y,
+                      minimumScale: modelScale * MIN_MODEL_SCALE,
+                      keepRatio: event.evt.shiftKey })
+                    const position = { x: state.position.x + result.offsetX, y: state.position.y + result.offsetZ }
+                    const widthScale = result.scaleX / modelScale
+                    const depthScale = result.scaleZ / modelScale
+                    previewModelTransform(model.id, { position, widthScale, depthScale }, {
+                      width: baseWidth * modelScale * widthScale, length: baseDepth * modelScale * depthScale,
+                      scaleX: modelScale * widthScale, scaleY: modelScale, scaleZ: modelScale * depthScale,
+                    })
+                  }
+                }}
+                onDragEnd={event => {
+                  event.cancelBubble = true
+                  commitModelTransformPreview()
+                  modelHandleDragRef.current = null
+                  setIsDraggingModel(false)
+                }} />
+            })}
+          </Group>
+        })() : null}
         {isSelectedModel && transformMode === 'scale' ? (
           <Group rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
             <Line
@@ -5540,6 +5700,7 @@ export function FloorplanCanvas({
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                commitModelTransformPreview()
                 modelScaleDragRef.current = null
                 event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
@@ -5567,6 +5728,7 @@ export function FloorplanCanvas({
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                commitModelTransformPreview()
                 modelScaleDragRef.current = null
                 event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
@@ -5594,6 +5756,7 @@ export function FloorplanCanvas({
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                commitModelTransformPreview()
                 modelScaleDragRef.current = null
                 event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
@@ -5621,6 +5784,7 @@ export function FloorplanCanvas({
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                commitModelTransformPreview()
                 modelScaleDragRef.current = null
                 event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
@@ -5652,6 +5816,7 @@ export function FloorplanCanvas({
               }}
               onDragEnd={(event) => {
                 event.cancelBubble = true
+                commitModelTransformPreview()
                 modelScaleDragRef.current = null
                 event.target.position({ x: 0, y: 0 })
                 setIsDraggingModel(false)
@@ -5834,6 +5999,7 @@ export function FloorplanCanvas({
     ],
   )
   const roofFootprints = [...roofs]
+    .filter(roof => isRoofMode || roof.id === selectedRoofId)
     .sort((firstRoof, secondRoof) => {
       if (firstRoof.id === selectedRoofId) {
         return 1
@@ -5852,7 +6018,8 @@ export function FloorplanCanvas({
     const depth = Math.max(roof.depth, 0.3) * METERS_TO_PIXELS
     const halfWidth = width / 2
     const halfDepth = depth / 2
-    const planRotation = roof.type === 'bay' ? -roof.rotation : roof.rotation
+    // A positive rotation about 3D Y maps to a negative rotation in plan XY.
+    const planRotation = -roof.rotation
     const rotation = (planRotation * 180) / Math.PI
     const isSelectedRoof = roof.id === selectedRoofId
     const resolvedRoof = isSelectedRoof ? selectedRoofGeometry : undefined
@@ -5905,9 +6072,10 @@ export function FloorplanCanvas({
       }
 
       const startRoof = dragState.roof
-      const snappedPoint = getClosestRoofAnchorPoint(
+      let snappedPoint = event.evt.ctrlKey || event.evt.shiftKey ? point : getClosestRoofAnchorPoint(
         point,
-        roof.type === 'lean-to' ? roofAttachmentWalls : walls,
+        roof.type === 'lean-to' ? roofAttachmentWalls :
+          Array.from(wallTopology.renderedWallsById.values(), ({ wall }) => wall),
       )
 
       setHoverRoofPlacementPoint(snappedPoint)
@@ -5933,6 +6101,25 @@ export function FloorplanCanvas({
       const oppositeLocal = {
         x: cornerSign.x > 0 ? startSupportBounds.minX : startSupportBounds.maxX,
         y: cornerSign.y > 0 ? startSupportBounds.minY : startSupportBounds.maxY,
+      }
+      if (event.evt.shiftKey) {
+        const activeLocal = {
+          x: cornerSign.x > 0 ? startSupportBounds.maxX : startSupportBounds.minX,
+          y: cornerSign.y > 0 ? startSupportBounds.maxY : startSupportBounds.minY,
+        }
+        const activeWorld = getRoofWorldPointFromLocal(startRoof, activeLocal)
+        const resized = resizeObjectFromHandle({
+          bounds: { minX: startSupportBounds.minX, maxX: startSupportBounds.maxX,
+            minZ: startSupportBounds.minY, maxZ: startSupportBounds.maxY },
+          handle: { x: cornerSign.x as -1 | 1, z: cornerSign.y as -1 | 1 },
+          rotation: startRoof.rotation, scaleX: 1, scaleZ: 1,
+          deltaX: point.x - activeWorld.x, deltaZ: point.y - activeWorld.y, minimumScale: 0.05, keepRatio: true,
+        })
+        const constrainedLocal = {
+          x: oppositeLocal.x + (activeLocal.x - oppositeLocal.x) * resized.scaleX,
+          y: oppositeLocal.y + (activeLocal.y - oppositeLocal.y) * resized.scaleZ,
+        }
+        snappedPoint = getRoofWorldPointFromLocal(startRoof, constrainedLocal)
       }
       const supportPoints = getRoofPlacementSupportPoints({
         points: [
@@ -6060,31 +6247,11 @@ export function FloorplanCanvas({
           </>
         ) : roof.type === 'up-and-over' ? (
           (() => {
-            const startDistance = Math.min(depth, (roof.ridgeStartChamfer?.distance ?? 0) * METERS_TO_PIXELS)
-            const endDistance = Math.min(depth, (roof.ridgeEndChamfer?.distance ?? 0) * METERS_TO_PIXELS)
-            const pitchSlope = Math.tan(roof.pitchDegrees * Math.PI / 180)
-            const seamWidth = (distanceValue: number, angleDegrees: number | undefined) => Math.min(
-              halfWidth,
-              distanceValue * Math.tan((angleDegrees ?? roof.pitchDegrees) * Math.PI / 180) /
-                Math.max(0.000001, pitchSlope),
-            )
-            const lineProps = {
-              listening: false,
-              stroke: '#64748b',
-              strokeWidth: 1.5 / viewport.scale,
-            }
-
-            return <>
-              <Line points={[0, -halfDepth + startDistance, 0, halfDepth - endDistance]} {...lineProps} />
-              {roof.ridgeStartChamfer ? <>
-                <Line points={[0, -halfDepth + startDistance, -seamWidth(startDistance, roof.ridgeStartChamfer.angleDegrees), -halfDepth]} {...lineProps} />
-                <Line points={[0, -halfDepth + startDistance, seamWidth(startDistance, roof.ridgeStartChamfer.angleDegrees), -halfDepth]} {...lineProps} />
-              </> : null}
-              {roof.ridgeEndChamfer ? <>
-                <Line points={[0, halfDepth - endDistance, -seamWidth(endDistance, roof.ridgeEndChamfer.angleDegrees), halfDepth]} {...lineProps} />
-                <Line points={[0, halfDepth - endDistance, seamWidth(endDistance, roof.ridgeEndChamfer.angleDegrees), halfDepth]} {...lineProps} />
-              </> : null}
-            </>
+            const input = roofJunctionInput(roof, activeFloor.id, 0)
+            return buildRoofProfileFaces(roof, input.extents, input.support).map((face, index) =>
+              <Line key={`profile-${index}`} name="gable-roof-profile" closed
+                points={face.flatMap(p => toRoofGroupPoint(roofToWorld(roof, 0, p)))}
+                listening={false} stroke="#64748b" strokeWidth={1.5 / viewport.scale} />)
           })()
         ) : roof.type === 'lean-to' ? (
           <Line
@@ -6112,11 +6279,15 @@ export function FloorplanCanvas({
         )) : null}
         {resolvedRoof && roof.type === 'up-and-over' ? (['A', 'B'] as const).map((label, index) => {
           const [x, y] = toRoofGroupPoint(roofToWorld(resolvedRoof.roof, resolvedRoof.elevation,
-            [(resolvedRoof.support.minX + resolvedRoof.support.maxX) / 2, 0,
+            [getGableRidgeX(resolvedRoof.roof, resolvedRoof.support), 0,
               index === 0 ? resolvedRoof.support.minY : resolvedRoof.support.maxY]))
           return <Text key={label} text={label} x={x + 8 / viewport.scale} y={y - 6 / viewport.scale}
             fill="#1d4ed8" fontStyle="bold" fontSize={14 / viewport.scale} listening={false} />
         }) : null}
+        {isSelectedRoof && roof.type === 'up-and-over' && roof.asymmetricSides ? (['1', '2'] as const).map((label, index) =>
+          <Text key={`side-${label}`} text={`Side ${label}`}
+            x={(index === 0 ? supportBounds.minX : supportBounds.maxX) * METERS_TO_PIXELS - (index === 0 ? -8 : 48) / viewport.scale}
+            y={18 / viewport.scale} fill="#1d4ed8" fontSize={12 / viewport.scale} listening={false} />) : null}
         {isSelectedRoof
           ? cornerHandles.map((handle) => (
               <Circle
@@ -6185,25 +6356,16 @@ export function FloorplanCanvas({
         depth: roofPlacementBounds.depth * METERS_TO_PIXELS,
         endChamfer: roofPlacementRidgeEndChamfer,
         pitchDegrees: roofPlacementPitchDegrees,
-        rotation: (roofPlacementRotation * 180) / Math.PI,
+        rotation: (-roofPlacementRotation * 180) / Math.PI,
         startChamfer: roofPlacementRidgeStartChamfer,
         width: roofPlacementBounds.width * METERS_TO_PIXELS,
       }
     : null
-  useEffect(() => {
-    if (
-      !isRoofMode ||
-      !roofPlacementBounds ||
-      !roofPlacementSupportBounds
-    ) {
-      onRoofPlacementPreviewChange(null)
-      return
-    }
-
-    onRoofPlacementPreviewChange({
-      floorId: activeFloor.id,
-      roof: {
-        depth: roofPlacementBounds.depth,
+  const roofPlacementRidgeRoof = useMemo<RoofStructure>(() => ({
+        depth: roofPlacementBounds?.depth ?? 4,
+        ...(roofPlacementType === 'up-and-over' ? roofPlacementRidgeSettings : {}),
+        clipsGeometry: roofPlacementClipsGeometry,
+        heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
         thickness: roofPlacementThickness,
         id: '__roof-placement-preview__',
         overhangEnd: roofPlacementEndOverhang,
@@ -6216,7 +6378,7 @@ export function FloorplanCanvas({
           ? roofPlacementSidePositiveOverhang
           : roofPlacementSideOverhang,
         pitchDegrees: roofPlacementPitchDegrees,
-        position: roofPlacementBounds.position,
+        position: roofPlacementBounds?.position ?? { x: 0, y: 0 },
         ridgeEndChamfer: roofPlacementType === 'up-and-over'
           ? roofPlacementRidgeEndChamfer
           : undefined,
@@ -6225,19 +6387,14 @@ export function FloorplanCanvas({
           : undefined,
         rotation: roofPlacementRotation,
         soffitColor: roofPlacementSoffitColor,
-        supportDepth: roofPlacementSupportBounds.depth,
-        supportPosition: roofPlacementSupportBounds.position,
-        supportWidth: roofPlacementSupportBounds.width,
+        supportDepth: roofPlacementSupportBounds?.depth ?? 4,
+        supportPosition: roofPlacementSupportBounds?.position,
+        supportWidth: roofPlacementSupportBounds?.width ?? 4,
         type: roofPlacementType,
-        width: roofPlacementBounds.width,
+        width: roofPlacementBounds?.width ?? 4,
         ...(bayPlacementRoof ?? {}),
-      },
-    })
-  }, [
-    activeFloor.id,
+  }), [
     bayPlacementRoof,
-    isRoofMode,
-    onRoofPlacementPreviewChange,
     roofPlacementBounds?.depth,
     roofPlacementBounds?.position.x,
     roofPlacementBounds?.position.y,
@@ -6246,6 +6403,10 @@ export function FloorplanCanvas({
     roofPlacementOverhangPitchDegrees,
     roofPlacementPitchDegrees,
     roofPlacementThickness,
+    roofPlacementClipsGeometry,
+    roofPlacementHeightOffset,
+    roofPlacementFitSupportingWalls,
+    roofPlacementRidgeSettings,
     roofPlacementRidgeEndChamfer,
     roofPlacementRidgeStartChamfer,
     roofPlacementRotation,
@@ -6259,6 +6420,11 @@ export function FloorplanCanvas({
     roofPlacementSupportBounds?.width,
     roofPlacementType,
   ])
+  useEffect(() => {
+    onRoofPlacementPreviewChange(isRoofMode && roofPlacementBounds && roofPlacementSupportBounds
+      ? { floorId: activeFloor.id, roof: roofPlacementRidgeRoof } : null)
+  }, [activeFloor.id, isRoofMode, !!roofPlacementBounds, !!roofPlacementSupportBounds,
+    onRoofPlacementPreviewChange, roofPlacementRidgeRoof])
   useEffect(() => () => onRoofPlacementPreviewChange(null), [onRoofPlacementPreviewChange])
   const upAndOverRidgeIsHorizontal =
     roofPlacementType === 'up-and-over' &&
@@ -6283,19 +6449,48 @@ export function FloorplanCanvas({
     ? setRoofPlacementSideNegativeOverhang
     : setRoofPlacementSidePositiveOverhang
   const roofSnapAnchorsVisible = !selectedRoofId || isDraggingRoof
+  // Grow gently with zoom while keeping a useful screen size at every scale.
+  const roofSnapMarkerRadius = Math.min(12, 8 * Math.sqrt(Math.max(1, viewport.scale))) / viewport.scale
+  const visibleRoofPlacementSnapPoints = Array.from(new Map(
+    [...roofPlacementSnapPoints, ...roofPlacementPoints].map(point => [getRoofPlacementPointKey(point), point]),
+  ).values())
 
   return (
     <section className="editor-pane">
-      <div className="pane-header">
+      {transformPanelModels[0] ? (
+        <ObjectTransformPanel key={transformPanelModels[0].model.id}
+          values={getModelTransformValues(transformPanelModels[0].model, transformPanelModels[0].bounds, transformPanelModels[0].baseHeight)}
+          window={transformPanelModels[0].window}
+          disabled={isDraggingModel}
+          side={viewport.x + transformPanelModels[0].model.position.x * METERS_TO_PIXELS * viewport.scale > size.width / 2 ? 'left' : 'right'}
+          onCommit={(field, value) => {
+            const transformPanelModel = transformPanelModels[0]
+            if (!transformPanelModel) return
+            const updates = updateModelTransformField(transformPanelModel.model, transformPanelModel.bounds, field, value, transformPanelModel.baseHeight)
+            if (modelTransformPreviewRef) modelTransformPreviewRef.current = { modelId: transformPanelModel.model.id, updates, committed: true }
+            onUpdateModel(transformPanelModel.model.id, updates)
+          }} />
+      ) : null}
+      <div className="pane-header" ref={floorplanMenuRef}>
         <h2>{`2D Floorplan (${projectFileName.replace(/(?:\.house)?\.json$/i, '')})`}</h2>
         <span>
           {isAddingWall
             ? draftWall
-              ? '45 deg steps, Ctrl for free angle'
+              ? 'Ctrl: fine movement · Shift: 45° direction'
               : 'Click to start wall'
-            : 'Select Add Wall'}
+            : `Editing ${activeFloor.name}`}
         </span>
           <div className="floorplan-header-controls">
+          {onGroundImageChange && <GroundImageControls key={activeFloor.id}
+            image={activeFloor.groundImage} editing={groundImageEditing}
+            maxSize={{ width: size.width * 0.65 / viewport.scale / METERS_TO_PIXELS,
+              length: size.height * 0.65 / viewport.scale / METERS_TO_PIXELS }}
+            center={{ x: (size.width / 2 - viewport.x) / viewport.scale / METERS_TO_PIXELS,
+              y: (size.height / 2 - viewport.y) / viewport.scale / METERS_TO_PIXELS }}
+            onChange={onGroundImageChange} onEditingChange={editing => {
+              setGroundImageEditing(editing)
+              if (editing) { onSelectModel(null); onSelectRoof(null); onSelectWall(null); onSelectRoom(null); onExitAddWall(); onCancelModelPlacement() }
+            }} />}
           <div className="segmented-control compact" aria-label="2D transform mode">
             <button
               type="button"
@@ -6511,7 +6706,19 @@ export function FloorplanCanvas({
             ))}
           </Layer>
 
-          <Layer opacity={isRoofMode ? 0.28 : 1} listening={!isRoofMode}>
+          {activeFloor.groundImage && !groundImageEditing && <GroundImageLayer key={`ground-${activeFloor.id}`}
+            image={activeFloor.groundImage} editing={false} zoom={viewport.scale}
+            onChange={image => onGroundImageChange?.(image)} />}
+          <Layer opacity={isRoofMode ? 0.28 : 1} listening={!isRoofMode && !groundImageEditing}>
+            {activeFloor.floorFootprints?.map((ring, index) => (
+              <Line key={`floor-boundary-${index}`} closed
+                points={ring.flatMap(point => {
+                  const canvasPoint = toCanvasPoint(point)
+                  return [canvasPoint.x, canvasPoint.y]
+                })}
+                stroke="#64748b" strokeWidth={1.5 / viewport.scale}
+                dash={[6 / viewport.scale, 4 / viewport.scale]} listening={false} />
+            ))}
             {roomRegions}
 
             {referenceFloors.flatMap((floor) =>
@@ -6535,23 +6742,19 @@ export function FloorplanCanvas({
             )}
 
             {renderedWalls.map((renderedWall) => {
-              const polygon = getWallPolygon(renderedWall).flatMap((point) => {
+              const polygon = (wallPlanPolygonsById.get(renderedWall.wall.id) ?? getWallPolygon(renderedWall)).flatMap((point) => {
                 const canvasPoint = toCanvasPoint(point)
                 return [canvasPoint.x, canvasPoint.y]
               })
-              const isSelectedWall =
-                renderedWall.wall.id === selectedWallId ||
-                selectedWallIds.includes(renderedWall.wall.id)
-
               return (
                 <Line
                   key={renderedWall.wall.id}
                   points={polygon}
                   closed
                   draggable={!isAddingWall}
-                  fill="#1e293b"
-                  stroke={isSelectedWall ? '#2563eb' : '#0f172a'}
-                  strokeWidth={isSelectedWall ? 3 : 1}
+                  fill={wallPlanPerimeters.length === 0 ? '#aab4bf' : 'rgba(0, 0, 0, 0)'}
+                  stroke={wallPlanPerimeters.length === 0 ? '#334155' : undefined}
+                  strokeWidth={1.5 / viewport.scale}
                   lineJoin="miter"
                   onClick={(event) => {
                     if (isAddingWall) return
@@ -6638,26 +6841,7 @@ export function FloorplanCanvas({
                       x: pointerPoint.x - dragState.startPointer.x,
                       y: pointerPoint.y - dragState.startPointer.y,
                     }
-                    const shouldLockAxis = event.evt.ctrlKey
-                    const shouldSnapToStep = !event.evt.shiftKey
-                    const constrainedDelta =
-                      shouldLockAxis && Math.abs(rawDelta.x) > Math.abs(rawDelta.y)
-                        ? { x: rawDelta.x, y: 0 }
-                        : shouldLockAxis
-                          ? { x: 0, y: rawDelta.y }
-                          : rawDelta
-                    const delta = shouldSnapToStep
-                      ? {
-                          x:
-                            Math.round(
-                              constrainedDelta.x / MODEL_TRANSLATION_STEP_METERS,
-                            ) * MODEL_TRANSLATION_STEP_METERS,
-                          y:
-                            Math.round(
-                              constrainedDelta.y / MODEL_TRANSLATION_STEP_METERS,
-                            ) * MODEL_TRANSLATION_STEP_METERS,
-                        }
-                      : constrainedDelta
+                    const delta = getWallDragDelta(rawDelta, event.evt, MODEL_TRANSLATION_STEP_METERS)
                     const seedWallIdSet = new Set(dragState.seedWallIds)
                     const seedWalls = dragState.seedWallIds.flatMap((wallId) => {
                       const startWall = dragState.startWalls[wallId]
@@ -6767,6 +6951,46 @@ export function FloorplanCanvas({
               )
             })}
 
+            {wallPlanPerimeters.map((perimeter, index) => (
+              <Shape
+                key={`${perimeter.componentId}:${index}`}
+                fill="#aab4bf"
+                stroke="#334155"
+                strokeWidth={1.5 / viewport.scale}
+                lineJoin="miter"
+                listening={false}
+                sceneFunc={(context, shape) => {
+                  context.beginPath()
+                  for (const ring of [perimeter.outline, ...perimeter.holes]) {
+                    ring.forEach((point, index) => {
+                      const canvasPoint = toCanvasPoint(point)
+                      if (index === 0) context.moveTo(canvasPoint.x, canvasPoint.y)
+                      else context.lineTo(canvasPoint.x, canvasPoint.y)
+                    })
+                    context.closePath()
+                  }
+                  context.fillStrokeShape(shape)
+                }}
+              />
+            ))}
+
+            {renderedWalls.filter(({ wall }) =>
+              wall.id === selectedWallId || selectedWallIds.includes(wall.id),
+            ).map((renderedWall) => (
+              <Line
+                key={`${renderedWall.wall.id}-selection`}
+                points={(wallPlanPolygonsById.get(renderedWall.wall.id) ?? getWallPolygon(renderedWall)).flatMap((point) => {
+                  const canvasPoint = toCanvasPoint(point)
+                  return [canvasPoint.x, canvasPoint.y]
+                })}
+                closed
+                fill="rgba(37, 99, 235, 0.12)"
+                stroke="#2563eb"
+                strokeWidth={2.5 / viewport.scale}
+                listening={false}
+              />
+            ))}
+
             {renderedWalls.flatMap((renderedWall) => {
               const isSelectedWall =
                 renderedWall.wall.id === selectedWallId ||
@@ -6855,10 +7079,10 @@ export function FloorplanCanvas({
                         endpoint === 'start'
                           ? dragState.startWall.end
                           : dragState.startWall.start
-                      const lockedPoint = event.evt.ctrlKey
+                      const lockedPoint = event.evt.ctrlKey && !event.evt.shiftKey
                         ? rawPoint
                         : snapToWallDirection(oppositeEndpoint, rawPoint)
-                      const alignmentGuide = event.evt.ctrlKey
+                      const alignmentGuide = event.evt.ctrlKey || event.evt.shiftKey
                         ? null
                         : getClosestDirectionalAlignmentGuide({
                             directionEnd: lockedPoint,
@@ -6872,13 +7096,8 @@ export function FloorplanCanvas({
                         lockedPoint,
                         alignmentGuide,
                       )
-                      const snapTarget = event.evt.ctrlKey
-                        ? getWallEndpointSnapTarget(
-                            alignedPoint,
-                            renderedWall.wall,
-                            endpoint,
-                            oppositeEndpoint,
-                          )
+                      const snapTarget = event.evt.ctrlKey || event.evt.shiftKey
+                        ? null
                         : getWallEndpointDirectionalSnapTarget(
                             alignedPoint,
                             alignedPoint,
@@ -6996,9 +7215,9 @@ export function FloorplanCanvas({
                   toCanvasPoint(measurementWall.end).x,
                   toCanvasPoint(measurementWall.end).y,
                 ]}
-                stroke="#2563eb"
+                stroke={draftWall ? '#248cff' : '#2563eb'}
                 strokeWidth={0.3 * METERS_TO_PIXELS}
-                dash={[10, 8]}
+                dash={draftWall ? undefined : [10, 8]}
                 lineCap="butt"
               />
             ) : null}
@@ -7145,13 +7364,20 @@ export function FloorplanCanvas({
               </>
             ) : null}
 
-            {walls.length === 0 && !draftWall ? (
+            {walls.length === 0 &&
+            !activeFloor.floorFootprints?.length &&
+            activeFloor.models.length === 0 &&
+            !activeFloor.roofs?.length &&
+            !draftWall && !isRoofMode && !placementModel ? (
               <Text
                 x={24}
                 y={24}
-                text="Click Add Wall, then drag on the grid."
+                text={isAddingWall
+                  ? 'Click a start point, then click an end point. Esc to stop.'
+                  : 'To draw walls, choose Add wall, then click a start and end point.'}
                 fill="#64748b"
                 fontSize={15}
+                listening={false}
               />
             ) : null}
             {placementModel ? (
@@ -7167,6 +7393,22 @@ export function FloorplanCanvas({
           {isRoofMode ? (
             <Layer>
               {selectedRoofId ? null : roofFootprints}
+              {roofSnapAnchorsVisible ? <Group listening={false}>
+                {Array.from(new Set(roofPlacementPoints.map(point => point.x))).map(x => {
+                  const active = hoverRoofPlacementPoint && Math.abs(hoverRoofPlacementPoint.x - x) < 1e-6
+                  return <Line key={`roof-guide-x-${x}`} name="roof-placement-guide-vertical"
+                    points={[x * METERS_TO_PIXELS, visibleBounds.top, x * METERS_TO_PIXELS, visibleBounds.bottom]}
+                    stroke="#248cff" opacity={active ? 0.9 : 0.45} strokeWidth={(active ? 1.5 : 1) / viewport.scale}
+                    dash={active ? undefined : [6 / viewport.scale, 5 / viewport.scale]} />
+                })}
+                {Array.from(new Set(roofPlacementPoints.map(point => point.y))).map(y => {
+                  const active = hoverRoofPlacementPoint && Math.abs(hoverRoofPlacementPoint.y - y) < 1e-6
+                  return <Line key={`roof-guide-y-${y}`} name="roof-placement-guide-horizontal"
+                    points={[visibleBounds.left, y * METERS_TO_PIXELS, visibleBounds.right, y * METERS_TO_PIXELS]}
+                    stroke="#248cff" opacity={active ? 0.9 : 0.45} strokeWidth={(active ? 1.5 : 1) / viewport.scale}
+                    dash={active ? undefined : [6 / viewport.scale, 5 / viewport.scale]} />
+                })}
+              </Group> : null}
               {bayPlacementRoof && bayPlacementGeometry ? <Group listening={false}>
                 {buildBayRoofFaces(bayPlacementGeometry).map((face, index) => <Line key={index} closed
                   points={face.flatMap((p) => { const [x, , y] = roofToWorld(bayPlacementRoof, 0, p); const c = toCanvasPoint({ x, y }); return [c.x, c.y] })}
@@ -7190,40 +7432,28 @@ export function FloorplanCanvas({
                     dash={[10 / viewport.scale, 6 / viewport.scale]}
                   />
                   {roofPlacementType === 'up-and-over' ? (() => {
-                    const halfDepth = roofPlacementPreview.depth / 2
-                    const halfWidth = roofPlacementPreview.width / 2
-                    const pitchSlope = Math.tan(roofPlacementPreview.pitchDegrees * Math.PI / 180)
-                    const startDistance = Math.min(
-                      roofPlacementPreview.depth,
-                      (roofPlacementPreview.startChamfer?.distance ?? 0) * METERS_TO_PIXELS,
-                    )
-                    const endDistance = Math.min(
-                      roofPlacementPreview.depth,
-                      (roofPlacementPreview.endChamfer?.distance ?? 0) * METERS_TO_PIXELS,
-                    )
-                    const seamWidth = (distance: number, angleDegrees: number | undefined) => Math.min(
-                      halfWidth,
-                      distance * Math.tan((angleDegrees ?? roofPlacementPreview.pitchDegrees) * Math.PI / 180) /
-                        Math.max(0.000001, pitchSlope),
-                    )
-                    const startWidth = seamWidth(startDistance, roofPlacementPreview.startChamfer?.angleDegrees)
-                    const endWidth = seamWidth(endDistance, roofPlacementPreview.endChamfer?.angleDegrees)
-                    const lineProps = { stroke: '#1d4ed8', strokeWidth: 1.5 / viewport.scale }
-
+                    const input = roofJunctionInput(roofPlacementRidgeRoof, activeFloor.id, 0)
+                    const toGroup = (p: [number, number, number]) => {
+                      const [x, , z] = roofToWorld(roofPlacementRidgeRoof, 0, p)
+                      const dx = x - roofPlacementRidgeRoof.position.x, dz = z - roofPlacementRidgeRoof.position.y
+                      const c = Math.cos(-roofPlacementRotation), sin = Math.sin(-roofPlacementRotation)
+                      return [(dx * c + dz * sin) * METERS_TO_PIXELS, (-dx * sin + dz * c) * METERS_TO_PIXELS]
+                    }
+                    const ridgeX = getGableRidgeX(roofPlacementRidgeRoof, input.support)
                     return <>
-                      <Line points={[0, -halfDepth + startDistance, 0, halfDepth - endDistance]} {...lineProps} />
-                      {roofPlacementPreview.startChamfer ? <>
-                        <Line points={[0, -halfDepth + startDistance, -startWidth, -halfDepth]} {...lineProps} />
-                        <Line points={[0, -halfDepth + startDistance, startWidth, -halfDepth]} {...lineProps} />
-                      </> : null}
-                      {roofPlacementPreview.endChamfer ? <>
-                        <Line points={[0, halfDepth - endDistance, -endWidth, halfDepth]} {...lineProps} />
-                        <Line points={[0, halfDepth - endDistance, endWidth, halfDepth]} {...lineProps} />
-                      </> : null}
-                      <Text text="A" x={8 / viewport.scale} y={-halfDepth - 6 / viewport.scale}
-                        fill="#1d4ed8" fontStyle="bold" fontSize={14 / viewport.scale} />
-                      <Text text="B" x={8 / viewport.scale} y={halfDepth - 6 / viewport.scale}
-                        fill="#1d4ed8" fontStyle="bold" fontSize={14 / viewport.scale} />
+                      {buildRoofProfileFaces(roofPlacementRidgeRoof, input.extents, input.support).map((face, index) =>
+                        <Line key={index} name="gable-roof-profile" closed points={face.flatMap(toGroup)}
+                          stroke="#1d4ed8" strokeWidth={1.5 / viewport.scale} />)}
+                      {(['A', 'B'] as const).map((label, index) => {
+                        const [x, y] = toGroup([ridgeX, 0, index === 0 ? input.support.minY : input.support.maxY])
+                        return <Text key={label} text={label} x={x + 8 / viewport.scale} y={y - 6 / viewport.scale}
+                          fill="#1d4ed8" fontStyle="bold" fontSize={14 / viewport.scale} />
+                      })}
+                      {roofPlacementRidgeRoof.asymmetricSides ? (['1', '2'] as const).map((label, index) => {
+                        const [x, y] = toGroup([index === 0 ? input.support.minX : input.support.maxX, 0, 0])
+                        return <Text key={label} text={`Side ${label}`} x={x - (index === 0 ? -8 : 48) / viewport.scale}
+                          y={y + 18 / viewport.scale} fill="#1d4ed8" fontSize={12 / viewport.scale} />
+                      }) : null}
                     </>
                   })() : null}
                   {roofPlacementType === 'lean-to' ? (
@@ -7250,16 +7480,19 @@ export function FloorplanCanvas({
                   fill={index < 2 ? '#b45309' : '#1d4ed8'} fontStyle="bold" listening={false} />
               }) : null}
               {bayPlacementRoof ? (() => {
-                const outline = getBayRoofPolygon(bayPlacementRoof)
-                const rear = { x: (outline[0].x + outline[1].x) / 2, y: outline[0].y }
-                const end = { x: rear.x, y: rear.y + bayPlacementRoof.depth * 0.6 }
-                const points = [rear, end].flatMap((p) => {
+                const ridge = getBayRoofRidge(bayPlacementGeometry ?? bayPlacementRoof)
+                const toPoints = (vertices: Point[]) => vertices.flatMap((p) => {
                   const [x, , y] = roofToWorld(bayPlacementRoof, 0, [p.x, 0, p.y])
                   const c = toCanvasPoint({ x, y }); return [c.x, c.y]
                 })
-                return <Arrow points={points} stroke="#b45309" fill="#b45309"
-                  strokeWidth={2 / viewport.scale} pointerLength={10 / viewport.scale}
-                  pointerWidth={8 / viewport.scale} listening={false} />
+                const arrowLength = Math.min(0.5, ridge.maxLength - ridge.length + 0.05)
+                return <Group listening={false}>
+                  {ridge.length > 0 ? <Line name="bay-roof-ridge" points={toPoints([ridge.start, ridge.end])}
+                    stroke="#248cff" strokeWidth={2.5 / viewport.scale} /> : null}
+                  {arrowLength >= 0.15 ? <Arrow points={toPoints([ridge.end, { x: ridge.end.x, y: ridge.end.y + arrowLength }])}
+                    stroke="#b45309" fill="#b45309" strokeWidth={2 / viewport.scale}
+                    pointerLength={10 / viewport.scale} pointerWidth={8 / viewport.scale} /> : null}
+                </Group>
               })() : null}
               {roofPlacementPoints.length > 1 && roofPlacementType !== 'bay' ? (
                 <Line
@@ -7274,7 +7507,7 @@ export function FloorplanCanvas({
                 />
               ) : null}
               {roofSnapAnchorsVisible
-                ? roofPlacementSnapPoints.map((point) => {
+                ? visibleRoofPlacementSnapPoints.map((point) => {
                     const canvasPoint = toCanvasPoint(point)
                     const isSelectedPoint = roofPlacementPoints.some(
                       (selectedPoint) => pointsMatch(selectedPoint, point),
@@ -7285,10 +7518,11 @@ export function FloorplanCanvas({
                         key={`roof-snap-${getRoofPlacementPointKey(point)}`}
                         x={canvasPoint.x}
                         y={canvasPoint.y}
-                        radius={Math.max(4, 6 / viewport.scale)}
+                        radius={roofSnapMarkerRadius}
                         fill={isSelectedPoint ? '#22c55e' : '#ffffff'}
                         stroke={isSelectedPoint ? '#15803d' : '#0f172a'}
-                        strokeWidth={Math.max(1, 1.5 / viewport.scale)}
+                        strokeWidth={1.5 / viewport.scale}
+                        hitStrokeWidth={10 / viewport.scale}
                         onClick={(event) => {
                           event.cancelBubble = true
                           toggleRoofPlacementPoint(point)
@@ -7311,13 +7545,15 @@ export function FloorplanCanvas({
                 return (
                   <Circle
                     key="roof-hover-wall-anchor"
+                    name="roof-hover-wall-anchor"
                     x={canvasPoint.x}
                     y={canvasPoint.y}
-                    radius={Math.max(4, 6 / viewport.scale)}
+                    radius={roofSnapMarkerRadius}
                     fill={isSelectedPoint ? '#22c55e' : '#fff7ed'}
                     opacity={0.92}
                     stroke={isSelectedPoint ? '#15803d' : '#f97316'}
-                    strokeWidth={Math.max(1, 2 / viewport.scale)}
+                    strokeWidth={2 / viewport.scale}
+                    hitStrokeWidth={10 / viewport.scale}
                     onClick={(event) => {
                       event.cancelBubble = true
                       toggleRoofPlacementPoint(hoverRoofPlacementPoint)
@@ -7332,12 +7568,21 @@ export function FloorplanCanvas({
               {selectedRoofId ? roofFootprints : null}
             </Layer>
           ) : null}
+          {!isRoofMode && selectedRoofId ? <Layer listening={false}>{roofFootprints}</Layer> : null}
+          {activeFloor.groundImage && groundImageEditing && <GroundImageLayer key={`editing-ground-${activeFloor.id}`}
+            image={activeFloor.groundImage} editing zoom={viewport.scale}
+            onChange={image => onGroundImageChange?.(image)} />}
         </Stage>
 
         {!isRoofMode && selectedRoof ? (
           <div className="roof-placement-panel" aria-label="Selected roof settings">
-            <RoofPitchFields roof={selectedRoof} onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
+            <RoofPitchFields roof={selectedRoof}
+              bayRidgeMaxLength={selectedRoof.type === 'bay' ? getBayRoofRidge(selectedRoofGeometry?.roof ?? selectedRoof).maxLength : undefined}
+              onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
             <RoofConnectionFields roof={selectedRoof} floors={floors} resolvedRoof={selectedRoofGeometry} onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
+            <RoofRidgeFields roof={selectedRoof} floors={floors}
+              floorId={selectedRoofCandidate?.floorId ?? activeFloor.id} candidate={selectedRoofCandidate}
+              onChange={updates => onUpdateRoof(selectedRoof.id, updates)} />
           </div>
         ) : null}
 
@@ -7348,7 +7593,7 @@ export function FloorplanCanvas({
           >
             <header>
               <h2>Roof</h2>
-              <p>{roofPlacementType === 'bay' ? 'Select the two mounting points against the wall first, then the outer bay corners. Tiles fan out from the centre of the mounting edge.' : 'Select the roof snap points on the plan.'}</p>
+              <p>{roofPlacementType === 'bay' ? 'Select the two mounting points against the wall first, then the outer bay corners. The ridge extends from the centre of the mounting edge.' : 'Select the roof snap points on the plan.'} Blue guides align points horizontally and vertically. Hold Ctrl for free placement.</p>
             </header>
             <label>
               <span>Type</span>
@@ -7398,8 +7643,13 @@ export function FloorplanCanvas({
               </label>
             )}
             <RoofPitchFields
+              bayRidgeMaxLength={bayPlacementGeometry ? getBayRoofRidge(bayPlacementGeometry).maxLength : undefined}
               roof={{
                 type: roofPlacementType,
+                clipsGeometry: roofPlacementClipsGeometry,
+                heightOffset: roofPlacementHeightOffset,
+                fitSupportingWalls: roofPlacementFitSupportingWalls,
+                bayRidgeLength: roofPlacementBayRidgeLength,
                 thickness: roofPlacementThickness,
                 pitchDegrees: roofPlacementPitchDegrees,
                 overhangPitchDegrees: roofPlacementOverhangPitchDegrees,
@@ -7408,6 +7658,10 @@ export function FloorplanCanvas({
                 ridgeEndChamfer: roofPlacementRidgeEndChamfer,
               }}
               onChange={(updates) => {
+                if (updates.clipsGeometry !== undefined) setRoofPlacementClipsGeometry(updates.clipsGeometry)
+                if (updates.heightOffset !== undefined) setRoofPlacementHeightOffset(updates.heightOffset)
+                if (updates.fitSupportingWalls !== undefined) setRoofPlacementFitSupportingWalls(updates.fitSupportingWalls)
+                if (updates.bayRidgeLength !== undefined) setRoofPlacementBayRidgeLength(updates.bayRidgeLength)
                 if (updates.thickness !== undefined) setRoofPlacementThickness(updates.thickness)
                 if (updates.pitchDegrees !== undefined) setRoofPlacementPitchDegrees(updates.pitchDegrees)
                 if (updates.soffitColor !== undefined) setRoofPlacementSoffitColor(updates.soffitColor)
@@ -7416,6 +7670,8 @@ export function FloorplanCanvas({
                 if ('ridgeEndChamfer' in updates) setRoofPlacementRidgeEndChamfer(updates.ridgeEndChamfer)
               }}
             />
+            <RoofRidgeFields roof={roofPlacementRidgeRoof} floors={floors} floorId={activeFloor.id}
+              onChange={updates => setRoofPlacementRidgeSettings(current => ({ ...current, ...updates }))} />
             {roofPlacementType !== 'bay' ? <label>
               <span>End overhang</span>
               <input

@@ -1,4 +1,6 @@
 import type { Point, Wall } from '../types.ts'
+import * as polygonClipping from 'polygon-clipping'
+import type { Polygon } from 'polygon-clipping'
 import type { RenderedWall } from '../wallGeometry.ts'
 import type { DetectedRoom } from '../wallTopology.ts'
 import { unionRenderedWallFootprints } from '../wallBooleanGeometry.ts'
@@ -10,6 +12,13 @@ import {
 import { buildWallGraph } from './wallGraph.ts'
 import type { WallMeshFace, WallMeshVertex } from './wallMesh.ts'
 import type { WallSide } from './wallGraph.ts'
+import { buildWallBodyPerimeters } from './wallBodyPerimeter.ts'
+
+const polygonClippingRuntime = polygonClipping as typeof polygonClipping & {
+  default?: typeof polygonClipping
+}
+const intersectPolygons =
+  polygonClippingRuntime.intersection ?? polygonClippingRuntime.default?.intersection
 
 const MATCH_EPSILON_METERS = 0.025
 const MIN_FACE_LENGTH_METERS = 0.01
@@ -1171,13 +1180,50 @@ export function buildRoomSurfaceFloorPolygons(options: {
   rooms: DetectedRoom[]
 }) {
   const polygonsByRoomSignature = new Map<string, Point[]>()
+  // Floors must meet the rendered wall skin, including concave miters. The
+  // topology polygons retain stable room identities but can contain old corner
+  // caps, so match them to the enclosed spaces in the actual wall body.
+  const holes = buildWallBodyPerimeters(
+    options.renderedWalls.map(({ wall }) => wall),
+  ).perimeters.flatMap((perimeter) => perimeter.holes)
+  const toPolygon = (points: Point[]): Polygon => [
+    [...points, points[0]].map(({ x, y }) => [x, y]),
+  ]
+  const ringArea = (ring: number[][]) => Math.abs(ring.reduce((sum, point, index) => {
+    const next = ring[(index + 1) % ring.length]
+    return sum + point[0] * next[1] - next[0] * point[1]
+  }, 0)) / 2
+  const candidates = holes.flatMap((hole, holeIndex) => {
+    const polygon = toPolygon(hole)
+    const area = ringArea(polygon[0])
+    return options.rooms.flatMap((room) => {
+      const roomPolygon = toPolygon(room.polygon)
+      const overlap = intersectPolygons(polygon, roomPolygon).reduce(
+        (sum, [outline, ...voids]) =>
+          sum + ringArea(outline) - voids.reduce((total, ring) => total + ringArea(ring), 0),
+        0,
+      )
+      const score = overlap / Math.max(area, ringArea(roomPolygon[0]))
+      return score > 0.5 ? [{ hole, holeIndex, room, score }] : []
+    })
+  }).sort((first, second) => second.score - first.score)
+  const matchedHoles = new Set<number>()
+  for (const { hole, holeIndex, room } of candidates) {
+    if (matchedHoles.has(holeIndex) || polygonsByRoomSignature.has(room.signature)) continue
+    // Preserve the clockwise winding used by room floor polygons.
+    polygonsByRoomSignature.set(room.signature, [...hole].reverse())
+    matchedHoles.add(holeIndex)
+  }
+  const unmatchedRooms = options.rooms.filter((room) => !polygonsByRoomSignature.has(room.signature))
+  if (unmatchedRooms.length === 0) return polygonsByRoomSignature
+
   const wallPlansById = new Map(
     buildWallGeometryPlans(
       options.renderedWalls.map((renderedWall) => renderedWall.wall),
     ).map((plan) => [plan.wallId, plan]),
   )
 
-  buildRoomWallSurfaceRenderPlans(options).forEach((plan) => {
+  buildRoomWallSurfaceRenderPlans({ ...options, rooms: unmatchedRooms }).forEach((plan) => {
     if (plan.problems.length > 0) {
       polygonsByRoomSignature.set(plan.room.signature, plan.room.polygon)
       return

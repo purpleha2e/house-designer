@@ -25,6 +25,34 @@ test('roof_tests_2 joined branch renders the extension saved in its ridge-end se
   assert.ok(Number.isFinite(height(getRoofRenderableOuterFaces(resolved), point[0], point[2])))
 })
 
+test('a saved higher branch reaches its explicit passive target instead of exposing its end gable', () => {
+  const project = JSON.parse(readFileSync(new URL('./fixtures/roofJoinRegression.json', import.meta.url), 'utf8'))
+  const before = JSON.stringify(project)
+  for (const reversed of [false, true]) {
+    const floors = structuredClone(project.floors)
+    if (reversed) floors.forEach((floor: { roofs: RoofStructure[] }) => floor.roofs.reverse())
+    const candidates = resolveBuildingRoofs(floors)
+    const branch = candidates.find(r => r.roof.id === '8e321618-2fa0-4ea5-99ec-8210302fe639')!
+    const main = candidates.find(r => r.roof.id === 'b46c5b90-ecdc-4d0f-a6a5-976b793c7270')!
+    assert.equal(branch.roof.clipsGeometry, false)
+    assert.equal(main.roof.clipsGeometry, false)
+    assert.equal(branch.resolved.connections[1].state, 'joined')
+    assert.ok(branch.resolved.resolvedExtents.maxY > branch.resolved.extents.maxY + 1)
+    const oldEnd = branch.roof.position.y + branch.resolved.support.maxY + 0.3
+    for (const x of [branch.roof.position.x - 0.5, branch.roof.position.x, branch.roof.position.x + 0.5]) {
+      assert.ok(Number.isFinite(height(branch.resolved.faces, x, oldEnd)),
+        'the roof continues past the former visible gable at its mounting wall')
+    }
+    assert.equal(height(branch.resolved.faces, branch.roof.position.x, main.roof.position.y + 0.3), -Infinity,
+      'the generated extension stops at the receiving ridge')
+    assert.equal(height(main.resolved.faces, branch.roof.position.x, oldEnd), -Infinity,
+      'the joined receiving slope is hidden beneath the higher branch')
+    assert.ok(Number.isFinite(height(main.resolved.faces, main.roof.position.x, main.roof.position.y)),
+      'the receiver remains exposed away from the branch')
+  }
+  assert.equal(JSON.stringify(project), before, 'joining preserves saved roof dimensions and flags')
+})
+
 test('a higher overhang does not cut a lower lean-to away from its supporting facade', () => {
   const leanTo = input(roof('lean', 0, 0, { type: 'lean-to', pitchDegrees: 20 }))
   const upper = input(roof('upper', 4, 0, { width: 5, overhangSide: 0.5 }), 5, 'upper')
@@ -68,6 +96,30 @@ test('automatic T junction extends only the incoming end and stops at the receiv
   assert.equal(height(a.faces, 1, 1.5), -Infinity)
   assert.ok(Number.isFinite(height(b.faces, 1, 1.5)))
   assert.equal(height(a.coverageFaces, 0, 1), -Infinity, 'extension does not acquire wall coverage')
+})
+
+test('joining an angled roof cannot create an extra flap past its far slope', () => {
+  for (const direction of [-1, 1]) {
+    const incoming = roof('branch', 0, -3 * direction)
+    const receiving = roof('main', 0, 2.8 * direction, {
+      rotation: Math.PI / 4, width: 6, supportWidth: 6, depth: 10, supportDepth: 10,
+    })
+    const [resolved] = resolveRoofJunctions([input(incoming), input(receiving)])
+    const connection = resolved.connections.find(c => c.end === (direction > 0 ? 'ridgeEnd' : 'ridgeStart'))
+    assert.equal(connection?.state, 'joined')
+    const sourceSide = Math.sign(roofToLocal(receiving, 2.4,
+      roofToWorld(incoming, 2.4, [0, 0, 0]))[0])
+    assert.ok(resolved.structuralFaces.flat().some(point =>
+      direction * roofToLocal(incoming, 2.4, point)[2] > 3.01), 'join still reaches the receiving roof')
+    for (const faces of [resolved.structuralFaces, resolved.faces, getRoofRenderableOuterFaces(resolved)]) {
+      for (const point of faces.flat()) {
+        const along = direction * roofToLocal(incoming, 2.4, point)[2]
+        const receiverSide = sourceSide * roofToLocal(receiving, 2.4, point)[0]
+        assert.ok(along <= 3 + 1e-7 || receiverSide >= -1e-7,
+          'generated roof must not reappear across the receiving ridge')
+      }
+    }
+  }
 })
 
 test('a joined roof remains over the wall beside the shorter chamfered receiving roof', () => {

@@ -17,13 +17,19 @@ import { buildCeilingSlabFootprints } from '../src/ceilingSlabFootprint.ts'
 import { buildStoreyGeometry } from '../src/storeyGeometry.ts'
 import { intersectSolid, prismSolid, solidBoundaryFaces, subtractSolid, solidPolygonArea } from '../src/convexSolid.ts'
 import type { FloorLevel, RoofStructure, Wall } from '../src/types.ts'
+import { createCeilingLoftFloor } from '../src/loftFloor.ts'
+import { getGableSurface } from '../src/gableSurfaces.ts'
+import { getSurfaceSelectionFloorId } from '../src/surfaceSelection.ts'
+import { replaceRoofMaterialAssignment, roofSurfaceTargetsMatch } from '../src/roofMaterialAssignments.ts'
 
 function hitGables(gables: ReturnType<typeof buildBuildingRoofGables>, origin: number[], direction: number[]) {
   const meshes = gables.map(gable => {
     const geometry = new BufferGeometry()
     geometry.setAttribute('position', new Float32BufferAttribute(gable.faces.flatMap(face =>
       face.points.slice(1, -1).flatMap((point, i) => [face.points[0], point, face.points[i + 2]].flat())), 3))
-    return new Mesh(geometry, new MeshBasicMaterial({ side: DoubleSide }))
+    const mesh = new Mesh(geometry, new MeshBasicMaterial({ side: DoubleSide }))
+    mesh.userData.gableFaces = gable.faces.flatMap(face => face.points.slice(1, -1).map(() => face))
+    return mesh
   })
   const hits = new Raycaster(new Vector3(...origin), new Vector3(...direction)).intersectObjects(meshes)
   meshes.forEach(mesh => { mesh.geometry.dispose(); mesh.material.dispose() })
@@ -69,6 +75,116 @@ test('partial joins leave only the exposed gable and are independent of roof ord
     areas.push(gables.flatMap(gable => gable.faces).reduce((sum, face) => sum + solidPolygonArea(face.points), 0))
   }
   assert.ok(Math.abs(areas[0] - areas[1]) < 1e-6)
+})
+
+test('adding a wall-less loft preserves exterior gables and keeps joined attic openings', () => {
+  for (const partialJoin of [false, true]) {
+    const floor = joinedFloor(false)
+    if (partialJoin) Object.assign(floor.roofs![1], {
+      position: { x: 0.7, y: 2 }, supportPosition: { x: 0.7, y: 2 },
+      supportWidth: 2, width: 2.3, pitchDegrees: 40,
+    })
+    const loft = createCeilingLoftFloor([floor], floor.id, 'loft')!
+    const floors = [floor, loft]
+    const roofs = resolveBuildingRoofs(floors)
+    const gables = buildBuildingRoofGables(floors, roofs, buildBuildingRoomVolumes(floors, roofs))
+    const front = hitGables(gables, [0, 3.3, -5], [0, 0, 1])[0]
+    assert.ok(front && Math.abs(front.point.z + 4.15) < 1e-5, 'front exterior gable stays closed above the loft')
+    assert.equal(front.object.userData.gableFaces[front.faceIndex!].interior, false)
+    const inside = hitGables(gables, [0, 3.3, -3], [0, 0, -1])[0]
+    assert.ok(inside)
+    assert.equal(inside.object.userData.gableFaces[inside.faceIndex!].interior, true,
+      'the room-facing gable retains its interior finish')
+    const rear = hitGables(gables, [0.7, 3.1, 5], [0, 0, -1])[0]
+    assert.ok(rear && rear.point.z > 3.5, 'rear exterior gable stays closed above the loft')
+    const join = hitGables(gables, [0.7, 2.9, -1], [0, 0, 1])[0]
+    assert.ok(join && join.point.z > 3.5, 'the opening between joined roofs remains open')
+    if (partialJoin) {
+      const exposed = hitGables(gables, [-1.3, 2.9, -1], [0, 0, 1])[0]
+      assert.ok(exposed && exposed.point.z < 0.2, 'gable beside the narrower roof stays closed')
+      const above = hitGables(gables, [0, 4.1, -1], [0, 0, 1])[0]
+      assert.ok(above && above.point.z < 0.2, 'gable above the lower adjoining roof stays closed')
+      const outside = hitGables(gables, [0, 4.1, 1], [0, 0, -1])[0]
+      assert.ok(outside)
+      assert.equal(outside.object.userData.gableFaces[outside.faceIndex!].interior, false,
+        'exposed gable above the lower roof retains its exterior finish')
+    }
+  }
+})
+
+test('loft partitions meet the gable interior without replacing its exterior brick face', () => {
+  for (const reversed of [false, true]) {
+    const ground = joinedFloor(false)
+    const loft = createCeilingLoftFloor([ground], ground.id, 'loft')!
+    const wall: Wall = { id: 'knee', kind: 'internal', thickness: 0.15, height: 2.4, allowRoofClipHeight: true,
+      start: { x: -0.8, y: -4.15 }, end: { x: -0.8, y: 4.15 } }
+    if (reversed) [wall.start, wall.end] = [wall.end, wall.start]
+    loft.walls = [wall]
+    const floors = [ground, loft], original = structuredClone(floors)
+    const roofs = resolveBuildingRoofs(floors)
+    const gables = buildBuildingRoofGables(floors, roofs, buildBuildingRoomVolumes(floors, roofs))
+    for (const sign of [-1, 1]) {
+      const exterior = hitGables(gables, [-0.8, 3.1, sign * 5], [0, 0, -sign])[0]
+      assert.ok(exterior && Math.abs(exterior.point.z - sign * 4.15) < 1e-5, 'brick skin spans the partition end')
+      assert.equal(exterior.object.userData.gableFaces[exterior.faceIndex!].interior, false)
+    }
+    const faces = buildFloorWallSurfaceFaces({ renderedWalls: getRenderedWalls(loft.walls), rooms: [], useWallBodyPerimeterMesh: true })
+    const options = createWallRoofClipOptions({ floorId: loft.id, floorElevation: loft.elevation,
+      walls: loft.walls, clipToInheritedRoofs: true,
+      gableWallVolumes: gables.flatMap(gable => gable.solids.map(solid => solid.planes)),
+      roofs: roofs.map(({ floorId, roof, resolved }) => ({ floorId,
+        supportPolygon: roofBoundsPolygon(resolved, resolved.support),
+        undersideFaces: getRoofCoverageUndersideFaces(resolved),
+      })),
+    })
+    const clipped = runWallRoofClipJob(structuredClone(createWallRoofClipJob(faces, options)))
+    const sides = clipped.filter(face => face.kind === 'side')
+    assert.ok(sides.length)
+    assert.ok(sides.every(face => face.vertices.every(vertex => Math.abs(vertex.position[2]) <= 3.85 + 1e-6)),
+      'partition faces end at the inside of both gables')
+    assert.ok(sides.some(face => face.vertices.some(vertex => Math.abs(Math.abs(vertex.position[2]) - 3.85) < 1e-6)),
+      'the partition reaches the gable without a gap')
+    assert.ok(clipped.every(face => face.vertices.every(vertex => vertex.uv.every(Number.isFinite))))
+    assert.deepEqual(floors, original, 'saved wall endpoints remain snapped to the boundary')
+  }
+})
+
+test('inside gable selection and paint belong to the loft end, independently of its supporting wall', () => {
+  const floor = joinedFloor(false)
+  floor.roofs = [{ ...floor.roofs![0], position: { x: 0, y: 0 }, supportPosition: { x: 0, y: 0 },
+    depth: 8.3, supportDepth: 8 }]
+  const loft = createCeilingLoftFloor([floor], floor.id, 'loft')!
+  const floors = [floor, loft]
+  const roofs = resolveBuildingRoofs(floors)
+  const gables = buildBuildingRoofGables(floors, roofs, buildBuildingRoomVolumes(floors, roofs))
+  const front = gables.find(gable => gable.end === 'minY')!
+  const rear = gables.find(gable => gable.end === 'maxY')!
+  const interior = front.faces.find(face => face.interior && face.spaceFloorId === loft.id)!
+  assert.ok(interior.wall, 'regression fixture inherits a supporting wall below the loft')
+  assert.equal(interior.wallFloorId, floor.id)
+  const surface = getGableSurface(front, interior)
+  assert.equal(surface.part, 'gable-interior')
+  assert.equal(surface.spaceFloorId, loft.id)
+  assert.equal('wallId' in surface, false, 'picking cannot select the downstairs wall')
+  assert.equal(getSurfaceSelectionFloorId(surface, floor.id, floors), loft.id)
+  assert.equal(getSurfaceSelectionFloorId(surface, loft.id, floors), loft.id)
+  const exterior = getGableSurface(front, front.faces.find(face => !face.interior)!)
+  const otherEnd = getGableSurface(rear, rear.faces.find(face => face.interior && face.spaceFloorId === loft.id)!)
+  const downstairs = getGableSurface(front, { ...interior, spaceFloorId: floor.id })
+  assert.equal(roofSurfaceTargetsMatch(surface, exterior), false)
+  assert.equal(roofSurfaceTargetsMatch(surface, otherEnd), false)
+  assert.equal(roofSurfaceTargetsMatch(surface, downstairs), false)
+  const original = [{ id: 'wall-finish', materialId: 'brick',
+    target: { type: 'wall-face' as const, wallId: interior.wall!.id, side: 'both' as const } }]
+  const painted = replaceRoofMaterialAssignment(original, surface, { id: 'loft-paint', materialId: 'paint' })
+  const bothEnds = replaceRoofMaterialAssignment(painted, otherEnd, { id: 'rear-paint', materialId: 'wallpaper' })
+  const saved = JSON.parse(JSON.stringify(bothEnds))
+  assert.equal(saved.length, 3)
+  assert.ok(roofSurfaceTargetsMatch(saved[1].target, surface), 'saved target still matches the highlighted mesh')
+  const changed = replaceRoofMaterialAssignment(saved, surface, { id: 'new-paint', materialId: 'plaster' })
+  assert.deepEqual(changed[0], original[0], 'painting the loft preserves the wall below')
+  assert.equal(changed[1].materialId, 'wallpaper', 'painting one end preserves the other end')
+  assert.deepEqual(replaceRoofMaterialAssignment(changed, surface, null), [saved[0], saved[2]])
 })
 
 test('wall worker trims manually raised walls to the combined roof', () => {
@@ -281,4 +397,47 @@ test('loft gables restrict wall finishes to vertical skins', () => {
     'roof-contact caps cannot inherit a wall-side material')
 
   assert.ok(wallSkins.some(face => face.interior))
+})
+
+test('gable return brick UVs retain their width on perpendicular faces', () => {
+  const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roofFinishingRegression.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const roofs = resolveBuildingRoofs(floors)
+  const gables = buildBuildingRoofGables(floors, roofs, buildBuildingRoomVolumes(floors, roofs))
+  let returns = 0
+  for (const face of gables.flatMap(gable => gable.faces).filter(face => face.wallSide !== undefined)) {
+    const wall = face.wall!
+    const dx = wall.end.x - wall.start.x, dz = wall.end.y - wall.start.y
+    if (Math.abs(face.plane[0] * dx + face.plane[2] * dz) > 0.01) returns++
+    const uvArea = Math.abs(face.uvs.reduce((sum, [u, v], i) => {
+      const [nu, nv] = face.uvs[(i + 1) % face.uvs.length]
+      return sum + u * nv - nu * v
+    }, 0)) / 2
+    assert.ok(Math.abs(uvArea - solidPolygonArea(face.points)) < 1e-7, 'brick UVs use metres along the actual face')
+  }
+  assert.ok(returns > 0, 'the saved junction exercises perpendicular return faces')
+})
+
+test('fitted asymmetric eaves close the raised side above its actual supporting wall', () => {
+  const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roofFinishingRegression.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const before = JSON.stringify(floors)
+  const roofs = resolveBuildingRoofs(floors)
+  const roof = roofs.find(candidate => candidate.roof.asymmetricSides)!
+  const gables = buildBuildingRoofGables(floors, roofs, buildBuildingRoomVolumes(floors, roofs))
+  const side = gables.filter(gable => gable.roofId === roof.roof.id && gable.end === 'minX')
+  const joinedCorner = hitGables(gables, [1, 5.2, 9.9], [1, 0, 0])[0]
+  assert.ok(joinedCorner && Math.abs(joinedCorner.point.x - 1.580552174) < 1e-5,
+    'the incoming wall continues beneath the joined eave without exposing its original top cap')
+  for (const x of [0, 0.8, 1.4]) {
+    const hits = hitGables(side, [x, 5.2, 9], [0, 0, 1])
+    assert.ok(hits.length && Math.abs(hits[0].point.z - 10.010690667) < 1e-5, 'brick continues in the supporting facade plane')
+    const top = hitGables(side, [x, 8, 10.16], [0, -1, 0])[0]
+    const roofTop = Math.max(...roofSurfaceHeights(roof.resolved.exteriorFaces, { x, y: 10.16 }))
+    assert.ok(top && Math.abs(top.point.y - roofTop + 0.04) < 1e-5, 'the raised infill reaches the underside')
+  }
+  assert.equal(hitGables(side, [2.5, 5.2, 9], [0, 0, 1]).length, 0, 'no floating wall is invented beyond the support wall')
+  assert.equal(JSON.stringify(floors), before)
+  floors[1].roofs!.find(r => r.id === roof.roof.id)!.fitSupportingWalls = false
+  const unfitted = resolveBuildingRoofs(floors)
+  assert.ok(!buildBuildingRoofGables(floors, unfitted, buildBuildingRoomVolumes(floors, unfitted))
+    .some(gable => gable.roofId === roof.roof.id && gable.end === 'minX'))
 })

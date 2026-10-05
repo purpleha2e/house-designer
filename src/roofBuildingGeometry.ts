@@ -2,17 +2,20 @@ import type { FloorLevel, Point, RoofStructure, Wall } from './types.ts'
 import { buildBayRoofFaces, getBayRoofPolygon, getBaySupportPolygon, getBayRoofWithWallSupport } from './bayRoof.ts'
 import { getRenderedWalls, getWallPolygon } from './wallGeometry.ts'
 import { buildWallTopology, type DetectedRoom } from './wallTopology.ts'
-import { buildRoofProfileFaces } from './roofProfile.ts'
+import { buildRoofProfileFaces, getGableRidgeHeight } from './roofProfile.ts'
+import { resolveRoofRidgeHeights, type RoofRidgeHeightLink } from './roofRidgeHeight.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import { resolveRoofJunctions, type ResolvedRoof } from './roofJunctions.ts'
 import { getRoofAbutmentPlanes, getRoofAbutmentSpanPlanes, wallOverlapsRoofHeight, type RoofAbuttingWall } from './roofAbutmentGeometry.ts'
-import { isRoofAbuttingWall } from './roofWallClipping.ts'
+import { isRoofAbuttingWall, isRoofSupportingWall } from './roofWallClipping.ts'
 
 export type BuildingRoof = {
   roof: RoofStructure
   floorId: string
   floorTopElevation: number
   abuttingWalls: RoofAbuttingWall[]
+  supportingWallIds: string[]
+  ridgeHeightLink?: RoofRidgeHeightLink
   resolved: ResolvedRoof
 }
 
@@ -49,10 +52,11 @@ export function getWallSideAwayFromRoof(roof: RoofStructure, wall: Wall): -1 | 1
 }
 
 export function serializeRoofGeometryInput(floors: FloorLevel[]): string {
-  return JSON.stringify(floors.map(({ id, elevation, roomHeight, walls, roofs }) => ({
+  return JSON.stringify(floors.map(({ id, elevation, roomHeight, walls, roofs, floorFootprints }) => ({
     id,
     elevation,
     roomHeight,
+    floorFootprints,
     roofs,
     models: [],
     rooms: [],
@@ -209,6 +213,7 @@ export function getRoofRidgeHeight(roof: RoofStructure) {
   if (roof.type === 'flat') {
     return 0
   }
+  if (roof.type === 'up-and-over' && roof.asymmetricSides) return getGableRidgeHeight(roof, getRoofSupportBoundsInRoofSpace(roof))
 
   const pitchRadians =
     (Math.min(75, Math.max(1, roof.pitchDegrees)) * Math.PI) / 180
@@ -560,10 +565,34 @@ export function getRoofWithExternalWallSupportExtents(
   }
 }
 
+function prepareRoofRidgeHeights(floors: FloorLevel[]) {
+    const prepared = floors.flatMap(floor => (floor.roofs ?? []).map(source => {
+      const roof = getRoofWithExternalWallSupportExtents(source, floor.walls)
+      return { roof, floorId: floor.id, elevation: floor.elevation + floor.roomHeight,
+        support: getRoofSupportBoundsInRoofSpace(roof), extents: roof.type === 'lean-to'
+          ? getLeanToPanelLocalExtents(roof, floor.walls, buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }).rooms)
+          : getRoofPanelLocalExtents(roof) }
+    }))
+    return resolveRoofRidgeHeights(prepared)
+}
+
+/** Derived heights for roof-mounted objects. Saved fallback heights stay intact. */
+export function resolveLinkedRoofFloors(floors: FloorLevel[]): FloorLevel[] {
+  if (!floors.some(floor => floor.roofs?.some(roof => roof.asymmetricSides && roof.ridgeHeightTargetRoofId))) return floors
+  const { inputs, links } = prepareRoofRidgeHeights(floors)
+  const linked = new Map(inputs.filter(input => links.get(input.roof.id)?.state === 'linked')
+    .map(input => [input.roof.id, input.roof.ridgeHeight]))
+  return floors.map(floor => floor.roofs?.some(roof => linked.has(roof.id)) ? { ...floor,
+    roofs: floor.roofs.map(roof => linked.has(roof.id) ? { ...roof, ridgeHeight: linked.get(roof.id) } : roof),
+  } : floor)
+}
+
 export function resolveBuildingRoofs(floors: FloorLevel[]): BuildingRoof[] {
-    const wallFloors = floors.map((floor) => ({ floor, rooms: buildWallTopology(floor.walls).rooms }))
+    const wallFloors = floors.map((floor) => ({ floor, rooms: buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }).rooms }))
+    const ridgeHeights = prepareRoofRidgeHeights(floors)
+    const linkedRoofs = new Map(ridgeHeights.inputs.map(input => [input.roof.id, input.roof]))
     const candidates = floors.flatMap((floor) => (floor.roofs ?? []).map((sourceRoof) => {
-      const roof = getRoofWithExternalWallSupportExtents(sourceRoof, floor.walls)
+      const roof = linkedRoofs.get(sourceRoof.id)!
       const floorTopElevation = floor.elevation + floor.roomHeight
       const bounds = getRoofSupportBoundsInRoofSpace(roof)
       const roofHeights = buildRoofProfileFaces(roof, getRoofPanelLocalExtents(roof), bounds)
@@ -574,14 +603,18 @@ export function resolveBuildingRoofs(floors: FloorLevel[]): BuildingRoof[] {
         { x: bounds.minX, y: bounds.minY }, { x: bounds.maxX, y: bounds.minY },
         { x: bounds.maxX, y: bounds.maxY }, { x: bounds.minX, y: bounds.maxY },
       ]).map((point) => getRoofWorldPointFromLocal(roof, point))
+      const supportingWallIds = floor.walls.filter(wall => isRoofSupportingWall(wall, supportPolygon, floor.roomHeight))
+        .map(wall => wall.id)
       const abuttingWalls = wallFloors
         .filter(({ floor: candidate }) => candidate.elevation <= floorTopElevation + (roof.heightOffset ?? 0) + getRoofRidgeHeight(roof))
         .flatMap(({ floor: candidate, rooms }) => candidate.walls
           .filter((wall) => !wall.allowRoofClipHeight &&
+            !(roof.fitSupportingWalls && candidate.id === floor.id && supportingWallIds.includes(wall.id)) &&
             wallOverlapsRoofHeight({ wall, elevation: candidate.elevation }, roofMinY, roofMaxY) &&
             isRoofAbuttingWall({ wall, supportPolygon, isInsideRoom: (point) => getRoomContainingPoint(rooms, point) !== null }))
           .map((wall) => ({ wall, elevation: candidate.elevation, floorId: candidate.id })))
-      return { roof, floorId: floor.id, floorTopElevation, abuttingWalls }
+      return { roof, floorId: floor.id, floorTopElevation, abuttingWalls, supportingWallIds,
+        ridgeHeightLink: ridgeHeights.links.get(roof.id) }
     }))
     const resolved = resolveRoofJunctions(candidates.map((candidate) => ({
       roof: candidate.roof,

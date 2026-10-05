@@ -48,11 +48,33 @@ test('existing floor coverage and stair apertures are not covered by another cop
 })
 
 test('exterior thresholds and raised openings remain separate', () => {
-  const external=buildDoorwayFloorPatches([{...wall,kind:'external'}],rooms)
+  const external=buildDoorwayFloorPatches([{...wall,kind:'external'}],[rooms[0]])
   assert.equal(external.replacedPortals.size,0)
   const window=buildDoorwayFloorPatches([{...wall,openings:wall.openings!.map(o=>({...o,bottom:1}))}],rooms)
   assert.equal(window.patches.length,0)
   assert.equal(window.replacedPortals.size,0)
+})
+
+test('a 100 mm external-labelled partition joins both room floors without a threshold', () => {
+  const partition: Wall = { ...wall, kind: 'external', thickness: 0.1 }
+  const adjoining = [
+    { signature: 'left', polygon: rectangle(0, 0, 1.95, 4) },
+    { signature: 'right', polygon: rectangle(2.05, 0, 4, 4) },
+  ]
+  const { patches, replacedPortals } = buildDoorwayFloorPatches([partition], adjoining)
+  assert.ok(replacedPortals.has('partition:door'), 'the separate white threshold must be suppressed')
+  assert.equal(patches.length, 2)
+  for (const patch of patches) {
+    near(area(patch.outline), 0.05)
+    const xs = patch.outline.map(p => p.x)
+    near(Math.min(...xs), patch.roomSignature === 'left' ? 1.95 : 2)
+    near(Math.max(...xs), patch.roomSignature === 'left' ? 2 : 2.05)
+  }
+})
+
+test('an external wall with the same room on both sides retains its threshold', () => {
+  const surrounding = [{ signature: 'room', polygon: rectangle(0, 0, 4, 4) }]
+  assert.equal(buildDoorwayFloorPatches([{ ...wall, kind: 'external' }], surrounding).replacedPortals.size, 0)
 })
 
 test('overlapping openings do not produce duplicate floor surfaces and deleted doors leave no extension', () => {

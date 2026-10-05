@@ -99,12 +99,18 @@ function pointTouchesWallBody(point: Point, wall: Wall) {
   )
 }
 
-function internalWallCanBoundRoom(wall: Wall, walls: Wall[]) {
+function pointTouchesFloorBoundary(point: Point, footprints: Point[][]) {
+  return footprints.some(ring => ring.some((start, index) =>
+    pointIsOnSegment(point, start, ring[(index + 1) % ring.length])))
+}
+
+function internalWallCanBoundRoom(wall: Wall, walls: Wall[], footprints: Point[][]) {
   if (wall.kind !== 'internal') {
     return true
   }
 
   return (['start', 'end'] as const).every((endpoint) =>
+    pointTouchesFloorBoundary(wall[endpoint], footprints) ||
     walls.some(
       (otherWall) =>
         otherWall.id !== wall.id && pointTouchesWallBody(wall[endpoint], otherWall),
@@ -115,6 +121,7 @@ function internalWallCanBoundRoom(wall: Wall, walls: Wall[]) {
 function extendRoomDividerIntoAdjoiningWalls(
   renderedWall: RenderedWall,
   walls: Wall[],
+  footprints: Point[][],
 ): RenderedWall {
   const { wall } = renderedWall
 
@@ -123,6 +130,7 @@ function extendRoomDividerIntoAdjoiningWalls(
   }
 
   const endpointTouchesAnotherWall = (endpoint: 'start' | 'end') =>
+    pointTouchesFloorBoundary(wall[endpoint], footprints) ||
     walls.some(
       (otherWall) =>
         otherWall.id !== wall.id && pointTouchesWallBody(wall[endpoint], otherWall),
@@ -231,6 +239,7 @@ function getOpenRingPoints(ring: ClippingRing) {
 
 function buildDetectedRoomsFromWallUnion(
   renderedWalls: RenderedWall[],
+  footprints: Point[][],
 ): DetectedRoom[] {
   if (!polygonUnion) {
     return []
@@ -239,6 +248,22 @@ function buildDetectedRoomsFromWallUnion(
   const rawWallPolygons: ClippingPolygon[] = renderedWalls.map((renderedWall) => [
     getWallPolygon(renderedWall).map((point) => [point.x, point.y]),
   ])
+
+  // Fill the space outside an explicit slab boundary for room detection only.
+  // Its empty interior behaves like a room perimeter without creating walls,
+  // pick targets, roof supports or light occluders.
+  if (footprints.length) {
+    const points = [...footprints.flat(), ...renderedWalls.flatMap(({ wall }) => [wall.start, wall.end])]
+    const margin = 1 + Math.max(0, ...renderedWalls.map(({ wall }) => wall.thickness))
+    const minX = Math.min(...points.map(p => p.x)) - margin
+    const minY = Math.min(...points.map(p => p.y)) - margin
+    const maxX = Math.max(...points.map(p => p.x)) + margin
+    const maxY = Math.max(...points.map(p => p.y)) + margin
+    rawWallPolygons.push([
+      [[minX, minY], [maxX, minY], [maxX, maxY], [minX, maxY]],
+      ...footprints.map(ring => ring.map(({ x, y }): ClippingPoint => [x, y])),
+    ])
+  }
 
   // Adjacent wall faces can differ by a few floating-point bits. Snap their
   // polygon coordinates before union so a microscopic gap cannot merge rooms.
@@ -368,20 +393,20 @@ function normalizeDetectedRooms(rooms: DetectedRoom[]) {
     }))
 }
 
-function buildDetectedRooms(walls: Wall[]): DetectedRoom[] {
+function buildDetectedRooms(walls: Wall[], footprints: Point[][]): DetectedRoom[] {
   const roomBoundaryWalls = walls.filter((wall) =>
-    internalWallCanBoundRoom(wall, walls),
+    internalWallCanBoundRoom(wall, walls, footprints),
   )
   // Rendering trims side-attached dividers back to the receiving wall face.
   // For polygon topology that edge-only contact is numerically fragile and can
   // leave the rooms connected. Extend eligible internal dividers slightly into
   // the adjoining body while calculating rooms only.
   const renderedWalls = getRenderedWalls(roomBoundaryWalls).map((renderedWall) =>
-    extendRoomDividerIntoAdjoiningWalls(renderedWall, roomBoundaryWalls),
+    extendRoomDividerIntoAdjoiningWalls(renderedWall, roomBoundaryWalls, footprints),
   )
-  const unionRooms = buildDetectedRoomsFromWallUnion(renderedWalls)
+  const unionRooms = buildDetectedRoomsFromWallUnion(renderedWalls, footprints)
 
-  if (unionRooms.length > 0) {
+  if (unionRooms.length > 0 || footprints.length > 0) {
     return normalizeDetectedRooms(unionRooms)
   }
 
@@ -651,7 +676,7 @@ function getTopologySnappedWalls(
 
 export function buildWallTopology(
   walls: Wall[],
-  { detectRooms = true }: { detectRooms?: boolean } = {},
+  { detectRooms = true, floorFootprints = [] }: { detectRooms?: boolean; floorFootprints?: Point[][] } = {},
 ): WallTopology {
   const nodes: WallNode[] = []
   const nodesByEndpoint = new Map<string, WallNode>()
@@ -691,7 +716,7 @@ export function buildWallTopology(
 
   return {
     nodes,
-    rooms: detectRooms ? buildDetectedRooms(topologyWalls) : [],
+    rooms: detectRooms ? buildDetectedRooms(topologyWalls, floorFootprints) : [],
     nodesByEndpoint,
     renderedWallsById,
     wallPolygonsById,

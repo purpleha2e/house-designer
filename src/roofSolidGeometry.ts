@@ -229,20 +229,37 @@ export function createSolidRoofGeometryFromFaces(
     return Array.from(edges.values()).filter(edge => edge.count === 1)
   }
   const structuralBoundary = boundaryEdges(shellFaces)
-  const pointOnEdge = (point: RoofVertex, edge: { first: RoofVertex; second: RoofVertex }) => {
-    const direction = edge.second.map((value, axis) => value - edge.first[axis])
-    const lengthSquared = direction.reduce((sum, value) => sum + value * value, 0)
-    if (lengthSquared < 1e-12) return false
-    const t = point.reduce((sum, value, axis) =>
-      sum + (value - edge.first[axis]) * direction[axis], 0) / lengthSquared
-    return t >= -1e-6 && t <= 1 + 1e-6 && Math.hypot(...point.map((value, axis) =>
-      value - edge.first[axis] - t * direction[axis])) < 1e-5
-  }
   // Keep only visible portions of authored perimeter edges. Boolean roof cuts
   // create new boundaries which must not become vertical tiled strips, while a
   // fully hidden panel must not leave its original fascia floating on a wall.
-  const visibleShellEdges = boundaryEdges(faces).filter(edge => structuralBoundary.some(source =>
-    pointOnEdge(edge.first, source) && pointOnEdge(edge.second, source)))
+  const visibleShellEdges = boundaryEdges(faces).flatMap(edge => {
+    const direction = edge.second.map((value, axis) => value - edge.first[axis])
+    const lengthSquared = direction.reduce((sum, value) => sum + value * value, 0)
+    if (lengthSquared < 1e-12) return []
+    const project = (point: RoofVertex) => point.reduce((sum, value, axis) =>
+      sum + (value - edge.first[axis]) * direction[axis], 0) / lengthSquared
+    const onLine = (point: RoofVertex, t: number) => Math.hypot(...point.map((value, axis) =>
+      value - edge.first[axis] - t * direction[axis])) < 1e-5
+    // The top skin may embed into an abutting wall beyond the shell's trim.
+    // Intersect the collinear spans instead of rejecting the entire long eave
+    // because one endpoint lies a few millimetres inside that wall.
+    const spans = structuralBoundary.flatMap(source => {
+      const first = project(source.first), second = project(source.second)
+      if (!onLine(source.first, first) || !onLine(source.second, second)) return []
+      const start = Math.max(0, Math.min(first, second))
+      const end = Math.min(1, Math.max(first, second))
+      return (end - start) * Math.sqrt(lengthSquared) > 1e-6 ? [[start, end]] : []
+    }).sort((a, b) => a[0] - b[0])
+    const merged: number[][] = []
+    for (const span of spans) {
+      const previous = merged.at(-1)
+      if (previous && span[0] <= previous[1]) previous[1] = Math.max(previous[1], span[1])
+      else merged.push(span)
+    }
+    const at = (t: number) => edge.first.map((value, axis) =>
+      value + t * direction[axis]) as RoofVertex
+    return merged.map(([start, end]) => ({ first: at(start), second: at(end) }))
+  })
 
   faces.forEach((face) => {
     addFace(top, face, 0, new Vector3(0, 1, 0), false, topUvProjector)
