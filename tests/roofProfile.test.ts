@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { buildHipRoofProfileFaces, buildRoofProfileFaces, getHipRoofProfileHeight, getPitchedRoofHeightAtX, getPitchedRoofSurfaceDistance, getPitchedRoofBreaks } from '../src/roofProfile.ts'
+import { buildHipRoofProfileFaces, buildRoofProfileFaces, getHipRoofProfileHeight, getPitchedRoofHeightAtX, getPitchedRoofSurfaceDistance, getPitchedRoofBreaks, getGableChamferLimits } from '../src/roofProfile.ts'
 import type { RoofStructure } from '../src/types.ts'
 
 const roof: RoofStructure = {
@@ -94,4 +94,43 @@ test('gable end chamfers replace the ridge ends with independently pitched plane
     z <= -2.5 + 0.000001 && Math.abs(y - (ridgeHeight - (-2.5 - z) * slope(37))) < 0.000001)))
   assert.ok(faces.some((face) => face.every(([, y, z]) =>
     z >= 3 - 0.000001 && Math.abs(y - (ridgeHeight - (z - 3) * slope(22))) < 0.000001)))
+})
+
+test('deep chamfers lower side eaves without changing their pitch or the authored setback', () => {
+  for (const ridgeOffset of [-0.8, 0.8]) for (const angleDegrees of [15, 28, 60]) {
+    const adjusted: RoofStructure = { ...roof, asymmetricSides: true, ridgeOffset,
+      ridgeHeight: 1.8, pitchDegrees: 28, overhangPitchDegrees: 28,
+      ridgeEndChamfer: { angleDegrees, distance: 8 } }
+    const before = JSON.stringify(adjusted)
+    const limits = getGableChamferLimits(adjusted, extents)
+    close(limits.ridgeEndChamfer.distance, 8)
+    close(limits.ridgeEndChamfer.maximum, 9)
+    const faces = buildRoofProfileFaces(adjusted, extents, support)
+    let loweredEnds = 0
+    for (const x of [extents.minX, extents.maxX]) {
+      const perimeter = faces.flat().filter(p => Math.abs(p[0] - x) < 1e-8)
+      assert.ok(perimeter.length)
+      for (const [, y, z] of perimeter) close(y, Math.min(getPitchedRoofHeightAtX(adjusted, support, x),
+        z >= -3.5 ? 1.8 - (z + 3.5) * slope(angleDegrees) : Infinity))
+      const end = perimeter.filter(p => Math.abs(p[2] - extents.maxY) < 1e-8)
+      if (end.some(p => p[1] < getPitchedRoofHeightAtX(adjusted, support, x) - 1e-8)) loweredEnds++
+    }
+    assert.ok(loweredEnds > 0, 'a deep chamfer can descend below the higher side eave')
+    assert.equal(JSON.stringify(adjusted), before)
+  }
+})
+
+test('opposing chamfers can meet as a hip without crossing or lowering the ridge', () => {
+  const shallow: RoofStructure = { ...roof, depth: 2,
+    ridgeStartChamfer: { angleDegrees: 10, distance: 100 },
+    ridgeEndChamfer: { angleDegrees: 10, distance: 100 } }
+  const shortExtents = { ...extents, minY: -1, maxY: 1 }
+  const limits = getGableChamferLimits(shallow, shortExtents)
+  close(limits.ridgeStartChamfer.distance + limits.ridgeEndChamfer.distance, 2)
+  const faces = buildRoofProfileFaces(shallow, shortExtents, support)
+  close(Math.max(...faces.flat().map(p => p[1])), 3 * slope(37))
+  close(faces.reduce((area, face) => area + Math.abs(face.reduce((sum, p, i) => {
+    const q = face[(i + 1) % face.length]
+    return sum + p[0] * q[2] - q[0] * p[2]
+  }, 0)) / 2, 0), 14)
 })

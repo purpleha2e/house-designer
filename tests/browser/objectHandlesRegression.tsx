@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type SetStateAction } from 'react'
 import { _roots } from '@react-three/fiber'
 import { createRoot } from 'react-dom/client'
 import Konva from 'konva'
@@ -15,7 +15,13 @@ const initial: FloorLevel = {id:'floor', name:'Handle test', elevation:0, roomHe
   models:[{id:'handle-box',modelId:'handle-test-box',scale:1,position:{x:3,y:3},rotation:0}]}
 function Preview(){
   const [wallMode,setWallMode]=useState(false)
-  const [floor,setFloor]=useState(initial),[selected,setSelected]=useState<string | null>('handle-box')
+  const [floors,setFloors]=useState([initial]),[activeFloorId,setActiveFloorId]=useState(initial.id)
+  const [showAllFloors,setShowAllFloors]=useState(false)
+  const [showImages,setShowImages]=useState(true)
+  const floor=floors.find(f=>f.id===activeFloorId)??floors[0]
+  const setFloor=(update:SetStateAction<FloorLevel>)=>setFloors(current=>current.map(f=>f.id===floor.id?
+    typeof update==='function'?update(f):update:f))
+  const [selected,setSelected]=useState<string | null>('handle-box')
   const previewRef=useRef<ModelTransformPreview | null>(null)
   const updateModel=(id:string,updates:Partial<FloorLevel['models'][number]>)=>{
     const metrics=window as unknown as {handleCommits?:number}
@@ -23,9 +29,11 @@ function Preview(){
     setFloor(current=>({...current,models:current.models.map(m=>m.id===id?{...m,...updates}:m)}))
   }
   Object.assign(window,{handleStage:()=>Konva.stages[0],handleSelection:selected,handleFloor:floor,handleSetFloor:setFloor,handleSelectModel:setSelected,handleWallMode:setWallMode})
+  Object.assign(window,{handleFloors:floors,handleSetFloors:setFloors,handleSetActiveFloor:setActiveFloorId,handleSetShowAllFloors:setShowAllFloors})
   Object.assign(window,{handleThreeScene:()=>[..._roots.values()][0]?.store.getState()})
   Object.assign(window,{handlePreview:()=>previewRef.current})
-  return <><FloorplanCanvas modelTransformPreviewRef={previewRef} activeFloor={floor} floors={[floor]} initialViewport={{x:100,y:100,scale:1.3}}
+  return <><FloorplanCanvas modelTransformPreviewRef={previewRef} activeFloor={floor} floors={floors} initialViewport={{x:100,y:100,scale:1.3}}
+    showImages={showImages} onShowImagesChange={setShowImages}
     onGroundImageChange={image=>{
       const metrics=window as unknown as {groundImageCommits?:number}
       metrics.groundImageCommits=(metrics.groundImageCommits??0)+1
@@ -41,14 +49,15 @@ function Preview(){
     onUpdateRoof={noop} onUpdateWall={noop} onUpdateWalls={changes=>setFloor(current=>({...current,
       walls:current.walls.map(wall=>{const change=changes.find(change=>change.wallId===wall.id);return change?{...wall,...change.updates}:wall})
     }))} viewportRestoreRevision={1}/>
-    <ThreeDView modelTransformPreviewRef={previewRef} activeFloorId={floor.id} floors={[floor]}
+    <ThreeDView modelTransformPreviewRef={previewRef} activeFloorId={floor.id} floors={floors}
+      showImages={showImages}
       cameraRestoreRevision={1} cameraViewState={DEFAULT_THREE_D_CAMERA_STATE}
       isEngineConsoleOpen={false} lightDirection={{azimuth:135,elevation:40}} modelAssetVersion={1}
       placementModel={null} roofPlacementPreview={null} onCancelModelPlacement={noop} onClearSelection={noop}
       onCameraViewStateChange={noop} onEngineConsoleOpenChange={noop} onLightDirectionChange={noop}
       onPlaceModel={noop} onSelectFloor={noop} onSelectModel={setSelected} onSelectRoof={noop} onSelectSurface={noop}
       onUpdateModel={updateModel} selectedModelId={selected} selectedRoofId={null} selectedSurface={null}
-      selectedWallId={null} sceneRevision={1} showAllFloors={false} surfaceAssignments={[]} />
+      selectedWallId={null} sceneRevision={1} showAllFloors={showAllFloors} surfaceAssignments={[]} />
     </>
 }
 createRoot(document.getElementById('root')!).render(<Preview />)

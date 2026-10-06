@@ -18,7 +18,9 @@ test('Springfield overhang and open canopy stay exterior while the adjoining roo
   const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roof-junctions/springfield_13.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
   const upper = floors[1]
   const footprints = new Map(floors.map(f => [f.id, buildCeilingSlabFootprints(f.walls)]))
-  const roofs = resolveBuildingRoofs(floors).map(({ roof, resolved, floorId }) => {
+  // Isolate adjoining-roof material boundaries. The facade's own roof now
+  // legitimately trims its height; that behavior has separate clipping tests.
+  const roofs = resolveBuildingRoofs(floors).filter(candidate => candidate.floorId !== upper.id).map(({ roof, resolved, floorId }) => {
     const b = getRoofSupportBoundsInRoofSpace(roof)
     return { roofId: roof.id, floorId, surfaceFaces: resolved.structuralFaces,
       undersideFaces: getRoofCoverageUndersideFaces(resolved), enclosedFootprints: footprints.get(floorId),
@@ -114,7 +116,7 @@ test('separate enclosed spans exclude the facade itself and preserve all wall ar
   const canopy = partitionWallFacesAtRoofs([facade], getDividers([footprints[0]]), 0)
   assert.ok(canopy.every(f => f.roofSurfaceRegion === 'roof-exposed'), 'an open canopy has no interior finish region')
 })
-const roofs = resolveBuildingRoofs(floors).map(({ roof, resolved, floorId }) => {
+const roofs = resolveBuildingRoofs(floors).filter(candidate => candidate.floorId !== upper.id).map(({ roof, resolved, floorId }) => {
   const b = getRoofSupportBoundsInRoofSpace(roof)
   return { roofId: roof.id, floorId, surfaceFaces: resolved.structuralFaces,
     undersideFaces: getRoofCoverageUndersideFaces(resolved),

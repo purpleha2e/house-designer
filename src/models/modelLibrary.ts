@@ -1,3 +1,5 @@
+import type { WindowDesign } from '../windowDesign'
+
 export type ModelObjectType =
   | 'appliance'
   | 'bathroom'
@@ -45,6 +47,7 @@ export const stairMaterialRegions: ModelMaterialRegion[] = [
 ]
 
 export type ModelDefinition = {
+  windowDesign?: WindowDesign
   id: string
   name: string
   category: string
@@ -318,6 +321,15 @@ export const modelLibrary =
 export const modelsById = new Map(
   modelLibrary.map((model) => [model.id, model]),
 )
+
+/** Updating personal windows must not replace the manufacturer's catalog. */
+export function registerWindowModels(models: ModelDefinition[], replace = false) {
+  const ids = new Set(models.map(m => m.id))
+  const removed = modelLibrary.filter(m => ids.has(m.id) || (replace && m.windowDesign))
+  removed.forEach(m => modelsById.delete(m.id))
+  modelLibrary.splice(0, modelLibrary.length, ...modelLibrary.filter(m => !removed.includes(m)), ...models)
+  models.forEach(m => modelsById.set(m.id, m))
+}
 
 export function registerRuntimeModels(models: ModelDefinition[]) {
   const mergedModels = models.map((model) => {

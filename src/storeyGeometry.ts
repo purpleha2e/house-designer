@@ -1,12 +1,18 @@
 import type { FloorLevel, Point } from './types.ts'
 import type { WallMeshFace, WallMeshVertex } from './wallEngine/wallMesh.ts'
 import { splitSlabFacadeEdge } from './slabFacadeSegments.ts'
+import { ShapeUtils, Vector2 } from 'three'
+import { resolvedRoofWallSegments } from './roofJunctions.ts'
+
+type RoofFacadeContact = { floorId: string; wallId: string; faces: [number, number, number][][] }
 
 export type FloorAssemblyEdge = {
   point: Point
   nextPoint: Point
   wallFloorId?: string
   wallFace?: WallMeshFace
+  /** Keep the upper finish even when the lower wall owns the floor band. */
+  upperWallFace?: WallMeshFace
 }
 
 export type FloorAssembly = {
@@ -63,7 +69,7 @@ function continueWallFace(face: WallMeshFace, point: Point, next: Point,
  * horizontal assemblies own caps, openings and genuinely unsupported edges.
  * No upper storey means no intermediate floor, regardless of the saved depth.
  */
-export function buildStoreyGeometry(storeys: PreparedStorey[], assemblyFloorIds?: ReadonlySet<string>): Map<string, StoreyGeometry> {
+export function buildStoreyGeometry(storeys: PreparedStorey[], assemblyFloorIds?: ReadonlySet<string>, roofContacts: RoofFacadeContact[] = []): Map<string, StoreyGeometry> {
   const ordered = [...storeys].sort((a, b) => a.floor.elevation - b.floor.elevation)
   const result = new Map(ordered.map(s => [s.floor.id, { wallFaces: [...s.faces], footprints: s.footprints } as StoreyGeometry]))
   for (let i = 0; i < ordered.length - 1; i++) {
@@ -72,14 +78,19 @@ export function buildStoreyGeometry(storeys: PreparedStorey[], assemblyFloorIds?
     const bottom = lower.floor.elevation + lower.floor.roomHeight
     const top = upper.floor.elevation
     if (top <= bottom + 1e-6) continue
+    const capCover = upper.footprints.flatMap(polygon =>
+      ShapeUtils.triangulateShape(polygon.map(p => new Vector2(p.x, p.y)), [])
+        .map(triangle => triangle.map(index => polygon[index])))
     // The inter-storey assembly owns horizontal caps within the upper
     // footprint. Leaving the lower wall's top cap there creates a visible
     // ledge when a roof cutout removes part of the slab above it.
-    result.get(lower.floor.id)!.wallFaces = result.get(lower.floor.id)!.wallFaces.filter(face => {
+    result.get(lower.floor.id)!.wallFaces = result.get(lower.floor.id)!.wallFaces.map(face => {
       if (face.normal[1] < 0.99 ||
-        !face.vertices.every(vertex => Math.abs(vertex.position[1] - lower.floor.roomHeight) < 1e-6)) return true
-      return !upper.footprints.some(polygon => face.vertices.every(vertex =>
-        pointInOrOnPolygon({ x: vertex.position[0], y: vertex.position[2] }, polygon)))
+        !face.vertices.every(vertex => Math.abs(vertex.position[1] - lower.floor.roomHeight) < 1e-6)) return face
+      // Roof cuts still need a closed source solid to construct their reveals.
+      // Keep that source, then subtract the exact upper footprint at render
+      // time. A cap triangle can straddle the footprint at a stepped corner.
+      return { ...face, storeyCapCover: capCover }
     })
     // The same assembly also covers the underside of the upper walls. Wall
     // body perimeter meshes can otherwise emit one large horizontal bottom
@@ -106,7 +117,23 @@ export function buildStoreyGeometry(storeys: PreparedStorey[], assemblyFloorIds?
           : bottom
         if (face && top > continuationBottom + 1e-6) result.get(owner.floor.id)!.wallFaces.push(
           continueWallFace(face, point, nextPoint, continuationBottom, top, owner.floor.elevation))
-        return { point, nextPoint, wallFace: face, wallFloorId: face ? owner.floor.id : undefined }
+        // An overhang can meet an upper facade below the floor assembly.
+        // Close that short gap in the facade's own plane; otherwise a low
+        // camera angle sees the interior behind the roof's abutment cut.
+        if (!lowerFace && upperFace) {
+          const inverted = roofContacts.filter(contact => contact.floorId === lower.floor.id && contact.wallId === upperFace.wallId)
+            .flatMap(contact => contact.faces.map(panel => panel.map(([x,y,z]): [number,number,number] => [x,-y,z])))
+          for (const [a,b] of resolvedRoofWallSegments(inverted, point, nextPoint, -bottom, 0)) {
+            const continuation = continueWallFace(upperFace, a.planPoint, b.planPoint, bottom, bottom, upper.floor.elevation)
+            continuation.vertices = continuation.vertices.map((v,index) => {
+              if (index > 1) return v
+              const y = -(index === 0 ? a : b).topY - upper.floor.elevation
+              return { position:[v.position[0],y,v.position[2]], uv:[v.uv[0],v.uv[1]+y-v.position[1]] }
+            }) as WallMeshFace['vertices']
+            result.get(upper.floor.id)!.wallFaces.push(continuation)
+          }
+        }
+        return { point, nextPoint, wallFace: face, wallFloorId: face ? owner.floor.id : undefined, upperWallFace: upperFace }
       })))
     result.get(lower.floor.id)!.assembly = { bottom, top, footprints: upper.footprints, edges }
   }

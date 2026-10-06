@@ -107,10 +107,17 @@ export function prismSolid(polygon: { x: number; y: number }[], bottom: number, 
 /** Remove internal cell boundaries. Same-facing coincident faces have one
  * owner; opposite faces on a shared partition are internal on both sides. */
 export function solidBoundaryFaces(solids: ConvexSolid[]): SolidFace[] {
+  const bounds = (points: SolidPoint[]) => [0, 1, 2].map(axis => [
+    Math.min(...points.map(p => p[axis])), Math.max(...points.map(p => p[axis])),
+  ])
+  const solidBounds = solids.map(solid => bounds(solid.faces.flatMap(face => face.points)))
   return solids.flatMap((solid, index) => solid.faces.flatMap(face => {
     let pieces = [face.points]
+    const faceBounds = bounds(face.points)
     for (let j = 0; j < solids.length && pieces.length; j++) {
       if (j === index) continue
+      if (faceBounds.some(([min, max], axis) => max < solidBounds[j][axis][0] - EPS ||
+        min > solidBounds[j][axis][1] + EPS)) continue
       const other = solids[j]
       const sameFacing = other.faces.some(otherFace => otherFace.plane.every((v, axis) => Math.abs(v - face.plane[axis]) < EPS))
       if (sameFacing && j > index) continue

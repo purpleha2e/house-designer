@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import type { FloorLevel, RoofEndConnection, RoofStructure } from '../types'
 import type { ResolvedRoof } from '../roofJunctions'
 import { resolveBuildingRoofs } from '../roofBuildingGeometry'
+import { ROOF_TYPE_LABELS } from '../roofLabels'
 
 export function RoofConnectionFields({ roof, floors, onChange, resolvedRoof }: {
   roof: RoofStructure
@@ -10,7 +11,7 @@ export function RoofConnectionFields({ roof, floors, onChange, resolvedRoof }: {
   onChange: (updates: Partial<RoofStructure>) => void
 }) {
   const roofs = useMemo(() => floors.flatMap((floor) => (floor.roofs ?? []).map((candidate, index) => ({
-    roof: candidate, label: `${floor.name} · Roof ${index + 1} (${candidate.type})`,
+    roof: candidate, label: `${floor.name} · Roof ${index + 1} (${ROOF_TYPE_LABELS[candidate.type]})`,
   }))), [floors])
   const resolved = useMemo(() => resolvedRoof ?? resolveBuildingRoofs(floors).find((candidate) => candidate.roof.id === roof.id)?.resolved, [roof.id, floors, resolvedRoof])
   if (roof.type !== 'up-and-over') return null

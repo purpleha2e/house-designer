@@ -74,6 +74,36 @@ function clipped(floors: FloorLevel[], floorIndex = 0) {
   return runWallRoofClipJob(createWallRoofClipJob(faces, options))
 }
 
+test('a deep chamfer lowers and closes supporting wall caps along the eaves and end', () => {
+  const heights: number[][] = []
+  for (const distance of [3.2, 4.25]) {
+    const f = floor()
+    Object.assign(f.roofs![0], { heightOffset: 0, pitchDegrees: 33, fitSupportingWalls: true,
+      ridgeEndChamfer: { angleDegrees: 33, distance } })
+    const before = JSON.stringify(f)
+    const [candidate] = resolveBuildingRoofs([f])
+    const geometry = new BufferGeometry()
+    const faces = clipped([f])
+    geometry.setAttribute('position', new Float32BufferAttribute(faces.flatMap(face => face.vertices.slice(1, -1)
+      .flatMap((v, i) => [face.vertices[0].position, v.position, face.vertices[i + 2].position].flat())), 3))
+    const material = new MeshBasicMaterial({ side: DoubleSide }), mesh = new Mesh(geometry, material)
+    const tops: number[] = []
+    for (const [x, z] of [[-2, 2.8], [2, 2.8], [-1, 3], [0, 3], [1, 3], [-2, -2.8]]) {
+      const hit = new Raycaster(new Vector3(x, 6, z), new Vector3(0, -1, 0)).intersectObject(mesh)[0]
+      const roofTop = Math.max(...roofSurfaceHeights(candidate.resolved.exteriorFaces, { x, y: z }))
+      assert.ok(hit && Math.abs(hit.point.y - Math.min(2.4, roofTop - 0.035)) < 1e-5,
+        `closed fitted cap at ${x},${z}, setback ${distance}: ${hit?.point.y}, roof ${roofTop}`)
+      tops.push(hit!.point.y)
+    }
+    heights.push(tops)
+    geometry.dispose(); material.dispose()
+    assert.equal(JSON.stringify(f), before, 'lowering the chamfer preserves authored wall heights and roof settings')
+  }
+  heights[0].slice(0, 5).forEach((top, index) => assert.ok(heights[1][index] < top - 0.5,
+    'increasing setback lowers both the side eaves and the chamfer end'))
+  assert.ok(Math.abs(heights[0][5] - heights[1][5]) < 1e-5, 'the opposite eave remains unchanged')
+})
+
 test('fitting trims both skins and closes supporting wall tops even when general clipping is off', () => {
   for (const fitSupportingWalls of [false, true]) {
     const f = floor(), before = structuredClone(f)

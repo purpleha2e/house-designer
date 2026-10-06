@@ -1,0 +1,39 @@
+.modal-backdrop.window-builder-backdrop { z-index: 1500; padding: 24px; }
+.window-builder { width: min(1260px, 96vw); max-height: 94vh; display: flex; flex-direction: column; background: #fff; color: #24364a; border-radius: 16px; box-shadow: 0 24px 90px #102b4050; overflow: hidden; outline: none; }
+.window-builder header { display: flex; justify-content: space-between; align-items: flex-start; padding: 22px 26px 16px; border-bottom: 1px solid #dde5eb; }
+.window-builder header h2 { margin: 5px 0 7px; font-size: 24px; }
+.window-builder header p, .window-builder-selection p { margin: 0; font-size: 13px; color: #617285; line-height: 1.5; }
+.window-builder-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1.7px; color: #227ba8; }
+.window-builder-body { display: grid; grid-template-columns: 238px minmax(280px, 1fr) 230px; overflow: auto; min-height: 0; }
+.window-builder-settings, .window-builder-selection { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.window-builder-settings { border-right: 1px solid #dde5eb; }
+.window-builder-selection { border-left: 1px solid #dde5eb; }
+.window-builder h3 { font-size: 13px; margin: 9px 0 0; }
+.window-builder label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; }
+.window-builder input, .window-builder select { width: 100%; box-sizing: border-box; border: 1px solid #bdcbd7; border-radius: 6px; padding: 8px; color: #253a4d; background: white; min-width: 0; }
+.window-builder input[type=color] { height: 35px; padding: 3px; }
+.window-builder-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.window-builder button { border: 1px solid #bfcdd8; border-radius: 7px; padding: 8px 11px; background: #fff; color: #284355; font-size: 12px; cursor: pointer; }
+.window-builder button:hover:not(:disabled) { background: #eef7fb; border-color: #4396c3; }
+.window-builder button:disabled { opacity: .45; cursor: default; }
+.window-builder button.primary, .window-builder button[aria-pressed=true] { background: #156e9f; color: white; border-color: #156e9f; }
+.window-builder-presets { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.window-builder-help { color: #687d8e; font-size: 11px; line-height: 1.6; margin: 0; }
+.window-builder-centre { background: #f3f7fa; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.window-builder-centre nav { display: flex; gap: 7px; }
+.window-builder-preview { width: 100%; flex: 1; min-height: 350px; height: 440px; }
+.window-builder-preview svg { width: 100%; height: 100%; touch-action: none; user-select: none; }
+.window-builder-pane { cursor: pointer; outline: none; }
+.window-builder-pane:focus rect { stroke: #1475b4; stroke-width: .01; }
+.window-builder-divider.x { cursor: ew-resize; }
+.window-builder-divider.y { cursor: ns-resize; }
+.window-builder .window-builder-checkbox { flex-direction: row; align-items: flex-start; line-height: 1.5; }
+.window-builder-checkbox input { width: auto; }
+.window-builder footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 22px; border-top: 1px solid #dde5eb; font-size: 12px; }
+.window-builder-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.window-builder-error { color: #ae342b; max-width: 520px; }
+.model-option-wrap { display: flex; flex-direction: column; gap: 5px; }
+.model-option-wrap > .model-option { flex: 1; width: 100%; }
+.window-variety-edit { position: absolute; z-index: 15; bottom: 14px; left: 70px; padding: 9px 14px; background: white; border: 1px solid #8aacc5; border-radius: 7px; box-shadow: 0 3px 12px #0002; }
+@media(max-width: 850px) { .window-builder-body { grid-template-columns: 190px minmax(240px,1fr); } .window-builder-selection { grid-column: 1 / -1; border-top: 1px solid #dde5eb; } .window-builder-preview { min-height: 280px; } }
+@media(max-width: 520px) { .window-builder-backdrop { padding: 4px; } .window-builder { width: 98vw; max-height: 98vh; } .window-builder-body { display: flex; flex-direction: column; } .window-builder-centre { order: -1; } .window-builder-preview { height: 300px; flex: none; } }

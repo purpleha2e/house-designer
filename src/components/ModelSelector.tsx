@@ -11,6 +11,8 @@ type ModelSelectorProps = {
   onClose: () => void
   onRefreshModels: () => void
   onSelectModel: (modelId: string) => void
+  onBuildWindow?: () => void
+  onEditWindow?: (model: ModelDefinition) => void
 }
 
 export function ModelSelector({
@@ -19,6 +21,8 @@ export function ModelSelector({
   onClose,
   onRefreshModels,
   onSelectModel,
+  onBuildWindow,
+  onEditWindow,
 }: ModelSelectorProps) {
   const [section, setSection] = useState<ModelLibrarySection>(initialSection)
   const sectionModels = useMemo(
@@ -76,7 +80,11 @@ export function ModelSelector({
         </nav>
 
         <div className="model-grid">
+          {section === 'openings' && onBuildWindow ? <button type="button" className="model-option" onClick={onBuildWindow}>
+            <span className="model-option-preview">＋</span><strong>Build a window</strong><span>Design panes, sizes and openings</span>
+          </button> : null}
           {sectionModels.map((model) => (
+            <div className="model-option-wrap" key={model.id}>
             <button
               key={model.id}
               type="button"
@@ -106,10 +114,12 @@ export function ModelSelector({
                 {section === 'openings'
                   ? model.roofMount === 'dormer'
                     ? 'Up-and-over / hip roofs'
-                    : 'Click to position'
+                    : model.windowDesign ? 'My windows · Click to position' : 'Click to position'
                   : model.category}
               </span>
             </button>
+            {model.windowDesign && onEditWindow ? <button type="button" onClick={() => onEditWindow(model)} aria-label={`Edit variety ${model.name}`}>Edit variety</button> : null}
+            </div>
           ))}
           {sectionModels.length === 0 ? (
             <p className="model-selector-empty">

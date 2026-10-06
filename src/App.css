@@ -1,4 +1,7 @@
 .app-shell {
+  --toolbar-background: rgba(15, 23, 42, 0.76);
+  --toolbar-menu-background: rgba(15, 23, 42, 0.97);
+  --toolbar-border: rgba(248, 250, 252, 0.18);
   min-height: 100svh;
   position: relative;
   display: grid;
@@ -133,17 +136,12 @@
 .left-tool-rail {
   position: fixed;
   z-index: 21;
-  top: 50%;
-  left: 12px;
-  transform: translateY(-50%);
+  top: 48px;
+  left: 8px;
   display: grid;
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid rgba(17, 24, 39, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.12);
-  backdrop-filter: blur(10px);
+  gap: 4px;
+  max-height: calc(100svh - 56px);
+  overflow-y: auto;
 }
 
 .left-tool-rail button {
@@ -198,9 +196,10 @@
 .left-tool-flyout {
   position: fixed;
   z-index: 20;
-  top: 50%;
-  left: 72px;
-  transform: translateY(-50%);
+  top: 48px;
+  left: 48px;
+  max-height: calc(100svh - 60px);
+  overflow-y: auto;
   display: grid;
   gap: 8px;
   width: 230px;
@@ -918,9 +917,18 @@
 
 .context-panel dl {
   display: flex;
+  flex: 1;
+  min-width: 0;
   gap: 18px;
   margin: 0;
+  padding-bottom: 14px;
   overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.context-panel > div,
+.context-panel dl > div {
+  flex-shrink: 0;
 }
 
 .context-panel dt {
@@ -933,6 +941,7 @@
   color: #172033;
   font-size: 16px;
   font-weight: 650;
+  white-space: nowrap;
 }
 
 .context-material-value {
@@ -2141,10 +2150,6 @@
     grid-template-rows: minmax(360px, 1fr) minmax(360px, 1fr);
   }
 
-  .left-tool-rail {
-    top: 126px;
-  }
-
   .view-splitter {
     display: none;
   }
@@ -2158,6 +2163,7 @@
 
   .context-panel dl {
     width: 100%;
+    padding-bottom: 0;
   }
 
   .editor-pane {
@@ -2175,6 +2181,49 @@
 .roof-connection select { width: 100%; }
 .roof-connection small { color: #475569; font-size: 11px; font-weight: 400; }
 .roof-connection .roof-connection-warning { color: #9a3412; }
+.roof-placement-panel.roof-settings-panel {
+  right: auto;
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 12px;
+  padding: 14px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.98);
+}
+.roof-settings-panel [hidden] { display: none; }
+.roof-settings-header { display: grid; gap: 4px; }
+.roof-settings-header h2 { margin: 0; color: #172033; font-size: 15px; }
+.roof-settings-header p { margin: 0; font-size: 12px; color: #64748b; }
+.roof-settings-tabs { display: flex; gap: 3px; padding: 3px; background: #eef2f7; border-radius: 7px; }
+.roof-settings-tabs button { flex: 1; border: 0; background: transparent; padding: 0 5px; font-size: 11px; cursor: pointer; }
+.roof-settings-tabs button[aria-selected="true"] { color: #1d4ed8; background: white; box-shadow: 0 1px 4px #0f172a1c; }
+.roof-settings-tabs button:focus-visible, .roof-settings-panel summary:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.roof-settings-body { min-height: 0; overflow-y: auto; }
+.roof-settings-body section, .roof-settings-group { display: grid; gap: 10px; }
+.roof-settings-group { padding-top: 12px; border-top: 1px solid #e2e8f0; }
+.roof-settings-group h3 { margin: 0; font-size: 12px; color: #334155; }
+.roof-settings-panel small { color: #64748b; font-size: 11px; font-weight: 400; line-height: 1.45; }
+.roof-settings-panel label { min-width: 0; width: auto; }
+.roof-settings-panel input, .roof-settings-panel select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+.roof-settings-panel .roof-pitch-link { align-items: start; font-size: 12px; font-weight: 500; }
+.roof-settings-panel .roof-pitch-link input { flex: 0 0 16px; width: 16px; margin: 0; }
+.roof-settings-panel .roof-ridge-fields { display: grid; align-items: stretch; padding: 0; border: 0; gap: 10px; }
+.roof-settings-panel .roof-ridge-fields:empty { display: none; }
+.roof-settings-panel .roof-chamfer-fields { min-width: 0; padding: 9px; }
+.roof-settings-panel .roof-chamfer-values { display: grid; }
+.roof-settings-panel .roof-connections { display: grid; gap: 12px; max-width: none; }
+.roof-settings-panel .roof-connection { max-width: none; }
+.roof-settings-panel details > summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #334155; }
+.roof-settings-panel details[open] > summary { margin-bottom: 10px; }
+.roof-settings-panel .roof-overhang-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.roof-settings-panel .roof-placement-actions { border-top: 1px solid #e2e8f0; padding-top: 12px; flex-shrink: 0; }
+.roof-settings-panel .roof-placement-actions button:last-child { background: #2563eb; color: white; border-color: #2563eb; }
+.roof-settings-panel .roof-settings-warning { height: auto; padding: 8px; text-align: left; color: #9a3412; background: #fff7ed; border-color: #fed7aa; cursor: pointer; }
+.roof-settings-panel .roof-connection-warning { color: #9a3412; }
 .model-scale-readout {
   position: absolute;
   right: 18px;
@@ -2229,4 +2278,196 @@
 }
 .ground-image-name {
   overflow-wrap: anywhere;
+}
+
+/* Compact viewport controls share the performance counters' dark palette. */
+.pane-header.viewport-toolbar {
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.editor-pane:first-child .pane-header.viewport-toolbar { left: 8px; }
+.viewport-toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
+}
+.viewport-toolbar-main::-webkit-scrollbar { display: none; }
+.floorplan-toolbar[data-compact='true'] .viewport-caption { display: none; }
+.floorplan-toolbar[data-compact='true'] .viewport-toolbar-main { gap: 4px; }
+.floorplan-toolbar[data-compact='true'] .viewport-button-group,
+.floorplan-toolbar[data-compact='true'] .edit-toolbar { gap: 2px; }
+.viewport-button-group, .edit-toolbar {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 3px;
+}
+.viewport-toolbar button.viewport-icon-button,
+.viewport-toolbar .three-fullscreen-toggle,
+.edit-toolbar button,
+.left-tool-rail button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--toolbar-border, rgba(248, 250, 252, 0.18));
+  border-radius: 6px;
+  background: var(--toolbar-background, rgba(15, 23, 42, 0.78));
+  color: #f8fafc;
+  cursor: pointer;
+  box-shadow: none;
+  pointer-events: auto;
+}
+.viewport-toolbar button:hover,
+.left-tool-rail button:enabled:hover { background: #334155; }
+.viewport-toolbar button[aria-pressed='true'],
+.viewport-toolbar button[aria-expanded='true'],
+.left-tool-rail button.active { background: #334b69; border-color: #93c5fd; color: #fff; }
+.viewport-toolbar button:focus-visible,
+.left-tool-rail button:focus-visible { outline: 2px solid #93c5fd; outline-offset: -2px; }
+.viewport-toolbar button:disabled,
+.left-tool-rail button:disabled { opacity: 0.4; cursor: not-allowed; }
+.edit-toolbar svg, .left-tool-rail button svg { width: 18px; height: 18px; }
+.viewport-toolbar .viewport-caption {
+  flex: 1 1 150px;
+  min-width: 50px;
+  max-width: 220px;
+  height: 32px;
+  margin: 0;
+  padding: 7px 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 6px;
+  background: var(--toolbar-background, rgba(15, 23, 42, 0.78));
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 650;
+  pointer-events: auto;
+}
+.viewport-toolbar .zoom-controls {
+  position: static;
+  flex: 0 0 auto;
+  height: 32px;
+  border: 0;
+  gap: 1px;
+  background: transparent;
+}
+.viewport-toolbar .zoom-controls button { border-radius: 0; border: 0; }
+.viewport-toolbar .zoom-value {
+  min-width: 48px;
+  height: 32px;
+  padding: 0 5px;
+  color: #f8fafc;
+  background: var(--toolbar-background, rgba(15, 23, 42, 0.78));
+  font-variant-numeric: tabular-nums;
+}
+.viewport-toolbar.three-toolbar { justify-content: flex-end; }
+.viewport-toolbar .three-header-controls {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.viewport-toolbar .viewport-menu-anchor { position: relative; inset: auto; flex: 0 0 auto; }
+.viewport-toolbar .viewport-menu {
+  top: 40px;
+  right: 0;
+  width: 300px;
+  min-width: 0;
+  max-width: calc(100vw - 16px);
+  max-height: var(--toolbar-menu-max-height, calc(100svh - 64px));
+  overflow-y: auto;
+  padding: 8px;
+  border-color: var(--toolbar-border, rgba(248, 250, 252, 0.18));
+  background: var(--toolbar-menu-background, rgba(15, 23, 42, 0.97));
+  color: #f8fafc;
+  color-scheme: dark;
+  pointer-events: auto;
+}
+.viewport-toolbar .floorplan-settings-menu { left: 0; right: auto; }
+.viewport-menu label, .viewport-menu .head-height-toggle { color: #e2e8f0; }
+.viewport-menu label:hover { background: #334155; }
+.viewport-menu .head-height-toggle { border: 0; background: none; padding: 3px 6px; }
+.viewport-menu input { accent-color: #60a5fa; }
+.viewport-menu .viewport-menu-heading, .viewport-menu .project-menu-dropdown h1 {
+  margin: 7px 6px 4px;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 750;
+}
+.viewport-menu .viewport-menu-description { margin: 0 6px 8px; color: #94a3b8; font-size: 12px; overflow-wrap: anywhere; }
+.viewport-menu .render-options-slider span { margin: 0; color: #cbd5e1; }
+.viewport-menu .project-menu-dropdown {
+  position: static;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  padding: 0 0 8px;
+  margin-bottom: 5px;
+  border: 0;
+  border-bottom: 1px solid var(--toolbar-border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.viewport-menu .project-menu-dropdown button,
+.viewport-menu .ground-image-controls button {
+  width: 100%;
+  height: 32px;
+  padding: 4px 6px;
+  text-align: left;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 13px;
+  cursor: pointer;
+}
+.viewport-menu .project-menu-dropdown button:hover,
+.viewport-menu .ground-image-controls button:hover { background: #334155; }
+.viewport-menu .ground-image-controls { position: static; }
+.viewport-menu .ground-image-menu {
+  position: static;
+  width: 100%;
+  min-width: 0;
+  max-height: none;
+  box-sizing: border-box;
+  background: #1e293b;
+  border-color: #475569;
+  box-shadow: none;
+}
+.viewport-menu .ground-image-menu span { color: #cbd5e1; }
+.floorplan-tool-hint {
+  position: absolute;
+  z-index: 9;
+  top: 48px;
+  left: 48px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: #f8fafc;
+  background: var(--toolbar-background);
+  font-size: 12px;
+  pointer-events: none;
 }

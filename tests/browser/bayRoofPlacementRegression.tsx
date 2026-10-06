@@ -34,7 +34,7 @@ function Preview() {
   const [preview,setPreview]=useState<RoofPlacementPreview|null>(null)
   const updateRoof=(id:string,updates:Partial<RoofStructure>)=>setFloor(current=>({...current,
     roofs:current.roofs?.map(roof=>roof.id===id?{...roof,...updates}:roof)}))
-  Object.assign(window,{ bayStage:()=>Konva.stages[0], bayFloor:floor, bayPreview:preview,
+  Object.assign(window,{ bayStage:()=>Konva.stages[0], bayFloor:floor, baySetFloor:setFloor, bayPreview:preview,
     bayRoofMode:setRoofMode, baySelectRoof:setSelection, bayScene:()=>[..._roots.values()][0]?.store.getState() })
   const floors = roofHeight ? [fixtureFloors[0],floor] : leanTo ? [floor,...fixtureFloors.slice(1)] : [floor]
   return <><FloorplanCanvas activeFloor={floor} floors={floors}

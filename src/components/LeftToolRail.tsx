@@ -47,10 +47,6 @@ const parseTextureScaleInput = (value: string) => {
 
 type LeftToolRailProps = {
   activeFloorId: string
-  canCopy: boolean
-  canPaste: boolean
-  canRedo: boolean
-  canUndo: boolean
   floors: FloorLevel[]
   internalWallThickness: number
   isAddingWall: boolean
@@ -77,19 +73,14 @@ type LeftToolRailProps = {
     wallSide?: SurfaceWallSide
   }) => void
   onAlignModels: (direction: ModelAlignDirection) => void
-  onCopy: () => void
-  onCut: () => void
   onDeleteFloor: () => void
   onInternalWallThicknessChange: (thickness: number) => void
   onOpenModelSelector: (section: ModelLibrarySection) => void
-  onPaste: () => void
-  onRedo: () => void
   onRoofModeChange: (isRoofMode: boolean) => void
   onSelectFloor: (floorId: string) => void
   onSlabThicknessChange: (thickness: number) => void
   onCeilingModeChange: (mode: NonNullable<FloorLevel['ceilingMode']>) => void
   onToggleAddWall: () => void
-  onUndo: () => void
   onWallHeightChange: (height: number) => void
   onWallKindChange: (wallKind: WallKind) => void
 }
@@ -278,10 +269,6 @@ function PasteIcon() {
 
 export function LeftToolRail({
   activeFloorId,
-  canCopy,
-  canPaste,
-  canRedo,
-  canUndo,
   floors,
   internalWallThickness,
   isAddingWall,
@@ -299,19 +286,14 @@ export function LeftToolRail({
   addLoftFloorDisabledReason,
   onApplyMaterial,
   onAlignModels,
-  onCopy,
-  onCut,
   onDeleteFloor,
   onInternalWallThicknessChange,
   onOpenModelSelector,
-  onPaste,
-  onRedo,
   onRoofModeChange,
   onSelectFloor,
   onSlabThicknessChange,
   onCeilingModeChange,
   onToggleAddWall,
-  onUndo,
   onWallHeightChange,
   onWallKindChange,
 }: LeftToolRailProps) {
@@ -549,22 +531,6 @@ export function LeftToolRail({
           onClick={() => togglePanel('align')}
         >
           <AlignIcon />
-        </IconButton>
-        <div className="left-tool-rail-divider" />
-        <IconButton disabled={!canUndo} label="Undo" onClick={onUndo}>
-          <UndoIcon />
-        </IconButton>
-        <IconButton disabled={!canRedo} label="Redo" onClick={onRedo}>
-          <RedoIcon />
-        </IconButton>
-        <IconButton disabled={!canCopy} label="Copy" onClick={onCopy}>
-          <CopyIcon />
-        </IconButton>
-        <IconButton disabled={!canCopy} label="Cut" onClick={onCut}>
-          <CutIcon />
-        </IconButton>
-        <IconButton disabled={!canPaste} label="Paste" onClick={onPaste}>
-          <PasteIcon />
         </IconButton>
       </nav>
 
@@ -950,4 +916,36 @@ export function LeftToolRail({
       ) : null}
     </>
   )
+}
+
+type EditToolbarProps = {
+  canCopy: boolean
+  canPaste: boolean
+  canRedo: boolean
+  canUndo: boolean
+  onCopy: () => void
+  onCut: () => void
+  onPaste: () => void
+  onRedo: () => void
+  onUndo: () => void
+}
+
+export function EditToolbar({ canCopy, canPaste, canRedo, canUndo, onCopy, onCut, onPaste, onRedo, onUndo }: EditToolbarProps) {
+  return <div className="edit-toolbar" role="group" aria-label="Edit actions">
+    <IconButton disabled={!canUndo} label="Undo" onClick={onUndo}>
+      <UndoIcon />
+    </IconButton>
+    <IconButton disabled={!canRedo} label="Redo" onClick={onRedo}>
+      <RedoIcon />
+    </IconButton>
+    <IconButton disabled={!canCopy} label="Copy" onClick={onCopy}>
+      <CopyIcon />
+    </IconButton>
+    <IconButton disabled={!canCopy} label="Cut" onClick={onCut}>
+      <CutIcon />
+    </IconButton>
+    <IconButton disabled={!canPaste} label="Paste" onClick={onPaste}>
+      <PasteIcon />
+    </IconButton>
+  </div>
 }

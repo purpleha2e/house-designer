@@ -73,10 +73,12 @@ export const getRoofFaceProjectedUvs: RoofFaceUvProjector = (vertices) => {
   }
   const dot = (a: RoofUvVertex, b: RoofUvVertex) =>
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-  const normal = normalize(cross(
-    subtract(vertices[1], vertices[0]),
-    subtract(vertices[2], vertices[0]),
-  ))
+  const areaNormal: RoofUvVertex = [0, 0, 0]
+  for (let i = 1; i + 1 < vertices.length; i++) {
+    const n = cross(subtract(vertices[i], vertices[0]), subtract(vertices[i + 1], vertices[0]))
+    n.forEach((value, axis) => { areaNormal[axis] += value })
+  }
+  const normal = normalize(areaNormal)
   const longestPlanEdge = vertices.reduce<{
     direction: RoofUvVertex
     lengthSquared: number

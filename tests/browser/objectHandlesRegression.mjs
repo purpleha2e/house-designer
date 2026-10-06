@@ -278,12 +278,13 @@ try {
   assert.equal(await evaluate('window.handleCommits'),11)
   writeFileSync('.tmp-object-handles-plan.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
   console.log('2D smooth transforms, live 3D sizing/rotation/movement, live dimension panel and single commits passed',await planModel())
+  await click(await handlePosition('[aria-label="Project menu"]'))
   await click(await handlePosition('.ground-image-controls > button'))
   await evaluate(`(() => {
     const canvas=document.createElement('canvas');canvas.width=160;canvas.height=80;
     const ctx=canvas.getContext('2d');ctx.fillStyle='#0ea5e9';ctx.fillRect(0,0,80,80);
     return new Promise(resolve=>canvas.toBlob(blob=>{
-      const input=document.querySelector('input[aria-label="Upload ground image"]');
+      const input=document.querySelector('input[aria-label="Upload floor image"]');
       const transfer=new DataTransfer();transfer.items.add(new File([blob],'transparent-site.png',{type:'image/png'}));
       input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));resolve();
     },'image/png'));
@@ -303,7 +304,7 @@ try {
   })()`)
   assert.equal(alpha,0)
   // Move the open menu away from the handles while leaving edit mode enabled.
-  await click(await handlePosition('.ground-image-controls > button'))
+  await click(await handlePosition('[aria-label="Project menu"]'))
   const groundPoint=anchor=>evaluate(`(() => {
     const stage=window.handleStage();const t=stage.findOne('.ground-image-handles');
     const n=t.findOne(${JSON.stringify('.'+anchor)});const p=n.getAbsolutePosition();
@@ -353,13 +354,14 @@ try {
   assert.equal(ground3D.x,finalGround.position.x+finalGround.width/2)
   const portable=JSON.parse(JSON.stringify(await evaluate('window.handleFloor')))
   assert.equal(portable.groundImage.dataUrl,movedGround.dataUrl)
+  await click(await handlePosition('[aria-label="Project menu"]'))
   await click(await handlePosition('.ground-image-controls > button'))
   await click(await handlePosition('.ground-image-menu button[aria-pressed="true"]'))
   assert.equal(await evaluate('!!window.handleStage().findOne(".ground-image-handles")'),false)
   writeFileSync('.tmp-ground-image.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
   const menuBounds=await evaluate(`(() => {const r=document.querySelector('.ground-image-menu').getBoundingClientRect();return {left:r.left,right:r.right}})()`)
   assert.ok(menuBounds.left>=0 && menuBounds.right<600)
-  const opacityPoint=await evaluate(`(() => {const r=document.querySelector('input[aria-label="Ground image opacity"]').getBoundingClientRect();return {x:r.left+r.width*0.75,y:r.top+r.height/2}})()`)
+  const opacityPoint=await evaluate(`(() => {const r=document.querySelector('input[aria-label="Floor image opacity"]').getBoundingClientRect();return {x:r.left+r.width*0.75,y:r.top+r.height/2}})()`)
   await click(opacityPoint)
   assert.ok((await ground()).opacity>0.65 && (await ground()).opacity<0.85)
   assert.equal(await evaluate("window.handleThreeScene().scene.getObjectByName('ground-image-3d').material.opacity"),(await ground()).opacity)
@@ -372,7 +374,7 @@ try {
   assert.equal(await ground(),undefined)
   assert.equal(await evaluate("!!window.handleStage().findOne('.ground-image')"),false)
   console.log('Transparent image upload, corner/edge resize, movement, locking, 3D display and portable data passed')
-  await click(await handlePosition('.ground-image-controls > button'))
+  await click(await handlePosition('[aria-label="Project menu"]'))
   await evaluate(`window.handleSetFloor({...window.handleFloor,walls:[{id:'modifier-wall',kind:'external',start:{x:2,y:2},end:{x:5,y:2},thickness:0.3,height:2.4}]})`)
   await pause(500)
   const wall=()=>evaluate('window.handleFloor.walls[0]')

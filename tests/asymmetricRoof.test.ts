@@ -69,6 +69,29 @@ test('the saved roof mounts at its neighbours height without a join extension an
   }
 })
 
+test('ridge height links preserve each side pitch through the overhang unless explicitly overridden', () => {
+  const target = roof('target', { pitchDegrees: 28, overhangPitchDegrees: 20 })
+  const source = roof('source', { asymmetricSides: true, ridgeOffset: -0.8, ridgeHeightTargetRoofId: 'target' })
+  const resolve = (changes: Partial<RoofStructure>) => resolveRoofRidgeHeights([
+    roofJunctionInput({ ...source, ...changes }, 'floor', 3), roofJunctionInput(target, 'floor', 3),
+  ]).inputs[0].roof
+  for (const mountSide of ['auto', 'side1', 'side2', 'free'] as const) {
+    const linked = resolve({ mountSide })
+    assert.equal(linked.overhangPitchDegrees, undefined)
+    for (const sign of [-1, 1]) {
+      const wallX = sign < 0 ? bounds.minX : bounds.maxX
+      const height = (x: number) => getPitchedRoofHeightAtX(linked, bounds, x)
+      const innerSlope = (height(wallX) - height(wallX - sign * 0.1)) / (sign * 0.1)
+      const outerSlope = (height(wallX + sign * 0.2) - height(wallX)) / (sign * 0.2)
+      near(outerSlope, innerSlope)
+    }
+  }
+  assert.equal(resolve({ overhangPitchDegrees: 0 }).overhangPitchDegrees, 0)
+  assert.equal(resolve({ mountSide: 'free' }).overhangPitchDegrees, undefined)
+  assert.equal(resolve({ heightOffset: 0.5 }).overhangPitchDegrees, undefined)
+  assert.equal(source.overhangPitchDegrees, undefined)
+})
+
 test('an offset ridge keeps its height and pitch while one eave drops below the wall tops', () => {
   const r = roof('roof', { asymmetricSides: true, ridgeOffset: 0.5, ridgeHeight: 1.5 })
   near(getGableRidgeHeight(r, bounds), 1.5)

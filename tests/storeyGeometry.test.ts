@@ -57,6 +57,28 @@ test('an unsupported edge stays with the horizontal assembly, with no guessed wa
   assert.deepEqual(exposed,[{point:{x:1,y:0},nextPoint:{x:3,y:0}}], 'new roof cut lines are not exterior slab sides')
 })
 
+test('an abutting roof below the floor band closes the facade down to its sloping contact', () => {
+  const source = facade('upper',0,4,2.7)
+  const storeys = [
+    {floor:floor('ground',0),faces:[],footprints:[outline]},
+    {floor:floor('first',2.7),faces:[source],footprints:[outline]},
+  ]
+  const faces: [number,number,number][][] = [[[0,2.2,-1],[2,2.5,-1],[2,2.5,0],[0,2.2,0]]]
+  const contacts = [{floorId:'ground',wallId:'upper',faces}]
+  const result = buildStoreyGeometry(storeys,undefined,contacts).get('first')!.wallFaces
+  const closures = result.filter(f=>f.storeyBoundary && f.vertices.some(v=>v.position[1] < -0.300001))
+  assert.ok(closures.length, 'the gap below the normal floor band is physically closed')
+  assert.ok(closures.every(f=>f.vertices.every(v=>v.position[0]>=0 && v.position[0]<1.37 &&
+    v.position[1]+2.7>=2.195-1e-8 && v.position[1]+2.7<=2.4+1e-8)))
+  assert.ok(closures.every(f=>f.vertices.every(v=>Math.abs(v.uv[1]-v.position[1]-2.7)<1e-8)))
+  assert.ok(closures.every(f=>f.faceId===source.faceId && f.materialSource===source.materialSource))
+  assert.equal(result[0],source)
+  assert.deepEqual(buildStoreyGeometry(storeys,undefined,[...contacts,...contacts]).get('first')!.wallFaces,result,
+    'overlapping contacts do not duplicate the closing facade')
+  assert.equal(buildStoreyGeometry(storeys,undefined,[{...contacts[0],wallId:'unrelated'}])
+    .get('first')!.wallFaces.length,buildStoreyGeometry(storeys).get('first')!.wallFaces.length)
+})
+
 test('bungalows and the top storey never acquire an automatic floor assembly', () => {
   const top=floor('bungalow',0), source=facade('wall')
   top.slabThickness=0.6
@@ -110,7 +132,10 @@ test('an inter-storey assembly owns wall top caps inside its footprint', () => {
     vertices: [[0,2.4,0],[4,2.4,0],[4,2.4,0.3],[0,2.4,0.3]]
       .map(position => ({ position, uv: [position[0], position[2]] })) as WallMeshFace['vertices'],
   }
-  assert.ok(build([cap]).get('ground')!.wallFaces.every(face => face.faceId !== cap.faceId))
+  const source = build([cap]).get('ground')!.wallFaces
+  assert.ok(source.find(face => face.faceId === cap.faceId)?.storeyCapCover?.length)
+  assert.ok(runWallRoofClipJob(createWallRoofClipJob(source, { floorElevation: 0, volumes: [] }))
+    .every(face => face.faceId !== cap.faceId))
   const bungalow = floor('bungalow', 0)
   assert.ok(buildStoreyGeometry([{ floor: bungalow, faces: [cap], footprints: [outline] }])
     .get(bungalow.id)!.wallFaces.some(face => face.faceId === cap.faceId))
@@ -123,6 +148,26 @@ test('an inter-storey assembly removes upper wall bottom caps inside its footpri
       .map(position => ({ position, uv: [position[0], position[2]] })) as WallMeshFace['vertices'],
   }
   assert.ok(build([], [cap]).get('first')!.wallFaces.every(face => face.faceId !== cap.faceId))
+})
+
+test('a cap straddling a stepped upper footprint keeps only its exposed part', () => {
+  const cap: WallMeshFace = { ...facade('stepped-cap'), kind: 'top', normal: [0, 1, 0],
+    vertices: [[0,2.4,0],[4,2.4,0],[4,2.4,0.3],[0,2.4,0.3]].map(position =>
+      ({ position, uv: [position[0], position[2]] })) as WallMeshFace['vertices'] }
+  const geometry = buildStoreyGeometry([
+    { floor: floor('ground', 0), faces: [cap], footprints: [outline] },
+    { floor: floor('upper', 2.7), faces: [], footprints: [[{x:0,y:0},{x:2,y:0},{x:2,y:3},{x:0,y:3}]] },
+  ])
+  const faces = runWallRoofClipJob(structuredClone(createWallRoofClipJob(geometry.get('ground')!.wallFaces,
+    { floorElevation: 0, volumes: [] }))).filter(face => face.kind === 'top')
+  assert.ok(faces.length)
+  assert.ok(faces.every(face => face.vertices.every(v => v.position[0] >= 2 - 1e-8)))
+  const area = faces.reduce((sum, face) => {
+    const [a,b,c] = face.vertices.map(v => v.position)
+    return sum + Math.abs((b[0]-a[0])*(c[2]-a[2])-(c[0]-a[0])*(b[2]-a[2]))/2
+  }, 0)
+  assert.ok(Math.abs(area - 0.6) < 1e-8)
+  assert.ok(faces.every(face => face.vertices.every(v => Math.abs(v.uv[0]-v.position[0]) < 1e-8)))
 })
 
 test('an internal wall below an upper facade cannot continue its interior finish into the exterior floor zone', () => {

@@ -176,11 +176,42 @@ export function clipWallFacesToRoofUndersides(
     }))
   })
   const verticalCaps = buildVerticalRoofCutCaps(faces, floorElevation, volumes)
+    .flatMap(cap => subtractExistingFacade(cap, clippedFaces))
     .map(cap => assignCoplanarCapSource(cap, faces))
   return partitionWallFacesAtRoofs([
-    ...clippedFaces, ...buildRoofCutCaps(faces, floorElevation, volumes),
+    ...clippedFaces.flatMap(face => {
+      if (!face.storeyCapCover) return [face]
+      let polygons: WallMeshVertex[][] = [face.vertices]
+      for (const cover of face.storeyCapCover) polygons = polygons.flatMap(p => partition(p, footprintPlanes(cover)).outside)
+      return polygons.flatMap(polygon => polygon.slice(1, -1).flatMap((v, index) => {
+        const triangle = [polygon[0], v, polygon[index + 2]]
+        return hasArea(triangle) ? [{ ...face, vertices: [...triangle, triangle[2]] as WallMeshFace['vertices'] }] : []
+      }))
+    }), ...buildRoofCutCaps(faces, floorElevation, volumes),
     ...verticalCaps,
   ], surfaceDividers, floorElevation)
+}
+
+/** Retained facades already close most of a protected wall boundary. Add
+ * only the newly exposed corner, without coplanar duplicate brick surfaces. */
+function subtractExistingFacade(cap: WallMeshFace, faces: WallMeshFace[]): WallMeshFace[] {
+  const origin = cap.vertices[0].position
+  const tangent = ([x, , z]: WallMeshVertex['position']) => -cap.normal[2] * x + cap.normal[0] * z
+  let polygons: WallMeshVertex[][] = [cap.vertices]
+  for (const face of faces) {
+    if (face.kind !== 'side' || face.normal.reduce((sum, n, i) => sum + n * cap.normal[i], 0) < 0.999999 ||
+      face.vertices.some(v => Math.abs(v.position.reduce((sum, p, i) => sum + (p - origin[i]) * cap.normal[i], 0)) > EPSILON)) continue
+    const planes = footprintPlanes(face.vertices.map(v => ({ x: tangent(v.position), y: v.position[1] })))
+      .map(plane => ((p: WallMeshVertex['position']) => plane([tangent(p), 0, p[1]])))
+    if (planes.length < 3) continue
+    polygons = polygons.flatMap(p => partition(p, planes).outside)
+    if (!polygons.length) break
+  }
+  return polygons.flatMap((p, part) => p.slice(1, -1).flatMap((v, index) => {
+    const triangle = [p[0], v, p[index + 2]]
+    return hasArea(triangle) ? [{ ...cap, faceId: `${cap.faceId}:uncovered:${part}:${index}`,
+      vertices: [...triangle, triangle[2]] as WallMeshFace['vertices'] }] : []
+  }))
 }
 
 // A cut through a perpendicular wall can close a gap in a continuous facade.
@@ -193,14 +224,19 @@ function assignCoplanarCapSource(cap: WallMeshFace, faces: WallMeshFace[]): Wall
   }
   const [minT, maxT] = range(cap, tangent), [minY, maxY] = range(cap, p => p[1])
   const origin = cap.vertices[0].position
-  const anchor = faces.find(face => {
+  const anchors = faces.filter(face => {
     if (face.kind !== 'side' || typeof face.pickSource.side !== 'number' ||
       face.normal.reduce((sum, n, i) => sum + n * cap.normal[i], 0) < 0.999) return false
-    if (face.vertices.some(v => Math.abs(v.position.reduce((sum, p, i) =>
-      sum + (p - origin[i]) * cap.normal[i], 0)) > 0.002)) return false
+    // A footprint can shave only part of a wall's thickness. The new face
+    // inherits the parallel outer skin it replaces, not the unpainted top.
+    if (face.vertices.some(v => v.position.reduce((sum, p, i) =>
+      sum + (p - origin[i]) * cap.normal[i], 0) < -0.002)) return false
     const [a, b] = range(face, tangent), [bottom, top] = range(face, p => p[1])
     return Math.min(b, maxT) >= Math.max(a, minT) - 0.002 && Math.min(top, maxY) > Math.max(bottom, minY) + 0.002
   })
+  const distance = (face: WallMeshFace) => Math.abs(face.vertices[0].position.reduce((sum, p, i) =>
+    sum + (p - origin[i]) * cap.normal[i], 0))
+  const anchor = anchors.sort((a, b) => distance(a) - distance(b))[0]
   if (!anchor) return cap
   const a = anchor.vertices[0]
   const b = anchor.vertices.find(v => Math.abs(tangent(v.position) - tangent(a.position)) > EPSILON)
@@ -218,6 +254,10 @@ function assignCoplanarCapSource(cap: WallMeshFace, faces: WallMeshFace[]): Wall
 // reaches the wall top. Close that vertical step too, using horizontal solid
 // boundaries to preserve the wall thickness and any door/window voids.
 function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number, volumes: WallRoofClipVolume[]) {
+  // Upper facades can own the floor-zone continuation below elevation zero.
+  // Their cut reveals must close that continuation as well as the storey.
+  const bottomElevation = floorElevation + Math.min(0, ...faces.filter(face => face.storeyBoundary)
+    .flatMap(face => face.vertices.map(vertex => vertex.position[1])))
   const worldFaces = new Map(faces.map((face) => [face, face.vertices.map((v): WallMeshVertex => ({
     ...v, position: [v.position[0], v.position[1] + floorElevation, v.position[2]],
   }))]))
@@ -237,8 +277,8 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
     points.sort((a, b) => (a.position[0] - b.position[0]) * -nz + (a.position[2] - b.position[2]) * nx)
     const a = points[0], b = points.at(-1)!
     if (Math.hypot(a.position[0] - b.position[0], a.position[2] - b.position[2]) <= EPSILON) return []
-    return [a, b, { ...b, position: [b.position[0], floorElevation, b.position[2]] as [number, number, number] },
-      { ...a, position: [a.position[0], floorElevation, a.position[2]] as [number, number, number] }]
+    return [a, b, { ...b, position: [b.position[0], bottomElevation, b.position[2]] as [number, number, number] },
+      { ...a, position: [a.position[0], bottomElevation, a.position[2]] as [number, number, number] }]
   }
   const upward = faces.filter((face) => face.normal[1] > 0.99)
   // Flush-mounted models can leave a zero-depth lintel. Its projected edges
@@ -287,7 +327,14 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
           if (hasArea(parts.inside)) polygons.push(parts.inside)
           return parts.outside
         })
-        for (const footprint of volume.protectedFootprints) polygons = polygons.flatMap((p) => partition(p, footprint).outside)
+        for (const footprint of volume.protectedFootprints) polygons = polygons.flatMap(p => {
+          // A protected wall still owns the exposed boundary beside a cut.
+          // Its interior removes caps; its outward-facing boundary closes
+          // the corner where a neighbouring wall was shaved by the roof.
+          const exposedBoundary = footprint.some(plane => p.every(v => Math.abs(plane(v.position)) <= EPSILON) &&
+            plane(normal) - plane([0, 0, 0]) < -EPSILON)
+          return exposedBoundary ? [p] : partition(p, footprint).outside
+        })
         for (const lower of downward) {
           if (!polygons.length) break
           if (lower.height > face.vertices[0].position[1] + EPSILON) continue
@@ -308,7 +355,7 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
           const vertices = [...triangle, triangle[2]].map(({ position: [x, y, z] }) => ({
             position: [x, y - floorElevation, z], uv: [-normal[2] * x + normal[0] * z, y],
           })) as WallMeshFace['vertices']
-          return [{ ...face, kind: 'side' as const, normal, vertices,
+          return [{ ...face, storeyCapCover: undefined, kind: 'side' as const, normal, vertices,
             faceId: `${face.faceId}:roof-boundary-cap:${volumeIndex}:${boundaryIndex}:${polygonIndex}:${index}`,
             materialSource: { ...face.materialSource, role: 'cap' as const },
           }]
@@ -366,7 +413,7 @@ function buildRoofCutCaps(faces: WallMeshFace[], floorElevation: number, volumes
         const vertices = [...triangle, triangle[2]].map((vertex) => ({ ...vertex,
           position: [vertex.position[0], vertex.position[1] - floorElevation, vertex.position[2]],
         })) as WallMeshFace['vertices']
-        return [{ ...face, faceId: `${face.faceId}:roof-cap:${volumeIndex}:${polygonIndex}:${index}`, normal, vertices }]
+        return [{ ...face, storeyCapCover: undefined, faceId: `${face.faceId}:roof-cap:${volumeIndex}:${polygonIndex}:${index}`, normal, vertices }]
       }))
     })
   })

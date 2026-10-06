@@ -1,3 +1,5 @@
+import { ToolbarIcon } from './ToolbarIcon'
+import { useToolbarMenu } from './useToolbarMenu'
 import { resolveBuildingRoofs, resolveLinkedRoofFloors, serializeRoofGeometryInput, getRoofRidgeHeight, getRoofWorldPointFromLocal, getRoofRenderPosition, getRoofSupportBoundsInRoofSpace, getRoofSupportLocalPoint, getExplicitRoofSupportLocalBounds, getRoofWithExternalWallSupportExtents, getWallSideAwayFromRoof, type BuildingRoof as WallClippingRoof } from '../roofBuildingGeometry'
 /* eslint-disable react-hooks/immutability */
 import {
@@ -9,6 +11,7 @@ import {
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ModelSelectionHighlight, createSelectionHighlightMaterial, updateSelectionHighlightMaterial } from './ModelSelectionHighlight'
 import { GroundImage3D } from './GroundImage3D'
+import { WindowMesh } from './WindowMesh'
 import { getSpatialDragDelta, getTransformRotation } from '../transformModifiers'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
@@ -175,21 +178,18 @@ import { withSpecularOnlyImageBasedLighting } from '../materials/imageBasedLight
 import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
 import { wallMaterialBatchKey } from '../wallEngine/wallMaterialBatchKey'
 import { clipWallFacesInWorker } from '../wallEngine/wallRoofClipClient'
-import { buildStoreyGeometry, getExposedAssemblyEdges, type StoreyGeometry } from '../storeyGeometry'
+import { buildStoreyGeometry, getExposedAssemblyEdges, type FloorAssembly, type StoreyGeometry } from '../storeyGeometry'
 import { getFloorSlabFootprints } from '../ceilingSlabFootprint'
 import { getRoofCeilingCutouts } from '../roofCeilingClipping'
 import { getBaySupportPolygon } from '../bayRoof'
-import { createBayRoofEavesGeometry } from '../bayRoofEaves'
 import {
 } from '../roofProfile'
-import { getBayRoofTopUvs, getPitchedRoofTopUvs } from '../roofUv'
-import { createUpAndOverEavesGeometry } from '../roofEavesGeometry'
-import { clipEavesAtJoinedRoofs } from '../roofEavesClipping'
+import { createJoinedRoofAssemblyGeometries } from '../roofAssembly'
 import { clipRoofGeometryByVolumes, getRoofAbutmentPlanes, type RoofAbuttingWall } from '../roofAbutmentGeometry'
 import { roofFacePlanes, type ClipPlane } from '../wallEngine/wallRoofClip'
-import { findStoreyBoundaryAssignment, findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
-import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, subtractRoofVolume, type ResolvedRoof } from '../roofJunctions'
-import { createSolidRoofGeometryFromFaces, cutRoofFacesAtDormerOpenings, getFlippedRoofFaceProjectedUvs, splitRoofUndersideFaces, type RoofGeometries, type RoofFaceUvProjector, type RoofVertex } from '../roofSolidGeometry'
+import { findStoreyBoundaryAssignment, findUpperFacadeSourceForRoofCut, findWallFragmentAssignmentForFace } from '../wallFragmentAssignments'
+import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, type ResolvedRoof } from '../roofJunctions'
+import { createSolidRoofGeometryFromFaces, type RoofGeometries, type RoofVertex } from '../roofSolidGeometry'
 import { carveRoofSurfaceByRooms, type RoomRoofCut } from '../roofRoomCsg'
 import { buildBuildingRoomVolumes, type BuildingRoomVolumes } from '../buildingRoomVolumes'
 import { getRoofThickness } from '../roofThickness'
@@ -285,6 +285,7 @@ type ThreeDViewProps = {
   selectedWallId: string | null
   sceneRevision: number
   showAllFloors: boolean
+  showImages?: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
 }
 
@@ -1013,6 +1014,9 @@ function getFloorRenderResetKey(
         roof.ridgeOffset ?? '',
         roof.ridgeHeight ?? '',
         roof.ridgeHeightTargetRoofId ?? '',
+        JSON.stringify(roof.heightAlignment ?? null),
+        JSON.stringify(roof.ridgeStartChamfer ?? null),
+        JSON.stringify(roof.ridgeEndChamfer ?? null),
         roof.overhangPitchDegrees ?? '',
         roof.soffitColor ?? '',
         JSON.stringify(roof.bayOutline ?? []),
@@ -2732,7 +2736,7 @@ function WallEngineWallMeshes({
           clipsGeometry: candidate.roof.clipsGeometry,
           fitSupportingWallIds: candidate.roof.fitSupportingWalls ? candidate.supportingWallIds : [],
           roofId: candidate.roof.id,
-          surfaceFaces: candidate.resolved.structuralFaces,
+          surfaceFaces: getRoofRenderableOuterFaces(candidate.resolved),
           enclosedFootprints: roofFootprints.get(candidate.floorId) ?? undefined,
           floorId: candidate.floorId,
           abutmentPlanes: getRoofAbutmentPlanes(candidate.abuttingWalls, getRoofRenderPosition(candidate.roof)),
@@ -2832,8 +2836,8 @@ function WallEngineWallMeshes({
     })
   }, [faces, floorId, renderedWalls, rooms])
   const renderFaces = useMemo(
-    () => applyFragmentMaterialSources(faces, surfaceAssignments),
-    [faces, surfaceAssignments],
+    () => applyFragmentMaterialSources(faces, surfaceAssignments, floorId, elevation, storeyGeometry?.assembly),
+    [faces, surfaceAssignments, floorId, elevation, storeyGeometry?.assembly],
   )
   const payload = useMemo(
     () => {
@@ -3505,7 +3509,13 @@ function resolveWallEngineMaterial({
           source,
           wall.height,
         )
-      : undefined
+      // A roof-cut reveal can continue the facade of the storey above.
+      // Its saved fragment finish is valid even though that wall is not in
+      // this floor's wall map.
+      : source.fragmentId ? surfaceAssignments.findLast(assignment =>
+          assignment.target.type === 'wall-surface-fragment' &&
+          assignment.target.wallId === source.wallId && assignment.target.fragmentId === source.fragmentId &&
+          (assignment.target.side === 'both' || assignment.target.side === source.side)) : undefined
   const capSideAssignment =
     wall && (source.side === 1 || source.side === -1)
       ? getExternalWallSlabEdgeMaterialAssignment(
@@ -3699,10 +3709,30 @@ function getWallMaterialAssignmentForSource(
 function applyFragmentMaterialSources(
   faces: WallEngineFace[],
   surfaceAssignments: SurfaceMaterialAssignment[],
+  floorId: string,
+  elevation: number,
+  assembly?: FloorAssembly,
 ) {
   const currentFaceIds = new Set(faces.map((face) => face.faceId))
+  // Roof contact partitioning can split a reveal below its connection to the
+  // upper facade. All pieces retain the finish of that connected reveal.
+  const revealTops = new Map<string, number>()
+  for (const face of faces) {
+    if (!face.faceId.includes(':roof-boundary-cap:')) continue
+    const key = face.faceId.split(':roof-region:')[0]
+    const top = Math.max(...face.vertices.map(v => v.position[1])) + elevation
+    revealTops.set(key, Math.max(revealTops.get(key) ?? -Infinity, top))
+  }
 
   return faces.map((face) => {
+    const upperSource = findUpperFacadeSourceForRoofCut(surfaceAssignments, face, floorId, elevation, assembly,
+      revealTops.get(face.faceId.split(':roof-region:')[0]))
+    const ownFinish = upperSource && surfaceAssignments.some(assignment => assignment.target.type === 'wall-surface-fragment' &&
+      assignment.target.wallId === face.pickSource.wallId &&
+      (assignment.target.fragmentId === face.faceId ||
+        ((face.faceId.includes(':roof-boundary-cap:') || assignment.target.fragmentId.includes(':roof-region:')) &&
+          face.faceId.startsWith(`${assignment.target.fragmentId}:`))))
+    if (upperSource && !ownFinish) return { ...face, materialSource: upperSource }
     const fragmentAssignment = findWallFragmentAssignmentForFace(
       surfaceAssignments,
       face,
@@ -10571,8 +10601,7 @@ function HiddenSurfaceWireframeRenderer({ side }: { side: Side }) {
 
 function HipRoofMesh({
   abuttingWalls,
-  buildingRoomCuts,
-  dormerOpeningPolygons,
+  geometries,
   elevation,
   floorId,
   isActive,
@@ -10581,15 +10610,13 @@ function HipRoofMesh({
   isUndersideSelected,
   onRegisterPickTarget,
   roof,
-  resolved,
   roofFaceSide,
   shadowsEnabled,
   surfaceAssignments,
   wireframe,
 }: {
   abuttingWalls: RoofAbuttingWall[]
-  buildingRoomCuts: RoomRoofCut[]
-  dormerOpeningPolygons: Point[][]
+  geometries: RoofGeometries
   elevation: number
   floorId: string
   isActive: boolean
@@ -10598,7 +10625,6 @@ function HipRoofMesh({
   isUndersideSelected: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
   roof: RoofStructure
-  resolved: ResolvedRoof
   roofFaceSide?: Side
   shadowsEnabled: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
@@ -10607,61 +10633,6 @@ function HipRoofMesh({
   const groupRef = useRef<Object3D>(null!)
   const undersideRef = useRef<Mesh>(null!)
   useProximityViewFade({ objectRef: groupRef })
-  const geometries = useMemo<RoofGeometries>(() => {
-    // Visible tiles, shell and eaves follow the junction resolver's exposed
-    // panels. The untrimmed outer profile is reserved for room-volume CSG.
-    const outerFaces = cutRoofFacesAtDormerOpenings(
-      resolved.faces,
-      dormerOpeningPolygons,
-    )
-    const faces = outerFaces.map((face) => face.map((p) => roofToLocal(roof, elevation, p)))
-    const clipAtNearAbutments = (sourceFaces: RoofVertex[][]) => abuttingWalls.reduce((faces, abutment) => {
-      const plane = getRoofAbutmentPlanes([abutment], getRoofRenderPosition(roof))[0]
-      return faces.flatMap(face => subtractRoofVolume(face, [plane]))
-    }, sourceFaces)
-    const visibleEavesFaces = clipAtNearAbutments(outerFaces)
-    const eavesFaces = visibleEavesFaces.map(face => face.map(p => roofToLocal(roof, elevation, p)))
-    const structuralShellFaces = clipAtNearAbutments(getRoofRenderableOuterFaces(resolved))
-      .map(face => face.map(p => roofToLocal(roof, elevation, p)))
-    const uvProjector: RoofFaceUvProjector = roof.type === 'up-and-over' || roof.type === 'lean-to'
-      ? (vertices) => getPitchedRoofTopUvs(roof, resolved.support, vertices)
-      : roof.type === 'bay' ? (vertices) => getBayRoofTopUvs(roof, vertices)
-      : roof.type === 'hip' ? getFlippedRoofFaceProjectedUvs : (vertices) => vertices.map(([x, , z]) => [x, z])
-    const rawEaves = roof.type === 'up-and-over'
-      ? createUpAndOverEavesGeometry(roof, resolved.support, resolved.extents, eavesFaces, getRoofThickness(roof))
-      : roof.type === 'bay' ? createBayRoofEavesGeometry(roof, faces, getRoofThickness(roof)) : undefined
-    const joinedEaves = rawEaves ? clipEavesAtJoinedRoofs(rawEaves, resolved) : undefined
-    if (rawEaves && joinedEaves !== rawEaves) rawEaves.dispose()
-    const supportPolygon = roofBoundsPolygon(resolved, resolved.support)
-    const { undersideFaces, soffitFaces } = splitRoofUndersideFaces(outerFaces, supportPolygon)
-    const solid = createSolidRoofGeometryFromFaces(
-      faces, uvProjector, getRoofThickness(roof),
-      structuralShellFaces,
-      undersideFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
-      soffitFaces.map(face => face.map(p => roofToLocal(roof, elevation, p))),
-    )
-    // A passive roof lowered onto its own fitted walls is the room's roof.
-    // Its former horizontal ceiling must not carve away the lowered eaves.
-    // Other storeys and independently clipping roofs still own their cuts.
-    const fittedRoomCuts = buildingRoomCuts.filter(cut => !(roof.fitSupportingWalls &&
-      roof.clipsGeometry === false && cut.roomVolume && cut.floorId === floorId))
-    const carve = (geometry: BufferGeometry, cuts = fittedRoomCuts) => {
-      const clipped = carveRoofSurfaceByRooms(geometry, cuts,
-        point => roofToLocal(roof, elevation, point))
-      if (clipped !== geometry) geometry.dispose()
-      return clipped
-    }
-    // Retain the inner roof surface exactly at the room boundary. Intruding
-    // roofs below it are still removed; the 1 mm clearance avoids a coplanar
-    // Boolean deleting the ceiling itself.
-    const undersideCuts = fittedRoomCuts.map(cut => ({ ...cut, thickness: cut.thickness + 0.004 }))
-    return {
-      top: carve(solid.top), shell: carve(solid.shell),
-      underside: carve(solid.underside, undersideCuts),
-      soffit: carve(solid.soffit),
-      eaves: joinedEaves ? carve(joinedEaves) : undefined,
-    }
-  }, [buildingRoomCuts, dormerOpeningPolygons, elevation, floorId, resolved, roof])
   const facingWireframe = useMemo<RoofGeometries | null>(() => {
     if (!wireframe || roofFaceSide === undefined) return null
     return {
@@ -10672,13 +10643,6 @@ function HipRoofMesh({
       eaves: geometries.eaves ? facingWireframeGeometry(geometries.eaves) : undefined,
     }
   }, [geometries, roofFaceSide, wireframe])
-  useEffect(() => () => {
-    geometries.top.dispose()
-    geometries.shell.dispose()
-    geometries.underside.dispose()
-    geometries.soffit.dispose()
-    geometries.eaves?.dispose()
-  }, [geometries])
   useEffect(() => () => {
     if (!facingWireframe) return
     facingWireframe.top.dispose()
@@ -11037,6 +11001,14 @@ function RoofMeshes({
     return openings
   }, [floor.models, candidates])
 
+  const roofAssemblies = useMemo(() => roofsVisible ? createJoinedRoofAssemblyGeometries(candidates.map(candidate => ({
+    resolved: candidate.resolved, abuttingWalls: candidate.abuttingWalls,
+    dormerOpenings: dormerOpeningsByRoofId.get(candidate.roof.id), roomCuts: buildingRoomCuts,
+  }))) : new Map<string, RoofGeometries>(), [roofsVisible, candidates, dormerOpeningsByRoofId, buildingRoomCuts])
+  useEffect(() => () => {
+    roofAssemblies.forEach(parts => Object.values(parts).forEach(geometry => geometry?.dispose()))
+  }, [roofAssemblies])
+
   if (!roofsVisible) return null
   return (
     <>
@@ -11053,15 +11025,14 @@ function RoofMeshes({
         surfaceAssignments={surfaceAssignments}
         wireframe={wireframe}
       />
-      {candidates.map(({ roof, abuttingWalls, resolved }) =>
+      {candidates.map(({ roof, abuttingWalls }) =>
         roof.type === 'flat' ||
         roof.type === 'hip' ||
         roof.type === 'lean-to' ||
         roof.type === 'up-and-over' || roof.type === 'bay' ? (
           <HipRoofMesh
             abuttingWalls={abuttingWalls}
-            buildingRoomCuts={buildingRoomCuts}
-            dormerOpeningPolygons={dormerOpeningsByRoofId.get(roof.id) ?? []}
+            geometries={roofAssemblies.get(roof.id)!}
             key={roof.id}
             elevation={elevation}
             floorId={floor.id}
@@ -11074,7 +11045,6 @@ function RoofMeshes({
               selectedSurface.floorId === floor.id}
             onRegisterPickTarget={onRegisterPickTarget}
             roof={roof}
-            resolved={resolved}
             roofFaceSide={roofFaceSide}
             shadowsEnabled={shadowsEnabled}
             surfaceAssignments={surfaceAssignments}
@@ -13624,6 +13594,10 @@ function ModelMesh({
           windowDefinition={dormerWindowDefinition}
           wireframe={wireframe}
         />
+      ) : modelDefinition.windowDesign ? (
+        <WindowMesh design={modelDefinition.windowDesign} scale={model.scale ?? 1} widthScale={model.widthScale ?? 1}
+          depthScale={model.depthScale ?? 1} wireframe={wireframe} active={isActive}
+          onObject={object => onRegisterPickTarget({ blocksCollision: false, floorId, kind: 'model', modelId: model.id, object })} />
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
           batchable={
@@ -18772,6 +18746,8 @@ function OpeningPlacementVisual({
           )}
           wireframe={false}
         />
+      ) : definition.windowDesign ? (
+        <WindowMesh design={definition.windowDesign} />
       ) : definition.sourceUrl ? (
         <Suspense fallback={fallback}>
           <ImportedModelContent
@@ -19215,6 +19191,7 @@ export function ThreeDView({
   selectedWallId,
   sceneRevision,
   showAllFloors,
+  showImages = true,
   surfaceAssignments,
 }: ThreeDViewProps) {
   const ridgeHeightFloors = useMemo(() => resolveLinkedRoofFloors(sourceFloors), [sourceFloors])
@@ -19227,6 +19204,8 @@ export function ThreeDView({
   )
   const sunPreviewDirectionRef = useRef<LightDirection | null>(null)
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
+  const threeToolbarRef = useRef<HTMLDivElement>(null)
+  useToolbarMenu(isRenderMenuOpen, setIsRenderMenuOpen, threeToolbarRef)
   const [transformMode, setTransformMode] = useState<TransformMode>('translate')
   const [pickBufferDownload, setPickBufferDownload] = useState<{
     dataUrl: string
@@ -19410,7 +19389,10 @@ export function ThreeDView({
   const storeyGeometry = useMemo(() => buildStoreyGeometry(preparedStoreys,
     new Set(renderOptions.floorSlabs
       ? showAllFloorsInScene ? preparedStoreys.map(s => s.floor.id) : floorBelowActive ? [floorBelowActive.id] : []
-      : [])), [preparedStoreys, renderOptions.floorSlabs, showAllFloorsInScene, floorBelowActive?.id])
+      : []), wallClippingRoofs.flatMap(candidate => candidate.roof.clipsGeometry === false ? [] :
+        candidate.abuttingWalls.map(({wall}) => ({floorId:candidate.floorId,wallId:wall.id,
+          faces:getRoofRenderableOuterFaces(candidate.resolved)})))),
+    [preparedStoreys, renderOptions.floorSlabs, showAllFloorsInScene, floorBelowActive?.id, wallClippingRoofs])
   const roofGables = useMemo(() => buildBuildingRoofGables(roofRoomFloors, wallClippingRoofs, buildingRoomVolumes,
     [...storeyGeometry.values()].flatMap(storey => storey.assembly ? [storey.assembly] : [])),
     [roofRoomFloors, wallClippingRoofs, buildingRoomVolumes, storeyGeometry])
@@ -20188,68 +20170,19 @@ export function ThreeDView({
 
   return (
     <section ref={threePaneRef} className="editor-pane three-editor-pane">
-      <div className="pane-header">
-        <h2>3D View</h2>
+      <div className="pane-header viewport-toolbar three-toolbar" ref={threeToolbarRef} aria-label="3D toolbar">
         <div className="three-header-controls">
-          <label className="aspect-ratio-select">
-            <span>Aspect</span>
-            <select
-              value={aspectRatioMode}
-              onChange={(event) =>
-                setAspectRatioMode(event.target.value as AspectRatioMode)
-              }
-            >
-              <option value="normal">Normal</option>
-              <option value="wide">Wide</option>
-              <option value="super-wide">Super-wide</option>
-            </select>
-          </label>
-          <div className="segmented-control compact" aria-label="3D transform mode">
-            <button type="button" className={transformMode === 'translate' ? 'active' : ''}
-              onClick={() => setTransformMode('translate')}>Move</button>
-            <button type="button" className={transformMode === 'rotate' ? 'active' : ''}
-              onClick={() => setTransformMode('rotate')}>Rotate</button>
+          <div className="viewport-button-group" role="group" aria-label="3D transform mode">
+            <button type="button" className="viewport-icon-button" aria-label="Move" title="Move"
+              aria-pressed={transformMode === 'translate'} onClick={() => setTransformMode('translate')}><ToolbarIcon name="move" /></button>
+            <button type="button" className="viewport-icon-button" aria-label="Rotate" title="Rotate"
+              aria-pressed={transformMode === 'rotate'} onClick={() => setTransformMode('rotate')}><ToolbarIcon name="rotate" /></button>
           </div>
-          <label className="head-height-toggle">
-            <input
-              type="checkbox"
-              checked={headHeightEnabled}
-              onChange={(event) => {
-                setHeadHeightEnabled(event.target.checked)
-                event.currentTarget.blur()
-              }}
-            />
-            Head height
-          </label>
-          {/* <button
-            type="button"
-            onClick={() => {
-              const capturePickBuffer = pickBufferCaptureRef.current
-
-              if (!capturePickBuffer) {
-                showEngineStatus('Pick capture not ready', 1800)
-                recordEngineLog('color-pick-buffer-export-failed', 'capture not ready')
-                return
-              }
-
-              showEngineStatus(
-                `Exporting pick buffer (${pickTargetsRef.current.length} targets)...`,
-                1800,
-              )
-              capturePickBuffer()
-            }}
-          >
-            Pick PNG
-          </button> */}
-          {pickBufferDownload ? (
-            <a
-              className="pick-buffer-download-link"
-              href={pickBufferDownload.dataUrl}
-              download={pickBufferDownload.filename}
-            >
-              Download PNG
-            </a>
-          ) : null}
+          <div className="viewport-button-group" role="group" aria-label="3D aspect">
+            {([['normal', 'Normal aspect'], ['wide', 'Wide aspect'], ['super-wide', 'Super-wide aspect']] as const).map(([mode, label]) =>
+              <button key={mode} type="button" className="viewport-icon-button" aria-label={label} title={label}
+                aria-pressed={aspectRatioMode === mode} onClick={() => setAspectRatioMode(mode)}><ToolbarIcon name={mode} /></button>)}
+          </div>
           <button
             type="button"
             className="three-fullscreen-toggle"
@@ -20268,16 +20201,34 @@ export function ThreeDView({
                 : 'M8 3H3v5m13-5h5v5M3 16v5h5m8 0h5v-5'} />
             </svg>
           </button>
-          <div className="render-options">
-            <button
-              type="button"
-              aria-expanded={isRenderMenuOpen}
-              onClick={() => setIsRenderMenuOpen((value) => !value)}
-            >
-              Render
-            </button>
+          <div className="render-options viewport-menu-anchor">
+            <button type="button" className="viewport-icon-button" aria-label="3D view menu" title="3D view settings"
+              aria-expanded={isRenderMenuOpen} aria-controls="three-settings-menu"
+              onClick={() => setIsRenderMenuOpen(value => !value)}><ToolbarIcon name="menu" /></button>
             {isRenderMenuOpen ? (
-              <div className="render-options-menu">
+              <div id="three-settings-menu" className="render-options-menu viewport-menu">
+                <div className="viewport-menu-heading">3D view</div>
+          <label className="head-height-toggle">
+            <input aria-label="Head height"
+              type="checkbox"
+              checked={headHeightEnabled}
+              onChange={(event) => {
+                setHeadHeightEnabled(event.target.checked)
+                event.currentTarget.blur()
+              }}
+            />
+            Head height
+          </label>
+          {pickBufferDownload ? (
+            <a
+              className="pick-buffer-download-link"
+              href={pickBufferDownload.dataUrl}
+              download={pickBufferDownload.filename}
+            >
+              Download PNG
+            </a>
+          ) : null}
+                <div className="viewport-menu-heading">Render settings</div>
                 <label>
                   <input
                     type="checkbox"
@@ -20724,8 +20675,9 @@ export function ThreeDView({
               </>
             ) : null}
 
-            {!renderOptions.roofsOnly && visibleRenderedFloors.map(({ floor }) => floor.groundImage &&
-              <GroundImage3D key={`ground-image-${floor.id}`} image={floor.groundImage} elevation={floor.elevation} />)}
+            {showImages && !renderOptions.roofsOnly && visibleRenderedFloors.filter(({ floor }) => floor.id === activeFloorId)
+              .map(({ floor }) => floor.groundImage &&
+              <GroundImage3D key={`ground-image-${floor.id}`} image={floor.groundImage} elevation={floor.elevation} floorId={floor.id} />)}
 
             {!showAllFloorsInScene && !renderOptions.roofsOnly && renderOptions.referenceFloors && activeFloor
               ? renderedFloors.filter(({ floor }) => floor.elevation < activeFloor.elevation)

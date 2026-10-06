@@ -20,10 +20,10 @@ export function GroundImageControls({ image, editing, center, maxSize, onChange,
   const alive = useRef(true)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
   return <div className="render-options ground-image-controls">
-    <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>Ground image</button>
+    <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)}>Floor image</button>
     {open && <div className="render-options-menu ground-image-menu" onKeyDown={event => event.stopPropagation()}>
       <label>{image ? 'Replace image' : 'Upload image'}
-        <input type="file" accept="image/*" aria-label="Upload ground image" disabled={loading}
+        <input type="file" accept="image/*" aria-label="Upload floor image" disabled={loading}
           onChange={async event => {
             const file = event.target.files?.[0]
             event.target.value = ''
@@ -64,7 +64,7 @@ export function GroundImageControls({ image, editing, center, maxSize, onChange,
           if (!event.target.checked) onEditingChange(false)
         }} /> Show image</label>
         <label>Opacity {Math.round(image.opacity * 100)}%
-          <input type="range" min="0" max="100" value={image.opacity * 100} aria-label="Ground image opacity"
+          <input type="range" min="0" max="100" value={image.opacity * 100} aria-label="Floor image opacity"
             onChange={event => onChange({ ...image, opacity: Number(event.target.value) / 100 })} />
         </label>
         <span>{image.width.toFixed(2)} × {image.length.toFixed(2)} m</span>

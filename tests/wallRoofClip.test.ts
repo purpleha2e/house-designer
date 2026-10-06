@@ -150,6 +150,45 @@ test('a vertical junction closure inherits the touching facade side and UV frame
   assert.ok(caps.every(f=>f.vertices.every(v=>Math.abs(v.uv[0]-(v.position[2]*2+10))<1e-7&&Math.abs(v.uv[1]-v.position[1]-2.6)<1e-7)))
 })
 
+test('a footprint shaving a facade retains its finish and closes the floor-zone continuation', () => {
+  const settings = options(() => 2, 1, 3)
+  settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)
+  const facade: WallMeshFace = { ...sideFace(), faceId: 'brick', wallId: 'brick', normal: [1, 0, 0],
+    materialSource: { wallId: 'brick', side: 1 }, pickSource: { wallId: 'brick', side: 1 },
+    vertices: [[1.025, 0, -0.15], [1.025, 0, 0.15], [1.025, 2.4, 0.15], [1.025, 2.4, -0.15]]
+      .map(position => ({ position, uv: [position[2], position[1]] })) as WallMeshFace['vertices'] }
+  const band: WallMeshFace = { ...facade, storeyBoundary: true, vertices: facade.vertices.map(v => ({ ...v,
+    position: [v.position[0], v.position[1] === 0 ? -0.3 : 0, v.position[2]],
+  })) as WallMeshFace['vertices'] }
+  const caps = runWallRoofClipJob(structuredClone(createWallRoofClipJob([topFace(), facade, band], settings)))
+    .filter(f => f.faceId.includes(':roof-boundary-cap:') && f.normal[0] > 0.99)
+  assert.ok(caps.length)
+  assert.ok(caps.every(f => f.materialSource.fragmentId === 'brick'))
+  assert.ok(Math.abs(Math.min(...caps.flatMap(f => f.vertices.map(v => v.position[1]))) + 0.3) < 1e-8)
+})
+
+test('a protected wall boundary closes the exposed corner without duplicating the retained facade', () => {
+  const settings = options(() => 4, 1, 3)
+  settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)
+  settings.volumes[0].protectedFootprints = [footprintPlanes([
+    {x:-1,y:-1},{x:1,y:-1},{x:1,y:1},{x:-1,y:1},
+  ])]
+  settings.volumes[0].excludedWallIds = new Set(['retained'])
+  const retained: WallMeshFace = { ...sideFace(), faceId: 'retained', wallId: 'retained', normal: [1,0,0],
+    vertices: [[1,0,-0.15],[1,0,0],[1,2.4,0],[1,2.4,-0.15]].map(position =>
+      ({position,uv:[position[2],position[1]]})) as WallMeshFace['vertices'] }
+  const caps = runWallRoofClipJob(structuredClone(createWallRoofClipJob([topFace(), retained], settings)))
+    .filter(face => face.faceId.includes(':roof-boundary-cap:') && face.normal[0] > 0.99)
+  assert.ok(caps.length, 'the protection must not discard the new corner closure')
+  assert.ok(caps.every(face => face.vertices.every(v => v.position[2] >= -1e-8)),
+    'the existing half of the facade must not be duplicated')
+  const area = caps.reduce((sum, face) => {
+    const [a,b,c] = face.vertices.map(v => v.position)
+    return sum + Math.abs((b[2]-a[2])*(c[1]-a[1])-(c[2]-a[2])*(b[1]-a[1]))/2
+  }, 0)
+  assert.ok(Math.abs(area - 0.15) < 1e-8, 'exactly the missing half is closed')
+})
+
 test('roof cut caps respect window voids and do not duplicate overlapping roof coverage', () => {
   const settings = options(() => 4)
   settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)

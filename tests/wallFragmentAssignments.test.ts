@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { SurfaceMaterialAssignment } from '../src/types.ts'
-import { findStoreyBoundaryAssignment, findWallFragmentAssignmentForFace } from '../src/wallFragmentAssignments.ts'
+import { findStoreyBoundaryAssignment, findUpperFacadeSourceForRoofCut, findWallFragmentAssignmentForFace } from '../src/wallFragmentAssignments.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 
 test('a floor band inherits the touching facade finish across different roof partition labels', () => {
@@ -41,6 +41,35 @@ function assignment(fragmentId: string): SurfaceMaterialAssignment {
     },
   }
 }
+
+test('an exposed lower roof-cut reveal continues the upper facade finish', () => {
+  const upper: WallMeshFace = { faceId: 'upper-brick', wallId: 'shared-wall', kind: 'side', normal: [1,0,0],
+    materialSource: {wallId:'shared-wall',side:1}, pickSource: {wallId:'shared-wall',side:1},
+    uvSource: {wallId:'shared-wall',side:1},
+    vertices: [[0.15,0,0],[0.15,0,2],[0.15,2.4,2],[0.15,2.4,0]].map(position =>
+      ({position,uv:[position[2],position[1]]})) as WallMeshFace['vertices'] }
+  const cut: WallMeshFace = { ...upper, faceId: 'lower:roof-boundary-cap:0', wallId: 'lower',
+    vertices: upper.vertices.map(v => ({...v,position:[0.12,v.position[1]===0?2.3:2.4,v.position[2]]})) as WallMeshFace['vertices'] }
+  const assembly = {bottom:2.4,top:2.7,footprints:[],edges:[{
+    point:{x:0.15,y:0},nextPoint:{x:0.15,y:2},wallFloorId:'upper',wallFace:upper,
+  }]}
+  const brick = assignment(upper.faceId)
+  assert.deepEqual(findUpperFacadeSourceForRoofCut([brick],cut,'ground',0,assembly),
+    {...upper.materialSource,fragmentId:upper.faceId})
+  assert.equal(findUpperFacadeSourceForRoofCut([brick],{...cut,faceId:'ordinary-interior'},'ground',0,assembly),undefined)
+  assert.equal(findUpperFacadeSourceForRoofCut([brick],cut,'upper',0,assembly),undefined)
+  assert.equal(findUpperFacadeSourceForRoofCut([brick],cut,'ground',1,assembly),undefined)
+  const lowerPiece = {...cut,vertices:cut.vertices.map(v=>({...v,position:[v.position[0],v.position[1]-0.02,v.position[2]]})) as WallMeshFace['vertices']}
+  assert.deepEqual(findUpperFacadeSourceForRoofCut([brick],lowerPiece,'ground',0,assembly,2.4),
+    {...upper.materialSource,fragmentId:upper.faceId}, 'contact subdivisions retain the connected reveal finish')
+  const exposed = {...cut,faceId:'lower:roof-region:/porch:0:above',roofSurfaceRegion:'roof-exposed'}
+  assert.deepEqual(findUpperFacadeSourceForRoofCut([brick],exposed,'ground',0,assembly),
+    {...upper.materialSource,fragmentId:upper.faceId})
+  assert.equal(findUpperFacadeSourceForRoofCut([brick],{...exposed,roofSurfaceRegion:'porch:below'},'ground',0,assembly),undefined)
+  assert.deepEqual(findUpperFacadeSourceForRoofCut([brick],exposed,'ground',0,{...assembly,
+    edges:assembly.edges.map(edge=>({...edge,wallFloorId:'ground',upperWallFace:upper}))}),
+    {...upper.materialSource,fragmentId:upper.faceId}, 'the floor band owner does not override the upper exterior finish')
+})
 
 function face(faceId: string) {
   return {
@@ -101,6 +130,15 @@ test('a moved roof boundary keeps the finish from the overlapping region only', 
   const rebuilt = face(`${prefix}5.7307:6.6158:0:2.124:0:0.8851:roof-region:/roof:3:above`)
 
   assert.equal(findWallFragmentAssignmentForFace([brick, interior], rebuilt), brick)
+})
+
+test('a new roof contact preserves an unpartitioned finish when perimeter spans are rebuilt', () => {
+  const prefix = 'perimeter-wall:shared-wall:1:side:'
+  const brick = assignment(`${prefix}1:5:0:2.4:0:4`)
+  const rebuilt = face(`${prefix}1.1:5:0:2.4:0:3.9:roof-region:/porch:0:above`)
+  assert.equal(findWallFragmentAssignmentForFace([brick], rebuilt, new Set([rebuilt.faceId])), brick)
+  const interior = assignment(`${prefix}1:5:0:2.4:0:4:roof-region:/porch:0:below`)
+  assert.equal(findWallFragmentAssignmentForFace([interior], rebuilt), undefined)
 })
 
 test('a stale fragment finish does not cross into a separate wall area', () => {

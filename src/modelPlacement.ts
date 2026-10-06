@@ -1,5 +1,6 @@
 import type { FloorLevel, PlacedModel, Point, RoofAttachment, RoofEndChamfer, Wall, WallOpening } from './types'
 import { normalizeRoofEndConnection } from './roofJunctions.ts'
+import { normalizeRoofHeightAlignment } from './roofHeightAlignment.ts'
 import { normalizeBayOutline } from './bayRoof.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import { migrateDormerWindows, syncDormerWindows } from './dormerWindows.ts'
@@ -35,6 +36,7 @@ function normalizeRoofEndChamfer(value: unknown): RoofEndChamfer | undefined {
   return {
     angleDegrees: clamp(candidate.angleDegrees, 1, 75),
     distance: candidate.distance,
+    ...(candidate.matchEave === true ? { matchEave: true } : {}),
   }
 }
 
@@ -675,6 +677,7 @@ export function normalizeFloor(
                 ridgeHeightTargetRoofId: roof.type === 'up-and-over' && typeof roof.ridgeHeightTargetRoofId === 'string'
                   && roof.ridgeHeightTargetRoofId.length ? roof.ridgeHeightTargetRoofId : undefined,
                 ridgeStart: normalizeRoofEndConnection(roof.ridgeStart),
+                heightAlignment: normalizeRoofHeightAlignment(roof.heightAlignment),
                 ridgeEnd: normalizeRoofEndConnection(roof.ridgeEnd),
                 ridgeStartChamfer: normalizeRoofEndChamfer(roof.ridgeStartChamfer),
                 ridgeEndChamfer: normalizeRoofEndChamfer(roof.ridgeEndChamfer),

@@ -262,6 +262,8 @@ export type RoofEndConnection =
 export type RoofEndChamfer = {
   angleDegrees: number
   distance: number
+  /** Derive the setback so this end meets the higher outer side eave. */
+  matchEave?: boolean
 }
 
 export type RoofStructure = {
@@ -285,6 +287,9 @@ export type RoofStructure = {
   /** Ridge height above the roof's wall-top datum, before heightOffset. */
   ridgeHeight?: number
   ridgeHeightTargetRoofId?: string
+  /** Keep an adjoining slope or a chosen eave aligned as either roof changes. */
+  heightAlignment?: { mode: 'slope'; targetRoofId: string }
+    | { mode: 'eave'; targetRoofId: string; side: 'side1' | 'side2' }
   ridgeEndChamfer?: RoofEndChamfer
   ridgeStart?: RoofEndConnection
   ridgeStartChamfer?: RoofEndChamfer
@@ -320,6 +325,7 @@ export type GroundImage = {
 }
 
 export type FloorLevel = {
+  /** Independent reference overlay; shown only while this floor is active. */
   groundImage?: GroundImage
   /** Independent slab boundary for a loft, without perimeter walls. */
   floorFootprints?: Point[][]

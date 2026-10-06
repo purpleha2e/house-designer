@@ -1,6 +1,37 @@
 import type { SurfaceMaterialAssignment } from './types.ts'
 import type { WallMeshFace } from './wallEngine/wallMesh.ts'
 import { isRoofRegionSubdivision } from './wallEngine/wallRoofSurfacePartitions.ts'
+import type { FloorAssembly } from './storeyGeometry.ts'
+
+/** A newly exposed cut below an upper facade belongs to that exterior finish,
+ * even when the lower wall used to face an interior room. */
+export function findUpperFacadeSourceForRoofCut(assignments: SurfaceMaterialAssignment[], face: WallMeshFace,
+  floorId: string, elevation: number, assembly?: FloorAssembly, connectedTop?: number): WallMeshFace['materialSource'] | undefined {
+  const exposedSide = face.roofSurfaceRegion === 'roof-exposed' &&
+    face.faceId.split(':roof-region:')[1]?.split('/').some(region => region.endsWith(':above'))
+  if (!assembly || (!face.faceId.includes(':roof-boundary-cap:') && !exposedSide) ||
+    Math.abs((connectedTop ?? Math.max(...face.vertices.map(v => v.position[1])) + elevation) - assembly.bottom) > 1e-5) return undefined
+  const along = (x: number, z: number) => -face.normal[2] * x + face.normal[0] * z
+  const values = face.vertices.map(v => along(v.position[0], v.position[2]))
+  const min = Math.min(...values), max = Math.max(...values), origin = face.vertices[0].position
+  let nearest = Infinity
+  let result: WallMeshFace['materialSource'] | undefined
+  for (const edge of assembly.edges) {
+    const source = edge.upperWallFace ?? edge.wallFace
+    if (!source || (!edge.upperWallFace && edge.wallFloorId === floorId) ||
+      source.normal.reduce((sum, n, i) => sum + n * face.normal[i], 0) < 0.999999) continue
+    const a = along(edge.point.x, edge.point.y), b = along(edge.nextPoint.x, edge.nextPoint.y)
+    if (Math.min(max, Math.max(a, b)) - Math.max(min, Math.min(a, b)) < 1e-6) continue
+    const distance = (edge.point.x-origin[0])*face.normal[0] + (edge.point.y-origin[2])*face.normal[2]
+    if (distance < -1e-5 || distance >= nearest) continue
+    const assignment = findWallFragmentAssignmentForFace(assignments, source)
+    if (assignment?.target.type !== 'wall-surface-fragment') continue
+    nearest = distance
+    result = { ...source.materialSource, wallId: assignment.target.wallId,
+      side: source.pickSource.side, fragmentId: assignment.target.fragmentId }
+  }
+  return result
+}
 
 /** A floor band continues the finish touching its bottom edge. Roof partition
  * labels can differ from the supporting face when the band lies wholly beyond
@@ -88,7 +119,10 @@ export function findWallFragmentAssignmentForFace(
       currentFaceIds?.has(assignment.target.fragmentId) ||
       (assignment.target.side !== 'both' && assignment.target.side !== face.pickSource.side)) continue
     const assignmentBounds = parseWallSideFragmentBounds(assignment.target.fragmentId)
-    if (!assignmentBounds || assignmentBounds.roofRegion !== faceBounds.roofRegion) continue
+    // Adding roof contact boundaries can also rebuild the perimeter spans.
+    // An original, unpartitioned finish belongs to all of its descendants;
+    // explicitly painted roof regions still stay isolated from each other.
+    if (!assignmentBounds || (assignmentBounds.roofRegion && assignmentBounds.roofRegion !== faceBounds.roofRegion)) continue
     const overlapWidth = Math.max(0,
       Math.min(faceBounds.maxAlong, assignmentBounds.maxAlong) -
       Math.max(faceBounds.minAlong, assignmentBounds.minAlong))

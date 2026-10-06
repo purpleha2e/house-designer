@@ -116,7 +116,7 @@ try {
     if(linked&&target&&Math.abs(linked.roofTop-target.roofTop)<1e-5)break
   }
   assert.ok(Math.abs(linked.roofTop-target.roofTop)<1e-5,'linked ridge matches the other roof in live 3D')
-  assert.equal(await evaluate(`document.querySelector('[aria-label="Roof ridge height"]').disabled`),true)
+  assert.ok(await evaluate(`!!document.querySelector('[aria-label="Matched roof ridge height"]')`))
   const targetBefore=target
   await evaluate(`window.baySelectRoof('${roofTargetId}')`)
   await pause(300)

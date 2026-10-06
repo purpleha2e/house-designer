@@ -15,6 +15,33 @@ import { prepareRenderedFloorData, serializeWallGeometryInput } from '../src/thr
 import { getRoofThickness } from '../src/roofThickness.ts'
 import { getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces } from '../src/roofJunctions.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
+import { Ray, Vector3 } from 'three'
+
+test('a roof clips crossing walls on its own floor by footprint without mounting or wall opt-in', () => {
+  const wall: Wall = { id: 'crossing', kind: 'internal', start: { x: -1, y: 0.5 },
+    end: { x: 5, y: 0.5 }, thickness: 0.2, height: 3, openings: [] }
+  const faces = buildFloorWallSurfaceFaces({ renderedWalls: getRenderedWalls([wall]), rooms: [], useWallBodyPerimeterMesh: true })
+  const options = createWallRoofClipOptions({ floorElevation: 0, floorId: 'ground', walls: [wall],
+    roofs: [{ floorId: 'ground',
+      // The outer footprint extends beyond the mounting polygon on both sides.
+      supportPolygon: [{ x: 1, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 1 }, { x: 1, y: 1 }],
+      undersideFaces: [[[0, 1, 0], [4, 2, 0], [4, 2, 1], [0, 1, 1]]] }],
+  })
+  const clipped = runWallRoofClipJob(structuredClone(createWallRoofClipJob(faces, options)))
+  const topAt = (x: number) => {
+    const ray = new Ray(new Vector3(x, 10, 0.5), new Vector3(0, -1, 0))
+    return Math.max(...clipped.flatMap(face => face.vertices.slice(1, -1).flatMap((v, index) => {
+      const hit = ray.intersectTriangle(new Vector3(...face.vertices[0].position),
+        new Vector3(...v.position), new Vector3(...face.vertices[index + 2].position), false, new Vector3())
+      return hit ? [hit.y] : []
+    })))
+  }
+  for (const x of [0.5, 2, 3.5]) assert.ok(Math.abs(topAt(x) - (1 + x / 4)) < 1e-6,
+    'the cut follows the roof and closes the wall, including beneath overhangs')
+  for (const x of [-0.5, 4.5]) assert.equal(topAt(x), 3, 'wall portions beyond the roof remain full height')
+  assert.equal(wall.allowRoofClipHeight, undefined)
+  assert.equal(wall.height, 3)
+})
 
 function boundaryFace(z: number, top = 2.4): WallMeshFace {
   return {
@@ -178,7 +205,7 @@ test('an opted-in wall clips against its own roof even when it would otherwise b
     }],
   })
   assert.equal(options.volumes.length, 1)
-  assert.equal(options.volumes[0].clipSides, false)
+  assert.equal(options.volumes[0].clipSides, true)
   assert.equal(options.volumes[0].clipHeightWallIds?.has(selectedWall.id), true)
   assert.equal(options.volumes[0].excludedWallIds.has(selectedWall.id), false)
   assert.equal(options.volumes[0].protectedFootprints.length, 0)

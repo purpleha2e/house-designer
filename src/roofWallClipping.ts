@@ -92,7 +92,9 @@ export function createWallRoofClipOptions({
         excludedWallIds: selectedOnly ? new Set<string>() : excludedWallIds,
         clipHeightWallIds: selectedOnly || ((roof.floorId === floorId || clipToInheritedRoofs) && !heightCoverage.length)
           ? clipHeightWallIds : new Set<string>(),
-        clipSides: !selectedOnly && roof.floorId !== floorId,
+        // Coverage is spatial: walls on the roof's own floor also stop at
+        // its underside, including walls reached only by an overhang.
+        clipSides: !selectedOnly,
         onlySelectedWalls: selectedOnly,
         // A roof on another floor must not erase a raised wall on this floor.
         // Its own floor's roof provides the height cut instead.
@@ -114,7 +116,7 @@ export function createWallRoofClipOptions({
     return [...(roof.clipsGeometry !== false ? makeVolumes(resolvedCoverage, false) : []),
       ...(clipHeightWallIds.size ? makeVolumes(selectedCoverage, true) : []), ...fittedCapVolumes]
   })
-  const surfaceDividers = roofs.flatMap(roof => roof.clipsGeometry !== false && roof.floorId !== floorId && roof.roofId && roof.surfaceFaces
+  const surfaceDividers = roofs.flatMap(roof => roof.clipsGeometry !== false && roof.roofId && roof.surfaceFaces
     ? createWallRoofSurfaceDividers(roof.roofId, roof.surfaceFaces,
       // Material boundaries follow actual contact segments. A long facade can
       // meet a roof on only part of its length, or at a slightly angled mount,

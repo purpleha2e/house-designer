@@ -42,6 +42,8 @@ export type WallMeshFace = {
   roomSignature?: string
   /** Facade continuation through an intermediate floor zone. */
   storeyBoundary?: boolean
+  /** Covered top areas retained for roof booleans, then removed from rendering. */
+  storeyCapCover?: Point[][]
   roofSurfaceRegion?: string
   uvSource: WallMeshSource
   vertices: [WallMeshVertex, WallMeshVertex, WallMeshVertex, WallMeshVertex]

@@ -3,6 +3,7 @@ import { getBayRoofPolygon, getBaySupportPolygon } from './bayRoof.ts'
 import { buildRoofProfileFaces, getGableRidgeX, type RoofBounds, type RoofProfileVertex as Vertex } from './roofProfile.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import { footprintPlanes, type ClipPlane } from './wallEngine/wallRoofClip.ts'
+import { alignRoofEaveExtents } from './roofEaveExtents.ts'
 
 const EPS = 1e-7
 export const RIDGE_HEIGHT_TOLERANCE = 0.025
@@ -172,9 +173,16 @@ export function conformRoofFaceEdges(faces: Vertex[][]): Vertex[][] {
   }))
 }
 
-function trimUnsupportedOverhangs(roof: ResolvedRoof, worldFaces: Vertex[][]) {
+function trimUnsupportedOverhangs(roof: ResolvedRoof, worldFaces: Vertex[][], joinedFaces: Vertex[][] = []) {
   if (roof.roof.type === 'bay') return worldFaces
   let faces = worldFaces.map((face) => face.map((p) => roofToLocal(roof.roof, roof.elevation, p)))
+  // At a flush join the neighbouring roof can own the supported portion of
+  // this slope. Losing ownership must not remove its still-exposed overhang.
+  // Only matching planes qualify: a roof floating above this one is no support.
+  const heights = roof.exteriorFaces.map(roofFaceHeight).filter(height => height !== null)
+  const sharedSupport = joinedFaces.filter(face => heights.some(height =>
+    face.every(([x, y, z]) => Math.abs(height({ x, y: z }) - y) < 0.001)))
+    .map(face => face.map(p => roofToLocal(roof.roof, roof.elevation, p)))
   const boundaries: { axis: 0 | 2; value: number; sign: number }[] = [
     { axis: 0, value: roof.support.minX, sign: -1 }, { axis: 0, value: roof.support.maxX, sign: 1 },
     ...(!roof.connections.some((c) => c.end === 'ridgeStart' && c.state === 'joined') ? [{ axis: 2 as const, value: roof.support.minY, sign: -1 }] : []),
@@ -183,7 +191,7 @@ function trimUnsupportedOverhangs(roof: ResolvedRoof, worldFaces: Vertex[][]) {
   if (roof.roof.type === 'hip') return worldFaces
   for (const { axis, value, sign } of boundaries) {
     const along = axis === 0 ? 2 : 0
-    const intervals = faces.flatMap((face) => {
+    const intervals = [...faces, ...sharedSupport].flatMap((face) => {
       // Only the main panel grants an overhang, never a disconnected eave strip.
       if (!face.some((p) => sign * (p[axis] - value) < -EPS)) return []
       const points: number[] = []
@@ -192,18 +200,27 @@ function trimUnsupportedOverhangs(roof: ResolvedRoof, worldFaces: Vertex[][]) {
         if (Math.abs(da) < EPS) points.push(a[along])
         if (da * db < 0) points.push(a[along] + (b[along] - a[along]) * da / (da - db))
       })
-      return points.length >= 2 ? [{ min: Math.min(...points), max: Math.max(...points) }] : []
-    }).sort((a, b) => a.min - b.min).reduce<{ min: number; max: number }[]>((merged, interval) => {
-      const last = merged.at(-1)
-      if (last && last.max >= interval.min - EPS) last.max = Math.max(last.max, interval.max)
-      else merged.push({ ...interval })
-      return merged
-    }, [])
+      return points.length >= 2 ? [{ min: Math.min(...points), max: Math.max(...points),
+        height: roofFaceHeight(face)!, shared: sharedSupport.includes(face) }] : []
+    })
     faces = faces.flatMap((face) => {
       if (face.every((p) => sign * (p[axis] - value) <= EPS)) return [face]
       const inner = clipRoofFace(face, (p) => -sign * (p[axis] - value))
       const outer = clipRoofFace(face, (p) => sign * (p[axis] - value))
-      return [inner, ...intervals.map(({ min, max }) => intersect(outer, [(p) => p[along] - min, (p) => max - p[along]]))].filter((p) => p.length)
+      const height = roofFaceHeight(face)!
+      // A supported upper slope must not grant an overhang to a lower,
+      // already-hidden slope in the same plan interval. Compare heights at
+      // the wall line, allowing a different pitch beyond that line.
+      const support = intervals.filter(interval => !interval.shared || [interval.min, interval.max].every(coordinate => {
+        const point = axis === 0 ? { x: value, y: coordinate } : { x: coordinate, y: value }
+        return Math.abs(height(point) - interval.height(point)) < 0.001
+      })).sort((a, b) => a.min - b.min).reduce<{ min: number; max: number }[]>((merged, interval) => {
+        const last = merged.at(-1)
+        if (last && last.max >= interval.min - EPS) last.max = Math.max(last.max, interval.max)
+        else merged.push({ min: interval.min, max: interval.max })
+        return merged
+      }, [])
+      return [inner, ...support.map(({ min, max }) => intersect(outer, [(p) => p[along] - min, (p) => max - p[along]]))].filter((p) => p.length)
     })
   }
   return faces.map((face) => face.map((p) => roofToWorld(roof.roof, roof.elevation, p)))
@@ -273,6 +290,7 @@ function targetInterval(source: RoofJunctionInput, target: RoofJunctionInput, di
 }
 
 export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[] {
+  inputs = alignRoofEaveExtents(inputs)
   const sorted = [...inputs].sort((a, b) => a.roof.id.localeCompare(b.roof.id))
   const original = new Map(sorted.map((input) => [input.roof.id, buildRoofProfileFaces(input.roof, input.extents, input.support)
     .map((face) => face.map((p) => roofToWorld(input.roof, input.elevation, p)))]))
@@ -503,7 +521,17 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
         })
       }
     }
-    roof.faces = conformRoofFaceEdges(trimUnsupportedOverhangs(roof, faces))
+    roof.faces = faces
+  }
+  // Resolve visibility for every roof before testing support so results do not
+  // depend on which member of the joined pair happens to be processed first.
+  const visible = new Map(resolved.map(roof => [roof.roof.id, roof.faces]))
+  for (const roof of resolved) {
+    const joinedFaces = resolved.filter(other => other !== roof &&
+      (roof.connections.some(c => c.state === 'joined' && c.targetRoofId === other.roof.id) ||
+        other.connections.some(c => c.state === 'joined' && c.targetRoofId === roof.roof.id)))
+      .flatMap(other => visible.get(other.roof.id)!)
+    roof.faces = conformRoofFaceEdges(trimUnsupportedOverhangs(roof, visible.get(roof.roof.id)!, joinedFaces))
   }
   // Walls use the final envelope inside the ORIGINAL roof coverage. An extension
   // may reach across the house but acquires no authority to cut its walls.

@@ -14,6 +14,52 @@ follow the roof when it rotates. Dashed lines show the resolved panels in plan.
 
 ## Geometry rules
 
+The 3D renderer constructs a closed roof assembly in `roofAssembly.ts` before
+creating any material meshes. Tile skins and boxed eaves are convex cells;
+wall abutments, room/slab voids and joined-eave cuts operate on those cells and
+create closure faces. Neighbouring roofs on the same storey share an exterior
+boundary: internal cell faces are removed and boundary edges are conformed
+before triangulation. Faces retain their roof and finish ownership for painting
+and selection. A chamfer that reaches an end overhang receives a boxed end eave
+as well as the side eaves. Coplanar tiles use a shared world texture frame.
+Nearby gable eaves on the same storey share the lowest existing tile-edge
+height when both their plan gap and their height difference are within one foot
+(304.8 mm). Higher overhangs extend down their original roof planes to that
+level, including chamfer ends. The extension is also limited to one foot.
+Ridge positions, supporting walls and pitches stay fixed; the derived overhang
+reach can increase. Chamfer setbacks increase with their end extension so the
+chamfer plane stays fixed. Saved dimensions are unchanged. These derived
+extents are resolved before roof joins, wall clipping and finishing geometry.
+The whole group's height range must fit within the tolerance, so a chain of
+near matches cannot pull an eave farther than a foot. Flat eave bases also
+share the lowest existing soffit level, allowing for different roof thicknesses.
+Sloping soffits, cut faces, other storeys and larger differences remain separate.
+At a flush connection, the adjoining roof can support a retained overhang on
+the same plane (within 1 mm), even when it owns the interior panel. Visibility
+is resolved for all roofs before that support check. Where a tile-shell cut
+and a fascia share an outer plane, the fascia owns the overlapping finish.
+Shared support must also meet the individual overhang at the same wall-line
+height. A higher joined panel cannot preserve an isolated lower tile/fascia
+fragment merely because their plan intervals overlap.
+Touching, joined roofs whose parallel tile surfaces differ by no more than
+1 mm are rebuilt against common finishing planes in `roofSeamWelding.ts`.
+Their skins, undersides and fascia then meet exactly, without changing saved
+mount heights or pitches. Unjoined roofs and deliberate height steps retain
+their geometry. `tests/roofSeamWelding.test.ts` covers that tolerance boundary;
+the saved chamfer regression also checks exact shared planes and continuous fascia.
+
+This replaces independent mesh clipping in `HipRoofMesh`. The junction resolver
+still supplies the design envelope, and wall/gable fitting retains its existing
+rules. A closed roof assembly does not move mount points or override an explicit
+choice to disable wall fitting or house clipping. In particular, a wall cap
+above a misplaced or deliberately lowered passive roof remains wall geometry.
+
+`tests/roofAssembly.test.ts` checks two incident faces at every assembly edge,
+closed Boolean cuts, internal-face removal, stable ownership, aligned tile UVs,
+the long chamfer fascia in `roofAssemblyRegression.json`, and the Red House and
+Springfield room/slab cases. These checks run on assembled polygons before the
+renderer splits them by material.
+
 1. Compare ridge heights in world coordinates, including floor elevation and
    height offset. The higher ridge continues through the junction. Heights within
    25 mm are treated as equal for connection priority; at a T, the incoming end
@@ -113,8 +159,37 @@ Choose **Side 1** or **Side 2** to anchor a particular side. **Free eave heights
 retains equal pitches and allows both eaves to move relative to the supports.
 Existing asymmetric roofs without a saved choice use the automatic mounted side.
 The controls show each eave's height above the floor and both effective pitches.
-Linked overhang pitches and tile spacing follow each side's actual slope.
+Overhangs follow each side's actual slope unless an explicit overhang pitch is
+set. Matching another roof's ridge height does not change the overhang pitch.
+Adjoining roofs with different pitches can therefore have different outer eave
+heights even when their wall-top heights and overhang widths match. Set an
+explicit overhang pitch when a pitch break is intended. Tile spacing follows
+the resulting surface through any explicit pitch break.
 Chamfered ends carry their lowered profile through the fascia and soffit too.
+The roof panel groups its controls into **Shape** (type,
+pitch, overhangs and chamfered ends), **Height & joins** (ridge height, matching,
+wall fitting and gable connections) and **Advanced** (offsets, clipping,
+overhang pitch and finishes). New roofs start on Shape. Matching heights appear
+as a short readout; their precise adjustments remain in Advanced.
+Use **Align with another roof** in Height & joins to keep adjoining geometry aligned without
+calculating offsets. **Match adjoining slope** moves the selected roof vertically
+to continue a nearby roof plane of the same pitch and direction. Select a target;
+a joined end's target is selected automatically. **Match side 1/2 eave** shifts
+an asymmetric ridge sideways to match the nearest target eave while retaining
+the ridge height and both pitches. It selects free eave heights automatically.
+The calculated offset is read-only while linked. Returning to **Manual settings**
+retains the current result. Links follow target edits and survive save/load;
+missing, circular or incompatible targets report a message and retain manual
+settings. Height alignment preserves each roof's existing clipping and joins.
+For a chamfer that should end level with its higher side eave, enable **Match
+higher side eave** to derive the setback from the angle, ridge and eave heights.
+Turn it off to enter a deeper setback that lowers the walls.
+Chamfer setbacks are limited only by the remaining roof length. A deeper
+chamfer lowers the eave while retaining its angle and the main roof pitches.
+With **Fit supporting walls to roof** enabled, the walls and their caps follow
+that lowered underside. Opposing chamfers may meet without overlapping. The
+settings show the calculated maximum and effective setback. Oversized saved
+values are limited during profile construction without rewriting the saved project.
 
 Choose **Manual height** and enter the ridge height **Above wall tops (m)**,
 or use **Match Floor … · Roof …** to keep its ridge at another roof's highest

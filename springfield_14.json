@@ -1,5 +1,5 @@
 {
-  "activeFloorId": "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a",
+  "activeFloorId": "e85e2210-2517-4c3d-84a8-5c25883e8043",
   "floors": [
     {
       "id": "e85e2210-2517-4c3d-84a8-5c25883e8043",
@@ -490,8 +490,8 @@
             "y": 14.244663790502534
           },
           "end": {
-            "x": 1.8593333333333355,
-            "y": -9.413006988597397
+            "x": 1.8593333333333357,
+            "y": -9.338006988597398
           },
           "id": "44990d79-ef14-4ff4-817e-5922a357046d",
           "kind": "external",
@@ -500,21 +500,21 @@
         },
         {
           "start": {
-            "x": 17.050683285280016,
+            "x": 16.431494137284282,
             "y": 12.786993011402604
           },
           "end": {
-            "x": 17.050683285280016,
-            "y": -9.513006988597397
+            "x": 16.431494137284282,
+            "y": -9.338006988597398
           },
           "id": "3c5d5d9c-ef71-46f1-b14d-c11064de0477",
           "kind": "external",
-          "thickness": 0.3,
+          "thickness": 0.05,
           "height": 1.6
         },
         {
           "start": {
-            "x": 16.975683285280017,
+            "x": 16.431494137284282,
             "y": 12.786993011402604
           },
           "end": {
@@ -528,16 +528,16 @@
         },
         {
           "start": {
-            "x": 2.0093333333333354,
-            "y": -9.338006988597398
+            "x": 1.8593333333333355,
+            "y": -9.338006988597396
           },
           "end": {
-            "x": 17.050683285280016,
+            "x": 16.431494137284282,
             "y": -9.338006988597398
           },
           "id": "eae01458-bef4-4f03-ac4f-6600577a90d3",
           "kind": "internal",
-          "thickness": 0.15,
+          "thickness": 0.05,
           "height": 1.6
         }
       ],
@@ -1476,7 +1476,10 @@
           "width": 3.000000000000001,
           "overhangSideNegative": 0.25,
           "overhangSidePositive": 0.25,
-          "thickness": 0.04
+          "thickness": 0.04,
+          "clipsGeometry": true,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
         },
         {
           "depth": 3,
@@ -1500,7 +1503,10 @@
           "supportWidth": 0.3,
           "type": "lean-to",
           "width": 0.3,
-          "thickness": 0.04
+          "thickness": 0.04,
+          "clipsGeometry": true,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
         },
         {
           "depth": 5.800000000000001,
@@ -1524,7 +1530,10 @@
           "supportWidth": 0.8500000000000014,
           "type": "lean-to",
           "width": 1.1000000000000014,
-          "thickness": 0.04
+          "thickness": 0.04,
+          "clipsGeometry": true,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
         }
       ]
     },
@@ -2503,7 +2512,10 @@
           "width": 5.27,
           "overhangSideNegative": 0.25,
           "overhangSidePositive": 0.25,
-          "thickness": 0.04
+          "thickness": 0.04,
+          "clipsGeometry": true,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
         },
         {
           "depth": 6.9,
@@ -2527,7 +2539,10 @@
           "supportWidth": 4.163007,
           "type": "up-and-over",
           "width": 4.413007,
-          "thickness": 0.04
+          "thickness": 0.04,
+          "clipsGeometry": true,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
         },
         {
           "depth": 9.540000000000001,
@@ -2551,7 +2566,10 @@
           "supportWidth": 5.900000000000002,
           "type": "up-and-over",
           "width": 6.150000000000002,
-          "thickness": 0.04
+          "thickness": 0.04,
+          "clipsGeometry": true,
+          "fitSupportingWalls": false,
+          "asymmetricSides": false
         }
       ]
     },
@@ -12334,15 +12352,15 @@
   "threeDView": {
     "camera": {
       "position": {
-        "x": 14.129257107750911,
-        "y": 4.109251282768053,
-        "z": 6.677515460073727
+        "x": 20.709087262416627,
+        "y": 8.961174133084866,
+        "z": -15.813668373135485
       },
       "quaternion": {
-        "w": 0.4359290944910409,
-        "x": -0.10664711253531507,
-        "y": 0.8680410604277079,
-        "z": 0.21236039031712428
+        "w": -0.35785437143537707,
+        "x": 0.10889551471728358,
+        "y": -0.8872366843692706,
+        "z": -0.2699871878968933
       }
     },
     "floorViewId": "all"
@@ -12350,9 +12368,9 @@
   "twoDView": {
     "viewportsByFloorId": {
       "e85e2210-2517-4c3d-84a8-5c25883e8043": {
-        "scale": 0.93312,
-        "x": -64.56443642177942,
-        "y": 178.94303999999994
+        "scale": 1.3436927999999997,
+        "x": -411.625871583361,
+        "y": -184.46943436800007
       },
       "f2a5fbeb-1899-4ac4-b4c9-9db9124f501a": {
         "scale": 0.7776,

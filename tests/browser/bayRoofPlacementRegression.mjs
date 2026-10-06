@@ -59,6 +59,16 @@ try {
     return {x:r.left+s.x()+${point.x}*60*s.scaleX(),y:r.top+s.y()+${point.y}*60*s.scaleY()}})()`)
   const move=async(point,modifiers=0)=>{await call('Input.dispatchMouseEvent',{type:'mouseMoved',...await screen(point),modifiers});await pause(120)}
   const click=async point=>{
+    const initial=await screen(point)
+    const panel=await evaluate(`(()=>{const r=document.querySelector('.roof-settings-panel').getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom}})()`)
+    if(initial.x>panel.x&&initial.x<panel.right&&initial.y>panel.y&&initial.y<panel.bottom){
+      const pane=await evaluate(`(()=>{const r=window.bayStage().container().getBoundingClientRect();return {x:r.left+600,y:r.top+650}})()`)
+      const distance=panel.right-initial.x+24
+      await call('Input.dispatchMouseEvent',{type:'mousePressed',...pane,button:'middle',buttons:4,clickCount:1})
+      await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:pane.x+distance,y:pane.y,button:'middle',buttons:4})
+      await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:pane.x+distance,y:pane.y,button:'middle',buttons:0,clickCount:1})
+      await pause(200)
+    }
     await move(point)
     const p=await screen(point)
     await call('Input.dispatchMouseEvent',{type:'mousePressed',...p,button:'left',clickCount:1})
@@ -84,7 +94,7 @@ try {
   assert.ok(await evaluate('!!window.bayPreview'))
   await change('[aria-label="Bay roof ridge length"]','1.2')
   assert.equal(await evaluate('window.bayPreview.roof.bayRidgeLength'),1.2)
-  writeFileSync('.tmp-bay-roof-guides.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
+  writeFileSync('.tmp-roof-controls-bay-guides.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
   const shell=()=>evaluate(`(()=>{let mesh;window.bayScene().scene.traverse(o=>{
     if(o.userData.houseDesignerRole==='roof-placement-preview')mesh=o});return mesh?{uuid:mesh.geometry.uuid,count:mesh.geometry.attributes.position.count}:null})()`)
   for(let i=0;i<40;i++){await pause(150);if(await shell())break}
@@ -110,7 +120,7 @@ try {
   await change('[aria-label="Bay roof ridge length"]','1.1')
   assert.equal(await evaluate('window.bayFloor.roofs[0].bayRidgeLength'),1.1)
   await evaluate(`(()=>{const s=window.bayScene();s.setFrameloop('never');s.camera.position.set(7,6,8);s.camera.lookAt(3,2.4,2);s.camera.updateMatrixWorld();s.gl.render(s.scene,s.camera)})()`)
-  writeFileSync('.tmp-bay-roof-placement.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
+  writeFileSync('.tmp-roof-controls-bay-placement.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
   console.log('Bay ridge placement, live 3D preview, selected settings, guide snapping and Ctrl bypass passed')
   await call('Page.navigate',{url:'http://127.0.0.1:5180/tests/browser/bayRoofPlacementRegression.html?lean-to'})
   for(let i=0;i<60;i++){await pause(500);if(await evaluate(`window.bayFloor?.id==='a5e1058b-f220-4fef-9e1f-5cb871e2e0c5' && !!window.bayStage?.() && !!window.bayScene?.() && !!document.querySelector('.roof-tool-flyout select')`))break}

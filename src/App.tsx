@@ -14,11 +14,15 @@ import { ContextPanel } from './components/ContextPanel'
 import {
   FloorplanCanvas,
   clearFloorplanModelAssetCaches,
+  type RoofCreateOptions,
   type RoofPlacementPreview,
 } from './components/FloorplanCanvas'
-import { LeftToolRail } from './components/LeftToolRail'
+import { LeftToolRail, EditToolbar } from './components/LeftToolRail'
 import { ManufacturerPortal } from './components/ManufacturerPortal'
 import { ModelSelector } from './components/ModelSelector'
+import { WindowBuilder } from './components/WindowBuilder'
+import { loadWindowLibrary, removeWindowsFromLibrary, saveWindowToLibrary } from './windowLibrary'
+import { validateWindowDesign } from './windowDesign'
 import { Toolbar } from './components/Toolbar'
 import { ThreeDView, clearThreeDModelAssetCaches } from './components/ThreeDView'
 import type {
@@ -47,6 +51,7 @@ import {
   modelLibrary,
   modelsById,
   registerRuntimeModels,
+  registerWindowModels,
   type ModelDefinition,
 } from './models/modelLibrary'
 import {
@@ -80,7 +85,8 @@ import {
   findDormerPlacement,
   getAttachedDormerPlacement,
 } from './dormerPlacement'
-import { defaultProject } from './defaultProject'
+import springfield12Project from '../springfield_14.json'
+//import springfield12Project from '../red_house_3.json'
 import './App.css'
 
 const DEFAULT_THICKNESS = DEFAULT_EXTERNAL_WALL_THICKNESS_METERS
@@ -99,38 +105,6 @@ const MIN_COMMITTED_WALL_LENGTH_METERS = 0.01
 const WALL_COORDINATE_EPSILON_METERS = 0.001
 
 type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
-
-type HipRoofCreateOptions = {
-  asymmetricSides?: boolean
-  ridgeOffset?: number
-  ridgeHeight?: number
-  ridgeHeightTargetRoofId?: string
-  mountSide?: RoofStructure['mountSide']
-  heightOffset?: number
-  fitSupportingWalls?: boolean
-  clipsGeometry?: boolean
-  thickness?: number
-  bayOutline?: Point[]
-  bayRidgeLength?: number
-  depth?: number
-  floorId: string
-  overhangEnd?: number
-  overhangPitchDegrees?: number
-  soffitColor?: string
-  overhangSide?: number
-  overhangSideNegative?: number
-  overhangSidePositive?: number
-  pitchDegrees: number
-  position?: Point
-  ridgeEndChamfer?: RoofStructure['ridgeEndChamfer']
-  ridgeStartChamfer?: RoofStructure['ridgeStartChamfer']
-  rotation?: number
-  supportDepth?: number
-  supportPosition?: Point
-  supportWidth?: number
-  type: RoofStructure['type']
-  width: number
-}
 
 function createId() {
   if (typeof crypto.randomUUID === 'function') {
@@ -471,12 +445,13 @@ function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
   const modelIds = new Set(
     floors.flatMap((floor) => (floor.models ?? []).map((model) => model.modelId)),
   )
+  modelLibrary.filter(model => model.windowDesign).forEach(model => modelIds.add(model.id))
 
   return Array.from(modelIds)
     .flatMap((modelId) => {
       const definition = modelsById.get(modelId)
 
-      return definition && modelId.startsWith('portal-model-')
+      return definition && (modelId.startsWith('portal-model-') || definition.windowDesign)
         ? [definition]
         : []
     })
@@ -638,8 +613,10 @@ function createFallbackProject(): SavedProject {
 }
 
 function createInitialProject() {
-  if (isSavedProject(defaultProject.data)) {
-    return normalizeSavedProject(defaultProject.data)
+  const defaultProject = springfield12Project as SavedProject
+
+  if (isSavedProject(defaultProject)) {
+    return normalizeSavedProject(defaultProject)
   }
 
   return normalizeSavedProject(createFallbackProject())
@@ -717,6 +694,7 @@ function App() {
   )
   const [selectedFloorViewId, setSelectedFloorViewId] =
     useState<string>(initialProject.threeDView.floorViewId)
+  const [showImages, setShowImages] = useState(true)
   const threeDViewCameraRef = useRef<ThreeDViewCameraState>(
     initialProject.threeDView.camera,
   )
@@ -735,7 +713,9 @@ function App() {
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [isRoofMode, setIsRoofMode] = useState(false)
-  const [projectFileName, setProjectFileName] = useState(defaultProject.fileName)
+  const [projectFileName, setProjectFileName] = useState('springfield_14.json')
+  //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
+  //const [projectFileName, setProjectFileName] = useState('red_house_3.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
   const [selectedRoomSignature, setSelectedRoomSignature] = useState<string | null>(
     null,
@@ -759,6 +739,7 @@ function App() {
   const [splitPercent, setSplitPercent] = useState(50)
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
+  const [windowBuilder, setWindowBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
   const [modelSelectorSection, setModelSelectorSection] =
     useState<ModelLibrarySection>('objects')
   const [pendingModelId, setPendingModelId] = useState<string | null>(null)
@@ -830,6 +811,17 @@ function App() {
   }, [refreshPortalCatalog])
 
   useEffect(() => {
+    let cancelled = false
+    void loadWindowLibrary().then(windows => {
+      if (cancelled) return
+      // A design embedded in the currently loaded project takes precedence.
+      registerWindowModels(windows.filter(model => !modelsById.has(model.id)))
+      setAvailableModels([...modelLibrary])
+    }).catch(error => console.warn('Could not read My windows:', error))
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
     if (modelAssetVersion <= 0) {
       return
     }
@@ -889,6 +881,18 @@ function App() {
   }
 
   const restoreProjectSnapshot = (snapshot: ProjectSnapshot) => {
+    if (snapshot.modelDefinitions) {
+      const restoredIds = new Set(snapshot.modelDefinitions.map(model => model.id))
+      const removedWindows = modelLibrary.filter(model => model.windowDesign && !restoredIds.has(model.id)).map(model => model.id)
+      void removeWindowsFromLibrary(removedWindows).catch(error => console.warn('Could not undo local window:', error))
+      registerRuntimeModels(snapshot.modelDefinitions.filter(model => !model.windowDesign))
+      registerWindowModels(snapshot.modelDefinitions.filter(model => model.windowDesign), true)
+      setAvailableModels([...modelLibrary])
+      setSceneRevision(revision => revision + 1)
+      for (const model of snapshot.modelDefinitions.filter(model => model.windowDesign)) {
+        void saveWindowToLibrary(model).catch(error => console.warn('Could not restore local window:', error))
+      }
+    }
     setFloors(
       enforceProjectLightEnabledLimit(
         snapshot.floors.map((floor) => normalizeFloor(floor, modelsById)),
@@ -1311,10 +1315,10 @@ function App() {
 
   const addRoof = ({
     asymmetricSides,
+    mountSide,
     ridgeOffset,
     ridgeHeight,
     ridgeHeightTargetRoofId,
-    mountSide,
     heightOffset,
     fitSupportingWalls,
     clipsGeometry,
@@ -1339,7 +1343,7 @@ function App() {
     supportWidth,
     type,
     width,
-  }: HipRoofCreateOptions) => {
+  }: RoofCreateOptions) => {
     const targetFloor = floors.find((floor) => floor.id === floorId) ?? activeFloor
     const bounds = getFloorWallBounds(targetFloor)
     const roofWidth = Math.max(0.3, width)
@@ -1396,17 +1400,17 @@ function App() {
       ridgeOffset: type === 'up-and-over' ? ridgeOffset : undefined,
       ridgeHeight: type === 'up-and-over' ? ridgeHeight : undefined,
       ridgeHeightTargetRoofId: type === 'up-and-over' ? ridgeHeightTargetRoofId : undefined,
+      fitSupportingWalls: fitSupportingWalls === true,
+      clipsGeometry: clipsGeometry !== false,
       thickness,
       bayOutline: type === 'bay' ? bayOutline : undefined,
       bayRidgeLength: type === 'bay' ? bayRidgeLength : undefined,
       depth: roofDepth,
       heightOffset: heightOffset ?? 0,
-      fitSupportingWalls,
       id: createId(),
       overhangEnd: endOverhang,
       overhangPitchDegrees,
       soffitColor,
-      clipsGeometry,
       overhangSide: sideOverhang,
       overhangSideNegative: negativeSideOverhang,
       overhangSidePositive: positiveSideOverhang,
@@ -1652,6 +1656,11 @@ function App() {
               }
 
               const nextModel = { ...model, ...updates, id: model.id }
+              const windowDesign = modelsById.get(model.modelId)?.windowDesign
+              if (windowDesign && validateWindowDesign({ ...windowDesign,
+                width: windowDesign.width * (nextModel.scale ?? 1) * (nextModel.widthScale ?? 1),
+                height: windowDesign.height * (nextModel.scale ?? 1),
+                depth: windowDesign.depth * (nextModel.scale ?? 1) * (nextModel.depthScale ?? 1) })) return model
               if (model.dormerAttachment) return updateDormerWindow(floor, model, updates, modelsById)
               const definition = modelsById.get(model.modelId)
               const wallMount =
@@ -2209,6 +2218,7 @@ function App() {
       }
 
       if (Array.isArray(parsedProject.modelDefinitions)) {
+        recordHistory()
         registerRuntimeModels(parsedProject.modelDefinitions)
         setAvailableModels([...modelLibrary])
       }
@@ -2219,7 +2229,7 @@ function App() {
         parsedProject.activeFloorId,
       )
 
-      recordHistory()
+      if (!Array.isArray(parsedProject.modelDefinitions)) recordHistory()
       setFloors(loadedFloors)
       const loadedActiveFloorId = loadedFloors.some(
         (floor) => floor.id === parsedProject.activeFloorId,
@@ -3075,10 +3085,6 @@ function App() {
       ) : null}
       <LeftToolRail
         activeFloorId={activeFloor.id}
-        canCopy={canCopy}
-        canPaste={canPaste}
-        canRedo={canRedo}
-        canUndo={canUndo}
         floors={floors}
         internalWallThickness={internalWallThickness}
         isAddingWall={isAddingWall}
@@ -3097,15 +3103,11 @@ function App() {
         addLoftFloorDisabledReason={addLoftFloorDisabledReason}
         onAlignModels={alignSelectedModels}
         onApplyMaterial={applyMaterialToSelectedSurface}
-        onCopy={copySelection}
-        onCut={cutSelection}
         onDeleteFloor={deleteActiveFloor}
         onOpenModelSelector={(section) => {
           setModelSelectorSection(section)
           setIsModelSelectorOpen(true)
         }}
-        onPaste={pasteClipboard}
-        onRedo={redo}
         onRoofModeChange={(nextIsRoofMode) => {
           setIsRoofMode(nextIsRoofMode)
 
@@ -3134,7 +3136,6 @@ function App() {
           setIsRoofMode(false)
           setIsAddingWall((value) => !value)
         }}
-        onUndo={undo}
         onInternalWallThicknessChange={setInternalWallThickness}
         onWallHeightChange={setNewWallHeight}
         onWallKindChange={(nextWallKind) => {
@@ -3142,16 +3143,7 @@ function App() {
           setWallKind(nextWallKind)
         }}
       />
-      <Toolbar
-        floorCount={floors.length}
-        isEngineConsoleOpen={isEngineConsoleOpen}
-        wallCount={totalWallCount}
-        onEngineConsoleOpenChange={setIsEngineConsoleOpen}
-        onLoadProject={loadProject}
-        onNewProject={newProject}
-        onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
-        onSaveProject={saveProject}
-      />
+
       <section
         ref={editorGridRef}
         className={isResizingSplit ? 'editor-grid resizing' : 'editor-grid'}
@@ -3162,6 +3154,19 @@ function App() {
         } as CSSProperties}
       >
         <FloorplanCanvas
+          showImages={showImages}
+          onShowImagesChange={setShowImages}
+          projectMenu={onClose => (
+            <Toolbar onClose={onClose}
+              isEngineConsoleOpen={isEngineConsoleOpen}
+              onEngineConsoleOpenChange={setIsEngineConsoleOpen}
+              onLoadProject={loadProject}
+              onNewProject={newProject}
+              onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
+              onSaveProject={saveProject}
+            />
+          )}
+          editControls={<EditToolbar canCopy={canCopy} canPaste={canPaste} canRedo={canRedo} canUndo={canUndo} onCopy={copySelection} onCut={cutSelection} onPaste={pasteClipboard} onRedo={redo} onUndo={undo} />}
           onGroundImageChange={image => {
             recordHistory()
             setFloors(current => current.map(floor => floor.id === activeFloor.id ? { ...floor, groundImage: image } : floor))
@@ -3336,6 +3341,7 @@ function App() {
           selectedWallId={selectedWallId}
           sceneRevision={sceneRevision}
           showAllFloors={selectedFloorViewId === ALL_FLOORS_VIEW_ID}
+          showImages={showImages}
           surfaceAssignments={surfaceAssignments}
         />
       </section>
@@ -3346,8 +3352,40 @@ function App() {
           onClose={() => setIsModelSelectorOpen(false)}
           onRefreshModels={refreshModelAssets}
           onSelectModel={chooseModel}
+          onBuildWindow={() => { setIsModelSelectorOpen(false); setWindowBuilder({ definition: null }) }}
+          onEditWindow={definition => { setIsModelSelectorOpen(false); setWindowBuilder({ definition }) }}
         />
       ) : null}
+      {!windowBuilder && selectedModelId && (() => {
+        const instance = floors.flatMap(floor => floor.models ?? []).find(model => model.id === selectedModelId)
+        const definition = instance && modelsById.get(instance.modelId)
+        return definition?.windowDesign ? <button type="button" className="window-variety-edit"
+          onClick={() => setWindowBuilder({ definition })}>Edit window variety</button> : null
+      })()}
+      {windowBuilder ? <WindowBuilder definition={windowBuilder.definition}
+        instanceCount={floors.flatMap(floor => floor.models ?? []).filter(model => model.modelId === windowBuilder.definition?.id).length}
+        onClose={() => setWindowBuilder(null)}
+        onSave={async (definition, place) => {
+          // Persist successfully before changing the house, so a storage failure leaves the editor open.
+          for (const floor of floors) for (const instance of floor.models ?? []) {
+            if (instance.modelId !== definition.id || !definition.windowDesign) continue
+            const design = definition.windowDesign
+            const error = validateWindowDesign({ ...design,
+              width: design.width * (instance.scale ?? 1) * (instance.widthScale ?? 1),
+              height: design.height * (instance.scale ?? 1),
+              depth: design.depth * (instance.scale ?? 1) * (instance.depthScale ?? 1) })
+            if (error) throw new Error(`A resized instance on ${floor.name} would be too small for this layout. ${error}`)
+          }
+          await saveWindowToLibrary(definition)
+          recordHistory()
+          registerWindowModels([definition])
+          setAvailableModels([...modelLibrary])
+          setFloors(current => current.map(floor => syncWallOpenings(floor, modelsById)))
+          setSceneRevision(revision => revision + 1)
+          setWindowBuilder(null)
+          if (place) chooseModel(definition.id)
+          else { setModelSelectorSection('openings'); setIsModelSelectorOpen(true) }
+        }} /> : null}
     </main>
   )
 }

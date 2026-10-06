@@ -1,8 +1,8 @@
+import { ToolbarIcon } from './ToolbarIcon'
+import { useToolbarMenu } from './useToolbarMenu'
 /* eslint-disable react-hooks/set-state-in-effect */
-import { RoofPitchFields } from './RoofPitchFields'
-import { RoofRidgeFields } from './RoofRidgeFields'
+import { RoofSettingsFields } from './RoofSettingsFields'
 import { buildRoofProfileFaces, getGableRidgeX } from '../roofProfile'
-import { RoofConnectionFields } from './RoofConnectionFields'
 import { resolveBuildingRoofs } from '../roofBuildingGeometry'
 import { roofJunctionInput, roofToWorld } from '../roofJunctions'
 import { buildBayRoofFaces, createBayRoofLayout, getBayRoofPolygon, getBayRoofRidge, getBayRoofWithWallSupport } from '../bayRoof'
@@ -134,7 +134,11 @@ function getRoomHighlightColors(index: number) {
 }
 
 type FloorplanCanvasProps = {
+  projectMenu?: (onClose: () => void) => ReactNode
+  editControls?: ReactNode
   onGroundImageChange?: (image: GroundImage | undefined) => void
+  showImages?: boolean
+  onShowImagesChange?: (visible: boolean) => void
   modelTransformPreviewRef?: ModelTransformPreviewRef
   activeFloor: FloorLevel
   children?: ReactNode
@@ -185,7 +189,7 @@ export type RoofPlacementPreview = {
   roof: RoofStructure
 }
 
-type RoofCreateOptions = {
+export type RoofCreateOptions = {
   asymmetricSides?: boolean
   ridgeOffset?: number
   ridgeHeight?: number
@@ -3260,7 +3264,11 @@ function applyAlignmentGuide(point: Point, guide: AlignmentGuide | null): Point 
 }
 
 export function FloorplanCanvas({
+  projectMenu,
+  editControls,
   onGroundImageChange,
+  showImages = true,
+  onShowImagesChange,
   activeFloor,
   children,
   floors,
@@ -3302,6 +3310,7 @@ export function FloorplanCanvas({
 }: FloorplanCanvasProps) {
   const [groundImageEditing, setGroundImageEditing] = useState(false)
   useEffect(() => { setGroundImageEditing(false) }, [activeFloor.id])
+  useEffect(() => { if (!showImages) setGroundImageEditing(false) }, [showImages])
   const walls = activeFloor.walls
   const roofs = activeFloor.roofs ?? []
   const referenceFloors = useMemo(
@@ -3367,6 +3376,7 @@ export function FloorplanCanvas({
     onViewportChange(activeFloor.id, viewport)
   }, [activeFloor.id, onViewportChange, viewport])
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
+  useToolbarMenu(isRenderMenuOpen, setIsRenderMenuOpen, floorplanMenuRef)
   const [renderOptions, setRenderOptions] = useState<FloorplanRenderOptions>({
     externalDimensions: true,
     floorAreaSummary: true,
@@ -3724,8 +3734,9 @@ export function FloorplanCanvas({
     if (!menu || !pane) return
     // Match the actual menu height, including controls wrapping on narrow panes.
     const updateRoofPanelPosition = () => {
+      menu.dataset.compact = String(menu.clientWidth < 600)
       pane.style.setProperty('--floorplan-menu-bottom', `${menu.offsetTop + menu.offsetHeight + 8}px`)
-      pane.style.setProperty('--floorplan-menu-left', `${menu.offsetLeft}px`)
+      pane.style.setProperty('--floorplan-menu-left', `${Math.max(48, menu.offsetLeft)}px`)
     }
     updateRoofPanelPosition()
     const observer = new ResizeObserver(updateRoofPanelPosition)
@@ -6363,6 +6374,7 @@ export function FloorplanCanvas({
     : null
   const roofPlacementRidgeRoof = useMemo<RoofStructure>(() => ({
         depth: roofPlacementBounds?.depth ?? 4,
+        bayRidgeLength: roofPlacementType === 'bay' ? roofPlacementBayRidgeLength : undefined,
         ...(roofPlacementType === 'up-and-over' ? roofPlacementRidgeSettings : {}),
         clipsGeometry: roofPlacementClipsGeometry,
         heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
@@ -6395,6 +6407,7 @@ export function FloorplanCanvas({
         ...(bayPlacementRoof ?? {}),
   }), [
     bayPlacementRoof,
+    roofPlacementBayRidgeLength,
     roofPlacementBounds?.depth,
     roofPlacementBounds?.position.x,
     roofPlacementBounds?.position.y,
@@ -6426,6 +6439,12 @@ export function FloorplanCanvas({
   }, [activeFloor.id, isRoofMode, !!roofPlacementBounds, !!roofPlacementSupportBounds,
     onRoofPlacementPreviewChange, roofPlacementRidgeRoof])
   useEffect(() => () => onRoofPlacementPreviewChange(null), [onRoofPlacementPreviewChange])
+  const hasRoofPlacementBounds = Boolean(roofPlacementBounds)
+  const roofPlacementCandidate = useMemo(() => isRoofMode && hasRoofPlacementBounds && roofPlacementType === 'up-and-over'
+    ? resolveBuildingRoofs(floors.map(floor => floor.id === activeFloor.id
+      ? { ...floor, roofs: [...(floor.roofs ?? []), roofPlacementRidgeRoof] } : floor))
+      .find(candidate => candidate.roof.id === roofPlacementRidgeRoof.id)
+    : undefined, [isRoofMode, hasRoofPlacementBounds, roofPlacementType, floors, activeFloor.id, roofPlacementRidgeRoof])
   const upAndOverRidgeIsHorizontal =
     roofPlacementType === 'up-and-over' &&
     Math.abs(Math.cos(roofPlacementRotation)) <
@@ -6471,16 +6490,15 @@ export function FloorplanCanvas({
             onUpdateModel(transformPanelModel.model.id, updates)
           }} />
       ) : null}
-      <div className="pane-header" ref={floorplanMenuRef}>
-        <h2>{`2D Floorplan (${projectFileName.replace(/(?:\.house)?\.json$/i, '')})`}</h2>
-        <span>
-          {isAddingWall
-            ? draftWall
-              ? 'Ctrl: fine movement · Shift: 45° direction'
-              : 'Click to start wall'
-            : `Editing ${activeFloor.name}`}
-        </span>
-          <div className="floorplan-header-controls">
+      <div className="pane-header viewport-toolbar floorplan-toolbar" ref={floorplanMenuRef} aria-label="2D toolbar">
+        <div className="render-options viewport-menu-anchor">
+          <button type="button" className="viewport-icon-button" aria-label="Project menu" title="Project and 2D settings"
+            aria-expanded={isRenderMenuOpen} aria-controls="floorplan-settings-menu"
+            onClick={() => setIsRenderMenuOpen(value => !value)}><ToolbarIcon name="menu" /></button>
+          {isRenderMenuOpen && <div id="floorplan-settings-menu" className="render-options-menu viewport-menu floorplan-settings-menu">
+            {projectMenu?.(() => setIsRenderMenuOpen(false))}
+            <div className="viewport-menu-heading">2D view</div>
+            <p className="viewport-menu-description">{projectFileName} / {activeFloor.name}</p>
           {onGroundImageChange && <GroundImageControls key={activeFloor.id}
             image={activeFloor.groundImage} editing={groundImageEditing}
             maxSize={{ width: size.width * 0.65 / viewport.scale / METERS_TO_PIXELS,
@@ -6489,41 +6507,15 @@ export function FloorplanCanvas({
               y: (size.height / 2 - viewport.y) / viewport.scale / METERS_TO_PIXELS }}
             onChange={onGroundImageChange} onEditingChange={editing => {
               setGroundImageEditing(editing)
+              if (editing) onShowImagesChange?.(true)
               if (editing) { onSelectModel(null); onSelectRoof(null); onSelectWall(null); onSelectRoom(null); onExitAddWall(); onCancelModelPlacement() }
             }} />}
-          <div className="segmented-control compact" aria-label="2D transform mode">
-            <button
-              type="button"
-              className={transformMode === 'translate' ? 'active' : ''}
-              onClick={() => setTransformMode('translate')}
-            >
-              Move
-            </button>
-            <button
-              type="button"
-              className={transformMode === 'rotate' ? 'active' : ''}
-              onClick={() => setTransformMode('rotate')}
-            >
-              Rotate
-            </button>
-            <button
-              type="button"
-              className={transformMode === 'scale' ? 'active' : ''}
-              onClick={() => setTransformMode('scale')}
-            >
-              Scale
-            </button>
-          </div>
-          <div className="render-options">
-            <button
-              type="button"
-              aria-expanded={isRenderMenuOpen}
-              onClick={() => setIsRenderMenuOpen((value) => !value)}
-            >
-              Render
-            </button>
-            {isRenderMenuOpen ? (
-              <div className="render-options-menu">
+            <div className="viewport-menu-heading">Render settings</div>
+                {onShowImagesChange && <label title="Show floor reference images in both 2D and 3D views">
+                  <input type="checkbox" aria-label="Images" checked={showImages}
+                    onChange={event => onShowImagesChange(event.target.checked)} />
+                  Images
+                </label>}
                 <label>
                   <input
                     type="checkbox"
@@ -6572,25 +6564,31 @@ export function FloorplanCanvas({
                   />
                   Snap to other floors
                 </label>
-              </div>
-            ) : null}
+          </div>}
+        </div>
+        <div className="viewport-toolbar-main">
+          <span className="viewport-caption" title={`${projectFileName} / Editing ${activeFloor.name}`}>
+            {projectFileName.replace(/(?:\.house)?\.json$/i, '')} / {activeFloor.name}
+          </span>
+          <div className="viewport-button-group" role="group" aria-label="2D transform mode">
+            {([['translate', 'move', 'Move'], ['rotate', 'rotate', 'Rotate'], ['scale', 'scale', 'Scale']] as const).map(([mode, icon, label]) =>
+              <button key={mode} type="button" className="viewport-icon-button" aria-label={label} title={label}
+                aria-pressed={transformMode === mode} onClick={() => setTransformMode(mode)}><ToolbarIcon name={icon} /></button>)}
           </div>
-          <div className="zoom-controls" aria-label="2D zoom controls">
-            <button type="button" onClick={() => zoomAtCenter(1 / ZOOM_STEP)}>
-              -
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}
-            >
-              {Math.round(viewport.scale * 100)}%
-            </button>
-            <button type="button" onClick={() => zoomAtCenter(ZOOM_STEP)}>
-              +
-            </button>
+          <div className="zoom-controls" role="group" aria-label="2D zoom controls">
+            <button type="button" className="viewport-icon-button" aria-label="Zoom out" title="Zoom out"
+              onClick={() => zoomAtCenter(1 / ZOOM_STEP)}><ToolbarIcon name="minus" /></button>
+            <button type="button" className="zoom-value" aria-label="Reset zoom" title="Reset zoom to 100%"
+              onClick={() => setViewport({ x: 0, y: 0, scale: 1 })}>{Math.round(viewport.scale * 100)}%</button>
+            <button type="button" className="viewport-icon-button" aria-label="Zoom in" title="Zoom in"
+              onClick={() => zoomAtCenter(ZOOM_STEP)}><ToolbarIcon name="plus" /></button>
           </div>
+          {editControls}
         </div>
       </div>
+      {isAddingWall && <div className="floorplan-tool-hint" role="status">
+        {draftWall ? 'Ctrl: fine movement / Shift: 45-degree direction' : 'Click to start wall'}
+      </div>}
 
       <div
         ref={containerRef}
@@ -6706,9 +6704,6 @@ export function FloorplanCanvas({
             ))}
           </Layer>
 
-          {activeFloor.groundImage && !groundImageEditing && <GroundImageLayer key={`ground-${activeFloor.id}`}
-            image={activeFloor.groundImage} editing={false} zoom={viewport.scale}
-            onChange={image => onGroundImageChange?.(image)} />}
           <Layer opacity={isRoofMode ? 0.28 : 1} listening={!isRoofMode && !groundImageEditing}>
             {activeFloor.floorFootprints?.map((ring, index) => (
               <Line key={`floor-boundary-${index}`} closed
@@ -6720,6 +6715,13 @@ export function FloorplanCanvas({
                 dash={[6 / viewport.scale, 4 / viewport.scale]} listening={false} />
             ))}
             {roomRegions}
+          </Layer>
+
+          {showImages && activeFloor.groundImage && !groundImageEditing && <GroundImageLayer key={`ground-${activeFloor.id}`}
+            image={activeFloor.groundImage} editing={false} zoom={viewport.scale}
+            onChange={image => onGroundImageChange?.(image)} />}
+
+          <Layer opacity={isRoofMode ? 0.28 : 1} listening={!isRoofMode && !groundImageEditing}>
 
             {referenceFloors.flatMap((floor) =>
               getRenderedWalls(floor.walls).map((renderedWall) => {
@@ -7569,43 +7571,41 @@ export function FloorplanCanvas({
             </Layer>
           ) : null}
           {!isRoofMode && selectedRoofId ? <Layer listening={false}>{roofFootprints}</Layer> : null}
-          {activeFloor.groundImage && groundImageEditing && <GroundImageLayer key={`editing-ground-${activeFloor.id}`}
+          {showImages && activeFloor.groundImage && groundImageEditing && <GroundImageLayer key={`editing-ground-${activeFloor.id}`}
             image={activeFloor.groundImage} editing zoom={viewport.scale}
             onChange={image => onGroundImageChange?.(image)} />}
         </Stage>
 
         {!isRoofMode && selectedRoof ? (
-          <div className="roof-placement-panel" aria-label="Selected roof settings">
-            <RoofPitchFields roof={selectedRoof}
+          <div className="roof-placement-panel roof-settings-panel" aria-label="Selected roof settings">
+            <RoofSettingsFields key={selectedRoof.id} roof={selectedRoof} floors={floors}
+              floorId={selectedRoofCandidate?.floorId ?? activeFloor.id} candidate={selectedRoofCandidate}
               bayRidgeMaxLength={selectedRoof.type === 'bay' ? getBayRoofRidge(selectedRoofGeometry?.roof ?? selectedRoof).maxLength : undefined}
               onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
-            <RoofConnectionFields roof={selectedRoof} floors={floors} resolvedRoof={selectedRoofGeometry} onChange={(updates) => onUpdateRoof(selectedRoof.id, updates)} />
-            <RoofRidgeFields roof={selectedRoof} floors={floors}
-              floorId={selectedRoofCandidate?.floorId ?? activeFloor.id} candidate={selectedRoofCandidate}
-              onChange={updates => onUpdateRoof(selectedRoof.id, updates)} />
           </div>
         ) : null}
 
         {isRoofMode ? (
           <div
-            className="roof-placement-panel roof-tool-flyout"
+            className="roof-placement-panel roof-tool-flyout roof-settings-panel"
             aria-label="Roof tools"
           >
-            <header>
-              <h2>Roof</h2>
-              <p>{roofPlacementType === 'bay' ? 'Select the two mounting points against the wall first, then the outer bay corners. The ridge extends from the centre of the mounting edge.' : 'Select the roof snap points on the plan.'} Blue guides align points horizontally and vertically. Hold Ctrl for free placement.</p>
-            </header>
+            <RoofSettingsFields roof={roofPlacementRidgeRoof} floors={floors} floorId={activeFloor.id}
+              creating candidate={roofPlacementCandidate}
+              bayRidgeMaxLength={bayPlacementGeometry ? getBayRoofRidge(bayPlacementGeometry).maxLength : undefined}
+              shapeControls={<>
             <label>
-              <span>Type</span>
+              <span>Shape</span>
               <select
+                aria-label="Roof shape"
                 value={roofPlacementType}
                 onChange={(event) =>
                   setRoofPlacementType(event.target.value as RoofStructure['type'])
                 }
                 >
                 <option value="flat">Flat</option>
-                <option value="up-and-over">Up and over</option>
-                <option value="hip">Hip</option>
+                <option value="up-and-over">Gable (two slopes)</option>
+                <option value="hip">Hipped</option>
                 <option value="lean-to">Lean-to</option>
                 <option value="bay">Bay roof</option>
               </select>
@@ -7642,21 +7642,7 @@ export function FloorplanCanvas({
                 </button>
               </label>
             )}
-            <RoofPitchFields
-              bayRidgeMaxLength={bayPlacementGeometry ? getBayRoofRidge(bayPlacementGeometry).maxLength : undefined}
-              roof={{
-                type: roofPlacementType,
-                clipsGeometry: roofPlacementClipsGeometry,
-                heightOffset: roofPlacementHeightOffset,
-                fitSupportingWalls: roofPlacementFitSupportingWalls,
-                bayRidgeLength: roofPlacementBayRidgeLength,
-                thickness: roofPlacementThickness,
-                pitchDegrees: roofPlacementPitchDegrees,
-                overhangPitchDegrees: roofPlacementOverhangPitchDegrees,
-                soffitColor: roofPlacementSoffitColor,
-                ridgeStartChamfer: roofPlacementRidgeStartChamfer,
-                ridgeEndChamfer: roofPlacementRidgeEndChamfer,
-              }}
+              </>}
               onChange={(updates) => {
                 if (updates.clipsGeometry !== undefined) setRoofPlacementClipsGeometry(updates.clipsGeometry)
                 if (updates.heightOffset !== undefined) setRoofPlacementHeightOffset(updates.heightOffset)
@@ -7668,10 +7654,15 @@ export function FloorplanCanvas({
                 if ('overhangPitchDegrees' in updates) setRoofPlacementOverhangPitchDegrees(updates.overhangPitchDegrees)
                 if ('ridgeStartChamfer' in updates) setRoofPlacementRidgeStartChamfer(updates.ridgeStartChamfer)
                 if ('ridgeEndChamfer' in updates) setRoofPlacementRidgeEndChamfer(updates.ridgeEndChamfer)
+                setRoofPlacementRidgeSettings(current => ({ ...current,
+                  ...('asymmetricSides' in updates ? { asymmetricSides: updates.asymmetricSides } : {}),
+                  ...('mountSide' in updates ? { mountSide: updates.mountSide } : {}),
+                  ...('ridgeOffset' in updates ? { ridgeOffset: updates.ridgeOffset } : {}),
+                  ...('ridgeHeight' in updates ? { ridgeHeight: updates.ridgeHeight } : {}),
+                  ...('ridgeHeightTargetRoofId' in updates ? { ridgeHeightTargetRoofId: updates.ridgeHeightTargetRoofId } : {}),
+                }))
               }}
-            />
-            <RoofRidgeFields roof={roofPlacementRidgeRoof} floors={floors} floorId={activeFloor.id}
-              onChange={updates => setRoofPlacementRidgeSettings(current => ({ ...current, ...updates }))} />
+              overhangControls={<div className="roof-overhang-grid">
             {roofPlacementType !== 'bay' ? <label>
               <span>End overhang</span>
               <input
@@ -7741,7 +7732,8 @@ export function FloorplanCanvas({
                 />
               </label>
             )}
-            <div className="roof-placement-actions">
+              </div>}
+              actions={<div className="roof-placement-actions">
               <button
                 type="button"
                 disabled={roofPlacementPoints.length === 0}
@@ -7756,7 +7748,8 @@ export function FloorplanCanvas({
               >
                 Create
               </button>
-            </div>
+            </div>}
+            />
           </div>
         ) : null}
 

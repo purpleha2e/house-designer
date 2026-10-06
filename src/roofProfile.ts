@@ -120,6 +120,28 @@ function clipProfilePolygon(polygon: Point[], distance: (point: Point) => number
 
 type HeightProfile = (point: Point) => number
 
+/** Deep chamfers may lower the eaves. Opposing chamfers can meet, not overlap. */
+export function getGableChamferLimits(roof: RoofStructure, extents: RoofBounds, support?: RoofBounds) {
+  const depth = Math.max(0, extents.maxY - extents.minY)
+  const ends = [roof.ridgeStartChamfer, roof.ridgeEndChamfer].map(chamfer => {
+    let distance = chamfer?.distance ?? 0
+    if (chamfer?.matchEave && support) {
+      const slope = getRoofSlope(chamfer.angleDegrees)
+      const height = getGableRidgeHeight(roof, support)
+      const eave = Math.max(getPitchedRoofHeightAtX(roof, support, extents.minX),
+        getPitchedRoofHeightAtX(roof, support, extents.maxX))
+      if (slope > 0) distance = Math.max(0, height - eave) / slope
+    }
+    return { distance: Number.isFinite(distance) ? Math.min(depth, Math.max(0, distance)) : 0 }
+  })
+  const total = ends[0].distance + ends[1].distance
+  if (total > depth) ends.forEach(end => { end.distance *= depth / total })
+  return {
+    ridgeStartChamfer: { distance: ends[0].distance, maximum: depth - ends[1].distance },
+    ridgeEndChamfer: { distance: ends[1].distance, maximum: depth - ends[0].distance },
+  }
+}
+
 function addLowestProfileFaces(
   faces: RoofProfileVertex[][],
   rectangle: Point[],
@@ -147,9 +169,9 @@ function buildChamferedGableProfileFaces(
   support: RoofBounds,
   xs: number[],
 ) {
-  const depth = extents.maxY - extents.minY
-  const startDistance = Math.min(depth, Math.max(0, roof.ridgeStartChamfer?.distance ?? 0))
-  const endDistance = Math.min(depth, Math.max(0, roof.ridgeEndChamfer?.distance ?? 0))
+  const limits = getGableChamferLimits(roof, extents, support)
+  const startDistance = limits.ridgeStartChamfer.distance
+  const endDistance = limits.ridgeEndChamfer.distance
   const startInnerY = extents.minY + startDistance
   const endInnerY = extents.maxY - endDistance
   const ys = [...new Set([
