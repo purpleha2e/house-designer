@@ -256,13 +256,22 @@ function assignCoplanarCapSource(cap: WallMeshFace, faces: WallMeshFace[]): Wall
 function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number, volumes: WallRoofClipVolume[]) {
   // Upper facades can own the floor-zone continuation below elevation zero.
   // Their cut reveals must close that continuation as well as the storey.
-  const bottomElevation = floorElevation + Math.min(0, ...faces.filter(face => face.storeyBoundary)
+  const continuations = faces.filter(face => face.storeyBoundary)
+  // The common slab band can extend every wall below the floor datum. Deeper
+  // roof-contact continuations belong only to their own wall: using the lowest
+  // one anywhere in the building creates duplicate caps on another storey.
+  const commonBottom = Math.min(0, ...continuations.filter(face =>
+    face.vertices.some(vertex => vertex.position[1] >= -EPSILON))
     .flatMap(face => face.vertices.map(vertex => vertex.position[1])))
+  const bottomForWall = (wallId: string) => floorElevation + Math.min(commonBottom,
+    ...continuations.filter(face => face.wallId === wallId)
+      .flatMap(face => face.vertices.map(vertex => vertex.position[1])))
   const worldFaces = new Map(faces.map((face) => [face, face.vertices.map((v): WallMeshVertex => ({
     ...v, position: [v.position[0], v.position[1] + floorElevation, v.position[2]],
   }))]))
   const world = (face: WallMeshFace) => worldFaces.get(face)!
   const section = (face: WallMeshFace, plane: ClipPlane) => {
+    const bottomElevation = bottomForWall(face.wallId)
     const vertices = world(face)
     const points: WallMeshVertex[] = []
     vertices.forEach((b, i) => {

@@ -548,7 +548,9 @@ export function resolveRoofJunctions(inputs: RoofJunctionInput[]): ResolvedRoof[
       }
       const faces = candidate.faces.map((face) => intersect(face, planes)).filter((face) => face.length)
       if (candidate === roof) return retain(faces)
-      if (candidate.roof.clipsGeometry === false) return []
+      const joined = roof.connections.some(c => c.state === 'joined' && c.targetRoofId === candidate.roof.id) ||
+        candidate.connections.some(c => c.state === 'joined' && c.targetRoofId === roof.roof.id)
+      if (candidate.roof.clipsGeometry === false && !joined) return []
       // Another roof replaces this wall envelope only where it consumed the
       // original panel. Vertically separated overhangs keep separate coverage.
       const buildingPlanes = clippingFootprint(candidate, roof)

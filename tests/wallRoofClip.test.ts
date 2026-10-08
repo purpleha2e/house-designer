@@ -85,6 +85,24 @@ test('distant downward wall boundaries do not fragment an unrelated roof cap', (
   assert.deepEqual(caps([...base, ...distant]), caps(base))
 })
 
+test('a remote downward facade continuation cannot extend another walls roof reveal', () => {
+  const settings = options(() => 4, 1, 3)
+  settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)
+  const band = { ...sideFace(), storeyBoundary: true }
+  band.vertices = band.vertices.map(v => ({ ...v,
+    position: [v.position[0], v.position[1] === 0 ? -0.3 : 0, v.position[2]],
+  })) as WallMeshFace['vertices']
+  const remote = { ...band, wallId: 'remote-wall', faceId: 'remote:extension' }
+  remote.vertices = remote.vertices.map(v => ({ ...v,
+    position: [v.position[0] + 20, v.position[1] === 0 ? -0.3 : -0.7, v.position[2]],
+  })) as WallMeshFace['vertices']
+  const caps = runWallRoofClipJob(structuredClone(createWallRoofClipJob([sideFace(), topFace(), band, remote], settings)))
+    .filter(face => face.wallId === 'upper-wall' && face.faceId.includes(':roof-boundary-cap:'))
+  assert.ok(caps.length)
+  assert.ok(caps.every(face => face.vertices.every(v => v.position[1] >= -0.3 - 1e-7)),
+    'a reveal stops at its own slab band and cannot overlap the wall on the storey below')
+})
+
 test('a zero-depth doorway reveal cannot cut a remote vertical roof closure', () => {
   const settings = options(() => 4, 1, 3)
   settings.volumes[0].surfacePlane = settings.volumes[0].planes.at(-1)

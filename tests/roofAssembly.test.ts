@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
-import { assembleRoofCells, constructRoofAssembly, constructJoinedRoofAssembly, createJoinedRoofAssemblyGeometries, createRoofAssemblyGeometries, roofPanelSolid } from '../src/roofAssembly.ts'
+import { assembleRoofCells, constructRoofAssembly, constructRoofLinings, constructJoinedRoofAssembly, createJoinedRoofAssemblyGeometries, createRoofAssemblyGeometries, roofPanelSolid } from '../src/roofAssembly.ts'
 import { subtractSolid } from '../src/convexSolid.ts'
-import { roofJunctionInput, resolveRoofJunctions, roofToWorld } from '../src/roofJunctions.ts'
+import { getRoofCoverageUndersideFaces, roofJunctionInput, resolveRoofJunctions, roofSurfaceHeights, roofToWorld } from '../src/roofJunctions.ts'
 import { resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
 import { buildBuildingRoomVolumes } from '../src/buildingRoomVolumes.ts'
 import type { FloorLevel, RoofStructure } from '../src/types.ts'
@@ -67,6 +67,18 @@ test('a clipping roof keeps its overhang above the walls it trims in its own roo
     assert.ok(hits.length, 'the horizontal room fallback must not remove the roof overhang')
     assert.ok(hits[0].point.y < 2.4, 'the wall needs trimming; the roof was not raised to hide it')
   }
+  const parts = Object.values(geometries).map(geometry => {
+    const part = mesh.clone()
+    part.geometry = geometry
+    part.updateMatrixWorld(true)
+    return part
+  })
+  for (const x of [3.17, 3.2, 3.25]) for (const z of [16.8, 17, 17.2]) {
+    const hits = new Raycaster(new Vector3(x, 1.8, z), new Vector3(0, 1, 0), 0, 0.5).intersectObjects(parts)
+    assert.equal(hits.length, 0, `the boxed eave must not hang below the sloping hall ceiling at ${x}, ${z}`)
+  }
+  const exteriorEave = new Raycaster(new Vector3(3.14, 1.8, 17), new Vector3(0, 1, 0), 0, 0.599).intersectObjects(parts)
+  assert.ok(exteriorEave.length, 'the same exterior boxed eave remains outside the hall wall')
   Object.values(geometries).forEach(geometry => geometry.dispose())
   material.dispose()
 })
@@ -80,6 +92,56 @@ test('saved asymmetric junction roofs produce closed assemblies including chamfe
       if (assembly.faces.length) closed(assembly)
     }
   }
+})
+
+test('a passive fitted roof preserves the joined valley below the horizontal room ceiling', () => {
+  const { floors } = JSON.parse(readFileSync(new URL('../colin_house_v2.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const candidates = resolveBuildingRoofs(floors)
+  const roofs = candidates.filter(candidate => candidate.floorId === floors[1].id)
+  const cuts = buildBuildingRoomVolumes(floors, candidates).cuts
+  const geometries = createJoinedRoofAssemblyGeometries(roofs.map(candidate => ({
+    resolved: candidate.resolved, abuttingWalls: candidate.abuttingWalls, roomCuts: cuts,
+  })))
+  const material = new MeshBasicMaterial({ side: DoubleSide })
+  const meshes = roofs.map(candidate => {
+    const mesh = new Mesh(geometries.get(candidate.roof.id)!.top, material)
+    mesh.position.set(candidate.roof.position.x, candidate.floorTopElevation, candidate.roof.position.y)
+    mesh.rotation.y = candidate.roof.rotation
+    mesh.updateMatrixWorld(true)
+    return mesh
+  })
+  for (const x of [3.16, 3.18, 3.2]) for (const z of [15.85, 15.95, 16.05]) {
+    const expected = Math.max(...roofs.flatMap(candidate => roofSurfaceHeights(candidate.resolved.faces, { x, y: z })))
+    assert.ok(expected < 5.1, 'the valley is below the unfitted room ceiling')
+    const hit = new Raycaster(new Vector3(x, 10, z), new Vector3(0, -1, 0)).intersectObjects(meshes)[0]
+    assert.ok(hit && Math.abs(hit.point.y - expected) < 1e-5,
+      `the room must not carve a hole through the valley at ${x}, ${z}`)
+  }
+  const branchIndex = roofs.findIndex(candidate => candidate.roof.id === 'b9c4f4d7-2ea6-4bc2-8b59-481280115509')
+  const eaves = meshes[branchIndex].clone()
+  eaves.geometry = geometries.get(roofs[branchIndex].roof.id)!.eaves
+  eaves.updateMatrixWorld(true)
+  const wallInsideZ = 16.20428526292765
+  const edge = new Raycaster(new Vector3(3.25, 4.805, 15.5), new Vector3(0, 0, 1)).intersectObject(eaves)[0]
+  assert.ok(edge && edge.point.z > wallInsideZ + 0.00005 && edge.point.z < wallInsideZ + 0.001,
+    'the eave closure sits inside the wall, without a coplanar strip on its room-side finish')
+  const receiver = roofs.find(candidate => candidate.roof.fitSupportingWalls)!
+  const ceilingAtValley = roofSurfaceHeights(getRoofCoverageUndersideFaces(receiver.resolved), { x: 3.295, y: 15.938 })
+  assert.ok(ceilingAtValley.length && Math.max(...ceilingAtValley) < 5.08,
+    'the fitted roof includes its passive joined branch when cutting the horizontal ceiling')
+  const linings = constructRoofLinings({ resolved: receiver.resolved, roomCuts: cuts })
+  assert.ok(linings.length)
+  linings.forEach(closed)
+  const lining = new Mesh(geometries.get(receiver.roof.id)!.underside, material)
+  lining.position.set(receiver.roof.position.x, receiver.floorTopElevation, receiver.roof.position.y)
+  lining.rotation.y = receiver.roof.rotation
+  lining.updateMatrixWorld(true)
+  for (const x of [3.125, 3.15, 3.25]) for (const z of [15.8, 16, 16.15]) {
+    const hit = new Raycaster(new Vector3(x, 4.5, z), new Vector3(0, 1, 0)).intersectObject(lining)[0]
+    assert.ok(hit && hit.point.y < 5.1, `the receiving room has its own continuous ceiling finish at ${x}, ${z}`)
+  }
+  geometries.forEach(parts => Object.values(parts).forEach(geometry => geometry.dispose()))
+  material.dispose()
 })
 
 test('deep chamfers keep the lowered fascia and soffit closed below the original eave', () => {

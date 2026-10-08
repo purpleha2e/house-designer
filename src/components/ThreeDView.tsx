@@ -1,5 +1,8 @@
 import { ToolbarIcon } from './ToolbarIcon'
 import { useToolbarMenu } from './useToolbarMenu'
+import { ViewerCameraControls } from '../viewer/ViewerCameraControls'
+import { ViewerStairs } from '../viewer/ViewerStairs'
+import type { ViewerNavigationMode } from '../viewer/viewerNavigation'
 import { resolveBuildingRoofs, resolveLinkedRoofFloors, serializeRoofGeometryInput, getRoofRidgeHeight, getRoofWorldPointFromLocal, getRoofRenderPosition, getRoofSupportBoundsInRoofSpace, getRoofSupportLocalPoint, getExplicitRoofSupportLocalBounds, getRoofWithExternalWallSupportExtents, getWallSideAwayFromRoof, type BuildingRoof as WallClippingRoof } from '../roofBuildingGeometry'
 /* eslint-disable react-hooks/immutability */
 import {
@@ -15,7 +18,9 @@ import { WindowMesh } from './WindowMesh'
 import { getSpatialDragDelta, getTransformRotation } from '../transformModifiers'
 import { EffectComposer, N8AO } from '@react-three/postprocessing'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { PbrEnvironmentProvider } from './PbrEnvironment'
+import { PbrEnvironmentContext } from '../pbrEnvironmentContext'
+import { applyWindowFrameFinish } from '../windowFrameMaterial'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
@@ -38,7 +43,6 @@ import {
   Object3D,
   Plane,
   Path,
-  PMREMGenerator,
   PointLight,
   Raycaster,
   RawShaderMaterial,
@@ -191,6 +195,7 @@ import { findStoreyBoundaryAssignment, findUpperFacadeSourceForRoofCut, findWall
 import { roofToLocal, roofBoundsPolygon, resolvedRoofWallSegments, getRoofCoverageUndersideFaces, getRoofRenderableOuterFaces, type ResolvedRoof } from '../roofJunctions'
 import { createSolidRoofGeometryFromFaces, type RoofGeometries, type RoofVertex } from '../roofSolidGeometry'
 import { carveRoofSurfaceByRooms, type RoomRoofCut } from '../roofRoomCsg'
+import { getRoomRoofCeilingFaces } from '../roomRoofCeiling'
 import { buildBuildingRoomVolumes, type BuildingRoomVolumes } from '../buildingRoomVolumes'
 import { getRoofThickness } from '../roofThickness'
 import { createWallRoofClipOptions } from '../roofWallClipping'
@@ -258,6 +263,10 @@ const CEILING_VISUAL_OVERLAP_METERS = 0.035
 type WallEngineFace = FloorWallSurfaceFace
 
 type ThreeDViewProps = {
+  readOnly?: boolean
+  viewerMode?: ViewerNavigationMode
+  viewerToolbar?: ReactNode
+  onViewerStairs?: (floorId: string, position: Point) => void
   modelTransformPreviewRef?: ModelTransformPreviewRef
   activeFloorId: string
   cameraRestoreRevision: number
@@ -2605,6 +2614,7 @@ const DormerWallContactsContext = createContext<ReadonlyMap<string, DormerWallCo
 const DormerBaseElevationsContext = createContext<ReadonlyMap<string, number>>(new Map())
 const StoreyGeometryContext = createContext<ReadonlyMap<string, StoreyGeometry>>(new Map())
 const RoofGableContext = createContext<RoofGable[]>([])
+const BuildingRoomCutsContext = createContext<RoomRoofCut[]>([])
 
 function WallEngineWallMeshes({
   castsShadow,
@@ -2748,8 +2758,11 @@ function WallEngineWallMeshes({
           ]).map((point) => getRoofWorldPointFromLocal(candidate.roof, point)),
           undersideFaces: getRoofCoverageUndersideFaces(candidate.resolved).map((face) => face.map(([x, y, z]) =>
             [x, y + 0.005, z] as [number, number, number])),
-          heightClipUndersideFaces: getRoofRenderableOuterFaces(candidate.resolved).map((face) => face.map(([x, y, z]) =>
-            [x, y - getRoofThickness(candidate.roof) + 0.005, z] as [number, number, number])),
+          heightClipUndersideFaces: (candidate.roof.fitSupportingWalls
+            ? getRoofCoverageUndersideFaces(candidate.resolved)
+            : getRoofRenderableOuterFaces(candidate.resolved).map(face => face.map(([x, y, z]) =>
+              [x, y - getRoofThickness(candidate.roof), z] as [number, number, number])))
+            .map(face => face.map(([x, y, z]) => [x, y + 0.005, z] as [number, number, number])),
         }
       }),
       walls,
@@ -5217,10 +5230,6 @@ function useSurfaceMaterialTextures(
 }
 
 const MaterialVariationVrContext = createContext(false)
-const PbrEnvironmentContext = createContext<{
-  intensity: number
-  map: Texture | null
-}>({ intensity: 0, map: null })
 
 function SurfaceMeshStandardMaterial({
   attach,
@@ -12177,6 +12186,7 @@ function RoomCeilingFinishMesh({
   openings,
   polygon,
   roomHeight,
+  roofCeilingFaces,
   shadowsEnabled,
   wireframe,
 }: {
@@ -12186,6 +12196,7 @@ function RoomCeilingFinishMesh({
   openings: PlanCutout[]
   polygon: Point[]
   roomHeight: number
+  roofCeilingFaces: RoofVertex[][]
   shadowsEnabled: boolean
   wireframe: boolean
 }) {
@@ -12200,6 +12211,23 @@ function RoomCeilingFinishMesh({
     [openings, visualPolygon],
   )
   const y = elevation + roomHeight - CEILING_VERTICAL_OVERLAP_METERS
+  const slopingGeometry = useMemo(() => {
+    const positions: number[] = [], uvs: number[] = []
+    for (const face of roofCeilingFaces) for (let i = 1; i < face.length - 1; i++) {
+      const [a, b, c] = [face[0], face[i], face[i + 1]]
+      const cross = (b[0] - a[0]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[0] - a[0])
+      for (const p of cross > 0 ? [a, b, c] : [a, c, b]) {
+        positions.push(...p)
+        uvs.push(p[0], -p[2])
+      }
+    }
+    const geometry = new BufferGeometry()
+    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
+    geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
+    geometry.computeVertexNormals()
+    return geometry
+  }, [roofCeilingFaces])
+  useEffect(() => () => slopingGeometry.dispose(), [slopingGeometry])
   // This surface already sits below the slab. Keep its actual depth so its
   // edge cannot be pulled through the roof or walls at shallow viewing angles.
 
@@ -12207,6 +12235,12 @@ function RoomCeilingFinishMesh({
 
   return (
     <group>
+      <mesh geometry={slopingGeometry} receiveShadow castShadow={shadowsEnabled}
+        userData={{ houseDesignerRole: 'room-sloping-ceiling-finish' }}>
+        {material && assignment ? <SurfaceMeshStandardMaterial assignment={assignment}
+          displacementEnabled={false} material={material} side={FrontSide} wireframe={wireframe} /> :
+          <meshStandardMaterial color="#e2e8f0" roughness={0.82} side={FrontSide} wireframe={wireframe} />}
+      </mesh>
       {/* The finish is hidden from attic views, but the room's ceiling must
           still block sunlight. Keep its shadow geometry independent of the
           camera-dependent finish visibility. */}
@@ -12279,6 +12313,7 @@ function RoomCeilingFinishes({
   visibleRoomSignatures?: ReadonlySet<string> | null
   wireframe: boolean
 }) {
+  const roomCuts = useContext(BuildingRoomCutsContext)
   if (!enabled) return null
   return (
     <group>
@@ -12310,6 +12345,8 @@ function RoomCeilingFinishes({
               openings={[...openings, ...roofCutouts]}
               polygon={polygon}
               roomHeight={roomHeight}
+              roofCeilingFaces={getRoomRoofCeilingFaces(roomCuts, floorId, polygon,
+                elevation + roomHeight - CEILING_VERTICAL_OVERLAP_METERS, elevation, openings)}
               shadowsEnabled={shadowsEnabled}
               wireframe={wireframe}
             />
@@ -14828,7 +14865,7 @@ function ImportedModelContent({
               materialName,
             )
           ) {
-            applyImportedPbrEnvironment(
+            if (!applyWindowFrameFinish(material, pbrEnvironment.map, pbrEnvironment.intensity)) applyImportedPbrEnvironment(
               material,
               pbrEnvironment.map,
               pbrEnvironment.intensity,
@@ -16651,50 +16688,6 @@ function CountrysideSkybox() {
         />
       </mesh>
     </group>
-  )
-}
-
-function PbrEnvironmentProvider({
-  children,
-  intensity,
-}: {
-  children: ReactNode
-  intensity: number
-}) {
-  const { gl, invalidate, scene } = useThree()
-  const environmentResources = useMemo(() => {
-    const environmentScene = new RoomEnvironment()
-    const pmremGenerator = new PMREMGenerator(gl)
-    const environmentTarget = pmremGenerator.fromScene(environmentScene, 0.04)
-
-    return { environmentScene, environmentTarget, pmremGenerator }
-  }, [gl])
-
-  useLayoutEffect(() => {
-    // IBL is opt-in per material. Never leave a scene-wide environment from
-    // an earlier renderer mount or hot reload for ordinary walls and floors.
-    scene.environment = null
-    invalidate()
-
-    return () => {
-      environmentResources.environmentTarget.dispose()
-      environmentResources.environmentScene.dispose()
-      environmentResources.pmremGenerator.dispose()
-    }
-  }, [environmentResources, invalidate, scene])
-
-  const value = useMemo(
-    () => ({
-      intensity,
-      map: environmentResources.environmentTarget.texture,
-    }),
-    [environmentResources, intensity],
-  )
-
-  return (
-    <PbrEnvironmentContext.Provider value={value}>
-      {children}
-    </PbrEnvironmentContext.Provider>
   )
 }
 
@@ -19164,6 +19157,10 @@ function EngineConsoleOverlay({
 }
 
 export function ThreeDView({
+  readOnly = false,
+  viewerMode = 'walk',
+  viewerToolbar,
+  onViewerStairs,
   modelTransformPreviewRef,
   activeFloorId,
   cameraRestoreRevision,
@@ -19172,8 +19169,8 @@ export function ThreeDView({
   isEngineConsoleOpen,
   lightDirection,
   modelAssetVersion,
-  placementModel,
-  roofPlacementPreview,
+  placementModel: requestedPlacementModel,
+  roofPlacementPreview: requestedRoofPlacementPreview,
   onCameraViewStateChange,
   onClearSelection,
   onEngineConsoleOpenChange,
@@ -19184,16 +19181,23 @@ export function ThreeDView({
   onSelectModel,
   onSelectRoof,
   onSelectSurface,
-  onUpdateModel,
-  selectedModelId,
-  selectedRoofId,
-  selectedSurface,
-  selectedWallId,
+  onUpdateModel: requestedUpdateModel,
+  selectedModelId: requestedSelectedModelId,
+  selectedRoofId: requestedSelectedRoofId,
+  selectedSurface: requestedSelectedSurface,
+  selectedWallId: requestedSelectedWallId,
   sceneRevision,
   showAllFloors,
   showImages = true,
   surfaceAssignments,
 }: ThreeDViewProps) {
+  const placementModel = readOnly ? null : requestedPlacementModel
+  const roofPlacementPreview = readOnly ? null : requestedRoofPlacementPreview
+  const selectedModelId = readOnly ? null : requestedSelectedModelId
+  const selectedRoofId = readOnly ? null : requestedSelectedRoofId
+  const selectedSurface = readOnly ? null : requestedSelectedSurface
+  const selectedWallId = readOnly ? null : requestedSelectedWallId
+  const onUpdateModel = readOnly ? () => {} : requestedUpdateModel
   const ridgeHeightFloors = useMemo(() => resolveLinkedRoofFloors(sourceFloors), [sourceFloors])
   const dormerInteriors = useMemo(() => prepareDormerInteriors(ridgeHeightFloors, modelsById), [ridgeHeightFloors, modelAssetVersion])
   const floors = dormerInteriors.floors
@@ -19254,7 +19258,7 @@ export function ThreeDView({
     useState<FloorVisibilityState | null>(null)
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
     fadeObstructingRoofs: false,
-    fadeObstructingWalls: true,
+    fadeObstructingWalls: !readOnly,
     ambientOcclusion: true,
     ambientOcclusionIntensity: 0.25,
     ambientTerm: 0.32,
@@ -19712,7 +19716,7 @@ export function ThreeDView({
   const initialScenePreparationPending =
     scenePreparationPending && !initialScenePreparationComplete
   const shaderWarmupBlocked = isTexturePreloadPending || isAssetLoadPending || isLevelPreparationPending
-  const transformEnabled = true
+  const transformEnabled = !readOnly
   const navigationLocked =
     isTransformingModel || isXrPresenting || initialScenePreparationPending
   const updateShaderWarmupPending = useCallback((isPending: boolean) => {
@@ -20169,7 +20173,8 @@ export function ThreeDView({
   }
 
   return (
-    <section ref={threePaneRef} className="editor-pane three-editor-pane">
+    <section ref={threePaneRef} className={`editor-pane three-editor-pane${readOnly ? ' house-viewer-pane' : ''}`}>
+      {readOnly ? viewerToolbar : (
       <div className="pane-header viewport-toolbar three-toolbar" ref={threeToolbarRef} aria-label="3D toolbar">
         <div className="three-header-controls">
           <div className="viewport-button-group" role="group" aria-label="3D transform mode">
@@ -20464,6 +20469,7 @@ export function ThreeDView({
           </div>
         </div>
       </div>
+      )}
 
       <div
         ref={threeHostRef}
@@ -20489,6 +20495,7 @@ export function ThreeDView({
         <DormerBaseElevationsContext.Provider value={dormerInteriors.baseElevations}>
         <StoreyGeometryContext.Provider value={storeyGeometry}>
         <RoofGableContext.Provider value={roofGables}>
+          <BuildingRoomCutsContext.Provider value={buildingRoomVolumes.cuts}>
         <ImportedModelBatchingContext.Provider value={importedModelBatching}>
         <HorizontalSurfaceVisibilityContext.Provider value={horizontalSurfaceVisibilityRegistry}>
         <Canvas
@@ -20533,11 +20540,15 @@ export function ThreeDView({
               activeFloorElevation={activeFloor?.elevation ?? 0}
               initialPosition={vrStartPosition}
             />
-            <XRControllerVisualsAndButtons
+            {(!readOnly || isXrPresenting) ? <XRControllerVisualsAndButtons
               activeFloor={activeFloor}
               floors={floors}
               onSelectFloor={onSelectFloor}
-            />
+            /> : null}
+            {readOnly && viewerMode === 'walk' && !isXrPresenting && activeFloor && onViewerStairs ? (
+              <ViewerStairs floor={activeFloor} floors={floors} onNavigate={onViewerStairs} />
+            ) : null}
+            {!readOnly ? (
             <ModelPicker
               active={!placementModel}
               isTransformingRef={isTransformingModelRef}
@@ -20547,7 +20558,8 @@ export function ThreeDView({
               onSelectSurface={onSelectSurface}
               pickTargetsRef={pickTargetsRef}
             />
-            {placementModel ? (
+            ) : null}
+            {!readOnly && placementModel ? (
               <OpeningPlacementController
                 daylightEnabled={renderOptions.daylight}
                 definition={placementModel}
@@ -20557,13 +20569,13 @@ export function ThreeDView({
                 pickTargetsRef={pickTargetsRef}
               />
             ) : null}
-            <PickBufferExporter
+            {!readOnly ? <PickBufferExporter
               onImage={setPickBufferDownload}
               onReady={(capture) => {
                 pickBufferCaptureRef.current = capture
               }}
               pickTargetsRef={pickTargetsRef}
-            />
+            /> : null}
             <FpsCounter onFpsChange={updateFps} />
             <RendererStatsSampler onStatsChange={updateRendererStats} />
             <SunShadowBlockerFilter />
@@ -21392,7 +21404,8 @@ export function ThreeDView({
               />
             ) : null}
 
-            <WalkCameraControls
+            {readOnly ? <ViewerCameraControls mode={viewerMode}
+              floorElevation={activeFloor?.elevation ?? 0} enabled={!navigationLocked} /> : <WalkCameraControls
               enabled={!navigationLocked}
               headHeightEnabled={headHeightEnabled}
               headHeightY={headHeightY}
@@ -21401,7 +21414,7 @@ export function ThreeDView({
               navigationLocked={navigationLocked}
               pickTargetsRef={pickTargetsRef}
               selectedModelId={selectedModelId}
-            />
+            />}
             {screenSpaceAmbientOcclusionEnabled ? (
               <EffectComposer
                 multisampling={0}
@@ -21428,6 +21441,7 @@ export function ThreeDView({
         </Canvas>
         </HorizontalSurfaceVisibilityContext.Provider>
         </ImportedModelBatchingContext.Provider>
+          </BuildingRoomCutsContext.Provider>
         </RoofGableContext.Provider>
         </StoreyGeometryContext.Provider>
         </DormerBaseElevationsContext.Provider>
@@ -21435,7 +21449,7 @@ export function ThreeDView({
         </DormerWallJunctionContext.Provider>
         </DormerRoomClipContext.Provider>
         </ModelTransformPreviewContext.Provider>
-        <div
+        {!readOnly ? <><div
           ref={engineStatusRef}
           className="viewport-engine-status is-idle"
           aria-live="polite"
@@ -21447,6 +21461,7 @@ export function ThreeDView({
           isOpen={isEngineConsoleOpen}
           onClose={() => onEngineConsoleOpenChange(false)}
         />
+        </> : null}
         {initialScenePreparationPending ? (
           <div className="viewport-preparing-overlay" aria-live="polite">
             <div className="viewport-preparing-panel">
@@ -21454,7 +21469,7 @@ export function ThreeDView({
             </div>
           </div>
         ) : null}
-        <div className="viewport-indicators">
+        {!readOnly ? <div className="viewport-indicators">
           <div
             ref={fpsIndicatorRef}
             className="viewport-indicator"
@@ -21493,12 +21508,12 @@ export function ThreeDView({
           >
             0 tris
           </div>
-        </div>
-        <LightGimbal
+        </div> : null}
+        {!readOnly ? <LightGimbal
           lightDirection={lightDirection}
           previewDirectionRef={sunPreviewDirectionRef}
           onLightDirectionChange={onLightDirectionChange}
-        />
+        /> : null}
       </div>
     </section>
   )

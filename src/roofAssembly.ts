@@ -155,7 +155,7 @@ function constructRoofCells({ resolved, abuttingWalls = [], dormerOpenings = [],
     for (const planes of volumes) source = source.flatMap(cell => subtractSolid(cell, planes, tag))
     return source
   }
-  const abutments = getRoofAbutmentPlanes(abuttingWalls, getRoofRenderPosition(roof))
+  const abutments = getRoofAbutmentPlanes(abuttingWalls, getRoofRenderPosition(roof), 'embedded')
     .map(plane => [coefficients(p => plane(world(p)))])
   // Cut the constructed assembly, not each triangulated material surface.
   cells = cut(cells, abutments, 'shell')
@@ -167,23 +167,54 @@ function constructRoofCells({ resolved, abuttingWalls = [], dormerOpenings = [],
     return [[...planes, (p: RoofVertex) => -above(p)].map(plane => coefficients(p => plane(world(p))))]
   })
   eaves = cut(eaves, joinedVolumes, 'eaves')
+  // A horizontal fallback cannot cut the enclosing roof's outer skin.
+  // Overhangs entering a room have their own sloping ceiling cuts instead.
   const rooms = roomCuts.filter(c => !(c.roomVolume && c.floorId === resolved.floorId &&
     ((roof.fitSupportingWalls && roof.clipsGeometry === false) ||
-      // A clipping roof owns its complete footprint, including overhangs.
-      // The room's horizontal fallback must not carve that same roof away
-      // after the walls below it have been trimmed to its underside.
       (roof.clipsGeometry !== false && !c.roofId))))
   const roomVolumes = rooms.flatMap(({ face, bottomY, thickness: depth }) => {
     const localFace = face.map(local), height = roofFaceHeight(localFace)
     if (!height) return []
     const bottom = local([face[0][0], bottomY, face[0][2]])[1]
-    return [[...footprintPlanes(localFace.map(([x, , z]) => ({ x, y: z }))),
+    // Put the closure just inside the adjoining wall, rather than leaving an
+    // eave cut face coplanar with its room-side finish (visible as a striped strip).
+    return [[...footprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })))
+      .map(plane => (point: RoofVertex) => plane(point) + 0.0001),
       ([x, y, z]: RoofVertex) => height({ x, y: z }) - depth - 0.001 - y,
       ([, y]: RoofVertex) => y - bottom].map(coefficients)]
   })
   cells = cut(cells, roomVolumes, 'shell')
   eaves = cut(eaves, roomVolumes, 'eaves')
   return [...cells, ...eaves]
+}
+
+/** The room finish is an independent closed skin, not a structural tile seam. */
+export function constructRoofLinings({ resolved, roomCuts = [] }: RoofAssemblyInput): RoofAssembly[] {
+  const { roof, elevation } = resolved
+  const cells: ConvexSolid[] = []
+  // Fitted rooms keep a continuous interior lining at their ceiling envelope.
+  // A joined branch can own the exterior tiles here; its boxed eave and tile
+  // underside must not become an exposed panel in the receiving room.
+  if (roof.fitSupportingWalls) {
+    for (const room of roomCuts.filter(c => c.roomVolume && c.floorId === resolved.floorId && c.roofId === roof.id)) {
+      const face = room.face.map(p => roofToLocal(roof, elevation, [p[0], p[1] - room.thickness - 0.001, p[2]]))
+      const height = roofFaceHeight(face)
+      if (!height) continue
+      // Room partitions can reach the same corner through different boolean
+      // paths. Snap their plan coordinates before building the thin finish.
+      const outline = face.map(([x, , z]): RoofVertex => {
+        x = Math.round(x * 1e6) / 1e6
+        z = Math.round(z * 1e6) / 1e6
+        return [x, height({ x, y: z }), z]
+      })
+      const lining = roofPanelSolid(outline, (x, z) => height({ x, y: z }) - 0.001,
+        'underside', 'underside', 'underside')
+      if (lining) cells.push(lining)
+    }
+  }
+  // Each ceiling panel is a closed finish. Keep adjacent room panels separate:
+  // their thin edge contacts are not structural unions between roof solids.
+  return cells.map(cell => assembleRoofCells([cell]))
 }
 
 export function constructRoofAssembly(input: RoofAssemblyInput): RoofAssembly {
@@ -221,7 +252,7 @@ function renderAssemblyFaces(input: RoofAssemblyInput, faces: SolidFace[], share
   const { roof, support } = input.resolved
   const buffers = Object.fromEntries(['top', 'shell', 'underside', 'soffit', 'eaves'].map(part =>
     [part, { positions: [] as number[], normals: [] as number[], uvs: [] as number[] }])) as Record<RoofAssemblyPart, { positions: number[]; normals: number[]; uvs: number[] }>
-  for (const face of faces) {
+  for (const face of [...faces, ...constructRoofLinings(input).flatMap(lining => lining.faces)]) {
     const part = face.tag as RoofAssemblyPart, buffer = buffers[part]
     const normal = face.plane.slice(0, 3).map(v => -v)
     const project = part === 'top'

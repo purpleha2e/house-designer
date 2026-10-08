@@ -8,7 +8,6 @@ import type { FloorLevel, Point } from './types.ts'
 import { getRenderedWalls } from './wallGeometry.ts'
 import { buildRoomSurfaceFloorPolygons } from './wallEngine/roomSurfaceMesh.ts'
 import { buildWallTopology } from './wallTopology.ts'
-import { footprintPlanes } from './wallEngine/wallRoofClip.ts'
 import { getFloorSlabFootprints } from './ceilingSlabFootprint.ts'
 import { getRoofCeilingCutouts } from './roofCeilingClipping.ts'
 import { subtractPlanCutouts } from './planarCutouts.ts'
@@ -73,27 +72,41 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
     // A roof on a higher storey cannot be the ceiling of a room below it.
     // Including it would raise that room's cutter through the intervening
     // floor and remove a lower roof where it meets the upper facade.
+    // A fitted roof already bounds this floor's walls and ceilings. Its room
+    // void must stop at the same inner skin, even when general clipping is off;
+    // a flat fallback can otherwise cut through a lower joined roof at a valley.
     const roofSurfaces: RoomRoofSurface[] = roofs
-      .filter(candidate => candidate.roof.clipsGeometry !== false && (candidate.floorId === floor.id ||
-        candidate.floorTopElevation <= floor.elevation + 0.001))
+      .filter(candidate => (candidate.roof.clipsGeometry !== false ||
+        (candidate.roof.fitSupportingWalls && candidate.floorId === floor.id)) &&
+        (candidate.floorId === floor.id || candidate.floorTopElevation <= floor.elevation + 0.001))
       .map(candidate => {
-        // An eave may project over another room without becoming that room's
-        // ceiling. Only the roof's supported interior can cap a room volume.
-        const supportPlanes = footprintPlanes(roofBoundsPolygon(
-          candidate.resolved, candidate.resolved.support))
+        const support = roofBoundsPolygon(candidate.resolved, candidate.resolved.support)
         return {
           roofId: candidate.roof.id,
           thickness: 0,
-          faces: getRoofRenderableOuterFaces(candidate.resolved).map(face => {
+          faces: getRoofRenderableOuterFaces(candidate.resolved).flatMap(face => {
             const inner = face.map(([x, y, z]): RoofVertex =>
               [x, y - getRoofThickness(candidate.roof), z])
             // Keep coverage below the room base too. Dropping it lets the
             // horizontal fallback create a void outside the roof at the eaves.
-            return supportPlanes.reduce(clipRoofFace, inner)
+            const { inside, outside } = partitionRoofFacesByRooms([inner], [support])
+            // An overhang above a room must not raise its void through an
+            // adjoining roof. Below the ceiling, however, it encloses actual
+            // room space: trim its boxed eave to this inner skin as well.
+            return [...inside, ...outside.map(face => clipRoofFace(face,
+              ([, y]) => Math.min(horizontalY, candidate.floorTopElevation) - y))
+              .filter(face => face.length)]
           }).filter(face => face.length),
         }
       }).filter(surface => surface.faces.length)
-    const horizontalFaces = polygons.map(polygon => polygon.map(({ x, y }): RoofVertex => [x, horizontalY, y]))
+    // Rooms can have re-entrant corners. The roof subtraction and solid cutter
+    // use convex faces; feeding a whole concave room loses narrow hall returns.
+    const horizontalFaces = polygons.flatMap(polygon =>
+      ShapeUtils.triangulateShape(polygon.map(({ x, y }) => new Vector2(x, y)), [])
+        .map(indices => indices.map(index => {
+          const { x, y } = polygon[index]
+          return [x, horizontalY, y] as RoofVertex
+        })))
     // This is the cavity inside the combined roofs, including the space above
     // a horizontal ceiling slab. The slab still renders independently.
     const roofCap = buildRoomCeilingEnvelope(roofSurfaces, polygons)

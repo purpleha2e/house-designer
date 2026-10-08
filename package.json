@@ -10,6 +10,8 @@
     "dev:all": "node server/dev-with-portal.mjs",
     "dev:portal": "node server/asset-portal.mjs",
     "build": "tsc -b && vite build",
+    "build:viewer": "tsc -b && node --experimental-strip-types scripts/build-viewer.mjs",
+    "dev:viewer": "node --experimental-strip-types scripts/build-viewer.mjs --serve",
     "lint": "eslint .",
     "preview": "node server/preview-with-portal.mjs",
     "preview:vite": "vite preview",

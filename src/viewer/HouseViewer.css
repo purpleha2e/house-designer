@@ -1,0 +1,21 @@
+.house-viewer { height: 100dvh; min-height: 420px; color: #172033; background: #eef2f7; }
+.house-viewer-pane { width: 100%; height: 100%; border: 0; }
+.house-viewer-pane .three-host { height: 100%; }
+.viewer-toolbar { position: absolute; z-index: 12; top: 16px; left: 16px; right: 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 12px 16px; border: 1px solid #d6dde8; border-radius: 12px; background: rgba(255,255,255,.95); box-shadow: 0 8px 28px #17203318; }
+.viewer-title { display: flex; flex-direction: column; gap: 3px; margin-right: auto; }
+.viewer-title strong { font-size: 17px; }
+.viewer-title span { color: #64748b; font-size: 12px; }
+.viewer-toolbar button, .viewer-stair-button { border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px 13px; background: white; color: #172033; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.viewer-toolbar button:hover:not(:disabled) { background: #eff6ff; }
+.viewer-toolbar button:disabled { opacity: .4; cursor: default; }
+.viewer-toolbar button:focus-visible, .viewer-stair-button:focus-visible { outline: 3px solid #60a5fa; outline-offset: 2px; }
+.viewer-modes, .viewer-floor-controls { display: flex; align-items: center; gap: 6px; }
+.viewer-modes button[aria-pressed="true"] { color: white; background: #2563eb; border-color: #2563eb; }
+.viewer-floor-controls span { min-width: 60px; padding: 0 6px; text-align: center; font-size: 13px; }
+.viewer-stair-button { background: #2563eb; color: white; border-color: #bfdbfe; white-space: nowrap; box-shadow: 0 4px 16px #17203340; }
+.viewer-help { position: absolute; z-index: 8; left: 16px; bottom: 18px; max-width: min(550px, calc(100% - 32px)); display: flex; flex-direction: column; gap: 5px; padding: 12px 16px; border: 1px solid #d6dde8; border-radius: 10px; background: rgba(255,255,255,.94); font-size: 12px; pointer-events: none; }
+.viewer-help strong { font-size: 13px; }
+.viewer-help span { color: #475569; }
+.house-viewer-pane .webxr-enter-button { left: auto !important; right: 18px !important; transform: none !important; width: auto !important; min-width: 130px; background: #172033 !important; border: 1px solid #cbd5e1 !important; color: white !important; font-weight: 600 !important; }
+.viewer-loading { display: grid; min-height: 100dvh; place-content: center; gap: 12px; padding: 24px; text-align: center; color: #172033; background: #eef2f7; }
+@media (max-width: 850px) { .viewer-toolbar { gap: 10px; padding: 10px; } .viewer-title { flex-basis: 100%; } .viewer-help { bottom: 76px; } }

@@ -1,5 +1,7 @@
 # React + TypeScript + Vite
 
+For reusable 3D-only read-only house tours, see [House viewer](docs/house-viewer.md).
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

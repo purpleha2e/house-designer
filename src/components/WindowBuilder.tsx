@@ -6,6 +6,7 @@ import { createWindowDesign, fixedPane, getWindowDividerWidth, getWindowLayout, 
   windowPreset, type WindowDesign, type WindowOpening, type WindowSection } from '../windowDesign'
 import { downloadWindowGlb, windowDefinition } from '../windowLibrary'
 import { WindowMesh } from './WindowMesh'
+import { PbrEnvironmentProvider } from './PbrEnvironment'
 import './WindowBuilder.css'
 
 export function WindowBuilder({ definition, instanceCount, onClose, onSave }: {
@@ -127,7 +128,9 @@ export function WindowBuilder({ definition, instanceCount, onClose, onSave }: {
             <text transform={`translate(${-pad*0.4} ${design.height/2}) rotate(-90)`} textAnchor="middle" fontSize={extent*0.035} fill="#536477">{Math.round(design.height*1000)} mm</text>
           </svg> : !validation ? <Canvas camera={{position:[extent*1.15,extent*0.8,extent*1.65],fov:42}}>
             <color attach="background" args={['#e8eef3']} /><ambientLight intensity={1.8}/><directionalLight position={[2,4,5]} intensity={3}/>
-            <group position={[0,-design.height/2,0]}><WindowMesh design={design}/></group><OrbitControls makeDefault />
+            <PbrEnvironmentProvider intensity={0.55}>
+              <group position={[0,-design.height/2,0]}><WindowMesh design={design}/></group>
+            </PbrEnvironmentProvider><OrbitControls makeDefault />
           </Canvas> : <p>Correct the dimensions to preview this window.</p>}
           </div><p className="window-builder-help">Viewed from outside · Click a pane to edit it. Drag a divider to resize sections.</p>
         </div>

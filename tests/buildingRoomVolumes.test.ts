@@ -9,6 +9,7 @@ import { carveRoofSurfaceByRooms, type RoomRoofCut } from '../src/roofRoomCsg.ts
 import { createSolidRoofGeometryFromFaces, splitRoofUndersideFaces, type RoofVertex } from '../src/roofSolidGeometry.ts'
 import { getRoofThickness } from '../src/roofThickness.ts'
 import type { FloorLevel } from '../src/types.ts'
+import { footprintPlanes } from '../src/wallEngine/wallRoofClip.ts'
 
 function fixture(name: string): FloorLevel[] {
   return (JSON.parse(readFileSync(new URL(`../${name}`, import.meta.url), 'utf8')) as {
@@ -65,6 +66,22 @@ test('a roofless room has a closed horizontal volume', () => {
   assert.equal(ceilingFaces.length, 0)
   assert.ok(cuts.every(cut => cut.face.every(([, y]) =>
     Math.abs(y - floor.elevation - floor.roomHeight) < 1e-6)))
+})
+
+test('a concave room cuts both hall returns without cutting across the exterior notch', () => {
+  const polygon = [[0, 0], [4, 0], [4, 1], [1, 1], [1, 4], [0, 4]].map(([x, y]) => ({ x, y }))
+  const floor: FloorLevel = { id: 'hall', name: 'Hall', elevation: 0, roomHeight: 2.4,
+    slabThickness: 0.3, rooms: [], models: [], roofs: [], walls: polygon.map((start, i) => ({
+      id: `wall-${i}`, start, end: polygon[(i + 1) % polygon.length], height: 2.4,
+      thickness: 0.2, kind: 'external',
+    })) }
+  const { cuts } = buildBuildingRoomVolumes([floor], [])
+  const contains = (x: number, z: number) => cuts.some(cut =>
+    footprintPlanes(cut.face.map(([x, , y]) => ({ x, y }))).every(plane => plane([x, 1, z]) >= -1e-7))
+  assert.ok(contains(3.5, 0.5), 'the horizontal hall return is included')
+  assert.ok(contains(0.5, 3.5), 'the vertical hall return is included')
+  assert.ok(contains(0.5, 0.5), 'the connecting corner is included')
+  assert.equal(contains(2, 2), false, 'the exterior notch remains outside the room')
 })
 
 test('Red House upper room uses an encroaching ground floor roof as its local ceiling', () => {

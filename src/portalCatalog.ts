@@ -321,6 +321,11 @@ export async function loadPortalCatalog(): Promise<RuntimePortalCatalog> {
   }
 
   const data = (await response.json()) as PortalCatalogResponse
+  return createRuntimePortalCatalog(data)
+}
+
+/** Shared by the live portal and static, per-house viewer packaging. */
+export function createRuntimePortalCatalog(data: PortalCatalogResponse): RuntimePortalCatalog {
   const assets = data.manufacturers.flatMap((group) => group.assets)
   const materials = assets
     .filter((asset) => asset.assetKind === 'material')
