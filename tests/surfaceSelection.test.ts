@@ -5,7 +5,7 @@ import { getSurfaceSelectionFloorId } from '../src/surfaceSelection.ts'
 import { replaceRoofMaterialAssignment } from '../src/roofMaterialAssignments.ts'
 import type { FloorLevel, SelectableSurface } from '../src/types.ts'
 
-const { floors } = JSON.parse(readFileSync(new URL('../springfield_14.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+const { floors } = JSON.parse(readFileSync(new URL('../colin_house_v2.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
 const owner = floors[1], loft = floors[2]
 const ceiling: SelectableSurface = { type: 'roof', part: 'underside', floorId: owner.id, roofId: owner.roofs![0].id }
 

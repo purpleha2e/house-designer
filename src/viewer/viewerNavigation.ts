@@ -1,6 +1,6 @@
 import type { FloorLevel, Point, ThreeDViewCameraState } from '../types.ts'
 import type { ModelDefinition } from '../models/modelLibrary.ts'
-import { getModelHorizontalBounds, getStairOpeningPolygon } from '../stairSlabOpenings.ts'
+import { getStairLandingPosition } from '../stairLandings.ts'
 
 export type ViewerNavigationMode = 'walk' | 'fly'
 export const VIEWER_HEAD_HEIGHT = 1.8
@@ -55,12 +55,8 @@ export function getViewerStairTransitions(
     for (const model of source.models) {
       const definition = definitions.get(model.modelId)
       if (definition?.objectType !== 'stairs') continue
-      const polygon = getStairOpeningPolygon(model.position, model.rotation,
-        definition.width, definition.depth, model.scale ?? 1,
-        getModelHorizontalBounds(definition), model.widthScale ?? 1, model.depthScale ?? 1,
-        model.mirrored === true)
-      const landing = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
-      const lower = landing(polygon[0], polygon[1]), upper = landing(polygon[2], polygon[3])
+      const lower = getStairLandingPosition(model, definition, 'lower')
+      const upper = getStairLandingPosition(model, definition, 'upper')
       const destination = direction === 'up' ? target : source
       transitions.push({ id: `${direction}:${model.id}`, label: `${direction === 'up' ? 'Upstairs' : 'Downstairs'} · ${destination.name}`,
         from: direction === 'up' ? lower : upper, to: direction === 'up' ? upper : lower,

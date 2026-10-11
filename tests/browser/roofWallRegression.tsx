@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { _roots } from '@react-three/fiber'
 import { DoubleSide, Mesh, Raycaster, Vector3 } from 'three'
@@ -12,7 +12,8 @@ import roofTests1 from '../../roof_tests_1.json'
 import roofTests2 from '../../roof_tests_2.json'
 import roofTests3 from '../../roof_tests_3.json'
 import springfield from '../../springfield_13.json'
-import springfield14 from '../../springfield_14.json'
+import springfield14 from '../../colin_house_v2.json'
+import colin from '../../colin_house_v2.json'
 import loftTest from '../../loft_test.json'
 import floorTest from '../../floor_test.json'
 import roofClippingFixture from '../fixtures/roofClippingRegression.json'
@@ -25,9 +26,11 @@ import { normalizeFloor } from '../../src/modelPlacement'
 import { createDormerWindow, syncDormerWindows, updateDormerWindow } from '../../src/dormerWindows'
 import { getSurfaceSelectionFloorId } from '../../src/surfaceSelection'
 import type { FloorLevel, PlacedModel, SelectableSurface, SurfaceMaterialAssignment } from '../../src/types'
+import type { PublishedHouse } from '../../src/viewer/viewerProject'
 
 const noop = () => {}
 const searchParams = new URLSearchParams(location.search)
+const regressionSavedGI = (window as unknown as { regressionSavedGI?: PublishedHouse }).regressionSavedGI
 const isSpringfield = searchParams.has('springfield')
 const isRoofTests = searchParams.has('roof-tests')
 const isRoofTests1 = searchParams.has('roof-tests-1')
@@ -35,7 +38,7 @@ const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRoofTests3 = searchParams.has('roof-tests-3')
 const isRedHouseDoor = searchParams.has('red-house-door')
 const isLoftTest = searchParams.has('loft-test')
-const savedProject = searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const savedProject = searchParams.has('colin') ? colin : searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -46,16 +49,34 @@ if (searchParams.has('materials')) {
   registerRuntimeSurfaceMaterials(catalog.materials)
   registerRuntimeModels(catalog.models)
 }
+if (searchParams.has('published-materials')) {
+  const snapshot = await (await fetch('/.viewer-data/public/house.json')).text()
+  const house: PublishedHouse = JSON.parse(snapshot.replaceAll('./published-assets/', '/.viewer-data/public/published-assets/'))
+  registerRuntimeSurfaceMaterials(house.materials)
+  registerRuntimeModels(house.project.modelDefinitions ?? [])
+}
 const groundOnly = searchParams.has('ground')
 const showPreview = searchParams.has('preview')
-const sourceFloors = (groundOnly ? [savedProject.floors[0]] : savedProject.floors)
+const lightingStartup = searchParams.has('lighting-startup')
+const lightingStartupFloors: FloorLevel[] = [{ id: 'lighting-startup', name: 'Lighting startup', elevation: 0,
+  roomHeight: 2.4, slabThickness: .2, rooms: [], roofs: [],
+  walls: [
+    { id: 'south', start: { x: 0, y: 0 }, end: { x: 8, y: 0 } },
+    { id: 'east', start: { x: 8, y: 0 }, end: { x: 8, y: 4 } },
+    { id: 'north', start: { x: 8, y: 4 }, end: { x: 0, y: 4 } },
+    { id: 'west', start: { x: 0, y: 4 }, end: { x: 0, y: 0 } },
+  ].map(wall => ({ ...wall, height: 2.4, thickness: .2, kind: 'external' as const, openings: [] })),
+  models: [{ id: 'startup-light', modelId: 'point-light', position: { x: 2, y: 2 }, elevation: 1.8,
+    rotation: 0, scale: 1, lightPower: 1000 }],
+}]
+const sourceFloors = (lightingStartup ? lightingStartupFloors : groundOnly ? [savedProject.floors[0]] : savedProject.floors)
   .map(floor => normalizeFloor(floor as unknown as FloorLevel, modelsById))
 const previewSource = sourceFloors[0].roofs?.[0]
 const floors = showPreview && previewSource
   ? sourceFloors.map((floor, index) => index === 0 ? { ...floor, roofs: [] } : floor)
   : sourceFloors
 function RegressionScene() {
-  const [activeFloorId, setActiveFloorId] = useState(groundOnly ? floors[0].id : savedProject.activeFloorId)
+  const [activeFloorId, setActiveFloorId] = useState(groundOnly || lightingStartup ? floors[0].id : savedProject.activeFloorId)
   const [sunPosition, setSunPosition] = useState(savedProject.sunPosition)
   const [sceneFloors, setSceneFloors] = useState(floors as unknown as FloorLevel[])
   const [selection, setSelection] = useState<string | null>(null)
@@ -72,6 +93,7 @@ function RegressionScene() {
     regressionAssignments: assignments,
     updateRegressionAssignments: setAssignments,
     regressionSunPosition: sunPosition,
+    updateRegressionSunPosition: setSunPosition,
   })
   const selectedModel = sceneFloors.flatMap(floor => floor.models).find(model => model.id === selection)
   const selectedDefinition = selectedModel ? modelsById.get(selectedModel.modelId) : undefined
@@ -120,12 +142,13 @@ function RegressionScene() {
     setActiveFloorId(getSurfaceSelectionFloorId(surface, activeFloorId, sceneFloors))
     setSurfaceSelection(surface)
   }}
+  savedIndirectLighting={searchParams.has('saved-gi') ? regressionSavedGI?.project.indirectLighting : undefined}
   onUpdateModel={updateModel} selectedModelId={selection} selectedRoofId={null}
   selectedSurface={surfaceSelection} selectedWallId={null} sceneRevision={1} showAllFloors={!searchParams.has('edit-floor')}
   surfaceAssignments={assignments}
 /></>
 }
-createRoot(document.getElementById('root')!).render(<RegressionScene />)
+createRoot(document.getElementById('root')!).render(searchParams.has('strict') ? <StrictMode><RegressionScene /></StrictMode> : <RegressionScene />)
 
 // Expose camera controls for repeatable inspection from both roof ends.
 Object.assign(window, { roofWallScene: () => [..._roots.values()][0]?.store.getState() })

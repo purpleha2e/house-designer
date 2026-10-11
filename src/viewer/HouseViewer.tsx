@@ -52,6 +52,8 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
   return (
     <main className="house-viewer" aria-label="Read-only house viewer">
       <ThreeDView readOnly viewerMode={mode} onViewerStairs={navigate}
+        savedIndirectLighting={house.project.indirectLighting}
+        diffuseProbeResolution={house.project.threeDView?.diffuseProbeResolution}
         viewerToolbar={
           <header className="viewer-toolbar" aria-label="House viewer controls">
             <div className="viewer-title"><strong>{house.title}</strong><span>Read-only tour</span></div>

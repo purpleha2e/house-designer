@@ -1,5 +1,7 @@
 import { replaceRoofMaterialAssignment, roofSurfaceTargetsMatch } from './roofMaterialAssignments'
 import { getSurfaceSelectionFloorId } from './surfaceSelection'
+import { indirectProjectKey, savedIndirectLightingMatches, type SavedIndirectLighting } from './indirectLightingPersistence'
+import { normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from './indirectProbeResolution'
 import type { ModelTransformPreview } from './modelTransformPreview'
 import {
   useCallback,
@@ -85,7 +87,8 @@ import {
   findDormerPlacement,
   getAttachedDormerPlacement,
 } from './dormerPlacement'
-import springfield12Project from '../springfield_14.json'
+import springfield12Project from '../colin_house_v2.json'
+//import springfield12Project from '../springfield_14.json'
 //import springfield12Project from '../red_house_3.json'
 import './App.css'
 
@@ -173,6 +176,7 @@ function wallDuplicatesExistingSegment(
 }
 
 type SavedProject = {
+  indirectLighting?: SavedIndirectLighting
   activeFloorId: string
   floors: FloorLevel[]
   modelDefinitions?: ModelDefinition[]
@@ -438,7 +442,8 @@ function cloneProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapshot {
 }
 
 function serializeSavedProject(project: SavedProject) {
-  return JSON.stringify(project)
+  // GI is derived data; finishing a background bake does not dirty the design.
+  return JSON.stringify(Object.fromEntries(Object.entries(project).filter(([key]) => key !== 'indirectLighting')))
 }
 
 function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
@@ -575,6 +580,7 @@ function normalizeSavedProject(project: SavedProject) {
     threeDView,
     twoDView,
     wallKind: project.wallKind,
+    indirectLighting: project.indirectLighting,
   }
 }
 
@@ -613,7 +619,7 @@ function createFallbackProject(): SavedProject {
 }
 
 function createInitialProject() {
-  const defaultProject = springfield12Project as SavedProject
+  const defaultProject: unknown = springfield12Project
 
   if (isSavedProject(defaultProject)) {
     return normalizeSavedProject(defaultProject)
@@ -676,6 +682,11 @@ function App() {
   }
 
   const initialProject = initialProjectRef.current
+  const [loadedLightingCache, setLoadedLightingCache] = useState(initialProject.indirectLighting)
+  const bakedLightingRef = useRef(initialProject.indirectLighting)
+  const updateBakedLighting = useCallback((cache: SavedIndirectLighting | undefined) => {
+    bakedLightingRef.current = cache
+  }, [])
   const [floors, setFloors] = useState<FloorLevel[]>(initialProject.floors)
   // Keep direct manipulation in the plan responsive while the much heavier
   // roof and room-volume pipeline catches the 3D scene up in a background
@@ -694,7 +705,10 @@ function App() {
   )
   const [selectedFloorViewId, setSelectedFloorViewId] =
     useState<string>(initialProject.threeDView.floorViewId)
-  const [showImages, setShowImages] = useState(true)
+  const [diffuseProbeResolution, setDiffuseProbeResolution] = useState<DiffuseProbeResolution>(
+    normalizeDiffuseProbeResolution(initialProject.threeDView.diffuseProbeResolution ?? initialProject.indirectLighting?.settings.diffuseProbeResolution),
+  )
+  const [showImages, setShowImages] = useState(false)
   const threeDViewCameraRef = useRef<ThreeDViewCameraState>(
     initialProject.threeDView.camera,
   )
@@ -713,7 +727,7 @@ function App() {
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [isAddingWall, setIsAddingWall] = useState(false)
   const [isRoofMode, setIsRoofMode] = useState(false)
-  const [projectFileName, setProjectFileName] = useState('springfield_14.json')
+  const [projectFileName, setProjectFileName] = useState('colin_house_v2.json')
   //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
   //const [projectFileName, setProjectFileName] = useState('red_house_3.json')
   const [selectedWallId, setSelectedWallId] = useState<string | null>(null)
@@ -849,6 +863,7 @@ function App() {
     threeDView: {
       camera: structuredClone(threeDViewCameraRef.current),
       floorViewId: selectedFloorViewId,
+      diffuseProbeResolution,
     },
     twoDView: normalizeSavedTwoDViewState(
       { viewportsByFloorId: floorplanViewportsRef.current },
@@ -871,6 +886,7 @@ function App() {
       threeDView: {
         camera: structuredClone(threeDViewCameraRef.current),
         floorViewId: selectedFloorViewId,
+        diffuseProbeResolution,
       },
       twoDView: normalizeSavedTwoDViewState(
         { viewportsByFloorId: floorplanViewportsRef.current },
@@ -904,6 +920,7 @@ function App() {
     setSelectedFloorViewId(snapshot.selectedFloorViewId)
     if (snapshot.threeDView) {
       restoreThreeDViewCameraState(snapshot.threeDView.camera)
+      setDiffuseProbeResolution(normalizeDiffuseProbeResolution(snapshot.threeDView.diffuseProbeResolution))
     }
     if (snapshot.twoDView) {
       restoreTwoDViewState(
@@ -2186,6 +2203,10 @@ function App() {
 
   const saveProject = async () => {
     const project = getCurrentSavedProject()
+    if (savedIndirectLightingMatches(bakedLightingRef.current, indirectProjectKey(project)) &&
+      normalizeDiffuseProbeResolution(bakedLightingRef.current?.settings.diffuseProbeResolution) === diffuseProbeResolution) {
+      project.indirectLighting = bakedLightingRef.current
+    }
     const contents = `${JSON.stringify(project, null, 2)}\n`
 
     try {
@@ -2231,6 +2252,8 @@ function App() {
 
       if (!Array.isArray(parsedProject.modelDefinitions)) recordHistory()
       setFloors(loadedFloors)
+      setLoadedLightingCache(parsedProject.indirectLighting)
+      bakedLightingRef.current = parsedProject.indirectLighting
       const loadedActiveFloorId = loadedFloors.some(
         (floor) => floor.id === parsedProject.activeFloorId,
       )
@@ -2248,6 +2271,7 @@ function App() {
 
       setActiveFloorId(loadedActiveFloorId)
       setSelectedFloorViewId(loadedThreeDView.floorViewId)
+      setDiffuseProbeResolution(normalizeDiffuseProbeResolution(loadedThreeDView.diffuseProbeResolution ?? parsedProject.indirectLighting?.settings.diffuseProbeResolution))
       restoreThreeDViewCameraState(loadedThreeDView.camera)
       restoreTwoDViewState(loadedTwoDView)
       setSunPosition(normalizeSunPosition(parsedProject.sunPosition))
@@ -2313,8 +2337,11 @@ function App() {
     const project = normalizeSavedProject(createFallbackProject())
 
     setFloors(project.floors)
+    setLoadedLightingCache(undefined)
+    bakedLightingRef.current = undefined
     setActiveFloorId(project.activeFloorId)
     setSelectedFloorViewId(project.threeDView.floorViewId)
+    setDiffuseProbeResolution(normalizeDiffuseProbeResolution(project.threeDView.diffuseProbeResolution))
     restoreThreeDViewCameraState(project.threeDView.camera)
     restoreTwoDViewState(project.twoDView)
     setSunPosition(project.sunPosition)
@@ -3304,6 +3331,10 @@ function App() {
           }}
         />
         <ThreeDView
+          savedIndirectLighting={loadedLightingCache}
+          diffuseProbeResolution={diffuseProbeResolution}
+          onDiffuseProbeResolutionChange={setDiffuseProbeResolution}
+          onIndirectLightingReady={updateBakedLighting}
           modelTransformPreviewRef={modelTransformPreviewRef}
           activeFloorId={activeFloor.id}
           cameraRestoreRevision={cameraRestoreRequest.revision}

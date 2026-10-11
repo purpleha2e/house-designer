@@ -1,4 +1,5 @@
 import { MeshStandardMaterial, type Material, type Texture } from 'three'
+import { applySpecularOnlyImageBasedLighting } from './materials/imageBasedLighting.ts'
 
 /** Keep the authored paint colour; reflected light supplies the satin sheen. */
 export function applyWindowFrameFinish(material: Material, environmentMap: Texture | null, intensity: number) {
@@ -10,6 +11,7 @@ export function applyWindowFrameFinish(material: Material, environmentMap: Textu
   material.roughness = 0.38
   material.envMap = environmentMap
   material.envMapIntensity = intensity
+  applySpecularOnlyImageBasedLighting(material)
   if (changed) material.needsUpdate = true
   return true
 }

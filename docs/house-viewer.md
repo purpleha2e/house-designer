@@ -26,6 +26,14 @@ Limited render controls and elevation drawing downloads are future work.
 
 ## Preview any saved house
 
+For a client tour, first show **all floors** in the editor and let GI finish.
+When the engine status says **ready to save with model**, use **Save**. The
+project includes a compressed, versioned lighting volume, probe data and room
+reflections. The viewer loads that lighting directly without probe captures,
+visibility raycasts or a GI worker. House assets and ordinary renderer preparation
+still load normally. Older projects need to be opened and saved again after
+their lighting completes.
+
 From the repository root (Node 24 or later):
 
 ```powershell
@@ -48,6 +56,12 @@ that house, and the uploaded materials/models it references. The build reads
 local `manufacturer-assets/**/metadata.json` to resolve uploaded assets; it does
 not need the running portal or publish its accounts database. Missing assets
 fail the build instead of silently publishing an incomplete house.
+
+The build also rejects missing, stale or damaged GI caches. Changes to geometry,
+sun position, material assignments or lighting settings require a new editor
+bake. For development previews only, add `--allow-unbaked` to permit the old
+runtime-baking path. A tour containing a saved cache never silently starts a
+replacement bake on a client's machine if that cache fails validation.
 
 Generated staging files live in `.viewer-data/`; both it and `dist-viewer/` are
 ignored by this repository. The source project is never changed by a viewer build.

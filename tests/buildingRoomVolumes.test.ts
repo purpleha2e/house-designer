@@ -29,7 +29,7 @@ test('enclosed rooms on both Red House storeys generate cutters', () => {
 })
 
 test('an inter-storey floor cuts internal roof fragments within the trimmed slab footprint', () => {
-  const floors = fixture('springfield_14.json')
+  const floors = fixture('colin_house_v2.json')
   const ordered = [...floors].sort((a, b) => a.elevation - b.elevation)
   const upper = ordered[2]
   const lower = ordered[1]
@@ -210,7 +210,7 @@ function renderedRoofFaces(candidate: BuildingRoof, cuts: RoomRoofCut[], part: '
 }
 
 test('Springfield loft floor preserves the enclosing roof tiles through the slab depth', () => {
-  const floors = fixture('springfield_14.json')
+  const floors = fixture('colin_house_v2.json')
   const roofs = resolveBuildingRoofs(floors)
   const cuts = buildBuildingRoomVolumes(floors, roofs).cuts
   const lower = floors[1], loft = floors[2]

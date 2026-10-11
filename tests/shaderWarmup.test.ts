@@ -1,7 +1,29 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BoxGeometry, DoubleSide, FrontSide, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Scene } from 'three'
-import { createShaderWarmupSnapshot } from '../src/shaderWarmup.ts'
+import { createShaderWarmupSnapshot, getShaderWarmupSceneRevision, registerShaderFadeSource } from '../src/shaderWarmup.ts'
+
+test('late meshes and composed shader hooks invalidate warmup while camera fades reuse it', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), original = new MeshStandardMaterial()
+  original.customProgramCacheKey = () => 'wall'
+  const wall = new Mesh(geometry, original)
+  scene.add(wall)
+  const initial = getShaderWarmupSceneRevision(scene)
+  const fade = original.clone()
+  fade.customProgramCacheKey = original.customProgramCacheKey.bind(original)
+  fade.transparent = true
+  registerShaderFadeSource(fade, original)
+  wall.material = [original, fade] as never
+  wall.visible = false; wall.position.x = 4
+  assert.equal(getShaderWarmupSceneRevision(scene), initial)
+  original.customProgramCacheKey = () => 'wall:room:gi'
+  const patched = getShaderWarmupSceneRevision(scene)
+  assert.notEqual(patched, initial)
+  const late = new Mesh(geometry, new MeshStandardMaterial())
+  scene.add(late)
+  assert.notEqual(getShaderWarmupSceneRevision(scene), patched)
+  original.dispose(); fade.dispose(); late.material.dispose(); geometry.dispose()
+})
 
 test('warm-up includes hidden surfaces and fade variants without altering the live scene', () => {
   const scene = new Scene()

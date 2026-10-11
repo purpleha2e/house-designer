@@ -13,6 +13,8 @@ import {
 import type { RoomLightMask } from './roomLightMask.ts'
 
 export const ROOM_LIGHT_SHADER_MAX_LIGHTS = 11
+// Offscreen GI captures provide nearby world-space lights with cached shadows.
+export const roomLightCaptureUniform = { value: 0 }
 
 export type RoomLightShaderUniforms = {
   enabled: { value: number }
@@ -26,11 +28,15 @@ export type RoomLightShaderUniforms = {
 const roomLightShaderPars = /* glsl */ `
 varying vec3 hdRoomLightWorldPosition;
 uniform float hdRoomLightEnabled;
+uniform float hdRoomLightCapture;
 uniform sampler2D hdRoomLightMask;
 uniform vec4 hdRoomLightMaskBounds;
 uniform vec2 hdRoomLightFloorRange;
 uniform float hdPointLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
 uniform float hdSpotLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
+#ifdef HD_INDIRECT_VISIBILITY
+float hdGIDirectVisibility(vec3 p, vec3 viewNormal, float index);
+#endif
 
 float hdRoomLightReceiverId(vec3 worldPosition, vec3 viewNormal) {
   vec3 worldNormal = transformNormalByInverseViewMatrix(viewNormal, viewMatrix);
@@ -45,12 +51,14 @@ float hdRoomLightReceiverId(vec3 worldPosition, vec3 viewNormal) {
 }
 
 float hdRoomLightFactor(float lightRoomId, float receiverRoomId) {
-  if (hdRoomLightEnabled < 0.5 || lightRoomId < 0.5) return 1.0;
+  if (hdRoomLightCapture > 0.5 || hdRoomLightEnabled < 0.5 || lightRoomId < 0.5) return 1.0;
   return abs(receiverRoomId - lightRoomId) < 0.5 ? 1.0 : 0.0;
 }
 `
 
 const maskedLightsChunk = ShaderChunk.lights_fragment_begin
+  .replace('PointLight pointLight;', 'PointLight pointLight;\nfloat hdPointVisibility;')
+  .replace('SpotLight spotLight;', 'SpotLight spotLight;\nfloat hdSpotVisibility;')
   .replace(
     'vec3 geometryNormal = normal;',
     `vec3 geometryNormal = normal;
@@ -58,17 +66,27 @@ float hdRoomLightReceiver =
   hdRoomLightWorldPosition.y < hdRoomLightFloorRange.x ||
   hdRoomLightWorldPosition.y > hdRoomLightFloorRange.y
     ? 0.0
-    : hdRoomLightReceiverId(hdRoomLightWorldPosition, geometryNormal);`,
+    : hdRoomLightReceiverId(hdRoomLightWorldPosition, nonPerturbedNormal);`,
   )
   .replace(
     'getPointLightInfo( pointLight, geometryPosition, directLight );',
     `getPointLightInfo( pointLight, geometryPosition, directLight );
-    directLight.color *= hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver);`,
+    #ifdef HD_INDIRECT_VISIBILITY
+      hdPointVisibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGIPointIndices[i]);
+      directLight.color *= hdPointVisibility >= 0.0 ? hdPointVisibility : hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver);
+    #else
+      directLight.color *= hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver);
+    #endif`,
   )
   .replace(
     'getSpotLightInfo( spotLight, geometryPosition, directLight );',
     `getSpotLightInfo( spotLight, geometryPosition, directLight );
-    directLight.color *= hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver);`,
+    #ifdef HD_INDIRECT_VISIBILITY
+      hdSpotVisibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGISpotIndices[i]);
+      directLight.color *= hdSpotVisibility >= 0.0 ? hdSpotVisibility : hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver);
+    #else
+      directLight.color *= hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver);
+    #endif`,
   )
 
 export function createRoomLightMaskTexture(mask: RoomLightMask) {
@@ -107,6 +125,7 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
     if (shader.fragmentShader.includes('hdRoomLightFactor')) return
     Object.assign(shader.uniforms, {
       hdRoomLightEnabled: uniforms.enabled,
+      hdRoomLightCapture: roomLightCaptureUniform,
       hdRoomLightFloorRange: uniforms.floorRange,
       hdRoomLightMask: uniforms.mask,
       hdRoomLightMaskBounds: uniforms.maskBounds,
@@ -133,7 +152,9 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
     // Fade clones inherit the already-patched hook. Reapplying the controller
     // must not create a second cache key for exactly the same shader.
     const suffix = ':house-designer-room-light-v1'
-    return key.endsWith(suffix) ? key : `${key}${suffix}`
+    // Other lighting hooks can follow this marker in a composed shader key.
+    // A fade clone inherits all of them, not just the last hook.
+    return key.includes(suffix) ? key : `${key}${suffix}`
   }
 
   material.onBeforeCompile = patchedOnBeforeCompile

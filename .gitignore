@@ -12,6 +12,8 @@ dist
 dist-viewer/
 .viewer-data/
 .tmp-viewer-*.png
+.tmp-indirect-*.png
+.tmp-indirect-*.house.json
 dist-ssr
 *.local
 .local-certs/

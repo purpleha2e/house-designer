@@ -27,6 +27,7 @@ if (new URLSearchParams(location.search).has('published')) {
   const snapshot = await (await fetch('/.viewer-data/public/house.json')).text()
   house = JSON.parse(snapshot.replaceAll('./published-assets/', '/.viewer-data/public/published-assets/'))
 }
+if (new URLSearchParams(location.search).has('saved-gi')) house = (window as unknown as { regressionSavedGI: PublishedHouse }).regressionSavedGI
 const original = JSON.stringify(house)
 Object.assign(window, {
   viewerState: () => [..._roots.values()][0]?.store.getState(),

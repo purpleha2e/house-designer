@@ -3,6 +3,7 @@ import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from '
 import { fileURLToPath } from 'node:url'
 import { build, createServer } from 'vite'
 import { createRuntimePortalCatalog } from '../src/portalCatalog.ts'
+import { indirectProjectKey, loadIndirectLighting, savedIndirectLightingMatches } from '../src/indirectLightingPersistence.ts'
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const staging = resolve(workspace, '.viewer-data')
@@ -33,9 +34,19 @@ async function metadataFiles(root) {
   return result
 }
 
-async function prepare(projectPath, title) {
+async function prepare(projectPath, title, allowUnbaked = false) {
   const project = JSON.parse(await readFile(projectPath, 'utf8'))
   if (!Array.isArray(project.floors) || !project.floors.length) throw new Error('Choose a saved House Designer project with at least one floor.')
+  let indirectLighting
+  if (savedIndirectLightingMatches(project.indirectLighting, indirectProjectKey(project))) {
+    try {
+      const restored = await loadIndirectLighting(project.indirectLighting)
+      restored.field.dispose(); restored.reflections.forEach(reflection => reflection.dispose())
+      indirectLighting = project.indirectLighting
+    } catch { throw new Error('The saved GI cache is damaged. Recalculate lighting in the editor and save the project again.') }
+  } else if (!allowUnbaked) {
+    throw new Error('This project has no completed, current GI cache. In the editor, show all floors, wait for "GI ready ... ready to save with model", then Save and rebuild the viewer. Use --allow-unbaked only for a development preview.')
+  }
   const usedModelIds = new Set(project.floors.flatMap(floor => (floor.models ?? []).map(model => model.modelId)))
   const strings = collectStrings(project)
   const usedMaterialIds = new Set([...strings].filter(value => value.startsWith('portal-material-')))
@@ -105,6 +116,7 @@ async function prepare(projectPath, title) {
     surfaceAssignments: project.surfaceAssignments ?? [],
     sunPosition: project.sunPosition,
     threeDView: project.threeDView,
+    indirectLighting,
   } }
   await writeFile(resolve(publicDir, 'house.json'), JSON.stringify(house))
   await writeFile(resolve(publicDir, '.nojekyll'), '')
@@ -138,7 +150,7 @@ async function main() {
   if (!projectArg) throw new Error('Usage: npm run build:viewer -- --project house.json --title "House name"\nAdd --serve to preview the viewer locally.')
   const projectPath = resolve(workspace, projectArg)
   const title = option('--title') ?? basename(projectPath, extname(projectPath)).replaceAll('_', ' ')
-  const usedModelIds = await prepare(projectPath, title)
+  const usedModelIds = await prepare(projectPath, title, args.includes('--allow-unbaked'))
   const config = { configFile: resolve(workspace, 'vite.viewer.config.ts'), plugins: [houseModelsPlugin(usedModelIds)] }
   if (args.includes('--serve')) {
     const server = await createServer({ ...config, base: '/', server: { host: '127.0.0.1', port: Number(option('--port') ?? 5183), strictPort: true } })

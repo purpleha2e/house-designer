@@ -49,6 +49,7 @@ try {
       message.error ? request.reject(message.error) : request.resolve(message.result)
     }
     if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails)
+    if (message.method === 'Runtime.consoleAPICalled' && message.params.args.some(arg=>String(arg.value??'').includes('Saved GI'))) console.log('Saved GI diagnostic',message.params.args.map(arg=>arg.value??arg.description).join(' '))
     if (message.method === 'Network.responseReceived' && message.params.response.status >= 400 && !message.params.response.url.endsWith('/favicon.ico')) assetFailures.push(message.params.response.url)
   })
   const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
@@ -79,6 +80,7 @@ try {
   await call('Page.enable')
   await call('Runtime.enable')
   await call('Network.enable')
+  if(!process.argv.includes('--built-only')) {
   await call('Page.navigate', { url: 'http://127.0.0.1:5180/tests/browser/readOnlyViewerRegression.html' })
   await waitFor(`!!window.viewerState?.() && !document.querySelector('.viewport-preparing-overlay')`, 'fixture ready')
   assert.equal(await evaluate(`document.querySelectorAll('canvas').length`), 1)
@@ -136,9 +138,17 @@ try {
   assert.deepEqual(errors, [])
   writeFileSync('.tmp-viewer-controls.png', Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
   console.log('PASS: Walk, Fly, mouse look, stairs, floor head height, reset, input cleanup, and read-only controls.')
+  }
 
   // Run the compiled package from a different nested URL, with no portal server.
   assetFailures.length = 0
+  await call('Page.addScriptToEvaluateOnNewDocument',{source:`
+    window.giWorkerCreations=0;window.bakedGIShown=false;
+    const OriginalWorker=window.Worker;window.Worker=class extends OriginalWorker{constructor(url,...args){super(url,...args);if(String(url).includes('indirectLighting.worker'))window.giWorkerCreations++}};
+    const names=new WeakMap(),proto=WebGL2RenderingContext.prototype,get=proto.getUniformLocation,set=proto.uniform1f;
+    proto.getUniformLocation=function(program,name){const location=get.call(this,program,name);if(location)names.set(location,name);return location};
+    proto.uniform1f=function(location,value){if(names.get(location)==='hdGIUseVolume'&&value===1)window.bakedGIShown=true;return set.call(this,location,value)};
+  `})
   await call('Page.navigate', { url: productionUrl })
   await waitFor(`!!document.querySelector('[aria-label="House viewer controls"]') && !document.querySelector('.viewport-preparing-overlay')`, 'published house ready', 240)
   assert.equal(await evaluate(`document.querySelectorAll('canvas').length`), 1)
@@ -147,6 +157,11 @@ try {
   assert.deepEqual(assetFailures, [], 'nested viewer has no missing house assets')
   assert.deepEqual(await evaluate(`(window.houseDesignerEngineLog?.entries??[]).filter(e=>['model-load-failed','texture-load-failed','texture-preload-failed'].includes(e.type))`), [], 'published textures and models decode successfully')
   assert.deepEqual(errors, [])
+  if(JSON.parse(readFileSync(join(dist,'house.json'),'utf8')).project.indirectLighting){
+    await waitFor('window.bakedGIShown','published house displays saved GI')
+    assert.equal(await evaluate('window.giWorkerCreations'),0,'compiled client displays baked GI without a GI worker')
+    console.log('PASS: Compiled client loads and displays the saved lighting without calculating GI.')
+  }
   writeFileSync('.tmp-viewer-published.png', Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
   console.log('PASS: Compiled house loads with its assets at a reusable nested website path, without the asset portal.')
 } finally {

@@ -365,6 +365,7 @@ export type SavedTwoDViewState = {
 
 export type SavedThreeDViewState = {
   camera: ThreeDViewCameraState
+  diffuseProbeResolution?: import('./indirectProbeResolution').DiffuseProbeResolution
   /** A floor id, or `all` when the combined storey view is active. */
   floorViewId: string
 }

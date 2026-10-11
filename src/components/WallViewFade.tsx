@@ -11,6 +11,7 @@ import {
   type Object3D,
 } from 'three'
 import { getNearbyVisibleWallOpacities } from '../wallViewOcclusion'
+import { registerShaderFadeSource } from '../shaderWarmup'
 import type { Wall } from '../types'
 import type { WallBufferGeometryPayload } from '../wallEngine/wallBuffer'
 import type { WallMeshFace } from '../wallEngine/wallMesh'
@@ -25,6 +26,7 @@ export function isFadedWallSurface(object: Object3D, surface: { type: string; wa
 type FadeMaterialVariant = {
   material: MeshStandardMaterial
   wallId: string
+  key: string
 }
 
 type FadeMaterialState = {
@@ -85,7 +87,12 @@ export function useWallViewFade({ meshRef, pickMeshRef, geometry, payload, faces
   const rebuildFadeGroups = (opacities: Map<string, number>) => {
     const source = getOriginalMaterials()
     if (!source) return
-    disposeFadeMaterials()
+    const current = materialState.current
+    const canReuse = current?.mesh === source.mesh &&
+      current.originals.length === source.originals.length &&
+      current.originals.every((material, index) => material === source.originals[index] &&
+        material.version === current.versions[index])
+    if (!canReuse) disposeFadeMaterials()
 
     if (opacities.size === 0) {
       source.mesh.material = source.originals
@@ -93,8 +100,12 @@ export function useWallViewFade({ meshRef, pickMeshRef, geometry, payload, faces
       return
     }
 
-    const variants: FadeMaterialVariant[] = []
-    const variantIndices = new Map<string, number>()
+    // Keep previously compiled fade materials until the source materials change.
+    // Disposing them whenever a wall leaves the fade set releases the last GPU
+    // reference and forces the identical shader to compile on the next approach.
+    const variants: FadeMaterialVariant[] = canReuse ? current.variants : []
+    const variantIndices = new Map(variants.map(({ key }, index) => [key, source.originals.length + index]))
+    variants.forEach(({ material, wallId }) => { material.opacity = opacities.get(wallId) ?? 1 })
     const materialIndexForWall = (originalIndex: number, wallId: string) => {
       const key = `${originalIndex}:${wallId}`
       const existing = variantIndices.get(key)
@@ -102,6 +113,7 @@ export function useWallViewFade({ meshRef, pickMeshRef, geometry, payload, faces
 
       const original = source.originals[originalIndex]
       const material = original.clone()
+      registerShaderFadeSource(material, original)
       material.onBeforeCompile = original.onBeforeCompile.bind(original)
       material.customProgramCacheKey = original.customProgramCacheKey.bind(original)
       material.opacity = opacities.get(wallId) ?? 1
@@ -115,7 +127,7 @@ export function useWallViewFade({ meshRef, pickMeshRef, geometry, payload, faces
       material.side = FrontSide
       material.forceSinglePass = true
       const materialIndex = source.originals.length + variants.length
-      variants.push({ material, wallId })
+      variants.push({ material, wallId, key })
       variantIndices.set(key, materialIndex)
       return materialIndex
     }

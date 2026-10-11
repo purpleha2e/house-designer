@@ -67,6 +67,7 @@ export type ModelDefinition = {
   previewUrl?: string
   normalizeToDimensions?: boolean
   objectType?: ModelObjectType
+  stairLandings?: { lower: { x: number; y: number }; upper: { x: number; y: number } }
   roofMount?: 'dormer'
   wallMount?: 'exterior-door' | 'interior-door' | 'patio-door' | 'window'
   sourceUrl?: string
@@ -129,6 +130,18 @@ const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
     height: 2.377067,
     objectType: 'stairs',
     width: 0.85,
+  },
+  'u-winder-stairs-right-157cm': {
+    name: 'U-Winder Stairs (Right Up, 157 cm)',
+    category: 'Stairs',
+    width: 1.57,
+    depth: 2.4,
+    height: 3.6,
+    objectType: 'stairs',
+    materialRegions: stairMaterialRegions,
+    localBounds: { minX: -0.785, maxX: 0.785, minZ: -1.2, maxZ: 1.2 },
+    previewUrl: new URL('./assets/u_winder_stairs_right_157cm.png', import.meta.url).href,
+    stairLandings: { lower: { x: 0.415, y: 1.2 }, upper: { x: -0.415, y: 1.2 } },
   },
   'simple-floating-stairs-simple-banister': {
     materialRegions: stairMaterialRegions,

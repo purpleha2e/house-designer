@@ -16,9 +16,14 @@ import { ModelSelectionHighlight, createSelectionHighlightMaterial, updateSelect
 import { GroundImage3D } from './GroundImage3D'
 import { WindowMesh } from './WindowMesh'
 import { getSpatialDragDelta, getTransformRotation } from '../transformModifiers'
-import { EffectComposer, N8AO } from '@react-three/postprocessing'
+import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
+import { ToneMappingMode } from 'postprocessing'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { PbrEnvironmentProvider } from './PbrEnvironment'
+import { IndirectLighting } from './IndirectLighting'
+import { formatIndirectLightingEngineStatus, formatIndirectLightingProgress } from '../indirectLightingProgress'
+import { DIFFUSE_PROBE_RESOLUTIONS, normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from '../indirectProbeResolution'
+import { indirectProjectAssetKey, indirectProjectKey, validIndirectLightingSettings, type IndirectLightingSettings, type SavedIndirectLighting } from '../indirectLightingPersistence'
 import { PbrEnvironmentContext } from '../pbrEnvironmentContext'
 import { applyWindowFrameFinish } from '../windowFrameMaterial'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
@@ -26,6 +31,7 @@ import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import {
   BackSide,
+  ACESFilmicToneMapping,
   BufferGeometry,
   CanvasTexture,
   Color,
@@ -119,7 +125,7 @@ import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../sunShadowCache
 import { withWallShadowReceiver } from '../materials/wallShadowReceiver'
 import { buildDoorwayFloorPatches, doorwayFloorKey } from '../doorwayFloors'
 import { configureAmbientOcclusionPass } from '../ambientOcclusionResources'
-import { createShaderWarmupSnapshot } from '../shaderWarmup'
+import { createShaderWarmupSnapshot, getShaderWarmupSceneRevision } from '../shaderWarmup'
 import {
   applyImportedPbrEnvironment,
   normalizeImportedPbrMaterial,
@@ -155,9 +161,8 @@ import {
 } from '../wallMountedReveal'
 import { subtractPlanCutouts, type PlanCutout } from '../planarCutouts'
 import { snapStairApertureToWalls } from '../stairPlacement'
+import { getStairLandingPosition } from '../stairLandings'
 import {
-  getModelHorizontalBounds,
-  getStairOpeningPolygon,
   getStairSlabOpenings,
 } from '../stairSlabOpenings'
 import {
@@ -263,6 +268,10 @@ const CEILING_VISUAL_OVERLAP_METERS = 0.035
 type WallEngineFace = FloorWallSurfaceFace
 
 type ThreeDViewProps = {
+  diffuseProbeResolution?: DiffuseProbeResolution
+  onDiffuseProbeResolutionChange?: (resolution: DiffuseProbeResolution) => void
+  savedIndirectLighting?: SavedIndirectLighting
+  onIndirectLightingReady?: (cache: SavedIndirectLighting | undefined) => void
   readOnly?: boolean
   viewerMode?: ViewerNavigationMode
   viewerToolbar?: ReactNode
@@ -311,6 +320,9 @@ type RenderOptions = {
   floorSlabs: boolean
   frontFaceOnly: boolean
   groundPlane: boolean
+  giProbes: boolean
+  giInspector: boolean
+  indirectLighting: boolean
   lightMarkers: boolean
   lightShadows: boolean
   lights: boolean
@@ -15047,16 +15059,20 @@ function estimateRealtimeLocalLightLimit(maxFragmentUniforms: number) {
 
 function RendererLightCapabilities({
   onLocalLightLimitChange,
+  shadowsEnabled,
 }: {
   onLocalLightLimitChange: (lightLimit: number) => void
+  shadowsEnabled: boolean
 }) {
   const { gl } = useThree()
 
   useEffect(() => {
     onLocalLightLimitChange(
-      estimateRealtimeLocalLightLimit(gl.capabilities.maxFragmentUniforms),
+      Math.min(estimateRealtimeLocalLightLimit(gl.capabilities.maxFragmentUniforms),
+        // Reserve material maps, room masks/probes, environment and sun shadow.
+        shadowsEnabled ? Math.max(1, gl.capabilities.maxTextures - 14) : MAX_REALTIME_LOCAL_LIGHTS),
     )
-  }, [gl, onLocalLightLimitChange])
+  }, [gl, onLocalLightLimitChange, shadowsEnabled])
 
   return null
 }
@@ -15419,32 +15435,34 @@ function RoomLightMaskController({
       : null,
     [activeRenderedFloor],
   )
-  const mask = useMemo(
-    () => {
-      if (!activeRenderedFloor || !floorPlane) {
-        return createRoomLightMask([], { minX: 0, minZ: 0, size: 1 }, 1)
-      }
-      const roomFloors = activeRenderedFloor.rooms.flatMap(room => {
-        const polygon = getRenderableRoomPolygon(room, activeRenderedFloor.roomSurfacePolygonsBySignature)
-        return polygon ? [{ signature: room.signature, polygon }] : []
-      })
-      const doorways = buildDoorwayFloorPatches(activeRenderedFloor.geometryContextWalls.map(wall => ({
-        ...wall,
-        openings: wall.openings?.filter(opening => modelsById.get(opening.modelId)?.roofMount !== 'dormer'),
-      })), roomFloors)
-      return createRoomLightMask(
-        [...roomFloors, ...doorways.patches.map(patch => ({
-          signature: patch.roomSignature, polygon: patch.outline,
-        }))],
-        {
-          minX: floorPlane.centerX - floorPlane.size / 2,
-          minZ: floorPlane.centerZ - floorPlane.size / 2,
-          size: floorPlane.size,
-        },
-      )
-    },
-    [activeRenderedFloor, floorPlane],
-  )
+  const maskInput = useMemo(() => {
+    if (!activeRenderedFloor || !floorPlane) return { rooms: [], bounds: { minX: 0, minZ: 0, size: 1 } }
+    const rooms = activeRenderedFloor.rooms.flatMap(room => {
+      const polygon = getRenderableRoomPolygon(room, activeRenderedFloor.roomSurfacePolygonsBySignature)
+      return polygon ? [{ signature: room.signature, polygon }] : []
+    })
+    const doorways = buildDoorwayFloorPatches(activeRenderedFloor.geometryContextWalls.map(wall => ({
+      ...wall, openings: wall.openings?.filter(opening => modelsById.get(opening.modelId)?.roofMount !== 'dormer'),
+    })), rooms)
+    return { rooms: [...rooms, ...doorways.patches.map(patch => ({ signature: patch.roomSignature, polygon: patch.outline }))],
+      bounds: { minX: floorPlane.centerX - floorPlane.size / 2, minZ: floorPlane.centerZ - floorPlane.size / 2, size: floorPlane.size } }
+  }, [activeRenderedFloor, floorPlane])
+  // A moved object recreates floor descriptors without changing room polygons.
+  // Rasterization is keyed to the actual mask inputs and runs off the UI thread.
+  const maskKey = JSON.stringify(maskInput)
+  const [mask, setMask] = useState(() => createRoomLightMask([], { minX: 0, minZ: 0, size: 1 }, 1))
+  useEffect(() => {
+    let worker: Worker | null = null
+    const timer = window.setTimeout(() => {
+      try {
+        worker = new Worker(new URL('../roomLightMask.worker.ts', import.meta.url), { type: 'module' })
+        worker.onmessage = event => { setMask(event.data); worker?.terminate(); worker = null }
+        worker.onerror = () => { worker?.terminate(); worker = null }
+        worker.postMessage(JSON.parse(maskKey))
+      } catch (error) { console.warn('Room lighting mask worker unavailable:', error) }
+    }, 80)
+    return () => { window.clearTimeout(timer); worker?.terminate() }
+  }, [maskKey])
   const maskTexture = useMemo(() => createRoomLightMaskTexture(mask), [mask])
   const [uniforms] = useState(() => createRoomLightShaderUniforms(maskTexture))
   const slots = useMemo(
@@ -15591,6 +15609,27 @@ function RendererStatsSampler({
     frameCountRef.current = 0
   })
 
+  return null
+}
+
+function IndirectLightingProgress({ indicatorRef, engineRef }: {
+  indicatorRef: { current: HTMLDivElement | null }; engineRef: { current: HTMLDivElement | null }
+}) {
+  useFrame(({ scene }) => {
+    const indicator = indicatorRef.current
+    if (!indicator) return
+    const text = formatIndirectLightingProgress(scene.userData.indirectLighting)
+    if (indicator.textContent !== text) indicator.textContent = text
+    const engine = engineRef.current
+    if (engine) {
+      const detail = formatIndirectLightingEngineStatus(scene.userData.indirectLighting)
+      engine.dataset.giStatus = detail
+      if (!engine.dataset.engineMessage || engine.dataset.engineMessage === 'Engine idle') {
+        if (engine.textContent !== detail) engine.textContent = detail
+        engine.classList.toggle('is-idle', /^(GI ready|GI off|GI unavailable)/.test(detail))
+      }
+    }
+  })
   return null
 }
 
@@ -15820,6 +15859,15 @@ function ShaderWarmup({
 }) {
   const { camera, gl, invalidate, scene } = useThree()
   const retained = useRef<ReturnType<typeof createShaderWarmupSnapshot> | null>(null)
+  const [sceneRevision, setSceneRevision] = useState('')
+  const scanElapsed = useRef(Infinity)
+  useFrame((_, delta) => {
+    scanElapsed.current += delta
+    if (blocked || scanElapsed.current < .5) return
+    scanElapsed.current = 0
+    const next = getShaderWarmupSceneRevision(scene)
+    setSceneRevision(previous => previous === next ? previous : next)
+  })
 
   useEffect(() => () => {
     retained.current?.dispose()
@@ -15972,7 +16020,7 @@ function ShaderWarmup({
 
       onPendingChange(false)
     }
-  }, [blocked, camera, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, warmupKey])
+  }, [blocked, camera, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, sceneRevision, warmupKey])
 
   return null
 }
@@ -15982,11 +16030,20 @@ function SceneAssetLoadTracker({
 }: {
   onPendingChange: (isPending: boolean) => void
 }) {
-  const { active } = useProgress()
-
   useEffect(() => {
+    let disposed = false, active = useProgress.getState().active
     onPendingChange(active)
-  }, [active, onPendingChange])
+    // A GLTF loader starts synchronously while its model renders. Defer the
+    // loading-store notification so it cannot update another React component
+    // during that render; lighting still waits for the committed asset state.
+    const unsubscribe = useProgress.subscribe(state => {
+      if (state.active === active) return
+      active = state.active
+      const pending = active
+      queueMicrotask(() => { if (!disposed) onPendingChange(pending) })
+    })
+    return () => { disposed = true; unsubscribe() }
+  }, [onPendingChange])
 
   return null
 }
@@ -16373,38 +16430,11 @@ function getStairsButtonPosition(
   elevation: number,
   landing: 'lower' | 'upper',
 ): [number, number, number] {
-  const polygon = getStairOpeningPolygon(
-    model.position,
-    model.rotation,
-    definition.width,
-    definition.depth,
-    model.scale || 1,
-    getModelHorizontalBounds(definition),
-    model.widthScale || 1,
-    model.depthScale || 1,
-    model.mirrored === true,
-  )
-  const landingPoints = landing === 'lower' ? [polygon[0], polygon[1]] : [polygon[2], polygon[3]]
-  const landingCenter = {
-    x: (landingPoints[0].x + landingPoints[1].x) / 2,
-    y: (landingPoints[0].y + landingPoints[1].y) / 2,
-  }
-  const polygonCenter = polygon.reduce(
-    (center, point) => ({
-      x: center.x + point.x / polygon.length,
-      y: center.y + point.y / polygon.length,
-    }),
-    { x: 0, y: 0 },
-  )
-  const inward = new Vector2(
-    polygonCenter.x - landingCenter.x,
-    polygonCenter.y - landingCenter.y,
-  ).normalize()
-
+  const point = getStairLandingPosition(model, definition, landing, XR_STAIRS_BUTTON_INSET_METERS)
   return [
-    landingCenter.x + inward.x * XR_STAIRS_BUTTON_INSET_METERS,
+    point.x,
     elevation + XR_STAIRS_BUTTON_HEIGHT_METERS,
-    landingCenter.y + inward.y * XR_STAIRS_BUTTON_INSET_METERS,
+    point.y,
   ]
 }
 
@@ -19157,6 +19187,10 @@ function EngineConsoleOverlay({
 }
 
 export function ThreeDView({
+  diffuseProbeResolution: requestedDiffuseProbeResolution,
+  onDiffuseProbeResolutionChange,
+  savedIndirectLighting,
+  onIndirectLightingReady,
   readOnly = false,
   viewerMode = 'walk',
   viewerToolbar,
@@ -19188,7 +19222,7 @@ export function ThreeDView({
   selectedWallId: requestedSelectedWallId,
   sceneRevision,
   showAllFloors,
-  showImages = true,
+  showImages = false,
   surfaceAssignments,
 }: ThreeDViewProps) {
   const placementModel = readOnly ? null : requestedPlacementModel
@@ -19237,6 +19271,7 @@ export function ThreeDView({
   const stallSnapshotRef = useRef('')
   const fpsIndicatorRef = useRef<HTMLDivElement>(null)
   const shaderIndicatorRef = useRef<HTMLDivElement>(null)
+  const indirectLightingIndicatorRef = useRef<HTMLDivElement>(null)
   const callsIndicatorRef = useRef<HTMLDivElement>(null)
   const resourcesIndicatorRef = useRef<HTMLDivElement>(null)
   const trianglesIndicatorRef = useRef<HTMLDivElement>(null)
@@ -19258,7 +19293,7 @@ export function ThreeDView({
     useState<FloorVisibilityState | null>(null)
   const [renderOptions, setRenderOptions] = useState<RenderOptions>({
     fadeObstructingRoofs: false,
-    fadeObstructingWalls: !readOnly,
+    fadeObstructingWalls: false,
     ambientOcclusion: true,
     ambientOcclusionIntensity: 0.25,
     ambientTerm: 0.32,
@@ -19269,6 +19304,9 @@ export function ThreeDView({
     floorSlabs: true,
     frontFaceOnly: false,
     groundPlane: true,
+    giProbes: false,
+    giInspector: false,
+    indirectLighting: true,
     lightMarkers: false,
     lightShadows: false,
     lights: true,
@@ -19283,7 +19321,17 @@ export function ThreeDView({
     wallPerimeter: false,
     wireframe: false,
     wireframeHiddenSurfaces: false,
+    ...(validIndirectLightingSettings(savedIndirectLighting?.settings) ? savedIndirectLighting!.settings : {}),
   })
+  useEffect(() => {
+    if (savedIndirectLighting && validIndirectLightingSettings(savedIndirectLighting.settings)) setRenderOptions(options => ({ ...options, ...savedIndirectLighting.settings }))
+  }, [savedIndirectLighting])
+  const [localDiffuseProbeResolution, setLocalDiffuseProbeResolution] = useState(() =>
+    normalizeDiffuseProbeResolution(savedIndirectLighting?.settings.diffuseProbeResolution))
+  useEffect(() => {
+    setLocalDiffuseProbeResolution(normalizeDiffuseProbeResolution(savedIndirectLighting?.settings.diffuseProbeResolution))
+  }, [savedIndirectLighting])
+  const diffuseProbeResolution = requestedDiffuseProbeResolution ?? localDiffuseProbeResolution
   const roofFaceSide = renderOptions.frontFaceOnly ? FrontSide :
     renderOptions.rearFaceOnly ? BackSide : undefined
 
@@ -19375,6 +19423,42 @@ export function ThreeDView({
     const prepared = preparedFloors.find(candidate => candidate.floor.id === floor.id)
     return prepared ? [{ ...prepared, floor }] : []
   }), [floors, preparedFloors])
+  const indirectFloors = useMemo(() => renderedFloors.map(data => ({
+    id: data.floor.id, elevation: data.floor.elevation, height: data.floor.roomHeight,
+    rooms: (() => {
+      const rooms = data.rooms.flatMap(room => {
+        const polygon = getRenderableRoomPolygon(room, data.roomSurfacePolygonsBySignature)
+        return polygon ? [{ signature: room.signature, polygon }] : []
+      })
+      const doorways = buildDoorwayFloorPatches(data.geometryContextWalls, rooms)
+      return [...rooms, ...doorways.patches.map(patch => ({ signature: patch.roomSignature, polygon: patch.outline }))]
+    })(),
+  })), [renderedFloors])
+  const indirectLocalLights = useMemo(() => renderOptions.lights ? floors.flatMap(getAllEnabledLocalLightSlots) : [],
+    [floors, renderOptions.lights])
+  const indirectCacheProjectKey = useMemo(() => indirectProjectKey({ floors: sourceFloors, sunPosition: lightDirection, surfaceAssignments }),
+    [sourceFloors, lightDirection, surfaceAssignments])
+  const indirectCacheAssetKey = useMemo(() => indirectProjectAssetKey({ floors: sourceFloors, surfaceAssignments }, modelsById, surfaceMaterialsById),
+    [sourceFloors, surfaceAssignments, modelAssetVersion])
+  const indirectCacheSettings = useMemo<IndirectLightingSettings>(() => ({
+    diffuseProbeResolution,
+    daylight: renderOptions.daylight, lights: renderOptions.lights, shadows: renderOptions.shadows,
+    lightShadows: renderOptions.lightShadows, hideRoofs: renderOptions.hideRoofs, floorSlabs: renderOptions.floorSlabs,
+    ambientTerm: renderOptions.ambientTerm, softAmbientShading: renderOptions.softAmbientShading,
+    softAmbientStrength: renderOptions.softAmbientStrength, nightFill: renderOptions.nightFill, groundPlane: renderOptions.groundPlane,
+  }), [renderOptions.daylight, renderOptions.lights, renderOptions.shadows, renderOptions.lightShadows, renderOptions.hideRoofs,
+    renderOptions.floorSlabs, renderOptions.ambientTerm, renderOptions.softAmbientShading, renderOptions.softAmbientStrength,
+    renderOptions.nightFill, renderOptions.groundPlane, diffuseProbeResolution])
+  // Selection and camera state do not participate in the world-space lighting cache.
+  const indirectLightingRevision = useMemo(() => JSON.stringify({
+    floors, surfaceAssignments, lightDirection, modelAssetVersion,
+    daylight: renderOptions.daylight, lights: renderOptions.lights,
+    shadows: renderOptions.shadows, lightShadows: renderOptions.lightShadows,
+    hideRoofs: renderOptions.hideRoofs, floorSlabs: renderOptions.floorSlabs,
+    lightingSettings: indirectCacheSettings,
+  }), [floors, surfaceAssignments, lightDirection, modelAssetVersion, renderOptions.daylight,
+    renderOptions.lights, renderOptions.shadows, renderOptions.lightShadows, renderOptions.hideRoofs,
+    renderOptions.floorSlabs, indirectCacheSettings])
   // Build the wall source once per prepared geometry revision, then share it
   // with the horizontal assemblies. Material/selection edits reuse this plan.
   const preparedStoreys = useMemo(() => preparedFloors.map(data => ({
@@ -19748,7 +19832,8 @@ export function ThreeDView({
       recordEngineLog('status', message, stallSnapshotRef.current)
 
       if (indicator) {
-        indicator.textContent = message
+        indicator.dataset.engineMessage = message
+        indicator.textContent = message === 'Engine idle' ? indicator.dataset.giStatus ?? 'GI preparing' : message
         indicator.classList.toggle('is-idle', message === 'Engine idle')
       }
 
@@ -19761,8 +19846,9 @@ export function ThreeDView({
           const currentIndicator = engineStatusRef.current
 
           if (currentIndicator) {
-            currentIndicator.textContent = 'Engine idle'
-            currentIndicator.classList.add('is-idle')
+            currentIndicator.dataset.engineMessage = 'Engine idle'
+            currentIndicator.textContent = currentIndicator.dataset.giStatus ?? 'GI preparing'
+            currentIndicator.classList.toggle('is-idle', /^(GI ready|GI off|GI unavailable)/.test(currentIndicator.textContent))
           }
 
           engineStatusTimerRef.current = null
@@ -20234,6 +20320,21 @@ export function ThreeDView({
             </a>
           ) : null}
                 <div className="viewport-menu-heading">Render settings</div>
+                <label className="render-options-slider probe-resolution-slider" title="Samples per cubemap face for diffuse probe lighting. Changing this rebuilds the lighting.">
+                  <span>Diffuse probe resolution</span>
+                  <input
+                    aria-label="Diffuse probe resolution"
+                    aria-valuetext={`${diffuseProbeResolution} by ${diffuseProbeResolution} samples per face`}
+                    type="range" min="0" max="2" step="1"
+                    value={DIFFUSE_PROBE_RESOLUTIONS.indexOf(diffuseProbeResolution)}
+                    onChange={event => {
+                      const resolution = DIFFUSE_PROBE_RESOLUTIONS[Number(event.currentTarget.value)]
+                      setLocalDiffuseProbeResolution(resolution)
+                      onDiffuseProbeResolutionChange?.(resolution)
+                    }}
+                  />
+                  <span>{diffuseProbeResolution} × {diffuseProbeResolution}</span>
+                </label>
                 <label>
                   <input
                     type="checkbox"
@@ -20275,6 +20376,14 @@ export function ThreeDView({
                     onChange={() => updateRenderOption('daylight')}
                   />
                   Daylight
+                </label>
+                <label title="Show diffuse light from the GI probes. Switching this off keeps the bake for comparison.">
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.indirectLighting}
+                    onChange={() => updateRenderOption('indirectLighting')}
+                  />
+                  Indirect lighting (GI)
                 </label>
                 <label>
                   <input
@@ -20376,6 +20485,21 @@ export function ThreeDView({
                     onChange={() => updateRenderOption('lightMarkers')}
                   />
                   Light markers
+                </label>
+                <label title="Actual light samples: captured light on spheres, grey before capture, cyan rims, amber while capturing">
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.giProbes}
+                    onChange={() => updateRenderOption('giProbes')}
+                  />
+                  GI probes
+                </label>
+                {renderOptions.giProbes && <div className="viewport-probe-legend">
+                  Spheres show captured light. Grey: pending. Amber: capturing. Cyan rim: probe boundary.
+                </div>}
+                <label title="Click an indoor surface to compare filtered GI with exact probe visibility. Does not rebake lighting.">
+                  <input type="checkbox" checked={renderOptions.giInspector} onChange={() => updateRenderOption('giInspector')} />
+                  Inspect GI point
                 </label>
                 <label>
                   <input
@@ -20513,6 +20637,9 @@ export function ThreeDView({
           onCreated={({ gl }) => {
             gl.info.autoReset = false
             gl.xr.enabled = true
+            gl.outputColorSpace = SRGBColorSpace
+            gl.toneMapping = ACESFilmicToneMapping
+            gl.toneMappingExposure = 1
           }}
           tabIndex={0}
         >
@@ -20578,6 +20705,7 @@ export function ThreeDView({
             /> : null}
             <FpsCounter onFpsChange={updateFps} />
             <RendererStatsSampler onStatsChange={updateRendererStats} />
+            {!readOnly && <IndirectLightingProgress indicatorRef={indirectLightingIndicatorRef} engineRef={engineStatusRef} />}
             <SunShadowBlockerFilter />
             <CameraRoomVisibilityTracker
               activeFloor={activeFloor}
@@ -20614,6 +20742,7 @@ export function ThreeDView({
             />
             <RendererLightCapabilities
               onLocalLightLimitChange={updateLocalLightLimit}
+              shadowsEnabled={localLightShadowsEnabled}
             />
             <LocalLightBudgetController
               activeFloorId={activeFloorId}
@@ -20662,6 +20791,26 @@ export function ThreeDView({
               localLightIds={localLightIds}
               maxLights={activeLocalLightLimit}
               visibleRenderedFloors={visibleRenderedFloors}
+            />
+            <IndirectLighting
+              inspectPoint={renderOptions.giInspector}
+              diffuseEnabled={renderOptions.indirectLighting}
+              diffuseProbeResolution={diffuseProbeResolution}
+              floors={indirectFloors}
+              revision={indirectLightingRevision}
+              blocked={scenePreparationPending || isTransformingModel}
+              enabled={!renderOptions.wireframe && !renderOptions.roofsOnly}
+              showProbes={renderOptions.giProbes}
+              savedCache={savedIndirectLighting}
+              cacheProjectKey={indirectCacheProjectKey}
+              cacheAssetKey={indirectCacheAssetKey}
+              cacheSettings={indirectCacheSettings}
+              cacheExportable={(showAllFloorsInScene || sourceFloors.length === 1) && !renderOptions.wireframe && !renderOptions.roofsOnly}
+              onCacheReady={onIndirectLightingReady}
+              requireSavedCache={readOnly && !!savedIndirectLighting}
+              daylight={renderOptions.daylight}
+              localLights={indirectLocalLights}
+              indoorFill={renderOptions.daylight || renderOptions.nightFill ? renderOptions.ambientTerm : 0}
             />
 
             {!renderOptions.roofsOnly && allFloorsPlane ? (
@@ -21431,6 +21580,7 @@ export function ThreeDView({
                   halfRes={AMBIENT_OCCLUSION_SETTINGS.halfRes}
                   color={ambientOcclusionColor}
                 />
+                <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
               </EffectComposer>
             ) : null}
             </RoofVisibilityContext.Provider>
@@ -21455,7 +21605,7 @@ export function ThreeDView({
           aria-live="polite"
           aria-label="3D engine status"
         >
-          Engine idle
+          GI preparing
         </div>
         <EngineConsoleOverlay
           isOpen={isEngineConsoleOpen}
@@ -21486,6 +21636,9 @@ export function ThreeDView({
             aria-label="Compiled shader programs"
           >
             0 shaders
+          </div>
+          <div ref={indirectLightingIndicatorRef} className="viewport-indicator" aria-label="Indirect lighting progress">
+            GI preparing
           </div>
           <div
             ref={callsIndicatorRef}

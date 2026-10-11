@@ -74,7 +74,7 @@ try {
     await evaluate(`window.updateRegressionFloors(window.regressionFloors.map((f,i)=>i===1?{...f,models:f.models.map(m=>m.modelId==='point-light'?{...m,lightEnabled:true}:m)}:f))`)
     await new Promise(r=>setTimeout(r,2500))
     await evaluate(`(async()=>{const wait=()=>new Promise(r=>setTimeout(r,500));const control=label=>[...document.querySelectorAll('label')].find(e=>e.textContent.trim()===label)?.querySelector('input');[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Render').click();await wait();window.setEdgeOption=async(label,value)=>{const c=control(label);if(!c)throw Error('Missing '+label);if(c.checked!==value){c.click();await wait()}};for(const label of ['Ambient occlusion','Daylight','Lights','Fade nearby walls (1.5 m)'])await window.setEdgeOption(label,false);await window.setEdgeOption('Night fill',true);const s=window.roofWallScene();s.camera.position.set(4,4.2,7.8);s.camera.lookAt(6.3,4.6,10.9);s.camera.updateMatrixWorld();s.invalidate();[...document.querySelectorAll('button')].find(e=>e.textContent.trim()==='Render').click()})()`)
-    const savedCamera=JSON.parse(readFileSync('springfield_14.json','utf8')).threeDView.camera
+    const savedCamera=JSON.parse(readFileSync('colin_house_v2.json','utf8')).threeDView.camera
     console.log('CAMERA',savedCamera)
     await evaluate(`(()=>{const s=window.roofWallScene();s.camera.position.set(13.6,4.5,7.5);s.camera.lookAt(14.6,4.8,8.7);s.camera.updateMatrixWorld();s.invalidate()})()`)
     for(const [name,ao,day,shadows] of [['fill',false,true,false],['local',false,true,false]]){

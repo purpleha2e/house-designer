@@ -4,6 +4,7 @@ import type {
   SavedTwoDViewState,
   ThreeDViewCameraState,
 } from './types.ts'
+import { normalizeDiffuseProbeResolution } from './indirectProbeResolution.ts'
 
 export const ALL_FLOORS_VIEW_ID = 'all'
 
@@ -81,6 +82,7 @@ export function normalizeSavedThreeDViewState(
   return {
     camera: normalizeThreeDViewCameraState(candidate?.camera),
     floorViewId,
+    diffuseProbeResolution: normalizeDiffuseProbeResolution(candidate?.diffuseProbeResolution),
   }
 }
 

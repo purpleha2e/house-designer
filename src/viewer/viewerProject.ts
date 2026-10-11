@@ -11,6 +11,7 @@ export type PublishedHouse = {
     surfaceAssignments?: SurfaceMaterialAssignment[]
     sunPosition?: SunPosition
     threeDView?: SavedThreeDViewState
+    indirectLighting?: import('../indirectLightingPersistence').SavedIndirectLighting
   }
   materials: SurfaceMaterialProduct[]
 }

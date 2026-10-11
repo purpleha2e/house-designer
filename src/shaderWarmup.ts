@@ -2,6 +2,29 @@ import { FrontSide, Group, Material, type Object3D } from 'three'
 
 type Renderable = Object3D & { material: Material | Material[] }
 
+const fadeSources = new WeakMap<Material, Material>()
+export function registerShaderFadeSource(material: Material, source: Material) {
+  fadeSources.set(material, source)
+}
+
+/** Late worker meshes and shader hooks need another warmup; camera fades do not. */
+export function getShaderWarmupSceneRevision(scene: Object3D) {
+  const entries = new Set<string>()
+  scene.traverse(object => {
+    const source = object as Renderable
+    if (!source.material || object.userData.selectionDecoration) return
+    for (const attached of Array.isArray(source.material) ? source.material : [source.material]) {
+      const material = fadeSources.get(attached) ?? attached
+      const maps = material as Material & { map?: unknown; normalMap?: unknown; roughnessMap?: unknown;
+        metalnessMap?: unknown; aoMap?: unknown; displacementMap?: unknown; envMap?: { image?: { height?: number }; mapping?: number } }
+      entries.add([object.type, material.uuid, material.customProgramCacheKey(),
+        ...[maps.map, maps.normalMap, maps.roughnessMap, maps.metalnessMap, maps.aoMap, maps.displacementMap].map(Boolean),
+        maps.envMap?.mapping, maps.envMap?.image?.height].join(':'))
+    }
+  })
+  return [...entries].sort().join('|')
+}
+
 const fadingRoofRoles = new Set([
   'roof-top', 'roof-shell', 'roof-eaves', 'roof-soffit', 'roof-infill',
   'dormer-roof-top', 'dormer-roof-shell', 'dormer-soffit',

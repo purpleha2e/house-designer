@@ -1517,6 +1517,14 @@
   color: #e2e8f0;
 }
 
+.viewport-probe-legend {
+  max-width: 260px;
+  padding: 0 8px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #64748b;
+}
+
 .engine-console-overlay {
   position: absolute;
   top: 56px;
@@ -2418,6 +2426,9 @@
 }
 .viewport-menu .viewport-menu-description { margin: 0 6px 8px; color: #94a3b8; font-size: 12px; overflow-wrap: anywhere; }
 .viewport-menu .render-options-slider span { margin: 0; color: #cbd5e1; }
+.viewport-menu .probe-resolution-slider { grid-template-columns: minmax(0, 1fr) 80px 58px; }
+.viewport-menu .probe-resolution-slider input { width: 80px; }
+.viewport-menu .probe-resolution-slider span:last-child { color: #cbd5e1; white-space: nowrap; }
 .viewport-menu .project-menu-dropdown {
   position: static;
   min-width: 0;
@@ -2471,3 +2482,24 @@
   font-size: 12px;
   pointer-events: none;
 }
+.gi-inspection-panel {
+  position: absolute;
+  top: 58px;
+  left: 12px;
+  width: min(440px, calc(100% - 24px));
+  max-height: calc(100% - 80px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  background: #111827f5;
+  color: #e2e8f0;
+  font-size: 12px;
+  pointer-events: auto;
+}
+.gi-inspection-panel p { margin: 8px 0; }
+.gi-inspection-panel table { width: 100%; border-collapse: collapse; }
+.gi-inspection-panel td, .gi-inspection-panel th { padding: 5px 3px; text-align: left; }
+.gi-inspection-panel summary { cursor: pointer; margin: 8px 0; }
+.gi-inspection-panel button { margin-top: 8px; padding: 6px 10px; }
+.gi-inspection-swatch { display: inline-block; width: 14px; height: 14px; border: 1px solid #94a3b8; margin-right: 5px; vertical-align: middle; }

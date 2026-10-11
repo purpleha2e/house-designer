@@ -11,7 +11,7 @@ import {
 test('older projects default to the active floor and original camera', () => {
   assert.deepEqual(
     normalizeSavedThreeDViewState(undefined, ['ground'], 'ground'),
-    { camera: DEFAULT_THREE_D_CAMERA_STATE, floorViewId: 'ground' },
+    { camera: DEFAULT_THREE_D_CAMERA_STATE, floorViewId: 'ground', diffuseProbeResolution: 16 },
   )
 })
 
@@ -40,7 +40,16 @@ test('rejects stale floor ids and non-finite camera values', () => {
   assert.deepEqual(state, {
     camera: DEFAULT_THREE_D_CAMERA_STATE,
     floorViewId: 'ground',
+    diffuseProbeResolution: 16,
   })
+})
+
+test('restores probe quality independently of whether a bake has completed', () => {
+  for (const resolution of [4, 8, 16]) {
+    const saved = JSON.parse(JSON.stringify({ floorViewId: 'ground', diffuseProbeResolution: resolution }))
+    assert.equal(normalizeSavedThreeDViewState(saved, ['ground'], 'ground').diffuseProbeResolution, resolution)
+  }
+  assert.equal(normalizeSavedThreeDViewState({ diffuseProbeResolution: 4096 }, ['ground'], 'ground').diffuseProbeResolution, 16)
 })
 
 test('restores independent 2D pan and zoom values for each current floor', () => {
