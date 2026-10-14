@@ -6,8 +6,8 @@ export const INDIRECT_VOLUME_HEIGHT = 12
 export const INDIRECT_VOLUME_STRIDE = INDIRECT_VOLUME_HEIGHT + 2
 
 /** Four coefficient slabs share one texture; L0 alpha stores valid-sample coverage. */
-export function createIndirectVolume(size: number, floors: number) {
-  const n = Math.max(2, Math.min(128, Math.ceil(size / .16) + 1))
+export function createIndirectVolume(size: number, floors: number, spacing = .16, limit = 128) {
+  const n = Math.max(2, Math.min(limit, Math.ceil(size / spacing) + 1))
   const height = Math.max(1, floors) * INDIRECT_VOLUME_STRIDE
   const data = new Uint16Array(n * n * height * 4 * 4)
   const maps = [(() => {
@@ -34,25 +34,33 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
   const offsets = new Uint32Array(voxels).fill(0xffffffff), counts = new Uint16Array(voxels)
   let indices = new Uint16Array(65536), weights = new Float32Array(65536), states = new Uint8Array(65536), used = 0
   const positions = field.positionData.slice()
+  const neighbourhoods = new Map<string, typeof field.probes>()
   const radiusSquared = (field.spacing * 1.75) ** 2, rayOrigin = new Vector3(), rayDirection = new Vector3()
   let decoded: Float32Array[] | null = null
-  const sample = (floor: number, x: number, y: number, z: number, voxel: number, result: Float64Array) => {
+  const sample = (floor: number, x: number, y: number, z: number, voxel: number, result: Float64Array, visibilityOnly = false) => {
     if (offsets[voxel] === 0xffffffff) {
       offsets[voxel] = used
       const bx = Math.floor(x / field.spacing), bz = Math.floor(z / field.spacing)
-      for (let iz = bz - 2; iz <= bz + 2; iz++) for (let ix = bx - 2; ix <= bx + 2; ix++) {
-        for (const probe of bins.get(`${field.floors[floor].id}:${ix}:${iz}`) ?? []) {
-          rayOrigin.copy(probe.position); rayDirection.set(x - rayOrigin.x, y - rayOrigin.y, z - rayOrigin.z)
-          const distanceSquared = rayDirection.lengthSq()
-          if (distanceSquared >= radiusSquared) continue
-          if (used === indices.length) {
-            const nextIndices = new Uint16Array(indices.length * 2), nextWeights = new Float32Array(weights.length * 2)
-            const nextStates = new Uint8Array(states.length * 2)
-            nextIndices.set(indices); nextWeights.set(weights); nextStates.set(states)
-            indices = nextIndices; weights = nextWeights; states = nextStates
-          }
-          indices[used] = probe.index; weights[used++] = (1 - distanceSquared / radiusSquared) ** 2; counts[voxel]++
+      const key = `${floor}:${bx}:${bz}`
+      let candidates = neighbourhoods.get(key)
+      if (!candidates) {
+        candidates = []
+        for (let iz = bz - 2; iz <= bz + 2; iz++) for (let ix = bx - 2; ix <= bx + 2; ix++) {
+          candidates.push(...(bins.get(`${field.floors[floor].id}:${ix}:${iz}`) ?? []))
         }
+        neighbourhoods.set(key, candidates)
+      }
+      for (const probe of candidates) {
+        rayOrigin.copy(probe.position); rayDirection.set(x - rayOrigin.x, y - rayOrigin.y, z - rayOrigin.z)
+        const distanceSquared = rayDirection.lengthSq()
+        if (distanceSquared >= radiusSquared) continue
+        if (used === indices.length) {
+          const nextIndices = new Uint16Array(indices.length * 2), nextWeights = new Float32Array(weights.length * 2)
+          const nextStates = new Uint8Array(states.length * 2)
+          nextIndices.set(indices); nextWeights.set(weights); nextStates.set(states)
+          indices = nextIndices; weights = nextWeights; states = nextStates
+        }
+        indices[used] = probe.index; weights[used++] = (1 - distanceSquared / radiusSquared) ** 2; counts[voxel]++
       }
     }
     result.fill(0)
@@ -61,14 +69,14 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
     for (let i = start; i < end; i++) {
       const index = indices[i]
       // Startup previews omit uncaptured samples, but measured black samples remain valid.
-      if (field.positionData[index * 4 + 3] < .5) continue
+      if (!visibilityOnly && field.positionData[index * 4 + 3] < .5) continue
       // Defer geometry rays until this probe has data. Each ray is still evaluated only once.
       if (states[i] === 0) {
         rayOrigin.fromArray(positions, index * 4); rayDirection.set(x - rayOrigin.x, y - rayOrigin.y, z - rayOrigin.z)
         const distance = rayDirection.length(), max = Math.max(0, distance - .001)
-        states[i] = max > .025 && visibility.distance(rayOrigin, rayDirection.multiplyScalar(1 / distance), max) < max ? 1 : 2
+        states[i] = max > .025 && visibility.occluded(rayOrigin, rayDirection.multiplyScalar(1 / distance), max) ? 1 : 2
       }
-      if (states[i] === 1) continue
+      if (states[i] === 1 || visibilityOnly) continue
       const weight = weights[i]; total += weight
       for (let colour = 0; colour < 3; colour++) for (let coefficient = 0; coefficient < 4; coefficient++) {
         result[colour * 4 + coefficient] += (decoded ? decoded[colour][index * 4 + coefficient]
@@ -78,7 +86,10 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
     if (total > 0) for (let i = 0; i < 12; i++) result[i] /= total
     return total
   }
-  return Object.assign(sample, { refreshCoefficients() {
+  const warmResult = new Float64Array(12)
+  return Object.assign(sample, { warm(floor: number, x: number, y: number, z: number, voxel: number) {
+    sample(floor, x, y, z, voxel, warmResult, true)
+  }, refreshCoefficients() {
     decoded ??= field.coefficients.map(data => new Float32Array(data.length))
     field.coefficients.forEach((data, colour) => { for (let i = 0; i < data.length; i++) decoded![colour][i] = DataUtils.fromHalfFloat(data[i]) })
   } })
@@ -132,7 +143,7 @@ export function writeIndirectCeilingRow(field: IndirectField, row: number, struc
 
 /** One row is a small, bounded unit of background CPU work. */
 export function writeIndirectVolumeRow(field: IndirectField, row: number, result: Float64Array, visibility: IndirectVisibility,
-  lookup?: ReturnType<typeof createIndirectVolumeLookup>) {
+  lookup?: ReturnType<typeof createIndirectVolumeLookup>, visibilityOnly = false) {
   const volume = field.volume, floor = Math.floor(row / (volume.n * INDIRECT_VOLUME_HEIGHT))
   const iz = Math.floor(row / INDIRECT_VOLUME_HEIGHT) % volume.n, iy = row % INDIRECT_VOLUME_HEIGHT
   const range = field.ranges[floor]
@@ -148,6 +159,7 @@ export function writeIndirectVolumeRow(field: IndirectField, row: number, result
     // Extend interior radiance into the border above the ceiling. Occupancy
     // still excludes exterior receivers; filtering never mixes with attic black.
     const sampleY = mask[m] ? Math.max(field.floors[floor].elevation + .06, Math.min(y, ceiling - .06)) : y
+    if (visibilityOnly) { lookup!.warm(floor, x, sampleY, z, row * volume.n + ix); continue }
     const supported = (lookup ? lookup(floor, x, sampleY, z, row * volume.n + ix, result)
       : sampleIndirectCoefficients(field, floor, x, sampleY, z, result, visibility)) > 0
     const rows = [floor * INDIRECT_VOLUME_STRIDE + iy + 1]

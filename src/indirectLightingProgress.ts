@@ -1,20 +1,12 @@
-/** Publish a few startup previews without rebuilding the volume after every probe. */
-export function shouldPublishIndirectPreview(completed: number, probes: number) {
-  return completed < probes && [8, 32, 128, 512].includes(completed)
-}
-
-/** Uncaptured probes are missing data; captured black probes remain valid. */
-export function indirectPreviewPositions(positions: Float32Array, probes: readonly { index: number }[], captured: ReadonlySet<number>) {
-  const result = positions.slice()
-  for (const probe of probes) if (!captured.has(probe.index)) result[probe.index * 4 + 3] = 0
-  return result
-}
+import { indirectPreparationLabels, type IndirectPreparationStage } from './indirectPreparation.ts'
 
 export type IndirectLightingStatus = {
   state?: string; enabled?: boolean; blocked?: boolean; paused?: boolean
   completed?: number; total?: number; volumePending?: boolean; displayed?: boolean
   preparing?: boolean; warming?: boolean; reading?: boolean; pendingUpdate?: boolean; xr?: boolean
   floorPreparing?: boolean
+  prepareStage?: IndirectPreparationStage
+  previewPending?: boolean; previewUpdates?: number; firstPreviewMs?: number; moving?: boolean
   probes?: number; capturedProbes?: number; rooms?: number; reflections?: number
   pass?: number; reflection?: boolean; face?: number
   saving?: boolean; saved?: boolean; source?: string; exportable?: boolean
@@ -42,14 +34,14 @@ export function formatIndirectLightingEngineStatus(status?: IndirectLightingStat
   if (status.state === 'loading') return 'GI loading saved lighting'
   if (status.saving) return 'GI compressing lighting for saving'
   if (status.floorPreparing) return 'GI refining floor lighting from saved probes'
-  if (status.blocked) return 'GI waiting for scene preparation or editing'
+  if (status.blocked && !(status.state === 'ready' && !status.volumePending && !status.pendingUpdate)) return 'GI waiting for scene preparation or editing'
   if (status.xr) return 'GI paused during VR'
   if (status.state === 'ready' && !status.volumePending && !status.pendingUpdate) {
     return `GI ready · ${status.probes ?? 0} probes · ${status.reflections ?? 0} reflections${status.source === 'saved' ? ' · loaded from model' : status.saved ? ' · ready to save with model' : status.exportable === false ? ' · show all floors to save GI' : ''}`
   }
   const progress = status.total ? ` · ${Math.min(99, Math.floor(100 * (status.completed ?? 0) / status.total))}%` : ''
   const suffix = status.displayed ? ' · cached light displayed' : ''
-  if (status.preparing || status.state === 'preparing') return `GI placing probes and checking visibility${suffix}`
+  if (status.preparing || status.state === 'preparing') return `GI ${status.prepareStage ? indirectPreparationLabels[status.prepareStage] : 'placing probes and checking visibility'}${suffix}`
   if (status.warming) return `GI preparing capture shaders${suffix}`
   if (status.volumePending) return `GI building irradiance volume${progress}${suffix}`
   if (status.paused) return `GI paused for navigation / input${progress}${suffix}`

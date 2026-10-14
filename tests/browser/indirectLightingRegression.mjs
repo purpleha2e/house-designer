@@ -1,8 +1,6 @@
 // Stage colin_house_v2.json with build:viewer, then run with Vite on port 5180.
-import { spawn } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import sharp from 'sharp'
 
@@ -22,7 +20,7 @@ const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--enable-unsafe-swiftshader', '--disable-frame-rate-limit', '--disable-gpu-vsync', '--remote-debugging-port=0',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
   '--no-first-run', '--no-default-browser-check', `--window-size=${corners ? '1400,1100' : small ? '1000,750' : '1800,1000'}`,
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'viewer-roof-'))}`, 'about:blank',
+  `--user-data-dir=${createBrowserTestProfile('viewer-roof-')}`, 'about:blank',
 ], { windowsHide: true })
 let ws
 try {

@@ -35,8 +35,8 @@ test('near-floor lighting preserves neutral probes beneath a raised bed instead 
 test('floor planes keep separate storeys and reuse geometry visibility across bounce updates', () => {
   const field = createIndirectField([floor, { ...floor, id: 'upper', elevation: 2.7 }], 0), visibility = createIndirectVisibility(new Group())
   let rays = 0
-  const original = visibility.distance
-  visibility.distance = (...args) => { rays++; return original(...args) }
+  const original = visibility.occluded
+  visibility.occluded = (...args) => { rays++; return original(...args) }
   const lookup = createIndirectFloorLookup(field, visibility)
   const update = (strength: number) => {
     field.probes.forEach(probe => {
@@ -47,6 +47,7 @@ test('floor planes keep separate storeys and reuse geometry visibility across bo
   }
   update(.5)
   const first = rays
+  assert.ok(first > 0, 'the first pass evaluates geometry segments')
   update(.75); assert.equal(rays, first, 'later bounces reuse all visibility segments')
   const lower = sampleBakedIndirectFloor(field, 0, new Vector3(3, .012, 3), new Vector3(0, 1, 0))
   const upper = sampleBakedIndirectFloor(field, 1, new Vector3(3, 2.712, 3), new Vector3(0, 1, 0))

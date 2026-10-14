@@ -4,9 +4,11 @@ import { createIndirectField, INDIRECT_ATLAS_SIZE, INDIRECT_MASK_SIZE, INDIRECT_
 import { createIndirectVisibilityFromSnapshot, writeIndirectVisibility, type IndirectGeometrySnapshot } from './indirectVisibility.ts'
 import { createIndirectVolumeLookup, writeIndirectCeilingRow, writeIndirectVolumeRow } from './indirectVolume.ts'
 import { pointIsInsideRoomPolygon } from './roomLightMask.ts'
-import { createIndirectFloorLookup, writeIndirectFloorLayer } from './indirectFloorLighting.ts'
+import { createIndirectFloorLookup, writeIndirectFloorLayer, writeIndirectFloorRow } from './indirectFloorLighting.ts'
 import { planIndirectZones, type IndirectZoneChange, type IndirectZoneProbe } from './indirectLightingZones.ts'
 import { addIndirectFurnitureProbes } from './indirectFurnitureProbes.ts'
+import { createIndirectPreviewField } from './indirectLivePreview.ts'
+import { createIndirectPreparationTimer, type IndirectPreparationProgress } from './indirectPreparation.ts'
 
 export const INDIRECT_MIN_PROBE_SPACING = 0.6
 
@@ -57,12 +59,18 @@ export function pruneRedundantIndirectProbes(field: ReturnType<typeof createIndi
 }
 
 /** Runs entirely in the GI worker. No renderer, DOM, shader compilation or GPU readbacks. */
-export function prepareIndirectCache(floors: IndirectFloor[], lights: [number, number, number][],
+export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [number, number, number][],
   geometry: IndirectGeometrySnapshot, obstacles: { min: number[]; max: number[] }[],
-  zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[]; captureNewOnly?: boolean }) {
+  zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[]; captureNewOnly?: boolean },
+  onProgress?: (progress: IndirectPreparationProgress) => void) {
+  const timer = createIndirectPreparationTimer(onProgress)
+  timer.start('layout')
   const field = createIndirectField(floors, lights.length)
+  timer.start('geometry')
   const visibility = createIndirectVisibilityFromSnapshot(geometry)
+  timer.start('structure')
   const structure = createIndirectVisibilityFromSnapshot(geometry.filter(part => part.structural))
+  timer.start('probes')
   const boxes = obstacles.map(box => new Box3(new Vector3().fromArray(box.min), new Vector3().fromArray(box.max)))
   const up = new Vector3(0, 1, 0), origin = new Vector3()
   for (const probe of field.probes) {
@@ -80,16 +88,26 @@ export function prepareIndirectCache(floors: IndirectFloor[], lights: [number, n
   }
   pruneRedundantIndirectProbes(field, visibility)
   addIndirectFurnitureProbes(field, boxes, visibility)
+  timer.start('ceilings')
   for (let row = 0; row < field.floors.length * INDIRECT_MASK_SIZE; row++) writeIndirectCeilingRow(field, row, structure)
   structure.dispose()
-  lights.slice(0, INDIRECT_MAX_LOCAL_LIGHTS).forEach((light, index) => {
+  timer.start('lamps')
+  const lampPositions = lights.slice(0, INDIRECT_MAX_LOCAL_LIGHTS)
+  if (lampPositions.length) yield { field, visibility, lights: lampPositions }
+  lampPositions.forEach((light, index) => {
     const position = new Vector3(...light)
-    writeIndirectVisibility(field, index, position, visibility)
     writeIndirectPosition(field.positionData, INDIRECT_ATLAS_SIZE ** 2 - INDIRECT_MAX_LOCAL_LIGHTS + index, position)
   })
+  timer.start('tables')
   const triangles = visibility.triangleTexture()
   const lookup = createIndirectVolumeLookup(field, visibility)
   const floorLookup = createIndirectFloorLookup(field, visibility)
+  const preview = createIndirectPreviewField(field)
+  preview.coefficients = field.coefficients.map(data => data.slice())
+  preview.positionData = field.positionData.slice()
+  const previewLookup = createIndirectVolumeLookup(preview, visibility)
+  const previewFloorLookup = createIndirectFloorLookup(preview, visibility)
+  timer.start('zones')
   const zonePlan = zones ? planIndirectZones(field, visibility, zones.previous, zones.changes) : undefined
   if (zones?.captureNewOnly && zonePlan && zones.previous.every(previous => field.probes.some(probe =>
     probe.index === previous.index && probe.region.floorId === previous.floorId && probe.position.distanceToSquared(origin.fromArray(previous.position)) < 1e-8))) {
@@ -98,9 +116,47 @@ export function prepareIndirectCache(floors: IndirectFloor[], lights: [number, n
     const previousIndices = new Set(zones.previous.map(probe => probe.index))
     zonePlan.first = field.probes.filter(probe => !previousIndices.has(probe.index)).map(probe => probe.index)
   }
+  timer.start('ready')
   return { field, visibility,
-    snapshot() { return { field: serializeIndirectField(field), zonePlan, triangles: { data: triangles.image.data as Float32Array,
+    /** Populate geometry-only weights while the renderer captures bounce one.
+     * Yield between rows so previews and edit requests can take priority. */
+    *warmVisibility() {
+      const result = new Float64Array(12)
+      for (let row = 0; row < field.volume.rows; row++) {
+        writeIndirectVolumeRow(field, row, result, visibility, lookup, true)
+        yield
+      }
+      for (let row = 0; row < field.floors.length * field.floorLayer.n; row++) {
+        writeIndirectFloorRow(field, row, visibility, floorLookup, true)
+        yield
+      }
+    },
+    updateLights(positions: [number, number, number][]) {
+      if (positions.length !== lights.length) throw new Error('GI light count changed')
+      positions.slice(0, INDIRECT_MAX_LOCAL_LIGHTS).forEach((position, index) => {
+        if (position.every((value, axis) => value === lights[index][axis])) return
+        const point = new Vector3(...position)
+        writeIndirectVisibility(field, index, point, visibility)
+        writeIndirectPosition(field.positionData, INDIRECT_ATLAS_SIZE ** 2 - INDIRECT_MAX_LOCAL_LIGHTS + index, point)
+      })
+      lights = positions.map(position => [...position])
+      return { distances: field.distanceData.slice(), positions: field.positionData.slice() }
+    },
+    snapshot() { return { field: serializeIndirectField(field), zonePlan, prepareTimings: { ...timer.timings }, triangles: { data: triangles.image.data as Float32Array,
       width: triangles.image.width, height: triangles.image.height } } },
+    plan(previous: IndirectZoneProbe[], changes: IndirectZoneChange[]) {
+      return planIndirectZones(field, visibility, previous, changes)
+    },
+    preview(coefficients: Uint16Array[], positions: Float32Array) {
+      // Separate coefficient buffers preserve completed full-resolution bounce data.
+      coefficients.forEach((data, colour) => preview.coefficients[colour].set(data))
+      preview.positionData.set(positions)
+      previewLookup.refreshCoefficients(); previewFloorLookup.refreshCoefficients()
+      const result = new Float64Array(12)
+      for (let row = 0; row < preview.volume.rows; row++) writeIndirectVolumeRow(preview, row, result, visibility, previewLookup)
+      writeIndirectFloorLayer(preview, visibility, previewFloorLookup)
+      return { volume: preview.volume.data.slice(), floor: preview.floorLayer.data.slice() }
+    },
     volume(coefficients: Uint16Array[], positions: Float32Array) {
       coefficients.forEach((values, index) => field.coefficients[index].set(values)); field.positionData.set(positions)
       lookup.refreshCoefficients()
@@ -110,7 +166,18 @@ export function prepareIndirectCache(floors: IndirectFloor[], lights: [number, n
       writeIndirectFloorLayer(field, visibility, floorLookup)
       return field.volume.data.slice()
     },
-    dispose() { field.dispose(); visibility.dispose() },
+    dispose() { preview.dispose(); field.dispose(); visibility.dispose() },
   }
+}
+/** Synchronous path used by tests and the serial fallback. */
+export function prepareIndirectCache(...args: Parameters<typeof prepareIndirectCacheSteps>) {
+  const steps = prepareIndirectCacheSteps(...args)
+  let step = steps.next()
+  while (!step.done) {
+    const { field, visibility, lights } = step.value
+    lights.forEach((light, index) => writeIndirectVisibility(field, index, new Vector3(...light), visibility))
+    step = steps.next()
+  }
+  return step.value
 }
 export type PreparedIndirectCache = ReturnType<ReturnType<typeof prepareIndirectCache>['snapshot']>

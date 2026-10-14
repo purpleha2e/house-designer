@@ -11,6 +11,21 @@ import {
 import type { FloorLevel, PlacedModel, Wall } from '../src/types.ts'
 import type { ModelDefinition } from '../src/models/modelLibrary.ts'
 
+test('inner roof skin permission survives project JSON with bounded depth and defaults off', () => {
+  const floor: FloorLevel = { id: 'top', name: 'Top', elevation: 0, roomHeight: 2.4, slabThickness: .2,
+    walls: [], rooms: [], models: [], roofs: [{ id: 'roof', type: 'flat', width: 4, depth: 4,
+      position: { x: 0, y: 0 }, rotation: 0, pitchDegrees: 0, allowInteriorSkin: true, interiorSkinDepth: .03 }] }
+  const saved = JSON.parse(JSON.stringify(floor)) as FloorLevel
+  const roof = normalizeFloor(saved, new Map()).roofs[0]
+  assert.equal(roof.allowInteriorSkin, true); assert.equal(roof.interiorSkinDepth, .03)
+  delete saved.roofs![0].allowInteriorSkin
+  assert.equal(normalizeFloor(saved, new Map()).roofs[0].allowInteriorSkin, false)
+  for (const [depth, expected] of [[-.1, 0], [2, .1], [.07, .07]]) {
+    saved.roofs![0].interiorSkinDepth = depth
+    assert.equal(normalizeFloor(saved, new Map()).roofs[0].interiorSkinDepth, expected)
+  }
+})
+
 test('top-storey ceiling preference survives project JSON and floor normalization', () => {
   const source: FloorLevel = {id:'top',name:'Top',elevation:2.7,roomHeight:2.4,
     slabThickness:0.3,ceilingMode:'open',walls:[],rooms:[

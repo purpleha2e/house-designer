@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   prepareRenderedFloorData,
   refreshRenderedFloorOpenings,
+  serializeWallGeometryInput,
 } from '../src/threeDLevelPreparation.ts'
 import type { FloorLevel, Wall } from '../src/types.ts'
 import { buildWallBodyPerimeters } from '../src/wallEngine/wallBodyPerimeter.ts'
@@ -25,6 +26,19 @@ function rectangleWalls(): Wall[] {
   }))
 }
 
+test('room-volume cache ignores opening moves but responds to structural and slab edits', () => {
+  const floor: FloorLevel = { id: 'ground', name: 'Ground', elevation: 0, models: [], rooms: [],
+    roomHeight: 2.4, slabThickness: .25, walls: rectangleWalls() }
+  const moved = structuredClone(floor)
+  moved.walls[0].openings![0].center += .5
+  assert.notEqual(serializeWallGeometryInput([floor]), serializeWallGeometryInput([moved]))
+  assert.equal(serializeWallGeometryInput([floor], false), serializeWallGeometryInput([moved], false))
+  moved.slabThickness = .3
+  assert.notEqual(serializeWallGeometryInput([floor], false), serializeWallGeometryInput([moved], false))
+  moved.slabThickness = floor.slabThickness; moved.walls[0].height += .1
+  assert.notEqual(serializeWallGeometryInput([floor], false), serializeWallGeometryInput([moved], false))
+})
+
 test('moving an opening refreshes wall data without rebuilding floor topology', () => {
   const floor: FloorLevel = {
     id: 'ground', name: 'Ground', elevation: 0, models: [], rooms: [],
@@ -33,6 +47,13 @@ test('moving an opening refreshes wall data without rebuilding floor topology', 
   const prepared = prepareRenderedFloorData(floor)
   const movedFloor = structuredClone(floor)
   movedFloor.walls[0].openings![0].center = 3.25
+
+  assert.equal(serializeWallGeometryInput([floor], true, 2.4), serializeWallGeometryInput([movedFloor], true, 2.4),
+    'openings wholly below the roof base leave the gable input unchanged')
+  assert.notEqual(serializeWallGeometryInput([floor], true, 1), serializeWallGeometryInput([movedFloor], true, 1),
+    'an opening reaching the gable must still invalidate its geometry')
+  assert.notEqual(serializeWallGeometryInput([{ ...floor, elevation: 3 }], true, 3.5),
+    serializeWallGeometryInput([{ ...movedFloor, elevation: 3 }], true, 3.5), 'upper-storey opening heights are in world space')
 
   const refreshed = refreshRenderedFloorOpenings(prepared, movedFloor)
 

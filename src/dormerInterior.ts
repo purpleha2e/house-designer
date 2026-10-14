@@ -54,8 +54,10 @@ export function prepareDormerInteriors(floors: FloorLevel[], definitions: Readon
   const openings = new Map<string, NonNullable<FloorLevel['walls'][number]['openings']>>()
   for (const owner of floors) for (const model of owner.models) {
     const definition = definitions.get(model.modelId)
-    const roof = owner.roofs?.map(roof => getRoofWithExternalWallSupportExtents(roof, owner.walls)).find(roof => roof.id === model.roofAttachment?.roofId)
-    if (definition?.roofMount !== 'dormer' || !roof || !model.roofAttachment) continue
+    if (definition?.roofMount !== 'dormer' || !model.roofAttachment) continue
+    const host = owner.roofs?.find(roof => roof.id === model.roofAttachment?.roofId)
+    if (!host) continue
+    const roof = getRoofWithExternalWallSupportExtents(host, owner.walls)
     const placement = getAttachedDormerPlacement(roof, model.roofAttachment)
     if (!placement) continue
     const mountY = owner.elevation + owner.roomHeight + (roof.heightOffset ?? 0) + placement.surfaceHeight

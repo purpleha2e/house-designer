@@ -1,12 +1,10 @@
 // Run against Vite: node tests/browser/windowBuilderRegression.mjs [port]
-import { spawn } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 const child=spawn('C:/Program Files/Google/Chrome/Application/chrome.exe',[
   '--headless=new','--no-sandbox','--disable-gpu','--remote-debugging-port=0','--no-first-run',
-  '--no-default-browser-check','--window-size=1440,1000',`--user-data-dir=${mkdtempSync(join(tmpdir(),'window-builder-'))}`,'about:blank'
+  '--no-default-browser-check','--window-size=1440,1000',`--user-data-dir=${createBrowserTestProfile('window-builder-')}`,'about:blank'
 ],{windowsHide:true})
 let ws
 try {

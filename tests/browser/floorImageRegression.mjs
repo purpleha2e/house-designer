@@ -1,15 +1,13 @@
 // With Vite running on port 5180: node tests/browser/floorImageRegression.mjs
 // Checks independent floor images and their overlay in both views.
-import { spawn } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--remote-debugging-port=0',
   '--no-first-run', '--no-default-browser-check', '--window-size=1200,850',
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'object-handles-'))}`, 'about:blank',
+  `--user-data-dir=${createBrowserTestProfile('object-handles-')}`, 'about:blank',
 ], { windowsHide: true })
 let ws
 try {

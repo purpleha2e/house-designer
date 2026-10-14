@@ -11,6 +11,7 @@ import {
   type Texture,
 } from 'three'
 import type { RoomLightMask } from './roomLightMask.ts'
+import { applyLocalShadowReceiver } from './materials/localShadowReceiver.ts'
 
 export const ROOM_LIGHT_SHADER_MAX_LIGHTS = 11
 // Offscreen GI captures provide nearby world-space lights with cached shadows.
@@ -27,6 +28,7 @@ export type RoomLightShaderUniforms = {
 
 const roomLightShaderPars = /* glsl */ `
 varying vec3 hdRoomLightWorldPosition;
+varying vec3 hdRoomLightReceiverWorldOffset;
 uniform float hdRoomLightEnabled;
 uniform float hdRoomLightCapture;
 uniform sampler2D hdRoomLightMask;
@@ -57,6 +59,10 @@ float hdRoomLightFactor(float lightRoomId, float receiverRoomId) {
 `
 
 const maskedLightsChunk = ShaderChunk.lights_fragment_begin
+  // Receiver derivatives require uniform control flow across a fragment quad,
+  // including the edge of a spot cone or a light's distance limit. Zero light
+  // colour already rejects those fragments after the shadow comparison.
+  .replaceAll('directLight.visible && receiveShadow', 'receiveShadow')
   .replace('PointLight pointLight;', 'PointLight pointLight;\nfloat hdPointVisibility;')
   .replace('SpotLight spotLight;', 'SpotLight spotLight;\nfloat hdSpotVisibility;')
   .replace(
@@ -66,7 +72,7 @@ float hdRoomLightReceiver =
   hdRoomLightWorldPosition.y < hdRoomLightFloorRange.x ||
   hdRoomLightWorldPosition.y > hdRoomLightFloorRange.y
     ? 0.0
-    : hdRoomLightReceiverId(hdRoomLightWorldPosition, nonPerturbedNormal);`,
+    : hdRoomLightReceiverId(hdRoomLightWorldPosition + hdRoomLightReceiverWorldOffset, nonPerturbedNormal);`,
   )
   .replace(
     'getPointLightInfo( pointLight, geometryPosition, directLight );',
@@ -118,11 +124,14 @@ export function createRoomLightShaderUniforms(maskTexture: Texture): RoomLightSh
 }
 
 export function applyRoomLightShader(material: Material, uniforms: RoomLightShaderUniforms) {
+  const attributes = material as Material & { defaultAttributeValues?: Record<string, number[]> }
+  attributes.defaultAttributeValues = { ...attributes.defaultAttributeValues, hdGIReceiverOffset: [0, 0, 0] }
   const originalOnBeforeCompile = material.onBeforeCompile
   const originalProgramCacheKey = material.customProgramCacheKey
   const patchedOnBeforeCompile: Material['onBeforeCompile'] = (shader, renderer) => {
     originalOnBeforeCompile.call(material, shader, renderer)
     if (shader.fragmentShader.includes('hdRoomLightFactor')) return
+    applyLocalShadowReceiver(shader, renderer)
     Object.assign(shader.uniforms, {
       hdRoomLightEnabled: uniforms.enabled,
       hdRoomLightCapture: roomLightCaptureUniform,
@@ -133,16 +142,20 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
       hdSpotLightRoomIds: uniforms.spotRoomIds,
     })
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 hdRoomLightWorldPosition;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 hdRoomLightWorldPosition;\nvarying vec3 hdRoomLightReceiverWorldOffset;\n#ifndef HD_RECEIVER_ATTRIBUTE\n#define HD_RECEIVER_ATTRIBUTE\nattribute vec3 hdGIReceiverOffset;\n#endif')
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 hdRoomLightWorld = vec4(transformed, 1.0);
+        vec4 hdRoomLightReceiver = vec4(hdGIReceiverOffset, 0.0);
         #ifdef USE_BATCHING
           hdRoomLightWorld = batchingMatrix * hdRoomLightWorld;
+          hdRoomLightReceiver = batchingMatrix * hdRoomLightReceiver;
         #endif
         #ifdef USE_INSTANCING
           hdRoomLightWorld = instanceMatrix * hdRoomLightWorld;
+          hdRoomLightReceiver = instanceMatrix * hdRoomLightReceiver;
         #endif
-        hdRoomLightWorldPosition = (modelMatrix * hdRoomLightWorld).xyz;`)
+        hdRoomLightWorldPosition = (modelMatrix * hdRoomLightWorld).xyz;
+        hdRoomLightReceiverWorldOffset = (modelMatrix * hdRoomLightReceiver).xyz;`)
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${roomLightShaderPars}`)
       .replace('#include <lights_fragment_begin>', maskedLightsChunk)
@@ -151,10 +164,11 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
     const key = originalProgramCacheKey.call(material)
     // Fade clones inherit the already-patched hook. Reapplying the controller
     // must not create a second cache key for exactly the same shader.
-    const suffix = ':house-designer-room-light-v1'
+    const suffix = ':house-designer-room-light-v4'
     // Other lighting hooks can follow this marker in a composed shader key.
     // A fade clone inherits all of them, not just the last hook.
-    return key.includes(suffix) ? key : `${key}${suffix}`
+    return /:house-designer-room-light-v\d+/.test(key)
+      ? key.replace(/:house-designer-room-light-v\d+/g, suffix) : `${key}${suffix}`
   }
 
   material.onBeforeCompile = patchedOnBeforeCompile

@@ -8,6 +8,7 @@ import { pointIsInsideRoomPolygon } from './roomLightMask.ts'
 export type IndirectZoneChange = { floorId: string; min: number[]; max: number[] }
 export type IndirectZoneProbe = { index: number; position: number[]; floorId: string }
 export type IndirectZonePlan = { first: number[]; second: number[]; reflections: number[]; reused: number }
+export type IndirectModelBounds = ReadonlyMap<string, { min: number[]; max: number[] }>
 export function indirectRegionKey(region: IndirectRegion) {
   return `${region.floorId}:${indirectContentKey(region.polygon)}`
 }
@@ -15,6 +16,14 @@ export function indirectRegionKey(region: IndirectRegion) {
 /** Restrict incremental geometry updates to authored wall-opening edits. Other
  * edits, including global lighting, structure and finishes, need a full bake. */
 export function indirectOpeningChanges(previousRevision: string, revision: string): IndirectZoneChange[] | null {
+  return indirectLocalChanges(previousRevision, revision)
+}
+
+/** Include standalone furniture/light edits only when both authored states have
+ * measured world bounds. Structural, attached-roof and unknown asset edits retain
+ * the conservative full-bake path. Old and new bounds cover removal shadows. */
+export function indirectLocalChanges(previousRevision: string, revision: string,
+  previousBounds?: IndirectModelBounds, currentBounds?: IndirectModelBounds): IndirectZoneChange[] | null {
   try {
     const previous = JSON.parse(previousRevision), current = JSON.parse(revision)
     if (!Array.isArray(previous.floors) || !Array.isArray(current.floors)) return null
@@ -48,8 +57,15 @@ export function indirectOpeningChanges(previousRevision: string, revision: strin
         const a = models.get(id), b = floor.models.find(model => model.id === id)
         if (indirectContentKey(a) === indirectContentKey(b)) continue
         // Window/door meshes and their wall cutouts are one authored edit.
-        if (![a, b].filter(Boolean).every(model => !!model!.wallAttachment) ||
-          ![...editedOpenings].some(opening => opening === id || opening.startsWith(`${id}:`))) return null
+        if ([a, b].filter(Boolean).every(model => !!model!.wallAttachment) &&
+          [...editedOpenings].some(opening => opening === id || opening.startsWith(`${id}:`))) continue
+        if (previous.modelAssetVersion !== current.modelAssetVersion ||
+          [a, b].some(model => model?.wallAttachment || model?.roofAttachment || model?.dormerAttachment)) return null
+        for (const [model, bounds] of [[a, previousBounds?.get(id)], [b, currentBounds?.get(id)]] as const) {
+          if (!model) continue
+          if (!bounds || [...bounds.min, ...bounds.max].some(value => !Number.isFinite(value))) return null
+          changes.push({ floorId: floor.id, min: bounds.min.map(value => value - .35), max: bounds.max.map(value => value + .35) })
+        }
       }
     }
     return changes.length ? changes : null

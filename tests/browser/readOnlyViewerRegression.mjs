@@ -1,7 +1,6 @@
 // Start Vite on 5180, build a viewer, then: node tests/browser/readOnlyViewerRegression.mjs
-import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { extname, join, relative, resolve, sep } from 'node:path'
 import { createServer } from 'node:http'
 import assert from 'node:assert/strict'
@@ -25,7 +24,7 @@ const productionUrl = `http://127.0.0.1:${server.address().port}${prefix}`
 const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--enable-unsafe-swiftshader', '--remote-debugging-port=0',
   '--no-first-run', '--no-default-browser-check', '--window-size=1440,1000',
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'house-viewer-test-'))}`, 'about:blank',
+  `--user-data-dir=${createBrowserTestProfile('house-viewer-test-')}`, 'about:blank',
 ], { windowsHide: true })
 let ws
 try {

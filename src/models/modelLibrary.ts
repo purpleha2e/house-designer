@@ -66,6 +66,8 @@ export type ModelDefinition = {
   openingWidth?: number
   previewUrl?: string
   normalizeToDimensions?: boolean
+  /** Fixed frame node used to resize open doors without flattening their leaf. */
+  normalizationMeshName?: string
   objectType?: ModelObjectType
   stairLandings?: { lower: { x: number; y: number }; upper: { x: number; y: number } }
   roofMount?: 'dormer'
@@ -98,6 +100,10 @@ function getModelId(fileName: string) {
 }
 
 const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
+  'front-door': {
+    normalizeToDimensions: true,
+    normalizationMeshName: 'Cube.003',
+  },
   'window-large-single-pane': {
     name: 'Large Single-pane Window',
     width: 1.8, height: 2, depth: 0.08,

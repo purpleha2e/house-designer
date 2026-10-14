@@ -1,9 +1,7 @@
 // With Vite running: node --experimental-strip-types tests/browser/indirectLightingZonesRegression.mjs [port]
 // Checks local window edits against full rebakes and persistence in the actual editor.
-import { spawn } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { DataUtils } from 'three'
 import { loadIndirectLighting } from '../../src/indirectLightingPersistence.ts'
@@ -21,7 +19,7 @@ let startupProject = project
 const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
-  '--window-size=1200,1050', `--user-data-dir=${mkdtempSync(join(tmpdir(), 'probe-quality-'))}`, 'about:blank',
+  '--window-size=1200,1050', `--user-data-dir=${createBrowserTestProfile('probe-quality-')}`, 'about:blank',
 ], { windowsHide: true })
 let ws
 const timers = new Set()
@@ -82,6 +80,10 @@ try {
   await call('Page.navigate', { url: 'http://127.0.0.1:' + (process.argv[2] ?? '5184') + '/' })
   await wait(`!!document.querySelector('[aria-label="3D view menu"]')`, 'editor mounted')
   await evaluate(`(async()=>{const url=performance.getEntriesByType('resource').find(e=>e.name.includes('/@react-three_fiber.js'))?.name;const {_roots}=await import(url);window.probeScene=()=>[..._roots.values()].map(r=>r.store.getState().scene).find(s=>s.userData.getBakedIndirectLighting)})()`)
+  if (process.argv.includes('--surface-cache')) {
+    await wait('!!window.probeScene?.()', 'scene available for experimental transport')
+    await evaluate('window.probeScene().userData.indirectSurfaceCacheEnabled=true')
+  }
   const viewMenu = () => evaluate(`document.querySelector('[aria-label="3D view menu"]').click()`)
   const quality = async index => {
     await evaluate(`(()=>{const e=document.querySelector('[aria-label="Diffuse probe resolution"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,'${index}');e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}))})()`)
@@ -109,7 +111,8 @@ try {
   assert.equal(status.partial, true)
   assert.ok(status.firstProbes < status.probes && status.secondProbes < status.probes)
   assert.ok(status.reusedProbes > 0)
-  assert.equal(status.capturedFaces, 6 * (status.firstProbes + status.secondProbes + status.zones))
+  assert.equal(status.capturedFaces - (status.surfaceDataFaces ?? 0) + (status.surfaceReusedFaces ?? 0), 6 * (status.firstProbes + status.secondProbes + status.zones),
+    'each sample face is rendered or evaluated from cached surface transport')
   await projectAction('Save')
   const partial = JSON.parse(await evaluate('window.savedProjectText'))
   const oldLight = await loadIndirectLighting(original.indirectLighting), localLight = await loadIndirectLighting(partial.indirectLighting)
@@ -140,6 +143,7 @@ try {
   await wait(`window.zoneReloaded&&!!document.querySelector('[aria-label="3D view menu"]')&&performance.getEntriesByType('resource').some(e=>e.name.includes('/@react-three_fiber.js'))`, 'fresh editor mounted')
   await evaluate(`(async()=>{const url=performance.getEntriesByType('resource').find(e=>e.name.includes('/@react-three_fiber.js'))?.name;const {_roots}=await import(url);window.probeScene=()=>[..._roots.values()].map(r=>r.store.getState().scene).find(s=>s.userData.getBakedIndirectLighting)})()`)
   await wait(`window.probeScene()?.userData.indirectLighting?.source==='saved'&&window.probeScene().userData.indirectLighting.state==='ready'`, 'saved baseline restored')
+  if (process.argv.includes('--surface-cache')) await evaluate('window.probeScene().userData.indirectSurfaceCacheEnabled=true')
   const moved = structuredClone(fullProject)
   moved.floors[0].models[0].wallAttachment.offset = 2.5
   moved.floors[0].models[0].position.x = 2.5

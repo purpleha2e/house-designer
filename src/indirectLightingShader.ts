@@ -59,35 +59,17 @@ export function updateIndirectUniforms(uniforms: IndirectUniforms, field: Indire
   uniforms.hdGIMaskSize.value.y = Math.max(1, field.floors.length)
 }
 
-const declarations = /* glsl */ `
+/** Receiver selection is shared by the lit shader and the unlit surface pass. */
+export const indirectReceiverShaderDeclarations = /* glsl */ `
 varying vec3 hdGIWorldPosition;
-uniform float hdGIEnabled;
-uniform float hdGICapture;
-uniform float hdGIIndoorFill;
-uniform float hdGIProbeStrength;
-uniform float hdGILocalReflection;
+varying vec3 hdGIReceiverWorldOffset;
+varying vec4 hdGICornerPlane0;
+varying vec4 hdGICornerPlane1;
 uniform sampler2D hdGIMask;
-uniform sampler2D hdGIPositions;
-uniform sampler2D hdGIDistances;
-uniform vec3 hdGIDistanceLayout;
-uniform sampler2D hdGITriangles;
-uniform vec2 hdGITriangleSize;
-uniform float hdGIPointIndices[11];
-uniform float hdGISpotIndices[11];
-uniform float hdGIUseVolume;
-uniform sampler3D hdGIVolume;
 uniform vec2 hdGIVolumeSize;
-uniform sampler3D hdGIFloorLayer;
-uniform vec2 hdGIFloorLayerSize;
-uniform float hdGIFloorLayerReady;
-uniform sampler2D hdGIRed;
-uniform sampler2D hdGIGreen;
-uniform sampler2D hdGIBlue;
 uniform vec3 hdGIBounds;
 uniform int hdGIFloorCount;
 uniform vec2 hdGIFloorRanges[${INDIRECT_MAX_FLOORS}];
-uniform vec4 hdGIGrids[${INDIRECT_MAX_FLOORS}];
-uniform vec4 hdGIGrid;
 uniform vec4 hdGIMaskSize;
 
 float hdGIFloor(vec3 p) {
@@ -105,6 +87,63 @@ float hdGIFloor(vec3 p) {
   }
   return -1.0;
 }
+
+vec3 hdGIConstrainCorner(vec3 p, vec4 plane, vec3 stepSize) {
+  if (dot(plane.xyz, plane.xyz) < .5) return p;
+  float clearance = .02 + .5 * dot(abs(plane.xyz), stepSize);
+  return p + plane.xyz * max(0.0, plane.w + clearance - dot(plane.xyz, p));
+}
+
+float hdGIReceiver(vec3 worldPosition, vec3 offset, vec3 surfaceNormal, float floorLayerReady,
+    out vec3 samplePosition, out float floorReceiver) {
+  float id = hdGIFloor(worldPosition + offset + surfaceNormal * .08);
+  // Reveals receive light on the same wall side used for classification.
+  // Sampling inside the wall lets interpolation borrow the bright room behind
+  // a jamb even though its owning room was classified correctly.
+  samplePosition = worldPosition + offset; floorReceiver = 0.0;
+  if (id < 0.0) return id;
+  vec2 range = hdGIFloorRanges[int(id)];
+  vec3 stepSize = vec3(hdGIBounds.z / (hdGIVolumeSize.x - 1.0),
+    (range.y - range.x) / ${INDIRECT_VOLUME_HEIGHT - 1}.0, hdGIBounds.z / (hdGIVolumeSize.x - 1.0));
+  float floorHeight = range.x + .06;
+  floorReceiver = floorLayerReady > .5 && surfaceNormal.y > .9 &&
+    worldPosition.y >= floorHeight - .02 && worldPosition.y <= floorHeight + .08 ? 1.0 : 0.0;
+  float bias = floorReceiver > .5 ? .004 : .02 + .5 * dot(abs(surfaceNormal), stepSize);
+  samplePosition += surfaceNormal * bias;
+  // A normal bias protects only this face. At an inside corner the texture
+  // footprint must also clear the adjoining solid face, on the same room side.
+  if (floorReceiver < .5) {
+    samplePosition = hdGIConstrainCorner(samplePosition, hdGICornerPlane0, stepSize);
+    samplePosition = hdGIConstrainCorner(samplePosition, hdGICornerPlane1, stepSize);
+  }
+  return id;
+}
+`
+
+export const indirectLightingShaderDeclarations = /* glsl */ `
+${indirectReceiverShaderDeclarations}
+uniform float hdGIEnabled;
+uniform float hdGICapture;
+uniform float hdGIIndoorFill;
+uniform float hdGIProbeStrength;
+uniform float hdGILocalReflection;
+uniform sampler2D hdGIPositions;
+uniform sampler2D hdGIDistances;
+uniform vec3 hdGIDistanceLayout;
+uniform sampler2D hdGITriangles;
+uniform vec2 hdGITriangleSize;
+uniform float hdGIPointIndices[11];
+uniform float hdGISpotIndices[11];
+uniform float hdGIUseVolume;
+uniform sampler3D hdGIVolume;
+uniform sampler3D hdGIFloorLayer;
+uniform vec2 hdGIFloorLayerSize;
+uniform float hdGIFloorLayerReady;
+uniform sampler2D hdGIRed;
+uniform sampler2D hdGIGreen;
+uniform sampler2D hdGIBlue;
+uniform vec4 hdGIGrids[${INDIRECT_MAX_FLOORS}];
+uniform vec4 hdGIGrid;
 
 vec2 hdGIOctUV(vec3 direction) {
   vec3 n = direction / max(abs(direction.x) + abs(direction.y) + abs(direction.z), .0001);
@@ -198,6 +237,7 @@ float hdGIDirectVisibility(vec3 p, vec3 viewNormal, float index) {
   return hdGIVisibility(index, p + n * .004, probePosition);
 }
 
+#ifndef HD_GI_DIRECT_CAPTURE
 vec3 hdGIVolumeIrradiance(float floorIndex, vec3 p, vec3 n, float floorReceiver, out vec3 meanLight) {
   meanLight = vec3(0.0);
   if (hdGIUseVolume < .5) return vec3(0.0);
@@ -228,11 +268,18 @@ vec3 hdGIVolumeIrradiance(float floorIndex, vec3 p, vec3 n, float floorReceiver,
   vec4 basis = vec4(.886227, 1.023328 * n.y, 1.023328 * n.z, 1.023328 * n.x);
   return max((c0.rgb * basis.x + c1 * basis.y + c2 * basis.z + c3 * basis.w) / coverage, vec3(0.0));
 }
+#endif
+
 `
 
 /** All PBR surfaces share position-dependent diffuse lighting, including instances. */
 export function applyIndirectLightingShader(material: Material, uniforms: IndirectUniforms) {
   const compile = material.onBeforeCompile, cacheKey = material.customProgramCacheKey
+  // Non-wall geometry shares these programs and has no receiver attribute.
+  // Explicit defaults also keep those draws independent of previous VAOs.
+  const attributes = material as Material & { defaultAttributeValues?: Record<string, number[]> }
+  attributes.defaultAttributeValues = { ...attributes.defaultAttributeValues, hdGIReceiverOffset: [0, 0, 0],
+    hdGICorner0: [0, 0, 0], hdGICorner1: [0, 0, 0] }
   const localReflection = { value: 0 }
   localReflectionUniforms.set(material, localReflection)
   const hook: Material['onBeforeCompile'] = (shader, renderer) => {
@@ -242,37 +289,59 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
     if (shader.fragmentShader.includes('float hdGIFloor(')) return
     shader.fragmentShader = '#define HD_INDIRECT_VISIBILITY\n' + shader.fragmentShader
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 hdGIWorldPosition;')
+      .replace('#include <common>', `#include <common>
+        varying vec3 hdGIWorldPosition;
+        #ifndef HD_RECEIVER_ATTRIBUTE
+        #define HD_RECEIVER_ATTRIBUTE
+        attribute vec3 hdGIReceiverOffset;
+        #endif
+        varying vec3 hdGIReceiverWorldOffset;
+        attribute vec3 hdGICorner0;
+        attribute vec3 hdGICorner1;
+        varying vec4 hdGICornerPlane0;
+        varying vec4 hdGICornerPlane1;
+        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {
+          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);
+          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));
+          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;
+          return vec4(n, dot(n, point));
+        }`)
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 hdGIWorld = vec4(transformed, 1.0);
+        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);
+        mat4 hdGITransform = modelMatrix;
         #ifdef USE_BATCHING
           hdGIWorld = batchingMatrix * hdGIWorld;
+          hdGIReceiver = batchingMatrix * hdGIReceiver;
+          hdGITransform = hdGITransform * batchingMatrix;
         #endif
         #ifdef USE_INSTANCING
           hdGIWorld = instanceMatrix * hdGIWorld;
+          hdGIReceiver = instanceMatrix * hdGIReceiver;
+          hdGITransform = hdGITransform * instanceMatrix;
         #endif
-        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;`)
-    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\n${declarations}`)
+        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;
+        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;
+        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);
+        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);`)
+    shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\n${indirectLightingShaderDeclarations}`)
       .replace('#include <lights_fragment_end>', `
         #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)
         if (hdGIEnabled > .5) {
           vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));
           vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));
-          float hdGIId = hdGIFloor(hdGIWorldPosition + hdGISurfaceNormal * .08);
+          vec3 hdGIPosition; float hdGIFloorReceiver;
+          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,
+            hdGIPosition, hdGIFloorReceiver);
           // Environment lighting supplies reflections; scene probes supply indoor diffuse.
           iblIrradiance = vec3(0.0);
           if (hdGIId >= 0.0) {
             vec3 hdGIMean;
-            vec2 hdGIRange = hdGIFloorRanges[int(hdGIId)];
-            vec3 hdGIStep = vec3(hdGIBounds.z / (hdGIVolumeSize.x - 1.0),
-              (hdGIRange.y - hdGIRange.x) / ${INDIRECT_VOLUME_HEIGHT - 1}.0, hdGIBounds.z / (hdGIVolumeSize.x - 1.0));
-            // Offset toward the receiving side by half a voxel footprint.
-            float hdGIFloorHeight = hdGIRange.x + .06;
-            float hdGIFloorReceiver = hdGIFloorLayerReady > .5 && hdGISurfaceNormal.y > .9 &&
-              hdGIWorldPosition.y >= hdGIFloorHeight - .02 && hdGIWorldPosition.y <= hdGIFloorHeight + .08 ? 1.0 : 0.0;
-            float hdGIBias = hdGIFloorReceiver > .5 ? .004 : .02 + .5 * dot(abs(hdGISurfaceNormal), hdGIStep);
-            vec3 hdGIPosition = hdGIWorldPosition + hdGISurfaceNormal * hdGIBias;
-            vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);
+            #ifdef HD_GI_DIRECT_CAPTURE
+              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);
+            #else
+              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);
+            #endif
             irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)
               : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);
             // The studio reflection fallback must not illuminate enclosed interiors.
@@ -292,7 +361,7 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
     const marker = /:house-designer-indirect-grid-l1-v\d+-(capture|display)/g
     // Clones inherit this hook even when another controller follows it.
     // Preserve its position in the key so both materials reuse one program.
-    const suffix = ':house-designer-indirect-grid-l1-v14-display'
+    const suffix = ':house-designer-indirect-grid-l1-v18-display'
     return original.match(marker) ? original.replace(marker, suffix) : original + suffix
   }
   material.onBeforeCompile = hook; material.customProgramCacheKey = key; material.needsUpdate = true

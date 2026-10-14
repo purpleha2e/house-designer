@@ -1,15 +1,16 @@
 import { Camera, DataUtils, HalfFloatType, Mesh, OrthographicCamera, PlaneGeometry, RGBAFormat,
-  Scene, ShaderMaterial, SphericalHarmonics3, WebGLRenderTarget, type WebGLCubeRenderTarget, type WebGLRenderer } from 'three'
+  Scene, ShaderMaterial, SphericalHarmonics3, WebGLRenderTarget, type Texture, type WebGLRenderer } from 'three'
 
 /** Integrate first-order RGB SH on the GPU; read four pixels instead of six images. */
-export function createIndirectProbeIntegrator(size: number) {
+export function createIndirectProbeIntegrator(size: number, layout: 'cube' | 'array' = 'cube', faceLayers: readonly number[] = [0, 1, 2, 3, 4, 5]) {
   const scene = new Scene(), camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
   const geometry = new PlaneGeometry(2, 2)
   const material = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
     uniforms: { radiance: { value: null } },
     vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: /* glsl */ `
-      uniform samplerCube radiance;
+      uniform ${layout === 'cube' ? 'samplerCube' : 'highp sampler2DArray'} radiance;
+      ${layout === 'array' ? `const int hdGIFaceLayers[6] = int[6](${faceLayers.join(',')});` : ''}
       void main() {
         int coefficient = int(gl_FragCoord.x);
         vec3 sum = vec3(0.0); float totalWeight = 0.0;
@@ -29,7 +30,7 @@ export function createIndirectProbeIntegrator(size: number) {
             vec3 direction = normalize(p);
             float basis = coefficient == 0 ? .2820947918 : .4886025119 *
               (coefficient == 1 ? direction.y : coefficient == 2 ? direction.z : direction.x);
-            sum += textureCube(radiance, direction).rgb * basis * weight;
+            sum += ${layout === 'cube' ? 'textureCube(radiance, direction)' : `texture(radiance, vec3((vec2(float(x), float(y)) + .5) / ${size}.0, float(hdGIFaceLayers[face])))`}.rgb * basis * weight;
             totalWeight += weight;
           }
         }
@@ -38,13 +39,20 @@ export function createIndirectProbeIntegrator(size: number) {
   })
   scene.add(new Mesh(geometry, material))
   const target = new WebGLRenderTarget(4, 1, { type: HalfFloatType, format: RGBAFormat, depthBuffer: false })
-  const pixels = new Uint16Array(16)
   return {
-    compile(renderer: WebGLRenderer, cube: WebGLCubeRenderTarget) {
+    compile(renderer: WebGLRenderer, cube: { texture: Texture }) {
       material.uniforms.radiance.value = cube.texture
-      return renderer.compileAsync(scene, camera as Camera)
+      const previous = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
+      // Compile the linear offscreen variant used by read(), rather than the
+      // canvas variant; otherwise the first integration compiles synchronously.
+      try { renderer.setRenderTarget(target); return renderer.compileAsync(scene, camera as Camera) }
+      finally { renderer.setRenderTarget(previous, face, mip) }
     },
-    async read(renderer: WebGLRenderer, cube: WebGLCubeRenderTarget) {
+    async read(renderer: WebGLRenderer, cube: { texture: Texture }) {
+      // readPixels queues a copy into Three's own PBO before yielding. The cube
+      // and integration target can then be reused in GPU command order, but
+      // every outstanding read must own its CPU destination buffer.
+      const pixels = new Uint16Array(16)
       const previous = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
       const stats = { ...renderer.info.render }
       material.uniforms.radiance.value = cube.texture
@@ -58,6 +66,3 @@ export function createIndirectProbeIntegrator(size: number) {
     dispose() { geometry.dispose(); material.dispose(); target.dispose() },
   }
 }
-
-/** Keep costly frames conservative; otherwise finish a cubemap within a bounded CPU budget. */
-export function indirectCaptureFaceBudget(frameSeconds: number) { return frameSeconds > 1 / 35 ? 1 : 6 }

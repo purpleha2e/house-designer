@@ -11,6 +11,8 @@ export type RoomRoofCut = {
   roofId?: string
   roomVolume?: boolean
   floorAssembly?: boolean
+  openingVolume?: boolean
+  footprintOverlap?: number
 }
 
 type SurfaceVertex = { position: RoofVertex; normal: RoofVertex; uv: [number, number] }
@@ -80,7 +82,7 @@ export function carveRoofSurfaceByRooms(
   if (!cuts.length || !position?.count) return geometry
   const uv = geometry.getAttribute('uv'), normal = geometry.getAttribute('normal')
   const index = geometry.getIndex()
-  const planesByCut = cuts.flatMap(({ face, thickness, bottomY }) => {
+  const planesByCut = cuts.flatMap(({ face, thickness, bottomY, footprintOverlap = CUT_FOOTPRINT_OVERLAP }) => {
     if (face.length < 3) return []
     const localFace = face.map(toLocal)
     const height = roofFaceHeight(localFace)
@@ -90,7 +92,7 @@ export function carveRoofSurfaceByRooms(
       // A tiny footprint overlap absorbs float error without opening a visible
       // slit beside the retained ceiling face at roof junctions.
       ...footprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })))
-        .map(plane => ((point: RoofVertex) => plane(point) + CUT_FOOTPRINT_OVERLAP) as ClipPlane),
+        .map(plane => ((point: RoofVertex) => plane(point) + footprintOverlap) as ClipPlane),
       (([x, y, z]: RoofVertex) => height({ x, y: z }) - thickness + CUT_VERTICAL_OVERLAP - y) as ClipPlane,
       (([, y]: RoofVertex) => y - bottom) as ClipPlane,
     ]]

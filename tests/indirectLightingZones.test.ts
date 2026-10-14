@@ -3,7 +3,7 @@ import test from 'node:test'
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial } from 'three'
 import { createIndirectField } from '../src/indirectLighting.ts'
 import { createIndirectVisibility } from '../src/indirectVisibility.ts'
-import { indirectOpeningChanges, indirectZoneProbes, planIndirectZones } from '../src/indirectLightingZones.ts'
+import { indirectLocalChanges, indirectOpeningChanges, indirectZoneProbes, planIndirectZones } from '../src/indirectLightingZones.ts'
 import type { FloorLevel } from '../src/types.ts'
 
 const room = (x: number) => [{ x, y: 0 }, { x: x + 4, y: 0 }, { x: x + 4, y: 4 }, { x, y: 4 }]
@@ -82,4 +82,25 @@ test('new or relocated probes are recaptured even outside the edited opening zon
   assert.ok(plan.first.includes(probe.index))
   assert.ok(plan.second.includes(probe.index))
   dispose()
+})
+
+test('furniture moves and lamp edits dirty measured old and new bounds while preserving sealed rooms', () => {
+  const chair = { id: 'chair', modelId: 'chair', position: { x: 1, y: 2 }, rotation: 0, scale: 1 }
+  const before = { ...floor, models: [chair] }, after = { ...floor, models: [{ ...chair, position: { x: 2, y: 2 } }] }
+  const old = new Map([['chair', { min: [.8, 0, 1.8], max: [1.2, 1, 2.2] }]])
+  const current = new Map([['chair', { min: [1.8, 0, 1.8], max: [2.2, 1, 2.2] }]])
+  const changes = indirectLocalChanges(revision([before]), revision([after]), old, current)!
+  assert.equal(changes.length, 2)
+  assert.deepEqual(changes[0].min, [.8 - .35, -.35, 1.8 - .35])
+  const fixtureState = fixture(false)
+  const { field, visibility } = fixtureState
+  const plan = planIndirectZones(field, visibility, indirectZoneProbes(field), changes)
+  assert.ok(plan.first.length > 0 && plan.reused > 0)
+  assert.ok(field.probes.filter(probe => plan.second.includes(probe.index)).every(probe =>
+    probe.region.floorId === 'ground' && probe.region.polygon[0].x === 0))
+  assert.ok(indirectLocalChanges(revision([before]), revision([{ ...before, models: [{ ...chair, lightPower: 300 }] }]), old, old))
+  assert.ok(indirectLocalChanges(revision([before]), revision([floor]), old, new Map()), 'removed furniture retains old bounds')
+  assert.equal(indirectLocalChanges(revision([before]), revision([after]), old, new Map()), null, 'missing new geometry requires a full bake')
+  assert.equal(indirectLocalChanges(revision([before]), revision([after], { modelAssetVersion: 1 }), old, current), null)
+  fixtureState.dispose()
 })

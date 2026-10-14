@@ -28,6 +28,16 @@ test('enclosed rooms on both Red House storeys generate cutters', () => {
   }
 })
 
+test('room enclosure caps are unchanged when window and doorway opening data is omitted', () => {
+  const floors = fixture('red_house_3.json'), roofs = resolveBuildingRoofs(floors)
+  const structure = floors.map(floor => ({ ...floor, walls: floor.walls.map(wall => ({ ...wall, openings: [] })) }))
+  const original = buildBuildingRoomVolumes(floors, roofs), withoutOpenings = buildBuildingRoomVolumes(structure, roofs)
+  assert.deepEqual(original.roomPolygonsByFloor, withoutOpenings.roomPolygonsByFloor)
+  assert.deepEqual(original.ceilingFaces, withoutOpenings.ceilingFaces)
+  assert.deepEqual(original.cuts.filter(cut => !cut.openingVolume), withoutOpenings.cuts)
+  assert.ok(original.cuts.some(cut => cut.openingVolume), 'openings bridge the wall gap between room polygons')
+})
+
 test('an inter-storey floor cuts internal roof fragments within the trimmed slab footprint', () => {
   const floors = fixture('colin_house_v2.json')
   const ordered = [...floors].sort((a, b) => a.elevation - b.elevation)
@@ -64,7 +74,7 @@ test('a roofless room has a closed horizontal volume', () => {
   const { cuts, ceilingFaces } = buildBuildingRoomVolumes([floor], [])
   assert.ok(cuts.length)
   assert.equal(ceilingFaces.length, 0)
-  assert.ok(cuts.every(cut => cut.face.every(([, y]) =>
+  assert.ok(cuts.filter(cut => !cut.openingVolume).every(cut => cut.face.every(([, y]) =>
     Math.abs(y - floor.elevation - floor.roomHeight) < 1e-6)))
 })
 

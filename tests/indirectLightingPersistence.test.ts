@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CubeUVReflectionMapping, DataUtils, Group, SphericalHarmonics3 } from 'three'
 import { createIndirectField, writeIndirectProbe } from '../src/indirectLighting.ts'
-import { indirectAssetIdentity, indirectContentKey, indirectProjectKey, loadIndirectLighting, saveIndirectLighting,
+import { INDIRECT_CACHE_VERSION, indirectAssetIdentity, indirectContentKey, indirectProjectKey, loadIndirectLighting, saveIndirectLighting,
   savedIndirectLightingMatches, type IndirectLightingSettings } from '../src/indirectLightingPersistence.ts'
 import { createIndirectVolumeLookup, writeIndirectVolumeRow } from '../src/indirectVolume.ts'
 import { createIndirectVisibility } from '../src/indirectVisibility.ts'
@@ -66,8 +66,10 @@ test('saved GI rejects design, asset and lighting changes while remaining portab
   assert.equal(key, indirectProjectKey({ ...project, floors: project.floors.map(f => ({ ...f, name: 'Renamed' })) }))
   assert.notEqual(key, indirectProjectKey({ ...project, sunPosition: { azimuth: 2, elevation: .8 } }))
   assert.notEqual(key, indirectProjectKey({ ...project, floors: project.floors.map(f => ({ ...f, elevation: 1 })) }))
-  const cache = { version: 1, projectKey: key, assetKey: 'assets', settings } as Parameters<typeof savedIndirectLightingMatches>[0]
+  const cache = { version: INDIRECT_CACHE_VERSION, projectKey: key, assetKey: 'assets', settings } as Parameters<typeof savedIndirectLightingMatches>[0]
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', settings), true)
+  assert.equal(savedIndirectLightingMatches({ ...cache!, version: 1 }, key, 'assets', settings), false,
+    'lighting baked before the passive-roof enclosure correction must be rebuilt')
   assert.equal(savedIndirectLightingMatches(cache, key, 'edited-assets', settings), false)
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, lights: false }), false)
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, diffuseProbeResolution: 16 }), true, 'legacy bakes use 16 samples per axis')
@@ -85,8 +87,8 @@ test('saved GI rejects design, asset and lighting changes while remaining portab
 test('volume previews and bounce updates reuse geometry visibility without changing lighting', () => {
   const field = createIndirectField(floors, 0), visibility = createIndirectVisibility(new Group())
   let rays = 0
-  const original = visibility.distance
-  visibility.distance = (...args) => { rays++; return original(...args) }
+  const original = visibility.occluded
+  visibility.occluded = (...args) => { rays++; return original(...args) }
   const lookup = createIndirectVolumeLookup(field, visibility), result = new Float64Array(12)
   const update = (preview: boolean, strength: number) => {
     field.probes.forEach((probe, i) => {

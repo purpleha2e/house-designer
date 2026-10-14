@@ -8,9 +8,9 @@ import { getPitchedRoofHeightAtX } from './roofProfile.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import { weldJoinedRoofCells } from './roofSeamWelding.ts'
 import { alignRoofEaveBases } from './roofEaveAlignment.ts'
-import { cutRoofFacesAtDormerOpenings, splitRoofUndersideFaces, type RoofGeometries, type RoofVertex } from './roofSolidGeometry.ts'
+import { cutRoofFacesAtDormerOpenings, partitionRoofFacesByRooms, splitRoofUndersideFaces, type RoofGeometries, type RoofVertex } from './roofSolidGeometry.ts'
 import { getBayRoofTopUvs, getFlippedRoofFaceProjectedUvs, getPitchedRoofTopUvs, getRoofFaceProjectedUvs } from './roofUv.ts'
-import type { RoomRoofCut } from './roofRoomCsg.ts'
+import { carveRoofSurfaceByRooms, type RoomRoofCut } from './roofRoomCsg.ts'
 import { footprintPlanes, roofFacePlanes, type ClipPlane } from './wallEngine/wallRoofClip.ts'
 import { intersectSolid, planeDistance, prismSolid, solidBoundaryFaces, solidPolygonArea, subtractSolid, type ConvexSolid, type SolidFace, type SolidPlane } from './convexSolid.ts'
 
@@ -26,6 +26,7 @@ export type RoofAssemblyInput = {
   abuttingWalls?: RoofAbuttingWall[]
   dormerOpenings?: Point[][]
   roomCuts?: RoomRoofCut[]
+  exteriorTrimCuts?: RoomRoofCut[]
 }
 const EPS = 1e-7
 
@@ -75,7 +76,7 @@ export function assembleRoofCells(cells: ConvexSolid[]): RoofAssembly {
   return { cells, faces, edges: [...edges.values()] }
 }
 
-function constructRoofCells({ resolved, abuttingWalls = [], dormerOpenings = [], roomCuts = [] }: RoofAssemblyInput): ConvexSolid[] {
+function constructRoofCells({ resolved, abuttingWalls = [], dormerOpenings = [], roomCuts = [], exteriorTrimCuts = [] }: RoofAssemblyInput): ConvexSolid[] {
   const { roof, elevation } = resolved
   const thickness = getRoofThickness(roof)
   const local = (p: RoofVertex) => roofToLocal(roof, elevation, p)
@@ -167,24 +168,26 @@ function constructRoofCells({ resolved, abuttingWalls = [], dormerOpenings = [],
     return [[...planes, (p: RoofVertex) => -above(p)].map(plane => coefficients(p => plane(world(p))))]
   })
   eaves = cut(eaves, joinedVolumes, 'eaves')
-  // A horizontal fallback cannot cut the enclosing roof's outer skin.
-  // Overhangs entering a room have their own sloping ceiling cuts instead.
-  const rooms = roomCuts.filter(c => !(c.roomVolume && c.floorId === resolved.floorId &&
-    ((roof.fitSupportingWalls && roof.clipsGeometry === false) ||
-      (roof.clipsGeometry !== false && !c.roofId))))
-  const roomVolumes = rooms.flatMap(({ face, bottomY, thickness: depth }) => {
+  // Room voids always cut every roof, including passive roofs on their own
+  // storey. Their caps follow the enclosure so the exterior remains watertight.
+  const rooms = roomCuts
+  const volumesForRooms = (cuts: RoomRoofCut[], ceilingOffset = -0.001) => cuts.flatMap(({ face, bottomY, thickness: depth, footprintOverlap = 0.0001 }) => {
     const localFace = face.map(local), height = roofFaceHeight(localFace)
     if (!height) return []
     const bottom = local([face[0][0], bottomY, face[0][2]])[1]
     // Put the closure just inside the adjoining wall, rather than leaving an
     // eave cut face coplanar with its room-side finish (visible as a striped strip).
     return [[...footprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })))
-      .map(plane => (point: RoofVertex) => plane(point) + 0.0001),
-      ([x, y, z]: RoofVertex) => height({ x, y: z }) - depth - 0.001 - y,
+      .map(plane => (point: RoofVertex) => plane(point) + footprintOverlap),
+      ([x, y, z]: RoofVertex) => height({ x, y: z }) - depth + ceilingOffset - y,
       ([, y]: RoofVertex) => y - bottom].map(coefficients)]
   })
-  cells = cut(cells, roomVolumes, 'shell')
+  const roomVolumes = volumesForRooms(rooms)
+  cells = cut(cells, roomVolumes, 'underside')
   eaves = cut(eaves, roomVolumes, 'eaves')
+  // Boxed soffits and fascia are exterior fittings, never a room enclosure.
+  // Their cuts include nominal ceiling space as well as vaulted enclosures.
+  eaves = cut(eaves, volumesForRooms(exteriorTrimCuts, 0.003), 'eaves')
   return [...cells, ...eaves]
 }
 
@@ -195,21 +198,26 @@ export function constructRoofLinings({ resolved, roomCuts = [] }: RoofAssemblyIn
   // Fitted rooms keep a continuous interior lining at their ceiling envelope.
   // A joined branch can own the exterior tiles here; its boxed eave and tile
   // underside must not become an exposed panel in the receiving room.
-  if (roof.fitSupportingWalls) {
-    for (const room of roomCuts.filter(c => c.roomVolume && c.floorId === resolved.floorId && c.roofId === roof.id)) {
-      const face = room.face.map(p => roofToLocal(roof, elevation, [p[0], p[1] - room.thickness - 0.001, p[2]]))
-      const height = roofFaceHeight(face)
-      if (!height) continue
-      // Room partitions can reach the same corner through different boolean
-      // paths. Snap their plan coordinates before building the thin finish.
-      const outline = face.map(([x, , z]): RoofVertex => {
-        x = Math.round(x * 1e6) / 1e6
-        z = Math.round(z * 1e6) / 1e6
-        return [x, height({ x, y: z }), z]
-      })
-      const lining = roofPanelSolid(outline, (x, z) => height({ x, y: z }) - 0.001,
-        'underside', 'underside', 'underside')
-      if (lining) cells.push(lining)
+  if (roof.fitSupportingWalls || roof.allowInteriorSkin) {
+    const support = roofBoundsPolygon(resolved, resolved.support)
+    for (const room of roomCuts.filter(c => c.roomVolume && c.floorId === resolved.floorId && c.roofId)) {
+      for (const supported of partitionRoofFacesByRooms([room.face], [support]).inside) {
+        const projection = roof.allowInteriorSkin
+          ? Math.min(0.1, Math.max(0, Number.isFinite(roof.interiorSkinDepth) ? roof.interiorSkinDepth! : 0.02)) : 0
+        const face = supported.map(p => roofToLocal(roof, elevation, [p[0], p[1] - room.thickness + 0.001 - projection, p[2]]))
+        const height = roofFaceHeight(face)
+        if (!height) continue
+        // Room partitions can reach the same corner through different boolean
+        // paths. Snap their plan coordinates before building the thin finish.
+        const outline = face.map(([x, , z]): RoofVertex => {
+          x = Math.round(x * 1e6) / 1e6
+          z = Math.round(z * 1e6) / 1e6
+          return [x, height({ x, y: z }), z]
+        })
+        const lining = roofPanelSolid(outline, (x, z) => height({ x, y: z }) - 0.001,
+          'underside', 'underside', 'underside')
+        if (lining) cells.push(lining)
+      }
     }
   }
   // Each ceiling panel is a closed finish. Keep adjacent room panels separate:
@@ -249,7 +257,7 @@ export function constructJoinedRoofAssembly(inputs: RoofAssemblyInput[]): RoofAs
 }
 
 function renderAssemblyFaces(input: RoofAssemblyInput, faces: SolidFace[], sharedUv?: Map<SolidFace, number[][]>): RoofGeometries {
-  const { roof, support } = input.resolved
+  const { roof, support, elevation } = input.resolved
   const buffers = Object.fromEntries(['top', 'shell', 'underside', 'soffit', 'eaves'].map(part =>
     [part, { positions: [] as number[], normals: [] as number[], uvs: [] as number[] }])) as Record<RoofAssemblyPart, { positions: number[]; normals: number[]; uvs: number[] }>
   for (const face of [...faces, ...constructRoofLinings(input).flatMap(lining => lining.faces)]) {
@@ -280,6 +288,15 @@ function renderAssemblyFaces(input: RoofAssemblyInput, faces: SolidFace[], share
     geometry.setAttribute('normal', new Float32BufferAttribute(data.normals, 3))
     geometry.setAttribute('uv', new Float32BufferAttribute(data.uvs, 2))
     geometry.computeBoundingBox(); geometry.computeBoundingSphere()
+    // Removing a boxed eave can expose the overhang's original soffit or tile
+    // edge behind it. Trim these exterior faces too, while retaining the actual
+    // sloping underside and outer skin that enclose the room.
+    if (part === 'soffit' || part === 'shell') {
+      const clipped = carveRoofSurfaceByRooms(geometry, input.exteriorTrimCuts ?? [],
+        point => roofToLocal(roof, elevation, point))
+      if (clipped !== geometry) geometry.dispose()
+      return [part, clipped]
+    }
     return [part, geometry]
   })) as RoofGeometries
 }

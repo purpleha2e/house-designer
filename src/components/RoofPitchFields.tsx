@@ -13,7 +13,7 @@ export function RoofPitchFields({
   alignedHeightOffset,
   section = 'all',
 }: {
-  roof: Pick<RoofStructure, 'type' | 'heightOffset' | 'fitSupportingWalls' | 'thickness' | 'clipsGeometry' | 'bayRidgeLength' | 'pitchDegrees' | 'overhangPitchDegrees' | 'soffitColor' | 'ridgeStartChamfer' | 'ridgeEndChamfer'>
+  roof: Pick<RoofStructure, 'type' | 'heightOffset' | 'fitSupportingWalls' | 'thickness' | 'clipsGeometry' | 'allowInteriorSkin' | 'interiorSkinDepth' | 'bayRidgeLength' | 'pitchDegrees' | 'overhangPitchDegrees' | 'soffitColor' | 'ridgeStartChamfer' | 'ridgeEndChamfer'>
   onChange: (updates: Partial<RoofStructure>) => void
   bayRidgeMaxLength?: number
   chamferGeometry?: { roof: RoofStructure; extents: RoofBounds; support: RoofBounds }
@@ -52,6 +52,20 @@ export function RoofPitchFields({
           onChange={(event) => onChange({ clipsGeometry: event.target.checked })} />
         <span>Clip house geometry</span>
       </label>
+      <small>Interior rooms always clip roof tiles and exterior fittings.</small>
+      <label className="roof-pitch-link" title="Allow only the roof's interior lining to project slightly into a room. Exterior roof fittings remain clipped.">
+        <input aria-label="Allow roof inner skin inside rooms" type="checkbox" checked={roof.allowInteriorSkin === true}
+          onChange={event => onChange({ allowInteriorSkin: event.target.checked })} />
+        <span>Allow inner skin inside rooms</span>
+      </label>
+      {roof.allowInteriorSkin && <label className="roof-pitch-field">
+        <span>Inner skin projection (m)</span>
+        <input aria-label="Roof inner skin projection" type="number" min="0" max="0.1" step="0.005"
+          value={roof.interiorSkinDepth ?? 0.02} onChange={event => {
+            const value = Number.parseFloat(event.target.value)
+            if (Number.isFinite(value)) onChange({ interiorSkinDepth: Math.min(0.1, Math.max(0, value)) })
+          }} />
+      </label>}
       <label className="roof-pitch-field">
         <span>Roof thickness (m)</span>
         <input type="number" min="0.01" max="1" step="0.01" value={getRoofThickness(roof)}

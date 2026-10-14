@@ -47,23 +47,40 @@ export function indirectGeometryFingerprint(geometry: BufferGeometry) {
 
 /** Prefer a point with clearance, including in L-shaped and narrow rooms. */
 export function roomProbePoint(polygon: Point[], requested: Point, inset = 0.18): Point {
-  const clearance = (point: Point) => Math.min(...polygon.map((a, i) => {
-    const b = polygon[(i + 1) % polygon.length], dx = b.x - a.x, dz = b.y - a.y
-    const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dz) / (dx * dx + dz * dz || 1)))
-    return Math.hypot(point.x - a.x - dx * t, point.y - a.y - dz * t)
-  }))
-  if (pointIsInsideRoomPolygon(requested, polygon) && clearance(requested) >= inset) return requested
+  return createRoomProbeLocator(polygon)(requested, inset)
+}
+
+/** Geometry is fixed during one layout. Reuse its candidate clearances for
+ * every requested grid node, rather than resampling the room 576 times each. */
+function createRoomProbeLocator(polygon: Point[]) {
+  const clearance = (point: Point) => {
+    let distance = Infinity
+    for (let i = 0; i < polygon.length; i++) {
+      const a = polygon[i], b = polygon[(i + 1) % polygon.length], dx = b.x - a.x, dz = b.y - a.y
+      const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dz) / (dx * dx + dz * dz || 1)))
+      distance = Math.min(distance, Math.hypot(point.x - a.x - dx * t, point.y - a.y - dz * t))
+    }
+    return distance
+  }
   const minX = Math.min(...polygon.map(p => p.x)), maxX = Math.max(...polygon.map(p => p.x))
   const minZ = Math.min(...polygon.map(p => p.y)), maxZ = Math.max(...polygon.map(p => p.y))
-  let best = polygon[0], score = Infinity
-  for (let z = 0; z < 24; z++) for (let x = 0; x < 24; x++) {
-    const point = { x: minX + (x + .5) / 24 * (maxX - minX), y: minZ + (z + .5) / 24 * (maxZ - minZ) }
-    if (!pointIsInsideRoomPolygon(point, polygon)) continue
-    const margin = clearance(point)
-    const next = Math.hypot(point.x - requested.x, point.y - requested.y) + Math.max(0, inset - margin) * 100
-    if (next < score) { best = point; score = next }
+  let candidates: { point: Point; margin: number }[] | undefined
+  return (requested: Point, inset = .18) => {
+    if (pointIsInsideRoomPolygon(requested, polygon) && clearance(requested) >= inset) return requested
+    if (!candidates) {
+      candidates = []
+      for (let z = 0; z < 24; z++) for (let x = 0; x < 24; x++) {
+        const point = { x: minX + (x + .5) / 24 * (maxX - minX), y: minZ + (z + .5) / 24 * (maxZ - minZ) }
+        if (pointIsInsideRoomPolygon(point, polygon)) candidates.push({ point, margin: clearance(point) })
+      }
+    }
+    let best = polygon[0], score = Infinity
+    for (const { point, margin } of candidates) {
+      const next = Math.hypot(point.x - requested.x, point.y - requested.y) + Math.max(0, inset - margin) * 100
+      if (next < score) { best = point; score = next }
+    }
+    return best
   }
-  return best
 }
 
 function texture(data: Uint8Array | Uint16Array | Float32Array, width: number, height: number, linear = false) {
@@ -85,6 +102,7 @@ export function createIndirectField(input: IndirectFloor[], localLightCount = 1)
   const size = Math.max(1, ...points.map(p => p.x - minX + .25), ...points.map(p => p.y - minZ + .25))
   const maskData = new Uint8Array(INDIRECT_MASK_SIZE * INDIRECT_MASK_SIZE * Math.max(1, floors.length) * 4)
   const regions: IndirectRegion[] = []
+  const locators = new Map<IndirectRegion, ReturnType<typeof createRoomProbeLocator>>()
   const ranges = Array.from({ length: INDIRECT_MAX_FLOORS }, () => ({ bottom: 1e8, top: -1e8 }))
   for (const [index, floor] of floors.entries()) {
     const top = floors[index + 1]?.elevation ?? floor.elevation + floor.height
@@ -99,10 +117,11 @@ export function createIndirectField(input: IndirectFloor[], localLightCount = 1)
       const width = Math.max(.1, Math.max(...room.polygon.map(p => p.x)) - x)
       const depth = Math.max(.1, Math.max(...room.polygon.map(p => p.y)) - z)
       const y = floor.elevation + Math.min(1.2, floor.height * .5)
-      const centre = roomProbePoint(room.polygon, { x: x + width / 2, y: z + depth / 2 })
+      const locate = createRoomProbeLocator(room.polygon)
+      const centre = locate({ x: x + width / 2, y: z + depth / 2 })
       const region: IndirectRegion = { id, floorId: floor.id, polygon: room.polygon, minX: x, minZ: z, width, depth,
         bottom: floor.elevation, top, y, centre: new Vector3(centre.x, y, centre.y) }
-      regions.push(region); ids.set(localId, id)
+      regions.push(region); ids.set(localId, id); locators.set(region, locate)
     }
     mask.data.forEach((localId, pixel) => {
       // This is occupancy, never a room ID: adjoining rooms have identical values.
@@ -123,11 +142,15 @@ export function createIndirectField(input: IndirectFloor[], localLightCount = 1)
     for (let z = 0; z < n; z++) for (let x = 0; x < n; x++) {
       const requested = { x: minX + x * spacing, y: minZ + z * spacing }
       const inside = candidates.find(region => pointIsInsideRoomPolygon(requested, region.polygon))
-      const nearest = inside ? { region: inside, point: roomProbePoint(inside.polygon, requested), distance: 0 }
-        : candidates.map(region => {
-          const point = roomProbePoint(region.polygon, requested)
-          return { region, point, distance: Math.hypot(point.x - requested.x, point.y - requested.y) }
-        }).sort((a, b) => a.distance - b.distance)[0]
+      let nearest = inside ? { region: inside, point: locators.get(inside)!(requested), distance: 0 } : undefined
+      if (!inside) for (const region of candidates) {
+        // A room outside the support radius cannot supply this node. The
+        // bounding box is a conservative lower bound, even for concave rooms.
+        if (Math.hypot(Math.max(region.minX - requested.x, 0, requested.x - region.minX - region.width),
+          Math.max(region.minZ - requested.y, 0, requested.y - region.minZ - region.depth)) > spacing) continue
+        const point = locators.get(region)!(requested), distance = Math.hypot(point.x - requested.x, point.y - requested.y)
+        if (!nearest || distance < nearest.distance) nearest = { region, point, distance }
+      }
       if (!nearest || nearest.distance > spacing) continue
       for (let y = 0; y < 2; y++) {
         const index = grid.start + y * n * n + z * n + x

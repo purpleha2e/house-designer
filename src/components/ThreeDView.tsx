@@ -12,12 +12,17 @@ import {
   useProgress,
 } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { ModelSelectionHighlight, createSelectionHighlightMaterial, updateSelectionHighlightMaterial } from './ModelSelectionHighlight'
 import { GroundImage3D } from './GroundImage3D'
 import { WindowMesh } from './WindowMesh'
 import { getSpatialDragDelta, getTransformRotation } from '../transformModifiers'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
+import type { EffectComposer as EffectComposerImpl } from 'postprocessing'
+import { SceneRenderer } from './SceneRenderer'
+import { getImportedModelTransform } from '../importedModelTransform'
+import { getLocalLightLimits, MAX_REALTIME_LOCAL_LIGHTS } from '../localLightBudget'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { PbrEnvironmentProvider } from './PbrEnvironment'
 import { IndirectLighting } from './IndirectLighting'
@@ -32,6 +37,7 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import {
   BackSide,
   ACESFilmicToneMapping,
+  BoxGeometry,
   BufferGeometry,
   CanvasTexture,
   Color,
@@ -43,6 +49,8 @@ import {
   Material,
   Matrix3,
   Matrix4,
+  Mesh,
+  MeshBasicMaterial,
   MeshDepthMaterial,
   NearestFilter,
   NoColorSpace,
@@ -50,6 +58,7 @@ import {
   Plane,
   Path,
   PointLight,
+  PropertyBinding,
   Raycaster,
   RawShaderMaterial,
   RepeatWrapping,
@@ -68,7 +77,6 @@ import {
   WebGLRenderTarget,
   type Camera,
   type Light,
-  type Mesh,
   type MeshStandardMaterial,
   type Side,
   type Texture,
@@ -86,6 +94,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type ErrorInfo,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
@@ -120,12 +129,13 @@ import {
 import { findClosestWallFace } from '../wallPickFallback'
 import { WallViewFadeContext, isFadedWallSurface, useWallViewFade } from './WallViewFade'
 import { isProximityFadedObject, RoofViewFadeContext, RoofVisibilityContext, useProximityViewFade } from './ProximityViewFade'
-import { releaseLightShadowResources } from '../lightShadowResources'
+import { LOCAL_LIGHT_SHADOW_BIAS, LOCAL_LIGHT_SHADOW_NORMAL_BIAS, LOCAL_LIGHT_SHADOW_RADIUS,
+  releaseLightShadowResources } from '../lightShadowResources'
 import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../sunShadowCache'
 import { withWallShadowReceiver } from '../materials/wallShadowReceiver'
 import { buildDoorwayFloorPatches, doorwayFloorKey } from '../doorwayFloors'
 import { configureAmbientOcclusionPass } from '../ambientOcclusionResources'
-import { createShaderWarmupSnapshot, getShaderWarmupSceneRevision } from '../shaderWarmup'
+import { createShaderWarmupSnapshot, getShaderWarmupSceneRevision, isSelectionDecoration, shaderWarmupRevisionIsCovered } from '../shaderWarmup'
 import {
   applyImportedPbrEnvironment,
   normalizeImportedPbrMaterial,
@@ -186,10 +196,11 @@ import {
 import { withSpecularOnlyImageBasedLighting } from '../materials/imageBasedLighting'
 import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
 import { wallMaterialBatchKey } from '../wallEngine/wallMaterialBatchKey'
-import { clipWallFacesInWorker } from '../wallEngine/wallRoofClipClient'
+import { clipWallFacesInWorker, isWallClippingPending, subscribeWallClipping } from '../wallEngine/wallRoofClipClient'
+import { createWallRoofClipJob } from '../wallEngine/wallRoofClipJob'
 import { buildStoreyGeometry, getExposedAssemblyEdges, type FloorAssembly, type StoreyGeometry } from '../storeyGeometry'
 import { getFloorSlabFootprints } from '../ceilingSlabFootprint'
-import { getRoofCeilingCutouts } from '../roofCeilingClipping'
+import { getRoofCeilingCutouts, getRoomCeilingCutouts } from '../roofCeilingClipping'
 import { getBaySupportPolygon } from '../bayRoof'
 import {
 } from '../roofProfile'
@@ -748,7 +759,6 @@ const MODEL_EDGE_SNAP_MIN_OVERLAP_METERS = 0.05
 const WINDOW_WALL_OFFSET_SNAP_DISTANCE_METERS = 0.18
 const WINDOW_WALL_OFFSET_STEP_METERS = 0.05
 const FALLBACK_REALTIME_LOCAL_LIGHTS = 8
-const MAX_REALTIME_LOCAL_LIGHTS = 11
 const LOCAL_LIGHT_RENDER_POWER_SCALE = 0.08
 const DEFAULT_LOCAL_LIGHT_DISTANCE = 10
 const DEFAULT_LOCAL_LIGHT_FALLOFF = 1.15
@@ -1031,6 +1041,8 @@ function getFloorRenderResetKey(
         roof.thickness ?? '',
         roof.clipsGeometry ?? true,
         roof.fitSupportingWalls ?? false,
+        roof.allowInteriorSkin ?? false,
+        roof.interiorSkinDepth ?? 0.02,
         roof.asymmetricSides ?? false,
         roof.ridgeOffset ?? '',
         roof.ridgeHeight ?? '',
@@ -2628,7 +2640,7 @@ const StoreyGeometryContext = createContext<ReadonlyMap<string, StoreyGeometry>>
 const RoofGableContext = createContext<RoofGable[]>([])
 const BuildingRoomCutsContext = createContext<RoomRoofCut[]>([])
 
-function WallEngineWallMeshes({
+const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
   castsShadow,
   onlyStoreyBoundary = false,
   clipToInheritedRoofs = false,
@@ -2781,30 +2793,31 @@ function WallEngineWallMeshes({
       wallFaces: stableUncutFaces,
     }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces, roofFootprints, gableClipData, clipToInheritedRoofs, gables])
   const [faces, setFaces] = useState<WallEngineFace[]>([])
-  useEffect(() => {
+  // Roof/gable calculations can recreate equivalent plane closures after an
+  // opening edit on another floor. Compare the actual clipping coefficients.
+  const roofClipKey = JSON.stringify(createWallRoofClipJob([], roofClipOptions))
+  const stableRoofClipRef = useRef({ key: roofClipKey, options: roofClipOptions })
+  if (stableRoofClipRef.current.key !== roofClipKey) stableRoofClipRef.current = { key: roofClipKey, options: roofClipOptions }
+  const stableRoofClipOptions = stableRoofClipRef.current.options
+  useLayoutEffect(() => {
     const controller = new AbortController()
-    const timer = window.setTimeout(() => {
-      const startedAt = performance.now()
-      emitEngineActivity({ message: 'Updating wall / roof geometry in background...', minimumVisibleMs: 700 })
-      clipWallFacesInWorker(stableUncutFaces, roofClipOptions, controller.signal).then((nextFaces) => {
-        if (controller.signal.aborted) return
-        setFaces(nextFaces)
-        recordEngineLog('wall-roof-clipping-complete', `${floorId}: ${Math.round(performance.now() - startedAt)}ms in worker`)
-      }).catch((error) => {
-        if (controller.signal.aborted) return
-        console.error('Wall / roof geometry update failed; retaining the previous geometry.', error)
-        recordEngineLog(
-          'wall-roof-clipping-failed',
-          `${floorId}: ${error instanceof Error ? error.message : String(error)}`,
-        )
-        emitEngineActivity({ message: 'Wall / roof update failed. Previous geometry retained.', minimumVisibleMs: 5000 })
-      })
-    }, 80)
-    return () => {
-      window.clearTimeout(timer)
-      controller.abort()
-    }
-  }, [floorId, roofClipOptions, stableUncutFaces])
+    const startedAt = performance.now()
+    emitEngineActivity({ message: 'Updating wall / roof geometry in background...', minimumVisibleMs: 700 })
+    clipWallFacesInWorker(stableUncutFaces, stableRoofClipOptions, controller.signal).then((nextFaces) => {
+      if (controller.signal.aborted) return
+      setFaces(nextFaces)
+      recordEngineLog('wall-roof-clipping-complete', `${floorId}: ${Math.round(performance.now() - startedAt)}ms in worker`)
+    }).catch((error) => {
+      if (controller.signal.aborted) return
+      console.error('Wall / roof geometry update failed; retaining the previous geometry.', error)
+      recordEngineLog(
+        'wall-roof-clipping-failed',
+        `${floorId}: ${error instanceof Error ? error.message : String(error)}`,
+      )
+      emitEngineActivity({ message: 'Wall / roof update failed. Previous geometry retained.', minimumVisibleMs: 5000 })
+    })
+    return () => controller.abort()
+  }, [floorId, stableRoofClipOptions, stableUncutFaces])
   const roomSurfaceDebugFaces = useMemo(
     () =>
       ROOM_SURFACE_DEBUG_OVERLAY_ENABLED
@@ -3035,6 +3048,10 @@ function WallEngineWallMeshes({
     [adjoiningSurfaceGroups, coplanarSurfaceGroups, faces, floorId],
   )
   const geometry = useMemo(() => createWallBufferGeometry(payload), [payload])
+  const paletteKey = JSON.stringify(payload.materialSlots.map(slot => {
+    const finish = resolveWallEngineMaterial({ source: slot.source, surfaceAssignments, wallsById })
+    return wallMaterialBatchKey(finish.assignment, finish.fallback)
+  }))
   const pickGeometry = useMemo(
     () => createWallBufferGeometry(pickPayload),
     [pickPayload],
@@ -3161,13 +3178,13 @@ function WallEngineWallMeshes({
     return null
   }
 
-  // Fading owns a temporary material array. A new geometry/palette must get
-  // its own mesh so cleanup cannot overwrite freshly attached slots with the
-  // previous palette (for example, after adding internal walls).
+  // Keep loaded materials and their programs when only the opening moves.
+  // A changed palette still owns a new mesh so fade cleanup cannot overwrite
+  // newly attached slots with the previous palette.
   return (
     <>
       <mesh
-        key={geometry.uuid}
+        key={paletteKey}
         ref={meshRef}
         castShadow={castsShadow}
         frustumCulled={false}
@@ -3260,7 +3277,14 @@ function WallEngineWallMeshes({
       ) : null}
     </>
   )
-}
+}, (previous, next) => Object.keys({ ...previous, ...next }).every(key => {
+  const a = previous[key as keyof typeof previous], b = next[key as keyof typeof next]
+  if (a === b) return true
+  // Visibility filters allocate equivalent arrays/sets on status updates.
+  if (Array.isArray(a) && Array.isArray(b)) return a.length === b.length && a.every((value, index) => value === b[index])
+  if (a instanceof Set && b instanceof Set) return a.size === b.size && [...a].every(value => b.has(value))
+  return false
+}))
 
 function createRoomSurfaceDebugGeometry(faces: ReturnType<typeof buildRoomSurfaceWallFaces>) {
   const positions: number[] = []
@@ -7220,6 +7244,14 @@ function CeilingSlabSolid({
   useHorizontalSurfaceVisibility(capMaterialRef, topY, 'above', capFootprint)
 
   return (
+    <>
+    {/* Keep the solid boundary in local shadow maps when its visual cap is
+        hidden from the camera on the floor below. Shape holes stay open. */}
+    <mesh castShadow={castsShadow} position={[0, Math.max(depth - CEILING_SLAB_CAP_INSET_METERS, depth / 2), 0]}
+      rotation={[-Math.PI / 2, 0, 0]} userData={{ houseDesignerRole: 'slab-shadow-cap' }}>
+      <shapeGeometry args={[shape]} />
+      <meshBasicMaterial colorWrite={false} depthWrite={false} side={DoubleSide} shadowSide={DoubleSide} />
+    </mesh>
     <mesh
       castShadow={castsShadow}
       receiveShadow
@@ -7267,6 +7299,7 @@ function CeilingSlabSolid({
         ),
       )}
     </mesh>
+    </>
   )
 }
 
@@ -10997,7 +11030,8 @@ function RoofMeshes({
   const candidates = useMemo(() => wallClippingRoofs.filter((candidate) => candidate.floorId === floor.id),
     [wallClippingRoofs, floor.id])
   const buildingRoomCuts = buildingRoomVolumes.cuts
-  const dormerOpeningsByRoofId = useMemo(() => {
+  const exteriorTrimCuts = buildingRoomVolumes.exteriorTrimCuts
+  const rawDormerOpeningsByRoofId = useMemo(() => {
     const openings = new Map<string, Point[][]>()
 
     for (const model of floor.models ?? []) {
@@ -11022,10 +11056,14 @@ function RoofMeshes({
     return openings
   }, [floor.models, candidates])
 
+  const dormerOpeningsKey = JSON.stringify([...rawDormerOpeningsByRoofId])
+  const dormerOpeningsByRoofId = useMemo(() => new Map<string, Point[][]>(JSON.parse(dormerOpeningsKey)), [dormerOpeningsKey])
+
   const roofAssemblies = useMemo(() => roofsVisible ? createJoinedRoofAssemblyGeometries(candidates.map(candidate => ({
     resolved: candidate.resolved, abuttingWalls: candidate.abuttingWalls,
     dormerOpenings: dormerOpeningsByRoofId.get(candidate.roof.id), roomCuts: buildingRoomCuts,
-  }))) : new Map<string, RoofGeometries>(), [roofsVisible, candidates, dormerOpeningsByRoofId, buildingRoomCuts])
+    exteriorTrimCuts,
+  }))) : new Map<string, RoofGeometries>(), [roofsVisible, candidates, dormerOpeningsByRoofId, buildingRoomCuts, exteriorTrimCuts])
   useEffect(() => () => {
     roofAssemblies.forEach(parts => Object.values(parts).forEach(geometry => geometry?.dispose()))
   }, [roofAssemblies])
@@ -11482,13 +11520,13 @@ function RoomFloorBaseMeshes({
   )
 }
 
-function getAllEnabledLocalLightSlots(floor: FloorLevel) {
+function getFloorLocalLightSlots(floor: FloorLevel, includeDisabled = false) {
   const slots: LocalLightSlot[] = []
 
   for (const model of floor.models ?? []) {
     const modelDefinition = modelsById.get(model.modelId)
 
-    if (!modelDefinition?.isLight || model.lightEnabled === false) {
+    if (!modelDefinition?.isLight || (!includeDisabled && model.lightEnabled === false)) {
       continue
     }
 
@@ -11534,7 +11572,7 @@ function getAllEnabledLocalLightSlots(floor: FloorLevel) {
       penumbra: lightKind === 'spot' ? 0.45 : 0.75,
       position: [model.position.x, y, model.position.y],
       power:
-        (model.lightPower ?? modelDefinition.lightPower ?? 450) *
+        (model.lightEnabled === false ? 0 : model.lightPower ?? modelDefinition.lightPower ?? 450) *
         LOCAL_LIGHT_RENDER_POWER_SCALE,
       target: [model.position.x, y - 1, model.position.y],
     })
@@ -11610,7 +11648,7 @@ function createBakedFloorLightmapTextures({
   shadowContext.lineCap = 'round'
   shadowContext.lineJoin = 'round'
 
-  const lightSlots = getAllEnabledLocalLightSlots(floor)
+  const lightSlots = getFloorLocalLightSlots(floor)
 
   walls.forEach((wall) => {
     const start = worldToCanvas(wall.start)
@@ -13665,6 +13703,7 @@ function ModelMesh({
           materialRegions={modelDefinition.materialRegions}
           modelId={model.id}
           normalizeToDimensions={Boolean(model.dormerAttachment || modelDefinition.normalizeToDimensions)}
+          normalizationMeshName={modelDefinition.normalizationMeshName}
           targetDepth={modelDefinition.depth}
           targetHeight={modelDefinition.height}
           targetWidth={modelDefinition.width}
@@ -13693,6 +13732,7 @@ function ModelMesh({
   const modelGroup = (
     <group
       name={`model-transform-${model.id}`}
+      userData={{ indirectLightModel: !!modelDefinition.isLight }}
       ref={groupRef}
       position={[displayPosition.x, floorSnapY, displayPosition.y]}
       rotation={[0, -displayRotation, 0]}
@@ -14598,6 +14638,7 @@ function ImportedModelContent({
   materialRegions,
   modelId,
   normalizeToDimensions,
+  normalizationMeshName,
   onBoundsChange,
   onRegisterPickTarget,
   sourceUrl,
@@ -14618,6 +14659,7 @@ function ImportedModelContent({
   materialRegions?: ModelMaterialRegion[]
   modelId: string
   normalizeToDimensions: boolean
+  normalizationMeshName?: string
   onBoundsChange: (bounds: ModelHorizontalBounds) => void
   onRegisterPickTarget: (target: PickTarget) => () => void
   sourceUrl: string
@@ -14701,35 +14743,21 @@ function ImportedModelContent({
       box,
       center,
       size,
+      frameBox: normalizationMeshName
+        ? (() => {
+            const frame = scene.getObjectByName(normalizationMeshName) ??
+              scene.getObjectByName(PropertyBinding.sanitizeNodeName(normalizationMeshName))
+            return frame ? new Box3().setFromObject(frame) : undefined
+          })()
+        : undefined,
     }
-  }, [scene])
+  }, [normalizationMeshName, scene])
   const normalizedTransform = useMemo(() => {
-    const scaleX = normalizeToDimensions
-      ? targetWidth / Math.max(bounds.size.x, 0.0001)
-      : 1
-    const scaleY = normalizeToDimensions
-      ? targetHeight / Math.max(bounds.size.y, 0.0001)
-      : 1
-    const scaleZ = normalizeToDimensions
-      ? targetDepth / Math.max(bounds.size.z, 0.0001)
-      : 1
-    const size = normalizeToDimensions
-      ? new Vector3(targetWidth, targetHeight, targetDepth)
-      : bounds.size.clone()
-
-    return {
-      center: bounds.center.clone().multiply(new Vector3(scaleX, scaleY, scaleZ)),
-      offset: new Vector3(0, 0, 0),
-      scale: new Vector3(scaleX, scaleY, scaleZ),
-      size,
-    }
+    return getImportedModelTransform(bounds.box, new Vector3(targetWidth, targetHeight, targetDepth),
+      normalizeToDimensions, bounds.frameBox)
   }, [
-    bounds.box.min.x,
-    bounds.box.min.y,
-    bounds.box.min.z,
-    bounds.size.x,
-    bounds.size.y,
-    bounds.size.z,
+    bounds.box,
+    bounds.frameBox,
     normalizeToDimensions,
     targetDepth,
     targetHeight,
@@ -14748,10 +14776,10 @@ function ImportedModelContent({
     }
 
     onBoundsChange({
-      maxX: bounds.box.max.x * normalizedTransform.scale.x,
-      maxZ: bounds.box.max.z * normalizedTransform.scale.z,
-      minX: bounds.box.min.x * normalizedTransform.scale.x,
-      minZ: bounds.box.min.z * normalizedTransform.scale.z,
+      maxX: normalizedTransform.placementBounds.max.x,
+      maxZ: normalizedTransform.placementBounds.max.z,
+      minX: normalizedTransform.placementBounds.min.x,
+      minZ: normalizedTransform.placementBounds.min.z,
     })
   }, [
     bounds.box.max.x,
@@ -14759,10 +14787,7 @@ function ImportedModelContent({
     bounds.box.min.x,
     bounds.box.min.z,
     normalizeToDimensions,
-    normalizedTransform.scale.x,
-    normalizedTransform.scale.z,
-    normalizedTransform.size.x,
-    normalizedTransform.size.z,
+    normalizedTransform,
     onBoundsChange,
   ])
 
@@ -14943,7 +14968,7 @@ function ImportedModelContent({
           ]}
         />
       ) : null}
-      <group ref={normalizedGroupRef} scale={normalizedTransform.scale}>
+      <group ref={normalizedGroupRef} position={normalizedTransform.offset} scale={normalizedTransform.scale}>
         <primitive object={scene} />
       </group>
     </>
@@ -15045,34 +15070,17 @@ function setIdsEqual(firstIds: ReadonlySet<string>, secondIds: ReadonlySet<strin
   return true
 }
 
-function estimateRealtimeLocalLightLimit(maxFragmentUniforms: number) {
-  if (maxFragmentUniforms >= 1024) {
-    return MAX_REALTIME_LOCAL_LIGHTS
-  }
-
-  if (maxFragmentUniforms >= 512) {
-    return 8
-  }
-
-  return 4
-}
-
 function RendererLightCapabilities({
   onLocalLightLimitChange,
-  shadowsEnabled,
 }: {
-  onLocalLightLimitChange: (lightLimit: number) => void
-  shadowsEnabled: boolean
+  onLocalLightLimitChange: (lightLimit: number, shadowLimit: number) => void
 }) {
   const { gl } = useThree()
 
   useEffect(() => {
-    onLocalLightLimitChange(
-      Math.min(estimateRealtimeLocalLightLimit(gl.capabilities.maxFragmentUniforms),
-        // Reserve material maps, room masks/probes, environment and sun shadow.
-        shadowsEnabled ? Math.max(1, gl.capabilities.maxTextures - 14) : MAX_REALTIME_LOCAL_LIGHTS),
-    )
-  }, [gl, onLocalLightLimitChange, shadowsEnabled])
+    const limits = getLocalLightLimits(gl.capabilities.maxFragmentUniforms, gl.capabilities.maxTextures)
+    onLocalLightLimitChange(limits.lights, limits.shadows)
+  }, [gl, onLocalLightLimitChange])
 
   return null
 }
@@ -15080,16 +15088,13 @@ function RendererLightCapabilities({
 function getStableLocalLightIds({
   activeFloorId,
   limit,
-  selectedModelId,
   visibleRenderedFloors,
 }: {
   activeFloorId: string
   limit: number
-  selectedModelId?: string | null
   visibleRenderedFloors: RenderedFloorData[]
 }) {
-  const selectedLightIds: string[] = []
-  const otherLightIds: string[] = []
+  const lightIds: string[] = []
 
   for (const renderedFloor of visibleRenderedFloors) {
     const floor = renderedFloor.floor
@@ -15108,16 +15113,12 @@ function getStableLocalLightIds({
         continue
       }
 
-      if (model.id === selectedModelId) {
-        selectedLightIds.push(model.id)
-      } else {
-        otherLightIds.push(model.id)
-      }
+      lightIds.push(model.id)
     }
   }
 
   return new Set(
-    [...selectedLightIds, ...otherLightIds]
+    lightIds
       .slice(0, limit)
   )
 }
@@ -15127,14 +15128,12 @@ function LocalLightBudgetController({
   enabled,
   localLightLimit,
   onLocalLightIdsChange,
-  selectedModelId,
   visibleRenderedFloors,
 }: {
   activeFloorId: string
   enabled: boolean
   localLightLimit: number
   onLocalLightIdsChange: (lightIds: ReadonlySet<string>) => void
-  selectedModelId: string | null
   visibleRenderedFloors: RenderedFloorData[]
 }) {
   const lastIdsRef = useRef<ReadonlySet<string>>(new Set())
@@ -15144,7 +15143,6 @@ function LocalLightBudgetController({
       ? getStableLocalLightIds({
           activeFloorId,
           limit: localLightLimit,
-          selectedModelId,
           visibleRenderedFloors,
         })
       : new Set<string>()
@@ -15158,7 +15156,6 @@ function LocalLightBudgetController({
     enabled,
     localLightLimit,
     onLocalLightIdsChange,
-    selectedModelId,
     visibleRenderedFloors,
   ])
 
@@ -15245,7 +15242,15 @@ function getLocalLightSlots({
 function usePooledLightShadowResources(
   lightRef: MutableRefObject<PointLight | SpotLight>,
   enabled: boolean,
+  active: boolean,
 ) {
+  useLayoutEffect(() => {
+    const shadow = lightRef.current.shadow
+    // Preserve shadow shader counts and existing maps at zero power. Empty
+    // slots need no shadow renders; reactivating one refreshes its map.
+    shadow.autoUpdate = enabled && active
+    shadow.needsUpdate = enabled && active
+  }, [active, enabled, lightRef])
   useEffect(() => {
     const shadow = lightRef.current.shadow
     if (!enabled) releaseLightShadowResources(shadow)
@@ -15263,7 +15268,7 @@ function PooledLocalSpotLight({
   const lightRef = useRef<SpotLight>(null!)
   const targetRef = useRef<Object3D>(null!)
   const isActiveSlot = Boolean(slot)
-  usePooledLightShadowResources(lightRef, isActiveSlot && castShadow)
+  usePooledLightShadowResources(lightRef, castShadow, isActiveSlot)
   const position = slot?.position ?? ([0, -1000, 0] as [number, number, number])
   const target = slot?.target ?? ([0, -1001, 0] as [number, number, number])
 
@@ -15279,21 +15284,21 @@ function PooledLocalSpotLight({
       <spotLight
         ref={lightRef}
         angle={slot?.angle ?? Math.PI / 3}
-        castShadow={isActiveSlot && castShadow}
+        castShadow={castShadow}
         color={slot?.color ?? '#ffffff'}
         decay={slot?.falloff ?? DEFAULT_LOCAL_LIGHT_FALLOFF}
         distance={slot?.distance ?? 1}
         penumbra={slot?.penumbra ?? 0.75}
         position={position}
         power={slot ? slot.power : 0}
-        shadow-bias={-0.0008}
+        shadow-bias={LOCAL_LIGHT_SHADOW_BIAS}
         shadow-camera-far={slot?.distance ?? 12}
         shadow-camera-near={0.25}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
-        shadow-normalBias={0.1}
-        shadow-radius={2}
-        visible={isActiveSlot}
+        shadow-normalBias={LOCAL_LIGHT_SHADOW_NORMAL_BIAS}
+        shadow-radius={LOCAL_LIGHT_SHADOW_RADIUS}
+        visible
       />
       <object3D ref={targetRef} position={target} />
     </>
@@ -15309,28 +15314,39 @@ function PooledLocalPointLight({
 }) {
   const lightRef = useRef<PointLight>(null!)
   const isActiveSlot = Boolean(slot)
-  usePooledLightShadowResources(lightRef, isActiveSlot && castShadow)
+  usePooledLightShadowResources(lightRef, castShadow, isActiveSlot)
   const position = slot?.position ?? ([0, -1000, 0] as [number, number, number])
 
   return (
     <pointLight
       ref={lightRef}
-      castShadow={isActiveSlot && castShadow}
+      castShadow={castShadow}
       color={slot?.color ?? '#ffffff'}
       decay={slot?.falloff ?? DEFAULT_LOCAL_LIGHT_FALLOFF}
       distance={slot?.distance ?? 1}
       position={position}
       power={slot ? slot.power : 0}
-      shadow-bias={-0.0008}
+      shadow-bias={LOCAL_LIGHT_SHADOW_BIAS}
       shadow-camera-far={slot?.distance ?? 18}
       shadow-camera-near={0.25}
       shadow-mapSize-width={1024}
       shadow-mapSize-height={1024}
-      shadow-normalBias={0.1}
-      shadow-radius={2}
-      visible={isActiveSlot}
+      shadow-normalBias={LOCAL_LIGHT_SHADOW_NORMAL_BIAS}
+      shadow-radius={LOCAL_LIGHT_SHADOW_RADIUS}
+      visible
     />
   )
+}
+
+function getLocalLightPoolCapacities(visibleRenderedFloors: RenderedFloorData[], maxLights: number) {
+  let point = 0, spot = 0
+  for (const { floor } of visibleRenderedFloors) {
+    const kinds = (floor.models ?? []).map(model => modelsById.get(model.modelId))
+      .filter(definition => definition?.isLight)
+    point = Math.max(point, Math.min(maxLights, kinds.filter(definition => definition?.lightKind !== 'spot').length))
+    spot = Math.max(spot, Math.min(maxLights, kinds.filter(definition => definition?.lightKind === 'spot').length))
+  }
+  return { point, spot }
 }
 
 function FixedLocalLightPool({
@@ -15338,6 +15354,7 @@ function FixedLocalLightPool({
   localLightIds,
   lightShadowsEnabled,
   maxLights = MAX_REALTIME_LOCAL_LIGHTS,
+  maxShadowLights,
   shadowsEnabled,
   visibleRenderedFloors,
 }: {
@@ -15345,6 +15362,7 @@ function FixedLocalLightPool({
   localLightIds: ReadonlySet<string>
   lightShadowsEnabled: boolean
   maxLights?: number
+  maxShadowLights: number
   shadowsEnabled: boolean
   visibleRenderedFloors: RenderedFloorData[]
 }) {
@@ -15375,21 +15393,25 @@ function FixedLocalLightPool({
         .slice(0, maxLights),
     [maxLights, slots],
   )
+  // Installed lights determine capacity, including switched-off lamps. Toggling
+  // power and switching the editing floor must preserve shader light counts.
+  // Empty slots have zero power, but must remain in the renderer's light list.
+  const capacities = useMemo(() => getLocalLightPoolCapacities(visibleRenderedFloors, maxLights), [maxLights, visibleRenderedFloors])
   const pointPoolSlots = useMemo(
     () =>
       Array.from(
-        { length: maxLights },
+        { length: capacities.point },
         (_, index) => pointSlots[index] ?? null,
       ),
-    [maxLights, pointSlots],
+    [capacities.point, pointSlots],
   )
   const spotPoolSlots = useMemo(
     () =>
       Array.from(
-        { length: maxLights },
+        { length: capacities.spot },
         (_, index) => spotSlots[index] ?? null,
       ),
-    [maxLights, spotSlots],
+    [capacities.spot, spotSlots],
   )
   const castPooledShadows = shadowsEnabled && lightShadowsEnabled
 
@@ -15398,14 +15420,14 @@ function FixedLocalLightPool({
       {pointPoolSlots.map((slot, index) => (
         <PooledLocalPointLight
           key={`point-${index}`}
-          castShadow={castPooledShadows}
+          castShadow={castPooledShadows && index < maxShadowLights}
           slot={slot}
         />
       ))}
       {spotPoolSlots.map((slot, index) => (
         <PooledLocalSpotLight
           key={`spot-${index}`}
-          castShadow={castPooledShadows}
+          castShadow={castPooledShadows && capacities.point + index < maxShadowLights}
           slot={slot}
         />
       ))}
@@ -15416,14 +15438,18 @@ function FixedLocalLightPool({
 function RoomLightMaskController({
   activeRenderedFloor,
   floors,
+  lightShadowsEnabled,
   localLightIds,
   maxLights,
+  maxShadowLights,
   visibleRenderedFloors,
 }: {
   activeRenderedFloor: RenderedFloorData | null
   floors: FloorLevel[]
+  lightShadowsEnabled: boolean
   localLightIds: ReadonlySet<string>
   maxLights: number
+  maxShadowLights: number
   visibleRenderedFloors: RenderedFloorData[]
 }) {
   const { invalidate, scene } = useThree()
@@ -15479,6 +15505,9 @@ function RoomLightMaskController({
   useLayoutEffect(() => {
     const floor = activeRenderedFloor?.floor
     uniforms.mask.value = maskTexture
+    // Lamps outside the shadow budget still emit light. Geometry visibility
+    // supplies their occlusion once GI is ready; room IDs cover the fallback.
+    // Shadowed lamps get room ID zero to preserve light through doorways.
     uniforms.enabled.value = floor && activeRenderedFloor.rooms.length > 0 ? 1 : 0
     uniforms.maskBounds.value.set(
       mask.bounds.minX,
@@ -15501,6 +15530,7 @@ function RoomLightMaskController({
     uniforms.spotRoomIds.value.fill(0)
 
     if (floor) {
+      const capacities = getLocalLightPoolCapacities(visibleRenderedFloors, maxLights)
       const modelsByInstanceId = new Map((floor.models ?? []).map((model) => [model.id, model]))
       const getLightRoomId = (slot: LocalLightSlot) => {
         const model = modelsByInstanceId.get(slot.id)
@@ -15510,15 +15540,15 @@ function RoomLightMaskController({
       }
       slots.filter((slot) => slot.kind === 'point').slice(0, maxLights)
         .forEach((slot, index) => {
-          uniforms.pointRoomIds.value[index] = getLightRoomId(slot)
+          uniforms.pointRoomIds.value[index] = lightShadowsEnabled && index < maxShadowLights ? 0 : getLightRoomId(slot)
         })
       slots.filter((slot) => slot.kind === 'spot').slice(0, maxLights)
         .forEach((slot, index) => {
-          uniforms.spotRoomIds.value[index] = getLightRoomId(slot)
+          uniforms.spotRoomIds.value[index] = lightShadowsEnabled && capacities.point + index < maxShadowLights ? 0 : getLightRoomId(slot)
         })
     }
     invalidate()
-  }, [activeRenderedFloor, floors, invalidate, mask, maskTexture, maxLights, slots, uniforms])
+  }, [activeRenderedFloor, floors, invalidate, lightShadowsEnabled, mask, maskTexture, maxLights, maxShadowLights, slots, uniforms, visibleRenderedFloors])
 
   const scanMaterials = useCallback(() => {
     let changed = false
@@ -15859,13 +15889,24 @@ function ShaderWarmup({
 }) {
   const { camera, gl, invalidate, scene } = useThree()
   const retained = useRef<ReturnType<typeof createShaderWarmupSnapshot> | null>(null)
+  const completedWarmup = useRef<{ inputs: string; revision: string } | null>(null)
+  const warmupInputs = `${warmupKey}:${fadeWalls}:${fadeRoofs}:${offscreen}`
   const [sceneRevision, setSceneRevision] = useState('')
   const scanElapsed = useRef(Infinity)
   useFrame((_, delta) => {
     scanElapsed.current += delta
-    if (blocked || scanElapsed.current < .5) return
+    if (blocked || (scanElapsed.current < .5 && !scene.userData.shaderWarmupPending)) return
     scanElapsed.current = 0
     const next = getShaderWarmupSceneRevision(scene)
+    const covered = completedWarmup.current?.inputs === warmupInputs &&
+      shaderWarmupRevisionIsCovered(completedWarmup.current.revision, next)
+    if (covered) {
+      // Reflection/cache replacement can request a shader check without changing
+      // any program features. Clear that request even if React's revision state
+      // stays equal, or display draws remain blocked and every frame scans again.
+      scene.userData.shaderWarmupPending = false
+      onPendingChange(false)
+    } else if (next !== sceneRevision) scene.userData.shaderWarmupPending = true
     setSceneRevision(previous => previous === next ? previous : next)
   })
 
@@ -15876,19 +15917,38 @@ function ShaderWarmup({
 
   useEffect(() => {
     if (!SHADER_WARMUP_ENABLED) {
+      scene.userData.shaderWarmupPending = false
       onPendingChange(false)
       return undefined
     }
 
     if (blocked) {
+      const needsWarmup = completedWarmup.current?.inputs !== warmupInputs
+      scene.userData.shaderWarmupPending = needsWarmup
+      onPendingChange(needsWarmup)
+      return undefined
+    }
+
+    if (completedWarmup.current?.inputs === warmupInputs && shaderWarmupRevisionIsCovered(completedWarmup.current.revision, sceneRevision)) {
+      scene.userData.shaderWarmupPending = false
       onPendingChange(false)
       return undefined
+    }
+
+    if (completedWarmup.current) {
+      try {
+        const prepared = new Set(JSON.parse(completedWarmup.current.revision) as string[])
+        const current = JSON.parse(sceneRevision || '[]') as string[]
+        recordEngineLog('shader-warmup-reason', completedWarmup.current.inputs !== warmupInputs
+          ? 'Renderer settings changed' : `${current.filter(entry => !prepared.has(entry)).length} new material variants`)
+      } catch { recordEngineLog('shader-warmup-reason', 'Shader feature format changed') }
     }
 
     let cancelled = false
     let warmupTimeoutId: number | null = null
     let snapshot: ReturnType<typeof createShaderWarmupSnapshot> | null = null
     let compiling = false
+    scene.userData.shaderWarmupPending = true
     onPendingChange(true)
     let compileTimeoutId: number | null = window.setTimeout(async () => {
       compileTimeoutId = null
@@ -15909,6 +15969,7 @@ function ShaderWarmup({
         }
 
         completed = true
+        scene.userData.shaderWarmupPending = false
         onPendingChange(false)
         recordEngineLog(
           'shader-warmup-timeout',
@@ -15921,7 +15982,14 @@ function ShaderWarmup({
       }, SHADER_WARMUP_TIMEOUT_MS)
 
       try {
+        // Compile selection UI before the first click, using a detached target
+        // so the prototypes cannot handle events from the live canvas.
+        const handles = new TransformControlsImpl(camera, gl.domElement.ownerDocument.createElement('div'))
+        const bounds = new Mesh(new BoxGeometry(), new MeshBasicMaterial({
+          depthTest: false, depthWrite: false, toneMapped: false,
+        }))
         snapshot = createShaderWarmupSnapshot(scene, { fadeWalls, fadeRoofs,
+          helpers: [handles, bounds],
           createExtraMaterials: (source, object) => {
             if (object.userData.selectionDecoration) return []
             let parent: Object3D | null = object
@@ -15935,6 +16003,12 @@ function ShaderWarmup({
             return [material]
           },
         })
+        // Snapshot proxies share these geometries, so retain them until its
+        // asynchronous compile completes and the snapshot is released.
+        const disposeSnapshot = snapshot.dispose
+        snapshot.dispose = () => {
+          disposeSnapshot(); handles.dispose(); bounds.geometry.dispose(); bounds.material.dispose()
+        }
         const pickResources = getColorPickResources(gl)
         const prototype = snapshot.root.children.find(object => 'isMesh' in object)
         if (prototype) {
@@ -15969,6 +16043,7 @@ function ShaderWarmup({
           retained.current?.dispose()
           retained.current = snapshot
           snapshot = null
+          completedWarmup.current = { inputs: warmupInputs, revision: sceneRevision }
           recordEngineLog('shader-warmup-complete')
         }
       } catch (error) {
@@ -15992,6 +16067,7 @@ function ShaderWarmup({
             window.requestAnimationFrame(() => {
               if (!cancelled) {
                 invalidate()
+                scene.userData.shaderWarmupPending = false
                 onPendingChange(false)
                 emitEngineActivity({
                   message: succeeded ? 'Scene shaders ready' : 'Shader preparation failed; continuing rendering',
@@ -16002,7 +16078,7 @@ function ShaderWarmup({
           }
         }
       }
-    }, 350)
+    }, completedWarmup.current ? 0 : 350)
 
     return () => {
       cancelled = true
@@ -16020,7 +16096,7 @@ function ShaderWarmup({
 
       onPendingChange(false)
     }
-  }, [blocked, camera, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, sceneRevision, warmupKey])
+  }, [blocked, camera, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, sceneRevision, warmupKey, warmupInputs])
 
   return null
 }
@@ -17343,7 +17419,7 @@ function collectRenderableObjects(object: Object3D) {
   object.traverse((candidateObject) => {
     const renderableObject = candidateObject as PickRenderableObject
 
-    if (renderableObject.isMesh && renderableObject.material && !candidateObject.userData.selectionDecoration) {
+    if (renderableObject.isMesh && renderableObject.material && !isSelectionDecoration(candidateObject)) {
       renderables.push(renderableObject)
     }
   })
@@ -17541,6 +17617,7 @@ function withColorPickRender<T>({
   const width = Math.max(1, Math.floor(drawingBufferSize.x))
   const height = Math.max(1, Math.floor(drawingBufferSize.y))
   const renderables = new Set<PickRenderableObject>()
+  const selectionRoots: Array<{ object: Object3D; visible: boolean }> = []
   const originalStates: Array<{
     material?: Material | Material[] | null
     materialVisible: boolean
@@ -17577,6 +17654,10 @@ function withColorPickRender<T>({
 
   scene.traverse((object) => {
     const renderableObject = object as PickRenderableObject
+
+    if (object.userData.selectionDecoration || ('isTransformControls' in object && object.isTransformControls)) {
+      selectionRoots.push({ object, visible: object.visible })
+    }
 
     if (!renderableObject.isMesh || !renderableObject.material) {
       return
@@ -17710,6 +17791,10 @@ function withColorPickRender<T>({
   })
 
   try {
+    // TransformControls updates its child visibility during gl.render(). Hiding
+    // meshes alone lets handles reappear in the pick buffer and compile a new
+    // shadow-disabled material variant. Hide their parent for the entire pass.
+    selectionRoots.forEach(({ object }) => { object.visible = false })
     // Picking substitutes temporary materials/visibility. It must not replace
     // a cached lighting shadow map with that temporary scene.
     gl.shadowMap.enabled = false
@@ -17745,6 +17830,7 @@ function withColorPickRender<T>({
       object.renderOrder = renderOrder
       object.visible = visible
     })
+    selectionRoots.forEach(({ object, visible }) => { object.visible = visible })
   }
 }
 
@@ -18784,6 +18870,7 @@ function OpeningPlacementVisual({
             isSelected={false}
             modelId="__opening-placement-preview__"
             normalizeToDimensions={Boolean(definition.normalizeToDimensions)}
+            normalizationMeshName={definition.normalizationMeshName}
             onBoundsChange={setImportedLocalBounds}
             onRegisterPickTarget={ignorePickRegistration}
             sourceUrl={getModelAssetUrl(definition.sourceUrl, modelAssetVersion)}
@@ -19281,11 +19368,14 @@ export function ThreeDView({
     useState<AspectRatioMode>('normal')
   const [headHeightEnabled, setHeadHeightEnabled] = useState(false)
   const [localLightLimit, setLocalLightLimit] = useState(FALLBACK_REALTIME_LOCAL_LIGHTS)
+  const [localShadowLightLimit, setLocalShadowLightLimit] = useState(1)
   const [localLightIds, setLocalLightIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   )
   const [isShaderWarmupPending, setIsShaderWarmupPending] = useState(true)
+  const sceneComposerRef = useRef<EffectComposerImpl | null>(null)
   const [isTexturePreloadPending, setIsTexturePreloadPending] = useState(false)
+  const isWallGeometryPending = useSyncExternalStore(subscribeWallClipping, isWallClippingPending, () => false)
   const [isAssetLoadPending, setIsAssetLoadPending] = useState(false)
   const [initialScenePreparationComplete, setInitialScenePreparationComplete] =
     useState(false)
@@ -19385,10 +19475,18 @@ export function ThreeDView({
   )
   const roofGeometryKey = serializeRoofGeometryInput(floors)
   const wallClippingRoofs = useMemo(() => resolveBuildingRoofs(JSON.parse(roofGeometryKey)), [roofGeometryKey])
-  const roofRoomGeometryKey = serializeWallGeometryInput(floors)
+  // Gable solids start at the roof base. Openings entirely below every gable
+  // cannot cut them, so moving a downstairs window keeps this assembly intact.
+  const minimumGableElevation = Math.min(...wallClippingRoofs.filter(candidate => candidate.roof.type === 'up-and-over')
+    .map(candidate => candidate.floorTopElevation + (candidate.roof.heightOffset ?? 0)))
+  const roofRoomGeometryKey = serializeWallGeometryInput(floors, true, minimumGableElevation)
   const roofRoomFloors = useMemo<FloorLevel[]>(() => JSON.parse(roofRoomGeometryKey), [roofRoomGeometryKey])
-  const buildingRoomVolumes = useMemo(() => buildBuildingRoomVolumes(roofRoomFloors, wallClippingRoofs),
-    [roofRoomFloors, wallClippingRoofs])
+  // Opening voids also belong to the room cutters; stripping them here leaves
+  // roof fittings between the room polygons even though file-based tests pass.
+  const roomVolumeGeometryKey = serializeWallGeometryInput(floors)
+  const roomVolumeFloors = useMemo<FloorLevel[]>(() => JSON.parse(roomVolumeGeometryKey), [roomVolumeGeometryKey])
+  const buildingRoomVolumes = useMemo(() => buildBuildingRoomVolumes(roomVolumeFloors, wallClippingRoofs),
+    [roomVolumeFloors, wallClippingRoofs])
   const vrStartPosition = useMemo(
     () => getVrStartPosition(activeFloor),
     [activeFloor],
@@ -19411,7 +19509,7 @@ export function ThreeDView({
   // and other floor metadata must not restart it or invalidate every wall mesh.
   const geometryFloors = useMemo<FloorLevel[]>(() => JSON.parse(floorGeometryStatusKey)
     .map((floor: FloorLevel) => ({ ...floor, name: '', models: [], rooms: [] })), [floorGeometryStatusKey])
-  const [preparedFloors, setRenderedFloors] = useState<RenderedFloorData[]>(
+  const [workerPreparedFloors, setRenderedFloors] = useState<RenderedFloorData[]>(
     () => (canPrepareLevelsInWorkers ? [] : prepareRenderedFloorsSync(floors)),
   )
   const preparedFloorCacheRef = useRef(new Map<string, {
@@ -19419,6 +19517,24 @@ export function ThreeDView({
     geometryKey: string
     structureKey: string
   }>())
+  // Opening edits preserve the room topology. Refresh them in this render so
+  // the wall worker starts with the new cutout immediately, without first
+  // committing a second scene with the old opening and the moved frame.
+  const floorEntries = useMemo(() => geometryFloors.map(floor => {
+    const geometryKey = JSON.stringify(floor)
+    const structureKey = JSON.stringify({ ...floor, walls: floor.walls.map(wall => ({ ...wall, openings: [] })) })
+    const cached = preparedFloorCacheRef.current.get(floor.id)
+    const data = cached?.geometryKey === geometryKey
+      ? cached.data
+      : cached?.structureKey === structureKey
+        ? refreshRenderedFloorOpenings(cached.data, floor)
+        : undefined
+    return { data, previousData: cached?.data, floor, geometryKey, structureKey }
+  }), [geometryFloors, workerPreparedFloors])
+  const preparedFloors = useMemo(() => floorEntries.flatMap(({ data, previousData, floor }) => {
+    const prepared = data ?? previousData ?? workerPreparedFloors.find(candidate => candidate.floor.id === floor.id)
+    return prepared ? [prepared] : []
+  }), [floorEntries, workerPreparedFloors])
   const renderedFloors = useMemo(() => floors.flatMap(floor => {
     const prepared = preparedFloors.find(candidate => candidate.floor.id === floor.id)
     return prepared ? [{ ...prepared, floor }] : []
@@ -19434,7 +19550,9 @@ export function ThreeDView({
       return [...rooms, ...doorways.patches.map(patch => ({ signature: patch.roomSignature, polygon: patch.outline }))]
     })(),
   })), [renderedFloors])
-  const indirectLocalLights = useMemo(() => renderOptions.lights ? floors.flatMap(getAllEnabledLocalLightSlots) : [],
+  // Keep visibility rows and capture light counts stable across on/off changes.
+  // A disabled lamp remains at its authored position with zero power.
+  const indirectLocalLights = useMemo(() => renderOptions.lights ? floors.flatMap(floor => getFloorLocalLightSlots(floor, true)) : [],
     [floors, renderOptions.lights])
   const indirectCacheProjectKey = useMemo(() => indirectProjectKey({ floors: sourceFloors, sunPosition: lightDirection, surfaceAssignments }),
     [sourceFloors, lightDirection, surfaceAssignments])
@@ -19461,19 +19579,26 @@ export function ThreeDView({
     renderOptions.floorSlabs, indirectCacheSettings])
   // Build the wall source once per prepared geometry revision, then share it
   // with the horizontal assemblies. Material/selection edits reuse this plan.
-  const preparedStoreys = useMemo(() => preparedFloors.map(data => ({
-    floor: data.floor,
-    footprints: getFloorSlabFootprints(data.floor),
-    faces: buildFloorWallSurfaceFaces({
-      renderedWalls: data.renderedWalls,
-      rooms: data.rooms,
-      useWallBodyPerimeterMesh: WALL_BODY_PERIMETER_MESH_ENABLED,
-      roomSurfaceRendererEnabled: ROOM_SURFACE_WALL_RENDERER_ENABLED,
-      exteriorWallSidesByWallId: getExteriorWallSidesByWallId(data.geometryContextWalls, data.rooms),
-      verticalUvOffset: data.floor.elevation,
-      wallOpeningDepthsByModelId: getWallOpeningDepthsByModelId(data.geometryContextWalls),
-    }),
-  })), [preparedFloors])
+  const preparedStoreyCache = useRef(new WeakMap<RenderedFloorData, Parameters<typeof buildStoreyGeometry>[0][number]>())
+  const preparedStoreys = useMemo(() => preparedFloors.map(data => {
+    const cached = preparedStoreyCache.current.get(data)
+    if (cached) return cached
+    const storey = {
+      floor: data.floor,
+      footprints: getFloorSlabFootprints(data.floor),
+      faces: buildFloorWallSurfaceFaces({
+        renderedWalls: data.renderedWalls,
+        rooms: data.rooms,
+        useWallBodyPerimeterMesh: WALL_BODY_PERIMETER_MESH_ENABLED,
+        roomSurfaceRendererEnabled: ROOM_SURFACE_WALL_RENDERER_ENABLED,
+        exteriorWallSidesByWallId: getExteriorWallSidesByWallId(data.geometryContextWalls, data.rooms),
+        verticalUvOffset: data.floor.elevation,
+        wallOpeningDepthsByModelId: getWallOpeningDepthsByModelId(data.geometryContextWalls),
+      }),
+    }
+    preparedStoreyCache.current.set(data, storey)
+    return storey
+  }), [preparedFloors])
   const storeyGeometry = useMemo(() => buildStoreyGeometry(preparedStoreys,
     new Set(renderOptions.floorSlabs
       ? showAllFloorsInScene ? preparedStoreys.map(s => s.floor.id) : floorBelowActive ? [floorBelowActive.id] : []
@@ -19481,28 +19606,16 @@ export function ThreeDView({
         candidate.abuttingWalls.map(({wall}) => ({floorId:candidate.floorId,wallId:wall.id,
           faces:getRoofRenderableOuterFaces(candidate.resolved)})))),
     [preparedStoreys, renderOptions.floorSlabs, showAllFloorsInScene, floorBelowActive?.id, wallClippingRoofs])
-  const roofGables = useMemo(() => buildBuildingRoofGables(roofRoomFloors, wallClippingRoofs, buildingRoomVolumes,
-    [...storeyGeometry.values()].flatMap(storey => storey.assembly ? [storey.assembly] : [])),
-    [roofRoomFloors, wallClippingRoofs, buildingRoomVolumes, storeyGeometry])
+  const gableAssemblyKey = JSON.stringify([...storeyGeometry.values()].flatMap(storey => storey.assembly
+    ? [{ bottom: storey.assembly.bottom, top: storey.assembly.top, footprints: storey.assembly.footprints }] : []))
+  const gableAssemblies = useMemo(() => JSON.parse(gableAssemblyKey), [gableAssemblyKey])
+  const roofGables = useMemo(() => buildBuildingRoofGables(roofRoomFloors, wallClippingRoofs, buildingRoomVolumes, gableAssemblies),
+    [roofRoomFloors, wallClippingRoofs, buildingRoomVolumes, gableAssemblies])
   const [isLevelPreparationPending, setIsLevelPreparationPending] =
     useState(canPrepareLevelsInWorkers)
 
   useEffect(() => {
     const controller = new AbortController()
-    const floorEntries = geometryFloors.map((floor) => {
-      const geometryKey = JSON.stringify(floor)
-      const structureKey = JSON.stringify({
-        ...floor,
-        walls: floor.walls.map(wall => ({ ...wall, openings: [] })),
-      })
-      const cached = preparedFloorCacheRef.current.get(floor.id)
-      const data = cached?.geometryKey === geometryKey
-        ? cached.data
-        : cached?.structureKey === structureKey
-          ? refreshRenderedFloorOpenings(cached.data, floor)
-          : undefined
-      return { data, floor, geometryKey, structureKey }
-    })
     const floorsToPrepare = floorEntries
       .filter(({ data }) => !data)
       .map(({ floor }) => floor)
@@ -19520,7 +19633,6 @@ export function ThreeDView({
           data: nextPreparedFloors[index], geometryKey, structureKey,
         })
       })
-      setRenderedFloors(nextPreparedFloors)
       setIsLevelPreparationPending(false)
       return () => controller.abort()
     }
@@ -19661,7 +19773,6 @@ export function ThreeDView({
                 return [
                   model.modelId,
                   definition?.lightKind ?? '',
-                  definition?.isLight ? model.lightEnabled !== false : false,
                 ].join(':')
               }),
             ),
@@ -19778,6 +19889,7 @@ export function ThreeDView({
     visibleRenderedFloors.length,
   ])
   const scenePreparationPending =
+    isWallGeometryPending ||
     isLevelPreparationPending ||
     isShaderWarmupPending ||
     isTexturePreloadPending ||
@@ -19789,17 +19901,19 @@ export function ThreeDView({
         isTexturePreloadPending ? 'texture-preload' : null,
         isAssetLoadPending ? 'asset-load' : null,
         isLevelPreparationPending ? 'level-preparation' : null,
+        isWallGeometryPending ? 'wall-clipping' : null,
       ].filter((reason): reason is string => Boolean(reason)),
     [
       isAssetLoadPending,
       isLevelPreparationPending,
+      isWallGeometryPending,
       isShaderWarmupPending,
       isTexturePreloadPending,
     ],
   )
   const initialScenePreparationPending =
     scenePreparationPending && !initialScenePreparationComplete
-  const shaderWarmupBlocked = isTexturePreloadPending || isAssetLoadPending || isLevelPreparationPending
+  const shaderWarmupBlocked = isTexturePreloadPending || isAssetLoadPending || isLevelPreparationPending || isWallGeometryPending
   const transformEnabled = !readOnly
   const navigationLocked =
     isTransformingModel || isXrPresenting || initialScenePreparationPending
@@ -20088,10 +20202,11 @@ export function ThreeDView({
       setIdsEqual(currentLightIds, nextLightIds) ? currentLightIds : nextLightIds,
     )
   }, [])
-  const updateLocalLightLimit = useCallback((nextLightLimit: number) => {
+  const updateLocalLightLimit = useCallback((nextLightLimit: number, nextShadowLimit: number) => {
     setLocalLightLimit((currentLightLimit) =>
       currentLightLimit === nextLightLimit ? currentLightLimit : nextLightLimit,
     )
+    setLocalShadowLightLimit(nextShadowLimit)
   }, [])
   const registerPickTarget = useCallback((target: PickTarget) => {
     pickTargetsRef.current = [...pickTargetsRef.current, target]
@@ -20623,7 +20738,7 @@ export function ThreeDView({
         <ImportedModelBatchingContext.Provider value={importedModelBatching}>
         <HorizontalSurfaceVisibilityContext.Provider value={horizontalSurfaceVisibilityRegistry}>
         <Canvas
-          shadows={renderOptions.shadows}
+          shadows={renderOptions.shadows ? 'percentage' : false}
           camera={{
             position: [
               cameraViewState.position.x,
@@ -20728,8 +20843,13 @@ export function ThreeDView({
               fadeRoofs={renderOptions.fadeObstructingRoofs}
               offscreen={screenSpaceAmbientOcclusionEnabled}
               onPendingChange={updateShaderWarmupPending}
-              warmupKey={`${shaderWarmupKey}:${floorGeometryStatusKey}:${activeLocalLightLimit}`}
+              warmupKey={`${shaderWarmupKey}:${activeLocalLightLimit}`}
             />
+            <SceneRenderer blocked={initialScenePreparationPending || isShaderWarmupPending || isAssetLoadPending || isTexturePreloadPending} offscreen={screenSpaceAmbientOcclusionEnabled}
+              geometryPending={isLevelPreparationPending || isWallGeometryPending}
+              composer={sceneComposerRef} editing={isTransformingModel || !!placementModel || !!roofPlacementPreview || renderOptions.giProbes}
+              selectionRevision={JSON.stringify([activeFloorId, selectedModelId, selectedRoofId, selectedWallId, selectedSurface])}
+              wireframe={renderOptions.wireframe && renderOptions.wireframeHiddenSurfaces && !isXrPresenting} />
             <SceneRenderInvalidator
               renderKey={`${floorGeometryStatusKey}:${shaderWarmupKey}:${surfaceAssignments.length}:${scenePreparationPending ? 'preparing' : 'ready'}`}
             />
@@ -20742,14 +20862,12 @@ export function ThreeDView({
             />
             <RendererLightCapabilities
               onLocalLightLimitChange={updateLocalLightLimit}
-              shadowsEnabled={localLightShadowsEnabled}
             />
             <LocalLightBudgetController
               activeFloorId={activeFloorId}
               enabled={renderOptions.lights}
               localLightLimit={activeLocalLightLimit}
               onLocalLightIdsChange={updateLocalLightIds}
-              selectedModelId={selectedModelId}
               visibleRenderedFloors={visibleRenderedFloors}
             />
             <color
@@ -20782,14 +20900,17 @@ export function ThreeDView({
               localLightIds={localLightIds}
               lightShadowsEnabled={localLightShadowsEnabled}
               maxLights={activeLocalLightLimit}
+              maxShadowLights={localShadowLightLimit}
               shadowsEnabled={renderOptions.shadows}
               visibleRenderedFloors={visibleRenderedFloors}
             />
             <RoomLightMaskController
               activeRenderedFloor={activeRenderedFloor}
               floors={floors}
+              lightShadowsEnabled={localLightShadowsEnabled}
               localLightIds={localLightIds}
               maxLights={activeLocalLightLimit}
+              maxShadowLights={localShadowLightLimit}
               visibleRenderedFloors={visibleRenderedFloors}
             />
             <IndirectLighting
@@ -20992,10 +21113,10 @@ export function ThreeDView({
                 floors,
                 modelsById,
               )
-              const ceilingRoofCutouts = getRoofCeilingCutouts(
-                wallClippingRoofs.map((candidate) => candidate.resolved),
-                floor.elevation + floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS,
+              const ceilingRoofCutouts = getRoomCeilingCutouts(
+                buildingRoomVolumes.cuts,
                 floor.id,
+                floor.elevation + floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS,
               )
               const slabRoofCutouts = getRoofCeilingCutouts(
                 wallClippingRoofs.map((candidate) => candidate.resolved),
@@ -21566,6 +21687,8 @@ export function ThreeDView({
             />}
             {screenSpaceAmbientOcclusionEnabled ? (
               <EffectComposer
+                ref={sceneComposerRef}
+                enabled={false}
                 multisampling={0}
                 resolutionScale={AMBIENT_OCCLUSION_SETTINGS.resolutionScale}
               >

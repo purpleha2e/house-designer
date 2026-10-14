@@ -1,7 +1,8 @@
 import { BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, InstancedMesh, Matrix4, Mesh,
   MeshStandardMaterial, NearestFilter, Ray, RGBAFormat, Vector3, type Object3D, type TypedArray } from 'three'
-import { MeshBVH } from 'three-mesh-bvh'
+import { MeshBVH, SAH, type SerializedBVH } from 'three-mesh-bvh'
 import type { IndirectField } from './indirectLighting.ts'
+import { createIndirectSegmentQuery } from './indirectSegmentQuery.ts'
 
 export type IndirectGeometrySnapshot = {
   position: TypedArray; stride: number; offset: number; normalized: boolean; index: Uint32Array | Uint16Array | null
@@ -46,6 +47,8 @@ export function createIndirectVisibility(scene: Object3D, include?: (mesh: Mesh)
   return createIndirectVisibilityFromSnapshot(snapshotIndirectGeometry(scene, include))
 }
 
+export type IndirectVisibilitySnapshot = { positions: Float32Array; tree: SerializedBVH | null }
+
 export function createIndirectVisibilityFromSnapshot(parts: IndirectGeometrySnapshot) {
   const count = parts.reduce((sum, part) => sum + part.ranges.reduce((n, range) => n + Math.floor(range.count / 3) * 9, 0) * part.matrices.length, 0)
   const data = new Float32Array(count), point = new Vector3(), matrix = new Matrix4()
@@ -64,11 +67,27 @@ export function createIndirectVisibilityFromSnapshot(parts: IndirectGeometrySnap
       }
     }
   }
+  return createIndirectVisibilityFromTriangles(data)
+}
+
+/** Helpers reuse the prepared tree, including its reordered triangle index. */
+export function restoreIndirectVisibility(snapshot: IndirectVisibilitySnapshot) {
+  return createIndirectVisibilityFromTriangles(snapshot.positions, snapshot.tree)
+}
+
+function createIndirectVisibilityFromTriangles(data: Float32Array, preparedTree?: SerializedBVH | null) {
+  const count = data.length
   const geometry = new BufferGeometry(); geometry.setAttribute('position', new BufferAttribute(data, 3))
-  const tree = count ? new MeshBVH(geometry, { targetLeafSize: 12 }) : null
+  // Millions of visibility segments reuse this tree. A cheap midpoint split
+  // leaves large overlapping nodes around detailed furniture and long walls;
+  // spend a little more on construction to minimize every subsequent ray.
+  const tree = preparedTree ? MeshBVH.deserialize(preparedTree, geometry) :
+    count ? new MeshBVH(geometry, { strategy: SAH, targetLeafSize: 4 }) : null
   const ray = new Ray()
   let triangles: DataTexture | null = null
   return {
+    snapshot(): IndirectVisibilitySnapshot { return { positions: data, tree: tree ? MeshBVH.serialize(tree, { cloneBuffers: false }) : null } },
+    occluded: createIndirectSegmentQuery(tree),
     triangleTexture() {
       if (!triangles) {
         // Source meshes generally tessellate each quad into consecutive pairs.

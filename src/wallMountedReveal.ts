@@ -9,10 +9,13 @@ export function getWallMountedRevealDepth(
 ) {
   const scaledDepth = Math.max(definition.depth * depthScale, 0)
 
+  // Imported open doors include the swung leaf in their bounds. Only the
+  // fixed frame belongs in the wall reveal and its lighting-side partition.
   return definition.sourceUrl &&
     (definition.wallMount === 'window' ||
       definition.wallMount === 'exterior-door' ||
-      definition.wallMount === 'patio-door')
+      definition.wallMount === 'patio-door' ||
+      definition.wallMount === 'interior-door')
     ? Math.min(scaledDepth, WALL_MOUNT_FRAME_DEPTH_METERS * depthScale)
     : scaledDepth
 }

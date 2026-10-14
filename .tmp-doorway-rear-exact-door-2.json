@@ -1,0 +1,2644 @@
+{
+  "hits": [
+    {
+      "screen": [
+        -0.7,
+        0.15
+      ],
+      "point": [
+        4.394086405782511,
+        4.657086646953756,
+        14.554719924926758
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.5599999999999999,
+        0.15
+      ],
+      "point": [
+        5.469139552701615,
+        4.8227233506703495,
+        14.554719924926758
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.41999999999999993,
+        0.15
+      ],
+      "point": [
+        2.349968088117056,
+        4.353277064503146,
+        15.070203198558227
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.2799999999999999,
+        0.15
+      ],
+      "point": [
+        2.338689010198161,
+        4.352097990652262,
+        15.096071401902718
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.1399999999999999,
+        0.15
+      ],
+      "point": [
+        2.335687252514804,
+        4.352180715406124,
+        15.121313962831644
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        1.1102230246251565e-16,
+        0.15
+      ],
+      "point": [
+        2.422716863424591,
+        4.3664092157336905,
+        15.15925937337728
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.14000000000000012,
+        0.15
+      ],
+      "point": [
+        2.5749952850886215,
+        4.391305298826319,
+        15.225655157745361
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.28000000000000014,
+        0.15
+      ],
+      "point": [
+        2.92312900812529,
+        4.448182667430682,
+        15.375631771644894
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.42000000000000015,
+        0.15
+      ],
+      "point": [
+        3.0176564611973817,
+        4.465154727398628,
+        15.487114964695264
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.5600000000000002,
+        0.15
+      ],
+      "point": [
+        3.020071564831854,
+        4.467389378128534,
+        15.573347952949277
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.7,
+        0.28
+      ],
+      "point": [
+        4.375733965231941,
+        4.779986994771146,
+        14.554719924926758
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.5599999999999999,
+        0.28
+      ],
+      "point": [
+        5.437720547237063,
+        5.0016811350828725,
+        14.554719924926758
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.41999999999999993,
+        0.28
+      ],
+      "point": [
+        5.733688796092055,
+        5.069999999999996,
+        14.778001777254564
+      ],
+      "name": "",
+      "data": {},
+      "owner": {
+        "indirectLighting": {
+          "generation": 7,
+          "completed": 0,
+          "state": "preparing",
+          "previewUpdates": 0,
+          "blocked": false,
+          "enabled": true,
+          "diffuseEnabled": true,
+          "preparing": true,
+          "warming": false,
+          "reading": false,
+          "inFlight": 0,
+          "volumePending": false,
+          "previewPending": false,
+          "pendingUpdate": false,
+          "floorPreparing": false,
+          "floorLayerReady": false,
+          "displayed": false,
+          "xr": false,
+          "capturedProbes": 0,
+          "reflection": false,
+          "face": 0,
+          "saving": false,
+          "saved": false,
+          "source": "baked",
+          "exportable": true,
+          "moving": false,
+          "paused": false,
+          "prepareStage": "lamps",
+          "prepareTimings": {
+            "layout": 482.19999998807907,
+            "geometry": 3979.0999999940395,
+            "structure": 30.30000001192093,
+            "probes": 21,
+            "ceilings": 476
+          }
+        },
+        "shaderWarmupPending": false,
+        "getBakedIndirectLighting": {},
+        "getIndirectCaptureScene": {},
+        "getIndirectMultiview": {},
+        "getIndirectSurfaceCache": {},
+        "getIndirectSurfaceCaptureScene": {}
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "000000"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.2799999999999999,
+        0.28
+      ],
+      "point": [
+        2.338800140699621,
+        4.370603517012795,
+        15.095816473539157
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.1399999999999999,
+        0.28
+      ],
+      "point": [
+        2.335343103811491,
+        4.370623629061034,
+        15.121163918247204
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        1.1102230246251565e-16,
+        0.28
+      ],
+      "point": [
+        2.4227181430808136,
+        4.389978387613505,
+        15.159259552768338
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.14000000000000012,
+        0.28
+      ],
+      "point": [
+        2.6146132958921013,
+        4.432240888173345,
+        15.23455819053447
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.28000000000000014,
+        0.28
+      ],
+      "point": [
+        2.9239265385530766,
+        4.500968800936,
+        15.376623316233218
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.42000000000000015,
+        0.28
+      ],
+      "point": [
+        3.0176568752746267,
+        4.523806136032133,
+        15.488387521530523
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.5600000000000002,
+        0.28
+      ],
+      "point": [
+        3.020070711383158,
+        4.5268472394136365,
+        15.575086282781479
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.7,
+        0.41000000000000003
+      ],
+      "point": [
+        4.3574884134624305,
+        4.902171543056143,
+        14.554719924926758
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.5599999999999999,
+        0.41000000000000003
+      ],
+      "point": [
+        4.983740613521537,
+        5.069999999999996,
+        14.622400851906459
+      ],
+      "name": "",
+      "data": {},
+      "owner": {
+        "indirectLighting": {
+          "generation": 7,
+          "completed": 0,
+          "state": "preparing",
+          "previewUpdates": 0,
+          "blocked": false,
+          "enabled": true,
+          "diffuseEnabled": true,
+          "preparing": true,
+          "warming": false,
+          "reading": false,
+          "inFlight": 0,
+          "volumePending": false,
+          "previewPending": false,
+          "pendingUpdate": false,
+          "floorPreparing": false,
+          "floorLayerReady": false,
+          "displayed": false,
+          "xr": false,
+          "capturedProbes": 0,
+          "reflection": false,
+          "face": 0,
+          "saving": false,
+          "saved": false,
+          "source": "baked",
+          "exportable": true,
+          "moving": false,
+          "paused": false,
+          "prepareStage": "lamps",
+          "prepareTimings": {
+            "layout": 482.19999998807907,
+            "geometry": 3979.0999999940395,
+            "structure": 30.30000001192093,
+            "probes": 21,
+            "ceilings": 476
+          }
+        },
+        "shaderWarmupPending": false,
+        "getBakedIndirectLighting": {},
+        "getIndirectCaptureScene": {},
+        "getIndirectMultiview": {},
+        "getIndirectSurfaceCache": {},
+        "getIndirectSurfaceCaptureScene": {}
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "000000"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.41999999999999993,
+        0.41000000000000003
+      ],
+      "point": [
+        4.952948077314314,
+        5.069999999999996,
+        14.842054276851322
+      ],
+      "name": "",
+      "data": {},
+      "owner": {
+        "indirectLighting": {
+          "generation": 7,
+          "completed": 0,
+          "state": "preparing",
+          "previewUpdates": 0,
+          "blocked": false,
+          "enabled": true,
+          "diffuseEnabled": true,
+          "preparing": true,
+          "warming": false,
+          "reading": false,
+          "inFlight": 0,
+          "volumePending": false,
+          "previewPending": false,
+          "pendingUpdate": false,
+          "floorPreparing": false,
+          "floorLayerReady": false,
+          "displayed": false,
+          "xr": false,
+          "capturedProbes": 0,
+          "reflection": false,
+          "face": 0,
+          "saving": false,
+          "saved": false,
+          "source": "baked",
+          "exportable": true,
+          "moving": false,
+          "paused": false,
+          "prepareStage": "lamps",
+          "prepareTimings": {
+            "layout": 482.19999998807907,
+            "geometry": 3979.0999999940395,
+            "structure": 30.30000001192093,
+            "probes": 21,
+            "ceilings": 476
+          }
+        },
+        "shaderWarmupPending": false,
+        "getBakedIndirectLighting": {},
+        "getIndirectCaptureScene": {},
+        "getIndirectMultiview": {},
+        "getIndirectSurfaceCache": {},
+        "getIndirectSurfaceCaptureScene": {}
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "000000"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.2799999999999999,
+        0.41000000000000003
+      ],
+      "point": [
+        2.3389124469102147,
+        4.389304823254546,
+        15.095558848151814
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.1399999999999999,
+        0.41000000000000003
+      ],
+      "point": [
+        2.3349962344071793,
+        4.389212976736713,
+        15.121012683092069
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        1.1102230246251565e-16,
+        0.41000000000000003
+      ],
+      "point": [
+        2.422718075199935,
+        4.413786016274127,
+        15.159259543252329
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.14000000000000012,
+        0.41000000000000003
+      ],
+      "point": [
+        2.5738494285157234,
+        4.4561479630201974,
+        15.225864987354232
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.28000000000000014,
+        0.41000000000000003
+      ],
+      "point": [
+        2.925022824316008,
+        4.554473487310945,
+        15.377713659118138
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.42000000000000015,
+        0.41000000000000003
+      ],
+      "point": [
+        3.0176572816383485,
+        4.58307135610538,
+        15.489673391663263
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.5600000000000002,
+        0.41000000000000003
+      ],
+      "point": [
+        3.0200698489044098,
+        4.586934204255426,
+        15.576843005294759
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.7,
+        0.54
+      ],
+      "point": [
+        4.339348819368578,
+        5.023646527119304,
+        14.554719924926758
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.5599999999999999,
+        0.54
+      ],
+      "point": [
+        4.463647617739563,
+        5.069999999999996,
+        14.702042338066663
+      ],
+      "name": "",
+      "data": {},
+      "owner": {
+        "indirectLighting": {
+          "generation": 7,
+          "completed": 0,
+          "state": "preparing",
+          "previewUpdates": 0,
+          "blocked": false,
+          "enabled": true,
+          "diffuseEnabled": true,
+          "preparing": true,
+          "warming": false,
+          "reading": false,
+          "inFlight": 0,
+          "volumePending": false,
+          "previewPending": false,
+          "pendingUpdate": false,
+          "floorPreparing": false,
+          "floorLayerReady": false,
+          "displayed": false,
+          "xr": false,
+          "capturedProbes": 0,
+          "reflection": false,
+          "face": 0,
+          "saving": false,
+          "saved": false,
+          "source": "baked",
+          "exportable": true,
+          "moving": false,
+          "paused": false,
+          "prepareStage": "lamps",
+          "prepareTimings": {
+            "layout": 482.19999998807907,
+            "geometry": 3979.0999999940395,
+            "structure": 30.30000001192093,
+            "probes": 21,
+            "ceilings": 476
+          }
+        },
+        "shaderWarmupPending": false,
+        "getBakedIndirectLighting": {},
+        "getIndirectCaptureScene": {},
+        "getIndirectMultiview": {},
+        "getIndirectSurfaceCache": {},
+        "getIndirectSurfaceCaptureScene": {}
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "000000"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.41999999999999993,
+        0.54
+      ],
+      "point": [
+        4.438098475170724,
+        5.069999999999996,
+        14.884292888391029
+      ],
+      "name": "",
+      "data": {},
+      "owner": {
+        "indirectLighting": {
+          "generation": 7,
+          "completed": 0,
+          "state": "preparing",
+          "previewUpdates": 0,
+          "blocked": false,
+          "enabled": true,
+          "diffuseEnabled": true,
+          "preparing": true,
+          "warming": false,
+          "reading": false,
+          "inFlight": 0,
+          "volumePending": false,
+          "previewPending": false,
+          "pendingUpdate": false,
+          "floorPreparing": false,
+          "floorLayerReady": false,
+          "displayed": false,
+          "xr": false,
+          "capturedProbes": 0,
+          "reflection": false,
+          "face": 0,
+          "saving": false,
+          "saved": false,
+          "source": "baked",
+          "exportable": true,
+          "moving": false,
+          "paused": false,
+          "prepareStage": "lamps",
+          "prepareTimings": {
+            "layout": 482.19999998807907,
+            "geometry": 3979.0999999940395,
+            "structure": 30.30000001192093,
+            "probes": 21,
+            "ceilings": 476
+          }
+        },
+        "shaderWarmupPending": false,
+        "getBakedIndirectLighting": {},
+        "getIndirectCaptureScene": {},
+        "getIndirectMultiview": {},
+        "getIndirectSurfaceCache": {},
+        "getIndirectSurfaceCaptureScene": {}
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "000000"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.2799999999999999,
+        0.54
+      ],
+      "point": [
+        2.3390259547812673,
+        4.408205035086282,
+        15.09529848261342
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.1399999999999999,
+        0.54
+      ],
+      "point": [
+        2.3346467923262306,
+        4.407950569575626,
+        15.120860254371783
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        1.1102230246251565e-16,
+        0.54
+      ],
+      "point": [
+        2.4227175491667436,
+        4.437835807863946,
+        15.159259469509358
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.14000000000000012,
+        0.54
+      ],
+      "point": [
+        2.574929884249003,
+        4.48951823702184,
+        15.226336078532125
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.28000000000000014,
+        0.54
+      ],
+      "point": [
+        2.9270821050180302,
+        4.608980183677676,
+        15.379103661827777
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.42000000000000015,
+        0.54
+      ],
+      "point": [
+        3.0176600408753966,
+        4.642960867488974,
+        15.49097369209946
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.5600000000000002,
+        0.54
+      ],
+      "point": [
+        3.0200689772515306,
+        4.647660310254643,
+        15.578618413951748
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.7,
+        0.67
+      ],
+      "point": [
+        4.116738095653339,
+        5.069999999999996,
+        14.602775162204281
+      ],
+      "name": "",
+      "data": {},
+      "owner": {
+        "indirectLighting": {
+          "generation": 7,
+          "completed": 0,
+          "state": "preparing",
+          "previewUpdates": 0,
+          "blocked": false,
+          "enabled": true,
+          "diffuseEnabled": true,
+          "preparing": true,
+          "warming": false,
+          "reading": false,
+          "inFlight": 0,
+          "volumePending": false,
+          "previewPending": false,
+          "pendingUpdate": false,
+          "floorPreparing": false,
+          "floorLayerReady": false,
+          "displayed": false,
+          "xr": false,
+          "capturedProbes": 0,
+          "reflection": false,
+          "face": 0,
+          "saving": false,
+          "saved": false,
+          "source": "baked",
+          "exportable": true,
+          "moving": false,
+          "paused": false,
+          "prepareStage": "lamps",
+          "prepareTimings": {
+            "layout": 482.19999998807907,
+            "geometry": 3979.0999999940395,
+            "structure": 30.30000001192093,
+            "probes": 21,
+            "ceilings": 476
+          }
+        },
+        "shaderWarmupPending": false,
+        "getBakedIndirectLighting": {},
+        "getIndirectCaptureScene": {},
+        "getIndirectMultiview": {},
+        "getIndirectSurfaceCache": {},
+        "getIndirectSurfaceCaptureScene": {}
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "000000"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.5599999999999999,
+        0.67
+      ],
+      "point": [
+        4.094906470911448,
+        5.069999999999996,
+        14.758507418696427
+      ],
+      "name": "",
+      "data": {},
+      "owner": {
+        "indirectLighting": {
+          "generation": 7,
+          "completed": 0,
+          "state": "preparing",
+          "previewUpdates": 0,
+          "blocked": false,
+          "enabled": true,
+          "diffuseEnabled": true,
+          "preparing": true,
+          "warming": false,
+          "reading": false,
+          "inFlight": 0,
+          "volumePending": false,
+          "previewPending": false,
+          "pendingUpdate": false,
+          "floorPreparing": false,
+          "floorLayerReady": false,
+          "displayed": false,
+          "xr": false,
+          "capturedProbes": 0,
+          "reflection": false,
+          "face": 0,
+          "saving": false,
+          "saved": false,
+          "source": "baked",
+          "exportable": true,
+          "moving": false,
+          "paused": false,
+          "prepareStage": "lamps",
+          "prepareTimings": {
+            "layout": 482.19999998807907,
+            "geometry": 3979.0999999940395,
+            "structure": 30.30000001192093,
+            "probes": 21,
+            "ceilings": 476
+          }
+        },
+        "shaderWarmupPending": false,
+        "getBakedIndirectLighting": {},
+        "getIndirectCaptureScene": {},
+        "getIndirectMultiview": {},
+        "getIndirectSurfaceCache": {},
+        "getIndirectSurfaceCaptureScene": {}
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "000000"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.41999999999999993,
+        0.67
+      ],
+      "point": [
+        3.09495523318664,
+        4.706698065490275,
+        15.001885240590067
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.2799999999999999,
+        0.67
+      ],
+      "point": [
+        2.3391406792951845,
+        4.427307342361642,
+        15.095035333020805
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.1399999999999999,
+        0.67
+      ],
+      "point": [
+        2.334294294383152,
+        4.426838048572993,
+        15.120706589513379
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        1.1102230246251565e-16,
+        0.67
+      ],
+      "point": [
+        2.422717017753394,
+        4.4621315754385344,
+        15.159259395012159
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.14000000000000012,
+        0.67
+      ],
+      "point": [
+        2.5760256563535595,
+        4.5233615130624205,
+        15.226813847472732
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.28000000000000014,
+        0.67
+      ],
+      "point": [
+        2.93237540524997,
+        4.665559829412296,
+        15.381481523294388
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.42000000000000015,
+        0.67
+      ],
+      "point": [
+        3.017667614729246,
+        4.703485956543399,
+        15.492289595464982
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.5600000000000002,
+        0.67
+      ],
+      "point": [
+        3.0200680962773614,
+        4.709035809692425,
+        15.58041280849156
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.7,
+        0.8
+      ],
+      "point": [
+        3.024967379726555,
+        4.729183020650435,
+        14.857359463227494
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.5599999999999999,
+        0.8
+      ],
+      "point": [
+        3.021973891136821,
+        4.732411107398734,
+        14.93188072527658
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.41999999999999993,
+        0.8
+      ],
+      "point": [
+        3.020939734747472,
+        4.736545316918523,
+        15.007349574442616
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.2799999999999999,
+        0.8
+      ],
+      "point": [
+        2.339256637119912,
+        4.4466150031510026,
+        15.09476935451895
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        -0.1399999999999999,
+        0.8
+      ],
+      "point": [
+        2.3339389640982837,
+        4.4458772895792915,
+        15.120551689948762
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        1.1102230246251565e-16,
+        0.8
+      ],
+      "point": [
+        2.422716480876934,
+        4.486677112077791,
+        15.159259319749104
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.14000000000000012,
+        0.8
+      ],
+      "point": [
+        2.615011408039347,
+        4.57459856236879,
+        15.235652334211338
+      ],
+      "name": "doorBase_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.28000000000000014,
+        0.8
+      ],
+      "point": [
+        3.0177039549532627,
+        4.759475954072073,
+        15.408107029812921
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.42000000000000015,
+        0.8
+      ],
+      "point": [
+        3.017674768667457,
+        4.764655206696161,
+        15.49361931519255
+      ],
+      "name": "doorFrame_geo",
+      "data": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "owner": {
+        "houseDesignerRole": "model-batch",
+        "modelIds": [
+          "2daa7e67-0b3d-49ec-8a98-93ae3eea2c30",
+          "e749bf16-83d9-49e2-a8af-8bfcd730bd2d",
+          "9881cca2-b6ff-48fb-9f96-913f4259ae1f",
+          "77e96828-b9e3-4f44-9d0d-3cfa8c4b7031",
+          "f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab",
+          "fd9c28e9-1b39-454c-bfad-2a482ef35568"
+        ]
+      },
+      "material": [
+        {
+          "name": "interior_door_white",
+          "color": "ffffff"
+        }
+      ]
+    },
+    {
+      "screen": [
+        0.5600000000000002,
+        0.8
+      ],
+      "point": [
+        3.0200672058315776,
+        4.771071175300527,
+        15.582226495098464
+      ],
+      "name": "",
+      "data": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "owner": {
+        "houseDesignerRole": "wall-engine-render",
+        "floorId": "db559ff8-8f78-4b2c-8093-d57d78580c07"
+      },
+      "material": [
+        {
+          "name": "",
+          "color": "94a3b8"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "cbd5e1"
+        },
+        {
+          "name": "",
+          "color": "eee9dc"
+        },
+        {
+          "name": "",
+          "color": "94a3b8"
+        }
+      ]
+    }
+  ]
+}

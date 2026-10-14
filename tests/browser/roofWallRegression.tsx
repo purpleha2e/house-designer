@@ -69,6 +69,17 @@ const lightingStartupFloors: FloorLevel[] = [{ id: 'lighting-startup', name: 'Li
   models: [{ id: 'startup-light', modelId: 'point-light', position: { x: 2, y: 2 }, elevation: 1.8,
     rotation: 0, scale: 1, lightPower: 1000 }],
 }]
+if (lightingStartup && searchParams.has('live-gi')) {
+  lightingStartupFloors[0].walls.push({ id: 'sealed-partition', start: { x: 4, y: 0 }, end: { x: 4, y: 4 },
+    height: 2.4, thickness: .2, kind: 'internal', openings: [] })
+}
+if (lightingStartup && searchParams.has('selection-shaders')) {
+  lightingStartupFloors[0].models.push(...[
+    { id: 'selection-window-1', modelId: 'window', position: { x: 2, y: 0 }, elevation: .8, wallAttachment: { wallId: 'south', offset: 2, side: 1 as const } },
+    { id: 'selection-window-2', modelId: 'window', position: { x: 5, y: 0 }, elevation: .8, wallAttachment: { wallId: 'south', offset: 5, side: 1 as const } },
+    { id: 'selection-door', modelId: 'interior-door-closed', position: { x: 6, y: 4 }, elevation: 0, wallAttachment: { wallId: 'north', offset: 2, side: 1 as const } },
+  ].map(model => ({ ...model, rotation: 0, scale: 1 })))
+}
 const sourceFloors = (lightingStartup ? lightingStartupFloors : groundOnly ? [savedProject.floors[0]] : savedProject.floors)
   .map(floor => normalizeFloor(floor as unknown as FloorLevel, modelsById))
 const previewSource = sourceFloors[0].roofs?.[0]
@@ -76,7 +87,7 @@ const floors = showPreview && previewSource
   ? sourceFloors.map((floor, index) => index === 0 ? { ...floor, roofs: [] } : floor)
   : sourceFloors
 function RegressionScene() {
-  const [activeFloorId, setActiveFloorId] = useState(groundOnly || lightingStartup ? floors[0].id : savedProject.activeFloorId)
+  const [activeFloorId, setActiveFloorId] = useState(searchParams.has('upper-selection') ? floors[1].id : groundOnly || lightingStartup ? floors[0].id : savedProject.activeFloorId)
   const [sunPosition, setSunPosition] = useState(savedProject.sunPosition)
   const [sceneFloors, setSceneFloors] = useState(floors as unknown as FloorLevel[])
   const [selection, setSelection] = useState<string | null>(null)
@@ -138,7 +149,7 @@ function RegressionScene() {
     counters.regressionSunCommits = (counters.regressionSunCommits ?? 0) + 1
     setSunPosition(position)
   }}
-  onSelectFloor={noop} onSelectModel={setSelection} onSelectRoof={(roofId, floorId) => setSurfaceSelection({ type: 'roof', roofId, floorId })} onSelectSurface={surface => {
+  onSelectFloor={noop} onSelectModel={(modelId, floorId) => { setActiveFloorId(floorId); setSelection(modelId) }} onSelectRoof={(roofId, floorId) => setSurfaceSelection({ type: 'roof', roofId, floorId })} onSelectSurface={surface => {
     setActiveFloorId(getSurfaceSelectionFloorId(surface, activeFloorId, sceneFloors))
     setSurfaceSelection(surface)
   }}

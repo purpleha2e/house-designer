@@ -13,8 +13,8 @@ export function indirectFloorConfidence(support: number) { return Math.min(1, Ma
 export function indirectFloorSize(size: number, spacing = .04) { return Math.max(2, Math.min(512, Math.ceil(size / spacing) + 1)) }
 
 /** Four SH slabs, with one isolated plane per storey. Floor receivers never blend vertically. */
-export function createIndirectFloorLayer(size: number, floors: number) {
-  const n = indirectFloorSize(size), height = Math.max(1, floors)
+export function createIndirectFloorLayer(size: number, floors: number, spacing = .04, limit = 512) {
+  const n = Math.min(limit, indirectFloorSize(size, spacing)), height = Math.max(1, floors)
   const data = new Uint16Array(n * n * height * 4 * 4)
   const texture = new Data3DTexture(data, n, height * 4, n)
   texture.type = HalfFloatType; texture.format = RGBAFormat; texture.colorSpace = NoColorSpace
@@ -27,13 +27,26 @@ export function createIndirectFloorLookup(field: IndirectField, visibility: Indi
 }
 
 export function writeIndirectFloorLayer(field: IndirectField, visibility: IndirectVisibility, lookup?: ReturnType<typeof createIndirectFloorLookup>) {
+  for (let row = 0; row < field.floors.length * field.floorLayer.n; row++) writeIndirectFloorRow(field, row, visibility, lookup)
+  field.floorLayer.ready = true; field.floorLayer.texture.needsUpdate = true
+}
+
+/** The same receiver positions are used for background visibility and final lighting. */
+export function writeIndirectFloorRow(field: IndirectField, row: number, visibility: IndirectVisibility,
+  lookup?: ReturnType<typeof createIndirectFloorLookup>, visibilityOnly = false) {
   const layer = field.floorLayer, result = new Float64Array(12), mask = field.mask.image.data as Uint8Array
-  for (let floor = 0; floor < field.floors.length; floor++) for (let z = 0; z < layer.n; z++) for (let x = 0; x < layer.n; x++) {
+  const floor = Math.floor(row / layer.n), z = row % layer.n
+  for (let x = 0; x < layer.n; x++) {
     const px = field.bounds.minX + x / (layer.n - 1) * field.bounds.size, pz = field.bounds.minZ + z / (layer.n - 1) * field.bounds.size
     const mx = Math.min(INDIRECT_MASK_SIZE - 1, Math.floor(x / (layer.n - 1) * INDIRECT_MASK_SIZE))
     const mz = Math.min(INDIRECT_MASK_SIZE - 1, Math.floor(z / (layer.n - 1) * INDIRECT_MASK_SIZE))
     result.fill(0)
     const y = field.floors[floor].elevation + INDIRECT_FLOOR_SAMPLE_HEIGHT
+    if (visibilityOnly) {
+      if (mask[((floor * INDIRECT_MASK_SIZE + mz) * INDIRECT_MASK_SIZE + mx) * 4])
+        lookup!.warm(floor, px, y, pz, (floor * layer.n + z) * layer.n + x)
+      continue
+    }
     const support = mask[((floor * INDIRECT_MASK_SIZE + mz) * INDIRECT_MASK_SIZE + mx) * 4] ?
       (lookup ? lookup(floor, px, y, pz, (floor * layer.n + z) * layer.n + x, result)
         : sampleIndirectCoefficients(field, floor, px, y, pz, result, visibility)) : 0
@@ -45,7 +58,6 @@ export function writeIndirectFloorLayer(field: IndirectField, visibility: Indire
       layer.data[offset + 3] = DataUtils.toHalfFloat(support > 0 ? 1 : 0)
     }
   }
-  layer.ready = true; layer.texture.needsUpdate = true
 }
 
 export function usesIndirectFloorLayer(field: IndirectField, floor: number, point: Vector3, normal: Vector3) {

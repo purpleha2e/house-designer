@@ -278,6 +278,10 @@ export type RoofStructure = {
   clipsGeometry?: boolean
   /** Trim this roof's supporting wall tops independently of general clipping. */
   fitSupportingWalls?: boolean
+  /** Allow only the interior lining to project into room space. Defaults to false. */
+  allowInteriorSkin?: boolean
+  /** Vertical lining projection in metres, clamped to 0–0.1. Defaults to 0.02. */
+  interiorSkinDepth?: number
   /** Gable slopes share a fixed ridge instead of equal eave heights. */
   asymmetricSides?: boolean
   /** The mounted side meets the support height; its pitch follows the ridge. */

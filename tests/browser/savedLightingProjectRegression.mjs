@@ -1,8 +1,6 @@
 // With Vite running, after lightingStartupRegression.mjs --cache has created its fixture.
-import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const project = readFileSync('.tmp-indirect-baked-lighting-startup.house.json', 'utf8')
@@ -10,7 +8,7 @@ const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--enable-unsafe-swiftshader', '--remote-debugging-port=0',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
   '--no-first-run', '--no-default-browser-check', '--window-size=1200,850',
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'saved-lighting-'))}`, 'about:blank',
+  `--user-data-dir=${createBrowserTestProfile('saved-lighting-')}`, 'about:blank',
 ], { windowsHide: true })
 let ws
 try {

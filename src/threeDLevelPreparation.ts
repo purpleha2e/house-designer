@@ -44,7 +44,7 @@ export type RenderedFloorData = {
   rooms: DetectedRoom[]
 }
 
-export function serializeWallGeometryInput(floors: FloorLevel[]): string {
+export function serializeWallGeometryInput(floors: FloorLevel[], includeOpenings = true, minimumOpeningTop = -Infinity): string {
   return JSON.stringify(floors.map((floor) => ({
     elevation: floor.elevation,
     id: floor.id,
@@ -57,7 +57,8 @@ export function serializeWallGeometryInput(floors: FloorLevel[]): string {
       height: wall.height,
       id: wall.id,
       kind: wall.kind,
-      openings: wall.openings,
+      openings: includeOpenings ? wall.openings?.filter(opening =>
+        floor.elevation + opening.bottom + opening.height >= minimumOpeningTop - 1e-6) : [],
       start: wall.start,
       thickness: wall.thickness,
     })),

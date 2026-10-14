@@ -669,6 +669,9 @@ export function normalizeFloor(
                 thickness: getRoofThickness(roof),
                 clipsGeometry: roof.clipsGeometry !== false,
                 fitSupportingWalls: roof.fitSupportingWalls === true,
+                allowInteriorSkin: roof.allowInteriorSkin === true,
+                interiorSkinDepth: Number.isFinite(roof.interiorSkinDepth)
+                  ? Math.min(0.1, Math.max(0, roof.interiorSkinDepth!)) : undefined,
                 asymmetricSides: roof.type === 'up-and-over' && roof.asymmetricSides === true,
                 mountSide: roof.type === 'up-and-over' && ['auto', 'side1', 'side2', 'free'].includes(roof.mountSide ?? '')
                   ? roof.mountSide : undefined,

@@ -1,16 +1,14 @@
 // With Vite running: node tests/browser/lightingStartupRegression.mjs [port] [project]
 // Verifies early GI publication, camera shader reuse and lighting-edit continuity.
-import { spawn } from 'node:child_process'
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--enable-unsafe-swiftshader', '--remote-debugging-port=0',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
   '--no-first-run', '--no-default-browser-check', `--window-size=1200,${process.argv.includes('--probes') ? 1050 : 850}`,
-  `--user-data-dir=${mkdtempSync(join(tmpdir(), 'object-handles-'))}`, 'about:blank',
+  `--user-data-dir=${createBrowserTestProfile('object-handles-')}`, 'about:blank',
 ], { windowsHide: true })
 let ws
 try {
@@ -89,8 +87,9 @@ try {
     console.log('Saved GI client and editor reload regression passed:',project)
     ws.close();child.kill();process.exit(0)
   }
-  await call('Page.navigate', { url: 'http://127.0.0.1:'+port+'/tests/browser/roofWallRegression.html?'+project+'&strict&materials' })
+  await call('Page.navigate', { url: 'http://127.0.0.1:'+port+'/tests/browser/roofWallRegression.html?'+project+'&strict&materials'+(process.argv.includes('--live')?'&live-gi':'') })
   for(let i=0;i<180;i++){await pause(250);if(await evaluate('!!window.roofWallScene?.()'))break}
+  if(process.argv.includes('--surface-cache'))await evaluate('window.roofWallScene().scene.userData.indirectSurfaceCacheEnabled=true')
   await evaluate('(()=>{const s=window.roofWallScene();s.setDpr(.5);s.camera.position.set(2,1.6,2);s.camera.lookAt(2,1.6,0);s.controls?.target?.set(2,1.6,0);s.camera.updateMatrixWorld();s.invalidate()})()')
   const status=()=>evaluate('window.roofWallScene().scene.userData.indirectLighting')
   let preview
@@ -98,6 +97,19 @@ try {
   assert.ok(preview?.displayed,'startup publishes a visible volume')
   assert.ok(preview.completed<preview.probes,'startup displays GI before the first full probe pass')
   console.log('Startup preview',preview.completed,'of',preview.probes,'probes')
+  if(process.argv.includes('--live')) {
+    assert.ok(preview.previewUpdates>0,'startup uses the independent live-preview worker path')
+    writeFileSync('.tmp-indirect-live-preview.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
+    const before=await status()
+    for(let i=0;i<40;i++) {
+      await evaluate(`(()=>{const s=window.roofWallScene();s.camera.position.set(${2 + Math.sin(i/10)*.3},1.6,2);s.controls?.target?.set(2,1.6,0);s.camera.lookAt(2,1.6,0);s.camera.updateMatrixWorld();s.invalidate()})()`)
+      await pause(50)
+    }
+    const after=await status()
+    assert.equal(after.generation,before.generation,'navigation preserves the bake')
+    assert.ok(after.capturedFaces>before.capturedFaces,'captures make progress during continuous navigation')
+    console.log('Navigation capture progress',after.capturedFaces-before.capturedFaces,'faces; first preview',preview.firstPreviewMs,'ms')
+  }
   for(let i=0;i<20;i++){if(/GI refining/.test(await evaluate(`document.querySelector('[aria-label="Indirect lighting progress"]').textContent`)))break;await pause(100)}
   assert.match(await evaluate(`document.querySelector('[aria-label="Indirect lighting progress"]').textContent`),/GI refining/)
   if(process.argv.includes('--probes')) {
@@ -159,10 +171,57 @@ try {
   if(programs)console.log('New program materials',await evaluate(`(()=>{const s=window.roofWallScene(),entries=[];s.scene.traverse(o=>{for(const m of Array.isArray(o.material)?o.material:[o.material]){if(!m)continue;const ps=s.gl.properties.get(m).programs;for(const [key,p] of ps??[])if(!window.oldProgramKeys.has(key))entries.push({role:o.userData.houseDesignerRole,material:m.type,key:m.customProgramCacheKey(),program:key,side:m.side,transparent:m.transparent,env:m.envMap?.image?.height})}});return entries})()`))
   assert.equal(programs,0,'moving through faded walls reuses prepared shader programs')
   assert.equal((await status()).generation,settled.generation,'navigation retains GI')
+  if(process.argv.includes('--surface-cache')){
+    assert.ok(settled.surfaceDataFaces>0,'the initial bake records surface data')
+    await evaluate('void (window.startupSurfaceCache=window.roofWallScene().scene.userData.getIndirectSurfaceCache())')
+  }
   const before=await evaluate('(()=>{const s=window.roofWallScene();let id;s.scene.traverse(o=>{for(const m of Array.isArray(o.material)?o.material:[o.material]){const u=m&&s.gl.properties.get(m).uniforms;if(u?.hdGIUseVolume?.value===1)id=u.hdGIVolume.value.uuid}});return id})()')
-  await evaluate('window.updateRegressionSunPosition({...window.regressionSunPosition,azimuth:window.regressionSunPosition.azimuth+.25})');await pause(750)
+  await evaluate('window.updateRegressionSunPosition({...window.regressionSunPosition,azimuth:window.regressionSunPosition.azimuth+.25})');await pause(50)
   const during=await evaluate('(()=>{const s=window.roofWallScene();let id;s.scene.traverse(o=>{for(const m of Array.isArray(o.material)?o.material:[o.material]){const u=m&&s.gl.properties.get(m).uniforms;if(u?.hdGIUseVolume?.value===1)id=u.hdGIVolume.value.uuid}});return id})()')
   assert.equal(during,before,'lighting edits retain the displayed volume while updating')
+  if(process.argv.includes('--live')) {
+    let live
+    for(let i=0;i<100;i++){await pause(100);live=await status();if(live.previewUpdates>0&&!live.pendingUpdate)break}
+    assert.ok(live.previewUpdates>0&&live.displayed,'a sun edit publishes a live preview before completion')
+    assert.equal(await evaluate('!!window.roofWallScene().scene.userData.getBakedIndirectLighting?.()'),false,'a preview cannot be exported as a finished bake')
+    assert.ok(live.completed<live.total,'the live result arrives before reflections and final refinement')
+    console.log('Sun edit first preview',live.firstPreviewMs,'ms')
+    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.state==='ready'&&!live.volumePending&&!live.pendingUpdate)break}
+    assert.equal(live.state,'ready')
+    if(process.argv.includes('--surface-cache')){
+      assert.equal(live.surfaceDataFaces,0,'sun edits reuse all captured material data')
+      assert.ok(live.surfaceReplayedProbes>0)
+      assert.equal(await evaluate('window.startupSurfaceCache===window.roofWallScene().scene.userData.getIndirectSurfaceCache()'),true)
+    }
+    const builds=live.geometryBuilds
+    await evaluate(`window.updateRegressionFloors(window.regressionFloors.map(f=>({...f,models:f.models.map(m=>m.id==='startup-light'?{...m,lightPower:500}:m)})))`)
+    for(let i=0;i<200;i++){await pause(100);live=await status();if(live.partial&&live.previewUpdates>0&&!live.pendingUpdate)break}
+    assert.equal(live.partial,true,'lamp power edits use affected zones')
+    assert.ok(live.reusedProbes>0,'the sealed neighbouring room retains its completed lighting')
+    assert.equal(live.geometryBuilds,builds,'lamp power edits reuse geometry and visibility')
+    assert.ok(live.previewUpdates>0&&live.displayed)
+    if(process.argv.includes('--surface-cache'))assert.equal(live.surfaceDataFaces,0,'lamp power edits reuse material data')
+    console.log('Lamp edit first preview',live.firstPreviewMs,'ms; geometry builds',live.geometryBuilds)
+    // Superseding an unfinished preview cannot publish or export the old edit.
+    const oldGeneration=live.generation
+    await evaluate(`window.updateRegressionFloors(window.regressionFloors.map(f=>({...f,models:f.models.map(m=>m.id==='startup-light'?{...m,lightPower:750}:m)})))`)
+    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.generation>oldGeneration&&live.state==='ready'&&!live.volumePending&&!live.pendingUpdate)break}
+    assert.ok(live.generation>oldGeneration)
+    assert.equal(live.state,'ready','the superseding edit finishes')
+    assert.ok(live.displayed)
+    const moveBuilds=live.geometryBuilds, moveGeneration=live.generation, moveStarted=Date.now()
+    await evaluate(`window.updateRegressionFloors(window.regressionFloors.map(f=>({...f,models:f.models.map(m=>m.id==='startup-light'?{...m,position:{...m.position,x:m.position.x+.4}}:m)})))`)
+    for(let i=0;i<300;i++){await pause(100);live=await status();if(live.generation>moveGeneration&&!live.pendingUpdate&&live.previewUpdates>0)break}
+    assert.ok(live.previewUpdates>0&&live.generation>moveGeneration,'moving the lamp produces a new live result')
+    assert.equal(live.geometryBuilds,moveBuilds,'lamp movement keeps the prepared geometry')
+    console.log('Moved lamp preview from edit',Date.now()-moveStarted,'ms')
+    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.state==='ready'&&!live.volumePending&&!live.pendingUpdate)break}
+    assert.equal(live.state,'ready')
+    assert.equal(live.geometryBuilds,moveBuilds,'the completed lamp move reused geometry')
+    await evaluate(`(()=>{const s=window.roofWallScene();s.camera.position.set(2,2.1,2);s.controls?.target?.set(3,.4,3.8);s.camera.lookAt(3,.4,3.8);s.camera.updateMatrixWorld();s.invalidate()})()`)
+    await pause(750)
+    writeFileSync('.tmp-indirect-live-final.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
+  }
   assert.deepEqual(errors,[])
   console.log('GI startup, progress, navigation and rebake continuity passed')
 }finally{ws?.close();child.kill()}

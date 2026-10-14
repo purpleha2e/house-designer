@@ -1,12 +1,12 @@
 // With Vite running: node --test tests/browser/toolbarLayoutRegression.mjs
-import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { once } from 'node:events'
 import assert from 'node:assert/strict'
 
-const profile = mkdtempSync(join(tmpdir(), 'roof-create-preview-'))
+const profile = createBrowserTestProfile('roof-create-preview-')
 const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--remote-debugging-port=0',
   '--no-first-run', '--no-default-browser-check', '--window-size=1800,1000',

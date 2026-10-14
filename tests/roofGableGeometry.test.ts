@@ -18,9 +18,25 @@ import { buildStoreyGeometry } from '../src/storeyGeometry.ts'
 import { intersectSolid, prismSolid, solidBoundaryFaces, subtractSolid, solidPolygonArea } from '../src/convexSolid.ts'
 import type { FloorLevel, RoofStructure, Wall } from '../src/types.ts'
 import { createCeilingLoftFloor } from '../src/loftFloor.ts'
+import { serializeWallGeometryInput } from '../src/threeDLevelPreparation.ts'
 import { getGableSurface } from '../src/gableSurfaces.ts'
 import { getSurfaceSelectionFloorId } from '../src/surfaceSelection.ts'
 import { replaceRoofMaterialAssignment, roofSurfaceTargetsMatch } from '../src/roofMaterialAssignments.ts'
+
+test('ignoring openings below the roof base preserves gables and their higher apertures', () => {
+  const floor = joinedFloor(false)
+  floor.walls[0].openings = [{ id: 'low-window', modelId: 'window', center: 2, width: 1, bottom: .4, height: 1 }]
+  floor.walls[2].openings = [{ id: 'gable-window', modelId: 'window', center: 2, width: 1, bottom: 2.8, height: 1 }]
+  const floors = [floor], roofs = resolveBuildingRoofs(floors)
+  const rooms = buildBuildingRoomVolumes(floors, roofs)
+  const filtered = JSON.parse(serializeWallGeometryInput(floors, true, 2.4))
+  const shape = (input: FloorLevel[]) => buildBuildingRoofGables(input, roofs, rooms).map(gable => ({
+    id: gable.id, solids: gable.solids, faces: gable.faces.map(face => ({ points: face.points, uvs: face.uvs })),
+  }))
+  assert.deepEqual(shape(filtered), shape(floors))
+  assert.equal(filtered[0].walls[0].openings.length, 0)
+  assert.equal(filtered[0].walls[2].openings.length, 1)
+})
 
 function hitGables(gables: ReturnType<typeof buildBuildingRoofGables>, origin: number[], direction: number[]) {
   const meshes = gables.map(gable => {

@@ -108,7 +108,7 @@ test('coincident passive joined slopes retain one owner regardless of input orde
   }
 })
 
-test('a roof with clipping off does not supply room cutters or height-clip drawn gable walls', () => {
+test('a passive roof still encloses room space without height-clipping drawn gable walls', () => {
   const walls: Wall[] = [
     [-2, -2, 2, -2], [2, -2, 2, 2], [2, 2, -2, 2], [-2, 2, -2, -2],
   ].map(([x, y, ex, ey], i) => ({ id: `wall-${i}`, kind: 'external', start: { x, y },
@@ -123,8 +123,9 @@ test('a roof with clipping off does not supply room cutters or height-clip drawn
       assert.ok(rooms.ceilingFaces.length)
       assert.ok(clips.gableWallIds.length)
     } else {
-      assert.deepEqual(rooms.ceilingFaces, [])
-      assert.ok(rooms.cuts.every(cut => !cut.roofId), 'house room volumes can still trim the passive roof')
+      assert.ok(rooms.ceilingFaces.length, 'a passive enclosure still bounds the room void')
+      assert.ok(rooms.cuts.some(cut => cut.roofId === 'roof' && cut.roomVolume),
+        'room clipping uses the passive enclosure to remove lower intruding roofs')
       assert.deepEqual(clips.gableWallIds, [])
       assert.deepEqual(clips.gableCeilingFaces, [])
     }

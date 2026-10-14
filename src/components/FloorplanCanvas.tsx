@@ -198,6 +198,8 @@ export type RoofCreateOptions = {
   heightOffset?: number
   fitSupportingWalls?: boolean
   clipsGeometry?: boolean
+  allowInteriorSkin?: boolean
+  interiorSkinDepth?: number
   thickness?: number
   bayOutline?: Point[]
   bayRidgeLength?: number
@@ -3454,6 +3456,7 @@ export function FloorplanCanvas({
   const [roofPlacementClipsGeometry, setRoofPlacementClipsGeometry] = useState(true)
   const [roofPlacementHeightOffset, setRoofPlacementHeightOffset] = useState(0)
   const [roofPlacementFitSupportingWalls, setRoofPlacementFitSupportingWalls] = useState(false)
+  const [roofPlacementInteriorSkin, setRoofPlacementInteriorSkin] = useState<Pick<RoofStructure, 'allowInteriorSkin' | 'interiorSkinDepth'>>({})
   const [roofPlacementRidgeSettings, setRoofPlacementRidgeSettings] = useState<Pick<RoofStructure, 'asymmetricSides' | 'mountSide' | 'ridgeOffset' | 'ridgeHeight' | 'ridgeHeightTargetRoofId'>>({})
   const [roofPlacementBayRidgeLength, setRoofPlacementBayRidgeLength] = useState(0.5)
   const [roofPlacementRidgeStartChamfer, setRoofPlacementRidgeStartChamfer] =
@@ -3472,13 +3475,13 @@ export function FloorplanCanvas({
     useState<RoofStructure['type']>('up-and-over')
   const bayPlacementLayout = useMemo(() => createBayRoofLayout(roofPlacementPoints), [roofPlacementPoints])
   const bayPlacementRoof = useMemo<RoofStructure | null>(() => roofPlacementType === 'bay' && bayPlacementLayout ? {
-    ...bayPlacementLayout, type: 'bay', id: '__roof-placement-preview__',
+    ...bayPlacementLayout, ...roofPlacementInteriorSkin, type: 'bay', id: '__roof-placement-preview__',
     clipsGeometry: roofPlacementClipsGeometry,
     heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
     bayRidgeLength: roofPlacementBayRidgeLength,
     pitchDegrees: roofPlacementPitchDegrees, thickness: roofPlacementThickness, overhangSide: roofPlacementSideOverhang,
     overhangEnd: 0, overhangPitchDegrees: roofPlacementOverhangPitchDegrees, soffitColor: roofPlacementSoffitColor,
-  } : null, [bayPlacementLayout, roofPlacementType, roofPlacementClipsGeometry, roofPlacementHeightOffset, roofPlacementFitSupportingWalls, roofPlacementBayRidgeLength, roofPlacementPitchDegrees, roofPlacementThickness, roofPlacementSideOverhang, roofPlacementOverhangPitchDegrees, roofPlacementSoffitColor])
+  } : null, [bayPlacementLayout, roofPlacementInteriorSkin, roofPlacementType, roofPlacementClipsGeometry, roofPlacementHeightOffset, roofPlacementFitSupportingWalls, roofPlacementBayRidgeLength, roofPlacementPitchDegrees, roofPlacementThickness, roofPlacementSideOverhang, roofPlacementOverhangPitchDegrees, roofPlacementSoffitColor])
   const bayPlacementGeometry = useMemo(() => bayPlacementRoof
     ? getBayRoofWithWallSupport(bayPlacementRoof, walls) : null, [bayPlacementRoof, walls])
   const [transformMode, setTransformMode] =
@@ -4354,6 +4357,7 @@ export function FloorplanCanvas({
       depth: bounds.depth,
       ...(roofPlacementType === 'up-and-over' ? roofPlacementRidgeSettings : {}),
       clipsGeometry: roofPlacementClipsGeometry,
+      ...roofPlacementInteriorSkin,
       heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
       thickness: roofPlacementThickness,
       floorId: activeFloor.id,
@@ -6377,6 +6381,7 @@ export function FloorplanCanvas({
         bayRidgeLength: roofPlacementType === 'bay' ? roofPlacementBayRidgeLength : undefined,
         ...(roofPlacementType === 'up-and-over' ? roofPlacementRidgeSettings : {}),
         clipsGeometry: roofPlacementClipsGeometry,
+        ...roofPlacementInteriorSkin,
         heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
         thickness: roofPlacementThickness,
         id: '__roof-placement-preview__',
@@ -6419,6 +6424,7 @@ export function FloorplanCanvas({
     roofPlacementClipsGeometry,
     roofPlacementHeightOffset,
     roofPlacementFitSupportingWalls,
+    roofPlacementInteriorSkin,
     roofPlacementRidgeSettings,
     roofPlacementRidgeEndChamfer,
     roofPlacementRidgeStartChamfer,
@@ -7647,6 +7653,11 @@ export function FloorplanCanvas({
                 if (updates.clipsGeometry !== undefined) setRoofPlacementClipsGeometry(updates.clipsGeometry)
                 if (updates.heightOffset !== undefined) setRoofPlacementHeightOffset(updates.heightOffset)
                 if (updates.fitSupportingWalls !== undefined) setRoofPlacementFitSupportingWalls(updates.fitSupportingWalls)
+                if ('allowInteriorSkin' in updates || 'interiorSkinDepth' in updates) setRoofPlacementInteriorSkin(current => ({
+                  ...current,
+                  ...('allowInteriorSkin' in updates ? { allowInteriorSkin: updates.allowInteriorSkin } : {}),
+                  ...('interiorSkinDepth' in updates ? { interiorSkinDepth: updates.interiorSkinDepth } : {}),
+                }))
                 if (updates.bayRidgeLength !== undefined) setRoofPlacementBayRidgeLength(updates.bayRidgeLength)
                 if (updates.thickness !== undefined) setRoofPlacementThickness(updates.thickness)
                 if (updates.pitchDegrees !== undefined) setRoofPlacementPitchDegrees(updates.pitchDegrees)

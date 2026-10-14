@@ -1,0 +1,51 @@
+[
+  {
+    "enabled": false,
+    "firstFrameMs": 156.90000000596046,
+    "firstPrograms": 0,
+    "programs": 44,
+    "bakeMs": 31726.20000000298,
+    "geometryBuilds": 1,
+    "workerCreations": 1,
+    "source": "baked",
+    "partial": true,
+    "firstPreviewMs": 6418.699999988079,
+    "visiblePointLights": 3,
+    "poweredPointLights": 2,
+    "shadowSlots": 0,
+    "shadowMaps": 0,
+    "warmups": 0
+  },
+  {
+    "enabled": true,
+    "firstFrameMs": 122,
+    "firstPrograms": 0,
+    "programs": 0,
+    "bakeMs": 3076.5,
+    "geometryBuilds": 0,
+    "workerCreations": 1,
+    "source": "saved",
+    "visiblePointLights": 3,
+    "poweredPointLights": 3,
+    "shadowSlots": 0,
+    "shadowMaps": 0,
+    "warmups": 0
+  },
+  {
+    "enabled": false,
+    "firstFrameMs": 137.59999999403954,
+    "firstPrograms": 0,
+    "programs": 0,
+    "bakeMs": 5927.4000000059605,
+    "geometryBuilds": 1,
+    "workerCreations": 1,
+    "source": "baked",
+    "partial": true,
+    "firstPreviewMs": 248.80000001192093,
+    "visiblePointLights": 3,
+    "poweredPointLights": 2,
+    "shadowSlots": 0,
+    "shadowMaps": 0,
+    "warmups": 0
+  }
+]

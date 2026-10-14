@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Group, SphericalHarmonics3 } from 'three'
 import { createIndirectField, writeIndirectProbe } from '../src/indirectLighting.ts'
-import { formatIndirectLightingEngineStatus, formatIndirectLightingProgress, indirectPreviewPositions, shouldPublishIndirectPreview } from '../src/indirectLightingProgress.ts'
+import { formatIndirectLightingEngineStatus, formatIndirectLightingProgress } from '../src/indirectLightingProgress.ts'
+import { indirectPreviewCoefficients } from '../src/indirectLivePreview.ts'
 import { sampleIndirectCoefficients } from '../src/indirectVolume.ts'
 import { createIndirectVisibility } from '../src/indirectVisibility.ts'
 
@@ -13,7 +14,7 @@ test('startup previews exclude uncaptured probes without darkening captured illu
   const captured = field.probes[0], sh = new SphericalHarmonics3()
   sh.coefficients[0].set(.5, .25, .125)
   writeIndirectProbe(field, captured.index, sh)
-  const preview = indirectPreviewPositions(originalPositions, field.probes, new Set([captured.index]))
+  const preview = indirectPreviewCoefficients(field, new Set([captured.index]), 1).positions
   assert.equal(originalPositions[field.probes[1].index * 4 + 3], 1)
   assert.equal(preview[field.probes[1].index * 4 + 3], 0)
   assert.equal(preview[captured.index * 4 + 3], 1)
@@ -26,12 +27,6 @@ test('startup previews exclude uncaptured probes without darkening captured illu
   assert.ok(sampleIndirectCoefficients(field, 0, captured.position.x, captured.position.y, captured.position.z, result, visibility) > 0)
   assert.deepEqual([...result], Array(12).fill(0))
   visibility.dispose(); field.dispose()
-})
-
-test('startup preview work is bounded and small fields publish at their full-pass boundary', () => {
-  assert.deepEqual(Array.from({ length: 274 }, (_, i) => i + 1).filter(n => shouldPublishIndirectPreview(n, 274)), [8, 32, 128])
-  assert.equal(shouldPublishIndirectPreview(8, 8), false)
-  assert.equal(shouldPublishIndirectPreview(274, 274), false)
 })
 
 test('lighting progress distinguishes preparation, paused captures, refinement and completion', () => {
@@ -55,11 +50,15 @@ test('engine lighting status identifies the current work and retained lighting',
   assert.equal(formatIndirectLightingEngineStatus({ ...status, warming: true }), 'GI preparing capture shaders')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, volumePending: true }), 'GI building irradiance volume · 1%')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, preparing: true }), 'GI placing probes and checking visibility')
+  assert.equal(formatIndirectLightingEngineStatus({ ...status, preparing: true, prepareStage: 'lamps' }), 'GI checking lamp visibility')
+  assert.equal(formatIndirectLightingEngineStatus({ ...status, preparing: true, prepareStage: 'geometry' }), 'GI indexing scene geometry')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, reading: true }), 'GI bounce 1 · 8/274 probes · reading light · 1%')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, reflection: true, rooms: 17, reflections: 4 }), 'GI capturing reflections · 4/17 · 1%')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, blocked: true }), 'GI waiting for scene preparation or editing')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, xr: true }), 'GI paused during VR')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, state: 'ready', reflections: 17 }), 'GI ready · 274 probes · 17 reflections')
+  assert.equal(formatIndirectLightingEngineStatus({ ...status, state: 'ready', reflections: 17, blocked: true }), 'GI ready · 274 probes · 17 reflections',
+    'selection preparation does not claim the completed bake is waiting to run')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, enabled: false, blocked: true }), 'GI off')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, state: 'fallback' }), 'GI unavailable')
 })

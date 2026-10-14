@@ -101,7 +101,11 @@ export function createRoomLightMask(
         id = roomIdsBySignature.size + 1
         roomIdsBySignature.set(room.signature, id)
       }
-      return [{ area: polygonAreaMagnitude(room.polygon), id, room }]
+      return [{ area: polygonAreaMagnitude(room.polygon), id, room,
+        minX: Math.min(...room.polygon.map(point => point.x)) - 1e-6,
+        maxX: Math.max(...room.polygon.map(point => point.x)) + 1e-6,
+        minZ: Math.min(...room.polygon.map(point => point.y)) - 1e-6,
+        maxZ: Math.max(...room.polygon.map(point => point.y)) + 1e-6 }]
     })
     .sort((first, second) => first.area - second.area)
 
@@ -110,7 +114,8 @@ export function createRoomLightMask(
     for (let x = 0; x < width; x += 1) {
       const worldX = bounds.minX + ((x + 0.5) / width) * bounds.size
       // Small nested rooms win, matching the room-picking behavior.
-      const containing = maskRooms.find(({ room }) =>
+      const containing = maskRooms.find(({ room, minX, maxX, minZ, maxZ }) =>
+        worldX >= minX && worldX <= maxX && worldZ >= minZ && worldZ <= maxZ &&
         pointIsInsideRoomPolygon({ x: worldX, y: worldZ }, room.polygon),
       )
       data[y * width + x] = containing?.id ?? 0

@@ -1,5 +1,6 @@
 import type { SelectableSurface } from '../types.ts'
 import type { WallMeshFace, WallMeshSource } from './wallMesh.ts'
+import { wallLightingCornerPlanes } from './wallLightingCorners.ts'
 
 export type WallBufferGroup = {
   count: number
@@ -25,6 +26,8 @@ export type WallBufferGeometryPayload = {
   materialSlots: WallBufferMaterialSlot[]
   normals: number[]
   pickTargets: Map<number, SelectableSurface>
+  lightingReceiverOffsets: number[]
+  lightingCornerPlanes: [number[], number[]]
   positions: number[]
   uvs: number[]
 }
@@ -38,16 +41,12 @@ function sourceKey(source: WallMeshSource) {
 
 function getOrCreateMaterialIndex(
   materialSlots: WallBufferMaterialSlot[],
+  indicesBySource: Map<string, number>,
   source: WallMeshSource,
   key = sourceKey(source),
 ) {
-  const existingSlot = materialSlots.find(
-    (slot) => sourceKey(slot.source) === key,
-  )
-
-  if (existingSlot) {
-    return existingSlot.index
-  }
+  const existingIndex = indicesBySource.get(key)
+  if (existingIndex !== undefined) return existingIndex
 
   const slot = {
     index: materialSlots.length,
@@ -55,6 +54,8 @@ function getOrCreateMaterialIndex(
   }
 
   materialSlots.push(slot)
+  const storedKey = sourceKey(source)
+  if (!indicesBySource.has(storedKey)) indicesBySource.set(storedKey, slot.index)
   return slot.index
 }
 
@@ -123,11 +124,17 @@ function triangleWindingMatchesFaceNormal(face: WallMeshFace) {
 
 function pushFaceBuffers({
   face,
+  lightingReceiverOffsets,
+  lightingCornerPlanes,
+  cornerPlanes,
   normals,
   positions,
   uvs,
 }: {
   face: WallMeshFace
+  lightingReceiverOffsets: number[]
+  lightingCornerPlanes: [number[], number[]]
+  cornerPlanes: [number, number, number][]
   normals: number[]
   positions: number[]
   uvs: number[]
@@ -139,6 +146,10 @@ function pushFaceBuffers({
 
   triangleIndices.forEach((vertexIndex) => {
     const vertex = face.vertices[vertexIndex]
+    const plane = face.lightingReceiverPlane
+    const distance = plane ? plane[2] - plane[0] * vertex.position[0] - plane[1] * vertex.position[2] : 0
+    lightingReceiverOffsets.push(plane ? plane[0] * distance : 0, 0, plane ? plane[1] * distance : 0)
+    for (let i = 0; i < 2; i++) lightingCornerPlanes[i].push(...(cornerPlanes[i] ?? [0, 0, 0]))
 
     positions.push(...vertex.position)
     normals.push(...face.normal)
@@ -158,10 +169,14 @@ export function buildWallBufferGeometryPayload(
   const groups: WallBufferGroup[] = []
   const materialSlots: WallBufferMaterialSlot[] = []
   const normals: number[] = []
+  const lightingReceiverOffsets: number[] = []
+  const lightingCornerPlanes: [number[], number[]] = [[], []]
+  const corners = wallLightingCornerPlanes(faces)
   const pickTargets = new Map<number, SelectableSurface>()
   const positions: number[] = []
   const uvs: number[] = []
   const batchIndices = new Map<string, number>()
+  const indicesBySource = new Map<string, number>()
   const batching = groupBy === 'material' && materialBatchKey
   const materialIndexForFace = (face: WallMeshFace) => {
     if (batching) {
@@ -173,7 +188,7 @@ export function buildWallBufferGeometryPayload(
       materialSlots.push({ index, source: face.materialSource })
       return index
     }
-    return getOrCreateMaterialIndex(materialSlots,
+    return getOrCreateMaterialIndex(materialSlots, indicesBySource,
       groupBy === 'pick' ? face.pickSource : face.materialSource,
       groupBy === 'face' ? face.faceId : undefined)
   }
@@ -191,6 +206,9 @@ export function buildWallBufferGeometryPayload(
     .forEach(({ face, materialIndex }) => {
       const group = pushFaceBuffers({
         face,
+        lightingReceiverOffsets,
+        lightingCornerPlanes,
+        cornerPlanes: corners.get(face) ?? [],
         normals,
         positions,
         uvs,
@@ -220,6 +238,8 @@ export function buildWallBufferGeometryPayload(
 
   return {
     groups,
+    lightingReceiverOffsets,
+    lightingCornerPlanes,
     materialSlots,
     normals,
     pickTargets,

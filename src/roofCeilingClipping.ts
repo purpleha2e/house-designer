@@ -3,6 +3,7 @@ import type { MultiPolygon, Polygon } from 'polygon-clipping'
 import type { PlanFootprint } from './planarCutouts.ts'
 import type { Point } from './types.ts'
 import { clipRoofFace, getRoofCoverageUndersideFaces, type ResolvedRoof } from './roofJunctions.ts'
+import type { RoomRoofCut } from './roofRoomCsg.ts'
 
 const EPS = 1e-7
 const COORDINATE_PRECISION = 6
@@ -51,6 +52,21 @@ function toFootprints(multiPolygon: MultiPolygon): PlanFootprint[] {
   return multiPolygon.flatMap(([outline, ...holes]) => outline
     ? [{ outline: toPoints(outline), holes: holes.map(toPoints) }]
     : [])
+}
+
+/** Only the enclosing room ceiling can open a horizontal ceiling. A lower roof
+ * consumed by that room's void must not leave a slit where it used to enter. */
+export function getRoomCeilingCutouts(cuts: RoomRoofCut[], floorId: string, ceilingElevation: number): PlanFootprint[] {
+  const polygons = cuts.filter(cut => cut.roomVolume && cut.floorId === floorId && cut.roofId)
+    .map(cut => clipRoofFace(cut.face, ([, y]) => ceilingElevation - y))
+    .filter(face => face.length >= 3)
+    .map(face => normalizeRing(face.map(([x, , y]) => ({ x, y }))))
+    .filter(polygon => polygon.length >= 3 && Math.abs(polygon.reduce((sum, point, index) => {
+      const next = polygon[(index + 1) % polygon.length]
+      return sum + point.x * next.y - next.x * point.y
+    }, 0)) / 2 > EPS)
+    .map(polygon => [toClosedRing(polygon)] as Polygon)
+  return polygons.length && unionPolygons ? toFootprints(unionPolygons(polygons[0], ...polygons.slice(1))) : []
 }
 
 /**

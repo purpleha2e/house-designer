@@ -1,0 +1,2081 @@
+{
+  "summary": {
+    "project": "lighting-startup",
+    "ready": true,
+    "valid": true,
+    "elapsedMs": 12800,
+    "bakeMs": 2683.5,
+    "hardware": {
+      "renderer": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "cores": 16
+    },
+    "status": {
+      "at": 14940.200000001118,
+      "generation": 5,
+      "state": "ready",
+      "completed": 61,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "captureMs": 247.09999998658895,
+      "capturedFaces": 366,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 9.299999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 2153,
+      "captureTriangles": 43356
+    },
+    "workers": {
+      "prepare": {
+        "count": 1,
+        "sumMs": 1462,
+        "minMs": 1462,
+        "maxMs": 1462,
+        "medianMs": 1462,
+        "p95Ms": 1462
+      },
+      "preview": {
+        "count": 4,
+        "sumMs": 72.60000000149012,
+        "minMs": 7.599999999627471,
+        "maxMs": 29,
+        "medianMs": 25.100000001490116,
+        "p95Ms": 29
+      },
+      "volume": {
+        "count": 2,
+        "sumMs": 163.7000000011176,
+        "minMs": 78.30000000074506,
+        "maxMs": 85.40000000037253,
+        "medianMs": 85.40000000037253,
+        "p95Ms": 85.40000000037253
+      }
+    },
+    "probeReadbacks": {
+      "count": 60,
+      "sumMs": 373.19999999925494,
+      "minMs": 4.900000000372529,
+      "maxMs": 12,
+      "medianMs": 5.700000001117587,
+      "p95Ms": 10.800000000745058
+    },
+    "sampledStates": {
+      "blocked": 13,
+      "preparing": 8,
+      "warming": 2,
+      "reading": 1,
+      "volumePending": 2,
+      "previewPending": 1,
+      "moving": 2
+    },
+    "samples": 36,
+    "errors": [],
+    "comparisons": [
+      {
+        "pass": 1,
+        "face": 0,
+        "faceNumber": 0,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.06646728515625
+      },
+      {
+        "pass": 1,
+        "face": 1,
+        "faceNumber": 1,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.92822265625
+      },
+      {
+        "pass": 1,
+        "face": 2,
+        "faceNumber": 2,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 1,
+        "face": 3,
+        "faceNumber": 3,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.1572265625
+      },
+      {
+        "pass": 1,
+        "face": 4,
+        "faceNumber": 4,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 1,
+        "face": 5,
+        "faceNumber": 5,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.031463623046875
+      },
+      {
+        "pass": 1,
+        "face": 0,
+        "faceNumber": 6,
+        "max": 0,
+        "mean": 0,
+        "peak": 0
+      },
+      {
+        "pass": 1,
+        "face": 1,
+        "faceNumber": 7,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 1,
+        "face": 2,
+        "faceNumber": 8,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 1,
+        "face": 3,
+        "faceNumber": 9,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.1588134765625
+      },
+      {
+        "pass": 1,
+        "face": 4,
+        "faceNumber": 10,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 1,
+        "face": 5,
+        "faceNumber": 11,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.02996826171875
+      },
+      {
+        "pass": 1,
+        "face": 0,
+        "faceNumber": 144,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.93603515625
+      },
+      {
+        "pass": 1,
+        "face": 1,
+        "faceNumber": 145,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.2169189453125
+      },
+      {
+        "pass": 1,
+        "face": 2,
+        "faceNumber": 146,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 1,
+        "face": 3,
+        "faceNumber": 147,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.59423828125
+      },
+      {
+        "pass": 1,
+        "face": 4,
+        "faceNumber": 148,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.94921875
+      },
+      {
+        "pass": 1,
+        "face": 5,
+        "faceNumber": 149,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.2041015625
+      },
+      {
+        "pass": 2,
+        "face": 0,
+        "faceNumber": 0,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.20361328125
+      },
+      {
+        "pass": 2,
+        "face": 1,
+        "faceNumber": 1,
+        "max": 0,
+        "mean": 0,
+        "peak": 1.2919921875
+      },
+      {
+        "pass": 2,
+        "face": 2,
+        "faceNumber": 2,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 2,
+        "face": 3,
+        "faceNumber": 3,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.53515625
+      },
+      {
+        "pass": 2,
+        "face": 4,
+        "faceNumber": 4,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 2,
+        "face": 5,
+        "faceNumber": 5,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.172119140625
+      },
+      {
+        "pass": 2,
+        "face": 0,
+        "faceNumber": 6,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.194580078125
+      },
+      {
+        "pass": 2,
+        "face": 1,
+        "faceNumber": 7,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 2,
+        "face": 2,
+        "faceNumber": 8,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 2,
+        "face": 3,
+        "faceNumber": 9,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.45263671875
+      },
+      {
+        "pass": 2,
+        "face": 4,
+        "faceNumber": 10,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 2,
+        "face": 5,
+        "faceNumber": 11,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.161865234375
+      },
+      {
+        "pass": 2,
+        "face": 0,
+        "faceNumber": 144,
+        "max": 0,
+        "mean": 0,
+        "peak": 1.3046875
+      },
+      {
+        "pass": 2,
+        "face": 1,
+        "faceNumber": 145,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.3818359375
+      },
+      {
+        "pass": 2,
+        "face": 2,
+        "faceNumber": 146,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.81982421875
+      },
+      {
+        "pass": 2,
+        "face": 3,
+        "faceNumber": 147,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.95361328125
+      },
+      {
+        "pass": 2,
+        "face": 4,
+        "faceNumber": 148,
+        "max": 0,
+        "mean": 0,
+        "peak": 1.31640625
+      },
+      {
+        "pass": 2,
+        "face": 5,
+        "faceNumber": 149,
+        "max": 0,
+        "mean": 0,
+        "peak": 0.37109375
+      }
+    ]
+  },
+  "workers": [
+    {
+      "kind": "prepare",
+      "at": 10790.200000001118,
+      "finished": true,
+      "parallelLamps": false,
+      "lightCount": 1,
+      "triangles": 118,
+      "progress": {
+        "stage": "ready",
+        "timings": {
+          "layout": 64.5,
+          "geometry": 7,
+          "structure": 0.2000000011175871,
+          "probes": 3.299999998882413,
+          "ceilings": 115.90000000037253,
+          "lamps": 460.5,
+          "tables": 2,
+          "zones": 0
+        }
+      },
+      "ms": 1462,
+      "ok": true,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      }
+    },
+    {
+      "kind": "preview",
+      "at": 12839.599999999627,
+      "finished": true,
+      "ms": 25.100000001490116,
+      "ok": true
+    },
+    {
+      "kind": "preview",
+      "at": 13140.700000001118,
+      "finished": true,
+      "ms": 29,
+      "ok": true
+    },
+    {
+      "kind": "volume",
+      "at": 13190.400000000373,
+      "finished": true,
+      "ms": 85.40000000037253,
+      "ok": true
+    },
+    {
+      "kind": "preview",
+      "at": 13476.400000000373,
+      "finished": true,
+      "ms": 10.900000000372529,
+      "ok": true
+    },
+    {
+      "kind": "preview",
+      "at": 13796.200000001118,
+      "finished": true,
+      "ms": 7.599999999627471,
+      "ok": true
+    },
+    {
+      "kind": "volume",
+      "at": 13807,
+      "finished": true,
+      "ms": 78.30000000074506,
+      "ok": true
+    }
+  ],
+  "reads": [
+    {
+      "at": 12717.400000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 8.599999999627471
+    },
+    {
+      "at": 12804.5,
+      "width": 4,
+      "height": 1,
+      "ms": 10.099999999627471
+    },
+    {
+      "at": 12818.099999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 5.800000000745058
+    },
+    {
+      "at": 12833.800000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.299999998882413
+    },
+    {
+      "at": 12850.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 12852.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 12867.599999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 12883.300000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.799999998882413
+    },
+    {
+      "at": 12885,
+      "width": 4,
+      "height": 1,
+      "ms": 5.700000001117587
+    },
+    {
+      "at": 12900.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 12902.5,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 12918.099999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 5.300000000745058
+    },
+    {
+      "at": 12933.800000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 12935.5,
+      "width": 4,
+      "height": 1,
+      "ms": 5.300000000745058
+    },
+    {
+      "at": 12952.300000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.299999998882413
+    },
+    {
+      "at": 12953.900000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 6.699999999254942
+    },
+    {
+      "at": 12967.5,
+      "width": 4,
+      "height": 1,
+      "ms": 5.700000001117587
+    },
+    {
+      "at": 12969.099999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 6.300000000745058
+    },
+    {
+      "at": 12984,
+      "width": 4,
+      "height": 1,
+      "ms": 9.800000000745058
+    },
+    {
+      "at": 12985.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 5.5
+    },
+    {
+      "at": 13000.300000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.299999998882413
+    },
+    {
+      "at": 13002,
+      "width": 4,
+      "height": 1,
+      "ms": 5.599999999627471
+    },
+    {
+      "at": 13017.300000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.099999999627471
+    },
+    {
+      "at": 13018.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 5.299999998882413
+    },
+    {
+      "at": 13122.099999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 5.100000001490116
+    },
+    {
+      "at": 13134.400000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 13150.099999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 5.300000000745058
+    },
+    {
+      "at": 13151.900000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 5.199999999254942
+    },
+    {
+      "at": 13167.900000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 5.699999999254942
+    },
+    {
+      "at": 13183.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 6.399999998509884
+    },
+    {
+      "at": 13371,
+      "width": 4,
+      "height": 1,
+      "ms": 4.900000000372529
+    },
+    {
+      "at": 13470.800000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.400000000372529
+    },
+    {
+      "at": 13483.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 5.899999998509884
+    },
+    {
+      "at": 13485.099999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 13500.300000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.5
+    },
+    {
+      "at": 13502,
+      "width": 4,
+      "height": 1,
+      "ms": 5.599999999627471
+    },
+    {
+      "at": 13517.200000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 10
+    },
+    {
+      "at": 13518.599999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 6.800000000745058
+    },
+    {
+      "at": 13533.599999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 5.600000001490116
+    },
+    {
+      "at": 13535.200000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 5.899999998509884
+    },
+    {
+      "at": 13550.400000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 13552,
+      "width": 4,
+      "height": 1,
+      "ms": 5.900000000372529
+    },
+    {
+      "at": 13567.400000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 7
+    },
+    {
+      "at": 13568.800000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 13583.599999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 6.200000001117587
+    },
+    {
+      "at": 13585.400000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 5.800000000745058
+    },
+    {
+      "at": 13600.5,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 13601.800000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 13617.400000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 12
+    },
+    {
+      "at": 13619,
+      "width": 4,
+      "height": 1,
+      "ms": 10.800000000745058
+    },
+    {
+      "at": 13633.700000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 5.199999999254942
+    },
+    {
+      "at": 13635.300000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.599999999627471
+    },
+    {
+      "at": 13650.200000001118,
+      "width": 4,
+      "height": 1,
+      "ms": 6.899999998509884
+    },
+    {
+      "at": 13651.800000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 5.699999999254942
+    },
+    {
+      "at": 13754.800000000745,
+      "width": 4,
+      "height": 1,
+      "ms": 4.900000000372529
+    },
+    {
+      "at": 13767,
+      "width": 4,
+      "height": 1,
+      "ms": 5.800000000745058
+    },
+    {
+      "at": 13768.599999999627,
+      "width": 4,
+      "height": 1,
+      "ms": 5.100000001490116
+    },
+    {
+      "at": 13784.400000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 11.699999999254942
+    },
+    {
+      "at": 13799.900000000373,
+      "width": 4,
+      "height": 1,
+      "ms": 5.400000000372529
+    },
+    {
+      "at": 13801.5,
+      "width": 4,
+      "height": 1,
+      "ms": 5.400000000372529
+    },
+    {
+      "at": 14937.700000001118,
+      "width": 336,
+      "height": 256
+    }
+  ],
+  "polls": [
+    {
+      "at": 9299.900000000373,
+      "generation": 2,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": true,
+      "inFlight": 0
+    },
+    {
+      "at": 9444.700000001118,
+      "generation": 4,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": true,
+      "inFlight": 0
+    },
+    {
+      "at": 9552.400000000373,
+      "generation": 4,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9668.700000001118,
+      "generation": 4,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9781.599999999627,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9887.700000001118,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10002,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10189.599999999627,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10295.900000000373,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10408,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10519.099999999627,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10630,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10741.400000000373,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 11443.099999999627,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {}
+    },
+    {
+      "at": 11550.5,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {}
+    },
+    {
+      "at": 11654.099999999627,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {},
+      "prepareStage": "layout"
+    },
+    {
+      "at": 11761.800000000745,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413
+      },
+      "prepareStage": "ceilings"
+    },
+    {
+      "at": 11878.5,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253
+      },
+      "prepareStage": "lamps"
+    },
+    {
+      "at": 11984.200000001118,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253
+      },
+      "prepareStage": "lamps"
+    },
+    {
+      "at": 12087.700000001118,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253
+      },
+      "prepareStage": "lamps"
+    },
+    {
+      "at": 12202.099999999627,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253
+      },
+      "prepareStage": "lamps"
+    },
+    {
+      "at": 12308.800000000745,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": true,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 0,
+      "capturedFaces": 0,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 0,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 0,
+      "captureTriangles": 0
+    },
+    {
+      "at": 12420.099999999627,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": true,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 0,
+      "capturedFaces": 0,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 0,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 0,
+      "captureTriangles": 0
+    },
+    {
+      "at": 12526.800000000745,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 25.99999999627471,
+      "capturedFaces": 4,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 7.799999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 0,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 60,
+      "captureTriangles": 1188
+    },
+    {
+      "at": 12725.5,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": true,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 40.29999999701977,
+      "capturedFaces": 7,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 7.799999998882413,
+      "moving": false,
+      "inFlight": 1,
+      "maxInFlight": 1,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 96,
+      "captureTriangles": 1998
+    },
+    {
+      "at": 12838.300000000745,
+      "generation": 5,
+      "state": "refining",
+      "completed": 3,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 71.49999999441206,
+      "capturedFaces": 29,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 7.799999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 1,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 263,
+      "captureTriangles": 5274
+    },
+    {
+      "at": 12955.099999999627,
+      "generation": 5,
+      "state": "refining",
+      "completed": 14,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 86.89999999292195,
+      "capturedFaces": 96,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 7.799999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 591,
+      "captureTriangles": 11892
+    },
+    {
+      "at": 13065.800000000745,
+      "generation": 5,
+      "state": "refining",
+      "completed": 24,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 103.49999999254942,
+      "capturedFaces": 146,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 7.799999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 853,
+      "captureTriangles": 17208
+    },
+    {
+      "at": 13172.900000000373,
+      "generation": 5,
+      "state": "refining",
+      "completed": 28,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": true,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 130.09999999031425,
+      "capturedFaces": 177,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 7.799999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1048,
+      "captureTriangles": 21102
+    },
+    {
+      "at": 13282.5,
+      "generation": 5,
+      "state": "refining",
+      "completed": 30,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": true,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 130.89999998919666,
+      "capturedFaces": 180,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 7.799999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1063,
+      "captureTriangles": 21396
+    },
+    {
+      "at": 13389.099999999627,
+      "generation": 5,
+      "state": "refining",
+      "completed": 31,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 167.59999998658895,
+      "capturedFaces": 187,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 9.299999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1159,
+      "captureTriangles": 23394
+    },
+    {
+      "at": 13505.300000000745,
+      "generation": 5,
+      "state": "refining",
+      "completed": 34,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 195.49999998696148,
+      "capturedFaces": 216,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 9.299999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1358,
+      "captureTriangles": 27336
+    },
+    {
+      "at": 13621.5,
+      "generation": 5,
+      "state": "refining",
+      "completed": 48,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 208.39999998360872,
+      "capturedFaces": 300,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 9.299999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1769,
+      "captureTriangles": 35628
+    },
+    {
+      "at": 13739,
+      "generation": 5,
+      "state": "refining",
+      "completed": 54,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 235.39999998919666,
+      "capturedFaces": 329,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 9.299999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1964,
+      "captureTriangles": 39522
+    },
+    {
+      "at": 13850.599999999627,
+      "generation": 5,
+      "state": "refining",
+      "completed": 60,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": true,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 245.899999987334,
+      "capturedFaces": 360,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 9.299999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 2126,
+      "captureTriangles": 42792
+    },
+    {
+      "at": 14940.200000001118,
+      "generation": 5,
+      "state": "ready",
+      "completed": 61,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "captureMs": 247.09999998658895,
+      "capturedFaces": 366,
+      "firstPreviewMs": 608.1999999992549,
+      "bakeStartedAt": 12256.700000001118,
+      "maxFaceMs": 9.299999998882413,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.5,
+        "geometry": 7,
+        "structure": 0.2000000011175871,
+        "probes": 3.299999998882413,
+        "ceilings": 115.90000000037253,
+        "lamps": 460.5,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 2.899999998509884,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 2153,
+      "captureTriangles": 43356
+    }
+  ],
+  "assetErrors": [],
+  "hardware": {
+    "renderer": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "cores": 16
+  },
+  "comparisons": [
+    {
+      "pass": 1,
+      "face": 0,
+      "faceNumber": 0,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.06646728515625
+    },
+    {
+      "pass": 1,
+      "face": 1,
+      "faceNumber": 1,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.92822265625
+    },
+    {
+      "pass": 1,
+      "face": 2,
+      "faceNumber": 2,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 1,
+      "face": 3,
+      "faceNumber": 3,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.1572265625
+    },
+    {
+      "pass": 1,
+      "face": 4,
+      "faceNumber": 4,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 1,
+      "face": 5,
+      "faceNumber": 5,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.031463623046875
+    },
+    {
+      "pass": 1,
+      "face": 0,
+      "faceNumber": 6,
+      "max": 0,
+      "mean": 0,
+      "peak": 0
+    },
+    {
+      "pass": 1,
+      "face": 1,
+      "faceNumber": 7,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 1,
+      "face": 2,
+      "faceNumber": 8,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 1,
+      "face": 3,
+      "faceNumber": 9,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.1588134765625
+    },
+    {
+      "pass": 1,
+      "face": 4,
+      "faceNumber": 10,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 1,
+      "face": 5,
+      "faceNumber": 11,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.02996826171875
+    },
+    {
+      "pass": 1,
+      "face": 0,
+      "faceNumber": 144,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.93603515625
+    },
+    {
+      "pass": 1,
+      "face": 1,
+      "faceNumber": 145,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.2169189453125
+    },
+    {
+      "pass": 1,
+      "face": 2,
+      "faceNumber": 146,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 1,
+      "face": 3,
+      "faceNumber": 147,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.59423828125
+    },
+    {
+      "pass": 1,
+      "face": 4,
+      "faceNumber": 148,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.94921875
+    },
+    {
+      "pass": 1,
+      "face": 5,
+      "faceNumber": 149,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.2041015625
+    },
+    {
+      "pass": 2,
+      "face": 0,
+      "faceNumber": 0,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.20361328125
+    },
+    {
+      "pass": 2,
+      "face": 1,
+      "faceNumber": 1,
+      "max": 0,
+      "mean": 0,
+      "peak": 1.2919921875
+    },
+    {
+      "pass": 2,
+      "face": 2,
+      "faceNumber": 2,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 2,
+      "face": 3,
+      "faceNumber": 3,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.53515625
+    },
+    {
+      "pass": 2,
+      "face": 4,
+      "faceNumber": 4,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 2,
+      "face": 5,
+      "faceNumber": 5,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.172119140625
+    },
+    {
+      "pass": 2,
+      "face": 0,
+      "faceNumber": 6,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.194580078125
+    },
+    {
+      "pass": 2,
+      "face": 1,
+      "faceNumber": 7,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 2,
+      "face": 2,
+      "faceNumber": 8,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 2,
+      "face": 3,
+      "faceNumber": 9,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.45263671875
+    },
+    {
+      "pass": 2,
+      "face": 4,
+      "faceNumber": 10,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 2,
+      "face": 5,
+      "faceNumber": 11,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.161865234375
+    },
+    {
+      "pass": 2,
+      "face": 0,
+      "faceNumber": 144,
+      "max": 0,
+      "mean": 0,
+      "peak": 1.3046875
+    },
+    {
+      "pass": 2,
+      "face": 1,
+      "faceNumber": 145,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.3818359375
+    },
+    {
+      "pass": 2,
+      "face": 2,
+      "faceNumber": 146,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.81982421875
+    },
+    {
+      "pass": 2,
+      "face": 3,
+      "faceNumber": 147,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.95361328125
+    },
+    {
+      "pass": 2,
+      "face": 4,
+      "faceNumber": 148,
+      "max": 0,
+      "mean": 0,
+      "peak": 1.31640625
+    },
+    {
+      "pass": 2,
+      "face": 5,
+      "faceNumber": 149,
+      "max": 0,
+      "mean": 0,
+      "peak": 0.37109375
+    }
+  ],
+  "comparisonInstalled": true
+}

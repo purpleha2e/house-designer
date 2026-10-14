@@ -1,0 +1,1572 @@
+{
+  "summary": {
+    "project": "lighting-startup",
+    "ready": true,
+    "valid": true,
+    "elapsedMs": 12400,
+    "bakeMs": 2498.7000000029802,
+    "hardware": {
+      "renderer": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "cores": 16
+    },
+    "status": {
+      "at": 14164.70000000298,
+      "generation": 5,
+      "state": "ready",
+      "completed": 61,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "captureMs": 319.50000002235174,
+      "capturedFaces": 366,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 3,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1801,
+      "captureTriangles": 36252,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 30,
+      "surfaceReplayedProbes": 30,
+      "surfaceReusedFaces": 180
+    },
+    "workers": {
+      "prepare": {
+        "count": 1,
+        "sumMs": 1479.3999999985099,
+        "minMs": 1479.3999999985099,
+        "maxMs": 1479.3999999985099,
+        "medianMs": 1479.3999999985099,
+        "p95Ms": 1479.3999999985099
+      },
+      "preview": {
+        "count": 3,
+        "sumMs": 89.70000000298023,
+        "minMs": 14.399999998509884,
+        "maxMs": 39,
+        "medianMs": 36.30000000447035,
+        "p95Ms": 39
+      },
+      "volume": {
+        "count": 2,
+        "sumMs": 148.30000000447035,
+        "minMs": 67.5,
+        "maxMs": 80.80000000447035,
+        "medianMs": 80.80000000447035,
+        "p95Ms": 80.80000000447035
+      }
+    },
+    "probeReadbacks": {
+      "count": 66,
+      "sumMs": 464.30000000447035,
+      "minMs": 4.800000004470348,
+      "maxMs": 18.399999998509884,
+      "medianMs": 5.899999998509884,
+      "p95Ms": 11.399999998509884
+    },
+    "sampledStates": {
+      "blocked": 13,
+      "preparing": 7,
+      "warming": 3,
+      "reading": 0,
+      "volumePending": 2,
+      "previewPending": 1,
+      "moving": 2
+    },
+    "samples": 33,
+    "errors": [],
+    "surfaceComparisons": [
+      {
+        "probe": 14,
+        "pass": 1,
+        "max": 0,
+        "mean": 0,
+        "peak": 1.0361328125
+      },
+      {
+        "probe": 36,
+        "pass": 1,
+        "max": 0,
+        "mean": 0,
+        "peak": 1.2216796875
+      },
+      {
+        "probe": 0,
+        "pass": 1,
+        "max": 0,
+        "mean": 0,
+        "peak": 1.0400390625
+      },
+      {
+        "probe": 14,
+        "pass": 2,
+        "max": 0.0009765625,
+        "mean": 0.00019884109497070312,
+        "peak": 1.75390625
+      },
+      {
+        "probe": 36,
+        "pass": 2,
+        "max": 0.0009765625,
+        "mean": 0.0001694361368815104,
+        "peak": 1.779296875
+      },
+      {
+        "probe": 0,
+        "pass": 2,
+        "max": 0.000244140625,
+        "mean": 0.00006612141927083333,
+        "peak": 1.7548828125
+      }
+    ]
+  },
+  "workers": [
+    {
+      "kind": "prepare",
+      "at": 10179.89999999851,
+      "finished": true,
+      "parallelLamps": false,
+      "lightCount": 1,
+      "triangles": 118,
+      "progress": {
+        "stage": "ready",
+        "timings": {
+          "layout": 64.39999999850988,
+          "geometry": 7.399999998509884,
+          "structure": 0.30000000447034836,
+          "probes": 3.399999998509884,
+          "ceilings": 117.69999999552965,
+          "lamps": 437.70000000298023,
+          "tables": 2,
+          "zones": 0
+        }
+      },
+      "ms": 1479.3999999985099,
+      "ok": true,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      }
+    },
+    {
+      "kind": "preview",
+      "at": 12332.39999999851,
+      "finished": true,
+      "ms": 39,
+      "ok": true
+    },
+    {
+      "kind": "preview",
+      "at": 12655.89999999851,
+      "finished": true,
+      "ms": 36.30000000447035,
+      "ok": true
+    },
+    {
+      "kind": "volume",
+      "at": 12812.89999999851,
+      "finished": true,
+      "ms": 80.80000000447035,
+      "ok": true
+    },
+    {
+      "kind": "preview",
+      "at": 12961.89999999851,
+      "finished": true,
+      "ms": 14.399999998509884,
+      "ok": true
+    },
+    {
+      "kind": "volume",
+      "at": 13079.20000000298,
+      "finished": true,
+      "ms": 67.5,
+      "ok": true
+    }
+  ],
+  "reads": [
+    {
+      "at": 12274.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 18.399999998509884
+    },
+    {
+      "at": 12291.39999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 6.399999998509884
+    },
+    {
+      "at": 12308.60000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 9.100000001490116
+    },
+    {
+      "at": 12324.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 6.699999995529652
+    },
+    {
+      "at": 12358.10000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 10.799999997019768
+    },
+    {
+      "at": 12376,
+      "width": 4,
+      "height": 1,
+      "ms": 10.5
+    },
+    {
+      "at": 12391.39999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 5.600000001490116
+    },
+    {
+      "at": 12407.5,
+      "width": 4,
+      "height": 1,
+      "ms": 6.100000001490116
+    },
+    {
+      "at": 12424.5,
+      "width": 4,
+      "height": 1,
+      "ms": 5.600000001490116
+    },
+    {
+      "at": 12440.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 6.300000004470348
+    },
+    {
+      "at": 12474.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 7.399999998509884
+    },
+    {
+      "at": 12507.39999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 10.5
+    },
+    {
+      "at": 12539.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 6.5
+    },
+    {
+      "at": 12555.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 5.300000004470348
+    },
+    {
+      "at": 12558.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5.699999995529652
+    },
+    {
+      "at": 12573.79999999702,
+      "width": 4,
+      "height": 1,
+      "ms": 6.600000001490116
+    },
+    {
+      "at": 12589.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 10.700000002980232
+    },
+    {
+      "at": 12607.5,
+      "width": 4,
+      "height": 1,
+      "ms": 6.399999998509884
+    },
+    {
+      "at": 12641.29999999702,
+      "width": 4,
+      "height": 1,
+      "ms": 14.200000002980232
+    },
+    {
+      "at": 12651.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 11.399999998509884
+    },
+    {
+      "at": 12672.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 6.800000004470348
+    },
+    {
+      "at": 12689.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 6.699999995529652
+    },
+    {
+      "at": 12705.79999999702,
+      "width": 4,
+      "height": 1,
+      "ms": 5.4000000059604645
+    },
+    {
+      "at": 12708.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5.199999995529652
+    },
+    {
+      "at": 12709.60000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5.199999995529652
+    },
+    {
+      "at": 12723.5,
+      "width": 4,
+      "height": 1,
+      "ms": 7
+    },
+    {
+      "at": 12739.60000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 10.799999997019768
+    },
+    {
+      "at": 12741.10000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5.899999998509884
+    },
+    {
+      "at": 12756.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 9.800000004470348
+    },
+    {
+      "at": 12773.10000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 12789.10000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5.699999995529652
+    },
+    {
+      "at": 12791.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5.5
+    },
+    {
+      "at": 12806.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 6
+    },
+    {
+      "at": 12908.10000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 18.399999998509884
+    },
+    {
+      "at": 12922.29999999702,
+      "width": 4,
+      "height": 1,
+      "ms": 6.200000002980232
+    },
+    {
+      "at": 12923,
+      "width": 4,
+      "height": 1,
+      "ms": 5.899999998509884
+    },
+    {
+      "at": 12938.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 4.899999998509884
+    },
+    {
+      "at": 12939.60000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5.600000001490116
+    },
+    {
+      "at": 12940.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5.399999998509884
+    },
+    {
+      "at": 12955.5,
+      "width": 4,
+      "height": 1,
+      "ms": 11.200000002980232
+    },
+    {
+      "at": 12956.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 10.799999997019768
+    },
+    {
+      "at": 12956.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 4.800000004470348
+    },
+    {
+      "at": 12972.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 9.899999998509884
+    },
+    {
+      "at": 12972.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 5.399999998509884
+    },
+    {
+      "at": 12973.60000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 12988.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 5.800000004470348
+    },
+    {
+      "at": 12989.60000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5.5
+    },
+    {
+      "at": 12990.39999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 5.100000001490116
+    },
+    {
+      "at": 13005.79999999702,
+      "width": 4,
+      "height": 1,
+      "ms": 5.5
+    },
+    {
+      "at": 13006.5,
+      "width": 4,
+      "height": 1,
+      "ms": 5.100000001490116
+    },
+    {
+      "at": 13007.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 4.899999998509884
+    },
+    {
+      "at": 13022.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 4.899999998509884
+    },
+    {
+      "at": 13023.39999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 6.800000004470348
+    },
+    {
+      "at": 13024.39999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 6.200000002980232
+    },
+    {
+      "at": 13025.10000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5.899999998509884
+    },
+    {
+      "at": 13038.89999999851,
+      "width": 4,
+      "height": 1,
+      "ms": 5.800000004470348
+    },
+    {
+      "at": 13039.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5.399999998509884
+    },
+    {
+      "at": 13040.79999999702,
+      "width": 4,
+      "height": 1,
+      "ms": 5.700000002980232
+    },
+    {
+      "at": 13041.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5.0999999940395355
+    },
+    {
+      "at": 13055.5,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 13056.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 13057.60000000149,
+      "width": 4,
+      "height": 1,
+      "ms": 5.5
+    },
+    {
+      "at": 13058.29999999702,
+      "width": 4,
+      "height": 1,
+      "ms": 5.200000002980232
+    },
+    {
+      "at": 13072.20000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5
+    },
+    {
+      "at": 13073,
+      "width": 4,
+      "height": 1,
+      "ms": 5.799999997019768
+    },
+    {
+      "at": 13073.70000000298,
+      "width": 4,
+      "height": 1,
+      "ms": 5.399999998509884
+    },
+    {
+      "at": 14161,
+      "width": 336,
+      "height": 256
+    }
+  ],
+  "polls": [
+    {
+      "at": 8660.20000000298,
+      "generation": 2,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": true,
+      "inFlight": 0
+    },
+    {
+      "at": 8836.89999999851,
+      "generation": 4,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": true,
+      "inFlight": 0
+    },
+    {
+      "at": 8941.29999999702,
+      "generation": 4,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9057.70000000298,
+      "generation": 4,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9175.70000000298,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9291,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9409.29999999702,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9575.39999999851,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9682.5,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9794.5,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 9906.70000000298,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10014,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10124.79999999702,
+      "generation": 5,
+      "state": "updating",
+      "completed": 0,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "blocked": true,
+      "moving": false,
+      "inFlight": 0
+    },
+    {
+      "at": 10862,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {}
+    },
+    {
+      "at": 10974.70000000298,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {}
+    },
+    {
+      "at": 11090.10000000149,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988
+      },
+      "prepareStage": "geometry"
+    },
+    {
+      "at": 11206,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884
+      },
+      "prepareStage": "ceilings"
+    },
+    {
+      "at": 11321.10000000149,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965
+      },
+      "prepareStage": "lamps"
+    },
+    {
+      "at": 11440.70000000298,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965
+      },
+      "prepareStage": "lamps"
+    },
+    {
+      "at": 11557.20000000298,
+      "generation": 5,
+      "state": "preparing",
+      "completed": 0,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "moving": false,
+      "inFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965
+      },
+      "prepareStage": "lamps"
+    },
+    {
+      "at": 11684.10000000149,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 0,
+      "capturedFaces": 0,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 0,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 0,
+      "captureTriangles": 0,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 0,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 11796.20000000298,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": true,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 0,
+      "capturedFaces": 0,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 0,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 0,
+      "captureTriangles": 0,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 0,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 11907.60000000149,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": true,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 0,
+      "capturedFaces": 0,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 0,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 0,
+      "captureTriangles": 0,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 0,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12021.39999999851,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": true,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 0,
+      "capturedFaces": 0,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 0,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 0,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 0,
+      "captureTriangles": 0,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 0,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12275.70000000298,
+      "generation": 5,
+      "state": "refining",
+      "completed": 0,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 167.09999999403954,
+      "capturedFaces": 12,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 1,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 56,
+      "captureTriangles": 1152,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 1,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12392.70000000298,
+      "generation": 5,
+      "state": "refining",
+      "completed": 6,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 192.19999998807907,
+      "capturedFaces": 84,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 418,
+      "captureTriangles": 8376,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 7,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12514.89999999851,
+      "generation": 5,
+      "state": "refining",
+      "completed": 11,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 214.8999999910593,
+      "capturedFaces": 146,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 730,
+      "captureTriangles": 14604,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 12,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12632.5,
+      "generation": 5,
+      "state": "refining",
+      "completed": 18,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 236.69999999552965,
+      "capturedFaces": 224,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1104,
+      "captureTriangles": 22200,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 18,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12745.39999999851,
+      "generation": 5,
+      "state": "refining",
+      "completed": 24,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 1,
+      "captureMs": 270.80000000447035,
+      "capturedFaces": 300,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1474,
+      "captureTriangles": 29688,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 25,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12856.70000000298,
+      "generation": 5,
+      "state": "refining",
+      "completed": 30,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": true,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 282.5000000074506,
+      "capturedFaces": 360,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 2,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1774,
+      "captureTriangles": 35688,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 30,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0
+    },
+    {
+      "at": 12975.70000000298,
+      "generation": 5,
+      "state": "refining",
+      "completed": 39,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": true,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 301.1000000014901,
+      "capturedFaces": 360,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 3,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1774,
+      "captureTriangles": 35688,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 30,
+      "surfaceReplayedProbes": 12,
+      "surfaceReusedFaces": 72
+    },
+    {
+      "at": 13091.60000000149,
+      "generation": 5,
+      "state": "refining",
+      "completed": 60,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": true,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "pass": 2,
+      "captureMs": 317.8000000193715,
+      "capturedFaces": 360,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 3,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1774,
+      "captureTriangles": 35688,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 30,
+      "surfaceReplayedProbes": 30,
+      "surfaceReusedFaces": 180
+    },
+    {
+      "at": 14164.70000000298,
+      "generation": 5,
+      "state": "ready",
+      "completed": 61,
+      "total": 61,
+      "probes": 30,
+      "rooms": 1,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "blocked": false,
+      "captureMs": 319.50000002235174,
+      "capturedFaces": 366,
+      "firstPreviewMs": 705.7000000029802,
+      "bakeStartedAt": 11666,
+      "maxFaceMs": 112.79999999701977,
+      "moving": false,
+      "inFlight": 0,
+      "maxInFlight": 3,
+      "prepareTimings": {
+        "layout": 64.39999999850988,
+        "geometry": 7.399999998509884,
+        "structure": 0.30000000447034836,
+        "probes": 3.399999998509884,
+        "ceilings": 117.69999999552965,
+        "lamps": 437.70000000298023,
+        "tables": 2,
+        "zones": 0
+      },
+      "captureSceneMs": 5.200000002980232,
+      "captureMergedMeshes": 0,
+      "captureSceneMeshes": 10,
+      "captureDrawCalls": 1801,
+      "captureTriangles": 36252,
+      "surfaceCacheBytes": 2422784,
+      "surfaceCachedProbes": 30,
+      "surfaceReplayedProbes": 30,
+      "surfaceReusedFaces": 180
+    }
+  ],
+  "hardware": {
+    "renderer": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "cores": 16
+  },
+  "surfaceComparisons": [
+    {
+      "probe": 14,
+      "pass": 1,
+      "max": 0,
+      "mean": 0,
+      "peak": 1.0361328125
+    },
+    {
+      "probe": 36,
+      "pass": 1,
+      "max": 0,
+      "mean": 0,
+      "peak": 1.2216796875
+    },
+    {
+      "probe": 0,
+      "pass": 1,
+      "max": 0,
+      "mean": 0,
+      "peak": 1.0400390625
+    },
+    {
+      "probe": 14,
+      "pass": 2,
+      "max": 0.0009765625,
+      "mean": 0.00019884109497070312,
+      "peak": 1.75390625
+    },
+    {
+      "probe": 36,
+      "pass": 2,
+      "max": 0.0009765625,
+      "mean": 0.0001694361368815104,
+      "peak": 1.779296875
+    },
+    {
+      "probe": 0,
+      "pass": 2,
+      "max": 0.000244140625,
+      "mean": 0.00006612141927083333,
+      "peak": 1.7548828125
+    }
+  ],
+  "surfacePending": 0
+}

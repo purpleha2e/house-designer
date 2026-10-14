@@ -33,6 +33,8 @@ export type WallMeshSource = {
 }
 
 export type WallMeshFace = {
+  /** Plan-space receiver plane just beyond the wall face owning this reveal. */
+  lightingReceiverPlane?: [number, number, number]
   endpoint?: 'end' | 'start'
   faceId: string
   kind: WallMeshFaceKind
@@ -1044,6 +1046,7 @@ function addOpeningRevealFaces({
   options: WallMeshBuildOptions
   wall: Wall
 }) {
+  const firstReveal = faces.length
   const addRevealFace = ({
     faceId,
     firstPoint,
@@ -1259,6 +1262,16 @@ function addOpeningRevealFaces({
       })
     }
   })
+  const wallNormal = getWallNormal(wall)
+  for (let index = firstReveal; index < faces.length; index++) {
+    const face = faces[index], side = face.materialSource.side!
+    const nx = wallNormal.x * side, nz = wallNormal.y * side
+    // Classify the whole reveal on its owning side of the wall. Its surface
+    // normal points into the opening, so a normal-only bias straddles the
+    // room mask and draws a lighting border across an otherwise flat face.
+    face.lightingReceiverPlane = [nx, nz,
+      nx * wall.start.x + nz * wall.start.y + halfThickness + .08]
+  }
 }
 
 function signedPolygonArea(points: Point[]) {

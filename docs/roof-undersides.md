@@ -1,5 +1,28 @@
 # Roof undersides
 
+Interior room volumes clip every roof, including passive roofs with **Clip house
+geometry** turned off. Cuts follow the room's enclosing ceiling; roof tiles and
+exterior soffits/fascias cannot become interior fittings. Door and window openings
+bridge the gaps between room polygons, and trim cuts extend 3 mm behind the wall
+finish to keep their closures hidden.
+
+In **Advanced**, **Allow inner skin inside rooms** permits only the interior
+lining to project into room space. It defaults to off. **Inner skin projection
+(m)** defaults to 0.02 m and is limited to 0–0.1 m. Roof tiles and exterior
+fittings remain clipped regardless of this setting. The switch and depth are
+saved in project JSON and used in creation previews.
+
+Room enclosure considers passive roofs too, independently of **Clip house
+geometry**. A higher passive roof can therefore clip a lower roof's inner skin
+out of the room. A passive roof cannot lower a room's declared ceiling to protect
+its own intrusion. Fitted linings follow the combined ceiling within their
+supporting footprint, including joined branches. Horizontal ceiling cutouts use
+that same room envelope so discarded roof fragments cannot leave ceiling gaps.
+
+The regression fixture `roofDoorwayCameraRegression.json` preserves the camera
+and roof geometry for the Colin upstairs bedroom doorway. Its test checks the
+actual underside strip coordinates as well as the ceiling above them.
+
 Click a roof from below to select **Roof underside**, then apply a material in the material panel. This applies to the room-side underside of that roof structure, across its slopes. Exterior tiles, perimeter finishes and the underside of roof overhangs remain independent. Removing the underside override restores the exterior roof finish.
 
 The selected underside panels show a translucent blue highlight, using the roof

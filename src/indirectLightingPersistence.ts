@@ -5,7 +5,9 @@ import type { FloorLevel, SunPosition, SurfaceMaterialAssignment } from './types
 import { normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from './indirectProbeResolution.ts'
 import { INDIRECT_FLOOR_LAYER_VERSION, indirectFloorSize } from './indirectFloorLighting.ts'
 
-export const INDIRECT_CACHE_VERSION = 1
+// Room enclosure now includes passive roofs; older bakes retain obsolete roof
+// strips and their headroom/occlusion masks even when the project is unchanged.
+export const INDIRECT_CACHE_VERSION = 2
 export type IndirectLightingSettings = {
   daylight: boolean; lights: boolean; shadows: boolean; lightShadows: boolean
   hideRoofs: boolean; floorSlabs: boolean; ambientTerm: number

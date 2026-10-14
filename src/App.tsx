@@ -691,7 +691,13 @@ function App() {
   // Keep direct manipulation in the plan responsive while the much heavier
   // roof and room-volume pipeline catches the 3D scene up in a background
   // render. The 3D view receives the latest committed floor state.
-  const deferredThreeDFloors = useDeferredValue(floors)
+  const [projectLoadRevision, setProjectLoadRevision] = useState(0)
+  const threeDInput = useMemo(() => ({ floors, projectLoadRevision }), [floors, projectLoadRevision])
+  const deferredThreeDInput = useDeferredValue(threeDInput)
+  // Replacing a project must commit its floors with its other settings. Passing
+  // the outgoing floors with incoming definitions/finishes rebuilds both houses.
+  const deferredThreeDFloors = deferredThreeDInput.projectLoadRevision === projectLoadRevision
+    ? deferredThreeDInput.floors : floors
   const modelTransformPreviewRef = useRef<ModelTransformPreview | null>(null)
   useEffect(() => {
     // Retain the final live transform until the deferred 3D props catch up.
@@ -1339,6 +1345,8 @@ function App() {
     heightOffset,
     fitSupportingWalls,
     clipsGeometry,
+    allowInteriorSkin,
+    interiorSkinDepth,
     thickness,
     bayOutline,
     bayRidgeLength,
@@ -1419,6 +1427,8 @@ function App() {
       ridgeHeightTargetRoofId: type === 'up-and-over' ? ridgeHeightTargetRoofId : undefined,
       fitSupportingWalls: fitSupportingWalls === true,
       clipsGeometry: clipsGeometry !== false,
+      allowInteriorSkin: allowInteriorSkin === true,
+      interiorSkinDepth,
       thickness,
       bayOutline: type === 'bay' ? bayOutline : undefined,
       bayRidgeLength: type === 'bay' ? bayRidgeLength : undefined,
@@ -2252,6 +2262,7 @@ function App() {
 
       if (!Array.isArray(parsedProject.modelDefinitions)) recordHistory()
       setFloors(loadedFloors)
+      setProjectLoadRevision(revision => revision + 1)
       setLoadedLightingCache(parsedProject.indirectLighting)
       bakedLightingRef.current = parsedProject.indirectLighting
       const loadedActiveFloorId = loadedFloors.some(
@@ -2337,6 +2348,7 @@ function App() {
     const project = normalizeSavedProject(createFallbackProject())
 
     setFloors(project.floors)
+    setProjectLoadRevision(revision => revision + 1)
     setLoadedLightingCache(undefined)
     bakedLightingRef.current = undefined
     setActiveFloorId(project.activeFloorId)

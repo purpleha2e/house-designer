@@ -1,8 +1,26 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { getRoofCeilingCutouts } from '../src/roofCeilingClipping.ts'
+import { getRoofCeilingCutouts, getRoomCeilingCutouts } from '../src/roofCeilingClipping.ts'
+import { buildBuildingRoomVolumes } from '../src/buildingRoomVolumes.ts'
+import { resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
 import { resolveRoofJunctions, roofJunctionInput } from '../src/roofJunctions.ts'
-import type { RoofStructure } from '../src/types.ts'
+import type { FloorLevel, RoofStructure } from '../src/types.ts'
+
+test('a lower roof consumed by a passive enclosure cannot cut the room ceiling', () => {
+  const polygon = [{ x: -2, y: -2 }, { x: 2, y: -2 }, { x: 2, y: 2 }, { x: -2, y: 2 }]
+  const base: RoofStructure = { id: 'low', type: 'flat', width: 6, depth: 6, position: { x: 0, y: 0 },
+    rotation: 0, pitchDegrees: 0, heightOffset: -.3 }
+  const floor: FloorLevel = { id: 'room', name: 'Room', elevation: 0, roomHeight: 2.4, slabThickness: .2,
+    models: [], rooms: [], roofs: [base, { ...base, id: 'enclosure', heightOffset: 1, clipsGeometry: false }],
+    walls: polygon.map((start, i) => ({ id: `w${i}`, start, end: polygon[(i + 1) % 4],
+      kind: 'external', thickness: .2, height: 2.4 })) }
+  const roofs = resolveBuildingRoofs([floor])
+  assert.ok(getRoofCeilingCutouts(roofs.map(roof => roof.resolved), 2.38, floor.id).length,
+    'a roof-only cutout leaves a hole for the discarded low roof')
+  const volumes = buildBuildingRoomVolumes([floor], roofs)
+  assert.deepEqual(getRoomCeilingCutouts(volumes.cuts, floor.id, 2.38), [],
+    'the higher room enclosure keeps the horizontal ceiling complete')
+})
 
 test('cuts a horizontal upstairs ceiling where it rises through a lower gable roof', () => {
   const roof: RoofStructure = {

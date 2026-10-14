@@ -1,9 +1,7 @@
 // With Vite running: node tests/browser/diffuseProbeResolutionRegression.mjs [port]
 // Exercises the real editor slider, GPU cubemap sizes, interrupted bakes and Save/Load.
-import { spawn } from 'node:child_process'
-import { mkdtempSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
+import { writeFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
 
 const floor = { id: 'quality', name: 'Probe quality', elevation: 0, roomHeight: 2.4, slabThickness: .2,
@@ -16,7 +14,7 @@ const project = { activeFloorId: floor.id, floors: [floor], wallKind: 'external'
 const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
   '--headless=new', '--no-sandbox', '--remote-debugging-port=0', '--no-first-run', '--no-default-browser-check',
   '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',
-  '--window-size=1200,1050', `--user-data-dir=${mkdtempSync(join(tmpdir(), 'probe-quality-'))}`, 'about:blank',
+  '--window-size=1200,1050', `--user-data-dir=${createBrowserTestProfile('probe-quality-')}`, 'about:blank',
 ], { windowsHide: true })
 let ws
 const timers = new Set()
