@@ -671,7 +671,7 @@ export function ContextPanel({
                   </dd>
                 </div>
                 <div className="context-field">
-                  <dt>Range</dt>
+                  <dt>Range (m)</dt>
                   <dd>
                     <input
                       type="number"

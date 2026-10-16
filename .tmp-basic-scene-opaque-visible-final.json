@@ -1,0 +1,899 @@
+{
+  "report": {
+    "mode": "opaque-materials",
+    "startedAt": 1986.0999999642372,
+    "pending": [],
+    "readMs": 148.5,
+    "parseMs": 16.600000023841858,
+    "catalogMs": 356.39999997615814,
+    "normalizeMs": 5.200000047683716,
+    "mountedAt": 2513,
+    "geometryReadyMs": 4466.699999988079,
+    "settledMs": 501.89999997615814,
+    "snapshotMs": 11.100000023841858,
+    "meshes": 690,
+    "drawMs": 929.2999999523163,
+    "firstFrameMs": 6439.199999988079,
+    "triangles": 466558,
+    "programs": 2,
+    "textures": 17,
+    "materials": 374,
+    "transparentMaterials": 0,
+    "gpuCompleteMs": 6501.100000023842
+  },
+  "state": {
+    "shadows": false,
+    "error": 0,
+    "programs": 2
+  },
+  "textures": [
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/e7ae16d858a15b1a0b50c45144a04998/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/69ed269b8fbbd11a893734c7a9161e67/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/7a6528a5d03727febb0055ec6a4029e9/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/901e5cee39865d98e64965552a93fa2f/processed/basecolor.ktx2"
+  ],
+  "sourceMaterials": [
+    {
+      "role": "slab-shadow-cap",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshBasicMaterial",
+          "color": "ffffff",
+          "colorWrite": false,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-solid",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "slab-shadow-cap",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshBasicMaterial",
+          "color": "ffffff",
+          "colorWrite": false,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-solid",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        },
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        },
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        },
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        },
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshBasicMaterial",
+          "color": "ffffff",
+          "colorWrite": false,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshBasicMaterial",
+          "color": "ffffff",
+          "colorWrite": false,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshBasicMaterial",
+          "color": "ffffff",
+          "colorWrite": false,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshBasicMaterial",
+          "color": "ffffff",
+          "colorWrite": false,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-underside",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-underside",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "ceiling-slab-edge",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "cbd5e1",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-base",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "f8fafc",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    },
+    {
+      "role": "room-floor-finish",
+      "visible": true,
+      "materials": [
+        {
+          "type": "MeshStandardMaterial",
+          "color": "e2e8f0",
+          "colorWrite": true,
+          "opacity": 1,
+          "mapSize": null
+        }
+      ]
+    }
+  ]
+}

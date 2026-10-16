@@ -6,6 +6,9 @@ import { applyRoomLightShader, createRoomLightShaderUniforms } from '../../src/r
 import { buildWallMeshFaces } from '../../src/wallEngine/wallMesh'
 import { buildWallBufferGeometryPayload } from '../../src/wallEngine/wallBuffer'
 import { createWallBufferGeometry } from '../../src/wallEngine/wallThreeGeometry'
+import { createWindowGeometry, disposeWindowGeometry } from '../../src/windowGeometry'
+import { createWindowDesign } from '../../src/windowDesign'
+import { attachWallMountedLighting } from '../../src/wallMountedLighting'
 
 // A constant field isolates the room-mask boundary from bake noise and shadows.
 const field = createIndirectField([{ id: 'room', elevation: 0, height: 3, rooms: [{ signature: 'room',
@@ -115,3 +118,49 @@ Object.assign((window as unknown as { revealResult: object }).revealResult, { co
 scene.remove(cornerMesh); scene.add(originalMesh)
 updateIndirectUniforms(uniforms, splitField); uniforms.hdGIUseVolume.value = 1
 render(true, false)
+
+// A room-facing frame sits within a 30 cm wall. Its original 8 cm normal
+// classification step cannot reach the room, so it used exterior ambient.
+const darkField = createIndirectField([{ id: 'room', elevation: 0, height: 3, rooms: [{ signature: 'room',
+  polygon: [{ x: 0, y: .15 }, { x: 4, y: .15 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }] }])
+for (let z = 0; z < darkField.volume.n; z++) for (let y = 0; y < darkField.volume.height; y++) for (let x = 0; x < darkField.volume.n; x++) {
+  const i = ((z * darkField.volume.height * 4 + y) * darkField.volume.n + x) * 4
+  darkField.volume.data.set([.025, .025, .025, 1].map(DataUtils.toHalfFloat), i)
+}
+darkField.volume.maps[0].needsUpdate = true
+const frameUniforms = createIndirectUniforms(darkField)
+frameUniforms.hdGIUseVolume.value = 1; frameUniforms.hdGIIndoorFill.value = 0
+const frameWindow = createWindowGeometry({ ...createWindowDesign(), width: 1, height: 1.1, depth: .08 })
+frameWindow.position.set(2, .6, -.05); frameWindow.rotation.y = Math.PI
+frameWindow.traverse(object => {
+  if (!(object instanceof Mesh)) return
+  const m = object.material as MeshStandardMaterial
+  applyIndirectLightingShader(m, frameUniforms)
+})
+const frameScene = new Scene(); frameScene.add(frameWindow, new AmbientLight('white', 1.5))
+frameWindow.updateWorldMatrix(true, true)
+const originalFrameGeometries = new Map<Mesh, typeof geometry>()
+frameWindow.traverse(object => { if (object instanceof Mesh) originalFrameGeometries.set(object, object.geometry) })
+const restoreFrame = attachWallMountedLighting(frameWindow, { id: 'window-wall', kind: 'external', thickness: .3,
+  height: 3, start: { x: 0, y: 0 }, end: { x: 4, y: 0 } }, -1)
+const fixedFrameGeometries = new Map([...originalFrameGeometries.keys()].map(mesh => [mesh, mesh.geometry]))
+function renderWindowFrame(fixed: boolean, exterior: boolean) {
+  const geometries = fixed ? fixedFrameGeometries : originalFrameGeometries
+  geometries.forEach((g, mesh) => { mesh.geometry = g })
+  camera.position.set(2.1, 1.2, exterior ? -2 : 2); camera.lookAt(2, 1.2, -.09); camera.updateMatrixWorld()
+  const points = [1.53, 2.47].flatMap(x => [.75, 1.15, 1.55].map(y => [x, y, exterior ? -.13 : -.05]))
+  renderer.setRenderTarget(target); renderer.render(frameScene, camera)
+  const values = points.map(point => {
+    const p = new Vector3().fromArray(point).project(camera), pixel = new Uint8Array(4)
+    renderer.readRenderTargetPixels(target, Math.floor((p.x + 1) * 450), Math.floor((p.y + 1) * 450), 1, 1, pixel)
+    return pixel[0]
+  })
+  renderer.setRenderTarget(null); renderer.render(frameScene, camera)
+  return values
+}
+const windowFrame = { legacy: renderWindowFrame(false, false), fixed: renderWindowFrame(true, false),
+  exteriorLegacy: renderWindowFrame(false, true), exteriorFixed: renderWindowFrame(true, true) }
+Object.assign((window as unknown as { revealResult: object }).revealResult, { windowFrame })
+Object.assign(window, { renderWindowFrame, disposeFrameFixture: () => {
+  fixedFrameGeometries.forEach((g, mesh) => { mesh.geometry = g }); restoreFrame(); disposeWindowGeometry(frameWindow); darkField.dispose()
+} })

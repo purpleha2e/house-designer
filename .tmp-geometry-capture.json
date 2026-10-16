@@ -1,0 +1,948 @@
+{
+  "result": {
+    "jobs": [
+      {
+        "url": "http://127.0.0.1:5181/src/buildingPreparation.worker.ts?worker_file&type=module",
+        "kind": "rooms",
+        "start": 8526.600000023842,
+        "end": 10720.5
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/buildingPreparation.worker.ts?worker_file&type=module",
+        "kind": "gables",
+        "start": 8528.400000035763,
+        "end": 9438.800000011921
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/threeDLevelPreparation.worker.ts?worker_file&type=module",
+        "kind": "prepare",
+        "start": 9301.100000023842,
+        "end": 9912.400000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/threeDLevelPreparation.worker.ts?worker_file&type=module",
+        "kind": "prepare",
+        "start": 9301.400000035763,
+        "end": 9802.5
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/roomLightMask.worker.ts?worker_file&type=module",
+        "kind": "prepare",
+        "start": 9979.5,
+        "cancelled": 11027.800000011921
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/buildingPreparation.worker.ts?worker_file&type=module",
+        "kind": "gables",
+        "start": 10729.5,
+        "cancelled": 12500.400000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "clip",
+        "start": 11006.699999988079,
+        "cancelled": 12338.400000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "render",
+        "start": 11015.100000023842,
+        "cancelled": 12339.100000023842
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "clip",
+        "start": 11018.900000035763,
+        "cancelled": 12347.900000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "render",
+        "start": 11023.600000023842,
+        "end": 12499.199999988079
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/roomLightMask.worker.ts?worker_file&type=module",
+        "kind": "prepare",
+        "start": 11415.600000023842,
+        "end": 13318.400000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "clip",
+        "start": 12358.400000035763,
+        "cancelled": 12854.400000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "render",
+        "start": 12370.100000023842,
+        "end": 13827
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "clip",
+        "start": 12376.600000023842,
+        "cancelled": 12860.199999988079
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/buildingPreparation.worker.ts?worker_file&type=module",
+        "kind": "gables",
+        "start": 12502.600000023842,
+        "end": 15282.400000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "clip",
+        "start": 12867.900000035763,
+        "end": 13754.400000035763
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "clip",
+        "start": 12883.199999988079,
+        "end": 33534.90000003576
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/roofAssembly.worker.ts?worker_file&type=module",
+        "kind": "assembly",
+        "start": 12927.699999988079,
+        "end": 16849.19999998808
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/roofAssembly.worker.ts?worker_file&type=module",
+        "kind": "assembly",
+        "start": 12954.100000023842,
+        "end": 18664.69999998808
+      },
+      {
+        "url": "http://127.0.0.1:5181/src/wallEngine/wallRoofClip.worker.ts?worker_file&type=module",
+        "kind": "render",
+        "start": 13891.5,
+        "end": 14376.100000023842
+      }
+    ],
+    "logs": [
+      {
+        "detail": "2 placed, 2 registered",
+        "index": 1,
+        "timeMs": 8523,
+        "type": "portal-models"
+      },
+      {
+        "detail": "portal-model-49b4120608be1b88fde376d1c1dafd1c /manufacturer-assets/house-designer/models/49b4120608be1b88fde376d1c1dafd1c/processed/model.glb?hdModelRefresh=1",
+        "index": 2,
+        "timeMs": 8524,
+        "type": "portal-model-url"
+      },
+      {
+        "detail": "portal-model-da3febd37075be644058a24aba790fcf /manufacturer-assets/house-designer/models/da3febd37075be644058a24aba790fcf/processed/model.glb?hdModelRefresh=1",
+        "index": 3,
+        "timeMs": 8524,
+        "type": "portal-model-url"
+      },
+      {
+        "detail": "Use window.houseDesignerEngineLog.table() or window.houseDesignerWallRenderDebug.table()",
+        "index": 4,
+        "timeMs": 8531,
+        "type": "engine-log-ready"
+      },
+      {
+        "detail": "Constructing geometry...",
+        "index": 5,
+        "snapshot": "lights 0/4 | limit 8 | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 8537,
+        "type": "status"
+      },
+      {
+        "detail": "0.6s after Constructing geometry",
+        "index": 6,
+        "snapshot": "lights 0/4 | limit 8 | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9242,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "Main thread stalled for 0.6s after Constructing geometry",
+        "index": 7,
+        "snapshot": "lights 0/4 | limit 8 | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9243,
+        "type": "status"
+      },
+      {
+        "detail": "644ms",
+        "index": 8,
+        "snapshot": "lights 0/4 | limit 8 | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9298,
+        "type": "browser-long-task"
+      },
+      {
+        "detail": "2/2 changed floors on workers",
+        "index": 9,
+        "timeMs": 9299,
+        "type": "level-preparation-start"
+      },
+      {
+        "detail": "Preparing 2 floors on workers...",
+        "index": 10,
+        "timeMs": 9299,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing 2 floors on workers...",
+        "index": 11,
+        "snapshot": "lights 0/4 | limit 8 | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9299,
+        "type": "status"
+      },
+      {
+        "detail": "activeFloor=db559ff8-8f78-4b2c-8093-d57d78580c07 previousFloor=a5e1058b-f220-4fef-9e1f-5cb871e2e0c5 nextFloor=none count=1",
+        "index": 12,
+        "timeMs": 9646,
+        "type": "xr-stairs-buttons"
+      },
+      {
+        "detail": "2/2 changed floors in 616ms",
+        "index": 13,
+        "timeMs": 9915,
+        "type": "level-preparation-complete"
+      },
+      {
+        "detail": "1 shaders, 0 calls, 0 geo, 0 tex, 0 tris",
+        "index": 14,
+        "snapshot": "lights 0/4 | limit 11 | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9974,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 15,
+        "timeMs": 11006,
+        "type": "activity"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 16,
+        "snapshot": "lights 0/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 11006,
+        "type": "status"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 17,
+        "timeMs": 11018,
+        "type": "activity"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 18,
+        "snapshot": "lights 0/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 11018,
+        "type": "status"
+      },
+      {
+        "detail": "0.5s after Updating wall / roof geometry in background",
+        "index": 19,
+        "snapshot": "lights 4/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 11282,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 20,
+        "timeMs": 12358,
+        "type": "activity"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 21,
+        "snapshot": "lights 4/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 12358,
+        "type": "status"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 22,
+        "timeMs": 12375,
+        "type": "activity"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 23,
+        "snapshot": "lights 4/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 12375,
+        "type": "status"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 24,
+        "timeMs": 12867,
+        "type": "activity"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 25,
+        "snapshot": "lights 4/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 12867,
+        "type": "status"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 26,
+        "timeMs": 12882,
+        "type": "activity"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 27,
+        "snapshot": "lights 4/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 12882,
+        "type": "status"
+      },
+      {
+        "detail": "0.7s after Updating wall / roof geometry in background",
+        "index": 28,
+        "snapshot": "lights 4/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 13315,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "560ms",
+        "index": 29,
+        "snapshot": "lights 4/4 | limit 11 | floors 2 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.32 | baked lightmaps off | lights on | 1 shaders, 1 calls, 1 tex",
+        "timeMs": 13317,
+        "type": "browser-long-task"
+      },
+      {
+        "detail": "a5e1058b-f220-4fef-9e1f-5cb871e2e0c5: 978ms in worker",
+        "index": 30,
+        "timeMs": 13845,
+        "type": "wall-roof-clipping-complete"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 31,
+        "timeMs": 14451,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (04edfb6d-2911-481a-8414-c9db62edc80a) 0.98m x 2.12m x 0.80m",
+        "index": 32,
+        "timeMs": 14452,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 33,
+        "timeMs": 14482,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (2daa7e67-0b3d-49ec-8a98-93ae3eea2c30) 0.98m x 2.12m x 0.80m",
+        "index": 34,
+        "timeMs": 14482,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 35,
+        "timeMs": 14483,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (e749bf16-83d9-49e2-a8af-8bfcd730bd2d) 0.98m x 2.12m x 0.80m",
+        "index": 36,
+        "timeMs": 14484,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 37,
+        "timeMs": 14497,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (e63733cf-7b95-4d71-9e58-bec4de2d8c6d) 0.98m x 2.12m x 0.80m",
+        "index": 38,
+        "timeMs": 14498,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 39,
+        "timeMs": 14500,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (642c31c7-a864-42c8-a11a-87860888cf0d) 0.98m x 2.12m x 0.80m",
+        "index": 40,
+        "timeMs": 14500,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 41,
+        "timeMs": 14511,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (8845fd73-d514-4a1c-b54f-21614ad1d361) 0.98m x 2.12m x 0.80m",
+        "index": 42,
+        "timeMs": 14511,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 43,
+        "timeMs": 14513,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (9881cca2-b6ff-48fb-9f96-913f4259ae1f) 0.98m x 2.12m x 0.80m",
+        "index": 44,
+        "timeMs": 14513,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "king_bed.glb",
+        "index": 45,
+        "timeMs": 14514,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "king_bed.glb (32a12f70-10e3-45a6-8e3c-ac9026377d30) 1.75m x 1.04m x 2.15m",
+        "index": 46,
+        "timeMs": 14514,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "king_bed.glb",
+        "index": 47,
+        "timeMs": 14515,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "king_bed.glb (3fc467b2-f9bc-4f90-a31a-f04a3b6fe969) 1.75m x 1.04m x 2.15m",
+        "index": 48,
+        "timeMs": 14515,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "king_bed.glb",
+        "index": 49,
+        "timeMs": 14516,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "king_bed.glb (5e6c5ebd-32a2-4b47-9f48-9ad7c124d2f5) 1.75m x 1.04m x 2.15m",
+        "index": 50,
+        "timeMs": 14516,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "king_bed.glb",
+        "index": 51,
+        "timeMs": 14517,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "king_bed.glb (c3ef56b4-0a1a-42c5-aac7-cda0f9f268d2) 1.75m x 1.04m x 2.15m",
+        "index": 52,
+        "timeMs": 14517,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "bath.glb",
+        "index": 53,
+        "timeMs": 14518,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "bath.glb (d52adc7d-4fc7-4a7e-801d-4f884581ffac) 1.60m x 0.66m x 0.69m",
+        "index": 54,
+        "timeMs": 14518,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "toilet.glb",
+        "index": 55,
+        "timeMs": 14519,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "toilet.glb (597bee11-3068-42b9-a23e-b24f495e9202) 0.34m x 0.74m x 0.59m",
+        "index": 56,
+        "timeMs": 14519,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "toilet.glb",
+        "index": 57,
+        "timeMs": 14520,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "toilet.glb (ecda318f-f43a-4600-97a5-38335e512cef) 0.34m x 0.74m x 0.59m",
+        "index": 58,
+        "timeMs": 14520,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "window_three_pane.glb",
+        "index": 59,
+        "timeMs": 14520,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "window_three_pane.glb (2b7e0cd8-b587-4ffa-aec8-bca4ee210d81) 1.64m x 1.10m x 0.08m",
+        "index": 60,
+        "timeMs": 14520,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "Point Light (d2e5a95d-96c6-42e5-950b-5a88ba3b84c5) 0.25m x 0.25m x 0.25m",
+        "index": 61,
+        "timeMs": 14523,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "Point Light (b6d71982-417e-4e96-ab09-cef6b8f4a19b) 0.25m x 0.25m x 0.25m",
+        "index": 62,
+        "timeMs": 14524,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "pedestal_basin_gold_taps.glb",
+        "index": 63,
+        "timeMs": 14525,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "pedestal_basin_gold_taps.glb (1db68e9c-3fff-444f-bb94-78102f8f6fa3) 0.53m x 1.00m x 0.45m",
+        "index": 64,
+        "timeMs": 14525,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "model.glb",
+        "index": 65,
+        "timeMs": 14526,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "model.glb (b37652ed-dee0-4805-a8c4-20477d6412c5) 0.53m x 1.00m x 0.45m",
+        "index": 66,
+        "timeMs": 14526,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "patio_doors.glb",
+        "index": 67,
+        "timeMs": 14533,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "patio_doors.glb (bdd5d972-b20d-4971-a387-ca4b53f01cd5) 1.62m x 2.08m x 0.11m",
+        "index": 68,
+        "timeMs": 14533,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "Point Light (f575a2eb-6e3e-4b1e-ac6c-189a442485ec) 0.25m x 0.25m x 0.25m",
+        "index": 69,
+        "timeMs": 14544,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "Point Light (f65077fd-ee52-4de2-8da6-94a103473188) 0.25m x 0.25m x 0.25m",
+        "index": 70,
+        "timeMs": 14545,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 71,
+        "timeMs": 20819,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (77e96828-b9e3-4f44-9d0d-3cfa8c4b7031) 0.98m x 2.12m x 0.80m",
+        "index": 72,
+        "timeMs": 20819,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "front_door.glb",
+        "index": 73,
+        "timeMs": 20821,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "front_door.glb (116348ab-520b-464f-9fd3-eeb172fec98a) 0.97m x 2.10m x 0.70m",
+        "index": 74,
+        "timeMs": 20821,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "patio_doors_bifold_three_pane_open.glb",
+        "index": 75,
+        "timeMs": 20839,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "patio_doors_bifold_three_pane_open.glb (08391cbf-b8a1-4c86-8c29-4d2f0520880f) 2.40m x 2.08m x 0.81m",
+        "index": 76,
+        "timeMs": 20839,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "wooden_door.glb",
+        "index": 77,
+        "timeMs": 20867,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "wooden_door.glb (55c6e007-0bd5-493c-a156-d4ad42766afa) 1.10m x 2.06m x 0.90m",
+        "index": 78,
+        "timeMs": 20867,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 79,
+        "timeMs": 20886,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (867cf18a-18b9-4011-8e50-762b4b35b6d2) 0.80m x 0.83m x 0.69m",
+        "index": 80,
+        "timeMs": 20886,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 81,
+        "timeMs": 20887,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (983fa5e4-3cbc-4243-a18a-af2b95f19388) 0.80m x 0.83m x 0.69m",
+        "index": 82,
+        "timeMs": 20887,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "sink_unit.glb",
+        "index": 83,
+        "timeMs": 20888,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "sink_unit.glb (0eb33497-4d17-4e89-9926-0a786ef2bd3f) 0.80m x 1.10m x 0.69m",
+        "index": 84,
+        "timeMs": 20888,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "washer_dryer_stack_mid.glb",
+        "index": 85,
+        "timeMs": 20890,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "washer_dryer_stack_mid.glb (bbe14023-43b5-4b14-81a2-92b7e0190f67) 0.60m x 1.75m x 0.63m",
+        "index": 86,
+        "timeMs": 20890,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 87,
+        "timeMs": 20895,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (f263c7c3-1fb0-45e9-9b2e-8f74679ac3ab) 0.98m x 2.12m x 0.80m",
+        "index": 88,
+        "timeMs": 20895,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "patio_doors.glb",
+        "index": 89,
+        "timeMs": 20896,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "patio_doors.glb (9835e4c2-0faa-417e-b447-7ce37ba89080) 1.62m x 2.08m x 0.11m",
+        "index": 90,
+        "timeMs": 20896,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb",
+        "index": 91,
+        "timeMs": 20898,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "panel_interior_door_open_low_detail.glb (fd9c28e9-1b39-454c-bfad-2a482ef35568) 0.98m x 2.12m x 0.80m",
+        "index": 92,
+        "timeMs": 20898,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "window_three_pane.glb",
+        "index": 93,
+        "timeMs": 20899,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "window_three_pane.glb (15c2ebdb-3f56-45ca-90a3-7510472c9312) 1.64m x 1.10m x 0.08m",
+        "index": 94,
+        "timeMs": 20899,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "computer_desk.glb",
+        "index": 95,
+        "timeMs": 20901,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "computer_desk.glb (50bd1bba-1162-4e5e-8ba6-09faa45c9002) 1.50m x 0.76m x 0.75m",
+        "index": 96,
+        "timeMs": 20901,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "office_chair.glb",
+        "index": 97,
+        "timeMs": 20902,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "office_chair.glb (07da6a3c-90b4-4135-94eb-1dbda0077d5e) 0.62m x 0.96m x 0.59m",
+        "index": 98,
+        "timeMs": 20902,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "sofa.glb",
+        "index": 99,
+        "timeMs": 20903,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "sofa.glb (20b266d2-8593-4521-bcd1-115c3f4d839d) 2.50m x 1.09m x 1.26m",
+        "index": 100,
+        "timeMs": 20904,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "window_large_single_pane.glb",
+        "index": 101,
+        "timeMs": 20904,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "window_large_single_pane.glb (f0c759c1-c5c4-4799-a13e-cf2210f19938) 1.80m x 2.00m x 0.08m",
+        "index": 102,
+        "timeMs": 20904,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 103,
+        "timeMs": 20909,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (0cd5964a-7f82-4218-9629-3fbc28a2ed4f) 0.80m x 0.83m x 0.69m",
+        "index": 104,
+        "timeMs": 20909,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 105,
+        "timeMs": 20910,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (107850ce-4dd4-4b35-8ad3-5bc70488e20d) 0.80m x 0.83m x 0.69m",
+        "index": 106,
+        "timeMs": 20910,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 107,
+        "timeMs": 20911,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (46781408-4e43-455d-971c-4d580142191c) 0.80m x 0.83m x 0.69m",
+        "index": 108,
+        "timeMs": 20911,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "sink_unit.glb",
+        "index": 109,
+        "timeMs": 20911,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "sink_unit.glb (31fe8048-f806-497a-892c-03ae170343e2) 0.80m x 1.10m x 0.69m",
+        "index": 110,
+        "timeMs": 20912,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 111,
+        "timeMs": 20912,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (ef1fcec9-6f83-4164-92b9-f7b30988df18) 0.80m x 0.83m x 0.69m",
+        "index": 112,
+        "timeMs": 20912,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 113,
+        "timeMs": 20913,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (74670ae7-abe6-40e4-9a78-6a62bca582b7) 0.80m x 0.83m x 0.69m",
+        "index": 114,
+        "timeMs": 20913,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb",
+        "index": 115,
+        "timeMs": 20914,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "base_cabinet_marble_cream_800mm.glb (77962c2d-6faf-40e2-8001-8bf76e7b7690) 0.80m x 0.83m x 0.69m",
+        "index": 116,
+        "timeMs": 20914,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "island.glb",
+        "index": 117,
+        "timeMs": 20915,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "island.glb (591a56ad-68d0-4700-adf4-5026cb531369) 2.52m x 1.12m x 1.00m",
+        "index": 118,
+        "timeMs": 20915,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "kitchen_table_1.glb",
+        "index": 119,
+        "timeMs": 20916,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "kitchen_table_1.glb (2bbf6f90-bfa6-4dd9-a92a-aa17f74533f4) 0.97m x 0.72m x 2.50m",
+        "index": 120,
+        "timeMs": 20916,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "sofa.glb",
+        "index": 121,
+        "timeMs": 20918,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "sofa.glb (4923e265-9696-4d3b-982a-3d809265ba0b) 2.50m x 1.09m x 1.26m",
+        "index": 122,
+        "timeMs": 20918,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "sofa.glb",
+        "index": 123,
+        "timeMs": 20920,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "sofa.glb (96cca887-d5d4-4fef-a941-c3638911c06a) 2.50m x 1.09m x 1.26m",
+        "index": 124,
+        "timeMs": 20920,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "model.glb",
+        "index": 125,
+        "timeMs": 20921,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "model.glb (3cb90eb5-da9e-44b2-9dae-080deaf38ab8) 0.93m x 3.56m x 2.82m",
+        "index": 126,
+        "timeMs": 20921,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "patio_doors.glb",
+        "index": 127,
+        "timeMs": 20930,
+        "type": "model-load-start"
+      },
+      {
+        "detail": "patio_doors.glb (dbe51a32-aa70-46c6-9c7b-bf77da930814) 1.62m x 2.08m x 0.11m",
+        "index": 128,
+        "timeMs": 20930,
+        "type": "model-loaded"
+      },
+      {
+        "detail": "db559ff8-8f78-4b2c-8093-d57d78580c07: 21181ms in worker",
+        "index": 129,
+        "timeMs": 34063,
+        "type": "wall-roof-clipping-complete"
+      }
+    ],
+    "state": {
+      "generation": 8,
+      "completed": 0,
+      "state": "updating",
+      "blocked": true,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": true,
+      "floorPreparing": false,
+      "floorLayerReady": false,
+      "displayed": false,
+      "xr": false,
+      "capturedProbes": 0,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "saved": false,
+      "source": "baked",
+      "exportable": true,
+      "moving": false,
+      "paused": false,
+      "previewUpdates": 0
+    },
+    "shader": true
+  },
+  "errors": []
+}

@@ -1,7 +1,74 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BoxGeometry, DoubleSide, FrontSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, Scene, Texture } from 'three'
-import { createShaderWarmupSnapshot, getShaderWarmupSceneRevision, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
+import { BoxGeometry, DoubleSide, FrontSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Scene, Texture } from 'three'
+import { compileShaderWarmup, createShaderWarmupSnapshot, getShaderWarmupSceneRevision, prepareShaderWarmupSceneRevision, prepareShaderWarmupResources, recordViewportGeometryUpload, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
+import type { WebGLRenderer } from 'three'
+
+test('lighting reuses displayed buffers but prepares edits, replacements, disposed buffers and new renderer contexts', async () => {
+  const geometry = new BoxGeometry(), material = new MeshStandardMaterial(), scene = new Scene()
+  scene.add(new Mesh(geometry, material))
+  const renderer = { properties: {}, shadowMap: {}, info: { render: {} },
+    getRenderTarget: () => null, getActiveCubeFace: () => 0, getActiveMipmapLevel: () => 0,
+    setRenderTarget: () => {},
+  } as unknown as WebGLRenderer
+  let draws = 0
+  const prepare = () => prepareShaderWarmupResources(renderer, scene, new PerspectiveCamera(), scene, false, () => false, () => { draws++ })
+  recordViewportGeometryUpload(renderer, geometry)
+  await prepare(); assert.equal(draws, 0, 'opaque display already uploaded these buffers')
+  geometry.attributes.position.needsUpdate = true
+  await prepare(); assert.equal(draws, 1, 'changed vertex data must be prepared')
+  await prepare(); assert.equal(draws, 1, 'unchanged data stays ready')
+  geometry.setAttribute('position', geometry.attributes.position.clone())
+  await prepare(); assert.equal(draws, 2, 'same-version replacement attribute must be prepared')
+  geometry.dispose()
+  await prepare(); assert.equal(draws, 3, 'disposed GPU buffers must be recreated')
+  Object.assign(renderer, { properties: {} })
+  await prepare(); assert.equal(draws, 4, 'context restoration discards previous GPU readiness')
+  geometry.dispose(); material.dispose()
+})
+
+test('cooperative shader scans match synchronous features and obsolete scans stop', async () => {
+  const scene=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial()
+  for(let i=0;i<100;i++)scene.add(new Mesh(geometry,material))
+  assert.equal(await prepareShaderWarmupSceneRevision(scene,()=>false),getShaderWarmupSceneRevision(scene))
+  assert.equal(await prepareShaderWarmupSceneRevision(scene,()=>true),undefined)
+  geometry.dispose();material.dispose()
+})
+test('shader preparation yields to input and submits equivalent programs only once', async () => {
+  const scene=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial()
+  for(let i=0;i<100;i++)scene.add(new Mesh(geometry,material.clone()))
+  let submitted=0,heartbeat=false
+  const work=compileShaderWarmup({} as WebGLRenderer,scene,new (await import('three')).PerspectiveCamera(),scene,
+    {compile:async batch=>{submitted+=batch.children.length}})
+  setTimeout(()=>{heartbeat=true},0)
+  assert.equal(await work,true)
+  assert.equal(heartbeat,true)
+  assert.equal(submitted,1)
+  scene.traverse(o=>{if(o instanceof Mesh)(o.material as MeshStandardMaterial).dispose()})
+  geometry.dispose();material.dispose()
+})
+
+test('large shader hook source does not inflate every mesh feature entry', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  material.customProgramCacheKey = () => 'shader-code'.repeat(10000)
+  for (let i = 0; i < 200; i++) scene.add(new Mesh(geometry, material))
+  const revision = getShaderWarmupSceneRevision(scene)
+  assert.ok(revision.length < 10000)
+  material.customProgramCacheKey = () => 'a different program'
+  assert.notEqual(getShaderWarmupSceneRevision(scene), revision)
+  geometry.dispose(); material.dispose()
+})
+
+test('transparent double-sided shaders retain independent readiness checks for both draw sides', () => {
+  const scene=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial({transparent:true,side:DoubleSide})
+  scene.add(new Mesh(geometry,material))
+  const snapshot=createShaderWarmupSnapshot(scene,{fadeWalls:false,fadeRoofs:false})
+  const sides=snapshot.root.children.map(object=>(object as Mesh).material as MeshStandardMaterial)
+  assert.ok(sides.some(m=>m.side===FrontSide&&m.forceSinglePass))
+  assert.ok(sides.some(m=>m.side!==FrontSide&&m.side!==DoubleSide&&m.forceSinglePass))
+  assert.equal(material.side,DoubleSide)
+  snapshot.dispose();material.dispose();geometry.dispose()
+})
 
 test('selection decorations are ignored through ancestors, including transform handles', () => {
   const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
@@ -213,4 +280,33 @@ test('selection variants are prepared and retained with each material slot until
   snapshot.dispose()
   snapshot.dispose()
   assert.equal(releases, 2)
+})
+
+
+test('shader compilation overlaps bounded batches and cancellation drains outstanding polls', async () => {
+  const scene = new Scene(), geometry = new BoxGeometry()
+  for (let i=0;i<24;i++) {
+    const material = new MeshStandardMaterial(); material.defines = { VARIANT: i }
+    scene.add(new Mesh(geometry,material))
+  }
+  const releases: (() => void)[] = []
+  let cancelled = false, settled = false, active = 0, maximum = 0
+  const result = compileShaderWarmup({} as WebGLRenderer,scene,new (await import('three')).PerspectiveCamera(),scene,{
+    cancelled: () => cancelled,
+    compile: () => new Promise<void>(resolve => {
+      active++; maximum=Math.max(maximum,active)
+      releases.push(() => { active--; resolve() })
+    }),
+  }).then(value => { settled=true; return value })
+  for(let i=0;i<100 && releases.length<4;i++) await new Promise(resolve=>setTimeout(resolve,2))
+  assert.equal(releases.length,4,'submit four batches before waiting for the first to finish')
+  assert.equal(maximum,4,'bounded driver queue')
+  cancelled=true; releases[0]()
+  await new Promise(resolve=>setTimeout(resolve,10))
+  assert.equal(settled,false,'snapshot stays alive until every outstanding poll finishes')
+  releases.slice(1).forEach(release=>release())
+  assert.equal(await result,false)
+  assert.equal(releases.length,4,'cancellation prevents further submission')
+  scene.traverse(o=>{if(o instanceof Mesh)(o.material as MeshStandardMaterial).dispose()})
+  geometry.dispose()
 })

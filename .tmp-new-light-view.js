@@ -1,0 +1,1 @@
+(async()=>{const s=window.roofWallScene();s.camera.position.set(1.3,1.4,4.55);s.camera.lookAt(-3.24,1.2,4.55);s.camera.fov=60;s.camera.updateProjectionMatrix();s.camera.updateMatrixWorld(true);s.invalidate();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));return{camera:s.camera.position.toArray()}})()

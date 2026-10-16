@@ -3,12 +3,13 @@ import { BufferGeometry, DirectionalLight, Group, InstancedMesh, Light, Material
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { isSelectionDecoration } from './shaderWarmup.ts'
 import { applyIndirectSurfaceCapture, applyIndirectSurfaceRadianceCapture } from './indirectSurfaceCache.ts'
+import { runViewportTask } from './viewportScheduling.ts'
 
 type Renderable = Object3D & { material: Material | Material[]; geometry: BufferGeometry }
 
 /** A retained offscreen scene. Live geometry/textures and sun shadow maps remain
  * owned by the editor; only capture materials and merged buffers are owned here. */
-export function createIndirectCaptureScene(source: Scene, localLights: boolean) {
+function* captureSceneSteps(source: Scene, localLights: boolean) {
   source.updateMatrixWorld(true)
   const scene = new Scene(), materials = new Map<Material, Material>()
   const geometries = new Set<BufferGeometry>(), instances: InstancedMesh[] = []
@@ -16,10 +17,23 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
   const orderedGroups = new Map<number, Group>()
   const centre = new Vector3()
   let sourceMeshes = 0, mergedMeshes = 0
+  let disposed = false, completed = false
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    materials.forEach(material => material.dispose())
+    geometries.forEach(geometry => geometry.dispose())
+    instances.forEach(mesh => mesh.dispose())
+    scene.clear()
+  }
+  try {
   const captureMaterial = (original: Material) => {
     let material = materials.get(original)
     if (material) return material
     material = original.clone()
+    if (material instanceof MeshStandardMaterial) {
+      material.defines = { ...(original as MeshStandardMaterial).defines, HD_GI_CAPTURE_VISIBILITY: 1 }
+    }
     material.onBeforeCompile = original.onBeforeCompile.bind(original)
     const attributes = original as Material & { defaultAttributeValues?: Record<string, number[]> }
     if (attributes.defaultAttributeValues) Object.assign(material, { defaultAttributeValues: attributes.defaultAttributeValues })
@@ -56,10 +70,13 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
     if (proxy instanceof InstancedMesh) instances.push(proxy)
     return proxy
   }
-  source.traverseVisible(object => {
-    if (isSelectionDecoration(object) || object.userData.houseDesignerRole === 'ground-image') return
+  const objects: Object3D[] = []
+  source.traverseVisible(object => objects.push(object))
+  for (const object of objects) {
+    yield
+    if (isSelectionDecoration(object) || object.userData.houseDesignerRole === 'ground-image') continue
     if (object instanceof Light) {
-      if (localLights && (object instanceof PointLight || object instanceof SpotLight)) return
+      if (localLights && (object instanceof PointLight || object instanceof SpotLight)) continue
       const light = object.clone(false)
       object.matrixWorld.decompose(light.position, light.quaternion, light.scale)
       if (light instanceof DirectionalLight || light instanceof SpotLight) {
@@ -69,12 +86,12 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
         light.shadow = original.shadow
         scene.add(light.target)
       }
-      scene.add(light); return
+      scene.add(light); continue
     }
     const renderable = object as Renderable
-    if (!renderable.geometry || !renderable.material) return
+    if (!renderable.geometry || !renderable.material) continue
     const proxy = addProxy(renderable)
-    if (!(object instanceof Mesh)) return
+    if (!(object instanceof Mesh)) continue
     sourceMeshes++
     const geometry: BufferGeometry = object.geometry
     // Preserve group/draw-range semantics, skinning, morphs, instances, mirrored
@@ -87,7 +104,7 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
       Object.values(geometry.morphAttributes).some(attributes => attributes.length) ||
       geometry.drawRange.start !== 0 || Number.isFinite(geometry.drawRange.count) ||
       object.matrixWorld.determinant() <= 0 || object.onBeforeRender !== Object3D.prototype.onBeforeRender ||
-      object.onAfterRender !== Object3D.prototype.onAfterRender) return
+      object.onAfterRender !== Object3D.prototype.onAfterRender) continue
     if (!geometry.boundingBox) geometry.computeBoundingBox()
     geometry.boundingBox?.getCenter(centre).applyMatrix4(object.matrixWorld)
     const attributes = Object.entries(geometry.attributes).map(([name, attribute]) =>
@@ -97,8 +114,9 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
       object.matrixWorld.elements,
       Math.floor(centre.x / 8), Math.floor(centre.y / 4), Math.floor(centre.z / 8)])
     const group = batches.get(key) ?? []; group.push(proxy as Mesh); batches.set(key, group)
-  })
+  }
   for (const members of batches.values()) {
+    yield
     if (members.length < 2) continue
     // Keep vertex/normal/receiver data in the original local coordinates.
     // Baking transforms into float vertices can change coverage at openings.
@@ -121,7 +139,7 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
   scene.fog = source.fog
   scene.updateMatrixWorld(true)
   scene.matrixWorldAutoUpdate = false
-  let disposed = false
+  completed = true
   return { scene, sourceMeshes, mergedMeshes, materials: materials.size,
     enableSurfaceRadianceCapture() {
       materials.forEach(material => applyIndirectSurfaceRadianceCapture(material))
@@ -132,13 +150,20 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
       scene.children.filter(object => object instanceof Light).forEach(light => light.removeFromParent())
       scene.environment = null
     },
-    dispose() {
-      if (disposed) return
-      disposed = true
-      materials.forEach(material => material.dispose())
-      geometries.forEach(geometry => geometry.dispose())
-      instances.forEach(mesh => mesh.dispose())
-      scene.clear()
-    },
+    dispose,
   }
+  } finally { if (!completed) dispose() }
+}
+
+export function createIndirectCaptureScene(source: Scene, localLights: boolean) {
+  const steps = captureSceneSteps(source, localLights)
+  let next = steps.next()
+  while (!next.done) next = steps.next()
+  return next.value
+}
+
+/** Build capture proxies in small tasks rather than blocking navigation while
+ * cloning every model and merging every material batch. */
+export function prepareIndirectCaptureScene(source: Scene, localLights: boolean, cancelled: () => boolean = () => false) {
+  return runViewportTask(captureSceneSteps(source, localLights),cancelled)
 }

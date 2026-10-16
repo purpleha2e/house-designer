@@ -1,0 +1,1 @@
+(()=>{const s=window.roofWallScene();return s.scene.children.filter(o=>o.isPointLight||o.isSpotLight).map(o=>{const c=o.shadow.camera;return{type:o.type,distance:o.distance,far:c.far,projection:c.projectionMatrix.elements[10],expected:-(c.far+c.near)/(c.far-c.near)}})})()

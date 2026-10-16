@@ -1,0 +1,954 @@
+{
+  "first": {
+    "opaqueReadyMs": 25782.80000001192,
+    "phase": "lighting",
+    "frames": 3,
+    "geometryCount": 608,
+    "position": [
+      2.523227270512858,
+      4.5,
+      6.737998326793864
+    ],
+    "programs": 5
+  },
+  "movement": {
+    "position": [
+      7.665129117441626,
+      4.5,
+      17.537765844883392
+    ],
+    "frames": 154,
+    "gaps": [
+      -8,
+      33.29999999999927,
+      33.400000000001455,
+      16.5,
+      33.39999999999782,
+      33.400000000001455,
+      16.700000000000728,
+      33.29999999999927,
+      16.700000000000728,
+      33.5,
+      33.20000000000073,
+      49.89999999999782,
+      16.700000000000728,
+      50,
+      16.900000000001455,
+      49.69999999999709,
+      33.400000000001455,
+      16.599999999998545,
+      33.400000000001455,
+      33.400000000001455,
+      33.29999999999927,
+      49.89999999999782,
+      33.400000000001455,
+      50,
+      50,
+      33.400000000001455,
+      49.89999999999782,
+      33.400000000001455,
+      49.99999999999636,
+      33.30000000000291,
+      50,
+      33.400000000001455,
+      49.900000000001455,
+      33.39999999999418,
+      49.900000000001455,
+      33.400000000001455,
+      33.400000000001455,
+      50.19999999999709,
+      49.700000000004366,
+      33.39999999999418,
+      50,
+      50,
+      49.900000000001455,
+      33.5,
+      50,
+      49.900000000001455,
+      33.400000000001455,
+      50,
+      50,
+      50.299999999995634,
+      33,
+      66.70000000000437,
+      49.900000000001455,
+      50,
+      50.099999999998545,
+      33.400000000001455,
+      50,
+      49.799999999995634,
+      50.099999999998545,
+      50.10000000000582,
+      33.099999999998545,
+      50.099999999998545,
+      33.30000000000291,
+      33.5,
+      50,
+      49.89999999999418,
+      50.900000000001455,
+      32.900000000001455,
+      66.19999999999709,
+      33.30000000000291,
+      50,
+      33.30000000000291,
+      33.39999999999418,
+      33.200000000004366,
+      50.099999999998545,
+      33.30000000000291,
+      50,
+      33.39999999999418,
+      16.60000000000582,
+      50.099999999998545,
+      33.19999999999709,
+      33.400000000001455,
+      33.19999999999709,
+      33.400000000001455,
+      33.30000000000291,
+      33.400000000001455,
+      50,
+      33.39999999999418,
+      16.60000000000582,
+      33.5,
+      33.19999999999709,
+      50,
+      33.30000000000291,
+      33.39999999999418,
+      33.200000000004366,
+      33.400000000001455,
+      50,
+      66.69999999999709,
+      33.400000000001455,
+      50,
+      49.900000000001455,
+      33.39999999999418,
+      50,
+      33.200000000004366,
+      50.099999999998545,
+      33.5,
+      49.900000000001455,
+      50,
+      33.19999999999709,
+      33.400000000001455,
+      33.30000000000291,
+      33.299999999995634,
+      33.400000000001455,
+      49.900000000001455,
+      33.400000000001455,
+      16.69999999999709,
+      33.30000000000291,
+      33.299999999995634,
+      50,
+      16.700000000004366,
+      33.5,
+      33.099999999998545,
+      33.400000000001455,
+      33.299999999995634,
+      50,
+      33.5,
+      33.200000000004366,
+      16.599999999998545,
+      33.299999999995634,
+      33.400000000001455,
+      33.30000000000291
+    ]
+  },
+  "backgroundMovement": {
+    "position": [
+      4.525968068871191,
+      4.5,
+      10.944444825608691
+    ],
+    "phase": "lighting",
+    "programs": 13,
+    "gaps": [
+      -44.30000004768226,
+      83.29999999999563,
+      50,
+      33.400000000001455,
+      50,
+      50,
+      33.30000000000291,
+      50,
+      50,
+      33.299999999995634,
+      50,
+      50,
+      16.700000000004366,
+      50,
+      33.299999999995634,
+      50,
+      33.5,
+      33.200000000004366,
+      49.900000000001455,
+      33.39999999999418,
+      33.400000000001455,
+      50,
+      33.30000000000291,
+      50,
+      50.099999999998545,
+      50,
+      33.400000000001455,
+      49.900000000001455,
+      33.39999999999418,
+      49.900000000001455,
+      50,
+      50.099999999998545,
+      33.30000000000291,
+      49.80000000000291,
+      50.099999999998545,
+      33.299999999995634,
+      50,
+      33.30000000000291,
+      33.30000000000291,
+      16.799999999995634,
+      50,
+      33.30000000000291,
+      33.400000000001455,
+      49.89999999999418,
+      33.400000000001455,
+      33.30000000000291,
+      49.900000000001455,
+      33.39999999999418,
+      50,
+      33.400000000001455,
+      33.200000000004366,
+      33.39999999999418,
+      33.400000000001455,
+      50,
+      33.30000000000291,
+      33.299999999995634,
+      33.400000000001455,
+      33.30000000000291,
+      50,
+      33.299999999995634,
+      50,
+      33.400000000001455,
+      50,
+      33.30000000000291,
+      50,
+      49.900000000001455,
+      33.39999999999418,
+      50,
+      50,
+      33.400000000001455,
+      66.70000000000437,
+      49.89999999999418,
+      33.400000000001455,
+      33.200000000004366,
+      33.39999999999418,
+      50
+    ]
+  },
+  "final": {
+    "opaqueReadyMs": 25782.80000001192,
+    "phase": "full",
+    "frames": 1458,
+    "fullReadyMs": 85214,
+    "reused": 792,
+    "total": 810,
+    "retainedGeometryCount": 590,
+    "missing": [
+      {
+        "geometry": "ff347e68-f8fc-4c58-b492-a862dd4b0d66",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "da021b35-4c6e-48fe-aeee-ad5730fea980",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "196d3b12-e831-4259-9970-28fc1955d695",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "58fc3eac-e001-4fab-8cb6-c389ab1708ed",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "3704bc28-18e1-4ac9-9577-5eb5e720d95b",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "d5775133-8e6c-4a4c-af51-f506d9150101",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "308b2d62-c826-4430-81ef-6fb626474b2a",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "26851d56-e124-4310-b3d8-4f261cc5afa4",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "01a27e70-291c-415b-a7bb-d6e702206595",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "7e18c279-65e9-42e4-9e42-46a31502554e",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "2ca56400-5843-43a7-ba04-02423ddbdb65",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "63ed0f43-891e-45bc-be2a-f446af209bc5",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "886a731e-da8f-4bc0-9834-4dddd8bfc72a",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "74a1c29e-eed4-4247-a467-6ade1da828dd",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "993454cb-5d61-4afe-b36c-64e00ae88672",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "a353235c-0cc2-4dec-9bb6-265e3907e26e",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "a12ea8c2-abf2-48ac-96df-273ce213c7bf",
+        "role": "Mesh",
+        "name": ""
+      },
+      {
+        "geometry": "a2952918-cddd-4126-81f8-36dd561dd38d",
+        "role": "Mesh",
+        "name": ""
+      }
+    ],
+    "error": 0,
+    "gi": {
+      "generation": 2,
+      "state": "ready",
+      "enabled": true,
+      "displayed": true,
+      "probes": 241,
+      "floorProbes": 71,
+      "rooms": 14,
+      "reflections": 14,
+      "completed": 496,
+      "total": 496,
+      "capturedFaces": 0,
+      "captureMs": 0,
+      "worker": false,
+      "geometryBuilds": 0,
+      "source": "saved",
+      "saved": true,
+      "blocked": false,
+      "diffuseEnabled": true,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": true,
+      "xr": false,
+      "capturedProbes": 241,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "exportable": true,
+      "moving": false,
+      "paused": false
+    },
+    "profile": [
+      {
+        "startedAt": 44524.200000047684,
+        "stages": {
+          "delayAndSceneScan": 392.4000000357628
+        },
+        "batches": [],
+        "cancelled": true
+      },
+      {
+        "startedAt": 46495.90000003576,
+        "stages": {
+          "delayAndSceneScan": 371.5,
+          "snapshot": 4817.099999964237,
+          "compile": 24593.5,
+          "resources": 10534.5,
+          "postprocessing": 1764.6000000238419
+        },
+        "batches": [
+          {
+            "submittedMs": 30.100000023841858,
+            "readyMs": 3746.699999988079,
+            "objects": 4,
+            "programs": 9
+          },
+          {
+            "submittedMs": 28,
+            "readyMs": 3776.899999976158,
+            "objects": 4,
+            "programs": 13
+          },
+          {
+            "submittedMs": 20.400000035762787,
+            "readyMs": 3533.100000023842,
+            "objects": 4,
+            "programs": 16
+          },
+          {
+            "submittedMs": 45.69999998807907,
+            "readyMs": 4099.300000011921,
+            "objects": 4,
+            "programs": 20
+          },
+          {
+            "submittedMs": 16.599999964237213,
+            "readyMs": 115.39999997615814,
+            "objects": 4,
+            "programs": 24
+          },
+          {
+            "submittedMs": 47,
+            "readyMs": 4065.899999976158,
+            "objects": 4,
+            "programs": 28
+          },
+          {
+            "submittedMs": 9.899999976158142,
+            "readyMs": 121.69999998807907,
+            "objects": 4,
+            "programs": 30
+          },
+          {
+            "submittedMs": 35.90000003576279,
+            "readyMs": 4027.600000023842,
+            "objects": 4,
+            "programs": 34
+          },
+          {
+            "submittedMs": 13.799999952316284,
+            "readyMs": 4570.399999976158,
+            "objects": 4,
+            "programs": 35
+          },
+          {
+            "submittedMs": 14.400000035762787,
+            "readyMs": 4195.900000035763,
+            "objects": 4,
+            "programs": 36
+          },
+          {
+            "submittedMs": 54,
+            "readyMs": 4815.899999976158,
+            "objects": 4,
+            "programs": 40
+          },
+          {
+            "submittedMs": 27.100000023841858,
+            "readyMs": 4830.600000023842,
+            "objects": 4,
+            "programs": 42
+          },
+          {
+            "submittedMs": 102.59999996423721,
+            "readyMs": 1620.199999988079,
+            "objects": 4,
+            "programs": 42
+          },
+          {
+            "submittedMs": 3.900000035762787,
+            "readyMs": 4,
+            "objects": 4,
+            "programs": 42
+          },
+          {
+            "submittedMs": 16.099999964237213,
+            "readyMs": 3887.899999976158,
+            "objects": 4,
+            "programs": 43
+          },
+          {
+            "submittedMs": 3,
+            "readyMs": 3.099999964237213,
+            "objects": 4,
+            "programs": 43
+          },
+          {
+            "submittedMs": 18.5,
+            "readyMs": 3366.699999988079,
+            "objects": 4,
+            "programs": 46
+          },
+          {
+            "submittedMs": 31.30000001192093,
+            "readyMs": 150.5,
+            "objects": 4,
+            "programs": 52
+          },
+          {
+            "submittedMs": 5.899999976158142,
+            "readyMs": 98.10000002384186,
+            "objects": 4,
+            "programs": 53
+          },
+          {
+            "submittedMs": 3,
+            "readyMs": 3.100000023841858,
+            "objects": 4,
+            "programs": 53
+          },
+          {
+            "submittedMs": 2.5,
+            "readyMs": 2.600000023841858,
+            "objects": 4,
+            "programs": 53
+          },
+          {
+            "submittedMs": 1.800000011920929,
+            "readyMs": 1.899999976158142,
+            "objects": 4,
+            "programs": 53
+          },
+          {
+            "submittedMs": 2.600000023841858,
+            "readyMs": 99,
+            "objects": 4,
+            "programs": 54
+          },
+          {
+            "submittedMs": 1.100000023841858,
+            "readyMs": 1.199999988079071,
+            "objects": 1,
+            "programs": 54
+          }
+        ],
+        "cancelled": false
+      }
+    ],
+    "gpu": {
+      "vendor": "Google Inc. (AMD)",
+      "renderer": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "parallelCompile": true
+    },
+    "programs": [
+      {
+        "name": "",
+        "key": "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 1667,
+        "fragmentLength": 2262
+      },
+      {
+        "name": "",
+        "key": "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 1662,
+        "fragmentLength": 2541
+      },
+      {
+        "name": "",
+        "key": "14,15,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 1622,
+        "fragmentLength": 6458
+      },
+      {
+        "name": "EffectMaterial",
+        "key": "16,17,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile(){}",
+        "uses": 3,
+        "vertexLength": 2008,
+        "fragmentLength": 15485
+      },
+      {
+        "name": "",
+        "key": "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 1675,
+        "fragmentLength": 2151
+      },
+      {
+        "name": "interior_door_white",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388673,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 3,
+        "vertexLength": 23044,
+        "fragmentLength": 93696
+      },
+      {
+        "name": "",
+        "key": "depth,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,3200,8388609,8530944,srgb,onBeforeCompile(){}",
+        "uses": 2,
+        "vertexLength": 14903,
+        "fragmentLength": 12598
+      },
+      {
+        "name": "",
+        "key": "distance,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388609,8522752,srgb,onBeforeCompile(){}",
+        "uses": 2,
+        "vertexLength": 15055,
+        "fragmentLength": 9049
+      },
+      {
+        "name": "door_hardware_gold",
+        "key": "physical,STANDARD,,highp,srgb-linear,306,1024,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388625,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 3,
+        "vertexLength": 22874,
+        "fragmentLength": 93796
+      },
+      {
+        "name": "",
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,3200,8388609,8530944,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 14869,
+        "fragmentLength": 12582
+      },
+      {
+        "name": "",
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388609,8522752,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 15021,
+        "fragmentLength": 9033
+      },
+      {
+        "name": "painted_white_frame.002",
+        "key": "physical,STANDARD,,highp,srgb-linear,306,1024,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388625,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}-house-designer-specular-ibl-v1:house-designer-room-light-v4:house-designer-indirect-grid-l1-v20-display",
+        "uses": 4,
+        "vertexLength": 22879,
+        "fragmentLength": 93801
+      },
+      {
+        "name": "dark_metal_handles.002",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388609,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 2,
+        "vertexLength": 22828,
+        "fragmentLength": 93576
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8520706,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 115,
+        "vertexLength": 22762,
+        "fragmentLength": 93533
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}",
+        "uses": 19,
+        "vertexLength": 17778,
+        "fragmentLength": 13491
+      },
+      {
+        "name": "",
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+        "uses": 5,
+        "vertexLength": 14846,
+        "fragmentLength": 12582
+      },
+      {
+        "name": "",
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+        "uses": 5,
+        "vertexLength": 14998,
+        "fragmentLength": 9033
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 84,
+        "vertexLength": 22783,
+        "fragmentLength": 93554
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8524802,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 26,
+        "vertexLength": 22781,
+        "fragmentLength": 93552
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388672,8520706,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 90,
+        "vertexLength": 22929,
+        "fragmentLength": 93631
+      },
+      {
+        "name": "",
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 14844,
+        "fragmentLength": 12580
+      },
+      {
+        "name": "",
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 14996,
+        "fragmentLength": 9031
+      },
+      {
+        "name": "",
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,3200,8388608,8528896,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 14825,
+        "fragmentLength": 12561
+      },
+      {
+        "name": "",
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8520704,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 14977,
+        "fragmentLength": 9012
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile(){}",
+        "uses": 32,
+        "vertexLength": 17757,
+        "fragmentLength": 13455
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile(){}",
+        "uses": 26,
+        "vertexLength": 17776,
+        "fragmentLength": 13474
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8522754,srgb,standard-wall-shadow-receiver-v1:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 39,
+        "vertexLength": 22783,
+        "fragmentLength": 93554
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388672,8522754,srgb,standard-wall-shadow-receiver-v1:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 12,
+        "vertexLength": 22950,
+        "fragmentLength": 93652
+      },
+      {
+        "name": "",
+        "key": "depth,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+        "uses": 4,
+        "vertexLength": 14880,
+        "fragmentLength": 12598
+      },
+      {
+        "name": "",
+        "key": "distance,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+        "uses": 4,
+        "vertexLength": 15032,
+        "fragmentLength": 9049
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8520710,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 191,
+        "vertexLength": 22782,
+        "fragmentLength": 93553
+      },
+      {
+        "name": "interior_door_white",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388672,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 2,
+        "vertexLength": 23021,
+        "fragmentLength": 93696
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8393730,srgb,e=>{e.fragmentShader=e.fragmentShader.replace(`#include <map_fragment>`,`#include <map_fragment>\n diffuseColor.rgb = diffuse;`)}",
+        "uses": 8,
+        "vertexLength": 17776,
+        "fragmentLength": 13503
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8389634,srgb,e=>{e.fragmentShader=e.fragmentShader.replace(`#include <map_fragment>`,`#include <map_fragment>\n diffuseColor.rgb = diffuse;`)}",
+        "uses": 8,
+        "vertexLength": 17757,
+        "fragmentLength": 13484
+      },
+      {
+        "name": "door_hardware_gold",
+        "key": "physical,STANDARD,,highp,srgb-linear,306,1024,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388624,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 21,
+        "vertexLength": 22851,
+        "fragmentLength": 93796
+      },
+      {
+        "name": "painted_white_frame.003",
+        "key": "physical,STANDARD,,highp,srgb-linear,306,1024,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388624,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}-house-designer-specular-ibl-v1:house-designer-room-light-v4:house-designer-indirect-grid-l1-v20-display",
+        "uses": 3,
+        "vertexLength": 22856,
+        "fragmentLength": 93801
+      },
+      {
+        "name": "clear_pale_glass.003",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8393730,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 8,
+        "vertexLength": 22801,
+        "fragmentLength": 93557
+      },
+      {
+        "name": "clear_pale_glass.003",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8389634,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 16,
+        "vertexLength": 22782,
+        "fragmentLength": 93538
+      },
+      {
+        "name": "MetalB",
+        "key": "physical,STANDARD,,highp,srgb-linear,306,1024,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388688,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 1,
+        "vertexLength": 22954,
+        "fragmentLength": 93857
+      },
+      {
+        "name": "WoodA",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388672,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 2,
+        "vertexLength": 22903,
+        "fragmentLength": 93632
+      },
+      {
+        "name": "MetalA",
+        "key": "physical,STANDARD,,highp,srgb-linear,306,1024,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388688,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 10,
+        "vertexLength": 23058,
+        "fragmentLength": 93907
+      },
+      {
+        "name": "WhiteMarble.004",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8522754,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 8,
+        "vertexLength": 22832,
+        "fragmentLength": 93585
+      },
+      {
+        "name": "Window frame",
+        "key": "physical,STANDARD,,highp,srgb-linear,306,1024,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388624,8520706,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}-house-designer-specular-ibl-v1:house-designer-room-light-v4:house-designer-indirect-grid-l1-v20-display",
+        "uses": 11,
+        "vertexLength": 22824,
+        "fragmentLength": 93769
+      },
+      {
+        "name": "",
+        "key": "depth,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 14878,
+        "fragmentLength": 12596
+      },
+      {
+        "name": "",
+        "key": "distance,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 15030,
+        "fragmentLength": 9047
+      },
+      {
+        "name": "",
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388672,8524802,srgb,(r,i)=>{n.call(e,r,i),Object.assign(r.uniforms,t),r.uniforms.hdGILocalReflection=a,!r.fragmentShader.includes(`float hdGIFloor(`)&&(r.fragmentShader=`#define HD_INDIRECT_VISIBILITY\n`+r.fragmentShader,r.vertexShader=r.vertexShader.replace(`#include <common>`,`#include <common>\n        varying vec3 hdGIWorldPosition;\n        #ifndef HD_RECEIVER_ATTRIBUTE\n        #define HD_RECEIVER_ATTRIBUTE\n        attribute vec3 hdGIReceiverOffset;\n        #endif\n        varying vec3 hdGIReceiverWorldOffset;\n        attribute vec3 hdGICorner0;\n        attribute vec3 hdGICorner1;\n        varying vec4 hdGICornerPlane0;\n        varying vec4 hdGICornerPlane1;\n        attribute vec4 hdGIWallMount0;\n        attribute vec4 hdGIWallMount1;\n        varying vec4 hdGIWallMountPlane0;\n        varying vec4 hdGIWallMountPlane1;\n        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {\n          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);\n          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;\n          return vec4(n, dot(n, p));\n        }\n        vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {\n          if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);\n          vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));\n          vec3 point = (transform * vec4(plane.x * plane.z, 0.0, plane.y * plane.z, 1.0)).xyz;\n          return vec4(n, dot(n, point));\n        }`).replace(`#include <project_vertex>`,`#include <project_vertex>\n        vec4 hdGIWorld = vec4(transformed, 1.0);\n        vec4 hdGIReceiver = vec4(hdGIReceiverOffset, 0.0);\n        mat4 hdGITransform = modelMatrix;\n        #ifdef USE_BATCHING\n          hdGIWorld = batchingMatrix * hdGIWorld;\n          hdGIReceiver = batchingMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * batchingMatrix;\n        #endif\n        #ifdef USE_INSTANCING\n          hdGIWorld = instanceMatrix * hdGIWorld;\n          hdGIReceiver = instanceMatrix * hdGIReceiver;\n          hdGITransform = hdGITransform * instanceMatrix;\n        #endif\n        hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;\n        hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;\n        hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);\n        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);\n        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);\n        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`),r.fragmentShader=r.fragmentShader.replace(`#include <common>`,`#include <common>\\n${YF}`).replace(`#include <lights_fragment_end>`,`\n        #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)\n        if (hdGIEnabled > .5) {\n          vec3 hdGINormal = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));\n          vec3 hdGISurfaceNormal = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));\n          vec3 hdGIPosition; float hdGIFloorReceiver;\n          float hdGIId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdGISurfaceNormal, hdGIFloorLayerReady,\n            hdGIPosition, hdGIFloorReceiver);\n          // Environment lighting supplies reflections; scene probes supply indoor diffuse.\n          iblIrradiance = vec3(0.0);\n          if (hdGIId >= 0.0) {\n            vec3 hdGIMean;\n            #ifdef HD_GI_DIRECT_CAPTURE\n              vec3 hdGILight = vec3(0.0); hdGIMean = vec3(0.0);\n            #else\n              vec3 hdGILight = hdGIVolumeIrradiance(hdGIId, hdGIPosition, hdGINormal, hdGIFloorReceiver, hdGIMean);\n            #endif\n            irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)\n              : hdGILight * (hdGICapture > .5 ? 1.0 : hdGIProbeStrength) + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);\n            // The studio reflection fallback must not illuminate enclosed interiors.\n            float hdGIReflectionVisibility = hdGILocalReflection > .5 ? 1.0\n              : clamp(dot(hdGIMean + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill), vec3(.2126, .7152, .0722)) / PI, .025, 1.0);\n            radiance *= hdGIReflectionVisibility;\n            clearcoatRadiance *= hdGIReflectionVisibility;\n          }\n          // Diffuse capture should not bake a view-dependent specular highlight.\n          if (hdGICapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }\n        }\n        #endif\n        #include <lights_fragment_end>`))}:house-designer-room-light-v4-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v20-display",
+        "uses": 1,
+        "vertexLength": 22948,
+        "fragmentLength": 93650
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+        "uses": 8,
+        "vertexLength": 17738,
+        "fragmentLength": 13455
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile(){}",
+        "uses": 16,
+        "vertexLength": 17776,
+        "fragmentLength": 13474
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+        "uses": 16,
+        "vertexLength": 17757,
+        "fragmentLength": 13455
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 17757,
+        "fragmentLength": 13455
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile(){}",
+        "uses": 9,
+        "vertexLength": 17757,
+        "fragmentLength": 13474
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+        "uses": 9,
+        "vertexLength": 17738,
+        "fragmentLength": 13455
+      },
+      {
+        "name": "",
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,4,0,0,1,0,1,2,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 17757,
+        "fragmentLength": 13470
+      },
+      {
+        "name": "",
+        "key": "0,1,onBeforeCompile(){}",
+        "uses": 3,
+        "vertexLength": 305,
+        "fragmentLength": 196
+      },
+      {
+        "name": "",
+        "key": "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 1606,
+        "fragmentLength": 14251
+      },
+      {
+        "name": "",
+        "key": "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 1598,
+        "fragmentLength": 10521
+      },
+      {
+        "name": "",
+        "key": "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+        "uses": 1,
+        "vertexLength": 1608,
+        "fragmentLength": 35664
+      }
+    ]
+  }
+}

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildCoplanarWallSurfaceGroups } from '../src/wallEngine/wallSurfaceGroups.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
+import { prepareWallSelection } from '../src/wallEngine/wallSelectionPreparation.ts'
+import type { Wall } from '../src/types.ts'
 
 function sideFace({
   end,
@@ -80,4 +82,16 @@ test('wall selection includes touching reveals on its own side only', () => {
     vertices:reveal.vertices.map(v => ({...v,position:[v.position[0]+4,v.position[1],v.position[2]]})) as WallMeshFace['vertices'] }
   const group = buildCoplanarWallSurfaceGroups([wall,reveal,otherSide,detached]).get('wall')!
   assert.deepEqual(group.map(f=>f.fragmentId).sort(), [reveal.faceId,wall.faceId].sort())
+
+  const inputWall: Wall = {id:'door-wall',kind:'external',start:{x:0,y:0},end:{x:1,y:0},height:2.4,thickness:.3}
+  const prepared = structuredClone(prepareWallSelection([wall,reveal,otherSide,detached], {
+    floorId:'floor', walls:[inputWall], rooms:[], roofSupports:[], exteriorWallSidesByWallId:new Map([['door-wall',1]]),
+  }))
+  const target=prepared.pickTargets.get(0)
+  assert.equal(target?.type,'wall-surface-fragment')
+  if(target?.type==='wall-surface-fragment') {
+    assert.equal(target.pickedFragment?.fragmentId,'wall')
+    assert.deepEqual(target.fragments?.map(f=>f.fragmentId).sort(),[reveal.faceId,wall.faceId].sort())
+    assert.ok(!target.fragments?.some(f=>f.side===-1),'worker preparation preserves the reverse-side boundary')
+  }
 })

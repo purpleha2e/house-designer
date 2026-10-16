@@ -2,7 +2,20 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BoxGeometry, BufferAttribute, DirectionalLight, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial,
   PointLight, Scene, Texture, Vector3 } from 'three'
-import { createIndirectCaptureScene } from '../src/indirectCaptureScene.ts'
+import { createShaderWarmupSnapshot } from '../src/shaderWarmup.ts'
+import { createIndirectCaptureScene, prepareIndirectCaptureScene } from '../src/indirectCaptureScene.ts'
+
+test('background capture preparation matches synchronous output and cancels obsolete work', async () => {
+  const source=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial()
+  for(let i=0;i<30;i++)source.add(new Mesh(geometry,material))
+  const direct=createIndirectCaptureScene(source,false),background=await prepareIndirectCaptureScene(source,false)
+  assert.ok(background)
+  assert.equal(background.sourceMeshes,direct.sourceMeshes)
+  assert.equal(background.mergedMeshes,direct.mergedMeshes)
+  assert.equal(await prepareIndirectCaptureScene(source,false,()=>true),undefined)
+  assert.equal(source.children.length,30)
+  direct.dispose();background.dispose();geometry.dispose();material.dispose()
+})
 
 test('capture scene preserves render groups, nested transforms, instances and hidden ancestors without changing live materials', () => {
   const source = new Scene(), group = new Group(), material = new MeshStandardMaterial({ transparent: true, opacity: .2, depthWrite: false })
@@ -102,4 +115,30 @@ test('sun captures share existing shadow maps and omit editor lamps when capture
     sun.shadow.dispose = () => { shadowDisposed = true; disposeShadow() }
     capture.dispose(); assert.equal(shadowDisposed, false)
   } finally { capture.dispose(); sun.dispose(); lamp.dispose() }
+})
+
+
+test('bake-only visibility is enabled on capture copies without adding it to display shaders', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  material.defines = { EXISTING_FEATURE: 1 }
+  scene.add(new Mesh(geometry,material))
+  const capture = createIndirectCaptureScene(scene,false)
+  const copies: MeshStandardMaterial[] = []
+  capture.scene.traverse(object => { if(object instanceof Mesh) copies.push(object.material as MeshStandardMaterial) })
+  assert.ok(copies.length)
+  copies.forEach(copy => {
+    assert.equal(copy.defines.HD_GI_CAPTURE_VISIBILITY,1)
+    assert.equal(copy.defines.EXISTING_FEATURE,1)
+  })
+  assert.equal(material.defines.HD_GI_CAPTURE_VISIBILITY,undefined)
+  const warmup = createShaderWarmupSnapshot(capture.scene, { fadeWalls: false, fadeRoofs: false })
+  warmup.root.traverse(object => {
+    if(object instanceof Mesh) {
+      const copy = object.material as MeshStandardMaterial
+      assert.equal(copy.defines.HD_GI_CAPTURE_VISIBILITY,1,'capture warmup must compile the same flags as the real bake')
+      assert.equal(copy.defines.EXISTING_FEATURE,1)
+    }
+  })
+  warmup.dispose()
+  capture.dispose(); geometry.dispose(); material.dispose()
 })

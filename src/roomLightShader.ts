@@ -24,7 +24,11 @@ export type RoomLightShaderUniforms = {
   maskBounds: { value: Vector4 }
   pointRoomIds: { value: Float32Array }
   spotRoomIds: { value: Float32Array }
+  unshadowedPointRoomIds: { value: Float32Array }
+  unshadowedSpotRoomIds: { value: Float32Array }
 }
+const materialUniforms = new WeakMap<Material, RoomLightShaderUniforms>()
+export const getRoomLightUniforms = (material: Material) => materialUniforms.get(material)
 
 const roomLightShaderPars = /* glsl */ `
 varying vec3 hdRoomLightWorldPosition;
@@ -38,10 +42,14 @@ uniform float hdPointLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
 uniform float hdSpotLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
 #ifdef HD_INDIRECT_VISIBILITY
 float hdGIDirectVisibility(vec3 p, vec3 viewNormal, float index);
+vec3 hdGIWallMountOffset(vec3 p, vec3 surfaceNormal);
 #endif
 
 float hdRoomLightReceiverId(vec3 worldPosition, vec3 viewNormal) {
   vec3 worldNormal = transformNormalByInverseViewMatrix(viewNormal, viewMatrix);
+  #ifdef HD_INDIRECT_VISIBILITY
+    worldPosition += hdGIWallMountOffset(worldPosition, worldNormal);
+  #endif
   vec2 planPosition = worldPosition.xz;
   float horizontalLength = length(worldNormal.xz);
   if (horizontalLength > 0.35) {
@@ -120,10 +128,13 @@ export function createRoomLightShaderUniforms(maskTexture: Texture): RoomLightSh
     maskBounds: { value: new Vector4() },
     pointRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
     spotRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
+    unshadowedPointRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
+    unshadowedSpotRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
   }
 }
 
 export function applyRoomLightShader(material: Material, uniforms: RoomLightShaderUniforms) {
+  materialUniforms.set(material, uniforms)
   const attributes = material as Material & { defaultAttributeValues?: Record<string, number[]> }
   attributes.defaultAttributeValues = { ...attributes.defaultAttributeValues, hdGIReceiverOffset: [0, 0, 0] }
   const originalOnBeforeCompile = material.onBeforeCompile
@@ -176,6 +187,7 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
   material.needsUpdate = true
 
   return () => {
+    if (materialUniforms.get(material) === uniforms) materialUniforms.delete(material)
     if (material.onBeforeCompile === patchedOnBeforeCompile) {
       material.onBeforeCompile = originalOnBeforeCompile
       material.customProgramCacheKey = originalProgramCacheKey

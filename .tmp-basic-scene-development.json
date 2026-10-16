@@ -1,0 +1,26 @@
+{
+  "report": {
+    "startedAt": 5073.700000047684,
+    "pending": [],
+    "readMs": 350.5,
+    "parseMs": 12.800000011920929,
+    "normalizeMs": 6.5,
+    "mountedAt": 5443.700000047684,
+    "geometryReadyMs": 6007.699999988079,
+    "settledMs": 513.3000000119209,
+    "snapshotMs": 3.5,
+    "meshes": 691,
+    "drawMs": 95.90000003576279,
+    "firstFrameMs": 6992.199999988079,
+    "triangles": 466619,
+    "programs": 1,
+    "textures": 0,
+    "gpuCompleteMs": 7070.5
+  },
+  "state": {
+    "shadows": false,
+    "error": 0,
+    "programs": 1
+  },
+  "textures": []
+}

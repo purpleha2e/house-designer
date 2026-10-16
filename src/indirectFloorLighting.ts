@@ -19,7 +19,7 @@ export function createIndirectFloorLayer(size: number, floors: number, spacing =
   const texture = new Data3DTexture(data, n, height * 4, n)
   texture.type = HalfFloatType; texture.format = RGBAFormat; texture.colorSpace = NoColorSpace
   texture.minFilter = texture.magFilter = LinearFilter; texture.unpackAlignment = 1; texture.generateMipmaps = false; texture.needsUpdate = true
-  return { n, height, data, texture, ready: false, dispose() { texture.dispose() } }
+  return { n, height, data, texture, ready: false, dispose() { this.texture.dispose() } }
 }
 
 export function createIndirectFloorLookup(field: IndirectField, visibility: IndirectVisibility) {

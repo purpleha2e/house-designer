@@ -325,6 +325,10 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
             ([, y]: [number, number, number]) => top - y]
         })
       if (!acrossSections.length) return []
+      // Boundary ownership depends only on the cutters, not on the wall top
+      // being capped. Resolve it lazily once per boundary, after a surviving
+      // cap actually needs it; fitted roofs can have hundreds of volumes.
+      let capCutters: WallRoofClipVolume[] | undefined
       return retained.flatMap(({ face, strip }) => {
         let polygons = [partition(strip, volume.planes).inside].filter(hasArea)
         // The wall top may already be triangulated at this boundary. Require
@@ -349,13 +353,19 @@ function buildVerticalRoofCutCaps(faces: WallMeshFace[], floorElevation: number,
           if (lower.height > face.vertices[0].position[1] + EPSILON) continue
           polygons = polygons.flatMap((p) => partition(p, lower.planes).outside)
         }
-        for (const [otherIndex, other] of volumes.entries()) {
-          if (other === volume || !clipsWallCaps(other, face.wallId)) continue
+        if (!polygons.length) return []
+        capCutters ??= volumes.filter((other, otherIndex) => {
+          if (other === volume) return false
           // Coplanar duplicate cutters have one owner. Opposite boundaries cut
           // the back of this cap normally, leaving only the height difference.
-          const sameBoundary = other.planes.some((plane) => [[0, 0, 0], [1, 0, 0], [0, 0, 1]].every((p) =>
-            Math.abs(plane(p as [number, number, number]) - boundary(p as [number, number, number])) < EPSILON))
-          if (sameBoundary && otherIndex > volumeIndex) continue
+          return otherIndex <= volumeIndex || !other.planes.some((plane) =>
+            Math.abs(plane([0, 0, 0]) - origin) < EPSILON &&
+            Math.abs(plane([1, 0, 0]) - boundary([1, 0, 0])) < EPSILON &&
+            Math.abs(plane([0, 0, 1]) - boundary([0, 0, 1])) < EPSILON)
+        })
+        for (const other of capCutters) {
+          if (!polygons.length) break
+          if (!clipsWallCaps(other, face.wallId)) continue
           polygons = polygons.flatMap((p) => partition(p, other.planes).outside)
         }
         return polygons.flatMap((polygon, polygonIndex) => polygon.slice(1, -1).flatMap((v, index) => {

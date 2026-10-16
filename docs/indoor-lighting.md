@@ -15,6 +15,16 @@ surfaces retain the sun and sky/hemisphere fill. The existing ambient slider
 provides an adjustable indoor fill for readability; setting it to zero removes
 that fill. Night fill can be disabled separately.
 
+Wall-mounted window and door geometry carries local receiver planes just beyond
+the owning wall face. Room-facing frame surfaces sample the room even when the
+frame sits inside a thick wall, outside the ordinary indoor occupancy mask.
+Outward-facing surfaces keep exterior lighting. Tangential edges choose the
+viewed side, including during probe captures; interior doors can sample either
+adjoining room. Geometry away from the wall, such as a swung leaf, retains its
+ordinary spatial sampling. Receiver buffers are shared across matching instances
+and released when their last owner unmounts. Cache version 3 rebuilds older bakes
+so their bright frame contribution cannot remain in the stored diffuse field.
+
 Render settings also includes an **Indirect lighting (GI)** switch. It toggles
 the displayed diffuse probe contribution while preserving the ambient fill,
 direct lights and reflection shading. It does not invalidate the bake or change
@@ -286,6 +296,25 @@ shadow maps (including when Shadows is off or in XR), the room mask remains the
 fallback to prevent unshadowed lamps lighting through walls. GI never adds a second visible
 direct-shadow test. Capture work is bounded to four cache references and at
 most eight candidate triangles per lamp.
+
+The **Light shadows** checkbox is a synchronous, scene-local display control.
+It retains pooled shadow targets and the shader's shadow-light counts, sets
+shadow intensity to zero, and disables shadow updates. Disabled receivers exit
+before sampling the map. Targets are disposed only when their light is removed;
+an initially disabled slot initializes its target once so its sampler is valid.
+Re-enabling refreshes the existing map. Room-mask fallback changes in the same
+event, without rerendering the full React scene tree.
+
+This display option is excluded from shader warmup and indirect-lighting cache
+invalidation. Captures use their own geometry visibility, so toggling local
+shadow maps does not require another bake. The browser regression
+`node tests/browser/lightShadowToggleRegression.mjs 5181` checks a 5 ms shadow
+state-update budget, identical GPU targets/program IDs, unchanged GI generation,
+and zero local shadow draws while disabled. Its optional fixture query
+`"colin&materials&saved-gi"` exercises the saved house and lighting cache.
+On the development-machine saved-house run, disabling applied to the lights
+in 0.4–1.4 ms. Complete checkbox handling took 2.2–6.5 ms; this is not a
+guarantee of a 5 ms total browser-event or display-presentation deadline.
 
 Local point and spot shadow receivers use a 4 mm normal bias, a small perspective
 depth bias, and a one-texel filter radius. The former 10 cm normal bias and larger

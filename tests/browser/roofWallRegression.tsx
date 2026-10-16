@@ -38,7 +38,7 @@ const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRoofTests3 = searchParams.has('roof-tests-3')
 const isRedHouseDoor = searchParams.has('red-house-door')
 const isLoftTest = searchParams.has('loft-test')
-const savedProject = searchParams.has('colin') ? colin : searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const savedProject = searchParams.has('new-test') ? await (await fetch('/new_test.json')).json() as typeof colin : searchParams.has('colin') ? colin : searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -72,6 +72,12 @@ const lightingStartupFloors: FloorLevel[] = [{ id: 'lighting-startup', name: 'Li
 if (lightingStartup && searchParams.has('live-gi')) {
   lightingStartupFloors[0].walls.push({ id: 'sealed-partition', start: { x: 4, y: 0 }, end: { x: 4, y: 4 },
     height: 2.4, thickness: .2, kind: 'internal', openings: [] })
+}
+if (lightingStartup && searchParams.has('light-ranges')) {
+  lightingStartupFloors[0].models[0].lightDistance = 24.5
+  lightingStartupFloors[0].models.push({ id: 'range-spot', modelId: 'spotlight',
+    position: { x: 6, y: 2 }, height: 1.8, elevation: 0, rotation: 0, scale: 1,
+    lightDistance: 24.5, lightPower: 1000, lightSpread: 80 })
 }
 if (lightingStartup && searchParams.has('selection-shaders')) {
   lightingStartupFloors[0].models.push(...[
@@ -153,7 +159,7 @@ function RegressionScene() {
     setActiveFloorId(getSurfaceSelectionFloorId(surface, activeFloorId, sceneFloors))
     setSurfaceSelection(surface)
   }}
-  savedIndirectLighting={searchParams.has('saved-gi') ? regressionSavedGI?.project.indirectLighting : undefined}
+  savedIndirectLighting={searchParams.has('new-test') ? savedProject.indirectLighting : searchParams.has('saved-gi') ? regressionSavedGI?.project.indirectLighting : undefined}
   onUpdateModel={updateModel} selectedModelId={selection} selectedRoofId={null}
   selectedSurface={surfaceSelection} selectedWallId={null} sceneRevision={1} showAllFloors={!searchParams.has('edit-floor')}
   surfaceAssignments={assignments}
@@ -163,6 +169,15 @@ createRoot(document.getElementById('root')!).render(searchParams.has('strict') ?
 
 // Expose camera controls for repeatable inspection from both roof ends.
 Object.assign(window, { roofWallScene: () => [..._roots.values()][0]?.store.getState() })
+Object.assign(window, { regressionPickTargets: () => {
+  const root = [..._roots.values()][0]?.fiber.current
+  const visit = (node: typeof root): unknown => {
+    if (!node) return undefined
+    if (node.memoizedProps?.pickTargetsRef) return node.memoizedProps.pickTargetsRef.current
+    return visit(node.child) ?? visit(node.sibling)
+  }
+  return visit(root)
+} })
 
 setTimeout(() => {
   const state = [..._roots.values()][0]?.store.getState()

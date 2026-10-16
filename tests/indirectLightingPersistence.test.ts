@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CubeUVReflectionMapping, DataUtils, Group, SphericalHarmonics3 } from 'three'
 import { createIndirectField, writeIndirectProbe } from '../src/indirectLighting.ts'
-import { INDIRECT_CACHE_VERSION, indirectAssetIdentity, indirectContentKey, indirectProjectKey, loadIndirectLighting, saveIndirectLighting,
+import { INDIRECT_CACHE_VERSION, indirectAssetIdentity, indirectContentKey, indirectProjectKey, loadIndirectLighting, loadIndirectReflections, saveIndirectLighting,
   savedIndirectLightingMatches, type IndirectLightingSettings } from '../src/indirectLightingPersistence.ts'
 import { createIndirectVolumeLookup, writeIndirectVolumeRow } from '../src/indirectVolume.ts'
 import { createIndirectVisibility } from '../src/indirectVisibility.ts'
@@ -55,6 +55,16 @@ test('compressed project lighting restores the exact HDR volume, relocated probe
   assert.equal(restored.reflections[0].texture.mapping, CubeUVReflectionMapping)
   assert.equal(restored.reflections[0].texture.flipY, false)
   assert.deepEqual(restored.reflections[0].texture.image.data, reflection.data)
+  const diffuse = await loadIndirectLighting(saved, { reflections: false })
+  assert.equal(diffuse.reflections.length, 0)
+  assert.deepEqual(diffuse.field.volume.data, restored.field.volume.data)
+  const deferredReflections = await loadIndirectReflections(saved)
+  assert.deepEqual(deferredReflections[0].texture.image.data, reflection.data)
+  const badReflection = { ...saved, reflections: [{ ...saved.reflections[0], width: -1 }] }
+  const stillDiffuse = await loadIndirectLighting(badReflection, { reflections: false })
+  assert.deepEqual(stillDiffuse.field.volume.data, restored.field.volume.data, 'reflection decoding cannot block diffuse restoration')
+  await assert.rejects(loadIndirectReflections(badReflection), /reflection/)
+  diffuse.field.dispose(); stillDiffuse.field.dispose(); deferredReflections.forEach(value => value.dispose())
   await assert.rejects(loadIndirectLighting({ ...saved, version: 99 }), /Invalid saved GI/)
   await assert.rejects(loadIndirectLighting({ ...saved, volume: { encoding: 'base64', data: btoa('bad') } }), /length/)
   field.dispose(); restored.field.dispose(); restored.reflections.forEach(r => r.dispose())
@@ -70,8 +80,12 @@ test('saved GI rejects design, asset and lighting changes while remaining portab
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', settings), true)
   assert.equal(savedIndirectLightingMatches({ ...cache!, version: 1 }, key, 'assets', settings), false,
     'lighting baked before the passive-roof enclosure correction must be rebuilt')
+  assert.equal(savedIndirectLightingMatches({ ...cache!, version: 2 }, key, 'assets', settings), false,
+    'lighting baked with exterior-lit interior frames must be rebuilt')
   assert.equal(savedIndirectLightingMatches(cache, key, 'edited-assets', settings), false)
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, lights: false }), false)
+  assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, lightShadows: true }), true,
+    'display shadow maps do not invalidate independent captured lighting')
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, diffuseProbeResolution: 16 }), true, 'legacy bakes use 16 samples per axis')
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, diffuseProbeResolution: 4 }), false)
   const lowResolution = { ...cache!, settings: { ...settings, diffuseProbeResolution: 4 as const } }

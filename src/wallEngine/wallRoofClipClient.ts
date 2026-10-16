@@ -1,5 +1,8 @@
 import type { WallMeshFace } from './wallMesh.ts'
-import { createWallRoofClipJob, type WallRoofClipOptions } from './wallRoofClipJob.ts'
+import type { WallSelectionInput } from './wallSelectionPreparation.ts'
+import type { WallBufferGeometryPayload } from './wallBuffer.ts'
+import type { WallRenderJob, prepareWallRendering } from './wallRenderPreparation.ts'
+import { createWallRoofClipInputJob, createWallRoofClipJob, type WallRoofClipInput, type WallRoofClipInputJob, type WallRoofClipJob, type WallRoofClipOptions } from './wallRoofClipJob.ts'
 
 let pendingJobs = 0
 const listeners = new Set<() => void>()
@@ -23,6 +26,24 @@ function changePendingJobs(delta: number) {
 export function clipWallFacesInWorker(faces: WallMeshFace[], options: WallRoofClipOptions, signal: AbortSignal): Promise<WallMeshFace[]> {
   if (signal.aborted) return Promise.reject(signal.reason)
   if (!options.volumes.length || !faces.length) return Promise.resolve(faces)
+  return requestClipJob(createWallRoofClipJob(faces, options), signal)
+}
+export function clipWallFacesForRoofsInWorker(faces: WallMeshFace[], input: WallRoofClipInput, signal: AbortSignal) {
+  if (signal.aborted) return Promise.reject(signal.reason)
+  if (!faces.length) return Promise.resolve(faces)
+  return requestClipJob(createWallRoofClipInputJob(faces, input), signal)
+}
+export type PreparedWallSelection = { faces: WallMeshFace[]; pickPayload: WallBufferGeometryPayload }
+export function prepareWallFacesForRoofsInWorker(faces: WallMeshFace[], input: WallRoofClipInput,
+  selection: WallSelectionInput, signal: AbortSignal): Promise<PreparedWallSelection> {
+  if (signal.aborted) return Promise.reject(signal.reason)
+  return requestClipJob<PreparedWallSelection>({ ...createWallRoofClipInputJob(faces, input), selection }, signal)
+}
+export function prepareWallRenderingInWorker(job: WallRenderJob, signal: AbortSignal) {
+  if(signal.aborted)return Promise.reject(signal.reason)
+  return requestClipJob<ReturnType<typeof prepareWallRendering>>(job,signal)
+}
+function requestClipJob<T = WallMeshFace[]>(job: WallRenderJob | WallRoofClipJob | WallRoofClipInputJob | (WallRoofClipInputJob & { selection: WallSelectionInput }), signal: AbortSignal): Promise<T> {
   changePendingJobs(1)
   return new Promise((resolve, reject) => {
     let worker: Worker | undefined
@@ -46,12 +67,12 @@ export function clipWallFacesInWorker(faces: WallMeshFace[], options: WallRoofCl
       worker.onmessage = ({ data }) => {
         if (signal.aborted || settled) return
         cleanup(data.ok)
-        if (data.ok) resolve(data.faces)
+        if (data.ok) resolve('kind' in job ? data.result : 'selection' in job ? { faces: data.faces, pickPayload: data.pickPayload } as T : data.faces)
         else reject(new Error(data.error))
       }
       worker.onerror = event => fail(event.error ?? new Error(event.message))
       worker.onmessageerror = () => fail(new Error('Wall clipping worker response could not be read.'))
-      worker.postMessage(createWallRoofClipJob(faces, options))
+      worker.postMessage(job)
     } catch (error) { fail(error) }
   })
 }

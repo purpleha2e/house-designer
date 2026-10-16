@@ -7,6 +7,7 @@ const projectedShadowReceiver = /* glsl */ `
 uniform float hdShadowRasterSteps;
 float getShadow( sampler2DShadow shadowMap, vec2 shadowMapSize, float shadowIntensity,
     float shadowBias, float shadowRadius, vec4 shadowCoord ) {
+  if (shadowIntensity <= 0.0) return 1.0;
   shadowCoord.xyz /= shadowCoord.w;
   vec3 dx = dFdx(shadowCoord.xyz), dy = dFdy(shadowCoord.xyz);
   if (any(lessThan(shadowCoord.xy, vec2(0.0))) || any(greaterThan(shadowCoord.xy, vec2(1.0))) || shadowCoord.z < 0.0 || shadowCoord.z > 1.0) return 1.0;
@@ -37,6 +38,9 @@ float getShadow( sampler2DShadow shadowMap, vec2 shadowMapSize, float shadowInte
 }
 `
 const rasterStepsByRenderer = new WeakMap<WebGLRenderer, number>()
+// Hundreds of material instances use identical source. Re-running the broad
+// chunk patterns for each instance blocks first display of retained scenes.
+const receiverSources = new Map<string, string>()
 
 const pointShadowReceiver = /* glsl */ `
 // Each tap compares its own texel centre and receiver-plane depth. Bilinear
@@ -54,6 +58,7 @@ vec3 hdPointShadowTexel(vec3 direction, float size) {
 
 float getPointShadow(samplerCubeShadow shadowMap, vec2 shadowMapSize, float shadowIntensity,
     float shadowBias, float shadowRadius, vec4 shadowCoord, float shadowCameraNear, float shadowCameraFar) {
+  if (shadowIntensity <= 0.0) return 1.0;
   vec3 p = shadowCoord.xyz;
   vec3 planeNormal = cross(dFdx(p), dFdy(p));
   float centreDepth = max(max(abs(p.x), abs(p.y)), abs(p.z));
@@ -97,6 +102,13 @@ export function applyLocalShadowReceiver(shader: Parameters<Material['onBeforeCo
   shader.uniforms.hdShadowRasterSteps = { value: Math.max(16, rasterSteps) }
   // Preserve an earlier wall finish correction if its hook expanded the chunk.
   withWallShadowReceiver().onBeforeCompile!.call({} as Material, shader, renderer)
-  shader.fragmentShader = shader.fragmentShader.replace(projectedShadowPattern, projectedShadowReceiver)
-  shader.fragmentShader = shader.fragmentShader.replace(pointShadowPattern, pointShadowReceiver)
+  const source=shader.fragmentShader
+  let patched=receiverSources.get(source)
+  if(patched===undefined) {
+    patched=source.replace(projectedShadowPattern, projectedShadowReceiver).replace(pointShadowPattern, pointShadowReceiver)
+    // Bound retained source text when custom materials introduce new variants.
+    if(receiverSources.size>=16)receiverSources.delete(receiverSources.keys().next().value!)
+    receiverSources.set(source,patched)
+  }
+  shader.fragmentShader=patched
 }

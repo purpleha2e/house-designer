@@ -1,0 +1,37 @@
+{
+  "report": {
+    "mode": "opaque-materials",
+    "startedAt": 2791.100000023842,
+    "pending": [],
+    "readMs": 129.10000002384186,
+    "parseMs": 11.099999964237213,
+    "catalogMs": 267.89999997615814,
+    "normalizeMs": 5.299999952316284,
+    "mountedAt": 3205,
+    "geometryReadyMs": 4799,
+    "settledMs": 511.60000002384186,
+    "snapshotMs": 7.300000011920929,
+    "meshes": 721,
+    "drawMs": 988.5999999642372,
+    "firstFrameMs": 6723.199999988079,
+    "triangles": 466740,
+    "programs": 2,
+    "textures": 17,
+    "materials": 405,
+    "transparentMaterials": 0,
+    "gpuCompleteMs": 6806.800000011921
+  },
+  "state": {
+    "shadows": false,
+    "error": 0,
+    "programs": 2
+  },
+  "textures": [
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/e7ae16d858a15b1a0b50c45144a04998/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/69ed269b8fbbd11a893734c7a9161e67/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/7a6528a5d03727febb0055ec6a4029e9/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/901e5cee39865d98e64965552a93fa2f/processed/basecolor.ktx2",
+    "http://127.0.0.1:5185/manufacturer-assets/house-designer/materials/0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4/processed/basecolor.ktx2"
+  ]
+}

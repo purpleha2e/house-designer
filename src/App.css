@@ -1452,19 +1452,16 @@
   background: #dbe3ee;
 }
 
-.three-host.is-preparing canvas {
-  filter: grayscale(0.35) brightness(0.72);
-}
-
 .viewport-preparing-overlay {
   position: absolute;
   inset: 0;
   z-index: 4;
   display: grid;
-  place-items: center;
-  background: rgba(100, 116, 139, 0.5);
-  pointer-events: auto;
-  backdrop-filter: blur(2px);
+  align-items: start;
+  justify-items: center;
+  padding: 60px 12px 12px;
+  background: transparent;
+  pointer-events: none;
 }
 
 .viewport-preparing-panel {

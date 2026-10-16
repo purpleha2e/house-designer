@@ -27,6 +27,8 @@ export function createIndirectUniforms(field: IndirectField) {
   }
 }
 export type IndirectUniforms = ReturnType<typeof createIndirectUniforms>
+const materialUniforms = new WeakMap<Material, IndirectUniforms>()
+export const getIndirectLightingUniforms = (material: Material) => materialUniforms.get(material)
 const localReflectionUniforms = new WeakMap<Material, { value: number }>()
 export function setIndirectLocalReflection(material: Material, enabled: boolean) {
   const uniform = localReflectionUniforms.get(material)
@@ -65,6 +67,8 @@ varying vec3 hdGIWorldPosition;
 varying vec3 hdGIReceiverWorldOffset;
 varying vec4 hdGICornerPlane0;
 varying vec4 hdGICornerPlane1;
+varying vec4 hdGIWallMountPlane0;
+varying vec4 hdGIWallMountPlane1;
 uniform sampler2D hdGIMask;
 uniform vec2 hdGIVolumeSize;
 uniform vec3 hdGIBounds;
@@ -94,8 +98,26 @@ vec3 hdGIConstrainCorner(vec3 p, vec4 plane, vec3 stepSize) {
   return p + plane.xyz * max(0.0, plane.w + clearance - dot(plane.xyz, p));
 }
 
+vec3 hdGIWallMountOffset(vec3 p, vec3 surfaceNormal) {
+  vec3 offset = vec3(0.0);
+  for (int side = 0; side < 2; side++) {
+    vec4 plane = side == 0 ? hdGIWallMountPlane0 : hdGIWallMountPlane1;
+    float support = length(plane.xyz);
+    if (support < .5) continue;
+    plane /= support;
+    float facing = dot(surfaceNormal, plane.xyz);
+    // Front/back faces own their side. Tangential frame edges use the side
+    // from which they are viewed, including offscreen probe captures.
+    if (facing < -.35 || (facing <= .35 && dot(cameraPosition - p, plane.xyz) <= 0.0)) continue;
+    offset = plane.xyz * max(0.0, plane.w - dot(plane.xyz, p));
+    break;
+  }
+  return offset;
+}
+
 float hdGIReceiver(vec3 worldPosition, vec3 offset, vec3 surfaceNormal, float floorLayerReady,
     out vec3 samplePosition, out float floorReceiver) {
+  offset += hdGIWallMountOffset(worldPosition, surfaceNormal);
   float id = hdGIFloor(worldPosition + offset + surfaceNormal * .08);
   // Reveals receive light on the same wall side used for classification.
   // Sampling inside the wall lets interpolation borrow the bright room behind
@@ -159,6 +181,9 @@ vec3 hdGIOctDirection(vec2 uv) {
   return normalize(n);
 }
 
+// Ray/triangle visibility belongs to offscreen lighting capture. A uniform
+// early-out still makes drivers compile/inline it for every displayed light.
+#ifdef HD_GI_CAPTURE_VISIBILITY
 vec4 hdGITriangleVertex(float index) {
   return texture2D(hdGITriangles, (vec2(mod(index, hdGITriangleSize.x), floor(index / hdGITriangleSize.x)) + .5) / hdGITriangleSize);
 }
@@ -228,13 +253,19 @@ float hdGIVisibility(float index, vec3 p, out vec3 probePosition) {
   return 1.0;
 }
 
+#endif
+
 float hdGIDirectVisibility(vec3 p, vec3 viewNormal, float index) {
+  #ifdef HD_GI_CAPTURE_VISIBILITY
   // Cached lamp occlusion only supplies direct radiance to the GI bake.
   // Displayed direct shadows remain controlled by Light shadows.
   if (hdGICapture < .5 || hdGIEnabled < .5 || index < 0.0) return -1.0;
   vec3 n = normalize(transformNormalByInverseViewMatrix(viewNormal, viewMatrix));
   vec3 probePosition;
   return hdGIVisibility(index, p + n * .004, probePosition);
+  #else
+  return -1.0;
+  #endif
 }
 
 #ifndef HD_GI_DIRECT_CAPTURE
@@ -274,12 +305,13 @@ vec3 hdGIVolumeIrradiance(float floorIndex, vec3 p, vec3 n, float floorReceiver,
 
 /** All PBR surfaces share position-dependent diffuse lighting, including instances. */
 export function applyIndirectLightingShader(material: Material, uniforms: IndirectUniforms) {
+  materialUniforms.set(material, uniforms)
   const compile = material.onBeforeCompile, cacheKey = material.customProgramCacheKey
   // Non-wall geometry shares these programs and has no receiver attribute.
   // Explicit defaults also keep those draws independent of previous VAOs.
   const attributes = material as Material & { defaultAttributeValues?: Record<string, number[]> }
   attributes.defaultAttributeValues = { ...attributes.defaultAttributeValues, hdGIReceiverOffset: [0, 0, 0],
-    hdGICorner0: [0, 0, 0], hdGICorner1: [0, 0, 0] }
+    hdGICorner0: [0, 0, 0], hdGICorner1: [0, 0, 0], hdGIWallMount0: [0, 0, 0, 0], hdGIWallMount1: [0, 0, 0, 0] }
   const localReflection = { value: 0 }
   localReflectionUniforms.set(material, localReflection)
   const hook: Material['onBeforeCompile'] = (shader, renderer) => {
@@ -300,6 +332,16 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
         attribute vec3 hdGICorner1;
         varying vec4 hdGICornerPlane0;
         varying vec4 hdGICornerPlane1;
+        attribute vec4 hdGIWallMount0;
+        attribute vec4 hdGIWallMount1;
+        varying vec4 hdGIWallMountPlane0;
+        varying vec4 hdGIWallMountPlane1;
+        vec4 hdGIWorldMountPlane(vec4 plane, mat4 transform) {
+          if (dot(plane.xyz, plane.xyz) < .5) return vec4(0.0);
+          vec3 n = normalize(transpose(inverse(mat3(transform))) * plane.xyz);
+          vec3 p = (transform * vec4(plane.xyz * plane.w, 1.0)).xyz;
+          return vec4(n, dot(n, p));
+        }
         vec4 hdGIWorldCorner(vec3 plane, mat4 transform) {
           if (dot(plane.xy, plane.xy) < .5) return vec4(0.0);
           vec3 n = normalize(transpose(inverse(mat3(transform))) * vec3(plane.x, 0.0, plane.y));
@@ -323,7 +365,9 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
         hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;
         hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;
         hdGICornerPlane0 = hdGIWorldCorner(hdGICorner0, hdGITransform);
-        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);`)
+        hdGICornerPlane1 = hdGIWorldCorner(hdGICorner1, hdGITransform);
+        hdGIWallMountPlane0 = hdGIWorldMountPlane(hdGIWallMount0, hdGITransform);
+        hdGIWallMountPlane1 = hdGIWorldMountPlane(hdGIWallMount1, hdGITransform);`)
     shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\n${indirectLightingShaderDeclarations}`)
       .replace('#include <lights_fragment_end>', `
         #if defined(RE_IndirectDiffuse) && defined(RE_IndirectSpecular)
@@ -361,11 +405,12 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
     const marker = /:house-designer-indirect-grid-l1-v\d+-(capture|display)/g
     // Clones inherit this hook even when another controller follows it.
     // Preserve its position in the key so both materials reuse one program.
-    const suffix = ':house-designer-indirect-grid-l1-v18-display'
+    const suffix = ':house-designer-indirect-grid-l1-v20-display'
     return original.match(marker) ? original.replace(marker, suffix) : original + suffix
   }
   material.onBeforeCompile = hook; material.customProgramCacheKey = key; material.needsUpdate = true
   return () => {
+    if (materialUniforms.get(material) === uniforms) materialUniforms.delete(material)
     localReflectionUniforms.delete(material)
     if (material.onBeforeCompile === hook) material.onBeforeCompile = compile
     if (material.customProgramCacheKey === key) material.customProgramCacheKey = cacheKey

@@ -1,11 +1,38 @@
 import { clipWallFacesToRoofUndersides, type ClipPlane, type WallRoofClipVolume } from './wallRoofClip.ts'
 import type { WallMeshFace } from './wallMesh.ts'
 import type { WallRoofSurfaceDivider } from './wallRoofSurfacePartitions.ts'
+import { createWallRoofClipOptions } from '../roofWallClipping.ts'
+import type { Point } from '../types.ts'
+import { pointIsInsideRoomPolygon } from '../roomLightMask.ts'
 
 export type WallRoofClipOptions = {
   floorElevation: number; volumes: WallRoofClipVolume[]; surfaceDividers?: WallRoofSurfaceDivider[]
 }
 type Plane = [number, number, number, number]
+type ClipInput = Parameters<typeof createWallRoofClipOptions>[0]
+export type WallRoofClipInput = Omit<ClipInput, 'isInsideRoom'> & { roomPolygons: Point[][] }
+export type WallRoofClipInputJob = {
+  faces: WallMeshFace[]
+  input: Omit<WallRoofClipInput, 'roofs'> & { roofs: (Omit<ClipInput['roofs'][number], 'abutmentPlanes'> & { abutmentPlanes?: Plane[] })[] }
+}
+export function createWallRoofClipInputJob(faces: WallMeshFace[], input: WallRoofClipInput): WallRoofClipInputJob {
+  return { faces, input: { ...input, roofs: input.roofs.map(roof => ({ ...roof,
+    abutmentPlanes: roof.abutmentPlanes?.map(plane => {
+      const d = plane([0,0,0])
+      return [plane([1,0,0])-d,plane([0,1,0])-d,plane([0,0,1])-d,d]
+    }),
+  })) } }
+}
+export function runWallRoofClipInputJob(job: WallRoofClipInputJob) {
+  const { roomPolygons, ...input } = job.input
+  const options = createWallRoofClipOptions({ ...input,
+    isInsideRoom: point => roomPolygons.some(polygon => pointIsInsideRoomPolygon(point, polygon)),
+    roofs: input.roofs.map(roof => ({ ...roof,
+      abutmentPlanes: roof.abutmentPlanes?.map(([a,b,c,d]): ClipPlane => ([x,y,z]) => a*x+b*y+c*z+d),
+    })),
+  })
+  return clipWallFacesToRoofUndersides(job.faces, options)
+}
 export type WallRoofClipJob = {
   faces: WallMeshFace[]
   floorElevation: number

@@ -4,7 +4,24 @@ import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 import { clipWallFacesToRoofUndersides, roofFacePlanes, footprintPlanes } from '../src/wallEngine/wallRoofClip.ts'
 import type { WallRoofClipVolume } from '../src/wallEngine/wallRoofClip.ts'
 import { buildRoofProfileFaces } from '../src/roofProfile.ts'
-import { createWallRoofClipJob, runWallRoofClipJob } from '../src/wallEngine/wallRoofClipJob.ts'
+import { createWallRoofClipJob, runWallRoofClipJob, createWallRoofClipInputJob, runWallRoofClipInputJob, type WallRoofClipInput } from '../src/wallEngine/wallRoofClipJob.ts'
+import { createWallRoofClipOptions } from '../src/roofWallClipping.ts'
+import { pointIsInsideRoomPolygon } from '../src/roomLightMask.ts'
+
+test('worker builds clipping options from room polygons and encoded roof planes before cutting', () => {
+  const faces = [sideFace()]
+  const input: WallRoofClipInput = { floorElevation: 0, floorId: 'upper',
+    roomPolygons: [[{x:0,y:0},{x:4,y:0},{x:4,y:4},{x:0,y:4}]],
+    walls: [{ id:'upper-wall',start:{x:0,y:0},end:{x:4,y:0},height:3,thickness:.2,kind:'external',openings:[],allowRoofClipHeight:true }],
+    wallFaces: faces, roofs: [{ floorId:'upper',roofId:'roof',supportPolygon:[{x:0,y:-1},{x:4,y:-1},{x:4,y:1},{x:0,y:1}],
+      undersideFaces:[[[0,1,-1],[4,2,-1],[4,2,1],[0,1,1]]], abutmentPlanes:[([x])=>x+1] }],
+  }
+  const {roomPolygons,...options}=input
+  const expected = clipWallFacesToRoofUndersides(faces, createWallRoofClipOptions({...options,
+    isInsideRoom:point=>roomPolygons.some(polygon=>pointIsInsideRoomPolygon(point,polygon)),
+  }))
+  assert.deepEqual(runWallRoofClipInputJob(structuredClone(createWallRoofClipInputJob(faces,input))),expected)
+})
 
 function sideFace(): WallMeshFace {
   return {

@@ -46,6 +46,10 @@ try {
   assert.deepEqual(errors, [])
   assert.ok(result, 'fixture renders')
   console.log(JSON.stringify(result))
+  assert.ok(Math.min(...result.windowFrame.legacy) > 100, 'reproduce exterior ambient on a shaded interior frame')
+  assert.ok(Math.max(...result.windowFrame.fixed) < 30, 'room-facing frame receives dark indoor GI')
+  assert.deepEqual(result.windowFrame.exteriorFixed, result.windowFrame.exteriorLegacy,
+    'outward-facing frame retains its exterior lighting')
   assert.deepEqual(result.withoutAttribute, result.legacy, 'ordinary geometry defaults to its original surface position')
   assert.ok(Math.max(...result.corner.legacy) - Math.min(...result.corner.legacy) > 20,
     'reproduce the bright strip on the wall beside an inside corner')
@@ -64,6 +68,11 @@ try {
   for (const fixed of [false, true]) {
     await evaluate(`window.renderReveal(${fixed}, false)`)
     writeFileSync(`.tmp-reveal-regression-${fixed ? 'fixed' : 'before'}.png`,
+      Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
+  }
+  for (const fixed of [false, true]) {
+    await evaluate(`window.renderWindowFrame(${fixed}, false)`)
+    writeFileSync(`.tmp-frame-gi-${fixed ? 'fixed' : 'before'}.png`,
       Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
   }
   console.log('Reveal lighting regression passed')

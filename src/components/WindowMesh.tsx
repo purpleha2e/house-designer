@@ -15,19 +15,28 @@ export function WindowMesh({ design, scale = 1, widthScale = 1, depthScale = 1, 
     // This preserves frame thickness and fixed top lights when an instance is resized.
     const group = createWindowGeometry({ ...design, width: design.width*sx, height: design.height*sy, depth: design.depth*sz })
     group.scale.set(1/sx, 1/sy, 1/sz)
-    const materials = new Set<MeshStandardMaterial>()
-    group.traverse(child => {
+    return group
+  }, [design, sx, sy, sz])
+  const materials = useMemo(() => {
+    const originals = new Map<MeshStandardMaterial, { opacity: number; transparent: boolean }>()
+    object.traverse(child => {
       if (child instanceof Mesh) {
-        materials.add(child.material as MeshStandardMaterial)
+        const material = child.material as MeshStandardMaterial
+        originals.set(material, { opacity: material.opacity, transparent: material.transparent })
       }
     })
-    materials.forEach(material => {
+    return originals
+  }, [object])
+  useEffect(() => {
+    // Lighting changes update materials, never regenerate frame geometry.
+    materials.forEach((original, material) => {
       applyWindowFrameFinish(material, environment.map, environment.intensity)
       material.wireframe = wireframe
-      if (!active) { material.opacity *= 0.24; material.transparent = true }
+      material.opacity = original.opacity * (active ? 1 : 0.24)
+      material.transparent = original.transparent || !active
+      material.needsUpdate = true
     })
-    return group
-  }, [design, sx, sy, sz, wireframe, active, environment])
+  }, [materials, environment, wireframe, active])
   useEffect(() => onObject?.(object), [object, onObject])
   useEffect(() => () => disposeWindowGeometry(object), [object])
   return <primitive object={object} />

@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Basic geometry load diagnostic</title>
+<style>
+  body { margin: 0; background: #233041; color: white; font: 14px system-ui }
+  #root, .editor-pane { height: 100vh !important }
+  #report { position: fixed; z-index: 100; top: 12px; left: 12px; padding: 14px; background: #101923ee; border-radius: 8px; max-width: 430px }
+  #report h1 { font-size: 16px; margin: 0 0 8px }
+  #report pre { margin: 10px 0; font: 12px/1.5 monospace; white-space: pre-wrap }
+  #report button { padding: 6px 10px; cursor: pointer }
+</style>
+<div id="root"></div>
+<aside id="report"><h1>Basic geometry load diagnostic</h1>
+  <div>One opaque shader. No textures, lights, shadows, GI, or postprocessing.</div>
+  <pre id="timings">Loading application code…</pre>
+  <button id="open">Open another JSON…</button>
+  <button onclick="location.reload()">Reload</button>
+  <input id="file" type="file" accept=".json" hidden>
+</aside>
+<script>
+  if (!new URLSearchParams(location.search).has('basic-scene') && !new URLSearchParams(location.search).has('progressive')) {
+    const url = new URL(location.href); url.searchParams.set('basic-scene', ''); location.replace(url);
+  }
+</script>
+<script type="module" src="./basicSceneDiagnostic.tsx"></script>

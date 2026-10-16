@@ -4,17 +4,18 @@ import { INDIRECT_ATLAS_SIZE, INDIRECT_MASK_SIZE, restoreIndirectField, serializ
 import type { FloorLevel, SunPosition, SurfaceMaterialAssignment } from './types.ts'
 import { normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from './indirectProbeResolution.ts'
 import { INDIRECT_FLOOR_LAYER_VERSION, indirectFloorSize } from './indirectFloorLighting.ts'
+import { pack, unpack } from './indirectBufferCodecClient.ts'
+import type { PackedBuffer } from './indirectBufferCodec.ts'
 
-// Room enclosure now includes passive roofs; older bakes retain obsolete roof
-// strips and their headroom/occlusion masks even when the project is unchanged.
-export const INDIRECT_CACHE_VERSION = 2
+// Mounted frames now sample the owning room instead of exterior ambient inside
+// thick walls. Their old bright diffuse response must not survive in a bake.
+export const INDIRECT_CACHE_VERSION = 3
 export type IndirectLightingSettings = {
   daylight: boolean; lights: boolean; shadows: boolean; lightShadows: boolean
   hideRoofs: boolean; floorSlabs: boolean; ambientTerm: number
   softAmbientShading: boolean; softAmbientStrength: number; nightFill: boolean; groundPlane: boolean
   diffuseProbeResolution?: DiffuseProbeResolution
 }
-type PackedBuffer = { encoding: 'gzip-base64' | 'base64'; data: string }
 export type SavedIndirectLighting = {
   version: number; projectKey: string; assetKey: string; geometryKey: string; settings: IndirectLightingSettings
   layout: Omit<IndirectFieldData, 'maskData' | 'positionData' | 'distanceData'>
@@ -71,39 +72,16 @@ export function indirectProjectAssetKey(project: { floors: FloorLevel[]; surface
     materials: [...strings].filter(id => materials.has(id)).sort().map(id => materials.get(id)) }))
 }
 
-async function pack(data: ArrayBufferView): Promise<PackedBuffer> {
-  let bytes = new Uint8Array(new Uint8Array(data.buffer, data.byteOffset, data.byteLength))
-  const encoding = typeof CompressionStream === 'undefined' ? 'base64' : 'gzip-base64'
-  if (encoding === 'gzip-base64') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer())
-  let binary = ''
-  for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192))
-  return { encoding, data: btoa(binary) }
-}
-
-async function unpack(buffer: PackedBuffer, byteLength: number) {
-  if (!buffer || !['base64', 'gzip-base64'].includes(buffer.encoding) || typeof buffer.data !== 'string' || buffer.data.length > byteLength * 2 + 4096) throw new Error('Invalid GI buffer')
-  const binary = atob(buffer.data), bytes = Uint8Array.from(binary, c => c.charCodeAt(0))
-  if (buffer.encoding === 'base64') { if (bytes.byteLength !== byteLength) throw new Error('Invalid GI buffer length'); return bytes.buffer }
-  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')).getReader()
-  const result = new Uint8Array(byteLength)
-  let offset = 0
-  try {
-    while (true) {
-      const chunk = await reader.read()
-      if (chunk.done) break
-      if (offset + chunk.value.length > byteLength) throw new Error('Invalid GI decompressed length')
-      result.set(chunk.value, offset); offset += chunk.value.length
-    }
-  } finally { await reader.cancel() }
-  if (offset !== byteLength) throw new Error('Incomplete GI buffer')
-  return result.buffer
-}
-
 export function savedIndirectLightingMatches(cache: SavedIndirectLighting | undefined, projectKey: string, assetKey?: string, settings?: IndirectLightingSettings) {
   return !!cache && validIndirectLightingSettings(cache.settings) && cache.version === INDIRECT_CACHE_VERSION && cache.projectKey === projectKey &&
     (assetKey === undefined || cache.assetKey === assetKey) &&
-    (settings === undefined || indirectContentKey({ ...cache.settings, diffuseProbeResolution: normalizeDiffuseProbeResolution(cache.settings.diffuseProbeResolution) }) ===
-      indirectContentKey({ ...settings, diffuseProbeResolution: normalizeDiffuseProbeResolution(settings.diffuseProbeResolution) }))
+    (settings === undefined || indirectLightingSettingsKey(cache.settings) === indirectLightingSettingsKey(settings))
+}
+
+/** Local shadow maps affect display only; captures use cached geometry visibility. */
+export function indirectLightingSettingsKey(settings?: IndirectLightingSettings) {
+  return indirectContentKey(settings && { ...settings, lightShadows: undefined,
+    diffuseProbeResolution: normalizeDiffuseProbeResolution(settings.diffuseProbeResolution) })
 }
 
 export function validIndirectLightingSettings(settings?: IndirectLightingSettings) {
@@ -131,7 +109,29 @@ export async function saveIndirectLighting(field: IndirectField, projectKey: str
     ...(floor ? { floorLayer: { version: INDIRECT_FLOOR_LAYER_VERSION, n: field.floorLayer.n, data: floor } } : {}) }
 }
 
-export async function loadIndirectLighting(cache: SavedIndirectLighting) {
+async function decodeIndirectReflections(cache: SavedIndirectLighting) {
+  return Promise.all(cache.reflections.map(async reflection => {
+    if (!Number.isInteger(reflection.width) || !Number.isInteger(reflection.height) || reflection.width < 1 || reflection.height < 1 ||
+      reflection.width > 1024 || reflection.height > 1024 || !cache.layout.regions.some(region => region.id === reflection.room)) throw new Error('Invalid saved GI reflection')
+    return { ...reflection, data: new Uint16Array(await unpack(reflection.pixels, reflection.width * reflection.height * 4 * 2)) }
+  }))
+}
+
+function createReflectionTextures(reflections: Awaited<ReturnType<typeof decodeIndirectReflections>>) {
+  return reflections.map(reflection => {
+    const texture = new DataTexture(reflection.data, reflection.width, reflection.height, RGBAFormat, HalfFloatType)
+    texture.mapping = CubeUVReflectionMapping; texture.colorSpace = LinearSRGBColorSpace
+    texture.minFilter = texture.magFilter = LinearFilter; texture.generateMipmaps = false; texture.flipY = false; texture.needsUpdate = true
+    return { room: reflection.room, texture, dispose() { texture.dispose() } }
+  })
+}
+
+/** Reflection decode is independent of the first diffuse-lit display. */
+export async function loadIndirectReflections(cache: SavedIndirectLighting) {
+  return createReflectionTextures(await decodeIndirectReflections(cache))
+}
+
+export async function loadIndirectLighting(cache: SavedIndirectLighting, options: { reflections?: boolean } = {}) {
   const layout = cache.layout, atlasValues = INDIRECT_ATLAS_SIZE ** 2 * 4
   if (cache.version !== INDIRECT_CACHE_VERSION || !validIndirectLightingSettings(cache.settings) || !layout || !Array.isArray(layout.floors) || layout.floors.length < 1 || layout.floors.length > 8 ||
     !Number.isFinite(layout.bounds?.size) || layout.bounds.size <= 0 || !Number.isFinite(layout.bounds.minX) || !Number.isFinite(layout.bounds.minZ) ||
@@ -145,11 +145,7 @@ export async function loadIndirectLighting(cache: SavedIndirectLighting) {
   const [mask, positions, coefficients, volume, reflections, direct, floor] = await Promise.all([
     unpack(cache.mask, INDIRECT_MASK_SIZE ** 2 * layout.floors.length * 4), unpack(cache.positions, atlasValues * 4),
     Promise.all(cache.coefficients.map(buffer => unpack(buffer, atlasValues * 2))), unpack(cache.volume, n * n * height * 16 * 2),
-    Promise.all(cache.reflections.map(async reflection => {
-      if (!Number.isInteger(reflection.width) || !Number.isInteger(reflection.height) || reflection.width < 1 || reflection.height < 1 ||
-        reflection.width > 1024 || reflection.height > 1024 || !layout.regions.some(region => region.id === reflection.room)) throw new Error('Invalid saved GI reflection')
-      return { ...reflection, data: new Uint16Array(await unpack(reflection.pixels, reflection.width * reflection.height * 4 * 2)) }
-    })),
+    options.reflections === false ? [] : decodeIndirectReflections(cache),
     cache.directCoefficients ? Promise.all(cache.directCoefficients.map(buffer => unpack(buffer, atlasValues * 2))) : undefined,
     cache.floorLayer?.version === INDIRECT_FLOOR_LAYER_VERSION ? unpack(cache.floorLayer.data, floorN * floorN * layout.floors.length * 16 * 2) : undefined,
   ])
@@ -158,10 +154,5 @@ export async function loadIndirectLighting(cache: SavedIndirectLighting) {
   field.coefficients.forEach((data, i) => { data.set(new Uint16Array(coefficients[i])); field.maps[i].needsUpdate = true })
   field.volume.data.set(new Uint16Array(volume)); field.volume.maps[0].needsUpdate = true
   if (floor) { field.floorLayer.data.set(new Uint16Array(floor)); field.floorLayer.ready = true; field.floorLayer.texture.needsUpdate = true }
-  return { field, directCoefficients: direct?.map(buffer => new Uint16Array(buffer)), reflections: reflections.map(reflection => {
-    const texture = new DataTexture(reflection.data, reflection.width, reflection.height, RGBAFormat, HalfFloatType)
-    texture.mapping = CubeUVReflectionMapping; texture.colorSpace = LinearSRGBColorSpace
-    texture.minFilter = texture.magFilter = LinearFilter; texture.generateMipmaps = false; texture.flipY = false; texture.needsUpdate = true
-    return { room: reflection.room, texture, dispose() { texture.dispose() } }
-  }) }
+  return { field, directCoefficients: direct?.map(buffer => new Uint16Array(buffer)), reflections: createReflectionTextures(reflections) }
 }
