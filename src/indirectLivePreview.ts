@@ -11,6 +11,14 @@ export function createIndirectPreviewField(field: IndirectField): IndirectField 
   return { ...field, volume, floorLayer, dispose() { volume.dispose(); floorLayer.dispose() } }
 }
 
+/** Bounce inputs own their textures: camera-priority patches must not feed
+ * already-bounced display light back into the next first-bounce integration. */
+export function createIndirectBounceField(field: IndirectField): IndirectField {
+  const volume = createIndirectVolume(field.bounds.size, field.floors.length, .16, field.volume.n)
+  const floorLayer = createIndirectFloorLayer(field.bounds.size, field.floors.length, .04, field.floorLayer.n)
+  return { ...field, volume, floorLayer, dispose() { volume.dispose(); floorLayer.dispose() } }
+}
+
 export type IndirectPreviewBaseline = { field: IndirectField; direct?: Uint16Array[]; final: Uint16Array[] }
 
 /** Retain unchanged support. During bounce one, add the measured direct-light
@@ -49,6 +57,7 @@ export function liveIndirectFaceBudget(frameSeconds: number, moving: boolean, no
   return moving || (legacy && frameSeconds > 1 / 35) ? 1 : 6
 }
 
-export function liveIndirectTimeBudget(frameSeconds: number, moving: boolean) {
+export function liveIndirectTimeBudget(frameSeconds: number, moving: boolean, cached = false) {
+  if (cached) return moving ? 1 : 2
   return moving ? 3 : frameSeconds > 1 / 25 ? 4 : 8
 }

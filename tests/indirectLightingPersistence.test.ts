@@ -19,6 +19,7 @@ test('saved floor layers round-trip without changing the original probe or volum
   const saved = await saveIndirectLighting(field, 'project', 'assets', 'geometry', settings, [])
   assert.equal(saved.floorLayer?.version, 2)
   const restored = await loadIndirectLighting(saved)
+  assert.equal(restored.field.volumeSamplingVersion, 1)
   assert.equal(restored.field.floorLayer.ready, true); assert.deepEqual(restored.field.floorLayer.data, field.floorLayer.data)
   assert.deepEqual(restored.field.coefficients, field.coefficients); assert.deepEqual(restored.field.volume.data, field.volume.data)
   await assert.rejects(loadIndirectLighting({ ...saved, floorLayer: { ...saved.floorLayer!, n: 1 } }), /floor layer/)
@@ -26,6 +27,11 @@ test('saved floor layers round-trip without changing the original probe or volum
   assert.equal(legacy.field.floorLayer.ready, false, 'old floor layers are regenerated from the saved probes')
   assert.deepEqual(legacy.field.coefficients, field.coefficients); assert.deepEqual(legacy.field.volume.data, field.volume.data)
   legacy.field.dispose()
+  const oldLayout = { ...saved.layout }; delete oldLayout.volumeSamplingVersion
+  const oldVolume = await loadIndirectLighting({ ...saved, layout: oldLayout })
+  assert.equal(oldVolume.field.volumeSamplingVersion, 0, 'legacy volumes can be refined from their saved probes without recapture')
+  assert.deepEqual(oldVolume.field.coefficients, field.coefficients)
+  oldVolume.field.dispose()
   restored.field.dispose(); field.dispose()
 })
 

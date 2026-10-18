@@ -18,6 +18,9 @@ import { TransformControls as TransformControlsImpl } from 'three-stdlib'
 import { ModelSelectionHighlight, createSelectionHighlightMaterial, updateSelectionHighlightMaterial } from './ModelSelectionHighlight'
 import { GroundImage3D } from './GroundImage3D'
 import { WindowMesh } from './WindowMesh'
+import { StairMesh } from './StairMesh'
+import { parametricStairMaterialRegions } from '../stairLibrary'
+import { getStairFinish, type StairDesign } from '../stairDesign'
 import { getSpatialDragDelta, getTransformRotation } from '../transformModifiers'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -28,6 +31,7 @@ import { CameraInputTiming, markViewportNavigation, yieldToViewport, runViewport
 import { getImportedModelTransform } from '../importedModelTransform'
 import { attachWallMountedLighting } from '../wallMountedLighting'
 import { getLocalLightLimits, MAX_REALTIME_LOCAL_LIGHTS } from '../localLightBudget'
+import { createLocalLightControl, type LocalLightControl } from '../localLightControl'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { PbrEnvironmentProvider } from './PbrEnvironment'
 import { IndirectLighting } from './IndirectLighting'
@@ -126,6 +130,7 @@ import type { ModelTransformPreview, ModelTransformPreviewRef } from '../modelTr
 import { pickTargetFromColorBuffer } from '../pickNeighborhood'
 import { participatesInColorPick } from '../colorPickPolicy'
 import { createRoomLightMask } from '../roomLightMask'
+import { createLightPortalTexture, type LightPortalPlane } from '../roomLightPortals'
 import {
   applyRoomLightShader,
   createRoomLightMaskTexture,
@@ -140,7 +145,7 @@ import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../sunShadowCache
 import { withWallShadowReceiver } from '../materials/wallShadowReceiver'
 import { buildDoorwayFloorPatches, doorwayFloorKey } from '../doorwayFloors'
 import { configureAmbientOcclusionPass, preparePostprocessingShaders } from '../ambientOcclusionResources'
-import { compileShaderWarmup, createShaderWarmupSnapshot, prepareShaderWarmupSnapshot, prepareShaderWarmupResources, prepareShaderWarmupSceneRevision, isSelectionDecoration, shaderWarmupRevisionIsCovered } from '../shaderWarmup'
+import { getShaderWarmupResourceRevision, compileShaderWarmup, createShaderWarmupSnapshot, prepareShaderWarmupSnapshot, prepareShaderWarmupResources, prepareShaderWarmupSceneRevision, isSelectionDecoration, shaderWarmupRevisionIsCovered } from '../shaderWarmup'
 import {
   applyImportedPbrEnvironment,
   normalizeImportedPbrMaterial,
@@ -175,6 +180,9 @@ import {
   WINDOW_WALL_FACE_INSET_METERS,
 } from '../wallMountedReveal'
 import { subtractPlanCutouts, type PlanCutout } from '../planarCutouts'
+import { getSlabOpeningRevealEdges, getSlabOpeningRevealHeights, splitSlabOpeningRevealsAtWalls, trimSlabRevealsAtStairs } from '../slabOpeningReveals'
+import { STAIR_OPENING_WALL_FIT_DISTANCE } from '../stairOpeningFit'
+import { clipSkirtingAtOpenings } from '../skirtingOpenings'
 import { snapStairApertureToWalls } from '../stairPlacement'
 import { getStairLandingPosition } from '../stairLandings'
 import {
@@ -182,7 +190,6 @@ import {
 } from '../stairSlabOpenings'
 import {
   createCeilingSlabGeometry,
-  offsetEdgeTowardPoint,
 } from '../ceilingSlabGeometry'
 import {
   type WallFootprintRenderGroup,
@@ -276,6 +283,7 @@ const CEILING_VISUAL_OVERLAP_METERS = 0.035
 type WallEngineFace = FloorWallSurfaceFace
 
 type ThreeDViewProps = {
+  lightControl?: LocalLightControl
   diffuseProbeResolution?: DiffuseProbeResolution
   onDiffuseProbeResolutionChange?: (resolution: DiffuseProbeResolution) => void
   savedIndirectLighting?: SavedIndirectLighting
@@ -368,6 +376,7 @@ type FloorVisibilityState = {
 }
 
 type LocalLightSlot = {
+  enabledPower?: number
   angle: number
   color: string
   distance: number
@@ -1606,6 +1615,7 @@ function SunLight({
   useFrame(() => {
     const light = lightRef.current
     if (!light) return
+    light.userData.indirectPreview = !!previewDirectionRef.current
     const direction = previewDirectionRef.current ?? lightDirection
     const previous = lastApplied.current
     if (previous?.azimuth === direction.azimuth && previous.elevation === direction.elevation &&
@@ -6095,6 +6105,7 @@ const SkirtingBoards = memo(function SkirtingBoards({
   models,
   renderedWalls,
   roomSurfacePolygonsBySignature,
+  stairOpenings = [],
   rooms,
   wallClippingRoofs,
   wireframe,
@@ -6104,6 +6115,7 @@ const SkirtingBoards = memo(function SkirtingBoards({
   models: PlacedModel[]
   renderedWalls: RenderedWall[]
   roomSurfacePolygonsBySignature?: Map<string, Point[]>
+  stairOpenings?: Point[][]
   rooms: DetectedRoom[]
   wallClippingRoofs: WallClippingRoof[]
   wireframe: boolean
@@ -6207,11 +6219,11 @@ const SkirtingBoards = memo(function SkirtingBoards({
         wall: Wall
       }) => {
         const sideNormal = getSideNormal(wall, side)
-        const segments = clipSkirtingSegmentsForDoorways(
+        const segments = clipSkirtingAtOpenings(clipSkirtingSegmentsForDoorways(
           [{ end: segmentEnd, start: segmentStart }],
           renderedWalls,
           models,
-        )
+        ), stairOpenings, sideNormal, Math.max(SKIRTING_DEPTH_METERS, STAIR_OPENING_WALL_FIT_DISTANCE))
         const sideKey = `${wall.id}:${side}`
 
         return segments
@@ -6311,6 +6323,7 @@ const SkirtingBoards = memo(function SkirtingBoards({
       renderedWalls,
       roomPolygons,
       wallBodyPerimeters,
+      stairOpenings,
     ],
   )
 
@@ -6638,8 +6651,6 @@ function createFloorSlabEdgeUvGeometry({
 }
 
 const FLOOR_SLAB_EDGE_WALL_OVERLAP_METERS = CEILING_VERTICAL_OVERLAP_METERS
-const FLOOR_SLAB_REVEAL_PLAN_OVERLAP_METERS = 0.002
-const FLOOR_SLAB_REVEAL_TOP_OVERLAP_METERS = 0.002
 
 function FloorSlabEdgeFace({
   assignment,
@@ -6654,6 +6665,7 @@ function FloorSlabEdgeFace({
   point,
   pickOnly = false,
   showDefaultSurface = false,
+  openingReveal = false,
   nextPoint,
   uvFrame,
   wireframe,
@@ -6671,6 +6683,7 @@ function FloorSlabEdgeFace({
   point: Point
   pickOnly?: boolean
   showDefaultSurface?: boolean
+  openingReveal?: boolean
   uvFrame?: {
     bottom: number
     end: number
@@ -6728,6 +6741,7 @@ function FloorSlabEdgeFace({
       kind: 'surface',
       object,
       surface,
+      pickSide: DoubleSide,
     })
   }, [floorId, onRegisterPickTarget, surface])
   useEffect(() => () => uvGeometry?.dispose(), [uvGeometry])
@@ -6747,7 +6761,7 @@ function FloorSlabEdgeFace({
         castShadow={!pickOnly && (showDefaultSurface || Boolean(assignment))}
         receiveShadow={!pickOnly && (showDefaultSurface || Boolean(assignment))}
         ref={meshRef}
-        userData={{ houseDesignerRole: 'ceiling-slab-edge' }}
+        userData={{ houseDesignerRole: 'ceiling-slab-edge', houseDesignerOpeningReveal: openingReveal }}
       >
         {uvGeometry ? (
           <primitive attach="geometry" object={uvGeometry} />
@@ -6765,8 +6779,8 @@ function FloorSlabEdgeFace({
             assignment={assignment}
             displacementEnabled={false}
             material={material}
-            polygonOffsetFactor={-2}
-            polygonOffsetUnits={-2}
+            polygonOffsetFactor={openingReveal ? 0 : -2}
+            polygonOffsetUnits={openingReveal ? 0 : -2}
             repeatOverride={
               uvFrame
                 ? undefined
@@ -6779,7 +6793,7 @@ function FloorSlabEdgeFace({
         ) : showDefaultSurface ? (
           <meshStandardMaterial
             color="#cbd5e1"
-            polygonOffset
+            polygonOffset={!openingReveal}
             polygonOffsetFactor={-2}
             polygonOffsetUnits={-2}
             roughness={0.82}
@@ -6935,6 +6949,7 @@ function CeilingSlabSolid({
 const SUN_SHADOW_BLOCKER_USER_DATA = 'houseDesignerSunShadowBlocker'
 
 function CeilingSlab({
+  stairFloors,
   castsShadow,
   floor,
   isSolid,
@@ -6948,6 +6963,7 @@ function CeilingSlab({
   upperFloor,
   wireframe,
 }: {
+  stairFloors: FloorLevel[]
   castsShadow: boolean
   floor: FloorLevel
   isSolid: boolean
@@ -7049,23 +7065,21 @@ function CeilingSlab({
     })))
     return () => { ceilingSlabEdgeDebugEntries.delete(floor.id) }
   }, [assembly, floor.id, upperFloor?.id])
-  const openingEdgeRings = useMemo(
-    () => slabFootprints.flatMap((footprint) => footprint.holes),
-    [slabFootprints],
+  const openingRevealEdges = useMemo(
+    () => splitSlabOpeningRevealsAtWalls(getSlabOpeningRevealEdges(slabFootprints, openings, 0), [...floor.walls, ...(upperFloor?.walls ?? [])]),
+    [slabFootprints, openings, floor.walls, upperFloor?.walls],
   )
   const openingRevealBottomY =
     floor.elevation + floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS
   const openingRevealTopY =
     (upperFloor?.elevation ??
       floor.elevation + floor.roomHeight + floor.slabThickness) +
-    FLOOR_FINISH_VERTICAL_OFFSET_METERS +
-    FLOOR_SLAB_REVEAL_TOP_OVERLAP_METERS
-  const openingRevealHeight = Math.max(
-    0.001,
-    openingRevealTopY - openingRevealBottomY,
-  )
-  const openingRevealCenterY =
-    openingRevealBottomY + openingRevealHeight / 2
+    FLOOR_FINISH_VERTICAL_OFFSET_METERS
+
+  const openingRevealPanels = useMemo(() => trimSlabRevealsAtStairs(openingRevealEdges.map(edge => ({
+    ...edge, ...getSlabOpeningRevealHeights(edge, floor, upperFloor, openingRevealBottomY, openingRevealTopY),
+  })).filter(panel => panel.top > panel.bottom + .000001), stairFloors, modelsById),
+  [openingRevealEdges, floor, upperFloor, openingRevealBottomY, openingRevealTopY, stairFloors])
 
   if (slabShapes.length === 0 && (!isSolid || undersideShapes.length === 0)) {
     return null
@@ -7147,42 +7161,28 @@ function CeilingSlab({
         </mesh>
       )) : null}
       {isSolid
-        ? openingEdgeRings.flatMap((ring, ringIndex) =>
-            ring.map((point, edgeIndex) => {
-              const center = ring.reduce(
-                (sum, ringPoint) => ({
-                  x: sum.x + ringPoint.x / ring.length,
-                  y: sum.y + ringPoint.y / ring.length,
-                }),
-                { x: 0, y: 0 },
-              )
-              const revealEdge = offsetEdgeTowardPoint(
-                point,
-                ring[(edgeIndex + 1) % ring.length],
-                center,
-                FLOOR_SLAB_REVEAL_PLAN_OVERLAP_METERS,
-              )
-
-              return (
+        ? openingRevealPanels.map((revealEdge, edgeIndex) => {
+            const { bottom, top } = revealEdge
+            if (top <= bottom + .000001) return null
+            return (
                 <FloorSlabEdgeFace
-                  key={`opening:${ringIndex}:${edgeIndex}`}
+                  key={`opening:${edgeIndex}`}
                   assignment={edgeAssignment}
-                  centerY={openingRevealCenterY}
+                  centerY={(bottom + top) / 2}
                   edgeIndex={edgeIndex}
                   floor={floor}
                   floorId={floor.id}
-                  height={openingRevealHeight}
+                  height={top - bottom}
                   isSelected={edgeIsSelected}
                   material={edgeMaterial}
                   nextPoint={revealEdge.nextPoint}
                   onRegisterPickTarget={onRegisterPickTarget}
                   point={revealEdge.point}
+                  openingReveal
                   showDefaultSurface
                   wireframe={wireframe}
                 />
-              )
-            }),
-          )
+              )})
         : null}
     </group>
   )
@@ -9557,10 +9557,13 @@ function SelectableRoomSurfaceMesh({
   type: 'ceiling' | 'room-floor'
 }) {
   const meshRef = useRef<Object3D>(null!)
-  const shapes = useMemo(
-    () => createPlanShapesWithCutouts(polygon, openings),
-    [openings, polygon],
-  )
+  // Pick geometry is independent of lamp uniforms and preparation indicators.
+  // Equal coordinates must keep the same buffers across editor rerenders.
+  const pickShapeKey = JSON.stringify([polygon, openings])
+  const shapes = useMemo(() => {
+    const [outline, cuts] = JSON.parse(pickShapeKey) as [Point[], PlanCutout[]]
+    return createPlanShapesWithCutouts(outline, cuts)
+  }, [pickShapeKey])
   const surface: SelectableSurface = useMemo(
     () => ({
       floorId,
@@ -10886,18 +10889,20 @@ function SelectableRoomSurfaceAreaMesh({
       ? elevation + 0.006
       : elevation + roomHeight - 0.015
   const pickSide = type === 'ceiling' ? BackSide : FrontSide
+  const planeShapeKey = JSON.stringify([floorPlane.centerX, floorPlane.centerZ, floorPlane.size, openings])
   const shape = useMemo(() => {
-    const halfSize = floorPlane.size / 2
+    const [centerX, centerZ, size, cuts] = JSON.parse(planeShapeKey) as [number, number, number, PlanCutout[]]
+    const halfSize = size / 2
     return createPlanShapesWithCutouts(
       [
-        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ - halfSize },
-        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ - halfSize },
-        { x: floorPlane.centerX + halfSize, y: floorPlane.centerZ + halfSize },
-        { x: floorPlane.centerX - halfSize, y: floorPlane.centerZ + halfSize },
+        { x: centerX - halfSize, y: centerZ - halfSize },
+        { x: centerX + halfSize, y: centerZ - halfSize },
+        { x: centerX + halfSize, y: centerZ + halfSize },
+        { x: centerX - halfSize, y: centerZ + halfSize },
       ],
-      openings,
+      cuts,
     )
-  }, [floorPlane, openings])
+  }, [planeShapeKey])
 
   useHorizontalSurfaceVisibility(
     meshRef,
@@ -12858,6 +12863,9 @@ function ModelMesh({
   const registerMountedWindow = useCallback((object: Object3D) => registerMountedPickTarget({
     blocksCollision: false, floorId, kind: 'model', modelId: model.id, object,
   }), [floorId, model.id, registerMountedPickTarget])
+  const registerParametricStair = useCallback((object: Object3D) => onRegisterPickTarget({
+    blocksCollision: true, floorId, kind: 'model', modelId: model.id, object,
+  }), [floorId, model.id, onRegisterPickTarget])
   const snapObjectToFloor = () => {
     const object = groupRef.current
 
@@ -13303,6 +13311,7 @@ function ModelMesh({
   }
   const localModelTransform = (
     <group
+      name={`model-local-transform-${model.id}`}
       rotation={[0, model.flipped ? Math.PI : 0, 0]}
       scale={[model.mirrored ? -1 : 1, 1, 1]}
     >
@@ -13345,9 +13354,13 @@ function ModelMesh({
           windowDefinition={dormerWindowDefinition}
           wireframe={wireframe}
         />
+      ) : modelDefinition.stairDesign ? (
+        <StairContent design={modelDefinition.stairDesign} active={isActive} castsShadow={castsShadow}
+          wireframe={wireframe} materialOverrides={model.materialOverrides}
+          onObject={registerParametricStair} />
       ) : modelDefinition.windowDesign ? (
         <WindowMesh design={modelDefinition.windowDesign} scale={model.scale ?? 1} widthScale={model.widthScale ?? 1}
-          depthScale={model.depthScale ?? 1} wireframe={wireframe} active={isActive}
+          depthScale={model.depthScale ?? 1} wireframe={wireframe} active={isActive} castsShadow={shadowsEnabled}
           onObject={registerMountedWindow} />
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
@@ -13544,6 +13557,7 @@ function SolidFloorScene({
   shadowsEnabled,
   showWallPerimeter,
   stairSnapWalls,
+  stairOpenings,
   surfaceAssignments,
   transformEnabled,
   transformMode,
@@ -13575,6 +13589,7 @@ function SolidFloorScene({
   shadowsEnabled: boolean
   showWallPerimeter: boolean
   stairSnapWalls: Wall[]
+  stairOpenings: Point[][]
   surfaceAssignments: SurfaceMaterialAssignment[]
   transformEnabled: boolean
   transformMode: TransformMode
@@ -13789,6 +13804,7 @@ function SolidFloorScene({
         elevation={floor.elevation}
         geometryContextWalls={geometryContextWalls}
         models={visibleModels}
+        stairOpenings={stairOpenings}
         renderedWalls={renderedWalls}
         roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
         rooms={rooms}
@@ -14178,12 +14194,14 @@ function ImportedModelMaterialOverride({
   materialId,
   region,
   scene,
+  textureScale,
 }: {
   environmentIntensity: number
   environmentMap: Texture | null
   materialId: string
   region: ModelMaterialRegion
   scene: Object3D
+  textureScale?: number
 }) {
   const invalidate = useThree((state) => state.invalidate)
   const isVr = useContext(MaterialVariationVrContext)
@@ -14192,9 +14210,10 @@ function ImportedModelMaterialOverride({
     () => ({
       id: `model-material-${region.id}`,
       materialId,
+      textureScale,
       target: { floorId: 'model-material', type: 'floor' },
     }),
-    [materialId, region.id],
+    [materialId, region.id, textureScale],
   )
   const textures = useSurfaceMaterialTextures(
     surfaceMaterial,
@@ -14287,6 +14306,26 @@ function ImportedModelMaterialOverride({
   ])
 
   return null
+}
+
+/** Shares the existing PBR texture/variation and GI path with imported objects. */
+export function StairContent({ design, materialOverrides, ...props }: {
+  design: StairDesign; materialOverrides?: Record<string, string>; active?: boolean; castsShadow?: boolean;
+  wireframe?: boolean; onObject?: (object: Object3D) => () => void
+}) {
+  const environment = useContext(PbrEnvironmentContext)
+  const overrides = Object.fromEntries(parametricStairMaterialRegions.map(region => {
+    const part = region.id.slice(7) as keyof StairDesign['finishes']
+    return [region.id, materialOverrides?.[region.id] ?? getStairFinish(design, part).materialId]
+  }).filter(([, id]) => id)) as Record<string, string>
+  const revision = JSON.stringify(overrides)
+  return <StairMesh design={design} materialRevision={revision} {...props}>
+    {root => parametricStairMaterialRegions.map(region => overrides[region.id] ? <Suspense fallback={null} key={`${root.uuid}:${region.id}:${revision}`}>
+      <ImportedModelMaterialOverride environmentIntensity={environment.intensity} environmentMap={environment.map}
+        materialId={overrides[region.id]} region={region} scene={root}
+        textureScale={getStairFinish(design, region.id.slice(7) as keyof StairDesign['finishes']).textureScale} />
+    </Suspense> : null)}
+  </StairMesh>
 }
 
 function ImportedModelContent({
@@ -14793,7 +14832,6 @@ function RendererLightCapabilities({
 }
 
 function getStableLocalLightIds({
-  activeFloorId,
   limit,
   visibleRenderedFloors,
 }: {
@@ -14801,31 +14839,24 @@ function getStableLocalLightIds({
   limit: number
   visibleRenderedFloors: RenderedFloorData[]
 }) {
-  const lightIds: string[] = []
+  const lightIds: string[] = [], disabledIds: string[] = []
 
   for (const renderedFloor of visibleRenderedFloors) {
     const floor = renderedFloor.floor
 
-    if (floor.id !== activeFloorId) {
-      continue
-    }
-
     for (const model of floor.models ?? []) {
       const modelDefinition = modelsById.get(model.modelId)
 
-      if (
-        !modelDefinition?.isLight ||
-        model.lightEnabled === false
-      ) {
-        continue
-      }
-
-      lightIds.push(model.id)
+      if (!modelDefinition?.isLight) continue
+      // Dormant lamps retain a zero-power slot when capacity allows. Enabled
+      // lamps take priority, so switching one off cannot starve another lamp.
+      if (model.lightEnabled === false) disabledIds.push(model.id)
+      else lightIds.push(model.id)
     }
   }
 
   return new Set(
-    lightIds
+    [...lightIds, ...disabledIds]
       .slice(0, limit)
   )
 }
@@ -14870,7 +14901,6 @@ function LocalLightBudgetController({
 }
 
 function getLocalLightSlots({
-  activeFloorId,
   localLightIds,
   visibleRenderedFloors,
 }: {
@@ -14883,16 +14913,11 @@ function getLocalLightSlots({
   for (const renderedFloor of visibleRenderedFloors) {
     const floor = renderedFloor.floor
 
-    if (floor.id !== activeFloorId) {
-      continue
-    }
-
     for (const model of floor.models ?? []) {
       const modelDefinition = modelsById.get(model.modelId)
 
       if (
         !modelDefinition?.isLight ||
-        model.lightEnabled === false ||
         !localLightIds.has(model.id)
       ) {
         continue
@@ -14911,6 +14936,7 @@ function getLocalLightSlots({
       const y = Math.min(lightY, maxLightY)
 
       slots.push({
+        enabledPower: (model.lightPower ?? modelDefinition.lightPower ?? 450) * LOCAL_LIGHT_RENDER_POWER_SCALE,
         angle: (spreadDegrees * Math.PI) / 360,
         color: model.lightColor ?? modelDefinition.lightColor ?? modelDefinition.color,
         distance: Math.max(
@@ -14936,7 +14962,7 @@ function getLocalLightSlots({
         penumbra: lightKind === 'spot' ? 0.45 : 0.75,
         position: [model.position.x, y, model.position.y],
         power:
-          (model.lightPower ?? modelDefinition.lightPower ?? 450) *
+          (model.lightEnabled === false ? 0 : model.lightPower ?? modelDefinition.lightPower ?? 450) *
           LOCAL_LIGHT_RENDER_POWER_SCALE,
         target: [model.position.x, y - 1, model.position.y],
       })
@@ -14972,21 +14998,39 @@ function usePooledLightShadowResources(
   }, [lightRef])
 }
 
+function useLiveLocalLight(lightRef: MutableRefObject<PointLight | SpotLight>, slot: LocalLightSlot | null,
+  control: LocalLightControl, castShadow: boolean, shadowControl: LightShadowControl) {
+  const { scene, invalidate } = useThree()
+  useLayoutEffect(() => {
+    if (!slot) return
+    return control.subscribe(slot.id, enabled => {
+      const light = lightRef.current
+      light.power = enabled ? slot.enabledPower ?? slot.power : 0
+      setLightShadowEnabled(light.shadow, castShadow && shadowControl.get(), light.intensity > 0)
+      scene.userData.liveLightRevision = (scene.userData.liveLightRevision ?? 0) + 1
+      invalidate()
+    })
+  }, [castShadow, control, invalidate, lightRef, scene, shadowControl, slot])
+}
+
 // Let Three synchronize each shadow camera's far plane and projection from the
 // light distance. Assigning shadow-camera-far directly bypasses that update.
 function PooledLocalSpotLight({
   castShadow,
+  control,
   shadowControl,
   slot,
 }: {
   castShadow: boolean
+  control: LocalLightControl
   shadowControl: LightShadowControl
   slot: LocalLightSlot | null
 }) {
   const lightRef = useRef<SpotLight>(null!)
   const targetRef = useRef<Object3D>(null!)
-  const isActiveSlot = Boolean(slot)
+  const isActiveSlot = !!slot && slot.power > 0
   usePooledLightShadowResources(lightRef, castShadow, isActiveSlot, shadowControl)
+  useLiveLocalLight(lightRef, slot, control, castShadow, shadowControl)
   const position = slot?.position ?? ([0, -1000, 0] as [number, number, number])
   const target = slot?.target ?? ([0, -1001, 0] as [number, number, number])
 
@@ -15024,16 +15068,19 @@ function PooledLocalSpotLight({
 
 function PooledLocalPointLight({
   castShadow,
+  control,
   shadowControl,
   slot,
 }: {
   castShadow: boolean
+  control: LocalLightControl
   shadowControl: LightShadowControl
   slot: LocalLightSlot | null
 }) {
   const lightRef = useRef<PointLight>(null!)
-  const isActiveSlot = Boolean(slot)
+  const isActiveSlot = !!slot && slot.power > 0
   usePooledLightShadowResources(lightRef, castShadow, isActiveSlot, shadowControl)
+  useLiveLocalLight(lightRef, slot, control, castShadow, shadowControl)
   const position = slot?.position ?? ([0, -1000, 0] as [number, number, number])
 
   return (
@@ -15061,14 +15108,15 @@ function getLocalLightPoolCapacities(visibleRenderedFloors: RenderedFloorData[],
   for (const { floor } of visibleRenderedFloors) {
     const kinds = (floor.models ?? []).map(model => modelsById.get(model.modelId))
       .filter(definition => definition?.isLight)
-    point = Math.max(point, Math.min(maxLights, kinds.filter(definition => definition?.lightKind !== 'spot').length))
-    spot = Math.max(spot, Math.min(maxLights, kinds.filter(definition => definition?.lightKind === 'spot').length))
+    point = Math.min(maxLights, point + kinds.filter(definition => definition?.lightKind !== 'spot').length)
+    spot = Math.min(maxLights, spot + kinds.filter(definition => definition?.lightKind === 'spot').length)
   }
   return { point, spot }
 }
 
 function FixedLocalLightPool({
   activeFloorId,
+  control,
   localLightIds,
   shadowControl,
   maxLights = MAX_REALTIME_LOCAL_LIGHTS,
@@ -15077,6 +15125,7 @@ function FixedLocalLightPool({
   visibleRenderedFloors,
 }: {
   activeFloorId: string
+  control: LocalLightControl
   localLightIds: ReadonlySet<string>
   shadowControl: LightShadowControl
   maxLights?: number
@@ -15138,6 +15187,7 @@ function FixedLocalLightPool({
     <>
       {pointPoolSlots.map((slot, index) => (
         <PooledLocalPointLight
+          control={control}
           key={`point-${index}`}
           castShadow={castPooledShadows && index < maxShadowLights}
           shadowControl={shadowControl}
@@ -15146,6 +15196,7 @@ function FixedLocalLightPool({
       ))}
       {spotPoolSlots.map((slot, index) => (
         <PooledLocalSpotLight
+          control={control}
           key={`spot-${index}`}
           castShadow={castPooledShadows && capacities.point + index < maxShadowLights}
           shadowControl={shadowControl}
@@ -15165,6 +15216,7 @@ function RoomLightMaskController({
   maxLights,
   maxShadowLights,
   visibleRenderedFloors,
+  portals,
 }: {
   shadowsEnabled: boolean
   activeRenderedFloor: RenderedFloorData | null
@@ -15174,28 +15226,29 @@ function RoomLightMaskController({
   maxLights: number
   maxShadowLights: number
   visibleRenderedFloors: RenderedFloorData[]
+  portals: LightPortalPlane[]
 }) {
   const { invalidate, scene } = useThree()
   const restorersRef = useRef(new Map<Material, () => void>())
   const scanElapsedRef = useRef(Infinity)
-  const floorPlane = useMemo(
-    () => activeRenderedFloor
-      ? getFloorPlaneBounds(activeRenderedFloor.floor)
-      : null,
-    [activeRenderedFloor],
-  )
+  const floorPlane = useMemo(() => visibleRenderedFloors.length
+    ? getFloorsPlaneBounds(visibleRenderedFloors.map(data => data.floor)) : null, [visibleRenderedFloors])
   const maskInput = useMemo(() => {
-    if (!activeRenderedFloor || !floorPlane) return { rooms: [], bounds: { minX: 0, minZ: 0, size: 1 } }
-    const rooms = activeRenderedFloor.rooms.flatMap(room => {
-      const polygon = getRenderableRoomPolygon(room, activeRenderedFloor.roomSurfacePolygonsBySignature)
-      return polygon ? [{ signature: room.signature, polygon }] : []
+    if (!floorPlane) return { floors: [], bounds: { minX: 0, minZ: 0, size: 1 } }
+    const maskFloors = visibleRenderedFloors.map(data => {
+      const rooms = data.rooms.flatMap(room => {
+        const polygon = getRenderableRoomPolygon(room, data.roomSurfacePolygonsBySignature)
+        return polygon ? [{ signature: room.signature, polygon }] : []
+      })
+      const doorways = buildDoorwayFloorPatches(data.geometryContextWalls.map(wall => ({
+        ...wall, openings: wall.openings?.filter(opening => modelsById.get(opening.modelId)?.roofMount !== 'dormer'),
+      })), rooms)
+      return { id: data.floor.id, elevation: data.floor.elevation,
+        rooms: [...rooms, ...doorways.patches.map(patch => ({ signature: patch.roomSignature, polygon: patch.outline }))] }
     })
-    const doorways = buildDoorwayFloorPatches(activeRenderedFloor.geometryContextWalls.map(wall => ({
-      ...wall, openings: wall.openings?.filter(opening => modelsById.get(opening.modelId)?.roofMount !== 'dormer'),
-    })), rooms)
-    return { rooms: [...rooms, ...doorways.patches.map(patch => ({ signature: patch.roomSignature, polygon: patch.outline }))],
+    return { floors: maskFloors,
       bounds: { minX: floorPlane.centerX - floorPlane.size / 2, minZ: floorPlane.centerZ - floorPlane.size / 2, size: floorPlane.size } }
-  }, [activeRenderedFloor, floorPlane])
+  }, [visibleRenderedFloors, floorPlane])
   // A moved object recreates floor descriptors without changing room polygons.
   // Rasterization is keyed to the actual mask inputs and runs off the UI thread.
   const maskKey = JSON.stringify(maskInput)
@@ -15214,6 +15267,18 @@ function RoomLightMaskController({
   }, [maskKey])
   const maskTexture = useMemo(() => createRoomLightMaskTexture(mask), [mask])
   const [uniforms] = useState(() => createRoomLightShaderUniforms(maskTexture))
+  const portalKey = JSON.stringify({ portals, bounds: maskInput.bounds })
+  const portalData = useMemo(() => {
+    const input = JSON.parse(portalKey) as { portals: LightPortalPlane[]; bounds: typeof maskInput.bounds }
+    return createLightPortalTexture(input.portals, input.bounds)
+  }, [portalKey])
+  useLayoutEffect(() => {
+    uniforms.portals.value = portalData.texture; uniforms.portalBounds.value.copy(portalData.bounds)
+    uniforms.portalEdges.value = portalData.edges; uniforms.portalEdgeRanges.value = portalData.edgeRanges
+    uniforms.portalHeights.value.set(portalData.heights); uniforms.portalCount.value = portalData.count
+    invalidate()
+  }, [portalData, uniforms, invalidate])
+  useEffect(() => () => portalData.dispose(), [portalData])
   const slots = useMemo(
     () => activeRenderedFloor
       ? getLocalLightSlots({
@@ -15230,10 +15295,12 @@ function RoomLightMaskController({
       const lightShadowsEnabled = shadowsEnabled && shadowControl.get()
       const floor = activeRenderedFloor?.floor
       uniforms.mask.value = maskTexture
+      uniforms.floorCount.value = mask.floorHeights?.length ?? 0
+      uniforms.floorHeights.value.fill(0); uniforms.floorHeights.value.set(mask.floorHeights ?? [])
       // Lamps outside the shadow budget still emit light. Geometry visibility
       // supplies their occlusion once GI is ready; room IDs cover the fallback.
       // Shadowed lamps get room ID zero to preserve light through doorways.
-      uniforms.enabled.value = floor && activeRenderedFloor.rooms.length > 0 ? 1 : 0
+      uniforms.enabled.value = mask.roomIdsBySignature.size > 0 ? 1 : 0
       uniforms.maskBounds.value.set(
         mask.bounds.minX,
         mask.bounds.minZ,
@@ -15258,12 +15325,12 @@ function RoomLightMaskController({
 
       if (floor) {
         const capacities = getLocalLightPoolCapacities(visibleRenderedFloors, maxLights)
-        const modelsByInstanceId = new Map((floor.models ?? []).map((model) => [model.id, model]))
+        const modelsByInstanceId = new Map(visibleRenderedFloors.flatMap(data => (data.floor.models ?? []).map(model => [model.id, { model, data }] as const)))
         const getLightRoomId = (slot: LocalLightSlot) => {
-          const model = modelsByInstanceId.get(slot.id)
-          if (!model) return 0
-          const room = getRoomContainingPoint(activeRenderedFloor.rooms, model.position)
-          return room ? mask.roomIdsBySignature.get(room.signature) ?? 0 : 0
+          const entry = modelsByInstanceId.get(slot.id)
+          if (!entry) return 0
+          const room = getRoomContainingPoint(entry.data.rooms, entry.model.position)
+          return room ? mask.roomIdsBySignature.get(`${entry.data.floor.id}:${room.signature}`) ?? 0 : 0
         }
         slots.filter((slot) => slot.kind === 'point').slice(0, maxLights)
           .forEach((slot, index) => {
@@ -15623,21 +15690,29 @@ function ShaderWarmup({
 }) {
   const { camera, gl, invalidate, scene } = useThree()
   const retained = useRef<ReturnType<typeof createShaderWarmupSnapshot> | null>(null)
-  const completedWarmup = useRef<{ inputs: string; revision: string } | null>(null)
+  const completedWarmup = useRef<{ inputs: string; revision: string; resources: string } | null>(null)
   const preparingResources = useRef(false)
   const warmupInputs = `${warmupKey}:${fadeWalls}:${fadeRoofs}:${offscreen}`
   const [sceneRevision, setSceneRevision] = useState('')
+  const [resourceRevision, setResourceRevision] = useState('')
+  const scanGeneration = useRef(0)
+  const [scanReady, setScanReady] = useState(0)
   useEffect(() => {
+    const version = ++scanGeneration.current
     if (blocked) return
     let cancelled = false, timer: ReturnType<typeof setTimeout> | undefined
     const scan = async () => {
       const next = await prepareShaderWarmupSceneRevision(scene, () => cancelled)
       if (cancelled || next === undefined) return
+      const resources = getShaderWarmupResourceRevision(scene)
       const covered = completedWarmup.current?.inputs === warmupInputs &&
-        shaderWarmupRevisionIsCovered(completedWarmup.current.revision, next)
+        shaderWarmupRevisionIsCovered(completedWarmup.current.revision, next) &&
+        completedWarmup.current.resources === resources
       if (covered && !preparingResources.current) { scene.userData.shaderWarmupPending = false; onPendingChange(false) }
       else scene.userData.shaderWarmupPending = true
       setSceneRevision(previous => previous === next ? previous : next)
+      setResourceRevision(previous => previous === resources ? previous : resources)
+      setScanReady(version)
       timer = setTimeout(() => { void scan() }, 500)
     }
     void scan()
@@ -15656,9 +15731,20 @@ function ShaderWarmup({
       return undefined
     }
 
-    if (blocked) {
+    if (blocked || scanReady !== scanGeneration.current) {
       scene.userData.shaderWarmupPending = true
       onPendingChange(true)
+      return undefined
+    }
+
+    // A preparation flag can briefly change during a uniform-only edit. The
+    // retained programs already cover this scene; do not restart compilation
+    // or freeze its display while preparing the same resources again.
+    const programsCovered = completedWarmup.current?.inputs === warmupInputs &&
+      shaderWarmupRevisionIsCovered(completedWarmup.current.revision, sceneRevision)
+    if (programsCovered && completedWarmup.current!.resources === resourceRevision) {
+      scene.userData.shaderWarmupPending = false
+      onPendingChange(false)
       return undefined
     }
 
@@ -15691,7 +15777,7 @@ function ShaderWarmup({
         `key ${warmupKey.length} chars`,
       )
       emitEngineActivity({
-        message: 'Compiling scene shaders...',
+        message: programsCovered ? 'Preparing updated scene resources...' : 'Compiling scene shaders...',
         minimumVisibleMs: 1200,
       })
 
@@ -15763,7 +15849,7 @@ function ShaderWarmup({
         const target = offscreen ? new WebGLRenderTarget(1, 1) : null
         let ready = false
         try {
-          ready = await compileShaderWarmup(gl, snapshot.root, camera, scene, { cancelled: () => cancelled,
+          ready = programsCovered || await compileShaderWarmup(gl, snapshot.root, camera, scene, { cancelled: () => cancelled,
             compile: batch => {
               const previousTarget = gl.getRenderTarget(), previousFace = gl.getActiveCubeFace(), previousMip = gl.getActiveMipmapLevel()
               try {
@@ -15783,14 +15869,14 @@ function ShaderWarmup({
         stage('compile')
         if (ready) ready = await prepareShaderWarmupResources(gl, snapshot.root, camera, scene, offscreen, () => cancelled)
         stage('resources')
-        if (ready && offscreen && composer.current) ready = await preparePostprocessingShaders(gl, composer.current, () => cancelled)
+        if (ready && !programsCovered && offscreen && composer.current) ready = await preparePostprocessingShaders(gl, composer.current, () => cancelled)
         stage('postprocessing')
         succeeded = ready
         if (!cancelled && ready) {
           retained.current?.dispose()
           retained.current = snapshot
           snapshot = null
-          completedWarmup.current = { inputs: warmupInputs, revision: sceneRevision }
+          completedWarmup.current = { inputs: warmupInputs, revision: sceneRevision, resources: resourceRevision }
           recordEngineLog('shader-warmup-complete')
         }
       } catch (error) {
@@ -15846,7 +15932,7 @@ function ShaderWarmup({
 
       onPendingChange(false)
     }
-  }, [blocked, camera, composer, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, sceneRevision, warmupKey, warmupInputs])
+  }, [blocked, scanReady, camera, composer, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, sceneRevision, resourceRevision, warmupKey, warmupInputs])
 
   return null
 }
@@ -18624,7 +18710,7 @@ function OpeningPlacementVisual({
           wireframe={false}
         />
       ) : definition.windowDesign ? (
-        <WindowMesh design={definition.windowDesign} />
+        <WindowMesh design={definition.windowDesign} castsShadow={false} />
       ) : definition.sourceUrl ? (
         <Suspense fallback={fallback}>
           <ImportedModelContent
@@ -19042,6 +19128,7 @@ function EngineConsoleOverlay({
 }
 
 export function ThreeDView({
+  lightControl: requestedLightControl,
   diffuseProbeResolution: requestedDiffuseProbeResolution,
   onDiffuseProbeResolutionChange,
   savedIndirectLighting,
@@ -19080,6 +19167,7 @@ export function ThreeDView({
   showImages = false,
   surfaceAssignments,
 }: ThreeDViewProps) {
+  const localLightControl = useMemo(() => requestedLightControl ?? createLocalLightControl(), [requestedLightControl])
   const placementModel = readOnly ? null : requestedPlacementModel
   const roofPlacementPreview = readOnly ? null : requestedRoofPlacementPreview
   const selectedModelId = readOnly ? null : requestedSelectedModelId
@@ -19621,9 +19709,7 @@ export function ThreeDView({
     ],
   )
   const lightIndicator = useMemo(() => {
-    const scopedFloors = showAllFloorsInScene
-      ? floors
-      : floors.filter((floor) => floor.id === activeFloorId)
+    const scopedFloors = visibleRenderedFloors.map(data => data.floor)
     const scopedLightModels = scopedFloors.flatMap((floor) =>
       (floor.models ?? []).filter((model) =>
         Boolean(modelsById.get(model.modelId)?.isLight),
@@ -19636,7 +19722,7 @@ export function ThreeDView({
       ).length,
       total: scopedLightModels.length,
     }
-  }, [activeFloorId, floors, localLightIds, showAllFloorsInScene])
+  }, [visibleRenderedFloors, localLightIds])
   useEffect(() => {
     const latestStats = latestRendererStatsRef.current
 
@@ -20725,6 +20811,7 @@ export function ThreeDView({
               shadows={sunShadowsEnabled}
             />
             <FixedLocalLightPool
+              control={localLightControl}
               activeFloorId={activeFloorId}
               localLightIds={localLightIds}
               shadowControl={lightShadowControl}
@@ -20734,6 +20821,13 @@ export function ThreeDView({
               visibleRenderedFloors={visibleRenderedFloors}
             />
             <RoomLightMaskController
+              portals={renderOptions.floorSlabs ? visibleRenderedFloors.flatMap(({ floor }) => {
+                const input = floorSurfaceInputs.get(floor.id)
+                return input?.upperFloor ? [
+                  { y: floor.elevation + floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS, openings: input.ceilingOpenings },
+                  { y: input.upperFloor.elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS, openings: input.ceilingOpenings },
+                ] : []
+              }) : []}
               shadowsEnabled={renderOptions.shadows && !isXrPresenting}
               activeRenderedFloor={activeRenderedFloor}
               floors={floors}
@@ -20939,7 +21033,7 @@ export function ThreeDView({
                         )}
                       >
                       {renderOptions.floorSlabs && upperFloor ? (
-                        <CeilingSlab
+                        <CeilingSlab stairFloors={floors}
                           castsShadow={renderOptions.shadows}
                           floor={floor}
                           isSolid
@@ -21022,6 +21116,7 @@ export function ThreeDView({
                         visibleRoomSignatures={null}
                       />
                       <SolidFloorScene
+                        stairOpenings={floorStairOpenings}
                         daylightEnabled={renderOptions.daylight}
                         externalWallFootprintGroups={externalWallFootprintGroups}
                         externalWallUnionWallIds={externalWallUnionWallIds}
@@ -21078,7 +21173,7 @@ export function ThreeDView({
 
               if (!isActive) return shouldRenderSlab ? (
                 <group key={`${sceneRevision}:${floor.id}`}>
-                <CeilingSlab
+                <CeilingSlab stairFloors={floors}
                   castsShadow={renderOptions.shadows} floor={floor} isSolid
                   onRegisterPickTarget={registerPickTarget} openings={ceilingOpenings}
                   roofCutouts={slabRoofCutouts} undersideRoofCutouts={ceilingRoofCutouts}
@@ -21108,7 +21203,7 @@ export function ThreeDView({
                     )}
                   >
                     {shouldRenderSlab ? (
-                      <CeilingSlab
+                      <CeilingSlab stairFloors={floors}
                         castsShadow={renderOptions.shadows}
                         floor={floor}
                         isSolid={slabIsSolid}
@@ -21343,6 +21438,7 @@ export function ThreeDView({
                     ))}
                     {isActive ? (
                       <SkirtingBoards
+                        stairOpenings={floorStairOpenings}
                         elevation={floor.elevation}
                         geometryContextWalls={geometryContextWalls}
                         models={visibleModelsForFloor}

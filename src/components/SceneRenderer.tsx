@@ -20,8 +20,9 @@ export function SceneRenderer({ blocked, geometryPending, offscreen, composer, e
   const view = useRef(new Matrix4()), projection = useRef(new Matrix4())
   const dimensions = useRef('')
   const selection = useRef('')
+  const lightRevision = useRef(0)
   const liveSelection = useRef<ReturnType<typeof createViewportSelection> | null>(null)
-  if (!liveSelection.current) liveSelection.current = createViewportSelection()
+  if (liveSelection.current === null) liveSelection.current = createViewportSelection()
   const retained = useRef<ReturnType<typeof retainViewportScene> | null>(null)
   const opaque = useRef<ReturnType<typeof createOpaqueViewportScene> | null>(null)
   const opaqueReady = useRef(false)
@@ -31,7 +32,7 @@ export function SceneRenderer({ blocked, geometryPending, offscreen, composer, e
   const diffuseFence = useRef<WebGLSync | null>(null)
   const opaqueStableSince = useRef(0)
   const fence = useRef<WebGLSync | null>(null)
-  const startedAt = useRef(performance.now())
+  const startedAt = useRef(0)
   const needsSnapshot = useRef(true)
   const {gl}=useThree()
   useEffect(() => () => {
@@ -43,6 +44,7 @@ export function SceneRenderer({ blocked, geometryPending, offscreen, composer, e
     if (diffuseFence.current) (gl.getContext() as WebGL2RenderingContext).deleteSync(diffuseFence.current)
   }, [gl])
   useFrame(({ camera, gl, scene, size }, delta) => {
+    if (!startedAt.current) startedAt.current = performance.now()
     const preparing = (blocked || geometryPending || scene.userData.shaderWarmupPending || scene.userData.indirectScanPending) && !gl.xr.isPresenting
     if (preparing) needsSnapshot.current = true
     if (lightingStarted && opaqueReady.current && !lightingWork.current && !opaquePending &&
@@ -82,6 +84,7 @@ export function SceneRenderer({ blocked, geometryPending, offscreen, composer, e
       const enabled = gl.shadowMap.enabled, autoClear = gl.autoClear
       const display = lit.current ?? opaque.current
       display.syncLighting()
+      display.syncTransforms()
       liveSelection.current!.sync(scene, display.scene)
       try { gl.shadowMap.enabled = false; gl.autoClear = true; gl.render(display.scene, camera) }
       finally { gl.shadowMap.enabled = enabled; gl.autoClear = autoClear }
@@ -124,8 +127,11 @@ export function SceneRenderer({ blocked, geometryPending, offscreen, composer, e
     }
     if (wireframe || (preparing && !retained.current)) return
     camera.updateMatrixWorld()
+    const lightingChanged = preparing && retained.current!.syncLighting()
+    const transformsChanged = preparing && retained.current!.syncTransforms()
     const nextDimensions = `${size.width}:${size.height}:${gl.getPixelRatio()}`
-    const changed = !view.current.equals(camera.matrixWorld) || !projection.current.equals(camera.projectionMatrix) ||
+    const changed = lightingChanged || transformsChanged || lightRevision.current !== (scene.userData.liveLightRevision ?? 0) ||
+      !view.current.equals(camera.matrixWorld) || !projection.current.equals(camera.projectionMatrix) ||
       dimensions.current !== nextDimensions || selection.current !== selectionRevision
     const now = performance.now()
     if (!gl.xr.isPresenting && !shouldRenderSceneFrame(now, lastDraw.current, changed, editing, scene.userData.indirectLighting, geometryPending)) return
@@ -161,6 +167,7 @@ export function SceneRenderer({ blocked, geometryPending, offscreen, composer, e
     view.current.copy(camera.matrixWorld); projection.current.copy(camera.projectionMatrix)
     dimensions.current = nextDimensions
     selection.current = selectionRevision
+    lightRevision.current = scene.userData.liveLightRevision ?? 0
   }, 1)
   return null
 }

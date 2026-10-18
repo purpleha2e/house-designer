@@ -1,0 +1,12 @@
+.stair-builder .window-builder-body { grid-template-columns: 250px minmax(280px, 1fr) 260px; }
+.stair-builder .window-builder-settings, .stair-builder .window-builder-selection { max-height: 65vh; overflow-y: auto; }
+.stair-builder .window-builder-centre { min-height: 460px; }
+.stair-builder-layouts { display: flex; gap: 5px; }
+.stair-builder-layouts button { flex: 1; padding: 8px 5px; }
+.stair-builder-summary { margin: 0; padding: 9px; border-radius: 6px; background: #e9f4fa; color: #175e85; font-size: 12px; }
+.stair-builder-rail-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stair-builder-rail-options > div { display: flex; flex-direction: column; gap: 9px; }
+.stair-builder-rail-options strong { font-size: 12px; }
+.stair-builder-metrics { display: flex; flex-direction: column; align-items: center; gap: 5px; color: #526c80; font-size: 12px; }
+@media (max-width: 950px) { .stair-builder .window-builder-body { grid-template-columns: 220px minmax(240px,1fr); } .stair-builder .window-builder-selection { grid-column: 1 / -1; max-height: none; } }
+@media (max-width: 520px) { .stair-builder .window-builder-body { display: flex; } .stair-builder .window-builder-settings, .stair-builder .window-builder-selection { max-height: none; } }

@@ -1,4 +1,4 @@
-import { useContext, useEffect, useMemo } from 'react'
+import { useContext, useEffect, useLayoutEffect, useMemo } from 'react'
 import { Mesh, type MeshStandardMaterial, type Object3D } from 'three'
 import { createWindowGeometry, disposeWindowGeometry } from '../windowGeometry'
 import type { WindowDesign } from '../windowDesign'
@@ -6,8 +6,9 @@ import { applyWindowFrameFinish } from '../windowFrameMaterial'
 import { PbrEnvironmentContext } from '../pbrEnvironmentContext'
 
 export function WindowMesh({ design, scale = 1, widthScale = 1, depthScale = 1, wireframe = false,
-  active = true, onObject }: { design: WindowDesign; scale?: number; widthScale?: number;
-    depthScale?: number; wireframe?: boolean; active?: boolean; onObject?: (object: Object3D) => () => void }) {
+  active = true, castsShadow = true, onObject }: { design: WindowDesign; scale?: number; widthScale?: number;
+    depthScale?: number; wireframe?: boolean; active?: boolean; castsShadow?: boolean;
+    onObject?: (object: Object3D) => () => void }) {
   const environment = useContext(PbrEnvironmentContext)
   const sx = Math.max(0.001, scale * widthScale), sy = Math.max(0.001, scale), sz = Math.max(0.001, scale * depthScale)
   const object = useMemo(() => {
@@ -27,6 +28,14 @@ export function WindowMesh({ design, scale = 1, widthScale = 1, depthScale = 1, 
     })
     return originals
   }, [object])
+  useLayoutEffect(() => {
+    object.traverse(child => {
+      if (child instanceof Mesh) {
+        child.receiveShadow = active
+        child.castShadow = active && castsShadow && !materials.get(child.material)?.transparent
+      }
+    })
+  }, [object, materials, active, castsShadow])
   useEffect(() => {
     // Lighting changes update materials, never regenerate frame geometry.
     materials.forEach((original, material) => {

@@ -117,6 +117,20 @@ test('sun captures share existing shadow maps and omit editor lamps when capture
   } finally { capture.dispose(); sun.dispose(); lamp.dispose() }
 })
 
+test('selected lamp markers never enter captures while actual lights remain available', () => {
+  const scene = new Scene(), actor = new Group(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  actor.userData.indirectLightModel = true
+  const marker = new Mesh(geometry, material); marker.name = 'lamp-editor-marker'
+  const lamp = new PointLight(); actor.add(marker, lamp); scene.add(actor, new Mesh(geometry, material))
+  const capture = createIndirectCaptureScene(scene, false)
+  try {
+    assert.equal(capture.sourceMeshes, 1)
+    assert.equal(capture.scene.getObjectByName(marker.name), undefined)
+    assert.ok(capture.scene.children.some(object => object instanceof PointLight))
+    assert.equal(marker.visible, true, 'capture filtering preserves editor picking and visibility')
+  } finally { capture.dispose(); geometry.dispose(); material.dispose(); lamp.dispose() }
+})
+
 
 test('bake-only visibility is enabled on capture copies without adding it to display shaders', () => {
   const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()

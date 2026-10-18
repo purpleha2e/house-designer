@@ -1,4 +1,5 @@
 import { ToolbarIcon } from './ToolbarIcon'
+import { StairPlanSymbol } from './StairPlanSymbol'
 import { useToolbarMenu } from './useToolbarMenu'
 /* eslint-disable react-hooks/set-state-in-effect */
 import { RoofSettingsFields } from './RoofSettingsFields'
@@ -36,6 +37,7 @@ import { getModelTransformValues, updateModelTransformField } from '../modelTran
 import { ObjectTransformPanel } from './ObjectTransformPanel'
 import { GroundImageControls, GroundImageLayer } from './GroundImage'
 import { getWallDragDelta } from '../wallDragModifiers'
+import { snapWallTranslationToReferences } from '../wallReferenceSnap'
 import { getTransformDragDelta, getTransformRotation } from '../transformModifiers'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Stage as KonvaStage } from 'konva/lib/Stage'
@@ -4145,7 +4147,12 @@ export function FloorplanCanvas({
       rayEnd,
       rayStart: oppositeEndpoint,
       segments: [...getSnapSegments(activeWalls, wall.kind, wall.thickness), ...floorBoundarySnapSegments],
-    })
+    }) ?? (renderOptions.snapToReferenceFloors ? getDirectionalSnapTarget({
+      point,
+      rayEnd,
+      rayStart: oppositeEndpoint,
+      segments: getSnapSegments(referenceWalls, wall.kind, wall.thickness),
+    }) : null)
 
     return wallEndpointSnapIsValid({
       activeWalls,
@@ -4603,6 +4610,7 @@ export function FloorplanCanvas({
   }
 
   const handlePointerMove = (event: KonvaEventObject<PointerEvent>) => {
+    if (wallDragRef.current && !isAddingWall) return
     if (middlePanRef.current) {
       event.evt.preventDefault()
 
@@ -5454,7 +5462,8 @@ export function FloorplanCanvas({
           rotation={model.flipped ? 180 : 0}
           scaleX={model.mirrored ? -1 : 1}
         >
-          {modelDefinition.sourceUrl ? (
+          {modelDefinition.stairDesign ? <StairPlanSymbol design={modelDefinition.stairDesign}
+            scaleX={modelScale * modelWidthScale * METERS_TO_PIXELS} scaleY={modelScale * modelDepthScale * METERS_TO_PIXELS} selected={isSelectedModel} /> : modelDefinition.sourceUrl ? (
             <GLBModelPreview
               height={height}
               opacity={0.92}
@@ -5494,7 +5503,7 @@ export function FloorplanCanvas({
             />
           )}
         </Group>}
-        {modelDefinition.sourceUrl || planDoor ? null : (
+        {modelDefinition.sourceUrl || modelDefinition.stairDesign || planDoor ? null : (
           <Text
             x={0}
             y={0}
@@ -6849,13 +6858,23 @@ export function FloorplanCanvas({
                       x: pointerPoint.x - dragState.startPointer.x,
                       y: pointerPoint.y - dragState.startPointer.y,
                     }
-                    const delta = getWallDragDelta(rawDelta, event.evt, MODEL_TRANSLATION_STEP_METERS)
+                    const steppedDelta = getWallDragDelta(rawDelta, event.evt, MODEL_TRANSLATION_STEP_METERS)
                     const seedWallIdSet = new Set(dragState.seedWallIds)
                     const seedWalls = dragState.seedWallIds.flatMap((wallId) => {
                       const startWall = dragState.startWalls[wallId]
 
                       return startWall ? [{ id: wallId, ...startWall }] : []
                     })
+                    const referenceSnap = renderOptions.snapToReferenceFloors && !event.evt.ctrlKey && !event.evt.shiftKey
+                      ? snapWallTranslationToReferences(seedWalls, steppedDelta, referenceWalls,
+                          Math.min(CONNECTION_SNAP_METERS, Math.max(MODEL_TRANSLATION_STEP_METERS / 2, 10 / (METERS_TO_PIXELS * viewport.scale))))
+                      : null
+                    const delta = referenceSnap?.delta ?? steppedDelta
+                    setHoverAlignmentGuide(referenceSnap ? {
+                      axis: 'x', endpoint: referenceSnap.reference.start, projection: referenceSnap.reference.end,
+                      distance: referenceSnap.distance, crossDistance: 0,
+                    } : null)
+                    setHoverSnapTarget(referenceSnap ? { kind: 'junction', point: referenceSnap.point } : null)
                     const nextWalls = Object.fromEntries(
                       dragState.wallIds.flatMap((wallId) => {
                         const startWall = dragState.startWalls[wallId]
@@ -6918,6 +6937,8 @@ export function FloorplanCanvas({
                       !nextWall ||
                       !wallUpdatesRespectMinimumJoinAngles(nextWalls)
                     ) {
+                      setHoverSnapTarget(null)
+                      setHoverAlignmentGuide(null)
                       event.target.position({ x: 0, y: 0 })
                       return
                     }
@@ -6946,6 +6967,8 @@ export function FloorplanCanvas({
                     }
 
                     wallDragRef.current = null
+                    setHoverSnapTarget(null)
+                    setHoverAlignmentGuide(null)
                     event.target.position({ x: 0, y: 0 })
                     if (wallDragPreviewFrameRef.current !== null) {
                       window.cancelAnimationFrame(wallDragPreviewFrameRef.current)
@@ -7096,9 +7119,10 @@ export function FloorplanCanvas({
                             directionEnd: lockedPoint,
                             directionStart: oppositeEndpoint,
                             point: lockedPoint,
-                            walls: activeFloor.walls.filter(
-                              (wall) => wall.id !== renderedWall.wall.id,
-                            ),
+                            walls: [
+                              ...activeFloor.walls.filter(wall => wall.id !== renderedWall.wall.id),
+                              ...(renderOptions.snapToReferenceFloors ? referenceWalls : []),
+                            ],
                           })
                       const alignedPoint = applyAlignmentGuide(
                         lockedPoint,

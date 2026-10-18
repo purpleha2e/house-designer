@@ -1,13 +1,53 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BoxGeometry, BufferAttribute, BufferGeometry, DataUtils, InterleavedBuffer, InterleavedBufferAttribute, MeshStandardMaterial, Ray, SphericalHarmonics3, Vector3, type WebGLRenderer } from 'three'
+import { BoxGeometry, BufferAttribute, BufferGeometry, DataUtils, Group, InterleavedBuffer, InterleavedBufferAttribute, Mesh, MeshStandardMaterial, Ray, SphericalHarmonics3, Vector3, type WebGLRenderer } from 'three'
 import { createIndirectField, evaluateIndirectSH, INDIRECT_DISTANCE_SIZE, INDIRECT_MASK_SIZE, indirectGeometryFingerprint, roomProbePoint, serializeIndirectField, restoreIndirectField, writeIndirectProbe } from '../src/indirectLighting.ts'
 import { applyIndirectLightingShader, createIndirectUniforms, setIndirectLocalReflection } from '../src/indirectLightingShader.ts'
 import { pointIsInsideRoomPolygon } from '../src/roomLightMask.ts'
 import { applySpecularOnlyImageBasedLighting } from '../src/materials/imageBasedLighting.ts'
-import { createIndirectVisibility, createIndirectVisibilityFromSnapshot, snapshotIndirectGeometry, indirectOctDirection, indirectOctUV, indirectVisibilityWeight, writeIndirectVisibility } from '../src/indirectVisibility.ts'
-import { INDIRECT_VOLUME_HEIGHT, sampleIndirectCoefficients, writeIndirectCeilingRow, writeIndirectVolumeRow } from '../src/indirectVolume.ts'
-import { Group, Mesh } from 'three'
+import { createIndirectVisibility, createIndirectVisibilityFromSnapshot, snapshotIndirectGeometry, indirectOctDirection, indirectOctUV, indirectVisibilityWeight, writeIndirectVisibility, indirectGeometryRanges } from '../src/indirectVisibility.ts'
+import { INDIRECT_VOLUME_HEIGHT, createIndirectVolumeLookup, sampleIndirectCoefficients, writeIndirectCeilingRow, writeIndirectVolumeRow } from '../src/indirectVolume.ts'
+
+test('stairwell volume samples see neighbouring-storey probes through open air but never through a slab', () => {
+  const field = createIndirectField([0, 3].map((elevation, i) => ({ id: `floor-${i}`, elevation, height: 2.7,
+    rooms: [{ signature: 'room', polygon: square(0) }] })))
+  const scene = new Group(), material = new MeshStandardMaterial(), slab = new Mesh(new BoxGeometry(8, .2, 8), material)
+  slab.position.set(2, 2.8, 2)
+  const sh = new SphericalHarmonics3(); sh.coefficients[0].set(1, .5, .25)
+  field.probes.forEach(probe => {
+    if (probe.region.floorId === 'floor-1') writeIndirectProbe(field, probe.index, sh)
+    else field.positionData[probe.index * 4 + 3] = 0
+  })
+  const result = new Float64Array(12)
+  for (const closed of [false, true]) {
+    if (closed) scene.add(slab)
+    scene.updateMatrixWorld(true)
+    const visibility = createIndirectVisibility(scene), lookup = createIndirectVolumeLookup(field, visibility)
+    lookup.refreshCoefficients()
+    for (const cached of [false, true]) {
+      const support = cached ? lookup(0, 2, 2.5, 2, 0, result) : sampleIndirectCoefficients(field, 0, 2, 2.5, 2, result, visibility)
+      assert.equal(support > 0, !closed, `${cached ? 'cached' : 'reference'} visibility respects the slab`)
+      assert.equal(result[0], closed ? 0 : 1)
+    }
+    visibility.dispose()
+  }
+  slab.geometry.dispose(); material.dispose(); field.dispose()
+})
+
+test('visibility cache ignores material batching order but notices topology and opaque coverage changes', () => {
+  const a = new BufferGeometry(), b = new BufferGeometry()
+  const first = [0,0,0, 1,0,0, 0,1,0], second = [0,0,1, 1,0,1, 0,1,1]
+  a.setAttribute('position',new BufferAttribute(new Float32Array([...first,...second]),3))
+  b.setAttribute('position',new BufferAttribute(new Float32Array([...second,...first]),3))
+  const paint = new MeshStandardMaterial(), glass = new MeshStandardMaterial(); glass.name = 'glass'
+  const mesh = new Mesh(b,[paint,glass]); b.addGroup(0,3,0);b.addGroup(3,3,1)
+  try {
+    assert.equal(indirectGeometryFingerprint(a),indirectGeometryFingerprint(b),'paint rebatching preserves the same triangle set')
+    assert.notEqual(indirectGeometryFingerprint(a),indirectGeometryFingerprint(b,indirectGeometryRanges(mesh)),'glass does not block cached visibility')
+    b.clearGroups(); b.setIndex([0,1,3,2,4,5])
+    assert.notEqual(indirectGeometryFingerprint(a),indirectGeometryFingerprint(b),'connectivity matters even with identical vertices')
+  } finally { a.dispose();b.dispose();paint.dispose();glass.dispose() }
+})
 
 const square = (x: number) => [{ x, y: 0 }, { x: x + 4, y: 0 }, { x: x + 4, y: 4 }, { x, y: 4 }]
 

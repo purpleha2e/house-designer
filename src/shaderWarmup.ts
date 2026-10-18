@@ -60,7 +60,10 @@ export function registerShaderFadeSource(material: Material, source: Material) {
 /** Bounds and transform handles mark their parent, not every child mesh. */
 export function isSelectionDecoration(object: Object3D) {
   for (let parent: Object3D | null = object; parent; parent = parent.parent) {
-    if (parent.userData.selectionDecoration || ('isTransformControls' in parent && parent.isTransformControls)) return true
+    if (parent.userData.selectionDecoration || ('isTransformControls' in parent && parent.isTransformControls) ||
+      ('isTransformControlsRoot' in parent && parent.isTransformControlsRoot) ||
+      ('isTransformControlsGizmo' in parent && parent.isTransformControlsGizmo) ||
+      ('isTransformControlsPlane' in parent && parent.isTransformControlsPlane)) return true
   }
   return false
 }
@@ -127,6 +130,28 @@ export function getShaderWarmupSceneRevision(scene: Object3D) {
   let next = steps.next()
   while (!next.done) next = steps.next()
   return next.value
+}
+
+/** Resource identity is separate from shader features: a uniform light edit
+ * needs neither, whereas new buffers/textures still need bounded uploads. */
+export function getShaderWarmupResourceRevision(scene: Object3D) {
+  const entries = new Set<string>(), materials = new Set<Material>()
+  scene.traverse(object => {
+    const mesh = object as Mesh
+    if (!mesh.geometry || !mesh.material || isSelectionDecoration(object)) return
+    entries.add(mesh.geometry.uuid + ':' + geometryResourceKey(mesh.geometry))
+    for (const attached of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      const material = fadeSources.get(attached) ?? attached
+      if (materials.has(material)) continue
+      materials.add(material)
+      for (const value of Object.values(material)) if (value instanceof Texture)
+        // Texture.clone increments the shared Source version even when the
+        // live texture's pixels/upload version have not changed. Retained
+        // shader snapshots must not invalidate themselves on every scan.
+        entries.add(`${value.uuid}:${value.version}`)
+    }
+  })
+  return JSON.stringify([...entries].sort())
 }
 export async function prepareShaderWarmupSceneRevision(scene: Object3D, cancelled: () => boolean) {
   while (scene.userData.indirectScanPending && !cancelled()) await waitForViewportIdle(cancelled)

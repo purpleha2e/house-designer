@@ -42,6 +42,22 @@ try {
   }
   await call('Page.enable'); await call('Runtime.enable'); await call('Profiler.enable');await call('Log.enable');await call('Performance.enable')
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
+  if (process.argv.includes('--surface-relighting')) {
+    await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5186}/tests/browser/indirectSurfaceRelightingRegression.html?${process.argv.includes('--static-capture')?'static&':''}${process.argv.includes('--sun')?'sun':''}` })
+    let result
+    for(let i=0;i<900&&!result;i++) {
+      await new Promise(resolve=>setTimeout(resolve,100));result=await evaluate('window.surfaceRelightingResult')
+      if(errors.length)throw Error(JSON.stringify(errors))
+    }
+    assert.ok(result,'Surface relighting regression did not finish');assert.ok(!result.error,result.error)
+    console.log(JSON.stringify(result,null,2));assert.equal(result.glError,0);assert.equal(result.relighting,true)
+    assert.ok(result.occlusion.max>.001,'Exact local visibility must actually block geometry in the reference')
+    for(const sample of result.results){
+      assert.ok(sample.max<=.005+sample.peak*.01,`${sample.name}: cached local PBR must match fresh capture`)
+      assert.ok(sample.secondBounce<=.005+sample.peak*.01,`${sample.name}: bounce two must use the updated direct radiance`)
+    }
+    ws.close();browser.kill();process.exit(0)
+  }
   if (process.argv.includes('--resources')) {
     await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5181}/tests/browser/viewportResourcesRegression.html` })
     let result

@@ -32,6 +32,22 @@ const stairDefinition: ModelDefinition = {
   width: 0.9,
 }
 
+test('parametric L-stair openings retain the separate flight footprints under mirroring and rotation', () => {
+  const ground = floor('ground', 0)
+  ground.models = [{ id: 's', modelId: 'stairs', position: { x: 10, y: 20 }, rotation: Math.PI / 2,
+    scale: 2, widthScale: .5, depthScale: 1.5, mirrored: true }]
+  const definition = { ...stairDefinition, stairFootprint: [
+    [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 2 }, { x: 0, y: 2 }],
+    [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }, { x: 1, y: 2 }],
+  ] }
+  const polygons = getStairSlabOpenings(ground, null, [ground], new Map([['stairs', definition]]))
+  assert.equal(polygons.length, 2)
+  assert.deepEqual(polygons[0].map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+    [{ x: 10, y: 20 }, { x: 10, y: 19 }, { x: 4, y: 19 }, { x: 4, y: 20 }])
+  assert.deepEqual(polygons[1].map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+    [{ x: 7, y: 19 }, { x: 7, y: 17 }, { x: 4, y: 17 }, { x: 4, y: 19 }])
+})
+
 test('stair opening follows model rotation and scale', () => {
   const polygon = getStairOpeningPolygon(
     { x: 4, y: 5 },

@@ -9,6 +9,18 @@ export type IndirectGeometrySnapshot = {
   ranges: { start: number; count: number }[]; matrices: number[][]; structural: boolean
 }[]
 
+/** Shared by cache identity and worker snapshots. Changing a finish to glass
+ * changes visibility; changing the order of opaque material groups does not. */
+export function indirectGeometryRanges(object: Mesh) {
+  const geometry = object.geometry, materials = Array.isArray(object.material) ? object.material : [object.material]
+  const count = geometry.index?.count ?? geometry.attributes.position?.count ?? 0
+  const groups = geometry.groups.length ? geometry.groups : [{ start: 0, count, materialIndex: 0 }]
+  return groups.filter(group => {
+    const material = materials[Array.isArray(object.material) ? group.materialIndex ?? 0 : 0]
+    return material instanceof MeshStandardMaterial && !/glass|glazing/i.test(material.name) && (material.opacity > 0 || material.transparent)
+  }).map(group => ({ start: group.start, count: Math.min(group.count, count - group.start) }))
+}
+
 /** Copy only descriptors on the UI thread. postMessage clones the source buffers;
  * world transforms, triangle expansion and BVH construction happen in the worker. */
 export function snapshotIndirectGeometry(scene: Object3D, include?: (mesh: Mesh) => boolean): IndirectGeometrySnapshot {
@@ -17,18 +29,14 @@ export function snapshotIndirectGeometry(scene: Object3D, include?: (mesh: Mesh)
   scene.traverse(object => {
     if (!(object instanceof Mesh) || (include && !include(object)) || object.userData.selectionDecoration ||
       /model-batch|ground-image/.test(String(object.userData.houseDesignerRole))) return
-    const geometry = object.geometry, materials = Array.isArray(object.material) ? object.material : [object.material]
+    const geometry = object.geometry
     const attribute = geometry.attributes.position
     if (!attribute) return
     const interleaved = !(attribute instanceof BufferAttribute)
     const position = interleaved ? attribute.data.array : attribute.array
     const stride = interleaved ? attribute.data.stride : attribute.itemSize
     const attributeOffset = interleaved ? attribute.offset : 0
-    const groups: { start: number; count: number; materialIndex?: number }[] = geometry.groups.length ? geometry.groups : [{ start: 0, count: geometry.index?.count ?? attribute.count, materialIndex: 0 }]
-    const ranges = groups.filter(group => {
-      const material = materials[Array.isArray(object.material) ? group.materialIndex ?? 0 : 0]
-      return material instanceof MeshStandardMaterial && !/glass|glazing/i.test(material.name) && (material.opacity > 0 || material.transparent)
-    }).map(group => ({ start: group.start, count: Math.min(group.count, (geometry.index?.count ?? attribute.count) - group.start) }))
+    const ranges = indirectGeometryRanges(object)
     if (!ranges.length) return
     const matrices: number[][] = []
     for (let instance = 0; instance < (object instanceof InstancedMesh ? object.count : 1); instance++) {
@@ -162,9 +170,9 @@ export function writeIndirectVisibility(field: IndirectField, index: number, pos
     const offset = (tileY + y) * field.distanceWidth + tileX + x
     field.distanceData[offset] = typeof hit?.faceIndex === 'number' ? visibility.primitiveId(hit.faceIndex) : 0
   }
-  for (let y = firstRow; y < end; y++) {
-    field.distances.addUpdateRange((tileY + y) * field.distanceWidth + tileX, size)
-  }
+  // Three's DataTexture update ranges assume four channels. This atlas is
+  // single-channel; ranged uploads otherwise silently populate the wrong rows.
+  // The editor uploads it in bounded copies through prepareTextureUpload.
   field.distances.needsUpdate = true
 }
 

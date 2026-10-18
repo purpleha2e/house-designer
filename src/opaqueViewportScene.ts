@@ -4,6 +4,7 @@ import { retainResource } from './retainedViewportScene.ts'
 import { isSelectionDecoration, recordViewportGeometryUpload } from './shaderWarmup.ts'
 import { applyIndirectLightingShader, getIndirectLightingUniforms } from './indirectLightingShader.ts'
 import { applyRoomLightShader, getRoomLightUniforms } from './roomLightShader.ts'
+import { createViewportModelTransforms } from './viewportModelTransforms.ts'
 
 /** A display-only PBR copy: shared geometry/textures, no custom lighting hooks,
  * shadows, transparency or postprocessing. Source objects remain the pick targets. */
@@ -12,6 +13,7 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
   const display = new Scene()
   display.background = source.background instanceof Color ? source.background.clone() : new Color('#233041')
   const lightCopies: { source: Light; copy: Light }[] = []
+  const transforms = createViewportModelTransforms(source)
   if (options.lighting) {
     source.traverseVisible(object => {
       if (!(object instanceof Light)) return
@@ -86,6 +88,7 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
       const mesh = new Mesh(source.geometry, Array.isArray(source.material) ? source.material.map(opaque) : opaque(source.material))
       mesh.matrixAutoUpdate = false; mesh.matrix.copy(matrix); mesh.frustumCulled = false
       mesh.renderOrder = source.renderOrder
+      transforms.bind(source, mesh, matrix)
       display.add(mesh)
     }
     if (source instanceof BatchedMesh) {
@@ -93,6 +96,7 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
       copy.object.material = opaque(source.material)
       copy.object.matrixAutoUpdate = false; copy.object.matrix.copy(source.matrixWorld)
       copy.object.castShadow = copy.object.receiveShadow = false
+      transforms.bind(source, copy.object)
       display.add(copy.object); releases.push(copy.dispose)
     } else if (source instanceof InstancedMesh) {
       const matrix = new Matrix4()
@@ -113,7 +117,7 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
     }
   })
   let disposed = false
-  return { scene: display, meshes: meshes.length, syncLighting, dispose() {
+  return { scene: display, meshes: meshes.length, syncLighting, syncTransforms: transforms.sync, dispose() {
     if (disposed) return
     disposed = true
     opaqueMaterials.forEach(m => m.dispose())

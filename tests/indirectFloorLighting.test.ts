@@ -32,8 +32,11 @@ test('near-floor lighting preserves neutral probes beneath a raised bed instead 
   visibility.dispose(); geometry.dispose(); material.dispose(); field.dispose()
 })
 
-test('floor planes keep separate storeys and reuse geometry visibility across bounce updates', () => {
-  const field = createIndirectField([floor, { ...floor, id: 'upper', elevation: 2.7 }], 0), visibility = createIndirectVisibility(new Group())
+test('solid slabs keep floor lighting separate and reuse geometry visibility across bounce updates', () => {
+  const field = createIndirectField([floor, { ...floor, id: 'upper', elevation: 2.7 }], 0)
+  const scene = new Group(), geometry = new BoxGeometry(9, .2, 8), material = new MeshStandardMaterial()
+  const slab = new Mesh(geometry, material); slab.position.set(3.5, 2.6, 3); scene.add(slab)
+  const visibility = createIndirectVisibility(scene)
   let rays = 0
   const original = visibility.occluded
   visibility.occluded = (...args) => { rays++; return original(...args) }
@@ -52,7 +55,7 @@ test('floor planes keep separate storeys and reuse geometry visibility across bo
   const lower = sampleBakedIndirectFloor(field, 0, new Vector3(3, .012, 3), new Vector3(0, 1, 0))
   const upper = sampleBakedIndirectFloor(field, 1, new Vector3(3, 2.712, 3), new Vector3(0, 1, 0))
   assert.ok(Math.abs(upper.rgb[0] / lower.rgb[0] - 10) < .01)
-  visibility.dispose(); field.dispose()
+  visibility.dispose(); geometry.dispose(); material.dispose(); field.dispose()
 })
 
 test('a distant warm probe retains its tiny weight when furniture blocks every nearby probe', () => {

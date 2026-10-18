@@ -88,6 +88,9 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
       }
       scene.add(light); continue
     }
+    let ancestor: Object3D | null = object
+    while (ancestor && !ancestor.userData.indirectLightModel) ancestor = ancestor.parent
+    if (ancestor) continue // Visible lamp markers belong only to the editor.
     const renderable = object as Renderable
     if (!renderable.geometry || !renderable.material) continue
     const proxy = addProxy(renderable)
@@ -141,8 +144,8 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
   scene.matrixWorldAutoUpdate = false
   completed = true
   return { scene, sourceMeshes, mergedMeshes, materials: materials.size,
-    enableSurfaceRadianceCapture() {
-      materials.forEach(material => applyIndirectSurfaceRadianceCapture(material))
+    enableSurfaceRadianceCapture(relighting = false) {
+      materials.forEach(material => applyIndirectSurfaceRadianceCapture(material, relighting))
     },
     enableSurfaceCapture() {
       materials.forEach(material => applyIndirectSurfaceCapture(material))

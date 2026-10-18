@@ -51,18 +51,23 @@ try {
   }
   await call('Runtime.enable'); await call('Page.enable')
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
+  await call('Page.addScriptToEvaluateOnNewDocument', { source: `const Socket=WebSocket;window.WebSocket=class extends Socket{constructor(url,protocols){super(url,protocols);if(protocols==='vite-hmr')this.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.type==='update'||m.type==='full-reload')event.stopImmediatePropagation()})}}` })
   await call('Page.addScriptToEvaluateOnNewDocument', { source: `window.regressionSavedGI={project:{indirectLighting:${JSON.stringify(project.indirectLighting)}}}` })
   await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/roofWallRegression.html?colin&materials&upper-selection&saved-gi&strict` })
   await until('!!window.roofWallScene?.()', 'scene mounted')
   await evaluate('window.roofWallScene().setDpr(.75)')
   await until('window.roofWallScene().scene.userData.indirectLighting?.state === "ready" && !window.roofWallScene().scene.userData.shaderWarmupPending', 'GI ready')
+  await evaluate(`(()=>{const s=window.roofWallScene();s.camera.position.set(1.25,4.35,12.4);s.camera.lookAt(.469,4.05,10.16);s.controls?.target?.set(.469,4.05,10.16);s.camera.updateMatrixWorld();s.invalidate()})()`)
   await pause(1500)
   const points = await evaluate(`(async()=>{
     const {Vector3}=await import('/node_modules/.vite/deps/three.js'),s=window.roofWallScene();
     const root=s.scene.getObjectByName('model-transform-5f48d33f-c453-4839-993a-4f4205773e7f');
     if(!root)throw Error('Missing shaded bedroom window');s.scene.updateMatrixWorld(true);window.frameGiMeshes=[];
     const rect=s.gl.domElement.getBoundingClientRect(),points=[];
-    root.traverse(o=>{if(!o.isMesh||o.material.name!=='Window frame')return;
+    root.traverse(o=>{if(!o.isMesh)return;
+      if(!o.receiveShadow)throw Error(o.name+' does not receive building shadows');
+      if(o.castShadow!==(o.material.name!=='Window glass'))throw Error(o.name+' has incorrect shadow casting');
+      if(o.material.name!=='Window frame')return;
       if(!o.geometry.getAttribute('hdGIWallMount0')&&!o.geometry.getAttribute('hdGIWallMount1'))throw Error('Missing mounted receiver planes');
       window.frameGiMeshes.push({mesh:o,planes:[0,1].map(i=>o.geometry.getAttribute('hdGIWallMount'+i))});
       const p=o.geometry.getAttribute('position'),n=o.geometry.getAttribute('normal'),centre=new Vector3();let count=0;
@@ -74,18 +79,33 @@ try {
     });return points;
   })()`)
   assert.ok(points.length >= 4, 'visible bedroom frame faces can be sampled')
-  const samples = []
-  for (const fixed of [false, true]) {
-    await evaluate(`(()=>{for(const {mesh,planes} of window.frameGiMeshes)for(let i=0;i<2;i++){if(${fixed})mesh.geometry.setAttribute('hdGIWallMount'+i,planes[i]);else mesh.geometry.deleteAttribute('hdGIWallMount'+i)}window.roofWallScene().invalidate()})()`)
-    await pause(1800)
+  // Keep GI and camera unchanged while isolating the two former frame leaks.
+  await evaluate(`(()=>{const s=window.roofWallScene();s.setFrameloop('never');s.scene.traverse(o=>{if(o.isDirectionalLight)o.userData.frameTestIntensity=o.intensity})})()`)
+  const samples = {}
+  for (const mode of ['unshadowed', 'fixed', 'no-sun', 'exterior-fallback', 'restored']) {
+    await evaluate(`(()=>{
+      const s=window.roofWallScene();
+      for(const {mesh,planes} of window.frameGiMeshes){
+        mesh.receiveShadow=${mode !== 'unshadowed'};
+        for(let i=0;i<2;i++){
+          if(${mode === 'exterior-fallback'})mesh.geometry.deleteAttribute('hdGIWallMount'+i);
+          else mesh.geometry.setAttribute('hdGIWallMount'+i,planes[i]);
+        }
+      }
+      s.scene.traverse(o=>{if(o.isDirectionalLight)o.intensity=${mode === 'no-sun' ? 0 : 'o.userData.frameTestIntensity'}});
+      s.gl.setRenderTarget(null);s.gl.clear();s.gl.render(s.scene,s.camera);
+    })()`)
     const png = Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64')
-    writeFileSync(`.tmp-bedroom-frame-gi-${fixed ? 'fixed' : 'before'}.png`, png)
+    writeFileSync(`.tmp-viewer-bedroom-frame-${mode}.png`, png)
     const { data, info } = await sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })
-    samples.push(points.map(p => { const i=(p.y*info.width+p.x)*info.channels; return (data[i]+data[i+1]+data[i+2])/3 }))
+    samples[mode] = points.map(p => { const i=(p.y*info.width+p.x)*info.channels; return (data[i]+data[i+1]+data[i+2])/3 })
   }
-  console.log(JSON.stringify({ points, before: samples[0], fixed: samples[1] }, null, 2))
   const mean = values => values.reduce((sum, value) => sum + value, 0) / values.length
-  assert.ok(mean(samples[1]) < mean(samples[0]) - 20, 'the actual shaded bedroom frame follows indoor GI instead of exterior ambient')
+  console.log(JSON.stringify({ faces: points.length, brightness: Object.fromEntries(Object.entries(samples).map(([mode, values]) => [mode, mean(values)])) }, null, 2))
+  assert.ok(mean(samples.fixed) < mean(samples.unshadowed) - 40, 'building shadows block direct sunlight on the indoor frame')
+  assert.ok(Math.abs(mean(samples.fixed) - mean(samples['no-sun'])) < 3, 'the shaded inner frame has no direct sun contribution')
+  assert.ok(mean(samples.fixed) < mean(samples['exterior-fallback']) - 20, 'the frame follows indoor GI instead of exterior ambient')
+  assert.deepEqual(samples.restored, samples.fixed, 'restoring shadow reception and indoor GI restores the original pixels')
   assert.deepEqual(errors, [])
-  console.log('PASS: The saved bedroom window receives indoor GI; its paint colour and geometry are unchanged.')
+  console.log('PASS: The saved bedroom frame receives building shadows and indoor GI; its paint colour and geometry are unchanged.')
 } finally { ws?.close(); child.kill() }

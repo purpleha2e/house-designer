@@ -82,6 +82,9 @@ export class IndirectLightingClient {
   floor(request: Omit<Extract<IndirectWorkerRequest, { kind: 'floor' }>, 'id' | 'kind'>) {
     return this.request<Uint16Array>({ ...request, kind: 'floor' })
   }
+  refineVolume(request: Omit<Extract<IndirectWorkerRequest, { kind: 'floor' }>, 'id' | 'kind' | 'refineVolume'>) {
+    return this.request<{ floor: Uint16Array; volume: Uint16Array; mask: Uint8Array }>({ ...request, kind: 'floor', refineVolume: true })
+  }
   dispose(error = new Error('GI work superseded')) {
     this.lampPool?.dispose(error); this.lampPool = null
     this.lampWorkerCount = 0

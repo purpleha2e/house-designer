@@ -22,6 +22,7 @@ function Preview(){
   const setFloor=(update:SetStateAction<FloorLevel>)=>setFloors(current=>current.map(f=>f.id===floor.id?
     typeof update==='function'?update(f):update:f))
   const [selected,setSelected]=useState<string | null>('handle-box')
+  const [selectedWall,setSelectedWall]=useState<string | null>(null)
   const previewRef=useRef<ModelTransformPreview | null>(null)
   const updateModel=(id:string,updates:Partial<FloorLevel['models'][number]>)=>{
     const metrics=window as unknown as {handleCommits?:number}
@@ -41,12 +42,12 @@ function Preview(){
     }}
     internalWallThickness={0.15} isAddingWall={wallMode} isRoofMode={false} modelAssetVersion={1} placementModel={null}
     projectFileName="Handle preview" selectedModelId={selected} selectedModelIds={[]} selectedRoofId={null}
-    selectedRoomSignature={null} selectedWallId={null} selectedWallIds={[]} wallHeight={2.4} wallKind="internal"
+    selectedRoomSignature={null} selectedWallId={selectedWall} selectedWallIds={[]} wallHeight={2.4} wallKind="internal"
     onAddWall={wall=>setFloor(current=>({...current,walls:[...current.walls,{...wall,id:'drawn-wall',kind:'internal',thickness:0.15,height:2.4}]}))} onAddRoof={noop} onCancelModelPlacement={noop} onDeleteModel={noop} onDeleteRoof={noop}
     onDeleteWall={noop} onExitAddWall={()=>setWallMode(false)} onViewportChange={noop} onSelectModel={setSelected} onSelectRoof={noop}
-    onSelectRoom={noop} onSelectWall={noop} onRoofPlacementPreviewChange={noop} onPlaceModel={noop}
+    onSelectRoom={noop} onSelectWall={setSelectedWall} onRoofPlacementPreviewChange={noop} onPlaceModel={noop}
     onUpdateModel={updateModel}
-    onUpdateRoof={noop} onUpdateWall={noop} onUpdateWalls={changes=>setFloor(current=>({...current,
+    onUpdateRoof={noop} onUpdateWall={(id,updates)=>setFloor(current=>({...current,walls:current.walls.map(w=>w.id===id?{...w,...updates}:w)}))} onUpdateWalls={changes=>setFloor(current=>({...current,
       walls:current.walls.map(wall=>{const change=changes.find(change=>change.wallId===wall.id);return change?{...wall,...change.updates}:wall})
     }))} viewportRestoreRevision={1}/>
     <ThreeDView modelTransformPreviewRef={previewRef} activeFloorId={floor.id} floors={floors}

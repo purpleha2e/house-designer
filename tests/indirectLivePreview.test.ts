@@ -4,7 +4,7 @@ import { BoxGeometry, DataUtils, Group, Mesh, MeshStandardMaterial, SphericalHar
 import { snapshotIndirectGeometry } from '../src/indirectVisibility.ts'
 import { createIndirectField, writeIndirectProbe } from '../src/indirectLighting.ts'
 import { prepareIndirectCache } from '../src/indirectLightingCache.ts'
-import { createIndirectPreviewField, indirectPreviewCoefficients, liveIndirectFaceBudget, liveIndirectTimeBudget, shouldPublishLivePreview } from '../src/indirectLivePreview.ts'
+import { createIndirectBounceField, createIndirectPreviewField, indirectPreviewCoefficients, liveIndirectFaceBudget, liveIndirectTimeBudget, shouldPublishLivePreview } from '../src/indirectLivePreview.ts'
 
 const floors = [{ id: 'ground', elevation: 0, height: 3, rooms: [{ signature: 'room',
   polygon: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }] }]
@@ -104,6 +104,21 @@ test('live updates are bounded, and navigation retains a small capture budget', 
   assert.equal(liveIndirectTimeBudget(1 / 60, false), 8)
   assert.equal(liveIndirectTimeBudget(1 / 20, false), 4)
   assert.equal(liveIndirectTimeBudget(1 / 60, true), 3)
+  assert.equal(liveIndirectTimeBudget(1 / 60, false, true), 2)
+  assert.equal(liveIndirectTimeBudget(1 / 60, true, true), 1)
+})
+
+test('camera-priority bounce input owns full-resolution light textures independently of display light', () => {
+  const field = createIndirectField(floors, 0), input = createIndirectBounceField(field)
+  try {
+    assert.equal(input.mask, field.mask); assert.equal(input.positions, field.positions)
+    assert.equal(input.volume.n, field.volume.n); assert.equal(input.floorLayer.n, field.floorLayer.n)
+    assert.notEqual(input.volume.maps[0], field.volume.maps[0])
+    input.volume.data.fill(123); input.floorLayer.data.fill(456)
+    assert.equal(field.volume.data[0], 0); assert.equal(field.floorLayer.data[0], 0)
+    let disposed = false; field.volume.maps[0].addEventListener('dispose', () => { disposed = true })
+    input.dispose(); assert.equal(disposed, false)
+  } finally { field.dispose() }
 })
 
 test('moving a lamp reuses prepared geometry and only refreshes its visibility tile', () => {

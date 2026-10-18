@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { DataTexture, MeshStandardMaterial } from 'three'
-import { createRoomLightMask, getRoomLightMaskIdAtPoint } from '../src/roomLightMask.ts'
+import { createRoomLightMask, createRoomLightMaskStack, getRoomLightMaskIdAtPoint } from '../src/roomLightMask.ts'
 import { applyRoomLightShader, createRoomLightShaderUniforms } from '../src/roomLightShader.ts'
 import { buildDoorwayFloorPatches } from '../src/doorwayFloors.ts'
 import type { Point, Wall } from '../src/types.ts'
+
+test('overlapping storeys have independent globally unique room IDs in one mask atlas', () => {
+  const polygon = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }]
+  const mask = createRoomLightMaskStack([{ id: 'upper', elevation: 3, rooms: [{ signature: 'room', polygon }] },
+    { id: 'ground', elevation: 0, rooms: [{ signature: 'room', polygon }] }], { minX: 0, minZ: 0, size: 4 }, 32)
+  assert.deepEqual(mask.floorHeights, [0, 3]); assert.equal(mask.height, 64)
+  const lower = mask.roomIdsBySignature.get('ground:room'), upper = mask.roomIdsBySignature.get('upper:room')
+  assert.ok(lower && upper && lower !== upper)
+  assert.equal(mask.data[16 * 32 + 16], lower)
+  assert.equal(mask.data[(32 + 16) * 32 + 16], upper)
+})
 
 test('room light mask gives enclosed rooms distinct ids and leaves exterior points global', () => {
   const mask = createRoomLightMask([

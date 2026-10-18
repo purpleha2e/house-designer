@@ -5,28 +5,31 @@ import { Box3, Color, CubeCamera, HalfFloatType, LinearSRGBColorSpace, Material,
   MeshStandardMaterial, PointLight, SpotLight, RGBAFormat, DataTexture, FloatType, NearestFilter, Vector3,
   WebGLCubeRenderTarget, Light, Scene, type Camera, type Texture, type WebGLRenderTarget } from 'three'
 import { createIndirectProbeIntegrator } from '../indirectProbeIntegration'
-import { createIndirectSurfaceCache, indirectSurfaceCaptureKey, supportsIndirectSurfaceCapture } from '../indirectSurfaceCache'
+import { createIndirectSurfaceCache, prepareIndirectSurfaceCaptureKey, supportsIndirectSurfaceCapture } from '../indirectSurfaceCache'
+import { indirectSurfaceLights, indirectSurfaceSun } from '../indirectSurfaceRelighting'
+import { createIndirectLightingUpdates, indirectLightingStructureKey, prioritizeIndirectLighting } from '../indirectContinuousLighting'
 import { indirectContentKey, indirectLightingSettingsKey, loadIndirectLighting, loadIndirectReflections, saveIndirectLighting, savedIndirectLightingMatches,
   type IndirectLightingSettings, type SavedIndirectLighting } from '../indirectLightingPersistence'
-import { createIndirectField, restoreIndirectField, serializeIndirectField, INDIRECT_ATLAS_SIZE, INDIRECT_MAX_LOCAL_LIGHTS, indirectGeometryFingerprint, writeIndirectProbe, type IndirectFloor, type IndirectRegion } from '../indirectLighting'
-import { snapshotIndirectGeometry } from '../indirectVisibility'
+import { createIndirectField, restoreIndirectField, serializeIndirectField, INDIRECT_ATLAS_SIZE, INDIRECT_MAX_LOCAL_LIGHTS, indirectGeometryFingerprintSteps, writeIndirectProbe, type IndirectFloor, type IndirectRegion } from '../indirectLighting'
+import { indirectGeometryRanges, snapshotIndirectGeometry } from '../indirectVisibility'
 import { IndirectLightingClient } from '../indirectLightingClient'
 import { applyIndirectLightingShader, createIndirectUniforms, setIndirectLocalReflection, updateIndirectUniforms } from '../indirectLightingShader'
 import { applySpecularOnlyImageBasedLighting } from '../materials/imageBasedLighting'
 import { pointIsInsideRoomPolygon } from '../roomLightMask'
 import { roomLightCaptureUniform } from '../roomLightShader'
 import { compileShaderWarmup, createShaderWarmupSnapshot, prepareShaderWarmupSnapshot, prepareShaderWarmupResources } from '../shaderWarmup'
-import { createIndirectPreviewField, indirectPreviewCoefficients, liveIndirectFaceBudget, liveIndirectTimeBudget, shouldPublishLivePreview } from '../indirectLivePreview'
+import { createIndirectBounceField, createIndirectPreviewField, indirectPreviewCoefficients, liveIndirectFaceBudget, liveIndirectTimeBudget, shouldPublishLivePreview } from '../indirectLivePreview'
 import { IndirectLightingProbes } from './IndirectLightingProbes'
 import { IndirectLightingInspector } from './IndirectLightingInspector'
 import { DIFFUSE_PROBE_RESOLUTIONS, type DiffuseProbeResolution } from '../indirectProbeResolution'
 import { indirectLocalChanges, indirectRegionKey, indirectZoneProbes, type IndirectZonePlan, type IndirectModelBounds } from '../indirectLightingZones'
 import { INDIRECT_FURNITURE_PROBE_VERSION } from '../indirectFurnitureProbes'
-import { createIndirectCaptureScene, prepareIndirectCaptureScene } from '../indirectCaptureScene'
+import { prepareIndirectCaptureScene } from '../indirectCaptureScene'
 import { isViewportNavigating, markViewportNavigation, runViewportTask, yieldToViewport } from '../viewportScheduling'
 import { IndirectReflectionClient } from '../indirectReflectionClient'
 import { prepareTextureReplacement, prepareTextureUpload } from '../textureUpload'
 import { createIndirectMultiview } from '../indirectMultiview'
+import { INDIRECT_VOLUME_SAMPLING_VERSION } from '../indirectVolume'
 
 type Sample = { region: IndirectRegion; position: Vector3; probe?: number; pass: number; reflection?: boolean }
 export type IndirectLocalLight = { position: [number, number, number]; target: [number, number, number];
@@ -57,18 +60,27 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
   const localLights = useMemo(() => JSON.parse(lightKey) as IndirectLocalLight[], [lightKey])
   const [initialField] = useState(() => createIndirectField([], 0))
   const workField = useRef(initialField), displayField = useRef(initialField)
+  const bounceField = useRef<typeof initialField | null>(null)
   const ownedFields = useRef(new Set([initialField]))
   const client = useMemo(() => new IndirectLightingClient(), [])
   const [uniforms] = useState(() => createIndirectUniforms(initialField))
   const pendingUpdate = useRef(true), preparing = useRef(false), preparedKey = useRef(''), geometrySignature = useRef('')
   const preparingVersion = useRef(-1), interactionUntil = useRef(0), warming = useRef(false)
   const preparedLightPositions = useRef('')
+  const sceneUpdateRequested = useRef(false)
+  const lastSceneReplacement = useRef(-Infinity)
+  const liveUpdates = useRef(createIndirectLightingUpdates())
+  const liveSweep = useRef(false), liveSunKey = useRef('')
+  const sourceSun = useRef<ReturnType<typeof indirectSurfaceSun>>(undefined)
+  const globalLiveChange = useRef(false)
+  const requestedStructure = useRef('')
   const capturePrograms = useRef(new Map<string, { signature: string; snapshot: ReturnType<typeof createShaderWarmupSnapshot> }>())
-  const captureScene = useRef<ReturnType<typeof createIndirectCaptureScene> | null>(null)
+  const captureScene = useRef<Awaited<ReturnType<typeof prepareIndirectCaptureScene>>>(null)
   const multiview = useRef<ReturnType<typeof createIndirectMultiview>>(null)
   const multiviewProbe = useRef(false)
-  const surfaceScene = useRef<ReturnType<typeof createIndirectCaptureScene> | null>(null)
+  const surfaceScene = useRef<Awaited<ReturnType<typeof prepareIndirectCaptureScene>>>(null)
   const surfaceCache = useRef<ReturnType<typeof createIndirectSurfaceCache>>(null), surfaceCacheKey = useRef('')
+  const surfaceSunEnabled = useRef(false)
   const bakeTriangles = useRef<DataTexture | null>(null), volumePending = useRef(false), bakeVolumeReady = useRef(false)
   const floorAttempted = useRef(new WeakSet<typeof initialField>())
   const floorPreparing = useRef(false), floorVersion = useRef(-1)
@@ -96,6 +108,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
   const directCoefficients = useRef<Uint16Array[] | undefined>(undefined)
   const partialBake = useRef(false), captureRevision = useRef(revision)
   const updatedProbes = useRef(new Set<number>())
+  const refinedProbes = useRef(new Set<number>())
   const exportedCache = useRef<SavedIndirectLighting | undefined>(undefined), saving = useRef(false), savedGeneration = useRef(-1)
   const attemptedCache = useRef(''), loadedCacheKey = useRef('')
   const settingsKey = indirectLightingSettingsKey(cacheSettings)
@@ -239,11 +252,12 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         }
       }
       if (object.name.startsWith('model-transform-')) {
-        const bounds = new Box3().setFromObject(object), size = bounds.getSize(new Vector3())
-        // Lights have no render mesh when their editor markers are hidden.
-        if (bounds.isEmpty() && object.userData.indirectLightModel) {
-          bounds.setFromCenterAndSize(object.getWorldPosition(new Vector3()), new Vector3())
-        }
+        // Editor lamp markers are not furniture. Keep the same point bounds
+        // whether selected or hidden so selecting a lamp preserves probe layout.
+        const bounds = object.userData.indirectLightModel
+          ? new Box3().setFromCenterAndSize(object.getWorldPosition(new Vector3()), new Vector3())
+          : new Box3().setFromObject(object)
+        const size = bounds.getSize(new Vector3())
         if (!bounds.isEmpty()) boundsByModel.set(object.name.slice('model-transform-'.length), { min: bounds.min.toArray(), max: bounds.max.toArray() })
         if (size.x > .3 && size.y > .3 && size.z > .3) furniture.push(bounds)
       }
@@ -271,7 +285,8 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         (object.userData.houseDesignerRole === 'ground-image')) continue
       const p = object.geometry.attributes.position
       if (!p?.count) continue
-      geometry.push(`${indirectGeometryFingerprint(object.geometry)}:${object.matrixWorld.elements.map(value => Math.round(value * 100000)).join(',')}`)
+      const ranges = indirectGeometryRanges(object)
+      if (ranges.length) geometry.push(`${yield* indirectGeometryFingerprintSteps(object.geometry, ranges)}:${object.matrixWorld.elements.map(value => Math.round(value * 100000)).join(',')}`)
     }
     obstacles.current = furniture
     modelBounds.current = boundsByModel
@@ -283,7 +298,30 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     return geometrySignature.current + '::' + [...finishes].sort().join('|')
   }, [assignReflections, localLights, scene, uniforms])
 
+  const requestSceneUpdate = useCallback(() => {
+    // Coalesce all edits, including materials and structure. Finish an atomic
+    // read/upload/preparation before replacing its inputs with the latest scene.
+    sceneUpdateRequested.current = true
+    exportedCache.current = undefined
+    onCacheReady?.(undefined)
+    invalidate()
+  }, [invalidate, onCacheReady])
+
+  const requestLiveUpdate = useCallback(() => {
+    liveUpdates.current.request()
+    if (scene.userData.indirectLighting) {
+      scene.userData.indirectLighting.pendingLighting = true
+      if (scene.userData.indirectLighting.state === 'ready') scene.userData.indirectLighting.state = 'updating'
+    }
+    exportedCache.current = undefined
+    onCacheReady?.(undefined)
+    invalidate()
+  }, [invalidate, onCacheReady, scene])
+
   const scheduleUpdate = useCallback(() => {
+    sceneUpdateRequested.current = false
+    lastSceneReplacement.current = performance.now()
+    liveUpdates.current.reset(); liveUpdates.current.request(); liveSweep.current = false
     generation.current++
     scene.userData.indirectReflectionPending = false
     furnitureProbeUpgrade.current = false
@@ -297,7 +335,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     onCacheReady?.(undefined)
     queue.current = []; face.current = 0
     previewRequest.current = null
-    waitUntil.current = performance.now() + 250
+    waitUntil.current = performance.now()
     const previous = scene.userData.indirectLighting
     scene.userData.indirectLighting = { ...previous, generation: generation.current, completed: 0, state: 'updating',
       previewUpdates: 0, firstPreviewMs: undefined, lastPreviewCompleted: undefined }
@@ -317,21 +355,44 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       if (!await prepareTextureUpload(gl, texture, cancelled)) { nextCaptureScene.dispose(); return }
     }
     if (bakeTriangles.current && !await prepareTextureUpload(gl, bakeTriangles.current, cancelled)) { nextCaptureScene.dispose(); return }
-    const transportSupported = scene.userData.indirectSurfaceCacheEnabled === true && supportsIndirectSurfaceCapture(nextCaptureScene.scene)
-    const transportKey = transportSupported ? signature.current + ':' + indirectSurfaceCaptureKey(nextCaptureScene.scene, gl) + ':' +
-      diffuseProbeResolution + ':' + JSON.stringify([field.bounds, field.ranges, field.volume.n,
+    const context = gl.getContext() as WebGL2RenderingContext
+    const relightingSupported = !nextCaptureScene.scene.fog &&
+      !gl.capabilities.logarithmicDepthBuffer && !gl.capabilities.reversedDepthBuffer &&
+      gl.capabilities.maxTextures >= 16 && context.getParameter(context.MAX_DRAW_BUFFERS) >= 5
+    const transportEnabled = scene.userData.indirectSurfaceCacheEnabled === true ||
+      (scene.userData.indirectSurfaceCacheEnabled !== false && relightingSupported)
+    const transportSupported = transportEnabled && supportsIndirectSurfaceCapture(nextCaptureScene.scene)
+    const dynamicSun = relightingSupported && !!indirectSurfaceSun(scene)
+    const staticLights = nextCaptureScene.scene.children.filter(object => object instanceof Light &&
+      !(dynamicSun && object.userData.houseDesignerRole === 'sun-light')).map(object => {
+      const light = object as Light
+      return [light.type, light.position.toArray(), light.color.toArray(), light.intensity,
+        'target' in light ? (light.target as { position: Vector3 }).position.toArray() : null]
+    })
+    const surfaceKey = transportSupported ? await prepareIndirectSurfaceCaptureKey(nextCaptureScene.scene, gl, cancelled) : ''
+    if (cancelled() || surfaceKey === undefined) { nextCaptureScene.dispose(); return }
+    const transportKey = transportSupported ? signature.current + ':' + surfaceKey + ':' +
+      diffuseProbeResolution + ':' + dynamicSun + ':' + JSON.stringify([field.bounds, field.ranges, field.volume.n,
         field.probes.map(probe => [probe.index, probe.region.floorId, probe.position.toArray()])]) : ''
-    if (transportKey !== surfaceCacheKey.current || scene.userData.indirectSurfaceCacheEnabled !== true) {
+    if (transportKey !== surfaceCacheKey.current || !transportEnabled) {
       surfaceCache.current?.dispose(); surfaceCache.current = null; surfaceCacheKey.current = transportKey
     }
-    // Keep experimental until the combined capture is validated on target GPUs.
     if (transportSupported) {
-      surfaceCache.current ??= createIndirectSurfaceCache(gl, field.probes.map(probe => probe.index), diffuseProbeResolution, uniforms)
+      surfaceCache.current ??= createIndirectSurfaceCache(gl, field.probes.map(probe => probe.index), diffuseProbeResolution, uniforms, relightingSupported)
+      surfaceCache.current?.setLightingKey(settingsKey + ':' + bakeTriangles.current?.uuid + ':' + JSON.stringify(staticLights))
     } else { surfaceCache.current?.dispose(); surfaceCache.current = null }
+    surfaceSunEnabled.current = dynamicSun && !!surfaceCache.current?.relighting
     surfaceScene.current?.dispose(); surfaceScene.current = null
     if (surfaceCache.current) {
-      surfaceScene.current = createIndirectCaptureScene(scene, localLights.length > 0)
-      surfaceScene.current.enableSurfaceRadianceCapture()
+      surfaceScene.current = await prepareIndirectCaptureScene(scene, localLights.length > 0, cancelled)
+      if (!surfaceScene.current || cancelled()) { nextCaptureScene.dispose(); return }
+      surfaceScene.current.enableSurfaceRadianceCapture(surfaceCache.current.relighting)
+      // Sun and lamps are evaluated by the shared relighter. The immutable
+      // capture contains sky/emissive terms and never needs recapturing for a drag.
+      if (dynamicSun && surfaceCache.current.relighting) {
+        const sun = indirectSurfaceSun(surfaceScene.current.scene)
+        if (sun) sun.intensity = 0
+      }
     }
     captureScene.current?.dispose(); captureScene.current = nextCaptureScene
     multiview.current?.dispose(); multiview.current = null; multiviewProbe.current = false
@@ -347,10 +408,13 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     const previous = baseline.current, partial = partialBake.current
     captureRevision.current = revision; captureSettingsKey.current = settingsKey
     captureModelBounds.current = modelBounds.current
-    directCoefficients.current = undefined
+    directCoefficients.current = field.coefficients.map((data, colour) => previous?.direct?.[colour]?.slice() ?? new Uint16Array(data.length))
+    bounceField.current?.dispose()
+    if (bounceField.current) ownedFields.current.delete(bounceField.current)
+    bounceField.current = createIndirectBounceField(field); ownedFields.current.add(bounceField.current)
     previewField.current = createIndirectPreviewField(field); ownedFields.current.add(previewField.current)
     previewFields.current.add(previewField.current); disposeUnusedPreviews()
-    previewUpdated.current.clear(); lastPreview.current = { completed: 0, time: -Infinity }
+    previewUpdated.current.clear(); refinedProbes.current.clear(); lastPreview.current = { completed: 0, time: -Infinity }
     capturedProbes.current.clear()
     face.current = 0
     field.coefficients.forEach(data => data.fill(0))
@@ -358,7 +422,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     if (partial) for (const probe of field.probes) {
       const before = retained.get(probe.index)
       if (before?.region.floorId !== probe.region.floorId || before.position.distanceToSquared(probe.position) >= 1e-8) continue
-      field.coefficients.forEach((data, colour) => data.set(previous!.direct![colour].subarray(probe.index * 4, probe.index * 4 + 4), probe.index * 4))
+      field.coefficients.forEach((data, colour) => data.set(previous!.final[colour].subarray(probe.index * 4, probe.index * 4 + 4), probe.index * 4))
       capturedProbes.current.add(probe.index)
     }
     const first = new Set(partial ? plan!.first : field.probes.map(probe => probe.index))
@@ -366,10 +430,13 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     updatedProbes.current = second
     const samples = field.probes.map(probe => ({ region: probe.region, position: probe.position, probe: probe.index, pass: 1 }))
       .sort((a, b) => a.position.distanceToSquared(camera.position) - b.position.distanceToSquared(camera.position))
-    queue.current = [...samples.filter(sample => first.has(sample.probe)),
-      ...samples.filter(sample => second.has(sample.probe)).map(sample => ({ ...sample, pass: 2 })),
-      ...field.regions.filter(region => !partial || plan!.reflections.includes(region.id))
-        .map(region => ({ region, position: region.centre, pass: 2, reflection: true }))]
+    queue.current = prioritizeIndirectLighting<Sample>(samples.filter(sample => first.has(sample.probe)),
+      samples.filter(sample => second.has(sample.probe)).map(sample => ({ ...sample, pass: 2 })),
+      field.regions.filter(region => !partial || plan!.reflections.includes(region.id))
+        .map(region => ({ region, position: region.centre, pass: 2, reflection: true })), !!previous?.direct && field.probes.every(probe => {
+          const before = retained.get(probe.index)
+          return before?.region.floorId === probe.region.floorId && before.position.distanceToSquared(probe.position) < 1e-8
+        }))
     field.maps.forEach(map => { map.needsUpdate = true })
     // Keep the completed display volume and reflections while replacement light
     // is captured. The worker's geometry and lamp visibility survive sun edits.
@@ -387,7 +454,9 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       captureSceneMs, captureSceneMeshes: nextCaptureScene.sourceMeshes, captureMergedMeshes: nextCaptureScene.mergedMeshes,
       captureMaterials: nextCaptureScene.materials, captureDrawCalls: 0, captureTriangles: 0,
       surfaceCacheBytes: surfaceCache.current?.layout.bytes ?? 0, surfaceCachedProbes: surfaceCache.current?.ready.size ?? 0,
-      surfaceReplayedProbes: 0, surfaceReusedFaces: 0, surfaceDataFaces: 0 }
+      surfaceReplayedProbes: 0, surfaceReusedFaces: 0, surfaceDataFaces: 0, surfaceRelitProbes: 0,
+      surfaceRelighting: surfaceCache.current?.relighting ?? false }
+    liveUpdates.current.begin(); liveSweep.current = true
     if (preparingVersion.current === version) preparing.current = false
     invalidate()
   }, [camera, disposeUnusedPreviews, invalidate, scene, uniforms, revision, settingsKey, localLights.length, gl, diffuseProbeResolution])
@@ -402,7 +471,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       if (cancelled || next === undefined) return
       if (next !== signature.current) {
         signature.current = next
-        if (loadedCacheKey.current !== cacheIdentity) scheduleUpdate()
+        if (loadedCacheKey.current !== cacheIdentity) requestSceneUpdate()
       }
       scene.userData.indirectScanPending = false
       invalidate()
@@ -410,9 +479,15 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     }
     void check()
     return () => { cancelled = true; clearTimeout(timer); scene.userData.indirectScanPending = false }
-  }, [blocked, cacheIdentity, invalidate, layoutKey, revision, scan, scene, scheduleUpdate])
+  }, [blocked, cacheIdentity, invalidate, layoutKey, revision, scan, scene, requestSceneUpdate])
 
-  useEffect(() => { scheduleUpdate() }, [layoutKey, lightKey, revision, scheduleUpdate])
+  useEffect(() => {
+    const structure = JSON.stringify([layoutKey, indirectLightingStructureKey(revision), localLights.map(light => light.position)])
+    const uniformOnly = structure === requestedStructure.current
+    requestedStructure.current = structure
+    if (uniformOnly && !sceneUpdateRequested.current && (preparedKey.current || preparing.current || queue.current.length)) requestLiveUpdate()
+    else requestSceneUpdate()
+  }, [layoutKey, lightKey, revision, localLights, requestLiveUpdate, requestSceneUpdate])
 
   useEffect(() => {
     const pause = (event: Event) => {
@@ -425,12 +500,63 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     }
   }, [gl])
 
+  const beginLiveSweep = useCallback((plan?: IndirectZonePlan) => {
+    const field = workField.current
+    const previous = baseline.current
+    generation.current++
+    captureRevision.current = revision; captureSettingsKey.current = settingsKey
+    captureModelBounds.current = modelBounds.current
+    const partial = !!plan && !!previous?.direct && plan.first.length > 0
+    partialBake.current = partial
+    field.coefficients.forEach((data, color) => {
+      if (previous) data.set(previous.final[color])
+    })
+    const first = new Set(partial ? plan.first : field.probes.map(probe => probe.index))
+    const second = new Set(partial ? plan.second : field.probes.map(probe => probe.index))
+    updatedProbes.current = second
+    const samples = field.probes.map(probe => ({ region: probe.region, position: probe.position, probe: probe.index, pass: 1 }))
+      .sort((a, b) => a.position.distanceToSquared(camera.position) - b.position.distanceToSquared(camera.position))
+    queue.current = prioritizeIndirectLighting<Sample>(samples.filter(sample => first.has(sample.probe)),
+      samples.filter(sample => second.has(sample.probe)).map(sample => ({ ...sample, pass: 2 })),
+      field.regions.filter(region => !partial || plan.reflections.includes(region.id))
+        .map(region => ({ region, position: region.centre, pass: 2, reflection: true })), !!previous?.direct)
+    face.current = 0; bakeVolumeReady.current = false
+    directCoefficients.current = field.coefficients.map((data, colour) => previous?.direct?.[colour]?.slice() ?? new Uint16Array(data.length))
+    previewUpdated.current.clear(); refinedProbes.current.clear(); lastPreview.current = { completed: 0, time: -Infinity }
+    previewField.current ??= createIndirectPreviewField(field)
+    ownedFields.current.add(previewField.current); previewFields.current.add(previewField.current)
+    Object.assign(scene.userData.indirectLighting, { generation: generation.current, state: 'refining', source: 'live',
+      completed: 0, total: queue.current.length, firstProbes: first.size, secondProbes: second.size,
+      reusedProbes: partial ? plan.reused : 0, partial, capturedFaces: 0, captureMs: 0, maxFaceMs: 0,
+      surfaceDataFaces: 0, surfaceRelitProbes: 0, surfaceReplayedProbes: 0, captureDrawCalls: 0, captureTriangles: 0,
+      previewUpdates: 0, firstPreviewMs: undefined, bakeStartedAt: performance.now() })
+    scene.userData.indirectLighting.nearDiffuseReadyMs = undefined
+    scene.userData.indirectLighting.nearReadyMs = undefined
+    loadedCacheKey.current = ''; preparing.current = false
+    invalidate()
+  }, [camera, invalidate, revision, scene, settingsKey])
+
   useFrame((state, delta) => {
     if (!state.camera.matrixWorld.equals(cameraMatrix.current)) {
       cameraMatrix.current.copy(state.camera.matrixWorld); navigationUntil.current = performance.now() + 200
       markViewportNavigation()
     }
     const moving = isViewportNavigating() || performance.now() < Math.max(navigationUntil.current, interactionUntil.current)
+    if (!sourceSun.current?.parent) sourceSun.current = indirectSurfaceSun(scene)
+    const sun = sourceSun.current
+    const sunKey = sun ? JSON.stringify([sun.position.toArray(), sun.color.toArray(), sun.intensity, sun.castShadow, sun.userData.indirectPreview]) : ''
+    if (liveSunKey.current && liveSunKey.current !== sunKey) {
+      globalLiveChange.current = true
+      requestLiveUpdate()
+      if (!preparedKey.current && !preparing.current && !pendingUpdate.current && !queue.current.length) requestSceneUpdate()
+    }
+    liveSunKey.current = sunKey
+    const atomicWorkPending = preparing.current || warming.current || reading.current || volumePending.current ||
+      reflectionPending.current || !!previewRequest.current
+    const progress = scene.userData.indirectLighting
+    const enoughProgress = !queue.current.length || (progress?.completed ?? 0) >= Math.min(4, progress?.total ?? 4)
+    if (sceneUpdateRequested.current && !atomicWorkPending && !scene.userData.indirectScanPending &&
+      enoughProgress && performance.now() - lastSceneReplacement.current >= 150) scheduleUpdate()
     // A replacement component can receive its first frame before passive
     // preparation effects initialize diagnostics (including after a roof edit).
     scene.userData.indirectLighting ??= { generation: generation.current, completed: 0, state: 'updating' }
@@ -439,18 +565,90 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       inFlight: readbacks.current.size,
       volumePending: volumePending.current, previewPending: !!previewRequest.current, pendingUpdate: pendingUpdate.current,
       floorPreparing: floorPreparing.current, floorLayerReady: displayField.current.floorLayer.ready,
+      volumeSamplingVersion: displayField.current.volumeSamplingVersion,
       displayed: uniforms.hdGIUseVolume.value === 1, xr: gl.xr.isPresenting,
       capturedProbes: capturedProbes.current.size, pass: queue.current[0]?.pass,
       reflection: queue.current[0]?.reflection ?? false, face: face.current,
       activeProbe: queue.current[0]?.probe,
       saving: saving.current, saved: !!exportedCache.current, source: loadedCacheKey.current ? 'saved' : 'baked',
       exportable: cacheExportable,
+      continuous: !!surfaceCache.current?.relighting, lightingRevision: liveUpdates.current.revision,
+      pendingLighting: liveUpdates.current.pending || sceneUpdateRequested.current,
       moving, paused: performance.now() < waitUntil.current })
     const canRestoreSaved = !cacheBlocked && !scene.userData.indirectScanPending && pendingUpdate.current &&
       cacheExportable && cacheSettings && attemptedCache.current !== cacheIdentity &&
       savedIndirectLightingMatches(savedCache, cacheProjectKey, cacheAssetKey, cacheSettings)
-    if (!enabled || (blocked && !canRestoreSaved) || moving || gl.xr.isPresenting || performance.now() < waitUntil.current) return
+    // CPU refinement reuses saved captures and can proceed while display shaders warm.
+    if (enabled && !gl.xr.isPresenting && !scene.userData.indirectScanPending && scene.userData.indirectLighting.state === 'ready' && !pendingUpdate.current && !preparing.current && !reading.current &&
+      !volumePending.current && (!displayField.current.floorLayer.ready ||
+        (displayField.current.floors.length > 1 && displayField.current.volumeSamplingVersion < INDIRECT_VOLUME_SAMPLING_VERSION)) &&
+      !floorAttempted.current.has(displayField.current)) {
+      // Upgrade old completed bakes from their existing coefficients. No probe or reflection recapture.
+      const field = displayField.current, version = generation.current
+      const refineVolume = field.floors.length > 1 && field.volumeSamplingVersion < INDIRECT_VOLUME_SAMPLING_VERSION
+      floorAttempted.current.add(field); floorPreparing.current = true; floorVersion.current = version
+      volumePending.current = true; scene.userData.indirectLighting.state = 'refining'
+      const request = { field: serializeIndirectField(field), coefficients: field.coefficients, geometry: snapshotIndirectGeometry(scene) }
+      void (refineVolume ? client.refineVolume(request) : client.floor(request).then(floor => ({ floor })))
+        .then(async data => {
+          if (version !== generation.current || displayField.current !== field) return
+          field.floorLayer.data=data.floor as typeof field.floorLayer.data
+          if ('volume' in data && 'mask' in data) {
+            field.volume.data=data.volume as typeof field.volume.data
+            ;(field.mask.image.data as Uint8Array).set(data.mask as Uint8Array);field.mask.needsUpdate=true
+            if(!await uploadDisplayVolume(field,()=>version!==generation.current))return
+            field.volumeSamplingVersion=INDIRECT_VOLUME_SAMPLING_VERSION
+          } else {
+            const previous=field.floorLayer.texture
+            const replacement=await prepareTextureReplacement(gl,previous,()=>version!==generation.current,field.floorLayer.data)
+            if(!replacement)return
+            field.floorLayer.texture=replacement;field.floorLayer.ready=true;previous.dispose()
+          }
+          updateIndirectUniforms(uniforms, field)
+          uniforms.hdGIUseVolume.value=1
+          exportedCache.current = undefined; savedGeneration.current = -1
+          scene.userData.indirectLighting.state = 'ready'
+        }).catch(error => {
+          if (version === generation.current) { scene.userData.indirectLighting.state = 'ready'; console.warn('GI floor refinement unavailable:', error) }
+        }).finally(() => {
+          if (floorVersion.current === version) floorPreparing.current = false
+          if (version === generation.current) volumePending.current = false
+          invalidate()
+        })
+      return
+    }
+    if (!enabled || (blocked && !canRestoreSaved) || gl.xr.isPresenting || performance.now() < waitUntil.current) return
+    if (liveSweep.current && !queue.current.length && !atomicWorkPending && !pendingUpdate.current) {
+      liveUpdates.current.finish(); liveSweep.current = false
+      scene.userData.indirectLighting.state = liveUpdates.current.pending ? 'updating' : 'ready'
+      baseline.current = { generation: generation.current, revision: captureRevision.current, settingsKey: captureSettingsKey.current,
+        field: workField.current, direct: directCoefficients.current, final: workField.current.coefficients.map(data => data.slice()), bounds: captureModelBounds.current }
+    }
+    if (liveUpdates.current.pending && !liveSweep.current && !pendingUpdate.current && !atomicWorkPending &&
+      !sceneUpdateRequested.current && !scene.userData.indirectScanPending) {
+      if (surfaceCache.current?.relighting && preparedKey.current && captureScene.current) {
+        // Keep the prepared worker, cached receivers, programs and textures.
+        // A newer request updates subsequent probes and schedules one more sweep.
+        liveUpdates.current.begin(); liveSweep.current = true
+        const previous = baseline.current
+        const changes = !globalLiveChange.current && previous?.direct
+          ? indirectLocalChanges(previous.revision, revision, previous.bounds, modelBounds.current) : null
+        globalLiveChange.current = false
+        if (changes && previous) {
+          const version = generation.current
+          preparing.current = true
+          void client.plan(indirectZoneProbes(previous.field), changes).then(plan => {
+            if (generation.current === version) beginLiveSweep(plan)
+          }).catch(error => {
+            if (generation.current === version) beginLiveSweep()
+            console.warn('GI live region planning unavailable:', error)
+          }).finally(() => { preparing.current = false; invalidate() })
+        } else beginLiveSweep()
+      } else requestSceneUpdate()
+      return
+    }
     if (pendingUpdate.current && !preparing.current && !reading.current && !volumePending.current) {
+      if (moving) return // Cold layout preparation may wait; prepared lighting keeps updating during navigation.
       pendingUpdate.current = false
       if (cacheExportable && cacheSettings && attemptedCache.current !== cacheIdentity &&
         savedIndirectLightingMatches(savedCache, cacheProjectKey, cacheAssetKey, cacheSettings)) {
@@ -501,6 +699,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
             rooms: restored.field.regions.length, reflections: reflections.current.size,
             completed: restored.field.probes.length * 2 + reflections.current.size, total: restored.field.probes.length * 2 + reflections.current.size,
             capturedFaces: 0, captureMs: 0, worker: false, geometryBuilds: 0, source: 'saved', saved: true }
+          liveUpdates.current.reset(); liveSweep.current = false
           if (!requireSavedCache && obstacles.current.length && restored.field.floorProbeLayoutVersion < INDIRECT_FURNITURE_PROBE_VERSION) {
             // Retain the completed display while capturing the missing underside light.
             furnitureProbeUpgrade.current = true; pendingUpdate.current = true
@@ -600,38 +799,13 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         }).finally(() => { if (preparingVersion.current === version) preparing.current = false; invalidate() })
       return
     }
-    if (scene.userData.indirectLighting.state === 'ready' && !pendingUpdate.current && !preparing.current && !reading.current &&
-      !volumePending.current && !displayField.current.floorLayer.ready && !floorAttempted.current.has(displayField.current)) {
-      // Upgrade old completed bakes from their existing coefficients. No probe or reflection recapture.
-      const field = displayField.current, version = generation.current
-      floorAttempted.current.add(field); floorPreparing.current = true; floorVersion.current = version
-      volumePending.current = true; scene.userData.indirectLighting.state = 'refining'
-      void client.floor({ field: serializeIndirectField(field), coefficients: field.coefficients, geometry: snapshotIndirectGeometry(scene) })
-        .then(async data => {
-          if (version !== generation.current || displayField.current !== field) return
-          field.floorLayer.data=data as typeof field.floorLayer.data
-          const previous=field.floorLayer.texture
-          const replacement=await prepareTextureReplacement(gl,previous,()=>version!==generation.current,field.floorLayer.data)
-          if(!replacement)return
-          field.floorLayer.texture=replacement;field.floorLayer.ready=true;previous.dispose()
-          updateIndirectUniforms(uniforms, field)
-          exportedCache.current = undefined; savedGeneration.current = -1
-          scene.userData.indirectLighting.state = 'ready'
-        }).catch(error => {
-          if (version === generation.current) { scene.userData.indirectLighting.state = 'ready'; console.warn('GI floor refinement unavailable:', error) }
-        }).finally(() => {
-          if (floorVersion.current === version) floorPreparing.current = false
-          if (version === generation.current) volumePending.current = false
-          invalidate()
-        })
-      return
-    }
     if (scene.userData.indirectLighting.state === 'ready' && !volumePending.current && !reading.current && !pendingUpdate.current &&
       baseline.current?.generation !== generation.current) {
       baseline.current = { generation: generation.current, revision: captureRevision.current, settingsKey: captureSettingsKey.current,
         field: workField.current, direct: directCoefficients.current, final: workField.current.coefficients.map(data => data.slice()), bounds: captureModelBounds.current }
     }
     if (scene.userData.indirectLighting.state === 'ready' && !volumePending.current && !reading.current && !pendingUpdate.current &&
+      !liveUpdates.current.pending && !sceneUpdateRequested.current && !sun?.userData.indirectPreview &&
       cacheExportable && cacheSettings && cacheProjectKey && savedGeneration.current !== generation.current && !saving.current) {
       const version = generation.current, field = workField.current
       savedGeneration.current = version; saving.current = true
@@ -661,6 +835,11 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         })
     }
     if (preparing.current || volumePending.current || warming.current || reflectionPending.current || pendingUpdate.current || !queue.current.length) return
+    // Superseded lighting never spends a cube capture on obsolete reflections.
+    // Diffuse work already published remains useful while the next sweep starts.
+    if (queue.current.every(sample => sample.reflection) && liveUpdates.current.changedDuringSweep) {
+      queue.current = []; scene.userData.indirectLighting.state = 'updating'; invalidate(); return
+    }
     // Bound queued GPU work, and drain every read before changing bounce input
     // or starting reflections. A readback wait need not stop the next probe.
     if (readbacks.current.size >= 1 || [...readbacks.current].some(read =>
@@ -671,7 +850,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     // Keep the navigation face budget. A partly completed multiview probe waits
     // for an idle frame; probes begun while moving retain ordinary cube capture.
     if (moving && multiviewProbe.current && face.current > 0) return
-    const deadline = performance.now() + (legacyBudget ? 3 : liveIndirectTimeBudget(delta, moving))
+    const deadline = performance.now() + (legacyBudget ? 3 : liveIndirectTimeBudget(delta, moving, !!surfaceCache.current?.relighting))
     const captureNext = () => {
       const capture = resources.diffuse.get(diffuseProbeResolution)!
       if (!capture.ready) {
@@ -708,8 +887,13 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         return
       }
       const replay = !!transport && sample.pass === 2 && transport.ready.has(sample.probe!)
+      const relight = sample.pass === 1 && !!transport?.canRelight(sample.probe!)
       const captureDirect = !!transport && sample.pass === 1
       const captureSurface = captureDirect && !transport!.ready.has(sample.probe!)
+      // Capture static radiance without local lamps. Their PBR and visibility
+      // are evaluated by one shared fullscreen shader, including the first
+      // bake, avoiding heavy per-material/local-light-count MRT variants.
+      const captureStatic = captureDirect && !relight && transport!.relighting
       let replayResult: ReturnType<NonNullable<typeof transport>['read']> | undefined
       const bakeScene = sample.reflection ? captureScene.current!.scene : captureSurface ? surfaceScene.current!.scene : batch?.scene ?? captureScene.current!.scene
       const cubeCamera = sample.reflection ? resources.reflectionCamera : capture.camera
@@ -734,6 +918,14 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       const transparent: { material: Material; opacity: number; visible: boolean; depthWrite: boolean }[] = []
       const seen = new Set<Material>()
       const lightIntensities: { light: PointLight | SpotLight; intensity: number; visible: boolean }[] = []
+      const captureSun = indirectSurfaceSun(bakeScene)
+      const capturedSunIntensity = captureSun?.intensity
+      if (captureSun && sun) {
+        captureSun.position.copy(sun.position); captureSun.color.copy(sun.color); captureSun.intensity = sun.intensity
+        captureSun.target.position.copy(sun.target.position)
+        captureSun.updateMatrixWorld(true); captureSun.target.updateMatrixWorld(true)
+        if (captureStatic && surfaceSunEnabled.current) captureSun.intensity = 0
+      }
       // Captures represent the building, rather than camera-dependent wall fades.
       if (sample.reflection) bakeScene.traverse(object => {
         if (localLights.length && (object instanceof PointLight || object instanceof SpotLight)) {
@@ -762,7 +954,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         }
       })
       const displayVolumeEnabled = uniforms.hdGIUseVolume.value
-      updateIndirectUniforms(uniforms, field)
+      updateIndirectUniforms(uniforms, sample.pass === 2 && bounceField.current ? bounceField.current : field)
       uniforms.hdGIUseVolume.value = bakeVolumeReady.current ? 1 : 0
       const captureStart = performance.now()
       try {
@@ -780,7 +972,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         }
         uniforms.hdGICapture.value = sample.pass
         roomLightCaptureUniform.value = 1
-        for (const light of activeLights) {
+        for (const light of captureStatic ? [] : activeLights) {
           bakeScene.add(light); light.updateMatrixWorld(true)
           if (light instanceof SpotLight) { bakeScene.add(light.target); light.target.updateMatrixWorld(true) }
         }
@@ -788,8 +980,8 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         // MRT background clearing must leave receiver attachments empty.
         bakeScene.background = captureSurface ? null : sky
         if (!replay) gl.setRenderTarget(captureSurface ? transport!.target : batch?.target ?? cubeTarget, batch || captureSurface ? 0 : face.current)
-        const programKey = `${sample.reflection ? 'reflection' : captureSurface ? 'surface-radiance' : 'diffuse'}:${batch ? `multiview-${batch.views}:` : ''}` + activeLights.map(light => light.type).sort().join(',')
-        if (!replay && capturePrograms.current.get(programKey)?.signature !== signature.current) {
+        const programKey = `${sample.reflection ? 'reflection' : captureSurface ? 'surface-radiance' : 'diffuse'}:${batch ? `multiview-${batch.views}:` : ''}` + (captureStatic ? [] : activeLights).map(light => light.type).sort().join(',')
+        if (!replay && !relight && capturePrograms.current.get(programKey)?.signature !== signature.current) {
           // Prepare offscreen/light-count variants with parallel shader compilation
           // before their first capture. Retain the materials so programs stay cached.
           let snapshot: ReturnType<typeof createShaderWarmupSnapshot> | undefined
@@ -832,10 +1024,17 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
           return
         }
         // Use available stationary-frame time; navigation retains its small budget.
-        // Bound GPU work as well as CPU submission: one capture draw per frame.
-        const maxFaces = legacyBudget ? faceBudget : batch?.views ?? 1
+        // Static captures omit local PBR/visibility work and can match the
+        // three-view batch's face budget while stationary. Navigation keeps
+        // one face; the existing time deadline still bounds submission.
+        const maxFaces = legacyBudget ? faceBudget : batch?.views ?? (captureStatic ? Math.min(faceBudget, 3) : 1)
         let captured = 0, dataCaptured = 0
-        if (replay) {
+        if (relight) {
+          replayResult = transport!.relight(sample.probe!, cubeCamera.position.toArray(), indirectSurfaceLights(activeLights, localLights), surfaceSunEnabled.current ? sun : undefined)
+          face.current = 6
+          scene.userData.indirectLighting.surfaceRelitProbes++
+          scene.userData.indirectLighting.surfaceReusedFaces += 6
+        } else if (replay) {
           replayResult = transport!.read(sample.probe!, 2); face.current = 6
           scene.userData.indirectLighting.surfaceReplayedProbes++
           scene.userData.indirectLighting.surfaceReusedFaces += 6
@@ -869,9 +1068,12 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         scene.userData.indirectLighting.capturedFaces += captured
         scene.userData.indirectLighting.surfaceDataFaces += dataCaptured
         lastCapture.current = performance.now()
-        if (captureDirect && face.current === 6) {
+        if (captureDirect && !relight && face.current === 6) {
+          transport!.recordLights(sample.probe!, captureStatic ? [] : indirectSurfaceLights(activeLights, localLights))
           transport!.ready.add(sample.probe!); scene.userData.indirectLighting.surfaceCachedProbes = transport!.ready.size
-          replayResult = transport!.read(sample.probe!, 1)
+          replayResult = captureStatic
+            ? transport!.relight(sample.probe!, cubeCamera.position.toArray(), indirectSurfaceLights(activeLights, localLights), surfaceSunEnabled.current ? sun : undefined)
+            : transport!.read(sample.probe!, 1)
         }
       } finally {
         uniforms.hdGICapture.value = 0
@@ -881,6 +1083,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         roomLightCaptureUniform.value = 0
         for (const light of activeLights) { bakeScene.remove(light); if (light instanceof SpotLight) bakeScene.remove(light.target) }
         lightIntensities.forEach(({ light, intensity, visible }) => { light.intensity = intensity; light.visible = visible })
+        if (captureSun && capturedSunIntensity !== undefined) captureSun.intensity = capturedSunIntensity
         bakeScene.background = background; gl.xr.enabled = xr; gl.shadowMap.autoUpdate = autoUpdate; gl.autoClear = autoClear
         gl.shadowMap.enabled = shadowsEnabled; gl.shadowMap.needsUpdate = shadowsNeedUpdate
         transparent.forEach(state => { Object.assign(state.material, { opacity: state.opacity, visible: state.visible, depthWrite: state.depthWrite }) })
@@ -905,7 +1108,9 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
             reflectionPending.current = false; reading.current = readbacks.current.size > 0
             if (generation.current === version) {
               const status = scene.userData.indirectLighting
-              status.completed++; status.reflections = reflections.current.size; status.state = queue.current.length ? 'refining' : 'ready'
+              status.completed++; status.reflections = reflections.current.size
+              status.state = queue.current.length || liveUpdates.current.changedDuringSweep ? 'refining' : 'ready'
+              if (queue.current.some(sample => sample.pass === 1)) status.nearReadyMs ??= performance.now() - status.bakeStartedAt
             }
             invalidate()
           })
@@ -922,19 +1127,24 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
           readbacks.current.delete(read); reading.current = readbacks.current.size > 0
           if (generation.current !== version || scene.userData.indirectLighting.state === 'fallback') return
           writeIndirectProbe(field, sample.probe!, sh)
+          if (sample.pass === 1) field.coefficients.forEach((data, colour) =>
+            directCoefficients.current![colour].set(data.subarray(sample.probe! * 4, sample.probe! * 4 + 4), sample.probe! * 4))
+          else refinedProbes.current.add(sample.probe!)
           capturedProbes.current.add(sample.probe!)
           previewUpdated.current.add(sample.probe!)
           const status = scene.userData.indirectLighting
           status.roomMean[sample.region.id] = sh.coefficients[0].toArray().map(value => value * .886227)
-          status.completed++; status.state = queue.current.length || readbacks.current.size ? 'refining' : 'ready'
+          status.completed++; status.state = queue.current.length || readbacks.current.size || liveUpdates.current.changedDuringSweep ? 'refining' : 'ready'
           const passComplete = readbacks.current.size === 0 &&
             (!queue.current.length || queue.current[0].pass !== sample.pass || queue.current[0].reflection)
-          if (!passComplete && !previewRequest.current &&
+          if ((!passComplete || sample.pass === 1) && !previewRequest.current &&
             shouldPublishLivePreview(status.completed, lastPreview.current.completed, performance.now(), lastPreview.current.time)) {
             const request = {}, display = previewField.current!
             previewRequest.current = request
             lastPreview.current = { completed: status.completed, time: performance.now() }
             const snapshot = indirectPreviewCoefficients(field, previewUpdated.current, sample.pass, baseline.current)
+            if (sample.pass === 1) for (const index of refinedProbes.current) if (!previewUpdated.current.has(index))
+              snapshot.coefficients.forEach((data, colour) => data.set(field.coefficients[colour].subarray(index * 4, index * 4 + 4), index * 4))
             void client.preview(snapshot.coefficients, snapshot.positions).then(async data => {
               if (generation.current !== version || previewRequest.current !== request) return
               display.volume.data=data.volume as typeof display.volume.data;display.floorLayer.data=data.floor as typeof display.floorLayer.data
@@ -950,7 +1160,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
             }).finally(() => { if (previewRequest.current === request) previewRequest.current = null; invalidate() })
           }
           if (passComplete) {
-            if (sample.pass === 1) directCoefficients.current = field.coefficients.map(data => data.slice())
+            if (sample.pass === 2) previewRequest.current = null
             if (sample.pass === 2 && partialBake.current) {
               const previous = baseline.current!
               for (const probe of field.probes) if (!updatedProbes.current.has(probe.index))
@@ -959,15 +1169,18 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
             }
             volumePending.current = true
             previewUpdated.current.clear()
-            void client.volume(field.coefficients, field.positionData).then(async data => {
+            const output = sample.pass === 1 ? bounceField.current! : field
+            void client.volume(sample.pass === 1 ? directCoefficients.current! : field.coefficients, field.positionData).then(async data => {
               if (generation.current !== version) return
-              field.volume.data=data.volume as typeof field.volume.data;field.floorLayer.data=data.floor as typeof field.floorLayer.data
-              if(!await uploadDisplayVolume(field,()=>generation.current!==version))return
+              output.volume.data=data.volume as typeof output.volume.data;output.floorLayer.data=data.floor as typeof output.floorLayer.data
+              if(!await uploadDisplayVolume(output,()=>generation.current!==version))return
               // Only full-resolution pass boundaries replace the bounce input.
               bakeVolumeReady.current = true
-              if (partialBake.current && sample.pass === 1) return
+              if (sample.pass === 1) return
               displayField.current = field
               updateIndirectUniforms(uniforms, field); uniforms.hdGIUseVolume.value = 1
+              if (queue.current.some(sample => sample.pass === 1))
+                scene.userData.indirectLighting.nearDiffuseReadyMs ??= performance.now() - scene.userData.indirectLighting.bakeStartedAt
               const liveRegions = new Set(field.regions.map(indirectRegionKey)), obsoleteReflections: { dispose(): void }[] = []
               reflections.current.forEach((reflection, key) => {
                 if (!liveRegions.has(key)) { reflections.current.delete(key); obsoleteReflections.push(reflection) }
@@ -976,7 +1189,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
               obsoleteReflections.forEach(reflection => reflection.dispose())
               // Dispose replaced layouts only after their lighting is no longer displayed.
               ownedFields.current.forEach(previous => {
-                if (previous !== field && previous !== previewField.current) {
+                if (previous !== field && previous !== previewField.current && previous !== bounceField.current) {
                   previous.dispose(); ownedFields.current.delete(previous); previewFields.current.delete(previous)
                 }
               })

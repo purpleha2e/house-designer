@@ -1,4 +1,5 @@
-import React, { StrictMode, useState } from 'react'
+import React, { startTransition, StrictMode, useState } from 'react'
+import { createLocalLightControl } from '../../src/localLightControl'
 import { createRoot } from 'react-dom/client'
 import { _roots } from '@react-three/fiber'
 import { DoubleSide, Mesh, Raycaster, Vector3 } from 'three'
@@ -93,6 +94,7 @@ const floors = showPreview && previewSource
   ? sourceFloors.map((floor, index) => index === 0 ? { ...floor, roofs: [] } : floor)
   : sourceFloors
 function RegressionScene() {
+  const [lightControl] = useState(createLocalLightControl)
   const [activeFloorId, setActiveFloorId] = useState(searchParams.has('upper-selection') ? floors[1].id : groundOnly || lightingStartup ? floors[0].id : savedProject.activeFloorId)
   const [sunPosition, setSunPosition] = useState(savedProject.sunPosition)
   const [sceneFloors, setSceneFloors] = useState(floors as unknown as FloorLevel[])
@@ -114,10 +116,16 @@ function RegressionScene() {
   })
   const selectedModel = sceneFloors.flatMap(floor => floor.models).find(model => model.id === selection)
   const selectedDefinition = selectedModel ? modelsById.get(selectedModel.modelId) : undefined
-  const updateModel = (id: string, updates: Partial<PlacedModel>) => setSceneFloors(current => current.map(floor => syncDormerWindows({
+  const commitModel = (id: string, updates: Partial<PlacedModel>) => setSceneFloors(current => current.map(floor => syncDormerWindows({
     ...floor, models: floor.models.map(model => model.id === id
       ? model.dormerAttachment ? updateDormerWindow(floor, model, updates, modelsById) : { ...model, ...updates } : model),
   }, modelsById)))
+  const updateModel = (id: string, updates: Partial<PlacedModel>) => {
+    if (typeof updates.lightEnabled === 'boolean') {
+      lightControl.setEnabled(id, updates.lightEnabled)
+      startTransition(() => commitModel(id, updates))
+    } else commitModel(id, updates)
+  }
   return <>
   {searchParams.has('roof-clipping') ? <div style={{ position: 'absolute', zIndex: 10, top: 80, left: 10 }}>
     <RoofPitchFields roof={sceneFloors[0].roofs![1]} onChange={updates => setSceneFloors(current => current.map((floor, index) => index === 0
@@ -142,6 +150,7 @@ function RegressionScene() {
     onRenameRoom={noop} onUpdateRoomCeilingMode={noop} onUpdateModel={updateModel} onUpdateWall={noop}
   /> : null}
   <ThreeDView
+  lightControl={lightControl}
   roofPlacementPreview={showPreview && previewSource ? {
     floorId: sourceFloors[0].id,
     roof: { ...previewSource, id: '__roof-placement-preview__' },

@@ -1,6 +1,7 @@
-import { DirectionalLight, Group, Light, Material, Mesh, Object3D, Scene, SpotLight, type BufferGeometry, type Texture } from 'three'
+import { DirectionalLight, Group, HemisphereLight, Light, Material, Mesh, Object3D, PointLight, Scene, SpotLight, type BufferGeometry, type Texture } from 'three'
 import { isSelectionDecoration } from './shaderWarmup.ts'
 import { cloneViewportObject } from './viewportObjectClone.ts'
+import { createViewportModelTransforms } from './viewportModelTransforms.ts'
 
 type Disposable = { dispose: () => void }
 const leases = new WeakMap<Disposable, { users: number; pending: boolean; original: () => void }>()
@@ -30,6 +31,8 @@ export function retainViewportScene(source: Scene) {
   scene.userData.retainedViewport = true
   const resources = new Set<Material | BufferGeometry | Texture>(), releases: (() => void)[] = []
   const ownedMeshes: (() => void)[] = []
+  const lightCopies: { source: Light; copy: Light }[] = []
+  const transforms = createViewportModelTransforms(source)
   const retain = (resource: Material | BufferGeometry | Texture) => {
     if (!resources.has(resource)) { resources.add(resource); releases.push(retainResource(resource)) }
   }
@@ -54,6 +57,7 @@ export function retainViewportScene(source: Scene) {
     ownedMeshes.push(copy.dispose)
     proxy.matrix.copy(object.matrixWorld); proxy.matrixWorld.copy(object.matrixWorld)
     proxy.matrixAutoUpdate = false; proxy.matrixWorldAutoUpdate = false
+    if (proxy instanceof Mesh) transforms.bind(object, proxy)
     proxy.onBeforeRender = object.onBeforeRender; proxy.onAfterRender = object.onAfterRender
     if (proxy instanceof Mesh && object instanceof Mesh) {
       retain(object.geometry)
@@ -65,6 +69,7 @@ export function retainViewportScene(source: Scene) {
       scene.add(proxy.target)
     }
     if (proxy instanceof Light && 'shadow' in proxy && 'shadow' in object) proxy.shadow = object.shadow
+    if (proxy instanceof Light && object instanceof Light) lightCopies.push({ source: object, copy: proxy })
     let ancestor=object.parent
     while(ancestor&&!(ancestor instanceof Group))ancestor=ancestor.parent
     const order=ancestor?.renderOrder??0
@@ -76,7 +81,40 @@ export function retainViewportScene(source: Scene) {
   })
   scene.updateMatrixWorld(true); scene.matrixWorldAutoUpdate = false
   let disposed = false
-  return { scene, dispose() {
+  return { scene, syncTransforms: transforms.sync,
+    // Freeze geometry and program features, while keeping light uniforms live.
+    // The retained display must acknowledge a switch before GI/shaders finish.
+    syncLighting() {
+      let changed = false
+      for (const { source, copy } of lightCopies) {
+        source.updateWorldMatrix(true, false)
+        let visible = source.visible && !!source.parent
+        for (let parent = source.parent; visible && parent; parent = parent.parent) visible = parent.visible
+        const intensity = visible ? source.intensity : 0
+        changed ||= copy.intensity !== intensity || !copy.color.equals(source.color) || !copy.matrixWorld.equals(source.matrixWorld)
+        copy.intensity = intensity; copy.color.copy(source.color)
+        copy.matrix.copy(source.matrixWorld); copy.matrixWorld.copy(source.matrixWorld)
+        if (copy instanceof HemisphereLight && source instanceof HemisphereLight) {
+          changed ||= !copy.groundColor.equals(source.groundColor); copy.groundColor.copy(source.groundColor)
+        }
+        if ((copy instanceof PointLight || copy instanceof SpotLight) && (source instanceof PointLight || source instanceof SpotLight)) {
+          changed ||= copy.distance !== source.distance || copy.decay !== source.decay
+          copy.distance = source.distance; copy.decay = source.decay
+        }
+        if (copy instanceof SpotLight && source instanceof SpotLight) {
+          changed ||= copy.angle !== source.angle || copy.penumbra !== source.penumbra
+          copy.angle = source.angle; copy.penumbra = source.penumbra
+        }
+        if ((copy instanceof DirectionalLight || copy instanceof SpotLight) && (source instanceof DirectionalLight || source instanceof SpotLight)) {
+          source.target.updateWorldMatrix(true, false)
+          const target = source.target.matrixWorld.elements
+          changed ||= copy.target.position.x !== target[12] || copy.target.position.y !== target[13] || copy.target.position.z !== target[14]
+          copy.target.position.setFromMatrixPosition(source.target.matrixWorld); copy.target.updateMatrixWorld(true)
+        }
+      }
+      return changed
+    },
+    dispose() {
     if (disposed) return
     disposed = true
     ownedMeshes.forEach(dispose => dispose())

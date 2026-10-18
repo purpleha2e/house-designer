@@ -1,4 +1,5 @@
 import type { WindowDesign } from '../windowDesign'
+import type { StairDesign } from '../stairDesign'
 
 export type ModelObjectType =
   | 'appliance'
@@ -48,6 +49,9 @@ export const stairMaterialRegions: ModelMaterialRegion[] = [
 
 export type ModelDefinition = {
   windowDesign?: WindowDesign
+  stairDesign?: StairDesign
+  stairFootprint?: { x: number; y: number }[][]
+  stairLandingDirections?: { lower: { x: number; y: number }; upper: { x: number; y: number } }
   id: string
   name: string
   category: string

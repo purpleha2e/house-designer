@@ -9,5 +9,6 @@ import '../../src/index.css'
 Object.assign(window, {
   roofCreateStage: () => Konva.stages[0],
   roofCreateScene: () => [..._roots.values()][0]?.store.getState().scene,
+  roofCreateStates: () => [..._roots.values()].map(root => root.store.getState()),
 })
 createRoot(document.getElementById('root')!).render(<App />)

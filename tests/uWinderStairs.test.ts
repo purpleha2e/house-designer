@@ -72,3 +72,11 @@ test('tour buttons ascend on the right and descend on the left of a U stair', ()
   assert.deepEqual(down.from, up.to)
   assert.deepEqual(down.to, up.from)
 })
+
+test('L-stair navigation insets follow the upper flight instead of the old Z-only assumption', () => {
+  const def = { ...definition, stairLandingDirections: { lower: { x: 0, y: 1 }, upper: { x: -1, y: 0 } } }
+  const placed = { ...model, position: { x: 10, y: 20 }, rotation: Math.PI / 2, mirrored: true, widthScale: 2, depthScale: .5 }
+  const edge = getStairLandingPosition(placed, def, 'upper')
+  const inset = getStairLandingPosition(placed, def, 'upper', .2)
+  close(inset.x, edge.x); close(inset.y, edge.y + .2)
+})

@@ -1,4 +1,5 @@
 import type { FloorLevel, Point } from './types.ts'
+import { fitStairOpeningFootprints } from './stairOpeningFit.ts'
 import type {
   ModelDefinition,
   ModelHorizontalBounds,
@@ -65,11 +66,12 @@ export function getModelHorizontalBounds(
 
 export function getStairSlabOpenings(
   lowerFloor: FloorLevel,
-  _upperFloor: FloorLevel | null,
+  upperFloor: FloorLevel | null,
   floors: FloorLevel[],
   modelDefinitions: ReadonlyMap<string, ModelDefinition>,
 ) {
   const slabBottom = lowerFloor.elevation + lowerFloor.roomHeight
+  const borderingWalls = [...lowerFloor.walls, ...(upperFloor?.walls ?? [])]
 
   return floors.flatMap((modelFloor) => {
     if (modelFloor.elevation > lowerFloor.elevation + 0.0001) {
@@ -96,8 +98,15 @@ export function getStairSlabOpenings(
         return []
       }
 
-      return [
-        getStairOpeningPolygon(
+      if (definition.stairFootprint?.length) {
+        const cosine = Math.cos(model.rotation), sine = Math.sin(model.rotation)
+        return definition.stairFootprint.flatMap(polygon => fitStairOpeningFootprints(polygon.map(point => {
+          const x = point.x * scale * widthScale * (model.mirrored ? -1 : 1), z = point.y * scale * depthScale
+          return { x: model.position.x + x * cosine - z * sine, y: model.position.y + x * sine + z * cosine }
+        }), borderingWalls))
+      }
+
+      return fitStairOpeningFootprints(getStairOpeningPolygon(
           model.position,
           model.rotation,
           definition.width,
@@ -107,8 +116,7 @@ export function getStairSlabOpenings(
           widthScale,
           depthScale,
           model.mirrored === true,
-        ),
-      ]
+        ), borderingWalls)
     })
   })
 }

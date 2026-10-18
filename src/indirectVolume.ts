@@ -4,6 +4,7 @@ import type { IndirectVisibility } from './indirectVisibility.ts'
 
 export const INDIRECT_VOLUME_HEIGHT = 12
 export const INDIRECT_VOLUME_STRIDE = INDIRECT_VOLUME_HEIGHT + 2
+export const INDIRECT_VOLUME_SAMPLING_VERSION = 1
 
 /** Four coefficient slabs share one texture; L0 alpha stores valid-sample coverage. */
 export function createIndirectVolume(size: number, floors: number, spacing = .16, limit = 128) {
@@ -28,7 +29,7 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
   const bins = new Map<string, typeof field.probes>()
   for (const original of field.probes) {
     const probe = { ...original, position: new Vector3().fromArray(field.positionData, original.index * 4) }
-    const key = `${probe.region.floorId}:${Math.floor(probe.position.x / field.spacing)}:${Math.floor(probe.position.z / field.spacing)}`
+    const key = `${Math.floor(probe.position.x / field.spacing)}:${Math.floor(probe.position.z / field.spacing)}`
     const bin = bins.get(key) ?? []; bin.push(probe); bins.set(key, bin)
   }
   const offsets = new Uint32Array(voxels).fill(0xffffffff), counts = new Uint16Array(voxels)
@@ -37,16 +38,16 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
   const neighbourhoods = new Map<string, typeof field.probes>()
   const radiusSquared = (field.spacing * 1.75) ** 2, rayOrigin = new Vector3(), rayDirection = new Vector3()
   let decoded: Float32Array[] | null = null
-  const sample = (floor: number, x: number, y: number, z: number, voxel: number, result: Float64Array, visibilityOnly = false) => {
+  const sample = (_floor: number, x: number, y: number, z: number, voxel: number, result: Float64Array, visibilityOnly = false) => {
     if (offsets[voxel] === 0xffffffff) {
       offsets[voxel] = used
       const bx = Math.floor(x / field.spacing), bz = Math.floor(z / field.spacing)
-      const key = `${floor}:${bx}:${bz}`
+      const key = `${bx}:${bz}`
       let candidates = neighbourhoods.get(key)
       if (!candidates) {
         candidates = []
         for (let iz = bz - 2; iz <= bz + 2; iz++) for (let ix = bx - 2; ix <= bx + 2; ix++) {
-          candidates.push(...(bins.get(`${field.floors[floor].id}:${ix}:${iz}`) ?? []))
+          candidates.push(...(bins.get(`${ix}:${iz}`) ?? []))
         }
         neighbourhoods.set(key, candidates)
       }
@@ -96,13 +97,14 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
 }
 
 /** Exact segments are affordable during the bake and avoid angular moment-map wedges. */
-export function sampleIndirectCoefficients(field: IndirectField, floor: number, x: number, y: number, z: number,
+export function sampleIndirectCoefficients(field: IndirectField, _floor: number, x: number, y: number, z: number,
   result: Float64Array, visibility: IndirectVisibility) {
   result.fill(0)
   const radiusSquared = (field.spacing * 1.75) ** 2
   let total = 0
   for (const probe of field.probes) {
-    if (probe.region.floorId !== field.floors[floor].id) continue
+    // Storey labels are not occluders. Exact visibility below blocks solid
+    // slabs while permitting neighbouring probes through an open stairwell.
     const index = probe.index, offset = index * 4
     if (field.positionData[offset + 3] < .5) continue
     origin.fromArray(field.positionData, offset)

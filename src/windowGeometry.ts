@@ -18,6 +18,10 @@ export function createWindowGeometry(design: WindowDesign) {
     const mesh = new Mesh(new BoxGeometry(Math.max(w, 0.001), Math.max(h, 0.001), depth), material)
     mesh.name = name
     mesh.position.set(x + w / 2 - design.width / 2, design.height - y - h / 2, z)
+    // Frames must test building shadows rather than receiving sun through walls.
+    // Transparent panes must not turn the window opening into an opaque shadow.
+    mesh.receiveShadow = true
+    mesh.castShadow = material !== glass
     group.add(mesh)
   }
   const f = design.frame, z = design.depth / 2

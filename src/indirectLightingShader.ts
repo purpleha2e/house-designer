@@ -84,7 +84,7 @@ float hdGIFloor(vec3 p) {
     vec2 range = hdGIFloorRanges[floorIndex];
     if (p.y >= range.x && p.y < range.y) {
       // Occupancy distinguishes inside from outside, never one room from another.
-      vec3 mask = texture2D(hdGIMask, vec2(uv.x, (uv.y + float(floorIndex)) / hdGIMaskSize.y)).rgb;
+      vec3 mask = textureLod(hdGIMask, vec2(uv.x, (uv.y + float(floorIndex)) / hdGIMaskSize.y), 0.0).rgb;
       float ceiling = mix(range.x, range.y, dot(mask.gb, vec2(65280.0, 255.0)) / 65535.0);
       return mask.r > .5 && p.y <= ceiling ? float(floorIndex) : -1.0;
     }
@@ -142,30 +142,12 @@ float hdGIReceiver(vec3 worldPosition, vec3 offset, vec3 surfaceNormal, float fl
 }
 `
 
-export const indirectLightingShaderDeclarations = /* glsl */ `
-${indirectReceiverShaderDeclarations}
-uniform float hdGIEnabled;
-uniform float hdGICapture;
-uniform float hdGIIndoorFill;
-uniform float hdGIProbeStrength;
-uniform float hdGILocalReflection;
+export const indirectVisibilityShaderDeclarations = /* glsl */ `
 uniform sampler2D hdGIPositions;
 uniform sampler2D hdGIDistances;
 uniform vec3 hdGIDistanceLayout;
 uniform sampler2D hdGITriangles;
 uniform vec2 hdGITriangleSize;
-uniform float hdGIPointIndices[11];
-uniform float hdGISpotIndices[11];
-uniform float hdGIUseVolume;
-uniform sampler3D hdGIVolume;
-uniform sampler3D hdGIFloorLayer;
-uniform vec2 hdGIFloorLayerSize;
-uniform float hdGIFloorLayerReady;
-uniform sampler2D hdGIRed;
-uniform sampler2D hdGIGreen;
-uniform sampler2D hdGIBlue;
-uniform vec4 hdGIGrids[${INDIRECT_MAX_FLOORS}];
-uniform vec4 hdGIGrid;
 
 vec2 hdGIOctUV(vec3 direction) {
   vec3 n = direction / max(abs(direction.x) + abs(direction.y) + abs(direction.z), .0001);
@@ -224,25 +206,26 @@ float hdGIPrimitiveBlocks(float id, vec3 origin, vec3 direction, float distanceT
   return hdGITriangleBlocks(offset + 4.0, origin, direction, distanceToReceiver);
 }
 
-float hdGIVisibility(float index, vec3 p, out vec3 probePosition) {
+float hdGIVisibilityFrom(sampler2D positions, sampler2D distances, vec3 distanceLayout,
+    float index, vec3 p, out vec3 probePosition) {
   vec2 tile = vec2(mod(index, ${INDIRECT_ATLAS_SIZE}.0), floor(index / ${INDIRECT_ATLAS_SIZE}.0));
-  vec4 probe = texture2D(hdGIPositions, (tile + .5) / ${INDIRECT_ATLAS_SIZE}.0);
+  vec4 probe = texture2D(positions, (tile + .5) / ${INDIRECT_ATLAS_SIZE}.0);
   probePosition = probe.xyz;
   if (probe.w < .5) return -1.0;
   float lightIndex = index - ${INDIRECT_ATLAS_SIZE ** 2 - INDIRECT_MAX_LOCAL_LIGHTS}.0;
-  if (lightIndex < 0.0 || lightIndex >= hdGIDistanceLayout.x * hdGIDistanceLayout.y) return -1.0;
-  vec2 lightTile = vec2(mod(lightIndex, hdGIDistanceLayout.x), floor(lightIndex / hdGIDistanceLayout.x));
+  if (lightIndex < 0.0 || lightIndex >= distanceLayout.x * distanceLayout.y) return -1.0;
+  vec2 lightTile = vec2(mod(lightIndex, distanceLayout.x), floor(lightIndex / distanceLayout.x));
   vec3 direction = p - probe.xyz;
   float distanceToProbe = length(direction);
   if (distanceToProbe < .001) return 1.0;
-  float size = hdGIDistanceLayout.z;
+  float size = distanceLayout.z;
   vec2 pixel = clamp(hdGIOctUV(direction) * size - .5, vec2(0.0), vec2(size - 1.0));
   vec2 base = floor(pixel);
   vec4 candidates = vec4(0.0);
   for (int corner = 0; corner < 4; corner++) {
     vec2 c = vec2(float(corner - (corner / 2) * 2), float(corner / 2));
     vec2 sampleUV = (min(base + c, vec2(size - 1.0)) + .5) / size;
-    candidates[corner] = texture2D(hdGIDistances, (lightTile + sampleUV) / hdGIDistanceLayout.xy).r;
+    candidates[corner] = texture2D(distances, (lightTile + sampleUV) / distanceLayout.xy).r;
   }
   for (int corner = 0; corner < 4; corner++) {
     float id = candidates[corner];
@@ -253,7 +236,117 @@ float hdGIVisibility(float index, vec3 p, out vec3 probePosition) {
   return 1.0;
 }
 
+float hdGIVisibility(float index, vec3 p, out vec3 probePosition) {
+  return hdGIVisibilityFrom(hdGIPositions, hdGIDistances, hdGIDistanceLayout, index, p, probePosition);
+}
+
 #endif
+
+`
+
+export const indirectVolumeShaderFunction = /* glsl */ `
+#ifndef HD_GI_DIRECT_CAPTURE
+vec3 hdGIVolumeSample(float floorIndex, vec3 p, vec3 n, float floorReceiver, out vec3 meanLight, out float support) {
+  meanLight = vec3(0.0);
+  support = 0.0;
+  if (hdGIUseVolume < .5) return vec3(0.0);
+  vec2 range = hdGIFloorRanges[int(floorIndex)];
+  vec2 plan = clamp((p.xz - hdGIBounds.xy) / hdGIBounds.z, vec2(0.0), vec2(1.0));
+  vec2 volumePlan = (plan * (hdGIVolumeSize.x - 1.0) + .5) / hdGIVolumeSize.x;
+  float height = clamp((p.y - range.x) / (range.y - range.x), 0.0, 1.0);
+  vec3 uv = vec3(volumePlan.x, (floorIndex * ${INDIRECT_VOLUME_STRIDE}.0 + 1.5 + height * ${INDIRECT_VOLUME_HEIGHT - 1}.0) / hdGIVolumeSize.y, volumePlan.y);
+  uv.y *= .25;
+  vec4 c0; vec3 c1, c2, c3;
+  if (floorReceiver > .5) {
+    vec2 floorPlan = (plan * (hdGIFloorLayerSize.x - 1.0) + .5) / hdGIFloorLayerSize.x;
+    vec3 floorUV = vec3(floorPlan.x, (floorIndex + .5) / (hdGIFloorLayerSize.y * 4.0), floorPlan.y);
+    c0 = textureLod(hdGIFloorLayer, floorUV, 0.0);
+    c1 = textureLod(hdGIFloorLayer, floorUV + vec3(0.0, .25, 0.0), 0.0).rgb;
+    c2 = textureLod(hdGIFloorLayer, floorUV + vec3(0.0, .5, 0.0), 0.0).rgb;
+    c3 = textureLod(hdGIFloorLayer, floorUV + vec3(0.0, .75, 0.0), 0.0).rgb;
+  } else {
+    c0 = textureLod(hdGIVolume, uv, 0.0);
+    c1 = textureLod(hdGIVolume, uv + vec3(0.0, .25, 0.0), 0.0).rgb;
+    c2 = textureLod(hdGIVolume, uv + vec3(0.0, .5, 0.0), 0.0).rgb;
+    c3 = textureLod(hdGIVolume, uv + vec3(0.0, .75, 0.0), 0.0).rgb;
+  }
+  // Missing support inside a solid is not black illumination. Renormalize the
+  // hardware filter, while retaining genuinely dark but valid samples.
+  float coverage = max(c0.a, .00001);
+  support = c0.a;
+  meanLight = c0.rgb * (.886227 / coverage);
+  vec4 basis = vec4(.886227, 1.023328 * n.y, 1.023328 * n.z, 1.023328 * n.x);
+  return max((c0.rgb * basis.x + c1 * basis.y + c2 * basis.z + c3 * basis.w) / coverage, vec3(0.0));
+}
+
+vec3 hdGIVolumeIrradiance(float floorIndex, vec3 p, vec3 n, float floorReceiver, out vec3 meanLight) {
+  float support;
+  vec3 light = hdGIVolumeSample(floorIndex, p, n, floorReceiver, meanLight, support);
+  if (floorReceiver > .5 || hdGIFloorCount < 2) return light;
+  // Independent storey volumes meet in open air above a stairwell. Blend that
+  // join, using the cached ceiling occupancy to exclude solid slabs and walls.
+  vec2 plan = (p.xz - hdGIBounds.xy) / hdGIBounds.z;
+  for (int lower = 0; lower < ${INDIRECT_MAX_FLOORS - 1}; lower++) {
+    if (lower + 1 >= hdGIFloorCount) break;
+    if (abs(floorIndex - float(lower)) > .1 && abs(floorIndex - float(lower + 1)) > .1) continue;
+    float boundary = hdGIFloorRanges[lower + 1].x + .06;
+    float width = min(.3, (hdGIFloorRanges[lower].y - hdGIFloorRanges[lower].x) / ${INDIRECT_VOLUME_HEIGHT - 1}.0);
+    if (abs(p.y - boundary) >= width) continue;
+    vec3 below = textureLod(hdGIMask, vec2(plan.x, (plan.y + float(lower)) / hdGIMaskSize.y), 0.0).rgb;
+    vec3 above = textureLod(hdGIMask, vec2(plan.x, (plan.y + float(lower + 1)) / hdGIMaskSize.y), 0.0).rgb;
+    float ceiling = mix(hdGIFloorRanges[lower].x, hdGIFloorRanges[lower].y, dot(below.gb, vec2(65280.0, 255.0)) / 65535.0);
+    if (below.r < .5 || above.r < .5 || ceiling < boundary - .025) continue;
+    float otherIndex = floorIndex < float(lower) + .5 ? float(lower + 1) : float(lower);
+    vec3 otherMean; float otherSupport;
+    vec3 other = hdGIVolumeSample(otherIndex, p, n, 0.0, otherMean, otherSupport);
+    if (otherSupport < .00001) continue;
+    if (support < .00001) { meanLight = otherMean; return other; }
+    float weight = smoothstep(boundary - width, boundary + width, p.y);
+    if (floorIndex > float(lower) + .5) weight = 1.0 - weight;
+    meanLight = mix(meanLight, otherMean, weight);
+    return mix(light, other, weight);
+  }
+  return light;
+}
+#endif
+`
+
+/** Fullscreen replay needs volume sampling without geometry varyings. */
+export const indirectVolumeShaderDeclarations = /* glsl */ `
+uniform float hdGIUseVolume;
+uniform sampler2D hdGIMask;
+uniform vec4 hdGIMaskSize;
+uniform int hdGIFloorCount;
+uniform sampler3D hdGIVolume;
+uniform sampler3D hdGIFloorLayer;
+uniform vec2 hdGIFloorLayerSize;
+uniform float hdGIFloorLayerReady;
+uniform vec2 hdGIVolumeSize;
+uniform vec3 hdGIBounds;
+uniform vec2 hdGIFloorRanges[${INDIRECT_MAX_FLOORS}];
+${indirectVolumeShaderFunction}
+`
+
+export const indirectLightingShaderDeclarations = /* glsl */ `
+${indirectReceiverShaderDeclarations}
+${indirectVisibilityShaderDeclarations}
+uniform float hdGIEnabled;
+uniform float hdGICapture;
+uniform float hdGIIndoorFill;
+uniform float hdGIProbeStrength;
+uniform float hdGILocalReflection;
+uniform float hdGIPointIndices[11];
+uniform float hdGISpotIndices[11];
+uniform float hdGIUseVolume;
+uniform sampler3D hdGIVolume;
+uniform sampler3D hdGIFloorLayer;
+uniform vec2 hdGIFloorLayerSize;
+uniform float hdGIFloorLayerReady;
+uniform sampler2D hdGIRed;
+uniform sampler2D hdGIGreen;
+uniform sampler2D hdGIBlue;
+uniform vec4 hdGIGrids[${INDIRECT_MAX_FLOORS}];
+uniform vec4 hdGIGrid;
 
 float hdGIDirectVisibility(vec3 p, vec3 viewNormal, float index) {
   #ifdef HD_GI_CAPTURE_VISIBILITY
@@ -268,38 +361,7 @@ float hdGIDirectVisibility(vec3 p, vec3 viewNormal, float index) {
   #endif
 }
 
-#ifndef HD_GI_DIRECT_CAPTURE
-vec3 hdGIVolumeIrradiance(float floorIndex, vec3 p, vec3 n, float floorReceiver, out vec3 meanLight) {
-  meanLight = vec3(0.0);
-  if (hdGIUseVolume < .5) return vec3(0.0);
-  vec2 range = hdGIFloorRanges[int(floorIndex)];
-  vec2 plan = clamp((p.xz - hdGIBounds.xy) / hdGIBounds.z, vec2(0.0), vec2(1.0));
-  vec2 volumePlan = (plan * (hdGIVolumeSize.x - 1.0) + .5) / hdGIVolumeSize.x;
-  float height = clamp((p.y - range.x) / (range.y - range.x), 0.0, 1.0);
-  vec3 uv = vec3(volumePlan.x, (floorIndex * ${INDIRECT_VOLUME_STRIDE}.0 + 1.5 + height * ${INDIRECT_VOLUME_HEIGHT - 1}.0) / hdGIVolumeSize.y, volumePlan.y);
-  uv.y *= .25;
-  vec4 c0; vec3 c1, c2, c3;
-  if (floorReceiver > .5) {
-    vec2 floorPlan = (plan * (hdGIFloorLayerSize.x - 1.0) + .5) / hdGIFloorLayerSize.x;
-    vec3 floorUV = vec3(floorPlan.x, (floorIndex + .5) / (hdGIFloorLayerSize.y * 4.0), floorPlan.y);
-    c0 = texture(hdGIFloorLayer, floorUV);
-    c1 = texture(hdGIFloorLayer, floorUV + vec3(0.0, .25, 0.0)).rgb;
-    c2 = texture(hdGIFloorLayer, floorUV + vec3(0.0, .5, 0.0)).rgb;
-    c3 = texture(hdGIFloorLayer, floorUV + vec3(0.0, .75, 0.0)).rgb;
-  } else {
-    c0 = texture(hdGIVolume, uv);
-    c1 = texture(hdGIVolume, uv + vec3(0.0, .25, 0.0)).rgb;
-    c2 = texture(hdGIVolume, uv + vec3(0.0, .5, 0.0)).rgb;
-    c3 = texture(hdGIVolume, uv + vec3(0.0, .75, 0.0)).rgb;
-  }
-  // Missing support inside a solid is not black illumination. Renormalize the
-  // hardware filter, while retaining genuinely dark but valid samples.
-  float coverage = max(c0.a, .00001);
-  meanLight = c0.rgb * (.886227 / coverage);
-  vec4 basis = vec4(.886227, 1.023328 * n.y, 1.023328 * n.z, 1.023328 * n.x);
-  return max((c0.rgb * basis.x + c1 * basis.y + c2 * basis.z + c3 * basis.w) / coverage, vec3(0.0));
-}
-#endif
+${indirectVolumeShaderFunction}
 
 `
 
@@ -405,7 +467,7 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
     const marker = /:house-designer-indirect-grid-l1-v\d+-(capture|display)/g
     // Clones inherit this hook even when another controller follows it.
     // Preserve its position in the key so both materials reuse one program.
-    const suffix = ':house-designer-indirect-grid-l1-v20-display'
+    const suffix = ':house-designer-indirect-grid-l1-v23-display'
     return original.match(marker) ? original.replace(marker, suffix) : original + suffix
   }
   material.onBeforeCompile = hook; material.customProgramCacheKey = key; material.needsUpdate = true

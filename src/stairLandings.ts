@@ -26,6 +26,14 @@ export function getStairLandingPosition(
     point = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
   }
   if (!inset) return point
+  const explicitDirection = definition.stairLandingDirections?.[landing]
+  if (explicitDirection) {
+    const x = explicitDirection.x * widthScale * (model.mirrored ? -1 : 1), z = explicitDirection.y * depthScale
+    const direction = { x: x * Math.cos(model.rotation) - z * Math.sin(model.rotation),
+      y: x * Math.sin(model.rotation) + z * Math.cos(model.rotation) }
+    const length = Math.hypot(direction.x, direction.y) || 1
+    return { x: point.x + inset * direction.x / length, y: point.y + inset * direction.y / length }
+  }
   const center = polygon.reduce((sum, p) => ({ x: sum.x + p.x / 4, y: sum.y + p.y / 4 }), { x: 0, y: 0 })
   // Returning stairs land on the same edge. Keep the inset on that flight
   // rather than steering a landing button toward the central well.

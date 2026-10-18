@@ -1,11 +1,12 @@
 import { prepareIndirectCache, prepareIndirectCacheSteps } from './indirectLightingCache.ts'
-import { restoreIndirectField, type IndirectFloor, type IndirectFieldData } from './indirectLighting.ts'
+import { restoreIndirectField, INDIRECT_MASK_SIZE, type IndirectFloor, type IndirectFieldData } from './indirectLighting.ts'
 import { createIndirectVisibilityFromSnapshot, type IndirectGeometrySnapshot } from './indirectVisibility.ts'
 import { createIndirectFloorLookup, writeIndirectFloorLayer } from './indirectFloorLighting.ts'
 import type { IndirectZoneChange, IndirectZoneProbe } from './indirectLightingZones.ts'
 import { applyIndirectLampRows } from './indirectLampPreparation.ts'
 import { Vector3 } from 'three'
 import { writeIndirectVisibility } from './indirectVisibility.ts'
+import { createIndirectVolumeLookup, writeIndirectCeilingRow, writeIndirectVolumeRow } from './indirectVolume.ts'
 
 export type IndirectWorkerRequest = { id: number } & (
   { kind: 'prepare'; floors: IndirectFloor[]; lights: [number, number, number][]; geometry: IndirectGeometrySnapshot; obstacles: { min: number[]; max: number[] }[];
@@ -14,7 +15,7 @@ export type IndirectWorkerRequest = { id: number } & (
   { kind: 'volume' | 'preview'; coefficients: Uint16Array[]; positions: Float32Array } |
   { kind: 'plan'; previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } |
   { kind: 'lights'; positions: [number, number, number][]; zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } } |
-  { kind: 'floor'; field: IndirectFieldData; coefficients: Uint16Array[]; geometry: IndirectGeometrySnapshot })
+  { kind: 'floor'; field: IndirectFieldData; coefficients: Uint16Array[]; geometry: IndirectGeometrySnapshot; refineVolume?: boolean })
 let cache: ReturnType<typeof prepareIndirectCache> | null = null
 let lampPending: { id: number; resolve: (data?: Float32Array) => void } | undefined
 let warmVersion = 0
@@ -75,10 +76,22 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
       const field = restoreIndirectField(request.field), visibility = createIndirectVisibilityFromSnapshot(request.geometry)
       try {
         request.coefficients.forEach((data, i) => field.coefficients[i].set(data))
+        if (request.refineVolume) {
+          const structure = createIndirectVisibilityFromSnapshot(request.geometry.filter(part => part.structural))
+          try {
+            for (let row = 0; row < field.floors.length * INDIRECT_MASK_SIZE; row++) writeIndirectCeilingRow(field, row, structure)
+          } finally { structure.dispose() }
+          const volumeLookup = createIndirectVolumeLookup(field, visibility), result = new Float64Array(12)
+          volumeLookup.refreshCoefficients()
+          for (let row = 0; row < field.volume.rows; row++) writeIndirectVolumeRow(field, row, result, visibility, volumeLookup)
+        }
         const lookup = createIndirectFloorLookup(field, visibility)
         lookup.refreshCoefficients(); writeIndirectFloorLayer(field, visibility, lookup)
         const data = field.floorLayer.data
-        self.postMessage({ id: request.id, ok: true, value: data }, { transfer: [data.buffer] })
+        if (request.refineVolume) {
+          const volume = field.volume.data, mask = field.mask.image.data as Uint8Array
+          self.postMessage({ id: request.id, ok: true, value: { floor: data, volume, mask } }, { transfer: [data.buffer, volume.buffer, mask.buffer] })
+        } else self.postMessage({ id: request.id, ok: true, value: data }, { transfer: [data.buffer] })
       } finally { field.dispose(); visibility.dispose() }
     } else {
       if (!cache) throw new Error('GI geometry has not been prepared')

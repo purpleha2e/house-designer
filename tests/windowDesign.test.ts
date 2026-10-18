@@ -100,6 +100,25 @@ test('generated glass, frames, sashes and handles have physical dimensions after
     disposeWindowGeometry(group)
   }
 })
+test('window frames, sashes and handles receive building shadows without glass blocking daylight', () => {
+  const group = createWindowGeometry(topLights())
+  try {
+    let glass = 0, opaque = 0
+    group.traverse(object => {
+      if (!(object instanceof Mesh)) return
+      assert.equal(object.receiveShadow, true, `${object.name} receives building shadows`)
+      const isGlass = object.name.startsWith('glass-')
+      assert.equal(object.castShadow, !isGlass, `${object.name} casts only opaque shadows`)
+      if (isGlass) glass++
+      else opaque++
+    })
+    assert.equal(glass, 4)
+    assert.ok(opaque > 4, 'includes dividers, opening sashes and handles')
+  } finally {
+    disposeWindowGeometry(group)
+  }
+})
+
 test('changing a shared variety updates all wall cuts while other varieties retain their size', () => {
   const definition: ModelDefinition={id:'custom-window-test',name:'Test',category:'My windows',shape:'box',wallMount:'window',
     width:1.2,height:1.2,depth:.08,color:'#ffffff',windowDesign:topLights()}

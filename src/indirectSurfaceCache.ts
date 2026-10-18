@@ -1,20 +1,24 @@
-import { Color, DataUtils, FloatType, HalfFloatType, LinearSRGBColorSpace, Material, Mesh, MeshStandardMaterial, NearestFilter,
+import { Color, DataUtils, DepthTexture, FloatType, HalfFloatType, LinearSRGBColorSpace, Material, Mesh, MeshStandardMaterial, NearestFilter,
   OrthographicCamera, PlaneGeometry, RGBAFormat, Scene, ShaderLib, ShaderMaterial, SphericalHarmonics3, Texture, Vector2,
   WebGLCubeRenderTarget, WebGLRenderTarget, type BufferAttribute, type InterleavedBufferAttribute, type Object3D, type WebGLRenderer } from 'three'
-import { indirectLightingShaderDeclarations, indirectReceiverShaderDeclarations, type IndirectUniforms } from './indirectLightingShader.ts'
+import { indirectLightingShaderDeclarations, indirectReceiverShaderDeclarations, indirectVolumeShaderDeclarations, type IndirectUniforms } from './indirectLightingShader.ts'
 import { createIndirectProbeIntegrator } from './indirectProbeIntegration.ts'
+import { createIndirectSurfaceRelighting, type SurfaceLight } from './indirectSurfaceRelighting.ts'
+import { runViewportTask } from './viewportScheduling.ts'
 
 const CACHE_BUDGET = 64 * 1024 * 1024
 const BYTES_PER_PIXEL = 8 + 8 + 16 + 16 + 8 + 4 // direct atlas, captured radiance, receiver, normal, response and depth
 
 const attributeKeys = new WeakMap<BufferAttribute | InterleavedBufferAttribute, { version: number; key: string }>()
-function attributeKey(attribute: BufferAttribute | InterleavedBufferAttribute) {
+function* attributeKey(attribute: BufferAttribute | InterleavedBufferAttribute): Generator<void, string> {
   const version = 'data' in attribute ? attribute.data.version : attribute.version
   const previous = attributeKeys.get(attribute)
   if (previous?.version === version) return previous.key
   let hash = 2166136261
-  for (let row = 0; row < attribute.count; row++) for (let column = 0; column < attribute.itemSize; column++) {
-    hash = Math.imul(hash ^ Math.round(attribute.getComponent(row, column) * 100000), 16777619)
+  for (let row = 0; row < attribute.count; row++) {
+    if (row % 1024 === 0) yield
+    for (let column = 0; column < attribute.itemSize; column++)
+      hash = Math.imul(hash ^ Math.round(attribute.getComponent(row, column) * 100000), 16777619)
   }
   const key = `${attribute.count}:${attribute.itemSize}:${attribute.normalized}:${hash >>> 0}`
   attributeKeys.set(attribute, { version, key }); return key
@@ -33,7 +37,7 @@ function surfaceValue(value: unknown): unknown {
 /** Unlike the lighting revision, this includes normals, receiver offsets, UVs,
  * finish uniforms and fog. Those inputs may change without moving any vertices.
  * Lights and reflection maps do not affect cached diffuse surface data. */
-export function indirectSurfaceCaptureKey(scene: Scene, renderer: WebGLRenderer) {
+function* surfaceCaptureKeySteps(scene: Scene, renderer: WebGLRenderer): Generator<void, string> {
   const materialKeys = new Map<Material, string>(), objects: string[] = []
   const materialKey = (material: Material) => {
     const previous = materialKeys.get(material)
@@ -42,7 +46,9 @@ export function indirectSurfaceCaptureKey(scene: Scene, renderer: WebGLRenderer)
     const shader = { uniforms: {}, vertexShader: ShaderLib.standard.vertexShader,
       fragmentShader: ShaderLib.standard.fragmentShader } as Parameters<Material['onBeforeCompile']>[0]
     if (standard) material.onBeforeCompile(shader, renderer)
-    const finish = standard ? [material.color.toArray(), material.metalness, material.normalMapType, material.normalScale.toArray(),
+    const finish = standard ? [material.color.toArray(), material.metalness, material.roughness, material.roughnessMap,
+      material.emissive.toArray(), material.emissiveIntensity, material.emissiveMap, material.lightMap, material.lightMapIntensity,
+      material.flatShading, material.vertexColors, material.normalMapType, material.normalScale.toArray(),
       material.bumpScale, material.aoMapIntensity, material.displacementScale, material.displacementBias,
       material.map, material.metalnessMap, material.normalMap, material.bumpMap, material.aoMap, material.displacementMap] : []
     const authored = Object.entries(shader.uniforms).filter(([name]) => !/^hd(GI|RoomLight|PointLightRoomIds|SpotLightRoomIds)/.test(name))
@@ -53,26 +59,46 @@ export function indirectSurfaceCaptureKey(scene: Scene, renderer: WebGLRenderer)
       finish.map(surfaceValue), authored])
     materialKeys.set(material, key); return key
   }
-  scene.traverseVisible(object => {
+  const visible: Object3D[] = []
+  scene.traverseVisible(object => visible.push(object))
+  for (const object of visible) {
+    yield
     const mesh = object as Mesh
-    if (!mesh.geometry || !mesh.material) return
-    const attributes = Object.entries(mesh.geometry.attributes).map(([name, attribute]) => [name, attributeKey(attribute)])
-    const morphs = Object.entries(mesh.geometry.morphAttributes).map(([name, attributes]) => [name, attributes?.map(attributeKey)])
+    if (!mesh.geometry || !mesh.material) continue
+    const attributes: unknown[] = [], morphs: unknown[] = []
+    for (const [name, attribute] of Object.entries(mesh.geometry.attributes)) attributes.push([name, yield* attributeKey(attribute)])
+    for (const [name, values] of Object.entries(mesh.geometry.morphAttributes)) {
+      const keys: string[] = []
+      for (const value of values ?? []) keys.push(yield* attributeKey(value))
+      morphs.push([name, values && keys])
+    }
     const instance = object as Object3D & { instanceMatrix?: BufferAttribute; instanceColor?: BufferAttribute; count?: number }
     objects.push(JSON.stringify([object.type, object.matrixWorld.elements, object.layers.mask, object.renderOrder, object.parent?.renderOrder,
-      mesh.geometry.index && attributeKey(mesh.geometry.index), attributes, morphs, mesh.morphTargetInfluences,
+      mesh.geometry.index && (yield* attributeKey(mesh.geometry.index)), attributes, morphs, mesh.morphTargetInfluences,
       mesh.geometry.morphTargetsRelative, mesh.geometry.groups, mesh.geometry.drawRange,
-      instance.instanceMatrix && attributeKey(instance.instanceMatrix), instance.instanceColor && attributeKey(instance.instanceColor), instance.count,
+      instance.instanceMatrix && (yield* attributeKey(instance.instanceMatrix)), instance.instanceColor && (yield* attributeKey(instance.instanceColor)), instance.count,
       (Array.isArray(mesh.material) ? mesh.material : [mesh.material]).map(materialKey)]))
-  })
+  }
   return JSON.stringify([scene.fog, objects.sort()])
 }
 
+export function indirectSurfaceCaptureKey(scene: Scene, renderer: WebGLRenderer) {
+  const steps = surfaceCaptureKeySteps(scene, renderer)
+  let next = steps.next()
+  while (!next.done) next = steps.next()
+  return next.value
+}
+
+/** Material/geometry invalidation shares the display's cooperative task budget. */
+export function prepareIndirectSurfaceCaptureKey(scene: Scene, renderer: WebGLRenderer, cancelled: () => boolean) {
+  return runViewportTask(surfaceCaptureKeySteps(scene, renderer), cancelled)
+}
+
 /** A bounded set of six face tiles per probe. Atlas indices need not be dense. */
-export function indirectSurfaceCacheLayout(probes: number[], size: number, maxTextureSize: number, budget = CACHE_BUDGET) {
+export function indirectSurfaceCacheLayout(probes: number[], size: number, maxTextureSize: number, budget = CACHE_BUDGET, relighting = false) {
   if (!probes.length || new Set(probes).size !== probes.length || ![4, 8, 16].includes(size)) return null
   const tiles = probes.length * 6, columns = Math.ceil(Math.sqrt(tiles)), rows = Math.ceil(tiles / columns)
-  const width = columns * size, height = rows * size, bytes = width * height * BYTES_PER_PIXEL
+  const width = columns * size, height = rows * size, bytes = width * height * (BYTES_PER_PIXEL + (relighting ? 16 : 0))
   if (width > maxTextureSize || height > maxTextureSize || bytes > budget) return null
   const slots = new Map(probes.map((probe, slot) => [probe, slot]))
   return { width, height, columns, bytes, slots, size,
@@ -183,10 +209,10 @@ export function applyIndirectSurfaceCapture(material: Material) {
 
 /** Keep the ordinary PBR result and record transport inputs in the same draw.
  * The cloned capture material owns this hook; display materials stay unchanged. */
-export function applyIndirectSurfaceRadianceCapture(material: Material) {
+export function applyIndirectSurfaceRadianceCapture(material: Material, relighting = false) {
   const compile = material.onBeforeCompile, key = material.customProgramCacheKey()
   const standard = material instanceof MeshStandardMaterial
-  material.customProgramCacheKey = () => key + ':surface-radiance-v2'
+  material.customProgramCacheKey = () => key + (relighting ? ':surface-radiance-v3-relight' : ':surface-radiance-v2')
   material.onBeforeCompile = (shader, renderer) => {
     compile.call(material, shader, renderer)
     shader.fragmentShader = `
@@ -194,6 +220,7 @@ export function applyIndirectSurfaceRadianceCapture(material: Material) {
       layout(location = 1) out highp vec4 hdSurfaceReceiver;
       layout(location = 2) out highp vec4 hdSurfaceNormal;
       layout(location = 3) out highp vec4 hdSurfaceResponse;
+      ${relighting ? 'layout(location = 4) out highp vec4 hdSurfaceMaterial;' : ''}
       ` + shader.fragmentShader
     const response = standard ? /* glsl */ `
       vec3 hdSurfaceN = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));
@@ -214,28 +241,35 @@ export function applyIndirectSurfaceRadianceCapture(material: Material) {
           hdResponse *= 1.0 - smoothstep(fogNear, fogFar, vFogDepth);
         #endif
       #endif
-      hdSurfaceResponse = vec4(hdResponse, 1.0);
-      ` : 'hdSurfaceReceiver = vec4(0.0); hdSurfaceNormal = vec4(0.0); hdSurfaceResponse = vec4(0.0);'
+      hdSurfaceResponse = vec4(hdResponse, ${relighting ? 'material.roughness' : '1.0'});
+      ${relighting ? 'hdSurfaceMaterial = vec4(diffuseColor.rgb, metalnessFactor + 1.0);' : ''}
+      ` : 'hdSurfaceReceiver = vec4(0.0); hdSurfaceNormal = vec4(0.0); hdSurfaceResponse = vec4(0.0);' +
+        (relighting ? 'hdSurfaceMaterial = vec4(0.0);' : '')
     shader.fragmentShader = shader.fragmentShader.replace(/}\s*$/, response + '\n}')
   }
 }
 
 /** Geometry/material samples are captured once; pass two evaluates their diffuse
  * transport against the completed first-bounce volume without scene draws. */
-export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: number[], size: number, uniforms: IndirectUniforms) {
+export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: number[], size: number, uniforms: IndirectUniforms, relight = false) {
   const context = renderer.getContext()
   if (!('clearBufferfv' in context)) return null
   if (!renderer.extensions.has('EXT_color_buffer_float') || context.getParameter(context.MAX_DRAW_BUFFERS) < 4) return null
-  const layout = indirectSurfaceCacheLayout(probes, size, renderer.capabilities.maxTextureSize)
+  const relighting = relight && context.getParameter(context.MAX_DRAW_BUFFERS) >= 5 && !renderer.capabilities.logarithmicDepthBuffer && !renderer.capabilities.reversedDepthBuffer
+  const layout = indirectSurfaceCacheLayout(probes, size, renderer.capabilities.maxTextureSize, CACHE_BUDGET, relighting)
   if (!layout) return null
-  const target = new WebGLRenderTarget(layout.width, layout.height, { count: 4, type: HalfFloatType,
+  const target = new WebGLRenderTarget(layout.width, layout.height, { count: relighting ? 5 : 4, type: HalfFloatType,
     format: RGBAFormat, minFilter: NearestFilter, magFilter: NearestFilter, generateMipmaps: false })
   target.textures[1].type = FloatType; target.textures[2].type = FloatType
+  if (relighting) target.depthTexture = new DepthTexture(layout.width, layout.height)
   target.scissorTest = true
   const radiance = new WebGLRenderTarget(layout.width, layout.height, { type: HalfFloatType, depthBuffer: false,
     format: RGBAFormat, minFilter: NearestFilter, magFilter: NearestFilter, generateMipmaps: false,
     colorSpace: LinearSRGBColorSpace })
   radiance.scissorTest = true
+  // The immutable baseline supplies relighting deltas; bounce two must read
+  // the latest direct radiance, including every edit since that baseline.
+  const currentRadiance = relighting ? radiance.clone() : radiance
   const tile = { value: new Vector2() }, ready = new Set<number>()
   const scene = new Scene(), camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1), geometry = new PlaneGeometry(2, 2)
   const material = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
@@ -278,13 +312,13 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
   // Putting volume sampling inside the SH loop duplicates it four times and
   // makes driver compilation of the fixed-size loops excessively expensive.
   const replayScene = new Scene(), replay = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { ...uniforms, hdSurfaceRadiance: { value: radiance.texture }, hdSurfacePositions: { value: target.textures[1] },
+    uniforms: { ...uniforms, hdSurfaceRadiance: { value: currentRadiance.texture }, hdSurfacePositions: { value: target.textures[1] },
       hdSurfaceNormals: { value: target.textures[2] }, hdSurfaceResponses: { value: target.textures[3] },
       hdSurfaceAtlas: { value: new Vector2(layout.width, layout.height) }, hdSurfaceOrigin: { value: new Vector2() } },
     vertexShader: material.vertexShader,
     fragmentShader: /* glsl */ `
       #include <common>
-      ${indirectLightingShaderDeclarations}
+      ${indirectVolumeShaderDeclarations}
       uniform sampler2D hdSurfaceRadiance, hdSurfacePositions, hdSurfaceNormals, hdSurfaceResponses;
       uniform vec2 hdSurfaceAtlas, hdSurfaceOrigin;
       void main() {
@@ -338,9 +372,35 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
   const zero = new Float32Array(4), skyPixel = new Float32Array(4), skyColor = new Color()
   let disposed = false, compiled = false, compilation: Promise<unknown> | undefined
   const reads = new Set<Promise<unknown>>()
-  const release = () => { target.dispose(); radiance.dispose(); integrated.dispose(); replayTarget.dispose(); replayIntegrator.dispose();
-    geometry.dispose(); material.dispose(); replay.dispose(); copy.dispose(); ready.clear() }
-  return { target, tile, layout, ready, sky: skyColor,
+  const relighter = relighting ? createIndirectSurfaceRelighting(renderer, target, radiance.texture, layout, uniforms, replayTarget, replayIntegrator) : null
+  let lightingKey = ''
+  const copyFace = (probe: number, face: number, cube: WebGLCubeRenderTarget, combined: boolean, destinations: WebGLRenderTarget[]) => {
+    const [x, y] = layout.tile(probe, face), stats = { ...renderer.info.render }, autoClear = renderer.autoClear
+    tile.value.set(x, y); copy.uniforms.hdSurfaceCube.value = cube.texture; copy.uniforms.hdSurfaceFace.value = face
+    copy.uniforms.hdSurfaceCombined.value = combined ? 1 : 0
+    try {
+      renderer.autoClear = false
+      for (const destination of destinations) {
+        destination.viewport.set(x, y, size, size); destination.scissor.set(x, y, size, size)
+        renderer.setRenderTarget(destination); renderer.render(copyScene, camera)
+      }
+    } finally { renderer.autoClear = autoClear; Object.assign(renderer.info.render, stats) }
+  }
+  const release = () => { target.dispose(); radiance.dispose(); if (currentRadiance !== radiance) currentRadiance.dispose(); integrated.dispose(); replayTarget.dispose(); replayIntegrator.dispose();
+    geometry.dispose(); material.dispose(); replay.dispose(); copy.dispose(); relighter?.dispose(); ready.clear() }
+  return { target, tile, layout, ready, sky: skyColor, relighting,
+    setLightingKey(key: string) { if (key !== lightingKey) { relighter?.clear(); lightingKey = key } },
+    recordLights(probe: number, lights: SurfaceLight[]) { relighter?.record(probe, lights) },
+    canRelight(probe: number) { return ready.has(probe) && !!relighter?.has(probe) },
+    relight(probe: number, position: number[], lights: SurfaceLight[], sun?: import('three').DirectionalLight) {
+      if (!relighter) throw new Error('Surface relighting is unavailable')
+      const result = relighter.read(probe, position, lights, () => {
+        // All six relit faces are queued before reduction/readback. Preserve
+        // them for the second bounce without modifying the original baseline.
+        for (let face = 0; face < 6; face++) copyFace(probe, face, replayTarget, false, [currentRadiance])
+      }, sun)
+      reads.add(result); return result.finally(() => reads.delete(result))
+    },
     get compiled() { return compiled },
     compile() {
       if (compilation) return compilation
@@ -353,7 +413,8 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
         const reduce = replayIntegrator.compile(renderer, replayTarget)
         renderer.setRenderTarget(radiance)
         const copying = renderer.compileAsync(copyScene, camera)
-        return compilation = Promise.allSettled([direct, bounce, reduce, copying]).then(results => {
+        const relighting = relighter?.compile()
+        return compilation = Promise.allSettled([direct, bounce, reduce, copying, relighting]).then(results => {
           // A rejected shader must not release targets while another variant is
           // still compiling against them during cancellation/fallback.
           const failure = results.find(result => result.status === 'rejected')
@@ -369,15 +430,11 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
       renderer.clear(false, true, false)
       skyColor.copy(sky); skyPixel.set([sky.r, sky.g, sky.b, 1])
       context.clearBufferfv(context.COLOR, 0, skyPixel)
-      for (let attachment = 1; attachment < 4; attachment++) context.clearBufferfv(context.COLOR, attachment, zero)
+      for (let attachment = 1; attachment < target.textures.length; attachment++) context.clearBufferfv(context.COLOR, attachment, zero)
     },
     copyFace(probe: number, face: number, sky: Color, cube: WebGLCubeRenderTarget, combined = false) {
-      const [x, y] = layout.tile(probe, face), stats = { ...renderer.info.render }, autoClear = renderer.autoClear
-      tile.value.set(x, y); radiance.viewport.set(x, y, size, size); radiance.scissor.set(x, y, size, size)
-      skyColor.copy(sky); copy.uniforms.hdSurfaceCube.value = cube.texture; copy.uniforms.hdSurfaceFace.value = face
-      copy.uniforms.hdSurfaceCombined.value = combined ? 1 : 0
-      try { renderer.autoClear = false; renderer.setRenderTarget(radiance); renderer.render(copyScene, camera) }
-      finally { renderer.autoClear = autoClear; Object.assign(renderer.info.render, stats) }
+      skyColor.copy(sky)
+      copyFace(probe, face, cube, combined, currentRadiance === radiance ? [radiance] : [radiance, currentRadiance])
     },
     async read(probe: number, bounce: number) {
       const slot = layout.slots.get(probe)

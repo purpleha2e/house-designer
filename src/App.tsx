@@ -3,8 +3,10 @@ import { getSurfaceSelectionFloorId } from './surfaceSelection'
 import { indirectProjectKey, savedIndirectLightingMatches, type SavedIndirectLighting } from './indirectLightingPersistence'
 import { normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from './indirectProbeResolution'
 import type { ModelTransformPreview } from './modelTransformPreview'
+import { createLocalLightControl } from './localLightControl'
 import {
   useCallback,
+  startTransition,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -23,6 +25,10 @@ import { LeftToolRail, EditToolbar } from './components/LeftToolRail'
 import { ManufacturerPortal } from './components/ManufacturerPortal'
 import { ModelSelector } from './components/ModelSelector'
 import { WindowBuilder } from './components/WindowBuilder'
+import { StairBuilder } from './components/StairBuilder'
+import { loadStairLibrary, registerStairModels, removeStairsFromLibrary, saveStairToLibrary } from './stairLibrary'
+import { stairGeometryKey } from './stairGeometry'
+import { validateStairDesign } from './stairDesign'
 import { loadWindowLibrary, removeWindowsFromLibrary, saveWindowToLibrary } from './windowLibrary'
 import { validateWindowDesign } from './windowDesign'
 import { Toolbar } from './components/Toolbar'
@@ -346,7 +352,9 @@ function isSavedProject(value: unknown): value is SavedProject {
     typeof project.activeFloorId === 'string' &&
     Array.isArray(project.floors) &&
     project.floors.length > 0 &&
-    (project.wallKind === 'external' || project.wallKind === 'internal')
+    (project.wallKind === 'external' || project.wallKind === 'internal') &&
+    (!Array.isArray(project.modelDefinitions) || project.modelDefinitions.every(model =>
+      !model?.stairDesign || !validateStairDesign(model.stairDesign)))
   )
 }
 
@@ -450,13 +458,13 @@ function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
   const modelIds = new Set(
     floors.flatMap((floor) => (floor.models ?? []).map((model) => model.modelId)),
   )
-  modelLibrary.filter(model => model.windowDesign).forEach(model => modelIds.add(model.id))
+  modelLibrary.filter(model => model.windowDesign || model.stairDesign).forEach(model => modelIds.add(model.id))
 
   return Array.from(modelIds)
     .flatMap((modelId) => {
       const definition = modelsById.get(modelId)
 
-      return definition && (modelId.startsWith('portal-model-') || definition.windowDesign)
+      return definition && (modelId.startsWith('portal-model-') || definition.windowDesign || definition.stairDesign)
         ? [definition]
         : []
     })
@@ -673,6 +681,7 @@ function rotatePlanOffset(offset: Point, rotation: number): Point {
 }
 
 function App() {
+  const [localLightControl] = useState(createLocalLightControl)
   const initialProjectRef = useRef<ReturnType<typeof createInitialProject> | null>(
     null,
   )
@@ -760,6 +769,7 @@ function App() {
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [windowBuilder, setWindowBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
+  const [stairBuilder, setStairBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
   const [modelSelectorSection, setModelSelectorSection] =
     useState<ModelLibrarySection>('objects')
   const [pendingModelId, setPendingModelId] = useState<string | null>(null)
@@ -842,6 +852,16 @@ function App() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    void loadStairLibrary().then(stairs => {
+      if (cancelled) return
+      registerStairModels(stairs.filter(model => !modelsById.has(model.id)))
+      setAvailableModels([...modelLibrary])
+    }).catch(error => console.warn('Could not read My stairs:', error))
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
     if (modelAssetVersion <= 0) {
       return
     }
@@ -907,12 +927,18 @@ function App() {
       const restoredIds = new Set(snapshot.modelDefinitions.map(model => model.id))
       const removedWindows = modelLibrary.filter(model => model.windowDesign && !restoredIds.has(model.id)).map(model => model.id)
       void removeWindowsFromLibrary(removedWindows).catch(error => console.warn('Could not undo local window:', error))
-      registerRuntimeModels(snapshot.modelDefinitions.filter(model => !model.windowDesign))
+      const removedStairs = modelLibrary.filter(model => model.stairDesign && !restoredIds.has(model.id)).map(model => model.id)
+      void removeStairsFromLibrary(removedStairs).catch(error => console.warn('Could not undo local stairs:', error))
+      registerRuntimeModels(snapshot.modelDefinitions.filter(model => !model.windowDesign && !model.stairDesign))
       registerWindowModels(snapshot.modelDefinitions.filter(model => model.windowDesign), true)
+      registerStairModels(snapshot.modelDefinitions.filter(model => model.stairDesign), true)
       setAvailableModels([...modelLibrary])
       setSceneRevision(revision => revision + 1)
       for (const model of snapshot.modelDefinitions.filter(model => model.windowDesign)) {
         void saveWindowToLibrary(model).catch(error => console.warn('Could not restore local window:', error))
+      }
+      for (const model of snapshot.modelDefinitions.filter(model => model.stairDesign)) {
+        void saveStairToLibrary(model).catch(error => console.warn('Could not restore local stairs:', error))
       }
     }
     setFloors(
@@ -1662,6 +1688,12 @@ function App() {
   }
 
   const updateModel = (modelId: string, updates: Partial<PlacedModel>) => {
+    if (typeof updates.lightEnabled === 'boolean') {
+      localLightControl.setEnabled(modelId, updates.lightEnabled)
+      startTransition(() => commitModelUpdate(modelId, updates))
+    } else commitModelUpdate(modelId, updates)
+  }
+  const commitModelUpdate = (modelId: string, updates: Partial<PlacedModel>) => {
     recordHistory(`model:${modelId}`)
     setFloors((currentFloors) => {
       let updatedModelFloorId: string | undefined
@@ -3343,6 +3375,7 @@ function App() {
           }}
         />
         <ThreeDView
+          lightControl={localLightControl}
           savedIndirectLighting={loadedLightingCache}
           diffuseProbeResolution={diffuseProbeResolution}
           onDiffuseProbeResolutionChange={setDiffuseProbeResolution}
@@ -3397,14 +3430,39 @@ function App() {
           onSelectModel={chooseModel}
           onBuildWindow={() => { setIsModelSelectorOpen(false); setWindowBuilder({ definition: null }) }}
           onEditWindow={definition => { setIsModelSelectorOpen(false); setWindowBuilder({ definition }) }}
+          onBuildStairs={() => { setIsModelSelectorOpen(false); setStairBuilder({ definition: null }) }}
+          onEditStairs={definition => { setIsModelSelectorOpen(false); setStairBuilder({ definition }) }}
         />
       ) : null}
-      {!windowBuilder && selectedModelId && (() => {
+      {!windowBuilder && !stairBuilder && selectedModelId && (() => {
         const instance = floors.flatMap(floor => floor.models ?? []).find(model => model.id === selectedModelId)
         const definition = instance && modelsById.get(instance.modelId)
-        return definition?.windowDesign ? <button type="button" className="window-variety-edit"
+        return definition?.stairDesign ? <button type="button" className="window-variety-edit"
+          onClick={() => setStairBuilder({ definition })}>Edit stair variety</button> : definition?.windowDesign ? <button type="button" className="window-variety-edit"
           onClick={() => setWindowBuilder({ definition })}>Edit window variety</button> : null
       })()}
+      {stairBuilder ? <StairBuilder definition={stairBuilder.definition}
+        instanceCount={floors.flatMap(floor => floor.models ?? []).filter(model => model.modelId === stairBuilder.definition?.id).length}
+        floorRise={(() => {
+          const floor = floors.find(floor => floor.id === activeFloorId) ?? floors[0]
+          const above = floors.filter(candidate => candidate.elevation > floor.elevation).sort((a, b) => a.elevation - b.elevation)[0]
+          return above ? above.elevation - floor.elevation : floor.roomHeight + floor.slabThickness
+        })()}
+        materials={availableMaterials} onClose={() => setStairBuilder(null)}
+        onSave={async (definition, place) => {
+          await saveStairToLibrary(definition)
+          recordHistory()
+          const previous = modelsById.get(definition.id)?.stairDesign
+          const geometryChanged = previous && stairGeometryKey(previous) !== stairGeometryKey(definition.stairDesign!)
+          registerStairModels([definition])
+          setAvailableModels([...modelLibrary])
+          setFloors(current => current.map(floor => floor.models.some(model => model.modelId === definition.id)
+            ? { ...floor, models: [...floor.models] } : floor))
+          if (geometryChanged) setSceneRevision(revision => revision + 1)
+          setStairBuilder(null)
+          if (place) chooseModel(definition.id)
+          else { setModelSelectorSection('objects'); setIsModelSelectorOpen(true) }
+        }} /> : null}
       {windowBuilder ? <WindowBuilder definition={windowBuilder.definition}
         instanceCount={floors.flatMap(floor => floor.models ?? []).filter(model => model.modelId === windowBuilder.definition?.id).length}
         onClose={() => setWindowBuilder(null)}

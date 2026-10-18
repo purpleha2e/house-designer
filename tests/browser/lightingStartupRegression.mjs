@@ -49,6 +49,8 @@ try {
   await call('Page.enable')
 
   await call('Runtime.enable');await call('Emulation.setFocusEmulationEnabled',{enabled:true});await call('Page.bringToFront')
+  if(process.argv.includes('--continuous'))await call('Emulation.setDeviceMetricsOverride',{width:1200,height:1050,deviceScaleFactor:1,mobile:false})
+  await call('Page.addScriptToEvaluateOnNewDocument',{source:`const Socket=WebSocket;window.WebSocket=class extends Socket{constructor(url,protocols){super(url,protocols);if(protocols==='vite-hmr')this.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.type==='update'||m.type==='full-reload')event.stopImmediatePropagation()})}}`})
   const errors=[];ws.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.method==='Runtime.exceptionThrown')errors.push(m.params.exceptionDetails);if(m.method==='Runtime.consoleAPICalled'&&m.params.type==='error')errors.push(m.params.args.map(a=>a.value??a.description).join(' '))})
   const port=process.argv[2]??'5180',project=process.argv[3]??'lighting-startup'
   const installSavedHouse=house=>call('Page.addScriptToEvaluateOnNewDocument',{source:`window.regressionSavedGI=${JSON.stringify(house)};window.giWorkerCreations=0;const OriginalWorker=window.Worker;window.Worker=class extends OriginalWorker{constructor(url,...args){super(url,...args);if(String(url).includes('indirectLighting.worker'))window.giWorkerCreations++}}`})
@@ -89,6 +91,7 @@ try {
   }
   await call('Page.navigate', { url: 'http://127.0.0.1:'+port+'/tests/browser/roofWallRegression.html?'+project+'&strict&materials'+(process.argv.includes('--live')?'&live-gi':'') })
   for(let i=0;i<180;i++){await pause(250);if(await evaluate('!!window.roofWallScene?.()'))break}
+  assert.equal(await evaluate('typeof window.roofWallScene'),'function','Editor fixture failed to mount: '+JSON.stringify(errors))
   if(process.argv.includes('--surface-cache'))await evaluate('window.roofWallScene().scene.userData.indirectSurfaceCacheEnabled=true')
   await evaluate('(()=>{const s=window.roofWallScene();s.setDpr(.5);s.camera.position.set(2,1.6,2);s.camera.lookAt(2,1.6,0);s.controls?.target?.set(2,1.6,0);s.camera.updateMatrixWorld();s.invalidate()})()')
   const status=()=>evaluate('window.roofWallScene().scene.userData.indirectLighting')
@@ -142,11 +145,68 @@ try {
     assert.deepEqual(errors,[]);console.log('Project GI startup passed:',project);ws.close();child.kill();process.exit(0)
   }
   let settled
-  for(let i=0;i<6000;i++){await pause(100);const s=await status();if(i%100===0)console.log('GI completion',s?.state,s?.completed,s?.total);if(s?.state==='ready'&&!s.volumePending){settled=s;break}}
+  for(let i=0;i<6000;i++){await pause(100);const s=await status();if(i%100===0)console.log('GI completion',s?.state,s?.completed,s?.total);if(s?.state==='ready'&&!s.volumePending&&!s.pendingLighting){settled=s;break}}
   assert.equal(settled?.state,'ready','the final GI volume and reflections complete')
   // The complete house can still be compressing its cache after captures finish.
   for(let i=0;i<600;i++){if(await evaluate(`document.querySelector('[aria-label="Indirect lighting progress"]').textContent==='GI ready'`))break;await pause(100)}
   assert.equal(await evaluate(`document.querySelector('[aria-label="Indirect lighting progress"]').textContent`),'GI ready')
+  if (process.argv.includes('--continuous')) {
+    const waitReady = async () => {
+      let result
+      for (let i=0;i<1800;i++) {
+        await pause(100); result=await status()
+        if(result.state==='ready'&&!result.pendingLighting&&!result.pendingUpdate&&!result.volumePending&&!result.preparing&&!result.blocked) return result
+      }
+      throw Error('Continuous lighting did not settle: '+JSON.stringify(result))
+    }
+    const baseline=await waitReady()
+    await evaluate(`(()=>{const s=window.roofWallScene(),gl=s.gl.getContext(),create=gl.createProgram.bind(gl);window.continuousSurface=s.scene.userData.getIndirectSurfaceCache();window.continuousProfile={programs:0,samples:[]};gl.createProgram=()=>{continuousProfile.programs++;return create()};window.continuousTimer=setInterval(()=>{const d=s.scene.userData.indirectLighting;continuousProfile.samples.push({at:performance.now(),generation:d.generation,completed:d.completed,preview:d.previewUpdates,near:d.nearReadyMs,faces:d.capturedFaces,pending:d.pendingLighting})},25)})()`)
+    const pad=await evaluate(`(()=>{const r=document.querySelector('[aria-label="Move light source"]').getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`)
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',x:pad.x+20,y:pad.y,button:'left',buttons:1,clickCount:1})
+    const beforeDrag=await status()
+    for(let i=0;i<35;i++){
+      await call('Input.dispatchMouseEvent',{type:'mouseMoved',x:pad.x+Math.cos(i*.05)*25,y:pad.y+Math.sin(i*.05)*25,buttons:1})
+      await pause(80)
+    }
+    const duringDrag=await status()
+    console.log('Sun drag diagnostics',JSON.stringify({pad,before:{revision:beforeDrag.lightingRevision,generation:beforeDrag.generation},during:{revision:duringDrag.lightingRevision,generation:duringDrag.generation},control:await evaluate(`document.querySelector('[aria-label="Move light source"]').getAttribute('aria-valuetext')`)}))
+    assert.ok(duringDrag.lightingRevision>beforeDrag.lightingRevision+10,'sun previews reach GI before the control is released')
+    const sunProfile=await evaluate('continuousProfile.samples')
+    assert.ok(sunProfile.some(s=>s.completed>0&&s.pending),'GI makes progress during an uninterrupted sun drag')
+    assert.ok(sunProfile.some(s=>s.preview>0),'GI publishes while the sunlight keeps changing')
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',x:pad.x,y:pad.y+25,button:'left',buttons:0,clickCount:1})
+    const afterSun=await waitReady()
+    assert.equal(afterSun.geometryBuilds,baseline.geometryBuilds,'sun dragging reuses prepared geometry')
+    assert.equal(await evaluate('continuousSurface===window.roofWallScene().scene.userData.getIndirectSurfaceCache()'),true)
+    assert.ok(afterSun.nearDiffuseReadyMs!==undefined&&afterSun.nearReadyMs!==undefined,'nearby bounce two and reflections complete before distant first bounces')
+    assert.equal(await evaluate('continuousProfile.programs'),0,'sun dragging reuses every installed shader')
+    console.log('Continuous sun: near diffuse',afterSun.nearDiffuseReadyMs,'ms; near reflections',afterSun.nearReadyMs,'ms; total',afterSun.completed,'samples')
+    await evaluate('continuousProfile.samples=[]')
+    for(let i=0;i<30;i++){
+      await evaluate(`window.updateRegressionFloors(window.regressionFloors.map(f=>({...f,models:f.models.map(m=>m.id==='startup-light'?{...m,lightPower:${500+i*5}}:m)})))`)
+      await pause(80)
+    }
+    const lampProfile=await evaluate('continuousProfile.samples')
+    assert.ok(lampProfile.some(s=>s.preview>0),'lamp edits publish GI while values are still changing')
+    const afterLamp=await waitReady(); assert.equal(afterLamp.geometryBuilds,baseline.geometryBuilds)
+    assert.equal(await evaluate('continuousProfile.programs'),0)
+    await evaluate(`(async()=>{const {surfaceMaterialsById}=await import('/src/materials/materialCatalog.ts');const m=[...surfaceMaterialsById.values()].find(m=>m.category==='paint');if(!m)throw Error('No paint material');window.continuousPaintId=m.id;continuousProfile.samples=[]})()`)
+    for(let i=0;i<12;i++){
+      const color='#'+[100+i*5,150-i*5,170].map(v=>v.toString(16).padStart(2,'0')).join('')
+      await evaluate(`window.updateRegressionAssignments([{id:'continuous-paint',materialId:continuousPaintId,customColor:${JSON.stringify(color)},target:{type:'wall-face',wallId:regressionFloors[0].walls[0].id,side:'both'}}])`)
+      await pause(150)
+    }
+    const materialProfile=await evaluate('continuousProfile.samples')
+    assert.ok(materialProfile.some(s=>s.generation>afterLamp.generation&&s.faces>0),'material capture progresses before repeated paint edits stop')
+    const afterMaterial=await waitReady()
+    assert.equal(afterMaterial.geometryBuilds,baseline.geometryBuilds,'paint changes retain the prepared visibility geometry')
+    assert.equal(await evaluate('continuousSurface===window.roofWallScene().scene.userData.getIndirectSurfaceCache()'),false,'paint changes invalidate material-dependent samples')
+    assert.ok(await evaluate(`(()=>{let found=false;window.roofWallScene().scene.traverse(o=>{for(const m of Array.isArray(o.material)?o.material:[o.material])if(m?.color?.getHexString()==='9b5faa')found=true});return found})()`),'the last authored paint colour is displayed')
+    console.log('Continuous lamp and material edits settled; geometry builds',afterMaterial.geometryBuilds)
+    await evaluate('clearInterval(continuousTimer)')
+    assert.deepEqual(errors,[]);console.log('Continuous GI and camera-priority regression passed')
+    ws.close();child.kill();process.exit(0)
+  }
   if(process.argv.includes('--cache')) {
     let cache
     for(let i=0;i<600;i++){cache=await evaluate('window.roofWallScene().scene.userData.getBakedIndirectLighting?.()');if(cache)break;await pause(100)}
@@ -186,13 +246,16 @@ try {
     assert.equal(await evaluate('!!window.roofWallScene().scene.userData.getBakedIndirectLighting?.()'),false,'a preview cannot be exported as a finished bake')
     assert.ok(live.completed<live.total,'the live result arrives before reflections and final refinement')
     console.log('Sun edit first preview',live.firstPreviewMs,'ms')
-    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.state==='ready'&&!live.volumePending&&!live.pendingUpdate)break}
+    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.state==='ready'&&!live.volumePending&&!live.pendingUpdate&&!live.pendingLighting)break}
     assert.equal(live.state,'ready')
     if(process.argv.includes('--surface-cache')){
       assert.equal(live.surfaceDataFaces,0,'sun edits reuse all captured material data')
       assert.ok(live.surfaceReplayedProbes>0)
       assert.equal(await evaluate('window.startupSurfaceCache===window.roofWallScene().scene.userData.getIndirectSurfaceCache()'),true)
     }
+    const selectedGeneration=live.generation
+    await evaluate("window.selectRegressionModel('startup-light')");await pause(750)
+    assert.equal((await status()).generation,selectedGeneration,'selecting a lamp does not change lighting geometry')
     const builds=live.geometryBuilds
     await evaluate(`window.updateRegressionFloors(window.regressionFloors.map(f=>({...f,models:f.models.map(m=>m.id==='startup-light'?{...m,lightPower:500}:m)})))`)
     for(let i=0;i<200;i++){await pause(100);live=await status();if(live.partial&&live.previewUpdates>0&&!live.pendingUpdate)break}
@@ -200,12 +263,15 @@ try {
     assert.ok(live.reusedProbes>0,'the sealed neighbouring room retains its completed lighting')
     assert.equal(live.geometryBuilds,builds,'lamp power edits reuse geometry and visibility')
     assert.ok(live.previewUpdates>0&&live.displayed)
-    if(process.argv.includes('--surface-cache'))assert.equal(live.surfaceDataFaces,0,'lamp power edits reuse material data')
+    if(process.argv.includes('--surface-cache')){
+      assert.equal(live.surfaceDataFaces,0,'lamp power edits reuse material data')
+      assert.ok(live.surfaceRelitProbes>0,'lamp power edits relight cached surfaces without geometry draws')
+    }
     console.log('Lamp edit first preview',live.firstPreviewMs,'ms; geometry builds',live.geometryBuilds)
     // Superseding an unfinished preview cannot publish or export the old edit.
     const oldGeneration=live.generation
     await evaluate(`window.updateRegressionFloors(window.regressionFloors.map(f=>({...f,models:f.models.map(m=>m.id==='startup-light'?{...m,lightPower:750}:m)})))`)
-    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.generation>oldGeneration&&live.state==='ready'&&!live.volumePending&&!live.pendingUpdate)break}
+    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.generation>oldGeneration&&live.state==='ready'&&!live.volumePending&&!live.pendingUpdate&&!live.pendingLighting)break}
     assert.ok(live.generation>oldGeneration)
     assert.equal(live.state,'ready','the superseding edit finishes')
     assert.ok(live.displayed)
@@ -215,9 +281,10 @@ try {
     assert.ok(live.previewUpdates>0&&live.generation>moveGeneration,'moving the lamp produces a new live result')
     assert.equal(live.geometryBuilds,moveBuilds,'lamp movement keeps the prepared geometry')
     console.log('Moved lamp preview from edit',Date.now()-moveStarted,'ms')
-    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.state==='ready'&&!live.volumePending&&!live.pendingUpdate)break}
+    for(let i=0;i<1200;i++){await pause(100);live=await status();if(live.state==='ready'&&!live.volumePending&&!live.pendingUpdate&&!live.pendingLighting)break}
     assert.equal(live.state,'ready')
     assert.equal(live.geometryBuilds,moveBuilds,'the completed lamp move reused geometry')
+    if(process.argv.includes('--surface-cache'))assert.ok(live.surfaceRelitProbes>0,'moving a lamp reuses the cached material/depth samples')
     await evaluate(`(()=>{const s=window.roofWallScene();s.camera.position.set(2,2.1,2);s.controls?.target?.set(3,.4,3.8);s.camera.lookAt(3,.4,3.8);s.camera.updateMatrixWorld();s.invalidate()})()`)
     await pause(750)
     writeFileSync('.tmp-indirect-live-final.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))

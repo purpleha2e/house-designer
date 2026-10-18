@@ -13,6 +13,8 @@ type ModelSelectorProps = {
   onSelectModel: (modelId: string) => void
   onBuildWindow?: () => void
   onEditWindow?: (model: ModelDefinition) => void
+  onBuildStairs?: () => void
+  onEditStairs?: (model: ModelDefinition) => void
 }
 
 export function ModelSelector({
@@ -23,6 +25,8 @@ export function ModelSelector({
   onSelectModel,
   onBuildWindow,
   onEditWindow,
+  onBuildStairs,
+  onEditStairs,
 }: ModelSelectorProps) {
   const [section, setSection] = useState<ModelLibrarySection>(initialSection)
   const sectionModels = useMemo(
@@ -80,6 +84,9 @@ export function ModelSelector({
         </nav>
 
         <div className="model-grid">
+          {section === 'objects' && onBuildStairs ? <button type="button" className="model-option" onClick={onBuildStairs}>
+            <span className="model-option-preview">＋</span><strong>Build stairs</strong><span>Flights, turns, railings and finishes</span>
+          </button> : null}
           {section === 'openings' && onBuildWindow ? <button type="button" className="model-option" onClick={onBuildWindow}>
             <span className="model-option-preview">＋</span><strong>Build a window</strong><span>Design panes, sizes and openings</span>
           </button> : null}
@@ -119,6 +126,7 @@ export function ModelSelector({
               </span>
             </button>
             {model.windowDesign && onEditWindow ? <button type="button" onClick={() => onEditWindow(model)} aria-label={`Edit variety ${model.name}`}>Edit variety</button> : null}
+            {model.stairDesign && onEditStairs ? <button type="button" onClick={() => onEditStairs(model)} aria-label={`Edit stair variety ${model.name}`}>Edit variety</button> : null}
             </div>
           ))}
           {sectionModels.length === 0 ? (

@@ -3,10 +3,20 @@ import test from 'node:test'
 import { BoxGeometry, Color, DataUtils, DirectionalLight, Fog, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, Scene, ShaderLib, ShaderMaterial, Texture,
   type WebGLRenderer } from 'three'
 import { createIndirectField } from '../src/indirectLighting.ts'
-import { applyIndirectLightingShader, createIndirectUniforms } from '../src/indirectLightingShader.ts'
+import { applyIndirectLightingShader, createIndirectUniforms, updateIndirectUniforms } from '../src/indirectLightingShader.ts'
 import { createMaterialVariationShader, defaultMaterialVariation } from '../src/materials/proceduralVariation.ts'
-import { applyIndirectSurfaceCapture, applyIndirectSurfaceRadianceCapture, createIndirectSurfaceCache, indirectSurfaceCaptureKey, indirectSurfaceCacheLayout,
+import { applyIndirectSurfaceCapture, applyIndirectSurfaceRadianceCapture, createIndirectSurfaceCache, indirectSurfaceCaptureKey, prepareIndirectSurfaceCaptureKey, indirectSurfaceCacheLayout,
   supportsIndirectSurfaceCapture } from '../src/indirectSurfaceCache.ts'
+
+test('surface invalidation can yield across frames and cancel without publishing a partial key', async () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  scene.add(new Mesh(geometry, material))
+  try {
+    const renderer = {} as WebGLRenderer
+    assert.equal(await prepareIndirectSurfaceCaptureKey(scene, renderer, () => false), indirectSurfaceCaptureKey(scene, renderer))
+    assert.equal(await prepareIndirectSurfaceCaptureKey(scene, renderer, () => true), undefined)
+  } finally { geometry.dispose(); material.dispose() }
+})
 
 test('surface tiles keep sparse probe indices separate and enforce texture/memory bounds', () => {
   const layout = indirectSurfaceCacheLayout([4, 900, 4095], 16, 4096)!
@@ -22,6 +32,10 @@ test('surface tiles keep sparse probe indices separate and enforce texture/memor
   assert.equal(indirectSurfaceCacheLayout([1, 1], 16, 4096), null)
   assert.equal(indirectSurfaceCacheLayout([1], 16, 16), null)
   assert.equal(indirectSurfaceCacheLayout([1], 16, 4096, 100), null)
+  const base = indirectSurfaceCacheLayout([1], 16, 4096)!
+  const relit = indirectSurfaceCacheLayout([1], 16, 4096, Infinity, true)!
+  assert.equal(relit.bytes - base.bytes, base.width * base.height * 16)
+  assert.equal(indirectSurfaceCacheLayout([1], 16, 4096, base.bytes, true), null, 'relighting remains inside the memory budget')
 })
 
 test('unlit capture retains finish composition and receiver bias without PBR or visibility sampling', () => {
@@ -62,6 +76,8 @@ test('surface identity survives lighting changes but invalidates texture, normal
     Object.assign(material, createMaterialVariationShader({ ...defaultMaterialVariation, enabled: true, broadStrength: .2 }))
     assert.notEqual(key(), finish, 'variation values change without changing the shader program')
     const variation = key(); scene.fog = new Fog(0, 1, 10); assert.notEqual(key(), variation)
+    const fog = key(); material.roughness = .25; assert.notEqual(key(), fog, 'relighting captures the effective roughness')
+    const rough = key(); material.emissiveIntensity = 2; assert.notEqual(key(), rough, 'immutable captured emission must be refreshed')
   } finally { geometry.dispose(); material.envMap?.dispose(); normalMap.dispose(); material.dispose() }
 })
 
@@ -93,6 +109,31 @@ test('hardware with fewer than four colour attachments retains ordinary captures
   }) } as unknown as WebGLRenderer
   try { assert.equal(createIndirectSurfaceCache(renderer, [0], 4, createIndirectUniforms(field)), null) }
   finally { field.dispose() }
+})
+
+test('relighting retains original lamp visibility until invalidation and supports four-attachment fallback', () => {
+  const field = createIndirectField([], 1), replacement = createIndirectField([], 1), uniforms = createIndirectUniforms(field)
+  let attachments = 5, released = false
+  field.positions.addEventListener('dispose', () => { released = true })
+  const renderer = { extensions: { has: () => true }, capabilities: { maxTextureSize: 4096 }, shadowMap: { type: 1, enabled: false },
+    getContext: () => ({ MAX_DRAW_BUFFERS: 1, getParameter: () => attachments, clearBufferfv() {} }),
+  } as unknown as WebGLRenderer
+  const cache = createIndirectSurfaceCache(renderer, [0, 1], 4, uniforms, true)!
+  try {
+    assert.equal(cache.relighting, true); assert.equal(cache.target.textures.length, 5)
+    assert.ok(cache.target.depthTexture)
+    cache.setLightingKey('sun-original'); cache.ready.add(0); cache.recordLights(0, [])
+    assert.equal(cache.canRelight(0), true)
+    updateIndirectUniforms(uniforms, replacement); field.dispose()
+    assert.equal(released, false, 'the original atlas survives a moved lamp and source field disposal')
+    cache.setLightingKey('sun-original'); assert.equal(cache.canRelight(0), true)
+    cache.setLightingKey('sun-changed'); assert.equal(cache.canRelight(0), false)
+    assert.equal(released, true); assert.equal(cache.ready.has(0), true, 'sun edits retain cached material/depth data')
+    attachments = 4
+    const fallback = createIndirectSurfaceCache(renderer, [0], 4, uniforms, true)!
+    assert.equal(fallback.relighting, false); assert.equal(fallback.target.textures.length, 4)
+    fallback.dispose()
+  } finally { cache.dispose(); replacement.dispose() }
 })
 
 test('physical transmission and custom shaders fall back while invisible helpers do not disable the cache', () => {

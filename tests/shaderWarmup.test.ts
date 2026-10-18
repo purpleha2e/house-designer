@@ -1,8 +1,28 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BoxGeometry, DoubleSide, FrontSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Scene, Texture } from 'three'
-import { compileShaderWarmup, createShaderWarmupSnapshot, getShaderWarmupSceneRevision, prepareShaderWarmupSceneRevision, prepareShaderWarmupResources, recordViewportGeometryUpload, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
+import { getShaderWarmupResourceRevision, compileShaderWarmup, createShaderWarmupSnapshot, getShaderWarmupSceneRevision, prepareShaderWarmupSceneRevision, prepareShaderWarmupResources, recordViewportGeometryUpload, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
 import type { WebGLRenderer } from 'three'
+
+test('light uniforms reuse resource readiness while edited buffers and texture pixels still require uploads', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), texture = new Texture(), material = new MeshStandardMaterial({ map: texture })
+  scene.add(new Mesh(geometry, material))
+  try {
+    const original = getShaderWarmupResourceRevision(scene)
+    const snapshotCopy = texture.clone()
+    assert.equal(getShaderWarmupResourceRevision(scene), original, 'copying a texture cannot invalidate its source display')
+    snapshotCopy.dispose()
+    material.color.set('#ff8800'); material.roughness = .4
+    assert.equal(getShaderWarmupResourceRevision(scene), original)
+    geometry.attributes.position.needsUpdate = true
+    assert.notEqual(getShaderWarmupResourceRevision(scene), original)
+    const vertices = getShaderWarmupResourceRevision(scene)
+    texture.needsUpdate = true; assert.notEqual(getShaderWarmupResourceRevision(scene), vertices)
+    const pixels = getShaderWarmupResourceRevision(scene)
+    geometry.setAttribute('normal', geometry.attributes.normal.clone())
+    assert.notEqual(getShaderWarmupResourceRevision(scene), pixels)
+  } finally { geometry.dispose(); texture.dispose(); material.dispose() }
+})
 
 test('lighting reuses displayed buffers but prepares edits, replacements, disposed buffers and new renderer contexts', async () => {
   const geometry = new BoxGeometry(), material = new MeshStandardMaterial(), scene = new Scene()
@@ -74,17 +94,19 @@ test('selection decorations are ignored through ancestors, including transform h
   const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
   scene.add(new Mesh(geometry, material))
   const initial = getShaderWarmupSceneRevision(scene)
-  const bounds = new Group(), handles = new Group(), nested = new Group()
+  const bounds = new Group(), handles = new Group(), nested = new Group(), currentHandles = new Group()
   bounds.userData.selectionDecoration = true
   Object.assign(handles, { isTransformControls: true })
+  Object.assign(currentHandles, { isTransformControlsRoot: true })
   const helperMaterial = new MeshBasicMaterial({ transparent: true })
+  currentHandles.add(new Mesh(geometry, helperMaterial))
   bounds.add(new Mesh(geometry, helperMaterial))
   nested.add(new Mesh(geometry, helperMaterial)); handles.add(nested)
-  scene.add(bounds, handles)
+  scene.add(bounds, handles, currentHandles)
   assert.equal(getShaderWarmupSceneRevision(scene), initial)
   helperMaterial.opacity = .5
   assert.equal(getShaderWarmupSceneRevision(scene), initial, 'hover/drag handle opacity does not restart compilation')
-  scene.remove(bounds, handles)
+  scene.remove(bounds, handles, currentHandles)
   assert.equal(getShaderWarmupSceneRevision(scene), initial)
   material.dispose(); helperMaterial.dispose(); geometry.dispose()
 })

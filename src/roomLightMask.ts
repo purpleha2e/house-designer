@@ -2,6 +2,7 @@ import type { Point } from './types.ts'
 
 export const ROOM_LIGHT_MASK_SIZE = 512
 export const MAX_ROOM_LIGHT_MASK_ID = 254
+export const MAX_ROOM_LIGHT_FLOORS = 8
 
 export type RoomLightMaskRoom = {
   polygon: Point[]
@@ -20,6 +21,26 @@ export type RoomLightMask = {
   height: number
   roomIdsBySignature: Map<string, number>
   width: number
+  floorHeights?: number[]
+}
+
+export type RoomLightMaskFloor = { id: string; elevation: number; rooms: RoomLightMaskRoom[] }
+
+/** One atlas layer per storey and one ID per room across the whole building.
+ * Navigation/editing floor changes do not change light membership. */
+export function createRoomLightMaskStack(floors: RoomLightMaskFloor[], bounds: RoomLightMaskBounds, size = ROOM_LIGHT_MASK_SIZE): RoomLightMask {
+  const layers = [...floors].sort((a, b) => a.elevation - b.elevation).slice(0, MAX_ROOM_LIGHT_FLOORS)
+  const width = Math.max(1, Math.floor(size)), data = new Uint8Array(width * width * Math.max(1, layers.length))
+  const roomIdsBySignature = new Map<string, number>()
+  layers.forEach((floor, layer) => {
+    const mask = createRoomLightMask(floor.rooms, bounds, width), remap = new Uint8Array(256)
+    for (const [signature, id] of mask.roomIdsBySignature) {
+      const globalId = roomIdsBySignature.size < MAX_ROOM_LIGHT_MASK_ID ? roomIdsBySignature.size + 1 : 0
+      roomIdsBySignature.set(`${floor.id}:${signature}`, globalId); remap[id] = globalId
+    }
+    for (let i = 0; i < mask.data.length; i++) data[layer * width * width + i] = remap[mask.data[i]]
+  })
+  return { bounds, data, width, height: width * Math.max(1, layers.length), roomIdsBySignature, floorHeights: layers.map(f => f.elevation) }
 }
 
 function pointIsOnSegment(point: Point, start: Point, end: Point) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BatchedMesh, BoxGeometry, Color, DirectionalLight, Group, Matrix4, Mesh, MeshStandardMaterial, Scene, Texture, Vector3 } from 'three'
+import { BatchedMesh, BoxGeometry, Color, DirectionalLight, Group, Matrix4, Mesh, MeshStandardMaterial, PointLight, Scene, SpotLight, Texture, Vector3 } from 'three'
 import { retainViewportScene } from '../src/retainedViewportScene.ts'
 
 test('retained display freezes transforms and material features while sharing prepared resources', () => {
@@ -37,6 +37,32 @@ test('source disposal waits until the last retained scene releases its GPU resou
   assert.deepEqual(disposed, { geometry: 0, material: 0, texture: 0 })
   b.dispose()
   assert.deepEqual(disposed, { geometry: 1, material: 1, texture: 1 })
+})
+
+test('retained display applies lamp toggles and uniform edits while geometry and shader features stay frozen', () => {
+  const source = new Scene(), parent = new Group(), point = new PointLight('#ff8800', 3, 20), spot = new SpotLight('#ffffff', 2)
+  parent.position.set(2, 1, 3); parent.add(point, spot, spot.target); source.add(parent)
+  point.castShadow = true; spot.target.position.set(1, -2, 0)
+  const snapshot = retainViewportScene(source)
+  const copy = snapshot.scene.children.find(o => o instanceof PointLight) as PointLight
+  const spotCopy = snapshot.scene.children.find(o => o instanceof SpotLight) as SpotLight
+  try {
+    assert.equal(snapshot.syncLighting(), false)
+    point.intensity = 0
+    assert.equal(snapshot.syncLighting(), true)
+    assert.equal(copy.intensity, 0, 'switching off does not wait for replacement scene preparation')
+    assert.equal(copy.castShadow, true); assert.equal(copy.shadow, point.shadow)
+    point.intensity = 5; point.distance = 12; point.decay = 1; point.color.set('#00aaff')
+    parent.position.x = 4; spot.angle = .4; spot.penumbra = .2; spot.target.position.x = -1
+    assert.equal(snapshot.syncLighting(), true)
+    assert.equal(copy.intensity, 5); assert.equal(copy.distance, 12); assert.equal(copy.decay, 1)
+    assert.ok(copy.color.equals(point.color)); assert.ok(copy.matrixWorld.equals(point.matrixWorld))
+    assert.equal(spotCopy.angle, .4); assert.equal(spotCopy.penumbra, .2)
+    assert.ok(spotCopy.target.getWorldPosition(new Vector3()).equals(spot.target.getWorldPosition(new Vector3())))
+    assert.equal(snapshot.syncLighting(), false)
+    parent.visible = false; snapshot.syncLighting(); assert.equal(copy.intensity, 0)
+    parent.visible = true; parent.remove(point); snapshot.syncLighting(); assert.equal(copy.intensity, 0)
+  } finally { snapshot.dispose(); point.dispose(); spot.dispose() }
 })
 
 test('retained model batches reuse prepared vertices, freeze transforms and release only their own resources', () => {

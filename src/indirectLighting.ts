@@ -2,7 +2,7 @@ import { DataTexture, FloatType, HalfFloatType, DataUtils, LinearFilter, Nearest
   RedFormat, RGBAFormat, UnsignedByteType, Vector3, SphericalHarmonics3, type BufferGeometry } from 'three'
 import { createRoomLightMask, pointIsInsideRoomPolygon } from './roomLightMask.ts'
 import type { Point } from './types.ts'
-import { createIndirectVolume } from './indirectVolume.ts'
+import { createIndirectVolume, INDIRECT_VOLUME_SAMPLING_VERSION } from './indirectVolume.ts'
 import { createIndirectFloorLayer } from './indirectFloorLighting.ts'
 
 export const INDIRECT_MAX_FLOORS = 8
@@ -25,24 +25,46 @@ export type IndirectProbe = { index: number; position: Vector3; region: Indirect
 export type IndirectField = ReturnType<typeof createIndirectField>
 
 const geometryFingerprints = new WeakMap<BufferGeometry, { positions: unknown; index: unknown; version: string; fingerprint: string }>()
-/** React can rebuild identical geometry on a navigation-mode change. */
-export function indirectGeometryFingerprint(geometry: BufferGeometry) {
+/** Visibility depends on triangles, not their material batching/vertex order.
+ * Hash a multiset of canonical triangles so repainting/rebatching a wall does
+ * not rebuild its BVH. Actual topology, positions and opaque coverage still do. */
+export function* indirectGeometryFingerprintSteps(geometry: BufferGeometry,
+  requestedRanges?: { start: number; count: number }[]): Generator<void, string> {
   const positions = geometry.attributes.position, index = geometry.index
   if (!positions) return ''
   const positionVersion = 'data' in positions ? positions.data.version : positions.version
-  const version = `${positionVersion}:${positions.count}:${index?.version}:${index?.count}`
+  const ranges = requestedRanges ?? [{ start: 0, count: index?.count ?? positions.count }]
+  const version = `${positionVersion}:${positions.count}:${index?.version}:${index?.count}:${JSON.stringify(ranges)}`
   const cached = geometryFingerprints.get(geometry)
   if (cached?.version === version && cached.positions === positions && cached.index === index) return cached.fingerprint
-  let hash = 2166136261
-  for (let i = 0; i < positions.count; i++) {
-    hash = Math.imul(hash ^ Math.round(positions.getX(i) * 100000), 16777619)
-    hash = Math.imul(hash ^ Math.round(positions.getY(i) * 100000), 16777619)
-    hash = Math.imul(hash ^ Math.round(positions.getZ(i) * 100000), 16777619)
+  let sum = 0, square = 0, xor = 0, triangles = 0
+  for (const range of ranges) for (let i = range.start; i + 2 < range.start + range.count; i += 3) {
+    if (triangles % 512 === 0) yield
+    const vertices: number[] = []
+    for (let corner = 0; corner < 3; corner++) {
+      const vertex = index?.getX(i + corner) ?? i + corner
+      let hash = 2166136261
+      hash = Math.imul(hash ^ Math.round(positions.getX(vertex) * 100000), 16777619)
+      hash = Math.imul(hash ^ Math.round(positions.getY(vertex) * 100000), 16777619)
+      hash = Math.imul(hash ^ Math.round(positions.getZ(vertex) * 100000), 16777619)
+      vertices.push(hash >>> 0)
+    }
+    vertices.sort((a, b) => a - b)
+    let hash = 2166136261
+    for (const vertex of vertices) hash = Math.imul(hash ^ vertex, 16777619)
+    sum = (sum + hash) | 0; square = (square + Math.imul(hash, hash)) | 0; xor ^= hash
+    triangles++
   }
-  if (index) for (let i = 0; i < index.count; i++) hash = Math.imul(hash ^ index.getX(i), 16777619)
-  const fingerprint = `${positions.count}:${index?.count ?? 0}:${hash >>> 0}`
+  const fingerprint = `${triangles}:${sum >>> 0}:${square >>> 0}:${xor >>> 0}`
   geometryFingerprints.set(geometry, { positions, index, version, fingerprint })
   return fingerprint
+}
+
+export function indirectGeometryFingerprint(geometry: BufferGeometry, ranges?: { start: number; count: number }[]) {
+  const steps = indirectGeometryFingerprintSteps(geometry, ranges)
+  let next = steps.next()
+  while (!next.done) next = steps.next()
+  return next.value
 }
 
 /** Prefer a point with clearance, including in L-shaped and narrow rooms. */
@@ -189,7 +211,7 @@ export function createIndirectField(input: IndirectFloor[], localLightCount = 1)
   const mask = texture(maskData, INDIRECT_MASK_SIZE, INDIRECT_MASK_SIZE * Math.max(1, floors.length))
   const volume = createIndirectVolume(size, floors.length)
   const floorLayer = createIndirectFloorLayer(size, floors.length)
-  return { floors, ranges, grids, probes, regions, spacing, n, floorProbeLayoutVersion: 0, bounds: { minX, minZ, size }, mask, maps, coefficients,
+  return { floors, ranges, grids, probes, regions, spacing, n, floorProbeLayoutVersion: 0, volumeSamplingVersion: INDIRECT_VOLUME_SAMPLING_VERSION, bounds: { minX, minZ, size }, mask, maps, coefficients,
     positions, positionData, distances, distanceData, distanceColumns, distanceRows, distanceSize, distanceWidth, volume, floorLayer,
     dispose() { mask.dispose(); positions.dispose(); distances.dispose(); volume.dispose(); floorLayer.dispose(); maps.forEach(map => map.dispose()) } }
 }
@@ -204,6 +226,7 @@ export function serializeIndirectField(field: IndirectField) {
   return {
     floors: field.floors, ranges: field.ranges, grids: field.grids, spacing: field.spacing, n: field.n, bounds: field.bounds,
     floorProbeLayoutVersion: field.floorProbeLayoutVersion,
+    volumeSamplingVersion: field.volumeSamplingVersion,
     regions: field.regions.map(region => ({ ...region, centre: region.centre.toArray() })),
     probes: field.probes.map(probe => ({ index: probe.index, position: probe.position.toArray(), regionId: probe.region.id, kind: probe.kind })),
     maskData: field.mask.image.data as Uint8Array, positionData: field.positionData,
@@ -211,7 +234,7 @@ export function serializeIndirectField(field: IndirectField) {
     distanceSize: field.distanceSize, distanceWidth: field.distanceWidth,
   }
 }
-export type IndirectFieldData = Omit<ReturnType<typeof serializeIndirectField>, 'floorProbeLayoutVersion'> & { floorProbeLayoutVersion?: number }
+export type IndirectFieldData = Omit<ReturnType<typeof serializeIndirectField>, 'floorProbeLayoutVersion' | 'volumeSamplingVersion'> & { floorProbeLayoutVersion?: number; volumeSamplingVersion?: number }
 
 export function restoreIndirectField(data: IndirectFieldData): IndirectField {
   const regions = data.regions.map(region => ({ ...region, centre: new Vector3().fromArray(region.centre) }))
@@ -226,7 +249,7 @@ export function restoreIndirectField(data: IndirectFieldData): IndirectField {
   const mask = texture(data.maskData, INDIRECT_MASK_SIZE, INDIRECT_MASK_SIZE * Math.max(1, data.floors.length))
   const volume = createIndirectVolume(data.bounds.size, data.floors.length)
   const floorLayer = createIndirectFloorLayer(data.bounds.size, data.floors.length)
-  return { ...data, floorProbeLayoutVersion: data.floorProbeLayoutVersion ?? 0, regions, probes, coefficients, maps, positions, distances, mask, volume, floorLayer,
+  return { ...data, floorProbeLayoutVersion: data.floorProbeLayoutVersion ?? 0, volumeSamplingVersion: data.volumeSamplingVersion ?? 0, regions, probes, coefficients, maps, positions, distances, mask, volume, floorLayer,
     dispose() { mask.dispose(); positions.dispose(); distances.dispose(); volume.dispose(); floorLayer.dispose(); maps.forEach(map => map.dispose()) } }
 }
 
