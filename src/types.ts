@@ -115,6 +115,9 @@ export type SurfaceMaterialVariation = {
 }
 
 export type SurfaceMaterialPbr = {
+  /** Source-image hashes keep saved lighting portable across texture compression. */
+  textureSourceHashes?: Partial<Record<'baseColorTextureUrl' | 'normalTextureUrl' | 'roughnessTextureUrl' |
+    'metalnessTextureUrl' | 'ambientOcclusionTextureUrl' | 'displacementTextureUrl', string>>
   proceduralVariation?: SurfaceMaterialVariation
   ambientOcclusionTextureUrl?: string
   baseColor?: string
@@ -125,6 +128,8 @@ export type SurfaceMaterialPbr = {
   metalness?: number
   metalnessTextureUrl?: string
   normalTextureUrl?: string
+  normalStrength?: number
+  normalFlipY?: boolean
   realWorldHeightMeters?: number
   realWorldWidthMeters?: number
   repeatX?: number
@@ -135,6 +140,8 @@ export type SurfaceMaterialPbr = {
 }
 
 export type SurfaceMaterialProduct = {
+  /** User library path, independent of the technical surface category. */
+  folder?: string
   category: SurfaceCategory
   collection?: string
   colourFamily?: string
@@ -269,6 +276,8 @@ export type RoofEndChamfer = {
 export type RoofStructure = {
   // Bay outline in support-relative coordinates; the first edge is the rear.
   bayOutline?: Point[]
+  /** Missing values preserve the original fan roof. */
+  bayRoofStyle?: 'fan' | 'classic-lean-to'
   /** Ridge length from the mounting edge towards the bay front, in metres. */
   bayRidgeLength?: number
   // Derived from supporting walls during geometry resolution, not authored.

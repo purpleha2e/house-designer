@@ -16,7 +16,9 @@ class ViewerErrorBoundary extends Component<{ children: ReactNode }, { failed: b
 
 const root = createRoot(document.getElementById('root')!)
 try {
-  const response = await fetch(new URL('./house.json', window.location.href))
+  const response = await fetch(new URL(import.meta.env.VITE_HOUSE_SNAPSHOT ?? './house.json', window.location.href), {
+    cache: 'no-cache',
+  })
   if (!response.ok) throw new Error(`House request returned ${response.status}`)
   const house = parsePublishedHouse(await response.json())
   document.title = `${house.title} · House tour`

@@ -2,10 +2,65 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Box3, DoubleSide, FrontSide, Mesh, MeshStandardMaterial, Raycaster, Vector3 } from 'three'
 import { createStairDesign, getStairLayout, validateStairDesign } from '../src/stairDesign.ts'
-import { createStairGeometry, disposeStairGeometry, stairGeometryKey } from '../src/stairGeometry.ts'
+import { createStairGeometry, createStairSpindleGeometry, disposeStairGeometry, stairGeometryKey } from '../src/stairGeometry.ts'
+import { createStairHandrail } from '../src/stairRailings.ts'
+import spindle from '../src/stairSpindle.json' with { type: 'json' }
 import { createStairRiser } from '../src/stairRiser.ts'
 import { getStairSpindlePositions } from '../src/stairSpindlePlacement.ts'
 import { createStairTread } from '../src/stairTread.ts'
+
+test('handrail grain follows U continuously through sloping and turning segments', () => {
+  const path = [{ x: 0, y: 0, z: 0 }, { x: 0, y: 1, z: 2 }, { x: 1, y: 1, z: 2 }, { x: 1, y: 2, z: 0 }]
+  const rail = createStairHandrail(path, .075), uv = rail.getAttribute('uv')
+  let length = 0
+  try {
+    for (let segment = 0; segment < path.length - 1; segment++) {
+      const a = path[segment], b = path[segment + 1], end = length + Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z)
+      for (let side = 0; side < 4; side++) {
+        const start = segment * 24 + side * 6
+        assert.ok(Math.abs(uv.getX(start) - length) < 1e-6)
+        assert.ok(Math.abs(uv.getX(start + 1) - end) < 1e-6, 'U advances in metres along the rail')
+        assert.equal(uv.getY(start), uv.getY(start + 1), 'grain stays parallel to each longitudinal edge')
+        assert.ok(Math.abs(Math.abs(uv.getY(start + 2) - uv.getY(start + 1)) - .075) < 1e-6)
+      }
+      length = end
+    }
+  } finally { rail.dispose() }
+})
+
+test('spindle UVs rotate ninety degrees without changing the authored unwrap or geometry', () => {
+  const geometry = createStairSpindleGeometry(), uv = geometry.getAttribute('uv')
+  try {
+    for (let i = 0; i < uv.count; i++) {
+      assert.ok(Math.abs(uv.getX(i) - spindle.uv[i * 2 + 1]) < 1e-6)
+      assert.ok(Math.abs(uv.getY(i) + spindle.uv[i * 2]) < 1e-6)
+    }
+    assert.deepEqual(Array.from(geometry.index!.array), spindle.index)
+  } finally { geometry.dispose() }
+})
+
+test('newels and sloping supports preserve physical texture scale on sides and ends', () => {
+  for (const layout of ['straight', 'l', 'u'] as const) {
+    const design = { ...createStairDesign(), layout, closedUnderside: false }
+    const object = createStairGeometry(design)
+    try {
+      for (const part of ['posts', 'stringers']) {
+        const geometry = (object.getObjectByName(`stair-${part}`) as Mesh).geometry
+        const p = geometry.getAttribute('position'), uv = geometry.getAttribute('uv')
+        for (let i = 0; i < p.count; i += 3) for (let j = 0; j < 3; j++) {
+          const a = i + j, b = i + (j + 1) % 3
+          const worldLength = Math.hypot(p.getX(a) - p.getX(b), p.getY(a) - p.getY(b), p.getZ(a) - p.getZ(b))
+          const uvLength = Math.hypot(uv.getX(a) - uv.getX(b), uv.getY(a) - uv.getY(b))
+          assert.ok(Math.abs(worldLength - uvLength) < 1e-6, `${layout} ${part}: texture size matches the physical edge`)
+          if (part === 'posts' && Math.abs(p.getY(a) - p.getY(b)) > 1e-6 &&
+            Math.hypot(p.getX(a) - p.getX(b), p.getZ(a) - p.getZ(b)) < 1e-6) {
+            assert.ok(Math.abs(uv.getY(a) - uv.getY(b)) < 1e-6, 'grain U runs vertically along each post')
+          }
+        }
+      }
+    } finally { disposeStairGeometry(object) }
+  }
+})
 
 test('stepped landing soffits do not overlap their risers or form paired coplanar bridges', () => {
   for (const layout of ['l', 'u'] as const) for (const turn of ['left', 'right'] as const) for (const landingSteps of [1, 2, 3] as const) {

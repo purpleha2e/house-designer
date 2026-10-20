@@ -1,5 +1,5 @@
 import type { WindowDesign } from '../windowDesign'
-import type { StairDesign } from '../stairDesign'
+import { parametricStairMaterialRegions, type StairDesign } from '../stairDesign'
 
 export type ModelObjectType =
   | 'appliance'
@@ -362,7 +362,7 @@ export function registerRuntimeModels(models: ModelDefinition[]) {
       ...existingModel,
       ...model,
       materialRegions:
-        model.materialRegions ??
+        model.stairDesign ? parametricStairMaterialRegions : model.materialRegions ??
         existingModel?.materialRegions ??
         (model.objectType === 'stairs' ? stairMaterialRegions : undefined),
     }

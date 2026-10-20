@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { Wall } from '../src/types.ts'
-import { buildWallBufferGeometryPayload } from '../src/wallEngine/wallBuffer.ts'
+import { buildWallBufferGeometryPayload, transferWallBufferPayload } from '../src/wallEngine/wallBuffer.ts'
+import { createWallBufferGeometry } from '../src/wallEngine/wallThreeGeometry.ts'
 import { buildWallMeshFaces, type WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 
 function wall(overrides: Partial<Wall> & Pick<Wall, 'id'>): Wall {
@@ -15,6 +16,25 @@ function wall(overrides: Partial<Wall> & Pick<Wall, 'id'>): Wall {
     ...overrides,
   }
 }
+
+test('worker wall buffers transfer ownership and become GPU attributes without another copy', () => {
+  const source = buildWallBufferGeometryPayload(buildWallMeshFaces([wall({ id: 'transfer' })]), { floorId: 'floor-1' })
+  const packed = transferWallBufferPayload(source)
+  const received = structuredClone(packed.payload, { transfer: packed.buffers })
+  assert.equal(packed.buffers.every(buffer => buffer.byteLength === 0), true)
+  assert.deepEqual([...received.positions], [...source.positions].map(Math.fround))
+  assert.deepEqual(received.groups, source.groups)
+  assert.deepEqual(received.pickTargets, source.pickTargets)
+  const geometry = createWallBufferGeometry(received)
+  try {
+    assert.equal(geometry.attributes.position.array, received.positions)
+    assert.equal(geometry.attributes.normal.array, received.normals)
+    assert.equal(geometry.attributes.uv.array, received.uvs)
+    assert.equal(geometry.attributes.hdGIReceiverOffset.array, received.lightingReceiverOffsets)
+    assert.equal(geometry.attributes.hdGICorner0.array, received.lightingCornerPlanes[0])
+    assert.equal(geometry.attributes.hdGICorner1.array, received.lightingCornerPlanes[1])
+  } finally { geometry.dispose() }
+})
 
 test('wall buffer adapter emits expanded triangle attributes and groups', () => {
   const faces = buildWallMeshFaces([

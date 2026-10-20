@@ -5,6 +5,27 @@ import { createViewportSelection } from '../src/viewportSelection.ts'
 import { retainViewportScene } from '../src/retainedViewportScene.ts'
 import { createOpaqueViewportScene } from '../src/opaqueViewportScene.ts'
 
+test('roof highlights stay live without rebuilding the retained house display', () => {
+  const source = new Scene(), geometry = new BoxGeometry(), material = new MeshBasicMaterial({ transparent: true })
+  const roof = new Mesh(geometry, material)
+  roof.userData = { houseDesignerRole: 'roof-exterior-highlight', roofId: 'lean-to' }
+  source.add(roof)
+  const retained = retainViewportScene(source), selection = createViewportSelection()
+  try {
+    assert.equal(retained.scene.children.length, 0, 'the highlight is not baked into the house snapshot')
+    selection.sync(source, retained.scene, 'selected-roof')
+    const meshes: Mesh[] = []
+    retained.scene.traverse(object => { if (object instanceof Mesh) meshes.push(object) })
+    assert.equal(meshes.length, 1)
+    assert.equal(meshes[0].geometry, geometry)
+    source.remove(roof)
+    selection.sync(source, retained.scene, 'none')
+    let count = 0
+    retained.scene.traverse(object => { if (object instanceof Mesh) count++ })
+    assert.equal(count, 0)
+  } finally { selection.clear(); retained.dispose(); geometry.dispose(); material.dispose() }
+})
+
 test('wall and object selection stays current across retained and startup displays', () => {
   const source = new Scene(), parent = new Group(), geometry = new BoxGeometry()
   const material = new MeshBasicMaterial({ transparent: true, opacity: .28 })
@@ -36,4 +57,26 @@ test('wall and object selection stays current across retained and startup displa
   selection.clear(); opaque.dispose(); retained.dispose()
   assert.equal(disposals, 0, 'display proxies do not own selection resources')
   geometry.dispose(); material.dispose()
+})
+
+test('unchanged frames leave house geometry alone while nested selection changes remain live', () => {
+  const source = new Scene(), display = new Scene(), house = new Group(), selection = createViewportSelection()
+  const geometry = new BoxGeometry(), material = new MeshBasicMaterial(), model = new Mesh(geometry, material)
+  source.add(house); house.add(model)
+  selection.sync(source, display, 'none')
+  let houseUpdates = 0, houseReads = 0
+  model.updateMatrixWorld = () => { houseUpdates++ }
+  Object.defineProperty(model.userData, 'selectionDecoration', { configurable: true, get() { houseReads++; return false } })
+  for (let i = 0; i < 20; i++) selection.sync(source, display, 'none')
+  assert.equal(houseUpdates, 0, 'navigation does not update unrelated model transforms')
+  assert.equal(houseReads, 0, 'navigation does not rescan the house')
+  const highlight = new Mesh(geometry, material), nested = new Group()
+  nested.userData.selectionDecoration = true; nested.add(highlight); house.add(nested)
+  selection.sync(source, display, 'selected')
+  let copies = 0; display.traverse(o => { if (o instanceof Mesh) copies++ })
+  assert.equal(copies, 1, 'hierarchy additions update the selection index')
+  nested.remove(highlight); selection.sync(source, display, 'selected')
+  copies = 0; display.traverse(o => { if (o instanceof Mesh) copies++ })
+  assert.equal(copies, 0, 'nested removal cannot leave stale selection geometry')
+  selection.clear(); geometry.dispose(); material.dispose()
 })

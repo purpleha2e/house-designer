@@ -1,13 +1,22 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto'
 import { build, createServer } from 'vite'
 import { createRuntimePortalCatalog } from '../src/portalCatalog.ts'
+import { collectLocalMaterialDefinitions, localMaterialPrefix, validateLocalMaterial } from '../src/materials/localMaterials.ts'
+import { bundleLocalMaterialTextures } from './local-material-bundle.mjs'
 import { indirectProjectKey, loadIndirectLighting, savedIndirectLightingMatches } from '../src/indirectLightingPersistence.ts'
 
 const workspace = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const staging = resolve(workspace, '.viewer-data')
 const publicDir = resolve(staging, 'public')
+
+// The URL must change whenever the published snapshot changes. A stable
+// house.json URL can remain cached after the new viewer has been deployed.
+export function houseSnapshotFilename(contents) {
+  return `house.${createHash('sha256').update(contents).digest('hex').slice(0, 20)}.json`
+}
 
 export function collectStrings(value, result = new Set()) {
   if (typeof value === 'string') result.add(value)
@@ -58,6 +67,18 @@ async function prepare(projectPath, title, allowUnbaked = false) {
     if (usedMaterialIds.has(id) || usedPortalModelIds.has(id)) assets.push(asset)
   }
   const catalog = createRuntimePortalCatalog({ manufacturers: [{ assets }] })
+  // Local materials carry their own image data. A viewer never needs the
+  // author's IndexedDB, a portal login or their computer to display them.
+  const localSources = { floors: project.floors, surfaceAssignments: project.surfaceAssignments,
+    modelDefinitions: (project.modelDefinitions ?? []).filter(model => usedModelIds.has(model.id)) }
+  const localReferences = collectStrings(localSources)
+  const localMaterials = collectLocalMaterialDefinitions(localSources, project.materialDefinitions ?? [])
+  localMaterials.forEach(validateLocalMaterial)
+  for (const id of localReferences) {
+    if (id.startsWith(localMaterialPrefix) && !localMaterials.some(material => material.id === id)) {
+      throw new Error(`Missing local material ${id}. Open and save the house again with its local materials before publishing.`)
+    }
+  }
   for (const id of usedMaterialIds) {
     if (!catalog.materials.some(material => material.id === id)) throw new Error(`Missing published material ${id}. Restore its local manufacturer assets before building this viewer.`)
   }
@@ -109,6 +130,8 @@ async function prepare(projectPath, title, allowUnbaked = false) {
       if (key.endsWith('TextureUrl')) material.pbr[key] = await portableUrl(material.pbr[key])
     }
   }
+  catalog.materials.push(...await bundleLocalMaterialTextures(localMaterials, publicDir,
+    resolve(workspace, 'node_modules/.cache/local-material-textures')))
   const house = { title, materials: catalog.materials, project: {
     activeFloorId: project.activeFloorId,
     floors: project.floors.map(({ groundImage, ...floor }) => floor),
@@ -118,10 +141,19 @@ async function prepare(projectPath, title, allowUnbaked = false) {
     threeDView: project.threeDView,
     indirectLighting,
   } }
-  await writeFile(resolve(publicDir, 'house.json'), JSON.stringify(house))
+  const contents = JSON.stringify(house)
+  const houseFilename = houseSnapshotFilename(contents)
+  await writeFile(resolve(publicDir, houseFilename), contents)
+  // Retain the old URL for already-open viewers and publishing validation.
+  await writeFile(resolve(publicDir, 'house.json'), contents)
+  await writeFile(resolve(publicDir, 'manifest.webmanifest'), JSON.stringify({
+    name: `${title} house tour`, short_name: title, id: './', start_url: './', scope: './',
+    display: 'standalone', background_color: '#eef2f7', theme_color: '#172033',
+  }))
   await writeFile(resolve(publicDir, '.nojekyll'), '')
   console.log(`Prepared ${title}: ${project.floors.length} floors, ${catalog.materials.length} uploaded materials, ${copied.size} asset files.`)
-  return usedModelIds
+  console.log(`Source: ${projectPath}\nSnapshot: ${houseFilename}`)
+  return { usedModelIds, houseFilename }
 }
 
 // The full editor catalogue is unnecessary in a single house's viewer bundle.
@@ -150,8 +182,12 @@ async function main() {
   if (!projectArg) throw new Error('Usage: npm run build:viewer -- --project house.json --title "House name"\nAdd --serve to preview the viewer locally.')
   const projectPath = resolve(workspace, projectArg)
   const title = option('--title') ?? basename(projectPath, extname(projectPath)).replaceAll('_', ' ')
-  const usedModelIds = await prepare(projectPath, title, args.includes('--allow-unbaked'))
-  const config = { configFile: resolve(workspace, 'vite.viewer.config.ts'), plugins: [houseModelsPlugin(usedModelIds)] }
+  const { usedModelIds, houseFilename } = await prepare(projectPath, title, args.includes('--allow-unbaked'))
+  const config = {
+    configFile: resolve(workspace, 'vite.viewer.config.ts'),
+    define: { 'import.meta.env.VITE_HOUSE_SNAPSHOT': JSON.stringify(`./${houseFilename}`) },
+    plugins: [houseModelsPlugin(usedModelIds)],
+  }
   if (args.includes('--serve')) {
     const server = await createServer({ ...config, base: '/', server: { host: '127.0.0.1', port: Number(option('--port') ?? 5183), strictPort: true } })
     await server.listen()

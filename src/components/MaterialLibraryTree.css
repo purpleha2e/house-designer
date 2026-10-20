@@ -1,0 +1,28 @@
+.material-tree { min-width: 0; }
+.material-tree input[type="search"] { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #26364e; font: 12px system-ui, sans-serif; margin-bottom: 8px; }
+.material-tree ul { list-style: none; margin: 0; padding: 0; }
+.material-tree ul ul { padding-left: 12px; border-left: 1px solid #e0e6ee; margin-left: 8px; }
+.material-tree li { min-width: 0; }
+.material-tree .material-folder-row { display: flex; align-items: center; gap: 0; border-radius: 5px; }
+.material-tree .material-folder-row.is-selected { background: #e7effd; }
+.material-tree button { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 5px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #334155; font: 12px/1.4 system-ui, sans-serif; text-align: left; cursor: pointer; box-shadow: none; }
+.material-tree button:hover { background: #eaf0f8; border-color: transparent; }
+.material-tree button:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
+.material-tree .material-folder-toggle { flex: 0 0 28px; justify-content: center; padding: 0; }
+.material-tree .material-folder-toggle svg { width: 19px; height: 19px; flex-shrink: 0; }
+.material-tree .material-folder-label { flex: 1; min-width: 0; }
+.material-tree .material-folder-label svg { width: 17px; height: 17px; flex: 0 0 17px; color: #6b84a8; }
+.material-tree .material-folder-label > span, .material-tree-item > span:last-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.material-tree .material-folder-label small { font-size: 10px; color: #7a889b; margin-left: auto; }
+.material-tree .material-tree-item { width: 100%; min-width: 0; margin: 2px 0; }
+.material-tree .material-tree-item[aria-pressed="true"] { background: #dceaff; border-color: #93b9f7; color: #173c8f; }
+.material-editor .material-tree button, .left-tool-flyout .material-tree button { min-height: 30px; padding: 4px 5px; border: 1px solid transparent; background: transparent; font: 12px/1.4 system-ui, sans-serif; }
+.material-editor .material-tree .material-folder-toggle, .left-tool-flyout .material-tree .material-folder-toggle { padding: 0; flex-basis: 28px; }
+.material-editor .material-tree .material-tree-item[aria-pressed="true"], .left-tool-flyout .material-tree .material-tree-item[aria-pressed="true"] { background: #dceaff; border-color: #93b9f7; }
+.material-editor .material-tree button:hover, .left-tool-flyout .material-tree button:hover { background: #eaf0f8; }
+.material-editor .material-tree button:focus-visible, .left-tool-flyout .material-tree button:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }
+.material-tree-swatch { width: 23px; height: 23px; border-radius: 4px; border: 1px solid #0002; flex-shrink: 0; background-size: cover; }
+.material-tree-empty { padding: 5px 8px; color: #7a889b; font: 11px/1.4 system-ui, sans-serif; }
+.left-tool-flyout.materials-flyout { width: min(320px, calc(100vw - 72px)); }
+.materials-flyout .material-tree nav { max-height: 340px; overflow-y: auto; }
+.materials-flyout .material-picker-selection { margin: 0; color: #475569; font: 11px/1.4 system-ui, sans-serif; overflow-wrap: anywhere; }

@@ -15,6 +15,26 @@ test('overlapping storeys have independent globally unique room IDs in one mask 
   assert.ok(lower && upper && lower !== upper)
   assert.equal(mask.data[16 * 32 + 16], lower)
   assert.equal(mask.data[(32 + 16) * 32 + 16], upper)
+  assert.ok(mask.boundaries[lower * 4 + 1] > mask.boundaries[lower * 4])
+  assert.ok(mask.boundaries[upper * 4] >= mask.boundaries[lower * 4 + 1], 'each storey retains its own edge range')
+})
+
+test('exact light boundaries merge doorway extensions and retain sub-texel partitions', () => {
+  const rectangle = (left: number, bottom: number, right: number, top: number) =>
+    [{ x: left, y: bottom }, { x: right, y: bottom }, { x: right, y: top }, { x: left, y: top }]
+  const mask = createRoomLightMask([
+    { signature: 'hall', polygon: rectangle(0, 0, 4.0000001, 6) },
+    { signature: 'hall', polygon: rectangle(4, 2, 4.15, 3) },
+    { signature: 'partition', polygon: rectangle(1.011, 1, 1.021, 5) },
+  ], { minX: -2, minZ: -2, size: 10 }, 16)
+  const id = mask.roomIdsBySignature.get('hall')!
+  const edges = []
+  for (let i = mask.boundaries[id * 4]; i < mask.boundaries[id * 4 + 1]; i++) edges.push([...mask.boundaries.slice(i * 4, i * 4 + 4)])
+  assert.ok(!edges.some(([ax, az, bx, bz]) => ax === 4 && bx === 4 && Math.min(az, bz) < 3 && Math.max(az, bz) > 2),
+    'a doorway and its room have no internal blocking edge')
+  for (const x of [1.011, 1.021]) assert.ok(edges.some(([ax, az, bx, bz]) =>
+    Math.abs(ax - x) < 1e-6 && Math.abs(bx - x) < 1e-6 && Math.abs(bz - az) === 4),
+  'both faces of a 1 cm partition survive even when they occupy one mask cell')
 })
 
 test('room light mask gives enclosed rooms distinct ids and leaves exterior points global', () => {

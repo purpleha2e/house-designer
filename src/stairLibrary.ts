@@ -1,14 +1,12 @@
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 import { Mesh, WebGLRenderer, type MeshStandardMaterial, type Object3D, type Texture } from 'three'
 import { decompress } from 'three/examples/jsm/utils/WebGLTextureUtils.js'
-import { modelLibrary, modelsById, type ModelDefinition, type ModelMaterialRegion } from './models/modelLibrary'
-import { getStairFinish, getStairLayout, stairParts, stairPartLabels, stairThumbnail, validateStairDesign, type StairDesign } from './stairDesign'
+import { modelLibrary, modelsById, type ModelDefinition } from './models/modelLibrary'
+import { getStairFinish, getStairLayout, stairParts, parametricStairMaterialRegions, stairThumbnail, validateStairDesign, type StairDesign } from './stairDesign'
 import { createStairGeometry, disposeStairGeometry } from './stairGeometry'
 import { surfaceMaterialsById } from './materials/materialCatalog'
 
-export const parametricStairMaterialRegions: ModelMaterialRegion[] = stairParts.map(part => ({
-  id: `stairs_${part}`, label: stairPartLabels[part], sourceMaterialNames: [`stairs_${part}`],
-}))
+export { parametricStairMaterialRegions } from './stairDesign'
 
 export function stairDefinition(id: string, name: string, design: StairDesign): ModelDefinition {
   const error = validateStairDesign(design)
@@ -31,6 +29,7 @@ export function stairDefinition(id: string, name: string, design: StairDesign): 
 
 /** Replaces personal stair varieties without affecting imported models or windows. */
 export function registerStairModels(models: ModelDefinition[], replace = false) {
+  models = models.map(model => model.stairDesign ? { ...model, materialRegions: parametricStairMaterialRegions } : model)
   const ids = new Set(models.map(m => m.id))
   const removed = modelLibrary.filter(m => ids.has(m.id) || (replace && m.stairDesign))
   removed.forEach(m => modelsById.delete(m.id))

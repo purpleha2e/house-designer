@@ -1,5 +1,7 @@
 import {
   DataTexture,
+  FloatType,
+  RGBAFormat,
   NearestFilter,
   NoColorSpace,
   RedFormat,
@@ -23,6 +25,8 @@ export type RoomLightShaderUniforms = {
   floorRange: { value: Vector2 }
   mask: { value: Texture }
   maskBounds: { value: Vector4 }
+  boundaries: { value: Texture }
+  boundariesReady: { value: number }
   pointRoomIds: { value: Float32Array }
   spotRoomIds: { value: Float32Array }
   unshadowedPointRoomIds: { value: Float32Array }
@@ -45,6 +49,8 @@ varying vec3 hdRoomLightReceiverWorldOffset;
 uniform float hdRoomLightEnabled;
 uniform float hdRoomLightCapture;
 uniform sampler2D hdRoomLightMask;
+uniform sampler2D hdRoomLightBoundaries;
+uniform float hdRoomLightBoundariesReady;
 uniform vec4 hdRoomLightMaskBounds;
 uniform vec2 hdRoomLightFloorRange;
 uniform int hdRoomLightFloorCount;
@@ -102,6 +108,13 @@ vec3 hdRoomLightReceiverPosition(vec3 worldPosition, vec3 viewNormal) {
   #ifdef HD_INDIRECT_VISIBILITY
     worldPosition += hdGIWallMountOffset(worldPosition, worldNormal);
   #endif
+  return worldPosition;
+}
+
+// The room lookup needs an interior point, but visibility must end at the
+// actual receiver. Sharing this offset detached wall shadows from ceilings.
+vec3 hdRoomLightClassificationPosition(vec3 worldPosition, vec3 viewNormal) {
+  vec3 worldNormal = transformNormalByInverseViewMatrix(viewNormal, viewMatrix);
   vec2 planPosition = worldPosition.xz;
   float horizontalLength = length(worldNormal.xz);
   if (horizontalLength > 0.35) {
@@ -110,44 +123,40 @@ vec3 hdRoomLightReceiverPosition(vec3 worldPosition, vec3 viewNormal) {
   return vec3(planPosition.x, worldPosition.y, planPosition.y);
 }
 
-// Room membership alone is insufficient for concave rooms: two points in a
-// hallway can have a bedroom between them. Walk every crossed mask cell so
-// even a thin partition stops direct light, without adding furniture shadows.
+vec4 hdRoomLightBoundaryRecord(int index) {
+  int width = textureSize(hdRoomLightBoundaries, 0).x;
+  return texelFetch(hdRoomLightBoundaries, ivec2(index % width, index / width), 0);
+}
+float hdRoomLightCross(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
+
+// Exact edges of the room union replace a walk through enlarged mask cells.
+// Endpoints on a wall are receivers, not blockers; only crossings before the
+// receiver obstruct light. The tolerance is 0.1 mm in world space.
 bool hdRoomLightClearPath(vec3 source, vec2 destination, float roomId) {
-  ivec2 atlasSize = textureSize(hdRoomLightMask, 0);
-  ivec2 size = ivec2(atlasSize.x, atlasSize.y / max(1, hdRoomLightFloorCount));
-  int layer = 0;
-  for (int i = 1; i < ${MAX_ROOM_LIGHT_FLOORS}; i++) {
-    if (i >= hdRoomLightFloorCount || source.y < hdRoomLightFloorHeights[i]) break;
-    layer = i;
+  if (hdRoomLightBoundariesReady < .5) return true;
+  vec2 delta = destination - source.xz;
+  float distance = length(delta);
+  if (distance < .0001) return true;
+  vec2 range = hdRoomLightBoundaryRecord(int(roomId + .5)).xy;
+  for (int i = int(range.x); i < int(range.y); i++) {
+    vec4 segment = hdRoomLightBoundaryRecord(i);
+    vec2 edge = segment.zw - segment.xy;
+    float denominator = hdRoomLightCross(delta, edge);
+    if (abs(denominator) < 1e-10) continue;
+    vec2 relative = segment.xy - source.xz;
+    float t = hdRoomLightCross(relative, edge) / denominator;
+    float u = hdRoomLightCross(relative, delta) / denominator;
+    if (t > .0001 / distance && t < 1.0 - .0001 / distance && u >= 0.0 && u <= 1.0) return false;
   }
-  vec2 a = (source.xz - hdRoomLightMaskBounds.xy) / hdRoomLightMaskBounds.zw * vec2(size);
-  vec2 b = (destination - hdRoomLightMaskBounds.xy) / hdRoomLightMaskBounds.zw * vec2(size);
-  ivec2 cell = ivec2(floor(a)), last = ivec2(floor(b));
-  vec2 delta = b - a, direction = sign(delta);
-  vec2 stride = 1.0 / max(abs(delta), vec2(1e-10));
-  vec2 next = (mix(a - floor(a), floor(a) + 1.0 - a, step(vec2(0.0), delta))) * stride;
-  if (delta.x == 0.0) next.x = 1e20;
-  if (delta.y == 0.0) next.y = 1e20;
-  for (int i = 0; i <= size.x + size.y; i++) {
-    if (any(lessThan(cell, ivec2(0))) || any(greaterThanEqual(cell, size))) return false;
-    float id = floor(texelFetch(hdRoomLightMask, ivec2(cell.x, cell.y + layer * size.y), 0).r * 255.0 + .5);
-    if (abs(id - roomId) > .5) return false;
-    if (all(equal(cell, last))) return true;
-    float crossing = min(next.x, next.y);
-    if (next.x <= crossing) { cell.x += int(direction.x); next.x += stride.x; }
-    if (next.y <= crossing) { cell.y += int(direction.y); next.y += stride.y; }
-  }
-  return false;
+  return true;
 }
 
 vec3 hdRoomLightWorldSource(vec3 viewPosition) {
   return cameraPosition + vec3(dot(viewMatrix[0].xyz, viewPosition), dot(viewMatrix[1].xyz, viewPosition), dot(viewMatrix[2].xyz, viewPosition));
 }
-float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosition, vec2 receiverPlanPosition) {
+float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosition, vec3 receiver) {
   if (hdRoomLightCapture > 0.5 || hdRoomLightEnabled < 0.5 || lightRoomId < 0.5) return 1.0;
   vec3 source = hdRoomLightWorldSource(lightPosition);
-  vec3 receiver = hdRoomLightWorldPosition + hdRoomLightReceiverWorldOffset;
   bool crossesStorey = false;
   vec2 entry = receiver.xz;
   float entryDistance = 1e20;
@@ -168,7 +177,7 @@ float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosit
   if (crossesStorey) return hdRoomLightFloorCount == 0 ||
     hdRoomLightClearPath(source, entry, lightRoomId) ? 1.0 : 0.0;
   return abs(receiverRoomId - lightRoomId) < 0.5 &&
-    hdRoomLightClearPath(source, receiverPlanPosition, lightRoomId) ? 1.0 : 0.0;
+    hdRoomLightClearPath(source, receiver.xz, lightRoomId) ? 1.0 : 0.0;
 }
 `
 
@@ -187,16 +196,16 @@ float hdRoomLightReceiver =
   hdRoomLightFloorCount == 0 && (hdRoomLightWorldPosition.y < hdRoomLightFloorRange.x ||
   hdRoomLightWorldPosition.y > hdRoomLightFloorRange.y)
     ? 0.0
-    : hdRoomLightRoomAt(hdRoomLightReceiverPoint);`,
+    : hdRoomLightRoomAt(hdRoomLightClassificationPosition(hdRoomLightReceiverPoint, nonPerturbedNormal));`,
   )
   .replace(
     'getPointLightInfo( pointLight, geometryPosition, directLight );',
     `getPointLightInfo( pointLight, geometryPosition, directLight );
     #ifdef HD_INDIRECT_VISIBILITY
       hdPointVisibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGIPointIndices[i]);
-      directLight.color *= hdPointVisibility >= 0.0 ? hdPointVisibility : hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver, pointLight.position, hdRoomLightReceiverPoint.xz);
+      directLight.color *= hdPointVisibility >= 0.0 ? hdPointVisibility : hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver, pointLight.position, hdRoomLightReceiverPoint);
     #else
-      directLight.color *= hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver, pointLight.position, hdRoomLightReceiverPoint.xz);
+      directLight.color *= hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver, pointLight.position, hdRoomLightReceiverPoint);
     #endif`,
   )
   .replace(
@@ -204,9 +213,9 @@ float hdRoomLightReceiver =
     `getSpotLightInfo( spotLight, geometryPosition, directLight );
     #ifdef HD_INDIRECT_VISIBILITY
       hdSpotVisibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGISpotIndices[i]);
-      directLight.color *= hdSpotVisibility >= 0.0 ? hdSpotVisibility : hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver, spotLight.position, hdRoomLightReceiverPoint.xz);
+      directLight.color *= hdSpotVisibility >= 0.0 ? hdSpotVisibility : hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver, spotLight.position, hdRoomLightReceiverPoint);
     #else
-      directLight.color *= hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver, spotLight.position, hdRoomLightReceiverPoint.xz);
+      directLight.color *= hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver, spotLight.position, hdRoomLightReceiverPoint);
     #endif`,
   )
 
@@ -227,11 +236,22 @@ export function createRoomLightMaskTexture(mask: RoomLightMask) {
   return texture
 }
 
-export function createRoomLightShaderUniforms(maskTexture: Texture): RoomLightShaderUniforms {
+export function createRoomLightBoundaryTexture(mask: RoomLightMask) {
+  const count = mask.boundaries.length / 4, width = Math.min(1024, Math.max(1, count));
+  const height = Math.max(1, Math.ceil(count / width));
+  const data = new Float32Array(width * height * 4); data.set(mask.boundaries)
+  const texture = new DataTexture(data, width, height, RGBAFormat, FloatType)
+  texture.minFilter = texture.magFilter = NearestFilter
+  texture.generateMipmaps = false; texture.needsUpdate = true
+  return texture
+}
+
+export function createRoomLightShaderUniforms(maskTexture: Texture, boundaries?: Texture): RoomLightShaderUniforms {
   return {
     enabled: { value: 0 },
     floorRange: { value: new Vector2() },
     mask: { value: maskTexture },
+    boundaries: { value: boundaries ?? maskTexture }, boundariesReady: { value: boundaries ? 1 : 0 },
     maskBounds: { value: new Vector4() },
     pointRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
     spotRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
@@ -260,6 +280,7 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
       hdRoomLightFloorRange: uniforms.floorRange,
       hdRoomLightFloorCount: uniforms.floorCount, hdRoomLightFloorHeights: uniforms.floorHeights,
       hdRoomLightMask: uniforms.mask,
+      hdRoomLightBoundaries: uniforms.boundaries, hdRoomLightBoundariesReady: uniforms.boundariesReady,
       hdRoomLightMaskBounds: uniforms.maskBounds,
       hdPointLightRoomIds: uniforms.pointRoomIds,
       hdSpotLightRoomIds: uniforms.spotRoomIds,
@@ -290,7 +311,7 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
     const key = originalProgramCacheKey.call(material)
     // Fade clones inherit the already-patched hook. Reapplying the controller
     // must not create a second cache key for exactly the same shader.
-    const suffix = ':house-designer-room-light-v9'
+    const suffix = ':house-designer-room-light-v10'
     // Other lighting hooks can follow this marker in a composed shader key.
     // A fade clone inherits all of them, not just the last hook.
     return /:house-designer-room-light-v\d+/.test(key)

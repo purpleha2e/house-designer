@@ -7,7 +7,25 @@ Both the direct renderer and the AO post-processing chain apply ACES filmic
 tone mapping at exposure 1. The post-processing composer disables renderer
 tone mapping, so its explicit ToneMapping effect is necessary.
 
+When local-light shadow maps are disabled, room membership still limits lamps
+to their rooms. Direct obstruction now intersects exact room boundary segments,
+including nested-room holes and merged doorway extensions, instead of walking
+the room-ID texture. The 8 cm inward offset is used only to identify a wall's
+room; the obstruction ray ends at its receiving surface. This keeps contact
+shadows attached at wall corners and continuous across wall/ceiling joins.
+Boundary data is prepared with the room mask in its worker and uploaded once
+per geometry change. The saved diffuse-lighting cache does not need rebuilding.
+
 ## Diffuse lighting
+
+**Daylight bounce strength** in Render settings scales sun and sky inputs to
+diffuse probe captures from 0 to 4 times their normal brightness (default 1).
+Try 2 for stronger daylight in shaded interiors. It leaves direct sun, lamp
+power and direct reflection lighting unchanged; reflected surfaces still show
+the resulting brighter GI. The incoming bounce field is not multiplied again.
+Changing strength rebuilds captured lighting, including cached sky radiance,
+while reusing prepared geometry. The value travels with saved lighting; older
+projects without it use 1. The control is disabled when daylight or GI is off.
 
 PBR environment maps provide reflections without adding diffuse studio light.
 Indoor surfaces instead sample a cached, world-space irradiance field. Outdoor
@@ -347,6 +365,14 @@ shared across rooms retain the generic environment with per-fragment attenuation
 this avoids splitting render batches or adding draw calls. These reflection maps
 are an approximation and do not implement parallax correction or moving reflections.
 
+The building's fallback environment is a subdued, neutral sky over darker ground.
+It contains no studio lamps or fixed sun, so exterior slate and other reflective
+finishes cannot acquire a stationary white hotspot from the fallback. The scene's
+directional sun supplies its own moving specular highlights. Material previews
+still use studio lighting. The sky PMREM is baked offline (no startup GL bake):
+`node tests/browser/viewportResponsiveness.mjs 5191 --bake-sky-environment`
+with Vite running on that port.
+
 Camera movement, AO changes and selection do not invalidate lighting. Geometry,
 model transforms, material assignments, light settings and sun changes do.
 Captures pause during model transforms, scene preparation and XR presentation.
@@ -471,6 +497,7 @@ node tests/browser/lightingStartupRegression.mjs 5180 lighting-startup --cache
 node tests/browser/lightingStartupRegression.mjs 5180 lighting-startup --live
 node tests/browser/modelLoadingPerformance.mjs 5180
 node tests/browser/openingMovePerformance.mjs 5180 --assert
+node tests/browser/windowPlacementPerformance.mjs
 node tests/browser/selectionShaderRegression.mjs 5180
 node tests/browser/selectionShaderRegression.mjs 5180 --colin --inside --switch-floor
 node tests/browser/lampToggleRegression.mjs 5180
@@ -484,6 +511,13 @@ node tests/browser/indirectLightingRegression.mjs --editor --corners --fast-bake
 node tests/browser/indirectLightingRegression.mjs --strict --updates
 node tests/browser/indirectLightingRegression.mjs --editor --fast-bake --small --edit-performance
 ```
+
+The window-placement check uses Colin's house and the assets prepared by
+`npm run build:viewer -- --project colin_house_v2.json --title Colin`. It adds the
+first window to a wall without openings and checks that no floor-topology job
+runs and only one wall-clipping job completes. It reports mounting, geometry and
+display-draw times after startup; an optional `--max-display-ms=5000` enforces a
+timing budget on a known machine. Software rendering can be substantially slower.
 
 The model-loading benchmark uses the editor's Load action to switch from Colin
 v2 to the actual `springfield_14.json` and reports scene readiness separately from
@@ -621,3 +655,18 @@ view reuses the current lighting work. The engine status area reports probe
 placement, shader preparation, bounce/face progress, readback, volume generation,
 reflection progress, navigation pauses and completion. Transient editor activity
 keeps priority; lighting status resumes when that activity ends.
+
+Stair bounding boxes are only a broad-phase test for probe relocation. The GI
+worker checks the existing triangle tree to keep usable air above treads and
+between flights, while excluding solid posts, treads and nearby surfaces. This
+preserves samples at stairwell window height instead of pushing them into the
+hall. Mirrored stairs retain outward triangle winding. Saved GI version 4
+invalidates older displaced layouts and triggers a fresh bake; it does not add
+another probe layer or increase the sampling density.
+
+Solid gable faces and the older roof-infill surfaces use the same corrected
+sun-shadow receiver as wall-engine surfaces, including their default materials.
+The infill path also uses the material's normal-map convention rather than an
+additional hard-coded green-channel flip. Gable back-face shadow casting remains
+unchanged; finish roughness, normal strength and metalness match the wall when
+they inherit its assignment.

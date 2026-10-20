@@ -106,7 +106,7 @@ export function registerRuntimeSurfaceMaterials(
     surfaceMaterialCatalog.length,
     ...[
       ...surfaceMaterialCatalog.filter(
-        (material) => !material.id.startsWith('portal-material-'),
+        (material) => !material.id.startsWith('portal-material-') && !materials.some(incoming => incoming.id === material.id),
       ),
       ...materials,
     ].sort(
@@ -128,6 +128,17 @@ export function registerRuntimeSurfaceMaterials(
   materials.forEach((material) => {
     surfaceMaterialsById.set(material.id, material)
   })
+}
+
+/** Upsert the local library without replacing uploaded manufacturer assets. */
+export function registerLocalSurfaceMaterials(materials: SurfaceMaterialProduct[]) {
+  for (const material of materials) {
+    const index = surfaceMaterialCatalog.findIndex(existing => existing.id === material.id)
+    if (index < 0) surfaceMaterialCatalog.push(material)
+    else surfaceMaterialCatalog[index] = material
+    surfaceMaterialsById.set(material.id, material)
+  }
+  surfaceMaterialCatalog.sort((a, b) => a.manufacturer.localeCompare(b.manufacturer) || a.productName.localeCompare(b.productName))
 }
 
 export function getSurfaceMaterialLabel(material: SurfaceMaterialProduct) {

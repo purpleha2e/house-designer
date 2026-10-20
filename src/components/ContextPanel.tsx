@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type {
   FloorLevel,
   PlacedModel,
@@ -17,8 +17,11 @@ import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
 import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
 import { roofSurfaceTargetsMatch } from '../roofMaterialAssignments'
 import { updateModelTransformField } from '../modelTransformFields'
+import { MaterialChoice } from './MaterialChoice'
+import { getStairFinish, stairParts } from '../stairDesign'
 
 type ContextPanelProps = {
+  transformControls?: ReactNode
   activeFloor: FloorLevel
   floors: FloorLevel[]
   canVaultRoom: boolean
@@ -176,6 +179,7 @@ function getDefaultSurfaceMaterialLabel(
 }
 
 export function ContextPanel({
+  transformControls,
   activeFloor,
   floors,
   canVaultRoom,
@@ -465,29 +469,17 @@ export function ContextPanel({
             </dd>
           </div>
         ) : null}
-        {selectedModel?.definition.materialRegions?.map((region) => (
-          <div className="context-field context-model-material" key={region.id}>
-            <dt>{region.label} material</dt>
-            <dd>
-              <select
-                aria-label={`${region.label} material`}
-                value={
-                  selectedModel.model.materialOverrides?.[region.id] ?? ''
-                }
-                onChange={(event) =>
-                  updateModelMaterialOverride(region.id, event.target.value)
-                }
-              >
-                <option value="">Original model material</option>
-                {surfaceMaterials.map((material) => (
-                  <option key={material.id} value={material.id}>
-                    {getSurfaceMaterialLabel(material)}
-                  </option>
-                ))}
-              </select>
-            </dd>
+        {selectedModel?.definition.materialRegions?.map(region => {
+          const part = stairParts.find(part => region.id === `stairs_${part}`)
+          const original = part && selectedModel.definition.stairDesign
+            ? getStairFinish(selectedModel.definition.stairDesign, part) : undefined
+          return <div className="context-field context-model-material" key={`${selectedModel.model.id}:${region.id}`}>
+            <dt>{region.label}</dt>
+            <dd><MaterialChoice label={region.label} value={selectedModel.model.materialOverrides?.[region.id] ?? ''}
+              materials={surfaceMaterials} original={original} onChange={id => updateModelMaterialOverride(region.id, id)} /></dd>
           </div>
-        ))}
+        })}
+        {transformControls && <div className="context-transform"><dt>Transform</dt><dd>{transformControls}</dd></div>}
         <div>
           <dt>Floor elev.</dt>
           <dd>{activeFloor.elevation.toFixed(2)} m</dd>
@@ -843,14 +835,9 @@ export function ContextPanel({
               <>
                 <div className="context-field">
                   <dt>Exterior walls</dt>
-                  <dd><select aria-label="Dormer exterior wall material"
-                    value={selectedModel.model.materialOverrides?.['dormer-exterior'] ?? ''}
-                    onChange={event => updateModelMaterialOverride('dormer-exterior', event.target.value)}>
-                    <option value="">Default external wall</option>
-                    {surfaceMaterials.map(material => <option key={material.id} value={material.id}>
-                      {getSurfaceMaterialLabel(material)}
-                    </option>)}
-                  </select></dd>
+                  <dd><MaterialChoice key={selectedModel.model.id} label="Dormer exterior wall"
+                    value={selectedModel.model.materialOverrides?.['dormer-exterior'] ?? ''} materials={surfaceMaterials}
+                    original={{ label: 'Default external wall' }} onChange={id => updateModelMaterialOverride('dormer-exterior', id)} /></dd>
                 </div>
                 <div className="context-field">
                   <dt>Interior ceiling</dt>
@@ -863,14 +850,9 @@ export function ContextPanel({
                       <span>Matches intersecting wall: {dormerWallMaterial
                         ? getSurfaceMaterialLabel(dormerWallMaterial) : 'Default internal wall'}</span>
                     ) : (
-                      <select aria-label="Dormer interior wall material"
-                        value={selectedModel.model.materialOverrides?.[DORMER_INTERIOR_MATERIAL_REGION] ?? ''}
-                        onChange={event => updateModelMaterialOverride(DORMER_INTERIOR_MATERIAL_REGION, event.target.value)}>
-                        <option value="">Default internal wall</option>
-                        {surfaceMaterials.map(material => (
-                          <option key={material.id} value={material.id}>{getSurfaceMaterialLabel(material)}</option>
-                        ))}
-                      </select>
+                      <MaterialChoice key={selectedModel.model.id} label="Dormer interior wall"
+                        value={selectedModel.model.materialOverrides?.[DORMER_INTERIOR_MATERIAL_REGION] ?? ''} materials={surfaceMaterials}
+                        original={{ label: 'Default internal wall' }} onChange={id => updateModelMaterialOverride(DORMER_INTERIOR_MATERIAL_REGION, id)} />
                     )}
                   </dd>
                 </div>

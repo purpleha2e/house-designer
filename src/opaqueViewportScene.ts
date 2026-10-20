@@ -1,19 +1,22 @@
 import { BatchedMesh, Color, DirectionalLight, HemisphereLight, DoubleSide, InstancedMesh, Light, Matrix4, Mesh, MeshStandardMaterial, PointLight, SpotLight, Scene, type Material } from 'three'
+import { runViewportTask } from './viewportScheduling.ts'
 import { cloneViewportObject } from './viewportObjectClone.ts'
 import { retainResource } from './retainedViewportScene.ts'
 import { isSelectionDecoration, recordViewportGeometryUpload } from './shaderWarmup.ts'
 import { applyIndirectLightingShader, getIndirectLightingUniforms } from './indirectLightingShader.ts'
 import { applyRoomLightShader, getRoomLightUniforms } from './roomLightShader.ts'
 import { createViewportModelTransforms } from './viewportModelTransforms.ts'
+import { createViewportSurfaceVisibility, hasViewportSurfaceVisibility, includeViewportObject } from './viewportSurfaceVisibility.ts'
 
-/** A display-only PBR copy: shared geometry/textures, no custom lighting hooks,
- * shadows, transparency or postprocessing. Source objects remain the pick targets. */
-export function createOpaqueViewportScene(source: Scene, options: { lighting?: boolean } = {}) {
+/** A display-only PBR copy: shared geometry/textures and alpha glass, without
+ * transmission, shadows or postprocessing. Source objects remain the pick targets. */
+function* opaqueViewportSteps(source: Scene, options: { lighting?: boolean } = {}) {
   source.updateMatrixWorld(true)
   const display = new Scene()
   display.background = source.background instanceof Color ? source.background.clone() : new Color('#233041')
   const lightCopies: { source: Light; copy: Light }[] = []
   const transforms = createViewportModelTransforms(source)
+  const visibility = createViewportSurfaceVisibility()
   if (options.lighting) {
     source.traverseVisible(object => {
       if (!(object instanceof Light)) return
@@ -44,11 +47,12 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
   }
   syncLighting()
   const meshes: Mesh[] = []
-  source.traverseVisible(object => {
+  source.traverse(object => {
     if (!(object instanceof Mesh) || !object.geometry.attributes.position?.count) return
+    if (!includeViewportObject(object)) return
     if (isSelectionDecoration(object) || object.userData.houseDesignerRole === 'wall-engine-pick') return
     const materials = Array.isArray(object.material) ? object.material : [object.material]
-    if (materials.some(m => m.visible && m.colorWrite && m.opacity > 0)) meshes.push(object)
+    if (materials.some(m => (m.visible || hasViewportSurfaceVisibility(m)) && m.colorWrite && m.opacity > 0)) meshes.push(object)
   })
   const opaqueMaterials = new Map<Material, MeshStandardMaterial>()
   const resources = new Set<{ dispose(): void }>(), releases: (() => void)[] = []
@@ -59,8 +63,15 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
     let result = opaqueMaterials.get(source)
     if (!result) {
       const m = source as MeshStandardMaterial
+      // Physical transmission needs the full scene render target. Until that is
+      // ready, approximate it with alpha instead of turning windows into walls.
+      const transmission = 'transmission' in m ? Number(m.transmission) || 0 : 0
+      const opacity = transmission > 0 ? m.opacity * (1 - Math.min(1, transmission) * .9) : m.opacity
+      const transparent = m.transparent || transmission > 0
       const common = { color: m.color ?? 0xffffff, map: m.map ?? null,
-        side: DoubleSide, transparent: false, opacity: 1, alphaTest: 0, depthWrite: true,
+        side: DoubleSide, transparent, opacity, alphaTest: m.alphaTest,
+        alphaMap: m.alphaMap ?? null, depthWrite: transparent ? false : m.depthWrite,
+        forceSinglePass: true,
         vertexColors: m.vertexColors, visible: m.visible && m.colorWrite && m.opacity > 0, toneMapped: false,
         polygonOffset: m.polygonOffset, polygonOffsetFactor: m.polygonOffsetFactor, polygonOffsetUnits: m.polygonOffsetUnits }
       result = new MeshStandardMaterial({ ...common,
@@ -79,28 +90,38 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
       }
       for (const value of Object.values(result)) if (value?.isTexture) retain(value)
       opaqueMaterials.set(source, result)
+      visibility.bindMaterial(source, result)
     }
     return result
   }
+  let completed = false, disposed = false
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    opaqueMaterials.forEach(m => m.dispose())
+    lightCopies.forEach(({ copy }) => { if (copy instanceof PointLight || copy instanceof SpotLight || copy instanceof DirectionalLight) copy.dispose() })
+    releases.forEach(release => release()); display.clear()
+  }
+  try {
   for (const source of meshes) {
+    yield
     retain(source.geometry)
     const add = (matrix: Matrix4) => {
       const mesh = new Mesh(source.geometry, Array.isArray(source.material) ? source.material.map(opaque) : opaque(source.material))
       mesh.matrixAutoUpdate = false; mesh.matrix.copy(matrix); mesh.frustumCulled = false
       mesh.renderOrder = source.renderOrder
       transforms.bind(source, mesh, matrix)
+      visibility.bindObject(source, mesh)
       display.add(mesh)
     }
-    if (source instanceof BatchedMesh) {
+    if (source instanceof BatchedMesh || source instanceof InstancedMesh) {
       const copy = cloneViewportObject(source)
-      copy.object.material = opaque(source.material)
+      copy.object.material = Array.isArray(source.material) ? source.material.map(opaque) : opaque(source.material)
       copy.object.matrixAutoUpdate = false; copy.object.matrix.copy(source.matrixWorld)
       copy.object.castShadow = copy.object.receiveShadow = false
       transforms.bind(source, copy.object)
+      visibility.bindObject(source, copy.object)
       display.add(copy.object); releases.push(copy.dispose)
-    } else if (source instanceof InstancedMesh) {
-      const matrix = new Matrix4()
-      for (let i = 0; i < source.count; i++) { source.getMatrixAt(i, matrix); add(matrix.premultiply(source.matrixWorld)) }
     } else add(source.matrixWorld)
   }
 
@@ -116,12 +137,18 @@ export function createOpaqueViewportScene(source: Scene, options: { lighting?: b
       this.onAfterRender = afterRender
     }
   })
-  let disposed = false
-  return { scene: display, meshes: meshes.length, syncLighting, syncTransforms: transforms.sync, dispose() {
-    if (disposed) return
-    disposed = true
-    opaqueMaterials.forEach(m => m.dispose())
-    lightCopies.forEach(({ copy }) => { if (copy instanceof PointLight || copy instanceof SpotLight || copy instanceof DirectionalLight) copy.dispose() })
-    releases.forEach(release => release()); display.clear()
-  } }
+  completed = true
+  return { scene: display, meshes: meshes.length, syncLighting, syncTransforms: transforms.sync, syncVisibility: visibility.sync, dispose }
+  } finally { if (!completed) dispose() }
+}
+
+export function createOpaqueViewportScene(source: Scene, options: { lighting?: boolean } = {}) {
+  const steps = opaqueViewportSteps(source, options)
+  let next = steps.next()
+  while (!next.done) next = steps.next()
+  return next.value
+}
+
+export function prepareOpaqueViewportScene(source: Scene, options: { lighting?: boolean }, cancelled: () => boolean) {
+  return runViewportTask(opaqueViewportSteps(source, options), cancelled)
 }

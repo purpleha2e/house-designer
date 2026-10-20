@@ -9,9 +9,10 @@ import { IndirectLighting } from '../../src/components/IndirectLighting'
 import { PbrEnvironmentProvider } from '../../src/components/PbrEnvironment'
 import { configureAmbientOcclusionPass } from '../../src/ambientOcclusionResources'
 import { createRoomLightMask } from '../../src/roomLightMask'
-import { applyRoomLightShader, createRoomLightMaskTexture, createRoomLightShaderUniforms } from '../../src/roomLightShader'
+import { applyRoomLightShader, createRoomLightBoundaryTexture, createRoomLightMaskTexture, createRoomLightShaderUniforms } from '../../src/roomLightShader'
 const localMode = new URLSearchParams(location.search).has('local')
 const open = new URLSearchParams(location.search).has('open')
+const bounceTest = new URLSearchParams(location.search).has('bounce')
 const lights = [{ kind: 'point' as const, position: [2, 2, 2] as [number, number, number],
   target: [2, 0, 2] as [number, number, number], color: '#ff3010', power: 60, distance: 10, falloff: 2, angle: 1, penumbra: .5 }]
 const polygon = (x: number) => [{ x, y: 0 }, { x: x + 4, y: 0 }, { x: x + 4, y: 4 }, { x, y: 4 }]
@@ -25,26 +26,29 @@ function OtherFloorLightMask() {
   const { scene } = useThree()
   useLayoutEffect(() => {
     const mask = createRoomLightMask(floors[0].rooms, { minX: 0, minZ: 0, size: 8 }, 32)
-    const texture = createRoomLightMaskTexture(mask), uniforms = createRoomLightShaderUniforms(texture)
+    const texture = createRoomLightMaskTexture(mask), boundaries = createRoomLightBoundaryTexture(mask), uniforms = createRoomLightShaderUniforms(texture, boundaries)
     uniforms.enabled.value = 1; uniforms.floorRange.value.set(10, 13)
     uniforms.maskBounds.value.set(0, 0, 8, 8); uniforms.pointRoomIds.value.fill(1)
     const restorers: (() => void)[] = []
     scene.traverse(o => { if(o instanceof Mesh)for(const m of Array.isArray(o.material)?o.material:[o.material])
       if(m instanceof MeshStandardMaterial)restorers.push(applyRoomLightShader(m, uniforms)) })
-    return () => { restorers.forEach(restore => restore()); texture.dispose() }
+    return () => { restorers.forEach(restore => restore()); texture.dispose(); boundaries.dispose() }
   }, [scene])
   return null
 }
 function App() {
   const [ao, setAo] = useState(false), [revision, setRevision] = useState(0)
+  const [daylightBounceStrength, setDaylightBounceStrength] = useState(1)
   Object.assign(window, { lightingState: () => [..._roots.values()][0]?.store.getState(),
-    toggleAO: () => setAo(v => !v), changeLighting: () => setRevision(v => v + 1) })
+    toggleAO: () => setAo(v => !v), changeLighting: () => setRevision(v => v + 1), setDaylightBounceStrength })
   return <Canvas shadows camera={{ position: [open ? 4 : 2, 1.5, open ? 2.85 : 3.5], fov: 60 }} style={{ width: 800, height: 600 }}
-    onCreated={({ gl, camera }) => { gl.outputColorSpace = SRGBColorSpace; gl.toneMapping = ACESFilmicToneMapping; camera.lookAt(open ? 4 : 2, 1.5, 0) }}>
+    onCreated={({ gl, camera, scene }) => { gl.outputColorSpace = SRGBColorSpace; gl.toneMapping = ACESFilmicToneMapping; camera.lookAt(open ? 4 : 2, 1.5, 0)
+      if (bounceTest) { scene.userData.indirectSurfaceCacheEnabled = !new URLSearchParams(location.search).has('uncached'); scene.userData.indirectMultiviewEnabled = false } }}>
     <PbrEnvironmentProvider intensity={.55}>
       <color attach="background" args={['#eef2f7']} />
       <ambientLight intensity={.8} />
       <directionalLight position={[2, 5, -3]} intensity={localMode ? 0 : revision ? 2 : 1} castShadow shadow-mapSize={[1024, 1024]}
+        userData={bounceTest ? { houseDesignerRole: 'sun-light' } : undefined}
         shadow-camera-left={-12} shadow-camera-right={12} shadow-camera-top={12} shadow-camera-bottom={-12} shadow-camera-far={30} shadow-normalBias={.01} />
       <Box position={[4, -.1, 2]} size={[8.4, .2, 4.4]} />
       <Box position={[4, 3.1, 2]} size={[8.4, .2, 4.4]} />
@@ -72,6 +76,7 @@ function App() {
       {localMode && <pointLight position={[2, 2, 2]} color="#ff3010" power={60} distance={10} decay={2} />}
       {localMode && <OtherFloorLightMask />}
       <IndirectLighting floors={floors} revision={String(revision)} blocked={false} enabled indoorFill={.03}
+        daylightBounceStrength={daylightBounceStrength}
         daylight={!localMode} localLights={localMode ? lights : undefined} />
       {ao && <EffectComposer multisampling={0}><N8AO intensity={0} ref={configureAmbientOcclusionPass} /><ToneMapping mode={ToneMappingMode.ACES_FILMIC} /></EffectComposer>}
     </PbrEnvironmentProvider>

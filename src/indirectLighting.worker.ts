@@ -1,23 +1,27 @@
+import type { IndirectProbeObstacle } from './indirectProbeObstacles.ts'
 import { prepareIndirectCache, prepareIndirectCacheSteps } from './indirectLightingCache.ts'
 import { restoreIndirectField, INDIRECT_MASK_SIZE, type IndirectFloor, type IndirectFieldData } from './indirectLighting.ts'
 import { createIndirectVisibilityFromSnapshot, type IndirectGeometrySnapshot } from './indirectVisibility.ts'
 import { createIndirectFloorLookup, writeIndirectFloorLayer } from './indirectFloorLighting.ts'
 import type { IndirectZoneChange, IndirectZoneProbe } from './indirectLightingZones.ts'
 import { applyIndirectLampRows } from './indirectLampPreparation.ts'
+import type { IndirectLampQuery } from './indirectLampPreparation.ts'
+import { traceIndirectLampPorts } from './indirectLampPool.ts'
 import { Vector3 } from 'three'
 import { writeIndirectVisibility } from './indirectVisibility.ts'
 import { createIndirectVolumeLookup, writeIndirectCeilingRow, writeIndirectVolumeRow } from './indirectVolume.ts'
 
 export type IndirectWorkerRequest = { id: number } & (
-  { kind: 'prepare'; floors: IndirectFloor[]; lights: [number, number, number][]; geometry: IndirectGeometrySnapshot; obstacles: { min: number[]; max: number[] }[];
+  { kind: 'prepare'; floors: IndirectFloor[]; lights: [number, number, number][]; geometry: IndirectGeometrySnapshot; obstacles: IndirectProbeObstacle[];
     parallelLamps?: boolean; zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[]; captureNewOnly?: boolean } } |
   { kind: 'lampResult'; data?: Float32Array } |
+  { kind: 'lampPorts'; ports: MessagePort[] } |
   { kind: 'volume' | 'preview'; coefficients: Uint16Array[]; positions: Float32Array } |
   { kind: 'plan'; previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } |
   { kind: 'lights'; positions: [number, number, number][]; zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } } |
   { kind: 'floor'; field: IndirectFieldData; coefficients: Uint16Array[]; geometry: IndirectGeometrySnapshot; refineVolume?: boolean })
 let cache: ReturnType<typeof prepareIndirectCache> | null = null
-let lampPending: { id: number; resolve: (data?: Float32Array) => void } | undefined
+let lampPending: { id: number; query: IndirectLampQuery; resolve: (data?: Float32Array) => void; cancel?: () => void } | undefined
 let warmVersion = 0
 let warmRows: Generator<void> | null = null
 const warmChannel = new MessageChannel()
@@ -43,7 +47,13 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
   const request = event.data
   try {
     if (request.kind === 'lampResult') {
-      if (lampPending?.id === request.id) { lampPending.resolve(request.data); lampPending = undefined }
+      if (lampPending?.id === request.id) { lampPending.cancel?.(); lampPending.resolve(request.data); lampPending = undefined }
+    } else if (request.kind === 'lampPorts') {
+      if (lampPending?.id !== request.id) { request.ports.forEach(port => port.close()); return }
+      const pending = lampPending, work = traceIndirectLampPorts(pending.query, request.ports)
+      pending.cancel = work.cancel
+      const data = await work.result
+      if (lampPending === pending) { pending.resolve(data); lampPending = undefined }
     } else if (request.kind === 'prepare') {
       stopWarming()
       cache?.dispose()
@@ -54,8 +64,8 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
       while (!step.done) {
         const { field, visibility, lights } = step.value
         const data = request.parallelLamps ? await new Promise<Float32Array | undefined>(resolve => {
-          lampPending = { id: request.id, resolve }
-          self.postMessage({ id: request.id, lampQuery: { visibility: visibility.snapshot(), lights, size: field.distanceSize } })
+          lampPending = { id: request.id, resolve, query: { visibility: visibility.snapshot(), lights, size: field.distanceSize } }
+          self.postMessage({ id: request.id, lampQuery: true, lampRows: field.distanceSize * lights.length })
         }) : undefined
         if (data) { applyIndirectLampRows(field, 0, data); field.distances.needsUpdate = true }
         else lights.forEach((light, index) => writeIndirectVisibility(field, index, new Vector3(...light), visibility))

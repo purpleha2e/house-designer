@@ -1,10 +1,18 @@
 import { indirectPreparationLabels, type IndirectPreparationStage } from './indirectPreparation.ts'
 
+export type ViewportPreparationStatus = { message: string; startedAt: number; completed?: number; total?: number }
+export function formatViewportPreparationStatus(status: ViewportPreparationStatus | undefined, now: number) {
+  if (!status) return null
+  const batches = status.total ? ` ${status.completed ?? 0}/${status.total} batches` : ''
+  return `${status.message}${batches} (${Math.max(0, Math.floor((now - status.startedAt) / 1000))}s)`
+}
+
 export type IndirectLightingStatus = {
   state?: string; enabled?: boolean; blocked?: boolean; paused?: boolean
   completed?: number; total?: number; volumePending?: boolean; displayed?: boolean
   preparing?: boolean; warming?: boolean; reading?: boolean; pendingUpdate?: boolean; xr?: boolean
   floorPreparing?: boolean
+  cacheReason?: string
   prepareStage?: IndirectPreparationStage
   previewPending?: boolean; previewUpdates?: number; firstPreviewMs?: number; moving?: boolean
   probes?: number; capturedProbes?: number; rooms?: number; reflections?: number

@@ -83,6 +83,28 @@ test('a clipping roof keeps its overhang above the walls it trims in its own roo
   material.dispose()
 })
 
+test('Colin front bay fascia remains continuous after narrow room triangles trim its interior', () => {
+  const { floors } = JSON.parse(readFileSync(new URL('../colin_house_v2.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const roofs = resolveBuildingRoofs(floors)
+  const bay = roofs.find(candidate => candidate.roof.id === '316c6436-0af8-4dc5-9790-ad4352f645cc')!
+  const { cuts, exteriorTrimCuts } = buildBuildingRoomVolumes(floors, roofs)
+  const geometry = createRoofAssemblyGeometries({ resolved: bay.resolved,
+    abuttingWalls: bay.abuttingWalls, roomCuts: cuts, exteriorTrimCuts })
+  const material = new MeshBasicMaterial({ side: DoubleSide })
+  const fascia = new Mesh(geometry.eaves!, material)
+  fascia.position.set(bay.roof.position.x, bay.floorTopElevation, bay.roof.position.y)
+  fascia.updateMatrixWorld(true)
+  try {
+    for (let x = 3.80; x <= 3.84; x += 0.0005) for (const y of [2.13, 2.2, 2.27]) {
+      const hits = new Raycaster(new Vector3(x, y, 18.8), new Vector3(0, 0, -1), 0, .1).intersectObject(fascia)
+      assert.ok(hits.length, `fascia slit at ${x}, ${y}`)
+    }
+  } finally {
+    Object.values(geometry).forEach(part => part?.dispose())
+    material.dispose()
+  }
+})
+
 test('saved asymmetric junction roofs produce closed assemblies including chamfers and eave extensions', () => {
   const { floors } = JSON.parse(readFileSync(new URL('./fixtures/roofFinishingRegression.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
   for (const mounted of [false, true]) {

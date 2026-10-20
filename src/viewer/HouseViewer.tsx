@@ -2,10 +2,15 @@ import { useCallback, useRef, useState } from 'react'
 import { ThreeDView } from '../components/ThreeDView'
 import { modelsById, registerRuntimeModels } from '../models/modelLibrary'
 import { registerRuntimeSurfaceMaterials } from '../materials/materialCatalog'
-import { normalizeFloor } from '../modelPlacement'
 import type { Point, ThreeDViewCameraState } from '../types'
 import { getViewerStartCamera, VIEWER_HEAD_HEIGHT, type ViewerNavigationMode } from './viewerNavigation'
 import type { PublishedHouse } from './viewerProject'
+import { ViewerTouchControls } from './ViewerTouchControls'
+import { createViewerTouchInput, ViewerTouchContext } from './viewerTouchInput'
+import { prepareViewerFloors } from './viewerFloors'
+import { ViewerFullscreenButton } from './ViewerFullscreenButton'
+import { useViewerViewport } from './useViewerViewport'
+import { useViewerTouchDevice } from './useViewerTouchDevice'
 import './HouseViewer.css'
 
 const noop = () => {}
@@ -13,16 +18,20 @@ const noop = () => {}
 function prepareHouse(house: PublishedHouse) {
   registerRuntimeModels(house.project.modelDefinitions ?? [])
   registerRuntimeSurfaceMaterials(house.materials)
-  return house.project.floors.map(floor => normalizeFloor(floor, modelsById))
-    .sort((a, b) => a.elevation - b.elevation)
+  return prepareViewerFloors(house.project, modelsById)
 }
 
 /** Independent viewer entry: it never mounts the editor or writes project state. */
 export function HouseViewer({ house }: { house: PublishedHouse }) {
+  const viewerRef = useRef<HTMLElement>(null)
+  useViewerViewport(viewerRef)
+  const touchDevice = useViewerTouchDevice()
   const [floors] = useState(() => prepareHouse(house))
   const initialFloor = floors.find(floor => floor.id === house.project.activeFloorId) ?? floors[0]
   const [activeFloorId, setActiveFloorId] = useState(initialFloor.id)
   const [mode, setMode] = useState<ViewerNavigationMode>('walk')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [touchInput] = useState(createViewerTouchInput)
   // An editor camera can be inside a wall once snapped to head height. Start
   // outside the house unless its owner has provided an explicit tour viewpoint.
   const [initialCamera] = useState(() => house.startCamera ?? getViewerStartCamera(initialFloor))
@@ -50,12 +59,21 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
   }
 
   return (
-    <main className="house-viewer" aria-label="Read-only house viewer">
-      <ThreeDView readOnly viewerMode={mode} onViewerStairs={navigate}
+    <ViewerTouchContext.Provider value={touchInput}>
+    <main ref={viewerRef} className="house-viewer" aria-label="Read-only house viewer">
+      <ThreeDView readOnly viewerTouchDevice={touchDevice} viewerMode={mode} onViewerStairs={navigate}
         savedIndirectLighting={house.project.indirectLighting}
         diffuseProbeResolution={house.project.threeDView?.diffuseProbeResolution}
-        viewerToolbar={
+        viewerToolbar={aspectControls => (
           <header className="viewer-toolbar" aria-label="House viewer controls">
+            <button type="button" className="viewer-menu-toggle" aria-expanded={menuOpen}
+              aria-label={menuOpen ? 'Close tour menu' : 'Open tour menu'}
+              aria-controls="viewer-options" onClick={() => setMenuOpen(open => !open)}>
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d={menuOpen ? 'M6 6l12 12M18 6L6 18' : 'M4 6h16M4 12h16M4 18h16'} />
+              </svg>
+            </button>
+            <div id="viewer-options" className={`viewer-options${menuOpen ? ' is-open' : ''}`}>
             <div className="viewer-title"><strong>{house.title}</strong><span>Read-only tour</span></div>
             <div className="viewer-modes" role="group" aria-label="Navigation mode">
               {(['walk', 'fly'] as const).map(value => <button key={value} type="button"
@@ -73,8 +91,18 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
               }}>Upstairs</button>
             </div>
             <button type="button" onClick={event => { reset(); event.currentTarget.blur() }}>Reset view</button>
+            {aspectControls}
+            <ViewerFullscreenButton target={viewerRef} />
+            <aside className="viewer-help" aria-label="Navigation instructions">
+              <strong>{mode === 'walk' ? 'Walk at head height' : 'Fly freely'}</strong>
+              <span>Touch: left joystick moves; drag the right side to look.</span>
+              <span>Keyboard: W/S forward/back, A/D sideways. Hold left mouse button and drag to look.</span>
+              <span>{mode === 'walk' ? 'Use the stair buttons or Upstairs / Downstairs to change floors.' : 'Look up/down and move forward to fly, or use Q/E to descend/rise.'}</span>
+              <span>Xbox: left stick moves, right stick looks. For VR, open the tour in your headset browser.</span>
+            </aside>
+            </div>
           </header>
-        }
+        )}
         activeFloorId={activeFloor.id} cameraRestoreRevision={restore.revision} cameraViewState={restore.camera}
         floors={floors} isEngineConsoleOpen={false}
         lightDirection={house.project.sunPosition ?? { azimuth: Math.atan2(6, 4), elevation: 0.78 }}
@@ -86,12 +114,8 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
         selectedWallId={null} sceneRevision={0} showAllFloors showImages={false}
         surfaceAssignments={house.project.surfaceAssignments ?? []}
       />
-      <aside className="viewer-help" aria-label="Navigation instructions">
-        <strong>{mode === 'walk' ? 'Walk at head height' : 'Fly freely'}</strong>
-        <span>W/S forward/back · A/D sideways · Hold left mouse button and drag to look</span>
-        <span>{mode === 'walk' ? 'Click a stair button or use Upstairs / Downstairs to change floors.' : 'Look up/down and move forward to fly, or use Q/E to descend/rise.'} Hold Shift to move faster.</span>
-        <span>For VR, open this page in your headset browser and choose Enter VR.</span>
-      </aside>
+      <ViewerTouchControls input={touchInput} resetKey={`${mode}:${restore.revision}`} suspended={menuOpen} />
     </main>
+    </ViewerTouchContext.Provider>
   )
 }

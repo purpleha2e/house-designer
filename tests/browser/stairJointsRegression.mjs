@@ -90,7 +90,7 @@ try {
   await until(`document.querySelector('[aria-label="Selection details"]').textContent.includes('Ceiling slab edge')`)
   assert.ok(await evaluate(`document.querySelector('[aria-label="Selection details"]').textContent.includes('upper')`),'slab selection preserves the upper editing floor')
   await evaluate(`document.querySelector('[aria-label="Materials"]').click()`);await pause(200)
-  const materialId=await evaluate(`(()=>{const s=[...document.querySelectorAll('label')].find(l=>l.textContent.trim().startsWith('Product'))?.querySelector('select');if(!s)throw Error('No material selector');return s.value})()`)
+  const materialId=await evaluate(`(()=>{const s=document.querySelector('.materials-flyout button[data-material-id][aria-pressed="true"]');if(!s)throw Error('No selected material');return s.dataset.materialId})()`)
   await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Apply material').click()`)
   await pause(300);await evaluate(`document.querySelector('[aria-label="Project menu"]').click()`);await pause(100)
   await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Save').click()`)

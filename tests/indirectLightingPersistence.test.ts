@@ -84,10 +84,21 @@ test('saved GI rejects design, asset and lighting changes while remaining portab
   assert.notEqual(key, indirectProjectKey({ ...project, floors: project.floors.map(f => ({ ...f, elevation: 1 })) }))
   const cache = { version: INDIRECT_CACHE_VERSION, projectKey: key, assetKey: 'assets', settings } as Parameters<typeof savedIndirectLightingMatches>[0]
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', settings), true)
+  assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, daylightBounceStrength: 1 }), true,
+    'legacy daylight bakes use the default strength')
+  assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, daylightBounceStrength: 2 }), false,
+    'changing daylight strength invalidates captured lighting')
+  const boosted = { ...cache!, settings: { ...settings, daylightBounceStrength: 2 } }
+  assert.equal(savedIndirectLightingMatches(boosted, key, 'assets', boosted.settings), true)
+  for (const daylightBounceStrength of [-1, 5, NaN, Infinity]) {
+    assert.equal(savedIndirectLightingMatches({ ...cache!, settings: { ...settings, daylightBounceStrength } }, key), false)
+  }
   assert.equal(savedIndirectLightingMatches({ ...cache!, version: 1 }, key, 'assets', settings), false,
     'lighting baked before the passive-roof enclosure correction must be rebuilt')
   assert.equal(savedIndirectLightingMatches({ ...cache!, version: 2 }, key, 'assets', settings), false,
     'lighting baked with exterior-lit interior frames must be rebuilt')
+  assert.equal(savedIndirectLightingMatches({ ...cache!, version: 3 }, key, 'assets', settings), false,
+    'lighting baked with probes pushed out of stair air must be rebuilt')
   assert.equal(savedIndirectLightingMatches(cache, key, 'edited-assets', settings), false)
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, lights: false }), false)
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, lightShadows: true }), true,

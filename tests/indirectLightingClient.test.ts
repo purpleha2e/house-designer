@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { IndirectLightingClient } from '../src/indirectLightingClient.ts'
-import { IndirectLampPool } from '../src/indirectLampPool.ts'
+import { IndirectLampPool, traceIndirectLampPorts } from '../src/indirectLampPool.ts'
 import type { IndirectLampQuery } from '../src/indirectLampPreparation.ts'
 
 class FakeWorker {
   static all: FakeWorker[] = []
   onmessage?: (event: { data: unknown }) => void
   onerror?: (event: { message: string }) => void
-  messages: { kind?: string; id: number; data?: Float32Array; firstRow?: number; rowCount?: number }[] = []
+  messages: { kind?: string; id: number; data?: Float32Array; firstRow?: number; rowCount?: number; port?: MessagePort; ports?: MessagePort[] }[] = []
   terminated = false
   url: URL
   constructor(url: URL) { this.url = url; FakeWorker.all.push(this) }
@@ -105,3 +105,56 @@ test('an import failure before tracing rejects immediately and stops every helpe
   await assert.rejects(pool.trace(query), /closed/)
   assert.ok(FakeWorker.all.every(worker => worker.terminated))
 }))
+
+test('lamp workers exchange geometry and results directly through ports, in any reply order', async () => {
+  const channels = [new MessageChannel(), new MessageChannel(), new MessageChannel()]
+  const expected = Float32Array.from({ length: 32 }, (_, i) => i + 1)
+  channels.forEach((channel, index) => {
+    channel.port1.onmessage = ({ data: task }) => {
+      assert.equal(task.visibility.positions.length, query.visibility.positions.length)
+      setTimeout(() => {
+        const data = expected.slice(task.firstRow * 4, (task.firstRow + task.rowCount) * 4)
+        channel.port1.postMessage({ ok: true, data }, [data.buffer])
+        channel.port1.close()
+      }, (2 - index) * 5)
+    }
+  })
+  const work = traceIndirectLampPorts(query, channels.map(channel => channel.port2))
+  try { assert.deepEqual(await work.result, expected) }
+  finally { work.cancel(); channels.forEach(channel => channel.port1.close()) }
+})
+
+test('the UI forwards only message ports and a helper failure resumes serial preparation', async () => withWorkers(async () => {
+  const client = new IndirectLightingClient(), pending = client.prepare(largeRequest)
+  const worker = FakeWorker.all[0], { id } = worker.messages[0]
+  worker.respond({ id, progress: { stage: 'geometry', timings: {} } })
+  worker.respond({ id, lampQuery: true })
+  const helpers = FakeWorker.all.slice(1), connection = worker.messages.at(-1)!
+  try {
+    assert.equal(connection.kind, 'lampPorts')
+    assert.equal(connection.ports?.length, 3)
+    assert.ok(helpers.every(helper => helper.messages.length === 1 && helper.messages[0].port))
+    assert.ok(helpers.every(helper => !('visibility' in helper.messages[0])))
+    helpers[0].onerror?.({ message: 'failed' })
+    assert.deepEqual(worker.messages.at(-1), { id, kind: 'lampResult' })
+    assert.ok(helpers.every(helper => helper.terminated))
+    worker.respond({ id, ok: true, value: 'serial prepared' })
+    assert.equal(await pending, 'serial prepared')
+  } finally {
+    client.dispose()
+    connection.ports?.forEach(port => port.close())
+    helpers.forEach(helper => helper.messages[0].port?.close())
+  }
+}))
+
+test('failed or cancelled direct lamp work closes the ports and permits serial fallback', async () => {
+  const channel = new MessageChannel()
+  channel.port1.onmessage = () => channel.port1.postMessage({ ok: false, error: 'failed' })
+  const work = traceIndirectLampPorts(query, [channel.port2])
+  try { assert.equal(await work.result, undefined) }
+  finally { work.cancel(); channel.port1.close() }
+  const cancelled = new MessageChannel(), obsolete = traceIndirectLampPorts(query, [cancelled.port2])
+  obsolete.cancel()
+  assert.equal(await obsolete.result, undefined)
+  cancelled.port1.close()
+})

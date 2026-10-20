@@ -143,7 +143,7 @@ type FloorplanCanvasProps = {
   onShowImagesChange?: (visible: boolean) => void
   modelTransformPreviewRef?: ModelTransformPreviewRef
   activeFloor: FloorLevel
-  children?: ReactNode
+  children?: ReactNode | ((transformControls: ReactNode) => ReactNode)
   floors: FloorLevel[]
   initialViewport?: FloorplanViewportState
   internalWallThickness: number
@@ -204,6 +204,7 @@ export type RoofCreateOptions = {
   interiorSkinDepth?: number
   thickness?: number
   bayOutline?: Point[]
+  bayRoofStyle?: RoofStructure['bayRoofStyle']
   bayRidgeLength?: number
   depth?: number
   floorId: string
@@ -3461,6 +3462,7 @@ export function FloorplanCanvas({
   const [roofPlacementInteriorSkin, setRoofPlacementInteriorSkin] = useState<Pick<RoofStructure, 'allowInteriorSkin' | 'interiorSkinDepth'>>({})
   const [roofPlacementRidgeSettings, setRoofPlacementRidgeSettings] = useState<Pick<RoofStructure, 'asymmetricSides' | 'mountSide' | 'ridgeOffset' | 'ridgeHeight' | 'ridgeHeightTargetRoofId'>>({})
   const [roofPlacementBayRidgeLength, setRoofPlacementBayRidgeLength] = useState(0.5)
+  const [roofPlacementBayStyle, setRoofPlacementBayStyle] = useState<RoofStructure['bayRoofStyle']>('fan')
   const [roofPlacementRidgeStartChamfer, setRoofPlacementRidgeStartChamfer] =
     useState<RoofStructure['ridgeStartChamfer']>()
   const [roofPlacementRidgeEndChamfer, setRoofPlacementRidgeEndChamfer] =
@@ -3481,9 +3483,10 @@ export function FloorplanCanvas({
     clipsGeometry: roofPlacementClipsGeometry,
     heightOffset: roofPlacementHeightOffset, fitSupportingWalls: roofPlacementFitSupportingWalls,
     bayRidgeLength: roofPlacementBayRidgeLength,
+    bayRoofStyle: roofPlacementBayStyle,
     pitchDegrees: roofPlacementPitchDegrees, thickness: roofPlacementThickness, overhangSide: roofPlacementSideOverhang,
     overhangEnd: 0, overhangPitchDegrees: roofPlacementOverhangPitchDegrees, soffitColor: roofPlacementSoffitColor,
-  } : null, [bayPlacementLayout, roofPlacementInteriorSkin, roofPlacementType, roofPlacementClipsGeometry, roofPlacementHeightOffset, roofPlacementFitSupportingWalls, roofPlacementBayRidgeLength, roofPlacementPitchDegrees, roofPlacementThickness, roofPlacementSideOverhang, roofPlacementOverhangPitchDegrees, roofPlacementSoffitColor])
+  } : null, [bayPlacementLayout, roofPlacementInteriorSkin, roofPlacementType, roofPlacementClipsGeometry, roofPlacementHeightOffset, roofPlacementFitSupportingWalls, roofPlacementBayRidgeLength, roofPlacementBayStyle, roofPlacementPitchDegrees, roofPlacementThickness, roofPlacementSideOverhang, roofPlacementOverhangPitchDegrees, roofPlacementSoffitColor])
   const bayPlacementGeometry = useMemo(() => bayPlacementRoof
     ? getBayRoofWithWallSupport(bayPlacementRoof, walls) : null, [bayPlacementRoof, walls])
   const [transformMode, setTransformMode] =
@@ -6388,6 +6391,7 @@ export function FloorplanCanvas({
   const roofPlacementRidgeRoof = useMemo<RoofStructure>(() => ({
         depth: roofPlacementBounds?.depth ?? 4,
         bayRidgeLength: roofPlacementType === 'bay' ? roofPlacementBayRidgeLength : undefined,
+        bayRoofStyle: roofPlacementType === 'bay' ? roofPlacementBayStyle : undefined,
         ...(roofPlacementType === 'up-and-over' ? roofPlacementRidgeSettings : {}),
         clipsGeometry: roofPlacementClipsGeometry,
         ...roofPlacementInteriorSkin,
@@ -6422,6 +6426,7 @@ export function FloorplanCanvas({
   }), [
     bayPlacementRoof,
     roofPlacementBayRidgeLength,
+    roofPlacementBayStyle,
     roofPlacementBounds?.depth,
     roofPlacementBounds?.position.x,
     roofPlacementBounds?.position.y,
@@ -6489,9 +6494,7 @@ export function FloorplanCanvas({
     [...roofPlacementSnapPoints, ...roofPlacementPoints].map(point => [getRoofPlacementPointKey(point), point]),
   ).values())
 
-  return (
-    <section className="editor-pane">
-      {transformPanelModels[0] ? (
+  const transformControls = transformPanelModels[0] ? (
         <ObjectTransformPanel key={transformPanelModels[0].model.id}
           values={getModelTransformValues(transformPanelModels[0].model, transformPanelModels[0].bounds, transformPanelModels[0].baseHeight)}
           window={transformPanelModels[0].window}
@@ -6504,7 +6507,11 @@ export function FloorplanCanvas({
             if (modelTransformPreviewRef) modelTransformPreviewRef.current = { modelId: transformPanelModel.model.id, updates, committed: true }
             onUpdateModel(transformPanelModel.model.id, updates)
           }} />
-      ) : null}
+      ) : null
+
+  return (
+    <section className="editor-pane">
+      {typeof children !== 'function' ? transformControls : null}
       <div className="pane-header viewport-toolbar floorplan-toolbar" ref={floorplanMenuRef} aria-label="2D toolbar">
         <div className="render-options viewport-menu-anchor">
           <button type="button" className="viewport-icon-button" aria-label="Project menu" title="Project and 2D settings"
@@ -7511,7 +7518,7 @@ export function FloorplanCanvas({
                   text={index < 2 ? `Mount ${index + 1}` : `${index + 1}`} fontSize={12 / viewport.scale}
                   fill={index < 2 ? '#b45309' : '#1d4ed8'} fontStyle="bold" listening={false} />
               }) : null}
-              {bayPlacementRoof ? (() => {
+              {bayPlacementRoof && bayPlacementRoof.bayRoofStyle !== 'classic-lean-to' ? (() => {
                 const ridge = getBayRoofRidge(bayPlacementGeometry ?? bayPlacementRoof)
                 const toPoints = (vertices: Point[]) => vertices.flatMap((p) => {
                   const [x, , y] = roofToWorld(bayPlacementRoof, 0, [p.x, 0, p.y])
@@ -7683,6 +7690,7 @@ export function FloorplanCanvas({
                   ...('interiorSkinDepth' in updates ? { interiorSkinDepth: updates.interiorSkinDepth } : {}),
                 }))
                 if (updates.bayRidgeLength !== undefined) setRoofPlacementBayRidgeLength(updates.bayRidgeLength)
+                if (updates.bayRoofStyle !== undefined) setRoofPlacementBayStyle(updates.bayRoofStyle)
                 if (updates.thickness !== undefined) setRoofPlacementThickness(updates.thickness)
                 if (updates.pitchDegrees !== undefined) setRoofPlacementPitchDegrees(updates.pitchDegrees)
                 if (updates.soffitColor !== undefined) setRoofPlacementSoffitColor(updates.soffitColor)
@@ -7923,7 +7931,7 @@ export function FloorplanCanvas({
           </div>
         ) : null}
       </div>
-      {children}
+      {typeof children === 'function' ? children(transformControls) : children}
     </section>
   )
 }

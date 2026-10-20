@@ -9,6 +9,7 @@ import { stairNewelRailHeight, trimStairRailsAtNewels } from './stairRailJoints.
 import { getStairSpindlePositions } from './stairSpindlePlacement.ts'
 import { createStairRiser } from './stairRiser.ts'
 import { createStairTread } from './stairTread.ts'
+import { rotateStairUvs, setStairWorldUvs } from './stairUvs.ts'
 
 export function createStairSpindleGeometry() {
   const geometry = new BufferGeometry()
@@ -16,14 +17,14 @@ export function createStairSpindleGeometry() {
   geometry.setAttribute('normal', new Float32BufferAttribute(spindle.normal, 3))
   geometry.setAttribute('uv', new Float32BufferAttribute(spindle.uv, 2))
   geometry.setIndex(spindle.index)
-  return geometry
+  return rotateStairUvs(geometry)
 }
 
 export function stairGeometryKey(design: StairDesign) {
   const { finishes: _finishes, ...geometry } = design
   void _finishes
   // Invalidate existing previews when the generated topology changes too.
-  return `6:${JSON.stringify(geometry)}`
+  return `8:${JSON.stringify(geometry)}`
 }
 
 function contains(p: StairPoint, polygon: StairPoint[]) {
@@ -51,7 +52,10 @@ export function createStairGeometry(design: StairDesign) {
   const beam = (part: StairPart, from: StairRailPoint, to: StairRailPoint, width: number) => {
     const a = new Vector3(from.x, from.y, from.z), b = new Vector3(to.x, to.y, to.z), direction = b.clone().sub(a)
     if (direction.lengthSq() < 1e-10) return
-    const geometry = new BoxGeometry(width, direction.length(), width)
+    // Unwrap locally at one UV unit per metre. Newels use U along the grain;
+    // sloping supports keep their existing orientation.
+    const geometry = setStairWorldUvs(new BoxGeometry(width, direction.length(), width))
+    if (part === 'posts') rotateStairUvs(geometry)
     geometry.applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), direction.normalize()))
     geometry.translate(...a.add(b).multiplyScalar(.5).toArray())
     add(part, geometry)

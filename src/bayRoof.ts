@@ -136,8 +136,41 @@ export function getBayRoofRidge(roof: RoofStructure) {
   return { start, end, length, maxLength, height: Math.min(...distances) * slope }
 }
 
+/** Split at the front corners instead of drawing every hip to one apex.
+ * Project the ends of the front eave back to the mounting line. These two
+ * high points define a broad planar lean-to and independent side hips.
+ * Extra canted side edges keep their own planar facets. */
+function buildClassicBayPanels(roof: RoofStructure, support: Point[]): Vertex[][][] {
+  let frontIndex = 1
+  let furthest = -Infinity
+  for (let i = 1; i < support.length; i++) {
+    const a = support[i], b = support[(i + 1) % support.length]
+    // A front-facing edge runs right to left in the canonical convex outline.
+    if (a.x - b.x > EPS && (a.y + b.y) / 2 > furthest) {
+      frontIndex = i; furthest = (a.y + b.y) / 2
+    }
+  }
+  const a = support[frontIndex], b = support[(frontIndex + 1) % support.length]
+  const slope = Math.tan(Math.max(1, Math.min(75, roof.pitchDegrees)) * Math.PI / 180)
+  const length = Math.hypot(b.x - a.x, b.y - a.y)
+  const rear = (point: Point): Vertex => {
+    const p = { x: Math.max(support[0].x, Math.min(support[1].x, point.x)), y: support[0].y }
+    return [p.x, Math.max(0, cross(a, b, p) / length * slope), p.y]
+  }
+  const right = rear(a), left = rear(b)
+  const vertex = (point: Point): Vertex => [point.x, 0, point.y]
+  return support.slice(1).map((point, i) => {
+    const index = i + 1, next = support[(index + 1) % support.length]
+    const face = index === frontIndex ? [left, right, vertex(point), vertex(next)]
+      : [index < frontIndex ? right : left, vertex(point), vertex(next)]
+    const unique = face.filter((p, j) => !face.slice(0, j).some(q => Math.hypot(...p.map((v, axis) => v - q[axis])) < EPS))
+    return unique.length >= 3 ? [unique] : []
+  })
+}
+
 export function buildBayRoofFaces(roof: RoofStructure): Vertex[][] {
   const support = getBaySupportPolygon(roof), outer = getBayRoofPolygon(roof)
+  const classicPanels = roof.bayRoofStyle === 'classic-lean-to' ? buildClassicBayPanels(roof, support) : null
   const ridge = getBayRoofRidge(roof)
   const apex = ridge.end, height = ridge.height
   const ridgeStart: Vertex = [ridge.start.x, height, ridge.start.y]
@@ -149,8 +182,8 @@ export function buildBayRoofFaces(roof: RoofStructure): Vertex[][] {
     const outerHeight = -overhang * eaveSlope
     const first = index === 1, last = next === 0
     const aVertex: Vertex = [a.x, 0, a.y], bVertex: Vertex = [b.x, 0, b.y]
-    let panels: Vertex[][] = [[ridgeEnd, aVertex, bVertex]]
-    if (ridge.length > EPS && (first || last)) {
+    let panels: Vertex[][] = classicPanels ? classicPanels[i] : [[ridgeEnd, aVertex, bVertex]]
+    if (!classicPanels && ridge.length > EPS && (first || last)) {
       // Parallel side eaves form one planar panel beside the ridge. Other
       // outlines retain triangular facets rather than a twisted quadrilateral.
       panels = Math.abs(a.x - b.x) < EPS

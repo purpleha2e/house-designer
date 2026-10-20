@@ -1,10 +1,37 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFileSync } from 'node:fs'
 import { getRoofCeilingCutouts, getRoomCeilingCutouts } from '../src/roofCeilingClipping.ts'
 import { buildBuildingRoomVolumes } from '../src/buildingRoomVolumes.ts'
 import { resolveBuildingRoofs } from '../src/roofBuildingGeometry.ts'
 import { resolveRoofJunctions, roofJunctionInput } from '../src/roofJunctions.ts'
 import type { FloorLevel, RoofStructure } from '../src/types.ts'
+import { pointIsInsideRoomPolygon } from '../src/roomLightMask.ts'
+
+test('Colin fitted asymmetric roof cuts the ceiling finish overlap at the wall perimeter', () => {
+  const { floors } = JSON.parse(readFileSync(new URL('../colin_house_v2.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const { cuts } = buildBuildingRoomVolumes(floors, resolveBuildingRoofs(floors))
+  const upper = floors[1], y = upper.elevation + upper.roomHeight - .02
+  const contains = (cutouts: ReturnType<typeof getRoomCeilingCutouts>, point: { x: number; y: number }) =>
+    cutouts.some(cut => pointIsInsideRoomPolygon(point, cut.outline) &&
+      !cut.holes.some(hole => pointIsInsideRoomPolygon(point, hole)))
+  const original = getRoomCeilingCutouts(cuts, upper.id, y)
+  const expanded = getRoomCeilingCutouts(cuts, upper.id, y, .035)
+  for (const point of [{ x: 5, y: 16.22 }, { x: 6.24, y: 16 }, { x: 6.24, y: 16.22 }]) {
+    assert.equal(contains(original, point), false, 'the exposed strip lies beyond the room polygon')
+    assert.equal(contains(expanded, point), true, 'the full ceiling finish is removed above the roof')
+  }
+  assert.equal(contains(expanded, { x: 5, y: 15 }), false, 'the ceiling below the roof remains intact')
+})
+
+test('ceiling overlap expansion preserves the horizontal intersection with the slope', () => {
+  const cuts = [{ roomVolume: true, floorId: 'floor', roofId: 'roof', bottomY: 0, thickness: 0,
+    face: [[0, 2, 0], [2, 4, 0], [2, 4, 2], [0, 2, 2]] as [number, number, number][] }]
+  const cutouts = getRoomCeilingCutouts(cuts, 'floor', 3, .035)
+  assert.ok(cutouts.length)
+  assert.ok(cutouts.every(cut => cut.outline.every(point => point.x <= 1 + 1e-7)))
+  assert.ok(cutouts.some(cut => cut.outline.some(point => point.y < -.03)))
+})
 
 test('a lower roof consumed by a passive enclosure cannot cut the room ceiling', () => {
   const polygon = [{ x: -2, y: -2 }, { x: 2, y: -2 }, { x: 2, y: 2 }, { x: -2, y: 2 }]

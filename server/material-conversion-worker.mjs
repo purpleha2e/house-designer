@@ -1,5 +1,6 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { encodeToKTX2 } from 'ktx2-encoder'
 
@@ -79,7 +80,7 @@ async function decodeImageForKtx(buffer) {
   }
 }
 
-async function convertMaterialTextureToKtx2(filePath, outputPath, fieldName) {
+export async function convertMaterialTextureToKtx2(filePath, outputPath, fieldName) {
   const options = getMaterialTextureOptions(fieldName)
   const image = sharp(filePath, { limitInputPixels: false }).rotate()
   const metadata = await image.metadata()
@@ -239,7 +240,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((error) => {
+    console.error(error)
+    process.exit(1)
+  })
+}

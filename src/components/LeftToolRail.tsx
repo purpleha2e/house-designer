@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import type { ModelLibrarySection } from '../models/modelLibrarySections'
-import { getSurfaceMaterialLabel } from '../materials/materialCatalog'
+import { MaterialLibraryTree } from './MaterialLibraryTree'
+import { useMaterialFolders } from '../materials/useMaterialFolders'
 import type {
   FloorLevel,
   SelectableSurface,
@@ -76,6 +77,7 @@ type LeftToolRailProps = {
   onDeleteFloor: () => void
   onInternalWallThicknessChange: (thickness: number) => void
   onOpenModelSelector: (section: ModelLibrarySection) => void
+  onOpenMaterialEditor?: () => void
   onRoofModeChange: (isRoofMode: boolean) => void
   onSelectFloor: (floorId: string) => void
   onSlabThicknessChange: (thickness: number) => void
@@ -289,6 +291,7 @@ export function LeftToolRail({
   onDeleteFloor,
   onInternalWallThicknessChange,
   onOpenModelSelector,
+  onOpenMaterialEditor,
   onRoofModeChange,
   onSelectFloor,
   onSlabThicknessChange,
@@ -298,9 +301,7 @@ export function LeftToolRail({
   onWallKindChange,
 }: LeftToolRailProps) {
   const [openPanel, setOpenPanel] = useState<RailPanel | null>(null)
-  const [materialManufacturer, setMaterialManufacturer] = useState('')
-  const [materialType, setMaterialType] = useState('')
-  const [materialFinish, setMaterialFinish] = useState('')
+  const materialFolders = useMaterialFolders()
   const [selectedMaterialId, setSelectedMaterialId] = useState('')
   const [wallMaterialMode, setWallMaterialMode] =
     useState<WallMaterialMode>('full')
@@ -402,32 +403,12 @@ export function LeftToolRail({
     onRoofModeChange(false)
     setOpenPanel((currentPanel) => (currentPanel === panel ? null : panel))
   }
-  const manufacturers = Array.from(
-    new Set(materials.map((material) => material.manufacturer)),
-  ).sort((first, second) => first.localeCompare(second))
-  const materialTypes = Array.from(
-    new Set(
-      materials.map((material) => material.materialType ?? material.category),
-    ),
-  ).sort((first, second) => first.localeCompare(second))
-  const finishes = Array.from(
-    new Set(materials.flatMap((material) => (material.finish ? [material.finish] : []))),
-  ).sort((first, second) => first.localeCompare(second))
-  const filteredMaterials = materials.filter((material) => {
-    const type = material.materialType ?? material.category
-
-    return (
-      (!materialManufacturer || material.manufacturer === materialManufacturer) &&
-      (!materialType || type === materialType) &&
-      (!materialFinish || material.finish === materialFinish)
-    )
-  })
-  const selectedMaterialIsVisible = filteredMaterials.some(
+  const selectedMaterialIsVisible = materials.some(
     (material) => material.id === selectedMaterialId,
   )
   const materialToApply = selectedMaterialIsVisible
     ? selectedMaterialId
-    : filteredMaterials[0]?.id ?? ''
+    : materials[0]?.id ?? ''
   const selectedSurfaceLabel =
     selectedSurface?.type === 'room-floor'
       ? 'Floor selected'
@@ -535,7 +516,7 @@ export function LeftToolRail({
       </nav>
 
       {openPanel ? (
-        <aside className="left-tool-flyout" aria-label={`${openPanel} tools`}>
+        <aside className={`left-tool-flyout${openPanel === 'materials' ? ' materials-flyout' : ''}`} aria-label={`${openPanel} tools`}>
           {openPanel === 'wall' ? (
             <>
               <header>
@@ -713,65 +694,10 @@ export function LeftToolRail({
                 <h2>Materials</h2>
                 <p>{selectedSurfaceLabel}</p>
               </header>
-              <label className="flyout-select">
-                <span>Manufacturer</span>
-                <select
-                  value={materialManufacturer}
-                  onChange={(event) => setMaterialManufacturer(event.target.value)}
-                >
-                  <option value="">All</option>
-                  {manufacturers.map((manufacturer) => (
-                    <option key={manufacturer} value={manufacturer}>
-                      {manufacturer}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flyout-select">
-                <span>Type</span>
-                <select
-                  value={materialType}
-                  onChange={(event) => setMaterialType(event.target.value)}
-                >
-                  <option value="">All</option>
-                  {materialTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flyout-select">
-                <span>Finish</span>
-                <select
-                  value={materialFinish}
-                  onChange={(event) => setMaterialFinish(event.target.value)}
-                >
-                  <option value="">All</option>
-                  {finishes.map((finish) => (
-                    <option key={finish} value={finish}>
-                      {finish}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flyout-select">
-                <span>Product</span>
-                <select
-                  value={materialToApply}
-                  onChange={(event) => setSelectedMaterialId(event.target.value)}
-                >
-                  {filteredMaterials.length > 0 ? (
-                    filteredMaterials.map((material) => (
-                      <option key={material.id} value={material.id}>
-                        {getSurfaceMaterialLabel(material)}
-                      </option>
-                    ))
-                  ) : (
-                    <option value="">No matches</option>
-                  )}
-                </select>
-              </label>
+              {onOpenMaterialEditor && <button type="button" onClick={onOpenMaterialEditor}>Open material editor</button>}
+              <MaterialLibraryTree materials={materials} folders={materialFolders} selectedId={materialToApply}
+                onSelect={material => setSelectedMaterialId(material.id)} />
+              <p className="material-picker-selection">Selected: {materials.find(material => material.id === materialToApply)?.productName ?? 'Choose a material'}</p>
               <label className="flyout-field">
                 <span>Texture scale</span>
                 <div>

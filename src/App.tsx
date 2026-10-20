@@ -1,6 +1,6 @@
 import { replaceRoofMaterialAssignment, roofSurfaceTargetsMatch } from './roofMaterialAssignments'
 import { getSurfaceSelectionFloorId } from './surfaceSelection'
-import { indirectProjectKey, savedIndirectLightingMatches, type SavedIndirectLighting } from './indirectLightingPersistence'
+import { indirectProjectKey, indirectContentKey, indirectAssetIdentity, savedIndirectLightingMatches, type SavedIndirectLighting } from './indirectLightingPersistence'
 import { normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from './indirectProbeResolution'
 import type { ModelTransformPreview } from './modelTransformPreview'
 import { createLocalLightControl } from './localLightControl'
@@ -23,6 +23,8 @@ import {
 } from './components/FloorplanCanvas'
 import { LeftToolRail, EditToolbar } from './components/LeftToolRail'
 import { ManufacturerPortal } from './components/ManufacturerPortal'
+import { MaterialEditor } from './components/MaterialEditor'
+import { collectLocalMaterialDefinitions, loadLocalMaterials, saveLocalMaterial, validateLocalMaterial } from './materials/localMaterials'
 import { ModelSelector } from './components/ModelSelector'
 import { WindowBuilder } from './components/WindowBuilder'
 import { StairBuilder } from './components/StairBuilder'
@@ -45,6 +47,7 @@ import type {
   SelectableSurface,
   SunPosition,
   SurfaceMaterialAssignment,
+  SurfaceMaterialProduct,
   SurfaceWallSide,
   Wall,
   WallKind,
@@ -53,7 +56,9 @@ import type {
 } from './types'
 import {
   registerRuntimeSurfaceMaterials,
+  registerLocalSurfaceMaterials,
   surfaceMaterialCatalog,
+  surfaceMaterialsById,
 } from './materials/materialCatalog'
 import {
   modelLibrary,
@@ -186,6 +191,7 @@ type SavedProject = {
   activeFloorId: string
   floors: FloorLevel[]
   modelDefinitions?: ModelDefinition[]
+  materialDefinitions?: SurfaceMaterialProduct[]
   sunPosition?: SunPosition
   surfaceAssignments?: SurfaceMaterialAssignment[]
   threeDView?: SavedThreeDViewState
@@ -555,6 +561,10 @@ function normalizeSunPosition(sunPosition?: SunPosition): SunPosition {
 }
 
 function normalizeSavedProject(project: SavedProject) {
+  if (Array.isArray(project.materialDefinitions)) {
+    project.materialDefinitions.forEach(validateLocalMaterial)
+    registerLocalSurfaceMaterials(project.materialDefinitions)
+  }
   if (Array.isArray(project.modelDefinitions)) {
     registerRuntimeModels(project.modelDefinitions)
   }
@@ -581,6 +591,7 @@ function normalizeSavedProject(project: SavedProject) {
     activeFloorId,
     floors,
     modelDefinitions: getSavedProjectModelDefinitions(floors),
+    materialDefinitions: collectLocalMaterialDefinitions({ floors, surfaceAssignments: project.surfaceAssignments, modelDefinitions: getSavedProjectModelDefinitions(floors) }, surfaceMaterialCatalog),
     sunPosition: normalizeSunPosition(project.sunPosition),
     surfaceAssignments: Array.isArray(project.surfaceAssignments)
       ? project.surfaceAssignments
@@ -774,6 +785,7 @@ function App() {
     useState<ModelLibrarySection>('objects')
   const [pendingModelId, setPendingModelId] = useState<string | null>(null)
   const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
+  const [isMaterialEditorOpen, setIsMaterialEditorOpen] = useState(false)
   const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
@@ -842,6 +854,17 @@ function App() {
 
   useEffect(() => {
     let cancelled = false
+    void loadLocalMaterials().then(materials => {
+      if (cancelled) return
+      // Definitions embedded in the opened house take precedence over the library.
+      registerLocalSurfaceMaterials(materials.filter(material => !surfaceMaterialsById.has(material.id)))
+      setAvailableMaterials([...surfaceMaterialCatalog])
+    }).catch(error => console.warn('Could not read My materials:', error))
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     void loadWindowLibrary().then(windows => {
       if (cancelled) return
       // A design embedded in the currently loaded project takes precedence.
@@ -876,6 +899,7 @@ function App() {
     activeFloorId,
     floors,
     modelDefinitions: getSavedProjectModelDefinitions(floors),
+    materialDefinitions: collectLocalMaterialDefinitions({ floors, surfaceAssignments, modelDefinitions: getSavedProjectModelDefinitions(floors) }, surfaceMaterialCatalog),
     selectedFloorViewId,
     selectedModelId,
     selectedModelIds,
@@ -907,6 +931,7 @@ function App() {
       activeFloorId,
       floors: normalizedFloors,
       modelDefinitions: getSavedProjectModelDefinitions(normalizedFloors),
+      materialDefinitions: collectLocalMaterialDefinitions({ floors: normalizedFloors, surfaceAssignments, modelDefinitions: getSavedProjectModelDefinitions(normalizedFloors) }, surfaceMaterialCatalog),
       sunPosition,
       surfaceAssignments,
       threeDView: {
@@ -923,6 +948,10 @@ function App() {
   }
 
   const restoreProjectSnapshot = (snapshot: ProjectSnapshot) => {
+    if (snapshot.materialDefinitions) {
+      registerLocalSurfaceMaterials(snapshot.materialDefinitions)
+      setAvailableMaterials([...surfaceMaterialCatalog])
+    }
     if (snapshot.modelDefinitions) {
       const restoredIds = new Set(snapshot.modelDefinitions.map(model => model.id))
       const removedWindows = modelLibrary.filter(model => model.windowDesign && !restoredIds.has(model.id)).map(model => model.id)
@@ -1375,6 +1404,7 @@ function App() {
     interiorSkinDepth,
     thickness,
     bayOutline,
+    bayRoofStyle,
     bayRidgeLength,
     depth,
     floorId,
@@ -1457,6 +1487,7 @@ function App() {
       interiorSkinDepth,
       thickness,
       bayOutline: type === 'bay' ? bayOutline : undefined,
+      bayRoofStyle: type === 'bay' ? bayRoofStyle : undefined,
       bayRidgeLength: type === 'bay' ? bayRidgeLength : undefined,
       depth: roofDepth,
       heightOffset: heightOffset ?? 0,
@@ -1505,6 +1536,8 @@ function App() {
       roofId: roof.id,
       type: 'roof',
     })
+    setIsRoofMode(false)
+    setRoofPlacementPreview(null)
     setIsAddingWall(false)
   }
 
@@ -2280,8 +2313,22 @@ function App() {
         return
       }
 
+      if (Array.isArray(parsedProject.materialDefinitions)) {
+        parsedProject.materialDefinitions.forEach(validateLocalMaterial)
+      }
+      // Capture the current house's material values before an imported file
+      // replaces definitions with matching library IDs.
+      recordHistory()
+      if (Array.isArray(parsedProject.materialDefinitions)) {
+        registerLocalSurfaceMaterials(parsedProject.materialDefinitions)
+        setAvailableMaterials([...surfaceMaterialCatalog])
+        // Keep the portable house available even if local storage is full.
+        for (const material of parsedProject.materialDefinitions) {
+          void saveLocalMaterial(material).catch(error => console.warn('Could not copy material to the local library:', error))
+        }
+      }
+
       if (Array.isArray(parsedProject.modelDefinitions)) {
-        recordHistory()
         registerRuntimeModels(parsedProject.modelDefinitions)
         setAvailableModels([...modelLibrary])
       }
@@ -2292,7 +2339,6 @@ function App() {
         parsedProject.activeFloorId,
       )
 
-      if (!Array.isArray(parsedProject.modelDefinitions)) recordHistory()
       setFloors(loadedFloors)
       setProjectLoadRevision(revision => revision + 1)
       setLoadedLightingCache(parsedProject.indirectLighting)
@@ -2328,6 +2374,7 @@ function App() {
         activeFloorId: loadedActiveFloorId,
         floors: loadedFloors,
         modelDefinitions: getSavedProjectModelDefinitions(loadedFloors),
+        materialDefinitions: collectLocalMaterialDefinitions({ floors: loadedFloors, surfaceAssignments: parsedProject.surfaceAssignments, modelDefinitions: getSavedProjectModelDefinitions(loadedFloors) }, surfaceMaterialCatalog),
         sunPosition: normalizeSunPosition(parsedProject.sunPosition),
         surfaceAssignments: Array.isArray(parsedProject.surfaceAssignments)
           ? parsedProject.surfaceAssignments
@@ -3073,7 +3120,7 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isTextEntryElement(event.target)) {
+      if (isMaterialEditorOpen || isTextEntryElement(event.target)) {
         return
       }
 
@@ -3129,6 +3176,7 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+          isMaterialEditorOpen,
           activeFloor,
           activeFloorId,
           clipboardItem,
@@ -3148,6 +3196,25 @@ function App() {
 
   return (
     <main className="app-shell">
+      {isMaterialEditorOpen ? <MaterialEditor materials={availableMaterials}
+        onClose={() => setIsMaterialEditorOpen(false)}
+        onSave={async material => {
+          let storageError: unknown
+          try { await saveLocalMaterial(material) } catch (error) { storageError = error }
+          const used = collectLocalMaterialDefinitions({ floors, surfaceAssignments, modelDefinitions: getSavedProjectModelDefinitions(floors) }, [material]).length > 0
+          const previousMaterial = surfaceMaterialsById.get(material.id)
+          const appearanceChanged = used && previousMaterial !== material &&
+            indirectContentKey(indirectAssetIdentity(previousMaterial)) !== indirectContentKey(indirectAssetIdentity(material))
+          if (used) recordHistory()
+          registerLocalSurfaceMaterials([material])
+          setAvailableMaterials([...surfaceMaterialCatalog])
+          if (appearanceChanged) {
+            setSceneRevision(revision => revision + 1)
+            bakedLightingRef.current = undefined
+            setLoadedLightingCache(undefined)
+          }
+          if (storageError) throw storageError
+        }} /> : null}
       {isManufacturerPortalOpen ? (
         <ManufacturerPortal
           onCatalogChanged={refreshPortalCatalog}
@@ -3161,6 +3228,7 @@ function App() {
         isAddingWall={isAddingWall}
         isRoofMode={isRoofMode}
         materials={availableMaterials}
+        onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
         selectedSurface={selectedSurface}
         selectedFloorViewId={selectedFloorViewId}
         selectedModelCount={selectedModelIds.length}
@@ -3234,6 +3302,7 @@ function App() {
               onLoadProject={loadProject}
               onNewProject={newProject}
               onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
+              onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
               onSaveProject={saveProject}
             />
           )}
@@ -3290,7 +3359,8 @@ function App() {
           onUpdateWalls={updateWallGeometries}
           viewportRestoreRevision={floorplanRestoreRevision}
         >
-          <ContextPanel
+          {transformControls => <ContextPanel
+            transformControls={transformControls}
             activeFloor={activeFloor}
             floors={floors}
             canVaultRoom={!floors.some(floor => floor.elevation > activeFloor.elevation)}
@@ -3334,7 +3404,7 @@ function App() {
             }}
             onUpdateModel={updateModel}
             onUpdateWall={updateWallGeometry}
-          />
+          />}
         </FloorplanCanvas>
         <div
           className="view-splitter"
@@ -3375,6 +3445,7 @@ function App() {
           }}
         />
         <ThreeDView
+          suspended={isMaterialEditorOpen}
           lightControl={localLightControl}
           savedIndirectLighting={loadedLightingCache}
           diffuseProbeResolution={diffuseProbeResolution}

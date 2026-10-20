@@ -1,6 +1,6 @@
 import { Scene, Mesh, MeshStandardMaterial, PlaneGeometry, PointLight, PerspectiveCamera, WebGLRenderer, WebGLRenderTarget, Vector3, DataUtils, ShaderMaterial } from 'three'
 import { createRoomLightMaskStack } from '../../src/roomLightMask'
-import { applyRoomLightShader, createRoomLightMaskTexture, createRoomLightShaderUniforms } from '../../src/roomLightShader'
+import { applyRoomLightShader, createRoomLightBoundaryTexture, createRoomLightMaskTexture, createRoomLightShaderUniforms } from '../../src/roomLightShader'
 import { createLightPortalTexture } from '../../src/roomLightPortals'
 import { createIndirectField } from '../../src/indirectLighting'
 import { createIndirectUniforms, indirectVolumeShaderDeclarations } from '../../src/indirectLightingShader'
@@ -14,7 +14,7 @@ const mask = createRoomLightMaskStack([{ id: 'ground', elevation: 0, rooms: [{ s
     { signature: 'room', polygon: [{ x: -3, y: -3 }, { x: .8, y: -3 }, { x: .8, y: 3 }, { x: -3, y: 3 }] },
     { signature: 'sealed-room', polygon: [{ x: .8, y: -3 }, { x: 3, y: -3 }, { x: 3, y: 3 }, { x: .8, y: 3 }] },
   ] }], { minX: -3, minZ: -3, size: 6 }, 64)
-const room = createRoomLightShaderUniforms(createRoomLightMaskTexture(mask))
+const room = createRoomLightShaderUniforms(createRoomLightMaskTexture(mask), createRoomLightBoundaryTexture(mask))
 room.enabled.value = 1; room.maskBounds.value.set(-3, -3, 6, 6); room.floorRange.value.set(-.08, 2.89)
 room.floorCount.value = 2; room.floorHeights.value.set(mask.floorHeights!)
 room.pointRoomIds.value[0] = mask.roomIdsBySignature.get('upper:room')!
@@ -52,13 +52,14 @@ const pathMask = createRoomLightMaskStack([
   ] },
 ], mask.bounds, 64)
 const originalMask = room.mask.value, pathTexture = createRoomLightMaskTexture(pathMask)
-room.mask.value = pathTexture
+const originalBoundaries = room.boundaries.value, pathBoundaries = createRoomLightBoundaryTexture(pathMask)
+room.mask.value = pathTexture; room.boundaries.value = pathBoundaries
 room.pointRoomIds.value[0] = pathMask.roomIdsBySignature.get('upper:hall')!
 light.position.set(-1.1, 5, 0)
 const obstructed = { downstairs: render(true), ownStorey: render(false, 3.1) }
 light.position.x = 0
 Object.assign(window, { stairConcaveRoomResult: { ...obstructed, clear: render(true) } })
-room.mask.value = originalMask; pathTexture.dispose()
+room.mask.value = originalMask; room.boundaries.value = originalBoundaries; pathTexture.dispose(); pathBoundaries.dispose()
 
 // Deliberately different per-storey radiance makes the old discontinuity
 // visible. Open space must blend; a solid slab must keep the volumes separate.

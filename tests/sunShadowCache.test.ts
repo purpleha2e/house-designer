@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BoxGeometry, DirectionalLight, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Scene, Texture, WebGLRenderTarget } from 'three'
+import { BoxGeometry, DirectionalLight, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Plane, Scene, Texture, Vector3, WebGLRenderTarget } from 'three'
 import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../src/sunShadowCache.ts'
 
 test('sun receiver offset stays below the wall and roof contact threshold', () => {
@@ -105,4 +105,34 @@ test('instance transforms and shadow-affecting materials refresh without resourc
   assert.equal(update(), false)
   caster.material.visible = false
   assert.equal(update(), true)
+})
+
+test('reused shadow state handles variable material/clip lists and independent lights', () => {
+  const { scene, light, caster } = fixture()
+  const other = new DirectionalLight(), cache = new SunShadowCache()
+  other.shadow.map = new WebGLRenderTarget(16, 16)
+  scene.add(other, other.target); scene.updateMatrixWorld(true)
+  const check = (expected: boolean) => {
+    assert.equal(cache.update(light, scene, 1, 1), expected)
+    assert.equal(cache.update(other, scene, 1, 1), expected)
+    assert.equal(cache.update(light, scene, 1, 1), false)
+    assert.equal(cache.update(other, scene, 1, 1), false)
+  }
+  check(true)
+  const first = caster.material, second = first.clone()
+  Reflect.set(caster, 'material', [first, second])
+  second.clippingPlanes = [new Plane(new Vector3(1, 0, 0), 2)]
+  check(true)
+  second.clippingPlanes[0].constant = 3
+  check(true)
+  // Shrinking and growing must not retain stale tails or miss new values.
+  Reflect.set(caster, 'material', first)
+  check(true)
+  Reflect.set(caster, 'material', [first, second])
+  check(true)
+  second.clippingPlanes = null
+  check(true)
+  light.position.x = 4; scene.updateMatrixWorld(true)
+  assert.equal(cache.update(light, scene, 1, 1), true)
+  assert.equal(cache.update(other, scene, 1, 1), false)
 })

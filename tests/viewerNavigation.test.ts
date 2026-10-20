@@ -4,6 +4,13 @@ import type { FloorLevel, PlacedModel } from '../src/types.ts'
 import type { ModelDefinition } from '../src/models/modelLibrary.ts'
 import { getViewerMovement, getViewerStairTransitions } from '../src/viewer/viewerNavigation.ts'
 
+test('touch movement keeps analog speed, follows yaw and limits combined diagonal input', () => {
+  assert.deepEqual(getViewerMovement('walk', new Set(), [0, .8, -.6], [1, 0, 0], { x: 0, y: -.25 }), [0, 0, -.25])
+  assert.deepEqual(getViewerMovement('walk', new Set(), [1, 0, 0], [0, 0, 1], { x: 1, y: 0 }), [0, 0, 1])
+  const diagonal = getViewerMovement('walk', new Set(['KeyW']), [0, 0, -1], [1, 0, 0], { x: 1, y: -1 })
+  assert.ok(Math.abs(Math.hypot(...diagonal) - 1) < 1e-10)
+})
+
 test('walking stays horizontal when looking up, and ignores vertical flight keys', () => {
   const movement = getViewerMovement('walk', new Set(['KeyW', 'KeyE']), [0, 0.8, -0.6], [1, 0, 0])
   assert.deepEqual(movement, [0, 0, -1])

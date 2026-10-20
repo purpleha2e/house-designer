@@ -1,4 +1,5 @@
 import type { Point } from './types.ts'
+import { ROOM_BOUNDARY_HEADER_SIZE, roomLightBoundaryRecords } from './roomLightBoundaries.ts'
 
 export const ROOM_LIGHT_MASK_SIZE = 512
 export const MAX_ROOM_LIGHT_MASK_ID = 254
@@ -18,6 +19,7 @@ export type RoomLightMaskBounds = {
 export type RoomLightMask = {
   bounds: RoomLightMaskBounds
   data: Uint8Array
+  boundaries: Float32Array
   height: number
   roomIdsBySignature: Map<string, number>
   width: number
@@ -32,15 +34,21 @@ export function createRoomLightMaskStack(floors: RoomLightMaskFloor[], bounds: R
   const layers = [...floors].sort((a, b) => a.elevation - b.elevation).slice(0, MAX_ROOM_LIGHT_FLOORS)
   const width = Math.max(1, Math.floor(size)), data = new Uint8Array(width * width * Math.max(1, layers.length))
   const roomIdsBySignature = new Map<string, number>()
+  const records = new Array<number>(ROOM_BOUNDARY_HEADER_SIZE * 4).fill(0)
   layers.forEach((floor, layer) => {
     const mask = createRoomLightMask(floor.rooms, bounds, width), remap = new Uint8Array(256)
     for (const [signature, id] of mask.roomIdsBySignature) {
       const globalId = roomIdsBySignature.size < MAX_ROOM_LIGHT_MASK_ID ? roomIdsBySignature.size + 1 : 0
       roomIdsBySignature.set(`${floor.id}:${signature}`, globalId); remap[id] = globalId
+      if (globalId) {
+        records[globalId * 4] = records.length / 4
+        for (let i = mask.boundaries[id * 4] * 4; i < mask.boundaries[id * 4 + 1] * 4; i++) records.push(mask.boundaries[i])
+        records[globalId * 4 + 1] = records.length / 4
+      }
     }
     for (let i = 0; i < mask.data.length; i++) data[layer * width * width + i] = remap[mask.data[i]]
   })
-  return { bounds, data, width, height: width * Math.max(1, layers.length), roomIdsBySignature, floorHeights: layers.map(f => f.elevation) }
+  return { bounds, data, boundaries: new Float32Array(records), width, height: width * Math.max(1, layers.length), roomIdsBySignature, floorHeights: layers.map(f => f.elevation) }
 }
 
 function pointIsOnSegment(point: Point, start: Point, end: Point) {
@@ -167,7 +175,8 @@ export function createRoomLightMask(
     }
   }
 
-  return { bounds, data, height, roomIdsBySignature, width }
+  const boundaries = roomLightBoundaryRecords(maskRooms.map(({ id, room }) => ({ id, polygon: room.polygon })))
+  return { bounds, data, boundaries, height, roomIdsBySignature, width }
 }
 
 export function getRoomLightMaskIdAtPoint(mask: RoomLightMask, point: Point) {

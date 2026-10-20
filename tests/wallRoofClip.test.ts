@@ -1,12 +1,32 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
-import { clipWallFacesToRoofUndersides, roofFacePlanes, footprintPlanes } from '../src/wallEngine/wallRoofClip.ts'
+import { clipWallFacesToRoofUndersides, roofFacePlanes, footprintPlanes, expandedFootprintPlanes } from '../src/wallEngine/wallRoofClip.ts'
 import type { WallRoofClipVolume } from '../src/wallEngine/wallRoofClip.ts'
 import { buildRoofProfileFaces } from '../src/roofProfile.ts'
 import { createWallRoofClipJob, runWallRoofClipJob, createWallRoofClipInputJob, runWallRoofClipInputJob, type WallRoofClipInput } from '../src/wallEngine/wallRoofClipJob.ts'
 import { createWallRoofClipOptions } from '../src/roofWallClipping.ts'
 import { pointIsInsideRoomPolygon } from '../src/roomLightMask.ts'
+
+test('room cutter overlap is bounded at acute triangle tips', () => {
+  for (const polygon of [
+    [{ x: 0, y: 0 }, { x: 4, y: -.001 }, { x: 4, y: .001 }],
+    [{ x: 4, y: .001 }, { x: 4, y: -.001 }, { x: 0, y: 0 }],
+  ]) {
+    const planes = expandedFootprintPlanes(polygon, .003)
+    assert.ok(planes.every(plane => plane([-.002, 0, 0]) >= 0), 'the overlap still covers numerical seams')
+    assert.ok(planes.some(plane => plane([-.01, 0, 0]) < 0), 'a 3 mm overlap cannot extend a triangle metres beyond its tip')
+    assert.ok(polygon.every(p => planes.every(plane => plane([p.x, 0, p.y]) >= -1e-8)))
+  }
+})
+
+test('a negative cutter overlap retains a narrow facade boundary', () => {
+  const planes = expandedFootprintPlanes([{ x: 0, y: 0 }, { x: 2, y: 0 },
+    { x: 2, y: 2 }, { x: 0, y: 2 }], -.00001)
+  assert.ok(planes.some(plane => plane([.000005, 0, 1]) < 0))
+  assert.ok(planes.every(plane => plane([.00002, 0, 1]) > 0))
+  assert.ok(planes.every(plane => plane([1, 0, 1]) > 0))
+})
 
 test('worker builds clipping options from room polygons and encoded roof planes before cutting', () => {
   const faces = [sideFace()]

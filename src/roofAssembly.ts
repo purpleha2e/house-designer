@@ -11,7 +11,7 @@ import { alignRoofEaveBases } from './roofEaveAlignment.ts'
 import { cutRoofFacesAtDormerOpenings, partitionRoofFacesByRooms, splitRoofUndersideFaces, type RoofGeometries, type RoofVertex } from './roofSolidGeometry.ts'
 import { getBayRoofTopUvs, getFlippedRoofFaceProjectedUvs, getPitchedRoofTopUvs, getRoofFaceProjectedUvs } from './roofUv.ts'
 import { carveRoofSurfaceByRooms, type RoomRoofCut } from './roofRoomCsg.ts'
-import { footprintPlanes, roofFacePlanes, type ClipPlane } from './wallEngine/wallRoofClip.ts'
+import { expandedFootprintPlanes, roofFacePlanes, type ClipPlane } from './wallEngine/wallRoofClip.ts'
 import { intersectSolid, planeDistance, prismSolid, solidBoundaryFaces, solidPolygonArea, subtractSolid, type ConvexSolid, type SolidFace, type SolidPlane } from './convexSolid.ts'
 
 export type RoofAssemblyPart = 'top' | 'shell' | 'underside' | 'soffit' | 'eaves'
@@ -177,8 +177,7 @@ function constructRoofCells({ resolved, abuttingWalls = [], dormerOpenings = [],
     const bottom = local([face[0][0], bottomY, face[0][2]])[1]
     // Put the closure just inside the adjoining wall, rather than leaving an
     // eave cut face coplanar with its room-side finish (visible as a striped strip).
-    return [[...footprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })))
-      .map(plane => (point: RoofVertex) => plane(point) + footprintOverlap),
+    return [[...expandedFootprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })), footprintOverlap),
       ([x, y, z]: RoofVertex) => height({ x, y: z }) - depth + ceilingOffset - y,
       ([, y]: RoofVertex) => y - bottom].map(coefficients)]
   })

@@ -1,6 +1,7 @@
 import type { SelectableSurface } from '../types.ts'
-import type { WallMeshFace, WallMeshSource } from './wallMesh.ts'
+import type { WallMeshFace, WallMeshSource, WallMeshVertex } from './wallMesh.ts'
 import { wallLightingCornerPlanes } from './wallLightingCorners.ts'
+import { conformWallRenderEdges } from './wallRenderEdges.ts'
 
 export type WallBufferGroup = {
   count: number
@@ -21,15 +22,33 @@ export type WallBufferBuildOptions = {
   materialBatchKey?: (source: WallMeshSource) => string
 }
 
+type WallAttributeData = number[] | Float32Array
 export type WallBufferGeometryPayload = {
   groups: WallBufferGroup[]
   materialSlots: WallBufferMaterialSlot[]
-  normals: number[]
+  normals: WallAttributeData
   pickTargets: Map<number, SelectableSurface>
-  lightingReceiverOffsets: number[]
-  lightingCornerPlanes: [number[], number[]]
-  positions: number[]
-  uvs: number[]
+  lightingReceiverOffsets: WallAttributeData
+  lightingCornerPlanes: [WallAttributeData, WallAttributeData]
+  positions: WallAttributeData
+  uvs: WallAttributeData
+}
+
+/** Convert in the worker, then transfer ownership instead of deserializing
+ * hundreds of thousands of boxed numbers on the editor's UI thread. */
+export function transferWallBufferPayload(payload: WallBufferGeometryPayload) {
+  const buffers: ArrayBuffer[] = []
+  const pack = (values: WallAttributeData) => {
+    const data = new Float32Array(values)
+    buffers.push(data.buffer)
+    return data
+  }
+  const packed: WallBufferGeometryPayload = { ...payload,
+    positions: pack(payload.positions), normals: pack(payload.normals), uvs: pack(payload.uvs),
+    lightingReceiverOffsets: pack(payload.lightingReceiverOffsets),
+    lightingCornerPlanes: [pack(payload.lightingCornerPlanes[0]), pack(payload.lightingCornerPlanes[1])],
+  }
+  return { payload: packed, buffers }
 }
 
 const QUAD_TRIANGLE_INDICES = [0, 1, 2, 0, 2, 3] as const
@@ -130,6 +149,7 @@ function pushFaceBuffers({
   normals,
   positions,
   uvs,
+  conformed,
 }: {
   face: WallMeshFace
   lightingReceiverOffsets: number[]
@@ -138,14 +158,27 @@ function pushFaceBuffers({
   normals: number[]
   positions: number[]
   uvs: number[]
+  conformed?: WallMeshVertex[]
 }) {
   const start = positions.length / 3
   const triangleIndices = triangleWindingMatchesFaceNormal(face)
     ? QUAD_TRIANGLE_INDICES
     : REVERSED_QUAD_TRIANGLE_INDICES
 
-  triangleIndices.forEach((vertexIndex) => {
-    const vertex = face.vertices[vertexIndex]
+  let vertices = triangleIndices.map(index => face.vertices[index])
+  if (conformed) {
+    const center: WallMeshVertex = { position: [0, 0, 0], uv: [0, 0] }
+    for (const vertex of conformed) {
+      for (const axis of [0, 1, 2] as const) center.position[axis] += vertex.position[axis] / conformed.length
+      for (const axis of [0, 1] as const) center.uv[axis] += vertex.uv[axis] / conformed.length
+    }
+    const forward = triangleWindingMatchesFaceNormal(face)
+    vertices = conformed.flatMap((a, i) => {
+      const b = conformed[(i + 1) % conformed.length]
+      return forward ? [center, a, b] : [center, b, a]
+    })
+  }
+  vertices.forEach((vertex) => {
     const plane = face.lightingReceiverPlane
     const distance = plane ? plane[2] - plane[0] * vertex.position[0] - plane[1] * vertex.position[2] : 0
     lightingReceiverOffsets.push(plane ? plane[0] * distance : 0, 0, plane ? plane[1] * distance : 0)
@@ -157,7 +190,7 @@ function pushFaceBuffers({
   })
 
   return {
-    count: QUAD_TRIANGLE_INDICES.length,
+    count: vertices.length,
     start,
   }
 }
@@ -172,6 +205,7 @@ export function buildWallBufferGeometryPayload(
   const lightingReceiverOffsets: number[] = []
   const lightingCornerPlanes: [number[], number[]] = [[], []]
   const corners = wallLightingCornerPlanes(faces)
+  const conformed = conformWallRenderEdges(faces)
   const pickTargets = new Map<number, SelectableSurface>()
   const positions: number[] = []
   const uvs: number[] = []
@@ -212,6 +246,7 @@ export function buildWallBufferGeometryPayload(
         normals,
         positions,
         uvs,
+        conformed: conformed.get(face),
       })
       const pickTarget = pickTargetFromFace(face, floorId, groupBy)
       const previousGroup = groups[groups.length - 1]

@@ -1,12 +1,26 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BatchedMesh, BoxGeometry, Group, InstancedMesh, Light, Matrix4, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PointLight, SpotLight, Scene, Texture, Vector3 } from 'three'
-import { createOpaqueViewportScene } from '../src/opaqueViewportScene.ts'
+import { createOpaqueViewportScene, prepareOpaqueViewportScene } from '../src/opaqueViewportScene.ts'
 import { createIndirectField } from '../src/indirectLighting.ts'
 import { applyIndirectLightingShader, createIndirectUniforms, getIndirectLightingUniforms } from '../src/indirectLightingShader.ts'
 import { applyRoomLightShader, createRoomLightShaderUniforms, getRoomLightUniforms } from '../src/roomLightShader.ts'
 
-test('early lighting shares diffuse uniforms and room masks while keeping reflections, transparency and shadows out', () => {
+test('startup copies yield to input and release partial resources on cancellation', async () => {
+  const source = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  for (let i = 0; i < 2000; i++) source.add(new Mesh(geometry, material))
+  let cancelled = false, heartbeat = false, disposed = 0
+  geometry.addEventListener('dispose', () => disposed++)
+  const work = prepareOpaqueViewportScene(source, {}, () => cancelled)
+  setTimeout(() => { heartbeat = true; cancelled = true; geometry.dispose() }, 0)
+  assert.equal(await work, undefined)
+  assert.equal(heartbeat, true)
+  assert.equal(disposed, 1, 'cancelled copies release any leases on source geometry')
+  assert.equal(source.children.length, 2000)
+  material.dispose()
+})
+
+test('early lighting shares diffuse uniforms and room masks with alpha glass, without reflections or shadows', () => {
   const source = new Scene(), geometry = new BoxGeometry(), environment = new Texture()
   const material = new MeshPhysicalMaterial({ envMap: environment, transmission: 1, transparent: true })
   const field = createIndirectField([], 0), gi = createIndirectUniforms(field), room = createRoomLightShaderUniforms(field.mask)
@@ -19,7 +33,8 @@ test('early lighting shares diffuse uniforms and room masks while keeping reflec
   const snapshot = createOpaqueViewportScene(source, { lighting: true })
   const copy = snapshot.scene.children.find(o => o instanceof Mesh) as Mesh
   const lit = copy.material as MeshStandardMaterial
-  assert.equal(lit.type, 'MeshStandardMaterial'); assert.equal(lit.envMap, null); assert.equal(lit.transparent, false)
+  assert.equal(lit.type, 'MeshStandardMaterial'); assert.equal(lit.envMap, null); assert.equal(lit.transparent, true)
+  assert.ok(Math.abs(lit.opacity - .1) < 1e-6); assert.equal(lit.depthWrite, false)
   assert.equal(copy.castShadow, false); assert.equal(copy.receiveShadow, false)
   assert.equal(getIndirectLightingUniforms(lit), gi, 'diffuse publication updates the displayed uniforms without recompilation')
   assert.equal(getRoomLightUniforms(lit)?.pointRoomIds, room.unshadowedPointRoomIds, 'unshadowed stage retains room isolation even with final shadows enabled')
@@ -47,7 +62,7 @@ test('opaque startup keeps PBR maps and world transforms without full lighting h
   assert.equal(copy.geometry,geometry)
   assert.deepEqual(copy.getWorldPosition(new Vector3()).toArray(),[2,3,4])
   for (const name of ['map','normalMap','roughnessMap','metalnessMap'] as const) assert.equal(pbr[name],map)
-  assert.equal(pbr.transparent,false); assert.equal(pbr.opacity,1); assert.equal(pbr.type,'MeshStandardMaterial')
+  assert.equal(pbr.transparent,true); assert.ok(Math.abs(pbr.opacity - .04) < 1e-6); assert.equal(pbr.type,'MeshStandardMaterial')
   assert.notEqual(pbr.onBeforeCompile,material.onBeforeCompile)
   assert.equal(snapshot.scene.children.filter(o => o instanceof Light).length,2)
   let disposed = 0
@@ -55,6 +70,21 @@ test('opaque startup keeps PBR maps and world transforms without full lighting h
   geometry.dispose(); map.dispose(); assert.equal(disposed,0)
   snapshot.dispose(); snapshot.dispose(); assert.equal(disposed,2)
   material.dispose(); hidden.material.dispose()
+})
+
+test('startup preserves ordinary glass opacity and texture cutouts without changing the source', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), alphaMap = new Texture()
+  const glass = new MeshStandardMaterial({ transparent: true, opacity: .32 })
+  const cutout = new MeshStandardMaterial({ alphaMap, alphaTest: .5 })
+  scene.add(new Mesh(geometry, glass), new Mesh(geometry, cutout))
+  const snapshot = createOpaqueViewportScene(scene)
+  const copies = snapshot.scene.children.filter(o => o instanceof Mesh).map(o => o.material as MeshStandardMaterial)
+  assert.equal(copies[0].opacity, .32); assert.equal(copies[0].transparent, true)
+  assert.equal(copies[0].depthWrite, false); assert.equal(copies[0].forceSinglePass, true)
+  assert.equal(copies[1].alphaMap, alphaMap); assert.equal(copies[1].alphaTest, .5)
+  assert.equal(copies[1].transparent, false); assert.equal(copies[1].depthWrite, true)
+  assert.equal(glass.depthWrite, true); assert.equal(glass.opacity, .32)
+  snapshot.dispose(); geometry.dispose(); glass.dispose(); cutout.dispose(); alphaMap.dispose()
 })
 
 test('opaque startup preserves ordinary instances and batched transforms', () => {
@@ -65,7 +95,13 @@ test('opaque startup preserves ordinary instances and batched transforms', () =>
   batch.setMatrixAt(id,new Matrix4().makeTranslation(9,0,0)); scene.add(instances,batch)
   const snapshot = createOpaqueViewportScene(scene)
   const ordinary = snapshot.scene.children.filter(o => o instanceof Mesh && !(o instanceof BatchedMesh))
-  assert.deepEqual(ordinary.map(o=>o.getWorldPosition(new Vector3()).x),[4,5])
+  assert.equal(ordinary.length, 1, 'instances stay in one draw instead of becoming individual meshes')
+  const instanced = ordinary[0] as InstancedMesh
+  assert.ok(instanced instanceof InstancedMesh)
+  const world = new Matrix4()
+  assert.deepEqual([0, 1].map(i => {
+    instanced.getMatrixAt(i, world); world.premultiply(instanced.matrixWorld); return world.elements[12]
+  }), [4, 5])
   const copied = snapshot.scene.children.find(o=>o instanceof BatchedMesh) as BatchedMesh
   assert.equal(copied.geometry,batch.geometry)
   const matrix = new Matrix4(); copied.getMatrixAt(id,matrix); assert.equal(matrix.elements[12],9)

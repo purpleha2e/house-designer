@@ -41,8 +41,12 @@ export type StairRailPoint = StairPoint & { y: number }
 export const stairParts: StairPart[] = ['treads', 'risers', 'stringers', 'spindles', 'posts', 'handrails', 'underside']
 export const stairPartLabels: Record<StairPart, string> = {
   treads: 'Treads & landings', risers: 'Risers', stringers: 'Supporting woodwork',
-  spindles: 'Spindles', posts: 'Newel posts', handrails: 'Handrails', underside: 'Underside & side panels',
+  spindles: 'Spindles', posts: 'Newel posts', handrails: 'Banister / handrails', underside: 'Underside & side panels',
 }
+/** Generated geometry always has these named regions, including saved varieties. */
+export const parametricStairMaterialRegions = stairParts.map(part => ({
+  id: `stairs_${part}`, label: stairPartLabels[part], sourceMaterialNames: [`stairs_${part}`],
+}))
 export function getStairFinish(design: StairDesign, part: StairPart): StairFinish {
   return design.finishes[part] ?? { color: '#eeeae1', roughness: .8, metalness: 0 }
 }

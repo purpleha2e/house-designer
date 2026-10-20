@@ -5,6 +5,7 @@ type ToolbarProps = {
   onEngineConsoleOpenChange: (isOpen: boolean) => void
   onNewProject: () => void
   onOpenManufacturerPortal: () => void
+  onOpenMaterialEditor: () => void
   onSaveProject: () => void
 }
 
@@ -15,6 +16,7 @@ export function Toolbar({
   onLoadProject,
   onNewProject,
   onOpenManufacturerPortal,
+  onOpenMaterialEditor,
   onSaveProject,
 }: ToolbarProps) {
   return (
@@ -48,6 +50,15 @@ export function Toolbar({
         }}
       >
         Save
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onOpenMaterialEditor()
+          onClose()
+        }}
+      >
+        Material editor
       </button>
       <button
         type="button"

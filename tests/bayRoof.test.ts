@@ -181,3 +181,75 @@ test('bay ridge clamps before the front edge and missing or invalid values prese
   assert.ok(getBayRoofRidge({ ...narrow, bayRidgeLength: 100 }).length < narrow.depth - 0.05,
     'asymmetric bays clamp to the centre-line boundary rather than bounding-box depth')
 })
+
+test('classic bay has a broad front slope with hips straight back from both front corners', () => {
+  const roof: RoofStructure = { ...roofFor([square[0], square[1], { x: 1, y: 3 }, { x: -1, y: 3 }]),
+    bayRoofStyle: 'classic-lean-to', overhangSide: 0 }
+  const support = getBaySupportPolygon(roof), faces = buildBayRoofFaces(roof)
+  assert.equal(faces.length, 3)
+  const front = faces[1]
+  assert.equal(front.length, 4, 'the front is a single broad plane, not a fan triangle')
+  close(front[0][0], support[3].x); close(front[1][0], support[2].x)
+  close(front[0][2], support[0].y); close(front[1][2], support[0].y)
+  close(front[0][1], 3 * Math.tan(40 * Math.PI / 180)); close(front[1][1], front[0][1])
+  assert.deepEqual(faces[0][0], front[1]); assert.deepEqual(faces[2][0], front[0])
+  assert.deepEqual(buildBayRoofFaces({ ...roof, bayRidgeLength: 1.2 }), faces,
+    'the fan ridge setting does not affect classic mode')
+})
+
+test('classic bay panels cover asymmetric and rotated outlines with planar faces and metre-scale tiles', () => {
+  const asymmetric = [square[0], square[1], { x: 1.4, y: 2.7 }, { x: -.7, y: 3 }]
+  for (const outline of [square, angled, asymmetric]) for (const angle of [0, .63, Math.PI]) {
+    const points = outline.map(p => ({ x: 8 + p.x * Math.cos(angle) - p.y * Math.sin(angle),
+      y: -3 + p.x * Math.sin(angle) + p.y * Math.cos(angle) }))
+    const roof: RoofStructure = { ...roofFor(points), bayRoofStyle: 'classic-lean-to', overhangPitchDegrees: 22 }
+    const faces = buildBayRoofFaces(roof)
+    close(faces.reduce((sum, face) => sum + area(face.map(([x, , y]) => ({ x, y }))), 0), area(getBayRoofPolygon(roof)))
+    const edges = new Map<string, number>()
+    for (const face of faces) {
+      assert.ok(face.flat().every(Number.isFinite))
+      const [a, b, c] = face, u = b.map((v, i) => v - a[i]), v = c.map((value, i) => value - a[i])
+      const normal = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]]
+      assert.ok(Math.hypot(...normal) > 1e-8)
+      for (const p of face) close(p.reduce((sum, value, i) => sum + (value-a[i])*normal[i], 0), 0)
+      const uv = getBayRoofTopUvs(roof, face)
+      for (let i = 0; i < face.length; i++) for (let j = i + 1; j < face.length; j++) {
+        close(Math.hypot(uv[i][0]-uv[j][0], uv[i][1]-uv[j][1]), Math.hypot(...face[i].map((v, axis) => v-face[j][axis])))
+      }
+      face.forEach((p, i) => {
+        const key = [p, face[(i + 1) % face.length]].map(v => v.map(c => c.toFixed(6)).join(',')).sort().join('|')
+        edges.set(key, (edges.get(key) ?? 0) + 1)
+      })
+    }
+    const support = getBaySupportPolygon(roof), outer = getBayRoofPolygon(roof)
+    for (const [key, count] of edges) {
+      assert.ok(count === 1 || count === 2)
+      if (count === 2) continue
+      const [a, b] = key.split('|').map(v => v.split(',').map(Number))
+      assert.ok(Math.abs(a[2]-support[0].y) < 1e-6 && Math.abs(b[2]-support[0].y) < 1e-6 ||
+        outer.some((p, i) => {
+          const q = outer[(i+1)%outer.length]
+          return Math.hypot(p.x-a[0], p.y-a[2]) < 1e-6 && Math.hypot(q.x-b[0], q.y-b[2]) < 1e-6 ||
+            Math.hypot(p.x-b[0], p.y-b[2]) < 1e-6 && Math.hypot(q.x-a[0], q.y-a[2]) < 1e-6
+        }), 'only the exterior and mounting edge may be unshared')
+    }
+    const eaves = createBayRoofEavesGeometry(roof, faces, .04)!
+    assert.ok(Array.from(eaves.getAttribute('position').array).every(Number.isFinite)); eaves.dispose()
+    const resolved = resolveBuildingRoofs([floorFor(roof)])[0].resolved
+    assert.ok(resolved.exteriorFaces.flat().flat().every(Number.isFinite))
+  }
+})
+
+test('bay style survives save/load and old projects keep the fan geometry', () => {
+  const roof = roofFor(angled)
+  const original = buildBayRoofFaces(roof)
+  for (const style of [undefined, 'fan', 'classic-lean-to', 'invalid']) {
+    const loaded = normalizeFloor(JSON.parse(JSON.stringify(floorFor({ ...roof, bayRoofStyle: style as RoofStructure['bayRoofStyle'] }))), new Map()).roofs![0]
+    assert.equal(loaded.bayRoofStyle, style === 'invalid' ? undefined : style,
+      'valid explicit styles must survive loading without changing the saved lighting key')
+    if (style === 'classic-lean-to') {
+      assert.equal(loaded.bayRoofStyle, 'classic-lean-to')
+      assert.deepEqual(buildBayRoofFaces(loaded), buildBayRoofFaces({ ...roof, bayRoofStyle: 'classic-lean-to' }))
+    } else assert.deepEqual(buildBayRoofFaces(loaded), original)
+  }
+})

@@ -17,7 +17,7 @@ import { applyIndirectLightingShader, createIndirectUniforms, setIndirectLocalRe
 import { applySpecularOnlyImageBasedLighting } from '../materials/imageBasedLighting'
 import { pointIsInsideRoomPolygon } from '../roomLightMask'
 import { roomLightCaptureUniform } from '../roomLightShader'
-import { compileShaderWarmup, createShaderWarmupSnapshot, prepareShaderWarmupSnapshot, prepareShaderWarmupResources } from '../shaderWarmup'
+import { compileShaderWarmup, createShaderWarmupSnapshot, prepareShaderWarmupSnapshot, prepareShaderWarmupResources, isSelectionDecoration } from '../shaderWarmup'
 import { createIndirectBounceField, createIndirectPreviewField, indirectPreviewCoefficients, liveIndirectFaceBudget, liveIndirectTimeBudget, shouldPublishLivePreview } from '../indirectLivePreview'
 import { IndirectLightingProbes } from './IndirectLightingProbes'
 import { IndirectLightingInspector } from './IndirectLightingInspector'
@@ -37,7 +37,7 @@ export type IndirectLocalLight = { position: [number, number, number]; target: [
 const NO_LOCAL_LIGHTS: IndirectLocalLight[] = []
 
 /** Progressive world-space GI with bounded capture batches and portable completed lighting. */
-export function IndirectLighting({ floors, revision, blocked, enabled, indoorFill, daylight, localLights: inputLights = NO_LOCAL_LIGHTS, showProbes = false,
+export function IndirectLighting({ floors, revision, blocked, enabled, indoorFill, daylight, daylightBounceStrength = 1, localLights: inputLights = NO_LOCAL_LIGHTS, showProbes = false,
   savedCache, cacheProjectKey = '', cacheAssetKey = '', cacheSettings, cacheExportable = false, onCacheReady, requireSavedCache = false,
   diffuseProbeResolution = 16, diffuseEnabled = true, inspectPoint = false, cacheBlocked = blocked, effectsEnabled = true }: {
   cacheBlocked?: boolean; effectsEnabled?: boolean
@@ -46,6 +46,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
   diffuseProbeResolution?: DiffuseProbeResolution
   floors: IndirectFloor[]; revision: string; blocked: boolean; enabled: boolean; indoorFill: number; daylight: boolean
   localLights?: IndirectLocalLight[]
+  daylightBounceStrength?: number
   showProbes?: boolean
   savedCache?: SavedIndirectLighting; cacheProjectKey?: string; cacheAssetKey?: string
   cacheSettings?: IndirectLightingSettings; cacheExportable?: boolean
@@ -100,7 +101,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
   const queue = useRef<Sample[]>([]), face = useRef(0), reading = useRef(false), waitUntil = useRef(0)
   const readbacks = useRef(new Set<{ pass: number; promise?: Promise<void> }>())
   const cameraMatrix = useRef(new Matrix4())
-  const obstacles = useRef<Box3[]>([])
+  const obstacles = useRef<{ bounds: Box3; geometry: boolean }[]>([])
   const modelBounds = useRef<IndirectModelBounds>(new Map()), captureModelBounds = useRef<IndirectModelBounds>(new Map())
   const reflections = useRef(new Map<string, { texture: Texture; dispose(): void }>())
   const baseline = useRef<{ generation: number; revision: string; settingsKey: string; field: typeof initialField;
@@ -111,7 +112,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
   const refinedProbes = useRef(new Set<number>())
   const exportedCache = useRef<SavedIndirectLighting | undefined>(undefined), saving = useRef(false), savedGeneration = useRef(-1)
   const attemptedCache = useRef(''), loadedCacheKey = useRef('')
-  const settingsKey = indirectLightingSettingsKey(cacheSettings)
+  const settingsKey = indirectLightingSettingsKey(cacheSettings && { ...cacheSettings, daylightBounceStrength }) + ':' + daylightBounceStrength
   const captureSettingsKey = useRef(settingsKey)
   const cacheIdentity = `${cacheProjectKey}:${cacheAssetKey}:${settingsKey}`
   const probeSnapshot = useCallback(() => ({ field: workField.current, captured: capturedProbes.current,
@@ -233,7 +234,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
   const scan = useCallback(function* () {
     const geometry: string[] = []
     const liveMaterials = new Set<Material>()
-    const furniture: Box3[] = []
+    const furniture: typeof obstacles.current = []
     const boundsByModel = new Map<string, { min: number[]; max: number[] }>()
     const finishes = new Set<string>()
     scene.updateMatrixWorld(true)
@@ -243,6 +244,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     scene.traverse(object => objects.push(object))
     for (const object of objects) {
       yield
+      if (isSelectionDecoration(object)) continue
       if (object instanceof PointLight || object instanceof SpotLight) {
         const lightIndex = localLights.findIndex(light => object.position.distanceToSquared(new Vector3(...light.position)) < .00001)
         const indices = object instanceof SpotLight ? uniforms.hdGISpotIndices.value : uniforms.hdGIPointIndices.value
@@ -259,7 +261,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
           : new Box3().setFromObject(object)
         const size = bounds.getSize(new Vector3())
         if (!bounds.isEmpty()) boundsByModel.set(object.name.slice('model-transform-'.length), { min: bounds.min.toArray(), max: bounds.max.toArray() })
-        if (size.x > .3 && size.y > .3 && size.z > .3) furniture.push(bounds)
+        if (size.x > .3 && size.y > .3 && size.z > .3) furniture.push({ bounds, geometry: !!object.userData.indirectStairModel })
       }
       if (!(object instanceof Mesh) || object.userData.selectionDecoration) continue
       const materials = Array.isArray(object.material) ? object.material : [object.material]
@@ -372,14 +374,14 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     const surfaceKey = transportSupported ? await prepareIndirectSurfaceCaptureKey(nextCaptureScene.scene, gl, cancelled) : ''
     if (cancelled() || surfaceKey === undefined) { nextCaptureScene.dispose(); return }
     const transportKey = transportSupported ? signature.current + ':' + surfaceKey + ':' +
-      diffuseProbeResolution + ':' + dynamicSun + ':' + JSON.stringify([field.bounds, field.ranges, field.volume.n,
+      diffuseProbeResolution + ':' + dynamicSun + ':' + daylightBounceStrength + ':' + JSON.stringify([field.bounds, field.ranges, field.volume.n,
         field.probes.map(probe => [probe.index, probe.region.floorId, probe.position.toArray()])]) : ''
     if (transportKey !== surfaceCacheKey.current || !transportEnabled) {
       surfaceCache.current?.dispose(); surfaceCache.current = null; surfaceCacheKey.current = transportKey
     }
     if (transportSupported) {
       surfaceCache.current ??= createIndirectSurfaceCache(gl, field.probes.map(probe => probe.index), diffuseProbeResolution, uniforms, relightingSupported)
-      surfaceCache.current?.setLightingKey(settingsKey + ':' + bakeTriangles.current?.uuid + ':' + JSON.stringify(staticLights))
+      surfaceCache.current?.setLightingKey(settingsKey + ':' + daylightBounceStrength + ':' + bakeTriangles.current?.uuid + ':' + JSON.stringify(staticLights))
     } else { surfaceCache.current?.dispose(); surfaceCache.current = null }
     surfaceSunEnabled.current = dynamicSun && !!surfaceCache.current?.relighting
     surfaceScene.current?.dispose(); surfaceScene.current = null
@@ -459,7 +461,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
     liveUpdates.current.begin(); liveSweep.current = true
     if (preparingVersion.current === version) preparing.current = false
     invalidate()
-  }, [camera, disposeUnusedPreviews, invalidate, scene, uniforms, revision, settingsKey, localLights.length, gl, diffuseProbeResolution])
+  }, [camera, disposeUnusedPreviews, invalidate, scene, uniforms, revision, settingsKey, localLights.length, gl, diffuseProbeResolution, daylightBounceStrength])
 
   useEffect(() => {
     let cancelled = false, timer: ReturnType<typeof setTimeout> | undefined
@@ -482,12 +484,12 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
   }, [blocked, cacheIdentity, invalidate, layoutKey, revision, scan, scene, requestSceneUpdate])
 
   useEffect(() => {
-    const structure = JSON.stringify([layoutKey, indirectLightingStructureKey(revision), localLights.map(light => light.position)])
+    const structure = JSON.stringify([layoutKey, indirectLightingStructureKey(revision), daylightBounceStrength, localLights.map(light => light.position)])
     const uniformOnly = structure === requestedStructure.current
     requestedStructure.current = structure
     if (uniformOnly && !sceneUpdateRequested.current && (preparedKey.current || preparing.current || queue.current.length)) requestLiveUpdate()
     else requestSceneUpdate()
-  }, [layoutKey, lightKey, revision, localLights, requestLiveUpdate, requestSceneUpdate])
+  }, [layoutKey, lightKey, revision, localLights, daylightBounceStrength, requestLiveUpdate, requestSceneUpdate])
 
   useEffect(() => {
     const pause = (event: Event) => {
@@ -706,13 +708,19 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
             exportedCache.current = undefined; savedGeneration.current = -1; onCacheReady?.(undefined)
             scene.userData.indirectLighting.state = 'updating'
           }
-        }).catch(error => { if (version === generation.current) { pendingUpdate.current = true; console.warn('Saved GI could not be loaded:', error) } })
+        }).catch(error => { if (version === generation.current) {
+          pendingUpdate.current = true
+          scene.userData.indirectLighting.cacheReason = `Saved lighting could not load: ${error instanceof Error ? error.message : String(error)}`
+          console.warn('Saved GI could not be loaded:', error)
+        } })
           .finally(() => { if (version === generation.current) { preparing.current = false; scene.userData.indirectReflectionPending = false }; invalidate() })
         return
       }
       if (requireSavedCache) {
         scene.userData.indirectLighting.state = 'fallback'
-        scene.userData.indirectLighting.cacheReason = 'Saved lighting does not match the project, assets or settings, or could not be decoded'
+        scene.userData.indirectLighting.cacheReason ??= savedCache?.projectKey !== cacheProjectKey ? 'Saved lighting does not match the house.'
+          : savedCache?.assetKey !== cacheAssetKey ? 'Saved lighting does not match the materials or models.'
+          : 'Saved lighting does not match the lighting settings.'
         scene.userData.indirectLighting.cacheKeys = { project: cacheProjectKey, assets: cacheAssetKey, geometry: indirectContentKey(geometrySignature.current) }
         console.warn('Saved GI could not be used:', JSON.stringify({ reason: scene.userData.indirectLighting.cacheReason,
           actual: scene.userData.indirectLighting.cacheKeys,
@@ -765,7 +773,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       scene.userData.indirectLighting.prepareTimings = {}
       preparingVersion.current = version
       void client.prepare({ floors: JSON.parse(layoutKey) as IndirectFloor[], lights: localLights.map(light => light.position),
-        geometry: snapshotIndirectGeometry(scene), obstacles: obstacles.current.map(box => ({ min: box.min.toArray(), max: box.max.toArray() })),
+        geometry: snapshotIndirectGeometry(scene), obstacles: obstacles.current.map(({ bounds, geometry }) => ({ min: bounds.min.toArray(), max: bounds.max.toArray(), geometry })),
         zones: changes ? { previous: indirectZoneProbes(previous!.field), changes, captureNewOnly: upgrade } : undefined }, progress => {
           if (version !== generation.current) return
           Object.assign(scene.userData.indirectLighting, { prepareStage: progress.stage, prepareTimings: progress.timings })
@@ -920,8 +928,11 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       const lightIntensities: { light: PointLight | SpotLight; intensity: number; visible: boolean }[] = []
       const captureSun = indirectSurfaceSun(bakeScene)
       const capturedSunIntensity = captureSun?.intensity
+      // Scale daylight sources once per diffuse capture, never the incoming
+      // bounce field or the visible sun/reflection capture.
+      const daylightStrength = sample.reflection ? 1 : daylightBounceStrength
       if (captureSun && sun) {
-        captureSun.position.copy(sun.position); captureSun.color.copy(sun.color); captureSun.intensity = sun.intensity
+        captureSun.position.copy(sun.position); captureSun.color.copy(sun.color); captureSun.intensity = sun.intensity * daylightStrength
         captureSun.target.position.copy(sun.target.position)
         captureSun.updateMatrixWorld(true); captureSun.target.updateMatrixWorld(true)
         if (captureStatic && surfaceSunEnabled.current) captureSun.intensity = 0
@@ -976,7 +987,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
           bakeScene.add(light); light.updateMatrixWorld(true)
           if (light instanceof SpotLight) { bakeScene.add(light.target); light.target.updateMatrixWorld(true) }
         }
-        const sky = daylight ? resources.sky.setRGB(.65, .72, .82) : resources.sky.setRGB(0, 0, 0)
+        const sky = daylight ? resources.sky.setRGB(.65, .72, .82).multiplyScalar(daylightStrength) : resources.sky.setRGB(0, 0, 0)
         // MRT background clearing must leave receiver attachments empty.
         bakeScene.background = captureSurface ? null : sky
         if (!replay) gl.setRenderTarget(captureSurface ? transport!.target : batch?.target ?? cubeTarget, batch || captureSurface ? 0 : face.current)
@@ -1030,7 +1041,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
         const maxFaces = legacyBudget ? faceBudget : batch?.views ?? (captureStatic ? Math.min(faceBudget, 3) : 1)
         let captured = 0, dataCaptured = 0
         if (relight) {
-          replayResult = transport!.relight(sample.probe!, cubeCamera.position.toArray(), indirectSurfaceLights(activeLights, localLights), surfaceSunEnabled.current ? sun : undefined)
+          replayResult = transport!.relight(sample.probe!, cubeCamera.position.toArray(), indirectSurfaceLights(activeLights, localLights), surfaceSunEnabled.current ? sun : undefined, daylightStrength)
           face.current = 6
           scene.userData.indirectLighting.surfaceRelitProbes++
           scene.userData.indirectLighting.surfaceReusedFaces += 6
@@ -1072,7 +1083,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
           transport!.recordLights(sample.probe!, captureStatic ? [] : indirectSurfaceLights(activeLights, localLights))
           transport!.ready.add(sample.probe!); scene.userData.indirectLighting.surfaceCachedProbes = transport!.ready.size
           replayResult = captureStatic
-            ? transport!.relight(sample.probe!, cubeCamera.position.toArray(), indirectSurfaceLights(activeLights, localLights), surfaceSunEnabled.current ? sun : undefined)
+            ? transport!.relight(sample.probe!, cubeCamera.position.toArray(), indirectSurfaceLights(activeLights, localLights), surfaceSunEnabled.current ? sun : undefined, daylightStrength)
             : transport!.read(sample.probe!, 1)
         }
       } finally {

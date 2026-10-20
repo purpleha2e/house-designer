@@ -13,7 +13,7 @@ export function RoofPitchFields({
   alignedHeightOffset,
   section = 'all',
 }: {
-  roof: Pick<RoofStructure, 'type' | 'heightOffset' | 'fitSupportingWalls' | 'thickness' | 'clipsGeometry' | 'allowInteriorSkin' | 'interiorSkinDepth' | 'bayRidgeLength' | 'pitchDegrees' | 'overhangPitchDegrees' | 'soffitColor' | 'ridgeStartChamfer' | 'ridgeEndChamfer'>
+  roof: Pick<RoofStructure, 'type' | 'heightOffset' | 'fitSupportingWalls' | 'thickness' | 'clipsGeometry' | 'allowInteriorSkin' | 'interiorSkinDepth' | 'bayRoofStyle' | 'bayRidgeLength' | 'pitchDegrees' | 'overhangPitchDegrees' | 'soffitColor' | 'ridgeStartChamfer' | 'ridgeEndChamfer'>
   onChange: (updates: Partial<RoofStructure>) => void
   bayRidgeMaxLength?: number
   chamferGeometry?: { roof: RoofStructure; extents: RoofBounds; support: RoofBounds }
@@ -77,7 +77,15 @@ export function RoofPitchFields({
       </>}
       {roof.type !== 'flat' ? <>
       {(section === 'all' || section === 'shape') && <>
-      {roof.type === 'bay' ? <label className="roof-pitch-field" title="Distance from the midpoint of the mounting edge towards the front of the bay. Zero gives a pointed roof.">
+      {roof.type === 'bay' ? <label className="roof-pitch-field" title="Fan panels meet at a central ridge. Classic has a broad front slope with hips running back from its corners to the wall.">
+        <span>Bay roof style</span>
+        <select aria-label="Bay roof style" value={roof.bayRoofStyle ?? 'fan'}
+          onChange={event => onChange({ bayRoofStyle: event.target.value === 'classic-lean-to' ? 'classic-lean-to' : 'fan' })}>
+          <option value="fan">Fan</option>
+          <option value="classic-lean-to">Classic Bay Lean To</option>
+        </select>
+      </label> : null}
+      {roof.type === 'bay' && roof.bayRoofStyle !== 'classic-lean-to' ? <label className="roof-pitch-field" title="Distance from the midpoint of the mounting edge towards the front of the bay. Zero gives a pointed roof.">
         <span>Ridge length (m)</span>
         <input aria-label="Bay roof ridge length" type="number" min="0" max={bayRidgeMaxLength} step="0.05"
           value={Math.min(bayRidgeMaxLength ?? Infinity, roof.bayRidgeLength ?? 0)}

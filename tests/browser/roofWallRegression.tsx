@@ -21,9 +21,9 @@ import roofClippingFixture from '../fixtures/roofClippingRegression.json'
 import { RoofPitchFields } from '../../src/components/RoofPitchFields'
 import '../../src/App.css'
 import { loadPortalCatalog } from '../../src/portalCatalog'
-import { registerRuntimeSurfaceMaterials, surfaceMaterialCatalog } from '../../src/materials/materialCatalog'
+import { registerRuntimeSurfaceMaterials, surfaceMaterialCatalog, surfaceMaterialsById } from '../../src/materials/materialCatalog'
 import { modelsById, registerRuntimeModels, type ModelDefinition } from '../../src/models/modelLibrary'
-import { normalizeFloor } from '../../src/modelPlacement'
+import { normalizeFloor, syncWallOpenings } from '../../src/modelPlacement'
 import { createDormerWindow, syncDormerWindows, updateDormerWindow } from '../../src/dormerWindows'
 import { getSurfaceSelectionFloorId } from '../../src/surfaceSelection'
 import type { FloorLevel, PlacedModel, SelectableSurface, SurfaceMaterialAssignment } from '../../src/types'
@@ -49,6 +49,9 @@ if (searchParams.has('materials')) {
   const catalog = await loadPortalCatalog()
   registerRuntimeSurfaceMaterials(catalog.materials)
   registerRuntimeModels(catalog.models)
+}
+if ('materialDefinitions' in savedProject && Array.isArray(savedProject.materialDefinitions)) {
+  registerRuntimeSurfaceMaterials(savedProject.materialDefinitions)
 }
 if (searchParams.has('published-materials')) {
   const snapshot = await (await fetch('/.viewer-data/public/house.json')).text()
@@ -99,11 +102,14 @@ function RegressionScene() {
   const [sunPosition, setSunPosition] = useState(savedProject.sunPosition)
   const [sceneFloors, setSceneFloors] = useState(floors as unknown as FloorLevel[])
   const [selection, setSelection] = useState<string | null>(null)
+  const [placementDefinition, setPlacementDefinition] = useState<ModelDefinition | null>(null)
   const [surfaceSelection, setSurfaceSelection] = useState<SelectableSurface | null>(null)
   const [assignments, setAssignments] = useState(savedProject.surfaceAssignments as SurfaceMaterialAssignment[])
   Object.assign(window, {
     updateRegressionFloors: setSceneFloors,
+    regressionTools: { Mesh, modelsById, syncWallOpenings, registerRuntimeSurfaceMaterials, surfaceMaterialsById },
     selectRegressionModel: setSelection,
+    chooseRegressionOpening: (id: string | null) => setPlacementDefinition(id ? modelsById.get(id) ?? null : null),
     regressionSelectedModelId: selection,
     updateRegressionActiveFloor: setActiveFloorId,
     regressionActiveFloorId: activeFloorId,
@@ -151,6 +157,7 @@ function RegressionScene() {
   /> : null}
   <ThreeDView
   lightControl={lightControl}
+  placementModel={placementDefinition} onPlaceModel={noop} onCancelModelPlacement={() => setPlacementDefinition(null)}
   roofPlacementPreview={showPreview && previewSource ? {
     floorId: sourceFloors[0].id,
     roof: { ...previewSource, id: '__roof-placement-preview__' },

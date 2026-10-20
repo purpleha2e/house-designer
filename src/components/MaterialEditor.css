@@ -1,0 +1,54 @@
+.material-editor { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; background: #f0f3f7; color: #172033; font: 13px/1.5 system-ui, sans-serif; }
+.material-editor * { box-sizing: border-box; }
+.material-editor h1, .material-editor h2, .material-editor p { margin: 0; }
+.material-editor h1 { font-size: 23px; letter-spacing: -.5px; line-height: 1.3; }
+.material-editor h2 { font-size: 14px; font-weight: 700; }
+.material-editor p, .material-editor small { color: #64748b; }
+.material-editor-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 16px 24px; background: white; border-bottom: 1px solid #dbe2ec; gap: 12px; }
+.material-editor-eyebrow { font-size: 10px; letter-spacing: 1.5px; color: #64748b; font-weight: 700; }
+.material-editor button { min-height: 36px; border: 1px solid #ccd5e2; border-radius: 7px; padding: 7px 12px; background: white; color: #26364e; font: inherit; font-weight: 600; cursor: pointer; }
+.material-editor button:hover { background: #edf3fc; border-color: #8ba7d2; }
+.material-editor button:disabled { opacity: .5; cursor: wait; }
+.material-editor :focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.material-editor-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); }
+.material-library { display: flex; flex-direction: column; gap: 12px; padding: 22px 16px; border-right: 1px solid #dbe2ec; overflow-y: auto; background: #fafbfd; }
+.material-library h2 { display: flex; justify-content: space-between; }
+.material-library h2 > span { color: #64748b; }
+.material-folder-create { display: grid; gap: 7px; padding: 10px; border: 1px solid #dbe2ec; border-radius: 7px; }
+.material-folder-create small { font-size: 10px; overflow-wrap: anywhere; }
+.material-folder-location { display: grid; gap: 4px; padding: 8px 10px; border-radius: 6px; background: #f1f5fa; font-size: 11px; color: #64748b; overflow-wrap: anywhere; }
+.material-library-note { margin-top: auto !important; font-size: 11px; padding-top: 18px; }
+.material-editor-form { display: grid; grid-template-columns: minmax(300px, 1fr) 350px; min-height: 0; }
+.material-editor-preview-column { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 20px; gap: 12px; }
+.material-preview-tools { display: flex; gap: 6px; }
+.material-preview-tools button[aria-pressed="true"] { background: #26364e; color: white; border-color: #26364e; }
+.material-preview { flex: 1; min-height: 260px; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 12px; background: #242c38; }
+.material-preview canvas { touch-action: none; }
+.material-preview-caption { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; color: #64748b; font-size: 11px; }
+.material-preview-caption label { display: flex; gap: 8px; align-items: center; }
+.material-editor-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.material-editor-actions > span { font-size: 11px; color: #64748b; }
+.material-editor .material-save { background: #2563eb; color: white; border-color: #2563eb; }
+.material-editor .material-save:hover { background: #1d4ed8; }
+.material-editor-status { min-height: 20px; font-size: 12px; }
+.material-editor-inspector { display: flex; flex-direction: column; gap: 12px; padding: 22px; background: white; border-left: 1px solid #dbe2ec; overflow-y: auto; }
+.material-editor-inspector > h2:not(:first-child) { margin-top: 10px; padding-top: 18px; border-top: 1px solid #e5eaf1; }
+.material-editor label { display: grid; gap: 5px; font-size: 12px; font-weight: 600; }
+.material-editor input:not([type="range"]):not([type="checkbox"]), .material-editor select { width: 100%; min-width: 0; height: 35px; border: 1px solid #ccd5e2; border-radius: 5px; padding: 5px 8px; color: #26364e; background: white; font: inherit; }
+.material-editor input[type="color"] { padding: 3px !important; }
+.material-settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.material-range { display: flex; gap: 10px; align-items: center; }
+.material-range input { flex: 1; min-width: 0; accent-color: #2563eb; }
+.material-range output { min-width: 38px; font: 12px ui-monospace, monospace; text-align: right; }
+.material-editor .material-checkbox { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+.material-checkbox input { accent-color: #2563eb; }
+.material-map-list { display: grid; gap: 12px; }
+.material-map { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; border: 1px solid #e2e8f0; border-radius: 7px; padding: 10px; }
+.material-map-thumbnail { width: 54px; height: 54px; display: grid; place-content: center; border-radius: 5px; overflow: hidden; background: repeating-conic-gradient(#e8edf3 0% 25%, #f5f7fa 0% 50%) 50% / 16px 16px; color: #94a3b8; font-size: 24px; }
+.material-map-thumbnail img { width: 54px; height: 54px; object-fit: cover; }
+.material-map input[type="file"] { height: auto !important; font-size: 10px !important; padding: 4px !important; }
+.material-map small { display: block; margin-top: 5px; font-size: 10px; }
+.material-editor .material-map-remove { font-size: 10px; min-height: 24px; margin-top: 5px; padding: 2px 5px; }
+@media (max-width: 1050px) { .material-editor-layout { grid-template-columns: 170px minmax(0, 1fr); } .material-editor-form { grid-template-columns: minmax(250px, 1fr) 300px; } .material-editor-inspector { padding: 16px; } }
+@media (max-width: 780px) { .material-editor-layout { display: block; overflow-y: auto; } .material-library { border-right: 0; border-bottom: 1px solid #dbe2ec; overflow: visible; } .material-library-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } .material-library-note { display: none; } .material-editor-form { display: block; } .material-preview { flex: none; height: 340px; } .material-editor-inspector { overflow: visible; border-left: 0; } .material-editor-header { padding: 12px 16px; } }
+@media (max-width: 780px) { .material-library { max-height: 360px; overflow-y: auto; } }

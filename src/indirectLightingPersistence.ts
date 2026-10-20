@@ -7,14 +7,15 @@ import { INDIRECT_FLOOR_LAYER_VERSION, indirectFloorSize } from './indirectFloor
 import { pack, unpack } from './indirectBufferCodecClient.ts'
 import type { PackedBuffer } from './indirectBufferCodec.ts'
 
-// Mounted frames now sample the owning room instead of exterior ambient inside
-// thick walls. Their old bright diffuse response must not survive in a bake.
-export const INDIRECT_CACHE_VERSION = 3
+// Stairwell probes now remain in usable air within the stair bounds. Old layouts
+// displaced those samples into adjoining rooms and need to be recaptured.
+export const INDIRECT_CACHE_VERSION = 4
 export type IndirectLightingSettings = {
   daylight: boolean; lights: boolean; shadows: boolean; lightShadows: boolean
   hideRoofs: boolean; floorSlabs: boolean; ambientTerm: number
   softAmbientShading: boolean; softAmbientStrength: number; nightFill: boolean; groundPlane: boolean
   diffuseProbeResolution?: DiffuseProbeResolution
+  daylightBounceStrength?: number
 }
 export type SavedIndirectLighting = {
   version: number; projectKey: string; assetKey: string; geometryKey: string; settings: IndirectLightingSettings
@@ -49,8 +50,13 @@ export function indirectContentKey(value: unknown): string {
 /** Uploaded paths are rewritten for publishing; built-in assets receive Vite hashes. */
 export function indirectAssetIdentity(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(indirectAssetIdentity)
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value)
-    .filter(([key]) => !['name', 'category', 'previewUrl'].includes(key)).map(([key, item]) => [key, indirectAssetIdentity(item)]))
+  if (value && typeof value === 'object') {
+    const hashes = (value as { textureSourceHashes?: Record<string, string> }).textureSourceHashes
+    return Object.fromEntries(Object.entries(value)
+      .filter(([key]) => !['name', 'category', 'previewUrl', 'folder'].includes(key))
+      .map(([key, item]) => [key, hashes?.[key] && key.endsWith('TextureUrl')
+        ? `local-texture:${hashes[key]}` : indirectAssetIdentity(item)]))
+  }
   if (typeof value !== 'string' || !/\.(glb|gltf|png|jpg|jpeg|webp|ktx2)(?:[?#]|$)/i.test(value)) return value
   let path = value.replaceAll('\\', '/').split(/[?#]/)[0]
   if (path.includes('/published-assets/')) path = path.split('/published-assets/')[1]
@@ -81,6 +87,7 @@ export function savedIndirectLightingMatches(cache: SavedIndirectLighting | unde
 /** Local shadow maps affect display only; captures use cached geometry visibility. */
 export function indirectLightingSettingsKey(settings?: IndirectLightingSettings) {
   return indirectContentKey(settings && { ...settings, lightShadows: undefined,
+    daylightBounceStrength: settings.daylightBounceStrength ?? 1,
     diffuseProbeResolution: normalizeDiffuseProbeResolution(settings.diffuseProbeResolution) })
 }
 
@@ -89,6 +96,8 @@ export function validIndirectLightingSettings(settings?: IndirectLightingSetting
     .every(key => typeof settings[key as keyof IndirectLightingSettings] === 'boolean') &&
     Number.isFinite(settings.ambientTerm) && settings.ambientTerm >= 0 && settings.ambientTerm <= .85 &&
     Number.isFinite(settings.softAmbientStrength) && settings.softAmbientStrength >= 0 && settings.softAmbientStrength <= 1.5 &&
+    (settings.daylightBounceStrength === undefined || (Number.isFinite(settings.daylightBounceStrength) &&
+      settings.daylightBounceStrength >= 0 && settings.daylightBounceStrength <= 4)) &&
     (settings.diffuseProbeResolution === undefined || [4, 8, 16].includes(settings.diffuseProbeResolution))
 }
 

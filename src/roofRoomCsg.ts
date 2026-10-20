@@ -1,7 +1,7 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three'
 import type { RoofVertex } from './roofSolidGeometry.ts'
 import { roofFaceHeight } from './roofJunctions.ts'
-import { footprintPlanes, type ClipPlane } from './wallEngine/wallRoofClip.ts'
+import { expandedFootprintPlanes, type ClipPlane } from './wallEngine/wallRoofClip.ts'
 
 export type RoomRoofCut = {
   face: RoofVertex[]
@@ -91,8 +91,7 @@ export function carveRoofSurfaceByRooms(
     return [[
       // A tiny footprint overlap absorbs float error without opening a visible
       // slit beside the retained ceiling face at roof junctions.
-      ...footprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })))
-        .map(plane => ((point: RoofVertex) => plane(point) + footprintOverlap) as ClipPlane),
+      ...expandedFootprintPlanes(localFace.map(([x, , z]) => ({ x, y: z })), footprintOverlap),
       (([x, y, z]: RoofVertex) => height({ x, y: z }) - thickness + CUT_VERTICAL_OVERLAP - y) as ClipPlane,
       (([, y]: RoofVertex) => y - bottom) as ClipPlane,
     ]]

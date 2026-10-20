@@ -2,10 +2,18 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Group, SphericalHarmonics3 } from 'three'
 import { createIndirectField, writeIndirectProbe } from '../src/indirectLighting.ts'
-import { formatIndirectLightingEngineStatus, formatIndirectLightingProgress } from '../src/indirectLightingProgress.ts'
+import { formatIndirectLightingEngineStatus, formatIndirectLightingProgress, formatViewportPreparationStatus } from '../src/indirectLightingProgress.ts'
 import { indirectPreviewCoefficients } from '../src/indirectLivePreview.ts'
 import { sampleIndirectCoefficients } from '../src/indirectVolume.ts'
 import { createIndirectVisibility } from '../src/indirectVisibility.ts'
+
+test('viewport status reports outstanding shader batches and elapsed time without claiming GI is stuck', () => {
+  assert.equal(formatViewportPreparationStatus(undefined, 1000), null)
+  assert.equal(formatViewportPreparationStatus({ message: 'Compiling scene shaders...', startedAt: 1000, completed: 3, total: 12 }, 24500),
+    'Compiling scene shaders... 3/12 batches (23s)')
+  assert.equal(formatViewportPreparationStatus({ message: 'Uploading scene resources...', startedAt: 1000 }, 26000),
+    'Uploading scene resources... (25s)')
+})
 
 test('startup previews exclude uncaptured probes without darkening captured illumination', () => {
   const field = createIndirectField([{ id: 'ground', elevation: 0, height: 3, rooms: [{ signature: 'room',

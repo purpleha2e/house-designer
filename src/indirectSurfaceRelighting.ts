@@ -201,7 +201,7 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
       }
     },
     compile() { return renderer.compileAsync(scene, camera) },
-    async read(probe: number, position: number[], lights: SurfaceLight[], captured?: () => void, sun?: DirectionalLight) {
+    async read(probe: number, position: number[], lights: SurfaceLight[], captured?: () => void, sun?: DirectionalLight, sunStrength = 1) {
       const record = records.get(probe)
       if (!record) throw new Error('Missing surface lighting baseline')
       populate(old, record.lights); populate(current, lights)
@@ -217,7 +217,7 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
         sun.updateWorldMatrix(true, false); sun.target.updateWorldMatrix(true, false)
         material.uniforms.hdSunDirection.value.setFromMatrixPosition(sun.matrixWorld)
           .sub(new Vector3().setFromMatrixPosition(sun.target.matrixWorld)).normalize()
-        if (sun.visible) material.uniforms.hdSunColor.value.set(sun.color.r, sun.color.g, sun.color.b).multiplyScalar(sun.intensity)
+        if (sun.visible) material.uniforms.hdSunColor.value.set(sun.color.r, sun.color.g, sun.color.b).multiplyScalar(sun.intensity * sunStrength)
         const shadow = sun.shadow
         if (renderer.shadowMap.enabled && sun.castShadow && shadow.map) {
           material.uniforms.hdSunMap.value = vsm ? shadow.map.texture : shadow.map.depthTexture

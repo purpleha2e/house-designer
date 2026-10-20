@@ -1,7 +1,23 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BatchedMesh, BoxGeometry, Color, DirectionalLight, Group, Matrix4, Mesh, MeshStandardMaterial, PointLight, Scene, SpotLight, Texture, Vector3 } from 'three'
-import { retainViewportScene } from '../src/retainedViewportScene.ts'
+import { retainViewportScene, prepareRetainedViewportScene } from '../src/retainedViewportScene.ts'
+
+test('retained copies yield to input and cancelled partial copies release their resource leases', async () => {
+  const source = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  for (let i = 0; i < 2000; i++) source.add(new Mesh(geometry, material))
+  let cancelled = false, heartbeat = false, disposed = 0
+  geometry.addEventListener('dispose', () => disposed++)
+  const work = prepareRetainedViewportScene(source, () => cancelled)
+  setTimeout(() => { heartbeat = true; cancelled = true; geometry.dispose() }, 0)
+  assert.equal(await work, undefined)
+  assert.equal(heartbeat, true)
+  assert.equal(disposed, 1, 'source disposal deferred by a partial copy is released on cancellation')
+  assert.equal(source.children.length, 2000)
+  const complete = await prepareRetainedViewportScene(source, () => false)
+  assert.equal(complete?.scene.children.length, 2000)
+  complete?.dispose(); material.dispose()
+})
 
 test('retained display freezes transforms and material features while sharing prepared resources', () => {
   const scene = new Scene(), geometry = new BoxGeometry(), texture = new Texture()

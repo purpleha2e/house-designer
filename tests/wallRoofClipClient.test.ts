@@ -87,3 +87,35 @@ test('wall preparation remains pending until all workers finish, including abort
     globalThis.Worker = original
   }
 })
+
+test('large jobs yield between messages, assemble streamed replies, and stop sending when cancelled', async () => {
+  const original = globalThis.Worker
+  const workers: FakeWorker[] = []
+  class FakeWorker {
+    messages: unknown[] = []
+    terminated = false
+    onmessage?: (event: { data: unknown }) => void
+    constructor() { workers.push(this) }
+    postMessage(data: unknown) { this.messages.push(structuredClone(data)) }
+    terminate() { this.terminated = true }
+  }
+  globalThis.Worker = FakeWorker as unknown as typeof Worker
+  try {
+    const many = Array.from({ length: 2000 }, (_, i) => ({ wallId: String(i) })) as WallMeshFace[]
+    const controller = new AbortController()
+    const work = clipWallFacesInWorker(many, options, controller.signal)
+    assert.equal(workers[0].messages.length, 1, 'only the small header is sent synchronously')
+    const rejected = assert.rejects(work, { name: 'AbortError' })
+    controller.abort(); await rejected
+    await new Promise(resolve => setTimeout(resolve, 20))
+    assert.equal(workers[0].messages.length, 1)
+    assert.equal(workers[0].terminated, true)
+    const next = clipWallFacesInWorker(faces, options, new AbortController().signal)
+    workers[1].onmessage!({ data: { stream: 'faces', faces: many.slice(0, 100) } })
+    assert.equal(isWallClippingPending(), true, 'partial responses do not unlock the scene')
+    workers[1].onmessage!({ data: { stream: 'faces', faces: many.slice(100) } })
+    workers[1].onmessage!({ data: { ok: true, streamedFaces: true } })
+    assert.deepEqual(await next, many)
+    assert.equal(isWallClippingPending(), false)
+  } finally { disposeIdleWallClippingWorkers(); globalThis.Worker = original }
+})

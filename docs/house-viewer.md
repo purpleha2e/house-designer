@@ -7,6 +7,13 @@ name is only the title and destination folder of that client's published package
 
 ## Controls
 
+- **Xbox controller:** connect by USB or Bluetooth, click the view, then press a
+  controller button. Left stick moves forwards/backwards and sideways; right
+  stick looks around. Gentle stick movement gives slower movement, with a dead
+  zone to prevent drift. Uses the current Walk/Fly mode and also works in the
+  designer's 3D view. Input pauses outside the focused page, while typing or
+  transforming an object, and during VR. Requires a browser-standard controller
+  mapping; HTTPS or localhost is recommended for browser gamepad access.
 - **Walk:** W/S forwards/backwards, A/D sideways, left-button drag to look.
   The camera stays 1.8 metres above the selected floor, including when standing
   still or switching back from Fly. Walking is free camera movement at a fixed
@@ -22,7 +29,22 @@ name is only the title and destination folder of that client's published package
   Controller movement, snap turns, and VR stair buttons are retained. A hosted
   tour must use HTTPS for headset access. Desktop controls pause during VR.
 
-Limited render controls and elevation drawing downloads are future work.
+The toolbar also offers Normal, Wide and Super-wide aspect controls. Elevation
+drawing downloads are future work.
+
+The bottom-right corner shows the FPS measured while moving, retaining the last reading when stationary. All storeys stay loaded;
+changing floors moves the viewpoint without restarting storey preparation.
+Prepared scene copies retain camera-hidden floor/ceiling surfaces and update
+their visibility immediately when the viewpoint crosses to another storey.
+Once the tour is ready, an unchanged view submits no display draws; navigation,
+lighting changes, resizing and VR still render normally.
+
+On devices whose primary pointer is touch, the tour uses one drawing-buffer
+pixel per CSS pixel and skips screen-space ambient occlusion. Saved indirect
+lighting, room reflections, sun shadows and transparent glass remain enabled.
+This avoids AO's extra geometry/transparency passes returning after a floor
+change, increasing sustained phone rendering cost. Desktop tours and the editor
+retain their usual AO settings; this display choice does not change the bake.
 
 ## Preview any saved house
 
@@ -56,6 +78,12 @@ that house, and the uploaded materials/models it references. The build reads
 local `manufacturer-assets/**/metadata.json` to resolve uploaded assets; it does
 not need the running portal or publish its accounts database. Missing assets
 fail the build instead of silently publishing an incomplete house.
+
+Materials created in the in-app **Material editor** travel inside the saved
+house as `materialDefinitions`. The tour builder converts their embedded image
+data to KTX2 delivery textures, preserving saved-lighting identity through
+source-image hashes. These materials need neither the browser's local library
+nor the manufacturer-assets folder on the publishing machine.
 
 The build also rejects missing, stale or damaged GI caches. Changes to geometry,
 sun position, material assignments or lighting settings require a new editor
@@ -95,9 +123,89 @@ build. Its relative asset URLs support any destination folder, such as
 Keep a `.nojekyll` file at the website's publishing root if it serves raw static
 files without Jekyll. The per-house file is also included in each package.
 
-Colin's URL is an example only; no client name or website hostname is encoded
-in the runtime. Publishing another snapshot to the same folder updates that
+No client name or website hostname is encoded in the runtime.
+Publishing another snapshot to the same folder updates that
 house's link. Publishing to a new folder creates another tour.
+
+### Current Colin hosting
+
+The corner hamburger opens the tour controls, title and navigation help,
+including Normal, Wide and Super-wide aspect controls. The closed menu occupies
+only a 44-pixel button. Green text at the bottom left reports scene preparation,
+asset and lighting work, then Scene ready, without a background console strip.
+The scene follows the visible viewport on startup, full-screen changes and
+rotation; iPhone Home Screen mode draws behind the system status area.
+
+Colin's tour is published at `https://www.pitchr.me/house-designer/colin/`.
+
+On phones and tablets, use the bottom-left joystick to walk forwards/backwards
+or sideways. Drag the right half of the scene with a second finger to look
+around at the same time. Releasing the joystick stops movement; leaving the
+page or rotating the device also clears input. The corner **hamburger menu** contains
+Walk/Fly, floor navigation, Reset view and aspect controls. In Fly mode the
+joystick follows the direction you are looking. Desktop keyboard, mouse,
+Xbox and supported headset controls remain available.
+
+Choose **Full screen** in the hamburger menu to fill the display on
+supported browsers; use **Exit full screen** or Escape to leave. All touch
+controls stay inside the full-screen view. If iPhone Safari cannot enter full
+screen, the button explains **Share → Add to Home Screen**. Keep **Open as Web
+App** enabled if offered, then launch that icon to open without Safari’s toolbars.
+The generated manifest uses relative URLs so each house opens its own tour.
+
+Published tours use the saved floor geometry directly when they contain baked
+lighting. They do not recalculate window openings before validating that cache,
+avoiding changes to exact numeric cache keys on different browser engines.
+If saved lighting cannot be restored, the bottom status reports the specific
+validation or loading error instead of just “Indirect lighting unavailable”.
+The live website repository is **`purpleha2e/pitchr_privacy_policy`**, with
+GitHub Pages publishing the **root of `main`**. It is separate from the
+`cuplup` application repository. The website root contains `.nojekyll`.
+
+To update Colin's tour, rebuild `colin_house_v2.json` using the command above,
+then publish the contents of `dist-viewer/` to `house-designer/colin/` in that
+website repository. Commit only the tour update and push to `main`; wait for
+the Pages deployment and verify the public URL. Keep the website's other
+pages and `CNAME` unchanged. The tour is a static saved snapshot, so the
+designer computer and asset portal do not need to remain running.
+
+### Updating Colin after editing the house
+
+1. In the editor, show **all floors**, wait for **ready to save with model**,
+   then save `colin_house_v2.json` in the source repository. New windows change
+   the lighting, so wait for the new lighting calculation before saving.
+2. Double-click **`publish-colin.cmd`** in the source repository, or run:
+
+   ```powershell
+   npm run publish:colin
+   ```
+
+   The script checks and builds the model, updates (or creates) the website
+   checkout in `node_modules/.cache/pitchr-site`, copies the tour, commits it
+   and pushes to the website's `main` branch. It needs Node 24+, Git and access
+   to the private GitHub website repository. It does not commit the House
+   Designer source or push to GitLab.
+
+   Failed builds stop before copying or publishing. Local changes, an
+   unexpected remote/branch, or unpublished website commits also stop the
+   script with an explanation. An unchanged build creates no extra commit.
+   If a push fails, the script prints the command to retry that saved commit.
+   The double-click window stays open so you can read the result.
+
+   For a local preview without publishing, use
+   `npm run dev:viewer -- --project colin_house_v2.json --title Colin`.
+3. Allow GitHub Pages to deploy, then refresh
+   `https://www.pitchr.me/house-designer/colin/`. Colin uses this same link after
+   every update. Saving the model or pushing the House Designer source to
+   GitLab alone does not publish a new tour.
+
+GitHub Pages may cache the entry page for ten minutes. The script prints an
+update link with `?v=...` so you can open the new page after deployment without
+reusing an older cached page. Colin can keep his usual bookmark; Ctrl+F5 also
+forces his browser to recheck it. Each build now gives the model a filename
+based on its contents and embeds that filename in the viewer, so a new viewer
+cannot accidentally load the previous model from the browser cache. The build
+prints the exact source file and snapshot filename for troubleshooting.
 
 The package is for HTTP/HTTPS hosting. It is not a single HTML file that can be
 double-clicked offline; a portable offline download can be added separately.
@@ -109,6 +217,8 @@ node --test --experimental-strip-types tests/viewerNavigation.test.ts
 npm run dev -- --host 127.0.0.1 --port 5180
 # In a second terminal, after building a viewer:
 node tests/browser/readOnlyViewerRegression.mjs
+# Saved-house phone rendering through repeated floor changes (requires built viewer):
+node tests/browser/readOnlyViewerRegression.mjs --rendering-only
 ```
 
 The browser regression checks navigation, real mouse look and stair clicks,

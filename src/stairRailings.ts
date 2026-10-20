@@ -1,5 +1,6 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three'
 import { getStairLayout, type StairDesign, type StairRailPoint } from './stairDesign.ts'
+import { rotateStairUvs } from './stairUvs.ts'
 
 const distance = (a: StairRailPoint, b: StairRailPoint) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
 const matches = (a: StairRailPoint, b: StairRailPoint) => distance(a, b) < 1e-7
@@ -116,5 +117,5 @@ export function createStairHandrail(path: StairRailPoint[], width: number) {
   geometry.setAttribute('position', new Float32BufferAttribute(positions, 3))
   geometry.setAttribute('uv', new Float32BufferAttribute(uvs, 2))
   geometry.computeVertexNormals()
-  return geometry
+  return rotateStairUvs(geometry)
 }

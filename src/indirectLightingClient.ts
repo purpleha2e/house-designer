@@ -33,13 +33,14 @@ export class IndirectLightingClient {
         }
         if (lampQuery) {
           const worker = this.worker, pool = this.lampPool
+          if (lampQuery === true && pool) { pool.connect(worker!, id); return }
           const finish = (data?: Float32Array) => {
             if (this.worker !== worker || !this.pending.has(id)) return
             worker!.postMessage({ id, kind: 'lampResult', data }, data ? [data.buffer] : [])
             pool?.dispose()
             if (this.lampPool === pool) this.lampPool = null
           }
-          if (pool) pool.trace(lampQuery).then(finish, () => finish())
+          if (pool && lampQuery !== true) pool.trace(lampQuery).then(finish, () => finish())
           else finish()
           return
         }

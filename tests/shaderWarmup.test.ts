@@ -1,8 +1,58 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BoxGeometry, DoubleSide, FrontSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Scene, Texture } from 'three'
-import { getShaderWarmupResourceRevision, compileShaderWarmup, createShaderWarmupSnapshot, getShaderWarmupSceneRevision, prepareShaderWarmupSceneRevision, prepareShaderWarmupResources, recordViewportGeometryUpload, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
+import { BackSide, BoxGeometry, DoubleSide, FrontSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Scene, Texture } from 'three'
+import { getShaderWarmupResourceRevision, prepareShaderWarmupResourceRevision, compileShaderWarmup, createShaderWarmupSnapshot, getShaderWarmupSceneRevision, prepareShaderWarmupSceneRevision, prepareShaderWarmupResources, recordViewportGeometryUpload, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
 import type { WebGLRenderer } from 'three'
+import { roofSurfaceHighlightMaterialParameters, roofSurfaceHighlightRoles } from '../src/roofSelection.ts'
+
+test('roof surface selection neither invalidates house programs nor starts resource preparation', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  scene.add(new Mesh(geometry, material))
+  const programs = getShaderWarmupSceneRevision(scene), resources = getShaderWarmupResourceRevision(scene)
+  const highlightMaterial = new MeshBasicMaterial(roofSurfaceHighlightMaterialParameters)
+  const highlights = [...roofSurfaceHighlightRoles].map(role => {
+    const highlight = new Mesh(geometry.clone(), highlightMaterial)
+    highlight.userData = { houseDesignerRole: role, roofId: 'lean-to' }
+    return highlight
+  })
+  try {
+    for (const highlight of highlights) {
+      scene.add(highlight)
+      assert.equal(getShaderWarmupSceneRevision(scene), programs)
+      assert.equal(getShaderWarmupResourceRevision(scene), resources)
+      scene.remove(highlight)
+    }
+    const helpers = [FrontSide, BackSide, DoubleSide].map(side =>
+      new Mesh(geometry, new MeshBasicMaterial({ ...roofSurfaceHighlightMaterialParameters, side })))
+    const snapshot = createShaderWarmupSnapshot(scene, { fadeRoofs: false, fadeWalls: false, helpers })
+    try {
+      const prepared = getShaderWarmupSceneRevision(snapshot.root)
+      assert.ok(helpers.every(helper => shaderWarmupRevisionIsCovered(prepared, getShaderWarmupSceneRevision(helper))),
+        'all live roof highlight variants are already present in the startup snapshot')
+    } finally {
+      snapshot.dispose(); helpers.forEach(helper => helper.material.dispose())
+    }
+  } finally {
+    highlights.forEach(highlight => highlight.geometry.dispose())
+    highlightMaterial.dispose(); geometry.dispose(); material.dispose()
+  }
+})
+
+test('resource scans yield to input and cancelled edits do not publish readiness', async () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  for (let i = 0; i < 200; i++) scene.add(new Mesh(geometry, material))
+  let inputRan = false
+  const scan = prepareShaderWarmupResourceRevision(scene, () => false)
+  queueMicrotask(() => { inputRan = true })
+  try {
+    assert.equal(await scan, getShaderWarmupResourceRevision(scene))
+    assert.equal(inputRan, true)
+    let cancelled = false
+    const obsolete = prepareShaderWarmupResourceRevision(scene, () => cancelled)
+    cancelled = true
+    assert.equal(await obsolete, undefined)
+  } finally { geometry.dispose(); material.dispose() }
+})
 
 test('light uniforms reuse resource readiness while edited buffers and texture pixels still require uploads', () => {
   const scene = new Scene(), geometry = new BoxGeometry(), texture = new Texture(), material = new MeshStandardMaterial({ map: texture })
@@ -53,6 +103,30 @@ test('cooperative shader scans match synchronous features and obsolete scans sto
   assert.equal(await prepareShaderWarmupSceneRevision(scene,()=>false),getShaderWarmupSceneRevision(scene))
   assert.equal(await prepareShaderWarmupSceneRevision(scene,()=>true),undefined)
   geometry.dispose();material.dispose()
+})
+
+test('resource-only edits walk nested live meshes without copying the house or uploading preview guides', async () => {
+  const scene = new Scene(), room = new Group(), guide = new Group()
+  guide.userData.selectionDecoration = true
+  const oldGeometry = new BoxGeometry(), changedGeometry = new BoxGeometry(), guideGeometry = new BoxGeometry()
+  const material = new MeshStandardMaterial(), guideMaterial = new MeshBasicMaterial()
+  room.add(new Mesh(oldGeometry, material), new Mesh(changedGeometry, material))
+  guide.add(new Mesh(guideGeometry, guideMaterial)); scene.add(room, guide)
+  const renderer = { properties: {}, shadowMap: {}, info: { render: {} },
+    getRenderTarget: () => null, getActiveCubeFace: () => 0, getActiveMipmapLevel: () => 0,
+    setRenderTarget: () => {},
+  } as unknown as WebGLRenderer
+  const draws: unknown[] = []
+  recordViewportGeometryUpload(renderer, oldGeometry)
+  try {
+    assert.equal(await prepareShaderWarmupResources(renderer, scene, new PerspectiveCamera(), scene, false,
+      () => false, batch => batch.traverse(object => { if (object instanceof Mesh) draws.push(object.geometry) })), true)
+    assert.deepEqual(draws, [changedGeometry], 'only the changed wall buffers need preparation')
+    assert.equal(room.children.length, 2); assert.equal(guide.children.length, 1)
+    assert.deepEqual(changedGeometry.drawRange, { start: 0, count: Infinity })
+  } finally {
+    oldGeometry.dispose(); changedGeometry.dispose(); guideGeometry.dispose(); material.dispose(); guideMaterial.dispose()
+  }
 })
 test('shader preparation yields to input and submits equivalent programs only once', async () => {
   const scene=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial()
@@ -331,4 +405,39 @@ test('shader compilation overlaps bounded batches and cancellation drains outsta
   assert.equal(releases.length,4,'cancellation prevents further submission')
   scene.traverse(o=>{if(o instanceof Mesh)(o.material as MeshStandardMaterial).dispose()})
   geometry.dispose()
+})
+
+test('a first-use wall finish prepares only new variants and retains coverage for switching back', async () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), oldMaterial = new MeshStandardMaterial()
+  const wall = new Mesh(geometry, oldMaterial)
+  wall.userData.houseDesignerRole = 'wall-engine-render'
+  scene.add(wall)
+  for (let i = 0; i < 100; i++) scene.add(new Mesh(geometry, oldMaterial))
+  const sourceRevision = getShaderWarmupSceneRevision(scene)
+  const original = createShaderWarmupSnapshot(scene, { fadeWalls: true, fadeRoofs: false, shadows: true })
+  const compiledRevision = getShaderWarmupSceneRevision(original.root)
+  const normal = new Texture(), newMaterial = new MeshStandardMaterial({ normalMap: normal })
+  // Real wall batches can contain both unchanged and replaced material slots.
+  wall.material = [oldMaterial, newMaterial] as unknown as MeshStandardMaterial
+  const delta = createShaderWarmupSnapshot(scene, { fadeWalls: true, fadeRoofs: false, shadows: true, preparedRevision: sourceRevision })
+  try {
+    assert.equal(delta.root.children.length, 2, 'only the changed wall and its fade prototype are copied')
+    assert.ok(delta.root.children.every(object => (object as Mesh).geometry === geometry))
+    let submitted = 0
+    assert.equal(await compileShaderWarmup({} as WebGLRenderer, delta.root, new PerspectiveCamera(), scene, {
+      preparedRevision: compiledRevision, compile: async batch => { submitted += batch.children.length },
+    }), true)
+    assert.equal(submitted, 2, 'one changed wall variant and its fade, without resubmitting furnished rooms')
+    const union = JSON.stringify([...new Set([...JSON.parse(sourceRevision), ...JSON.parse(getShaderWarmupSceneRevision(scene))])])
+    wall.material = oldMaterial
+    assert.ok(shaderWarmupRevisionIsCovered(union, getShaderWarmupSceneRevision(scene)), 'switching back reuses retained programs')
+    const reused = createShaderWarmupSnapshot(scene, { fadeWalls: true, fadeRoofs: false, preparedRevision: union })
+    assert.equal(reused.root.children.length, 0)
+    reused.dispose()
+    newMaterial.customProgramCacheKey = () => 'changed-finish-hook'
+    wall.material = newMaterial
+    const changedHook = createShaderWarmupSnapshot(scene, { fadeWalls: true, fadeRoofs: false, preparedRevision: union })
+    assert.equal(changedHook.root.children.length, 2, 'different shader hooks must still prepare both variants')
+    changedHook.dispose()
+  } finally { delta.dispose(); original.dispose(); geometry.dispose(); oldMaterial.dispose(); newMaterial.dispose(); normal.dispose() }
 })

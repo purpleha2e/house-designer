@@ -2,6 +2,8 @@ import { DirectionalLight, Group, HemisphereLight, Light, Material, Mesh, Object
 import { isSelectionDecoration } from './shaderWarmup.ts'
 import { cloneViewportObject } from './viewportObjectClone.ts'
 import { createViewportModelTransforms } from './viewportModelTransforms.ts'
+import { runViewportTask } from './viewportScheduling.ts'
+import { createViewportSurfaceVisibility, includeViewportObject } from './viewportSurfaceVisibility.ts'
 
 type Disposable = { dispose: () => void }
 const leases = new WeakMap<Disposable, { users: number; pending: boolean; original: () => void }>()
@@ -24,7 +26,7 @@ export function retainResource(resource: Disposable) {
 /** Keep the prepared scene navigable while replacement resources are pending.
  * Own material copies so live shader/finish changes do not alter this version.
  * Geometry and textures are shared; their source owners retain disposal rights. */
-export function retainViewportScene(source: Scene) {
+function* retainedViewportSteps(source: Scene) {
   source.updateMatrixWorld(true)
   const scene = new Scene(), materials = new Map<Material, Material>()
   const groups = new Map<number,Group>()
@@ -33,6 +35,7 @@ export function retainViewportScene(source: Scene) {
   const ownedMeshes: (() => void)[] = []
   const lightCopies: { source: Light; copy: Light }[] = []
   const transforms = createViewportModelTransforms(source)
+  const visibility = createViewportSurfaceVisibility()
   const retain = (resource: Material | BufferGeometry | Texture) => {
     if (!resources.has(resource)) { resources.add(resource); releases.push(retainResource(resource)) }
   }
@@ -48,12 +51,25 @@ export function retainViewportScene(source: Scene) {
     copy = original.clone(); copy.onBeforeCompile = original.onBeforeCompile.bind(original)
     const key = original.customProgramCacheKey(); copy.customProgramCacheKey = () => key
     if ('defaultAttributeValues' in original) Object.assign(copy, { defaultAttributeValues: original.defaultAttributeValues })
+    visibility.bindMaterial(original, copy)
     materials.set(original, copy); return copy
   }
-  source.traverseVisible(object => {
-    if (isSelectionDecoration(object)) return
-    if (!(object instanceof Light) && !('material' in object)) return
+  let disposed = false, completed = false
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    ownedMeshes.forEach(dispose => dispose())
+    materials.forEach(material => material.dispose()); releases.forEach(release => release()); scene.clear()
+  }
+  try {
+  const objects: Object3D[] = []
+  source.traverse(object => { if (includeViewportObject(object)) objects.push(object) })
+  for (const object of objects) {
+    yield
+    if (isSelectionDecoration(object)) continue
+    if (!(object instanceof Light) && !('material' in object)) continue
     const copy=cloneViewportObject(object),proxy=copy.object
+    visibility.bindObject(object, proxy)
     ownedMeshes.push(copy.dispose)
     proxy.matrix.copy(object.matrixWorld); proxy.matrixWorld.copy(object.matrixWorld)
     proxy.matrixAutoUpdate = false; proxy.matrixWorldAutoUpdate = false
@@ -78,10 +94,10 @@ export function retainViewportScene(source: Scene) {
       if(!group){group=new Group();group.renderOrder=order;groups.set(order,group);scene.add(group)}
       group.add(proxy)
     }else scene.add(proxy)
-  })
+  }
   scene.updateMatrixWorld(true); scene.matrixWorldAutoUpdate = false
-  let disposed = false
-  return { scene, syncTransforms: transforms.sync,
+  completed = true
+  return { scene, syncTransforms: transforms.sync, syncVisibility: visibility.sync,
     // Freeze geometry and program features, while keeping light uniforms live.
     // The retained display must acknowledge a switch before GI/shaders finish.
     syncLighting() {
@@ -114,10 +130,17 @@ export function retainViewportScene(source: Scene) {
       }
       return changed
     },
-    dispose() {
-    if (disposed) return
-    disposed = true
-    ownedMeshes.forEach(dispose => dispose())
-    materials.forEach(material => material.dispose()); releases.forEach(release => release()); scene.clear()
-  } }
+    dispose }
+  } finally { if (!completed) dispose() }
+}
+
+export function retainViewportScene(source: Scene) {
+  const steps = retainedViewportSteps(source)
+  let next = steps.next()
+  while (!next.done) next = steps.next()
+  return next.value
+}
+
+export function prepareRetainedViewportScene(source: Scene, cancelled: () => boolean) {
+  return runViewportTask(retainedViewportSteps(source), cancelled)
 }

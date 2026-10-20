@@ -1,4 +1,5 @@
-import { Box3, Vector3 } from 'three'
+import { Vector3 } from 'three'
+import { createIndirectProbeObstacles, type IndirectProbeObstacle } from './indirectProbeObstacles.ts'
 import { createIndirectField, INDIRECT_ATLAS_SIZE, INDIRECT_MASK_SIZE, INDIRECT_MAX_LOCAL_LIGHTS, serializeIndirectField,
   writeIndirectPosition, type IndirectFloor } from './indirectLighting.ts'
 import { createIndirectVisibilityFromSnapshot, writeIndirectVisibility, type IndirectGeometrySnapshot } from './indirectVisibility.ts'
@@ -60,7 +61,7 @@ export function pruneRedundantIndirectProbes(field: ReturnType<typeof createIndi
 
 /** Runs entirely in the GI worker. No renderer, DOM, shader compilation or GPU readbacks. */
 export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [number, number, number][],
-  geometry: IndirectGeometrySnapshot, obstacles: { min: number[]; max: number[] }[],
+  geometry: IndirectGeometrySnapshot, obstacles: IndirectProbeObstacle[],
   zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[]; captureNewOnly?: boolean },
   onProgress?: (progress: IndirectPreparationProgress) => void) {
   const timer = createIndirectPreparationTimer(onProgress)
@@ -71,14 +72,14 @@ export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [num
   timer.start('structure')
   const structure = createIndirectVisibilityFromSnapshot(geometry.filter(part => part.structural))
   timer.start('probes')
-  const boxes = obstacles.map(box => new Box3(new Vector3().fromArray(box.min), new Vector3().fromArray(box.max)))
+  const obstacleQuery = createIndirectProbeObstacles(obstacles, visibility), boxes = obstacleQuery.boxes
   const up = new Vector3(0, 1, 0), origin = new Vector3()
   for (const probe of field.probes) {
-    if (boxes.some(box => box.containsPoint(probe.position))) {
+    if (obstacleQuery.contains(probe.position)) {
       findClearPosition: for (const radius of [.3, .6, 1, 1.5]) for (let direction = 0; direction < 8; direction++) {
         const point = probe.position.clone().add(new Vector3(Math.cos(direction * Math.PI / 4) * radius, 0, Math.sin(direction * Math.PI / 4) * radius))
         if (field.regions.some(region => region.floorId === probe.region.floorId && pointIsInsideRoomPolygon({ x: point.x, y: point.z }, region.polygon)) &&
-          !boxes.some(box => box.containsPoint(point))) { probe.position.copy(point); break findClearPosition }
+          !obstacleQuery.contains(point)) { probe.position.copy(point); break findClearPosition }
       }
     }
     origin.set(probe.position.x, probe.region.bottom + .08, probe.position.z)

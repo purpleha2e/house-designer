@@ -39,10 +39,14 @@ try {
   }
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
   const until = async (expression, label) => {
-    for (let i = 0; i < 600; i++) { if (await evaluate(expression)) return; await pause(100) }
+    for (let i = 0; i < 600; i++) { if (errors.length) throw Error(JSON.stringify(errors)); if (await evaluate(expression)) return; await pause(100) }
     throw Error(`Timed out: ${label}: ${JSON.stringify(errors)}`)
   }
   await call('Runtime.enable'); await call('Page.enable')
+  await call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5180}/tests/browser/roomLightCornersRegression.html`})
+  await until('window.roomLightCornerResult','room corner contact shadows')
+  console.log('Room corners', JSON.stringify(await evaluate('window.roomLightCornerResult')))
+  assert.deepEqual(errors, [])
   await call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5180}/tests/browser/localShadowReceiverRegression.html`})
   await until('window.localShadowResult','grazing receivers')
   const result=await evaluate('window.localShadowResult');console.log(JSON.stringify(result))

@@ -69,15 +69,17 @@ try {
     console.log('PASS viewport resources:',result)
     ws.close();browser.kill();process.exit(0)
   }
-  if (process.argv.includes('--bake-environment')) {
-    await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5181}/tests/browser/bakePbrEnvironment.html` })
+  if (process.argv.includes('--bake-environment') || process.argv.includes('--bake-sky-environment')) {
+    const sky = process.argv.includes('--bake-sky-environment')
+    const name = sky ? 'skyEnvironment' : 'roomEnvironment'
+    await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5181}/tests/browser/bakePbrEnvironment.html${sky ? '?sky' : ''}` })
     let baked
     for (let i=0;i<100&&!baked;i++) { await new Promise(resolve=>setTimeout(resolve,100)); baked=await evaluate('window.bakedPbrEnvironment') }
     if (!baked || errors.length) throw Error(JSON.stringify({ baked: !!baked, errors }))
     mkdirSync('src/assets/environments', { recursive: true })
-    writeFileSync('src/assets/environments/roomEnvironment.bin.gz', gzipSync(Buffer.from(baked.base64, 'base64')))
-    writeFileSync('src/assets/environments/roomEnvironment.json', JSON.stringify({ width:baked.width, height:baked.height })+'\n')
-    console.log('Baked existing RoomEnvironment:', baked.width, baked.height)
+    writeFileSync(`src/assets/environments/${name}.bin.gz`, gzipSync(Buffer.from(baked.base64, 'base64')))
+    writeFileSync(`src/assets/environments/${name}.json`, JSON.stringify({ width:baked.width, height:baked.height })+'\n')
+    console.log(`Baked ${name}:`, baked.width, baked.height)
     ws.close(); browser.kill(); process.exit(0)
   }
   await call('Page.addScriptToEvaluateOnNewDocument', { source: `

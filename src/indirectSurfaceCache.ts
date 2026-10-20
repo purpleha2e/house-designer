@@ -392,13 +392,13 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
     setLightingKey(key: string) { if (key !== lightingKey) { relighter?.clear(); lightingKey = key } },
     recordLights(probe: number, lights: SurfaceLight[]) { relighter?.record(probe, lights) },
     canRelight(probe: number) { return ready.has(probe) && !!relighter?.has(probe) },
-    relight(probe: number, position: number[], lights: SurfaceLight[], sun?: import('three').DirectionalLight) {
+    relight(probe: number, position: number[], lights: SurfaceLight[], sun?: import('three').DirectionalLight, sunStrength = 1) {
       if (!relighter) throw new Error('Surface relighting is unavailable')
       const result = relighter.read(probe, position, lights, () => {
         // All six relit faces are queued before reduction/readback. Preserve
         // them for the second bounce without modifying the original baseline.
         for (let face = 0; face < 6; face++) copyFace(probe, face, replayTarget, false, [currentRadiance])
-      }, sun)
+      }, sun, sunStrength)
       reads.add(result); return result.finally(() => reads.delete(result))
     },
     get compiled() { return compiled },

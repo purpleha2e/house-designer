@@ -11,6 +11,7 @@
     "dev:portal": "node server/asset-portal.mjs",
     "build": "tsc -b && vite build",
     "build:viewer": "tsc -b && node --experimental-strip-types scripts/build-viewer.mjs",
+    "publish:colin": "node scripts/publish-colin.mjs",
     "dev:viewer": "node --experimental-strip-types scripts/build-viewer.mjs --serve",
     "lint": "eslint .",
     "preview": "node server/preview-with-portal.mjs",

@@ -8,6 +8,15 @@ import { applySpecularOnlyImageBasedLighting } from '../src/materials/imageBased
 import { createIndirectVisibility, createIndirectVisibilityFromSnapshot, snapshotIndirectGeometry, indirectOctDirection, indirectOctUV, indirectVisibilityWeight, writeIndirectVisibility, indirectGeometryRanges } from '../src/indirectVisibility.ts'
 import { INDIRECT_VOLUME_HEIGHT, createIndirectVolumeLookup, sampleIndirectCoefficients, writeIndirectCeilingRow, writeIndirectVolumeRow } from '../src/indirectVolume.ts'
 
+test('placement guide descendants never become lighting occluders', () => {
+  const root = new Group(), guide = new Group(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  const wall = new Mesh(geometry, material), preview = new Mesh(geometry, material)
+  guide.userData.selectionDecoration = true
+  guide.add(preview); root.add(wall, guide)
+  try { assert.equal(snapshotIndirectGeometry(root).length, 1) }
+  finally { geometry.dispose(); material.dispose() }
+})
+
 test('stairwell volume samples see neighbouring-storey probes through open air but never through a slab', () => {
   const field = createIndirectField([0, 3].map((elevation, i) => ({ id: `floor-${i}`, elevation, height: 2.7,
     rooms: [{ signature: 'room', polygon: square(0) }] })))

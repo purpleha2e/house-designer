@@ -1,5 +1,10 @@
 # Asset Portal
 
+The app's **Material editor** is separate from this portal: it requires no login
+and saves to the browser's local IndexedDB library. Used local materials and
+their texture image data are embedded in saved houses and included by the tour
+builder. See [the material editor guide](../docs/material-editor.md).
+
 Local development server for manufacturer/admin asset uploads.
 
 Run both the React app and upload API:

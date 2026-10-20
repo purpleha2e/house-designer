@@ -164,11 +164,12 @@ export function conformRoofFaceEdges(faces: Vertex[][]): Vertex[][] {
     const b = face[(index + 1) % face.length]
     const d = b.map((v, axis) => v - a[axis]), lengthSquared = d.reduce((sum, v) => sum + v * v, 0)
     if (lengthSquared < EPS * EPS) return []
+    const fractionTolerance = EPS / Math.sqrt(lengthSquared)
     const splits = vertices.flatMap((p) => {
       const t = p.reduce((sum, v, axis) => sum + (v - a[axis]) * d[axis], 0) / lengthSquared
-      if (t <= EPS || t >= 1 - EPS || Math.hypot(...p.map((v, axis) => v - a[axis] - t * d[axis])) > EPS) return []
+      if (t <= fractionTolerance || t >= 1 - fractionTolerance || Math.hypot(...p.map((v, axis) => v - a[axis] - t * d[axis])) > EPS) return []
       return [t]
-    }).sort((x, y) => x - y).filter((t, i, all) => i === 0 || t - all[i - 1] > EPS)
+    }).sort((x, y) => x - y).filter((t, i, all) => i === 0 || t - all[i - 1] > fractionTolerance)
     return [a, ...splits.map((t) => a.map((v, axis) => v + d[axis] * t) as Vertex)]
   }))
 }
@@ -242,14 +243,14 @@ export function roofInfillFacesForFloor(roofs: ResolvedRoof[], floorId: string):
 
 // Intersect a wall line with the resolved panels. Breaks come from geometry,
 // including narrow valleys, rather than a fixed sampling interval.
-export function resolvedRoofWallSegments(faces: Vertex[][], start: Point, end: Point, bottomY: number, thickness: number) {
+export function resolvedRoofWallSegments(faces: Vertex[][], start: Point, end: Point, bottomY: number, thickness: number, boundaryOverlap = 0) {
   const pointAt = (t: number): Point => ({ x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t })
   const intervals = faces.flatMap((face) => {
     const height = roofFaceHeight(face)
     if (!height) return []
     let min = 0, max = 1
     for (const plane of footprintPlanes(face.map(([x, , y]) => ({ x, y })))) {
-      const a = plane([start.x, 0, start.y]), b = plane([end.x, 0, end.y]), slope = b - a
+      const a = plane([start.x, 0, start.y]) + boundaryOverlap, b = plane([end.x, 0, end.y]) + boundaryOverlap, slope = b - a
       if (Math.abs(slope) < EPS) { if (a < -EPS) return []; continue }
       if (slope > 0) min = Math.max(min, -a / slope)
       else max = Math.min(max, -a / slope)

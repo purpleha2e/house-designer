@@ -1,13 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useContext, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import { getViewerMovement, VIEWER_HEAD_HEIGHT, type ViewerNavigationMode } from './viewerNavigation'
 import { CameraInputTiming, markViewportNavigation } from '../viewportScheduling'
+import { ViewerTouchContext } from './viewerTouchInput'
 
 export function ViewerCameraControls({ mode, floorElevation, enabled }: {
   mode: ViewerNavigationMode; floorElevation: number; enabled: boolean
 }) {
   const { camera, gl } = useThree()
+  const touch = useContext(ViewerTouchContext)
   const keys = useRef(new Set<string>())
   const inputTiming = useRef(new CameraInputTiming())
   const resyncLook = useRef(false)
@@ -24,27 +26,41 @@ export function ViewerCameraControls({ mode, floorElevation, enabled }: {
     }
     if (!enabled) { clear(); return }
     const down = (event: PointerEvent) => {
-      if (event.button !== 0 || !inputTiming.current.accepts(event.timeStamp)) return
+      if (drag || gl.xr.isPresenting || event.button !== 0) return
+      // A slow phone frame must not discard the start of a finger gesture.
+      // Starting a drag only records its position; it cannot catch up movement.
+      if (event.pointerType !== 'touch' && !inputTiming.current.accepts(event.timeStamp)) return
+      const box = canvas.getBoundingClientRect()
+      if (event.pointerType === 'touch' && event.clientX < box.left + box.width / 2) return
       markViewportNavigation()
-      canvas.focus({ preventScroll: true })
+      if (event.pointerType !== 'touch') canvas.focus({ preventScroll: true })
       drag = { id: event.pointerId, x: event.clientX, y: event.clientY }
       canvas.setPointerCapture(event.pointerId)
       event.preventDefault()
     }
     const move = (event: PointerEvent) => {
       if (!drag || drag.id !== event.pointerId) return
-      if (resyncLook.current || !inputTiming.current.accepts(event.timeStamp)) {
+      const stale = event.pointerType === 'touch'
+        ? performance.now() - event.timeStamp > 150
+        : resyncLook.current || !inputTiming.current.accepts(event.timeStamp)
+      if (stale) {
         resyncLook.current = false; drag.x = event.clientX; drag.y = event.clientY; return
       }
+      resyncLook.current = false
       markViewportNavigation()
       camera.rotation.order = 'YXZ'
-      camera.rotation.y -= (event.clientX - drag.x) * 0.003
+      const lookSensitivity = event.pointerType === 'touch' ? 0.006 : 0.003
+      camera.rotation.y -= (event.clientX - drag.x) * lookSensitivity
       camera.rotation.x = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47,
-        camera.rotation.x - (event.clientY - drag.y) * 0.003))
+        camera.rotation.x - (event.clientY - drag.y) * lookSensitivity))
       camera.rotation.z = 0
       drag.x = event.clientX; drag.y = event.clientY
     }
-    const up = () => { if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id); drag = null }
+    const up = (event: PointerEvent) => {
+      if (!drag || drag.id !== event.pointerId) return
+      const id = drag.id; drag = null
+      if (canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id)
+    }
     const keyboard = (event: KeyboardEvent, pressed: boolean) => {
       if (pressed && !inputTiming.current.accepts(event.timeStamp)) return
       if (pressed && event.target instanceof Element && event.target.closest('input,textarea,select,button,[contenteditable="true"]')) return
@@ -60,7 +76,7 @@ export function ViewerCameraControls({ mode, floorElevation, enabled }: {
     canvas.addEventListener('pointerdown', down)
     canvas.addEventListener('pointermove', move)
     canvas.addEventListener('pointerup', up)
-    canvas.addEventListener('pointercancel', clear)
+    canvas.addEventListener('pointercancel', up)
     canvas.addEventListener('lostpointercapture', up)
     document.addEventListener('keydown', keyDown)
     document.addEventListener('keyup', keyUp)
@@ -71,7 +87,7 @@ export function ViewerCameraControls({ mode, floorElevation, enabled }: {
       canvas.removeEventListener('pointerdown', down)
       canvas.removeEventListener('pointermove', move)
       canvas.removeEventListener('pointerup', up)
-      canvas.removeEventListener('pointercancel', clear)
+      canvas.removeEventListener('pointercancel', up)
       canvas.removeEventListener('lostpointercapture', up)
       document.removeEventListener('keydown', keyDown)
       document.removeEventListener('keyup', keyUp)
@@ -81,13 +97,17 @@ export function ViewerCameraControls({ mode, floorElevation, enabled }: {
   }, [camera, enabled, gl, mode])
 
   useFrame(({ camera: frameCamera }, delta) => {
-    const movementDelta = inputTiming.current.frame(delta)
+    const timedDelta = inputTiming.current.frame(delta)
+    // Thumb input is current held state, not a queued motion event. Keep it
+    // usable below 10 FPS while limiting each step and skipping long pauses.
+    const movementDelta = touch && (touch.get().x || touch.get().y) && delta > 0 && delta < .5
+      ? Math.min(delta, .05) : timedDelta
     if (delta > .1) resyncLook.current = true
-    if (!enabled) return
-    if (keys.current.size) markViewportNavigation()
+    if (!enabled || gl.xr.isPresenting || document.hidden) return
+    if (keys.current.size || touch?.get().x || touch?.get().y) markViewportNavigation()
     frameCamera.getWorldDirection(forward.current)
     right.current.setFromMatrixColumn(frameCamera.matrixWorld, 0)
-    const movement = getViewerMovement(mode, keys.current, forward.current.toArray(), right.current.toArray())
+    const movement = getViewerMovement(mode, keys.current, forward.current.toArray(), right.current.toArray(), touch?.get())
     const speed = (keys.current.has('ShiftLeft') || keys.current.has('ShiftRight')) ? 6 : 2.4
     frameCamera.position.addScaledVector(forward.current.set(...movement as [number, number, number]), speed * movementDelta)
     if (mode === 'walk') frameCamera.position.y = floorElevation + VIEWER_HEAD_HEIGHT

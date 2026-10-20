@@ -43,6 +43,29 @@ export function footprintPlanes(polygon: Point[]): ClipPlane[] {
   })
 }
 
+/** Expand a convex cutter without letting acute corners form long spikes.
+ * Room triangulation can produce extremely narrow tips; offsetting only their
+ * edges turns a millimetre tolerance into a cut metres outside the room. */
+export function expandedFootprintPlanes(polygon: Point[], overlap: number): ClipPlane[] {
+  const planes = footprintPlanes(polygon)
+  if (overlap === 0) return planes
+  if (overlap < 0) return planes.map(plane => (point: [number, number, number]) => plane(point) + overlap)
+  const expanded = planes.map(plane => (point: [number, number, number]) => plane(point) + overlap)
+  for (const point of polygon) {
+    const vertex: [number, number, number] = [point.x, 0, point.y]
+    const incident = planes.filter(plane => Math.abs(plane(vertex)) < EPSILON)
+    if (incident.length !== 2) continue
+    const nx = incident.reduce((sum, plane) => sum + plane([point.x + 1, 0, point.y]) - plane(vertex), 0)
+    const nz = incident.reduce((sum, plane) => sum + plane([point.x, 0, point.y + 1]) - plane(vertex), 0)
+    const length = Math.hypot(nx, nz)
+    if (length < EPSILON) continue
+    // A two-times miter limit retains ordinary square corners, while bounding
+    // the acute tips produced by room triangulation.
+    expanded.push(([x, , z]) => ((x - point.x) * nx + (z - point.y) * nz) / length + overlap * 2)
+  }
+  return expanded
+}
+
 export function roofFacePlanes(face: [number, number, number][]): ClipPlane[] {
   const a = face[0]
   if (!a) return []

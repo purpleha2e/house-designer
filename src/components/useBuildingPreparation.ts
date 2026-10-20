@@ -4,7 +4,7 @@ import { encodeBuildingRoofs, restoreBuildingRoofs, type BuildingPreparationRequ
 import type { BuildingRoof } from '../roofBuildingGeometry'
 import type { BuildingRoomVolumes } from '../buildingRoomVolumes'
 import type { FloorLevel } from '../types'
-import type { FloorAssembly } from '../storeyGeometry'
+import type { FloorAssembly, StoreyGeometry } from '../storeyGeometry'
 
 function request<T>(data: BuildingPreparationRequest, signal: AbortSignal) {
   return new Promise<T>((resolve, reject) => {
@@ -51,4 +51,28 @@ export function useBuildingGables(floors: FloorLevel[], roofs: BuildingRoof[], r
     return () => controller.abort()
   }, [key, floors, roofs, rooms, assemblies])
   return { value: prepared.value.gables, clipData: prepared.value.clipData, pending: prepared.key !== key }
+}
+
+export function useBuildingStoreys(input: Extract<BuildingPreparationRequest, { kind: 'storeys' }>) {
+  const [prepared, setPrepared] = useState<{ input?: typeof input; value: Map<string, StoreyGeometry> }>(() => ({ value: new Map() }))
+  useEffect(() => {
+    const controller = new AbortController()
+    void request<Map<string, StoreyGeometry>>(input, controller.signal)
+      .then(value => publishViewportUpdate(() => startTransition(() => setPrepared({ input, value })), () => controller.signal.aborted))
+      .catch(error => { if (!controller.signal.aborted) console.error('Storey preparation failed:', error) })
+    return () => controller.abort()
+  }, [input])
+  return { value: prepared.value, pending: prepared.input !== input }
+}
+
+export function useLightingCacheKeys(input: Extract<BuildingPreparationRequest, { kind: 'lighting-keys' }>) {
+  const [prepared, setPrepared] = useState<{ input?: typeof input; projectKey: string; assetKey: string }>({ projectKey: '', assetKey: '' })
+  useEffect(() => {
+    const controller = new AbortController()
+    void request<{ projectKey: string; assetKey: string }>(input, controller.signal)
+      .then(value => publishViewportUpdate(() => startTransition(() => setPrepared({ input, ...value })), () => controller.signal.aborted))
+      .catch(error => { if (!controller.signal.aborted) console.error('Lighting cache validation failed:', error) })
+    return () => controller.abort()
+  }, [input])
+  return { ...prepared, pending: prepared.input !== input }
 }

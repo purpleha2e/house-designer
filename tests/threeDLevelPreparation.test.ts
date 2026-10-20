@@ -66,6 +66,34 @@ test('moving an opening refreshes wall data without rebuilding floor topology', 
   assert.equal(prepared.renderedWalls[0].wall.openings![0].center, 2)
 })
 
+test('first and last openings reuse topology when the saved wall omits openings', () => {
+  const floor: FloorLevel = {
+    id: 'ground', name: 'Ground', elevation: 0, models: [], rooms: [],
+    roomHeight: 2.4, slabThickness: 0.25, walls: rectangleWalls(),
+  }
+  delete floor.walls[0].openings
+  // Match the canonical JSON round trip used by the 3D view.
+  const withWindow = structuredClone(floor)
+  withWindow.walls[0].openings = [{
+    id: 'window', modelId: 'window-model', center: 3, width: 1.2, bottom: 0.9, height: 1.2,
+  }]
+  const serialized = [floor, withWindow, floor].map(value =>
+    JSON.parse(serializeWallGeometryInput([value]))[0] as FloorLevel)
+  assert.equal(serializeWallGeometryInput([floor], true, 2.4), serializeWallGeometryInput([withWindow], true, 2.4),
+    'a first window below the roof does not invalidate the gable input')
+  const prepared = prepareRenderedFloorData(floor)
+  let previous = prepared
+  for (const value of serialized) {
+    assert.equal(serializeWallGeometryInput([value], false), serializeWallGeometryInput([floor], false))
+    const refreshed = refreshRenderedFloorOpenings(previous, value)
+    assert.equal(refreshed.rooms, prepared.rooms)
+    assert.equal(refreshed.externalWallFootprintGroups, prepared.externalWallFootprintGroups)
+    assert.equal(refreshed.roomSurfacePolygonsBySignature, prepared.roomSurfacePolygonsBySignature)
+    assert.deepEqual(refreshed.renderedWalls[0].wall.openings, value.walls[0].openings)
+    previous = refreshed
+  }
+})
+
 test('prepares a rectangular wall loop with floating-point join residue', () => {
   const floor: FloorLevel = {
     id: 'ground', name: 'Ground', elevation: 0, models: [], rooms: [],

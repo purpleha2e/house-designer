@@ -1,8 +1,9 @@
 import { BackSide, Data3DTexture, DataTexture, DoubleSide, FrontSide, Group, Light, Material, MeshDepthMaterial, MeshDistanceMaterial,
   Scene, Texture, WebGLRenderTarget, type Object3D, type Mesh, type Camera, type WebGLRenderer } from 'three'
-import { waitForViewportIdle } from './viewportScheduling.ts'
+import { runViewportTask, waitForViewportIdle } from './viewportScheduling.ts'
 import { prepareTextureUpload } from './textureUpload.ts'
 import { cloneViewportObject } from './viewportObjectClone.ts'
+import { roofSurfaceHighlightRoles } from './roofSelection.ts'
 
 type Renderable = Object3D & { material: Material | Material[] }
 
@@ -58,19 +59,23 @@ export function registerShaderFadeSource(material: Material, source: Material) {
 }
 
 /** Bounds and transform handles mark their parent, not every child mesh. */
+export function isSelectionDecorationRoot(object: Object3D) {
+  return !!(object.userData.selectionDecoration || roofSurfaceHighlightRoles.has(object.userData.houseDesignerRole) ||
+    ('isTransformControls' in object && object.isTransformControls) ||
+    ('isTransformControlsRoot' in object && object.isTransformControlsRoot) ||
+    ('isTransformControlsGizmo' in object && object.isTransformControlsGizmo) ||
+    ('isTransformControlsPlane' in object && object.isTransformControlsPlane))
+}
 export function isSelectionDecoration(object: Object3D) {
   for (let parent: Object3D | null = object; parent; parent = parent.parent) {
-    if (parent.userData.selectionDecoration || ('isTransformControls' in parent && parent.isTransformControls) ||
-      ('isTransformControlsRoot' in parent && parent.isTransformControlsRoot) ||
-      ('isTransformControlsGizmo' in parent && parent.isTransformControlsGizmo) ||
-      ('isTransformControlsPlane' in parent && parent.isTransformControlsPlane)) return true
+    if (isSelectionDecorationRoot(parent)) return true
   }
   return false
 }
 
 /** Track program features, not material/geometry instance IDs. Rebuilt walls
  * with equivalent finishes reuse the programs retained by the warmup snapshot. */
-function* shaderRevisionSteps(scene: Object3D) {
+function* shaderRevisionSteps(scene: Object3D, changed?: { prepared: Set<string>; objects: Set<Object3D> }) {
   const entries = new Set<string>()
   // Shared finishes occur on hundreds of meshes. Inspect each material once
   // per scan, while still noticing changes made without a version increment.
@@ -115,11 +120,13 @@ function* shaderRevisionSteps(scene: Object3D) {
         ])
         geometryKeys.set(mesh.geometry, geometryKey)
       }
-      entries.add(JSON.stringify([object.type, materialKey, geometryKey,
+      const entry = JSON.stringify([object.type, materialKey, geometryKey,
         'isInstancedMesh' in object && !!object.isInstancedMesh,
         'isBatchedMesh' in object && !!object.isBatchedMesh,
         'instanceColor' in object && !!object.instanceColor,
-        'morphTexture' in object && !!object.morphTexture]))
+        'morphTexture' in object && !!object.morphTexture])
+      entries.add(entry)
+      if (changed && !changed.prepared.has(entry)) changed.objects.add(object)
     }
   }
   return JSON.stringify([...entries].sort())
@@ -134,11 +141,14 @@ export function getShaderWarmupSceneRevision(scene: Object3D) {
 
 /** Resource identity is separate from shader features: a uniform light edit
  * needs neither, whereas new buffers/textures still need bounded uploads. */
-export function getShaderWarmupResourceRevision(scene: Object3D) {
+function* shaderResourceRevisionSteps(scene: Object3D) {
   const entries = new Set<string>(), materials = new Set<Material>()
-  scene.traverse(object => {
+  const objects: Object3D[] = []
+  scene.traverse(object => objects.push(object))
+  for (const object of objects) {
+    yield
     const mesh = object as Mesh
-    if (!mesh.geometry || !mesh.material || isSelectionDecoration(object)) return
+    if (!mesh.geometry || !mesh.material || isSelectionDecoration(object)) continue
     entries.add(mesh.geometry.uuid + ':' + geometryResourceKey(mesh.geometry))
     for (const attached of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
       const material = fadeSources.get(attached) ?? attached
@@ -150,8 +160,17 @@ export function getShaderWarmupResourceRevision(scene: Object3D) {
         // shader snapshots must not invalidate themselves on every scan.
         entries.add(`${value.uuid}:${value.version}`)
     }
-  })
+  }
   return JSON.stringify([...entries].sort())
+}
+export function getShaderWarmupResourceRevision(scene: Object3D) {
+  const steps = shaderResourceRevisionSteps(scene)
+  let next = steps.next()
+  while (!next.done) next = steps.next()
+  return next.value
+}
+export function prepareShaderWarmupResourceRevision(scene: Object3D, cancelled: () => boolean) {
+  return runViewportTask(shaderResourceRevisionSteps(scene), cancelled)
 }
 export async function prepareShaderWarmupSceneRevision(scene: Object3D, cancelled: () => boolean) {
   while (scene.userData.indirectScanPending && !cancelled()) await waitForViewportIdle(cancelled)
@@ -191,6 +210,8 @@ function* shaderSnapshotSteps(scene: Object3D, options: {
   /** Stable helper prototypes, compiled even before anything is selected. */
   helpers?: Object3D[]
   shadows?: boolean
+  /** Previously retained source variants; only new objects need prototypes. */
+  preparedRevision?: string
 }) {
   const root = new Group()
   const materials = new Map<Material, Map<string, Material>>()
@@ -209,6 +230,8 @@ function* shaderSnapshotSteps(scene: Object3D, options: {
     root.clear()
   }
   try {
+  const changed = options.preparedRevision ? { prepared: new Set<string>(JSON.parse(options.preparedRevision)), objects: new Set<Object3D>() } : undefined
+  if (changed) yield* shaderRevisionSteps(scene, changed)
   const cloneMaterial = (source: Material, variant: 'original' | 'wall-fade' | 'roof-fade', features: string) => {
     let variants = materials.get(source)
     if (!variants) materials.set(source, variants = new Map())
@@ -243,6 +266,7 @@ function* shaderSnapshotSteps(scene: Object3D, options: {
       yield
       const source = object as Renderable
       if (sourceRoot === scene && isSelectionDecoration(object)) continue
+      if (sourceRoot === scene && changed && !changed.objects.has(object)) continue
       if (!source.material || !(source.material instanceof Material || Array.isArray(source.material))) continue
       const role = object.userData.houseDesignerRole
       const mesh = object as Mesh
@@ -356,7 +380,9 @@ export async function prepareShaderWarmupSnapshot(scene: Object3D, options: Para
 /** compileAsync submits all programs synchronously before it returns a Promise.
  * Submit small batches in separate tasks, retaining every variant until ready. */
 export async function compileShaderWarmup(renderer: WebGLRenderer, root: Object3D, camera: Camera, targetScene: Scene,
-  options: { cancelled?: () => boolean; compile?: (batch: Object3D) => Promise<unknown> } = {}) {
+  options: { cancelled?: () => boolean; compile?: (batch: Object3D) => Promise<unknown>;
+    preparedRevision?: string;
+    onProgress?: (completed: number, total: number) => void } = {}) {
   const cancelled = options.cancelled ?? (() => false)
   // Transform/vertex positions do not create shader variants. One representative
   // of each material + geometry feature combination is enough to prepare it.
@@ -368,19 +394,23 @@ export async function compileShaderWarmup(renderer: WebGLRenderer, root: Object3
       scanStarted = performance.now()
     }
     const key = getShaderWarmupSceneRevision(object)
+    if (options.preparedRevision && shaderWarmupRevisionIsCovered(options.preparedRevision, key)) continue
     if (!seen.has(key)) { seen.add(key); children.push(object) }
   }
   // Yield between submissions, but do not serialize driver compilation behind
   // the slowest program in every batch. Keep a bounded queue in flight.
   const inFlight = new Set<Promise<void>>()
   const submitted: Promise<void>[] = []
+  const total = Math.ceil(children.length / 4)
+  let completed = 0
+  options.onProgress?.(completed, total)
   let failure: unknown, failed = false
   try {
     for (let offset = 0; offset < children.length;) {
       if (!await waitForViewportIdle(cancelled) || failed) break
       const part = new Group(); part.children = children.slice(offset, offset + 4)
       const compile = options.compile ? options.compile(part) : renderer.compileAsync(part, camera, targetScene)
-      const pending = compile.then(() => {}, error => { failed = true; failure = error })
+      const pending = compile.then(() => { options.onProgress?.(++completed, total) }, error => { failed = true; failure = error })
       submitted.push(pending); inFlight.add(pending)
       void pending.then(() => inFlight.delete(pending))
       offset += 4
@@ -403,7 +433,9 @@ export async function prepareShaderWarmupResources(renderer: WebGLRenderer, root
   const textures = new Set<Texture>(), geometries = new Set<Mesh['geometry']>(), proxies: Mesh[] = []
   const cache = resourceCache(renderer)
   let started = performance.now()
-  for (const object of root.children) {
+  const objects: Object3D[] = []
+  root.traverse(object => { if (!isSelectionDecoration(object)) objects.push(object) })
+  for (const object of objects) {
     if (performance.now()-started>3) { if (!await waitForViewportIdle(cancelled)) return false; started=performance.now() }
     const mesh=object as Mesh
     if (!mesh.geometry || !mesh.material) continue

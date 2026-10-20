@@ -3,6 +3,8 @@ import type { WallSelectionInput } from './wallSelectionPreparation.ts'
 import type { WallBufferGeometryPayload } from './wallBuffer.ts'
 import type { WallRenderJob, prepareWallRendering } from './wallRenderPreparation.ts'
 import { createWallRoofClipInputJob, createWallRoofClipJob, type WallRoofClipInput, type WallRoofClipInputJob, type WallRoofClipJob, type WallRoofClipOptions } from './wallRoofClipJob.ts'
+import { wallWorkerMessages } from './wallWorkerMessages.ts'
+import { waitForViewportIdle } from '../viewportScheduling.ts'
 
 let pendingJobs = 0
 const listeners = new Set<() => void>()
@@ -48,6 +50,7 @@ function requestClipJob<T = WallMeshFace[]>(job: WallRenderJob | WallRoofClipJob
   return new Promise((resolve, reject) => {
     let worker: Worker | undefined
     let settled = false
+    const receivedFaces: WallMeshFace[] = []
     const cleanup = (reuse = false) => {
       if (settled) return
       settled = true
@@ -66,13 +69,26 @@ function requestClipJob<T = WallMeshFace[]>(job: WallRenderJob | WallRoofClipJob
       signal.addEventListener('abort', abort, { once: true })
       worker.onmessage = ({ data }) => {
         if (signal.aborted || settled) return
+        if (data.stream === 'faces') { receivedFaces.push(...data.faces); return }
+        if (data.streamedFaces) {
+          if (data.result) data.result.renderFaces = receivedFaces
+          else data.faces = receivedFaces
+        }
         cleanup(data.ok)
         if (data.ok) resolve('kind' in job ? data.result : 'selection' in job ? { faces: data.faces, pickPayload: data.pickPayload } as T : data.faces)
         else reject(new Error(data.error))
       }
       worker.onerror = event => fail(event.error ?? new Error(event.message))
       worker.onmessageerror = () => fail(new Error('Wall clipping worker response could not be read.'))
-      worker.postMessage(job)
+      const messages = wallWorkerMessages(job)
+      const first = messages.next()
+      if (!first.done) worker.postMessage(first.value)
+      if (!first.done && 'stream' in first.value) void (async () => {
+        for (const message of messages) {
+          if (!await waitForViewportIdle(() => signal.aborted || settled)) return
+          worker!.postMessage(message)
+        }
+      })().catch(fail)
     } catch (error) { fail(error) }
   })
 }

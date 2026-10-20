@@ -46,14 +46,18 @@ try {
     return result.result.value
   }
   await call('Page.enable'); await call('Runtime.enable')
+  if (process.argv.includes('--profile-ui')) { await call('Profiler.enable'); await call('Profiler.start') }
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
   await call('Page.addScriptToEvaluateOnNewDocument', { source: `
-    window.giProfile={workers:[],reads:[],polls:[]};
+    window.giProfile={workers:[],reads:[],polls:[],longTasks:[],heartbeats:[]};
+    new PerformanceObserver(list=>{for(const entry of list.getEntries())window.giProfile.longTasks.push({at:entry.startTime,ms:entry.duration,
+      state:window.roofWallScene?.()?.scene.userData.indirectLighting?.state})}).observe({type:'longtask',buffered:true});
+    let previousHeartbeat=performance.now();setInterval(()=>{const now=performance.now();window.giProfile.heartbeats.push(now-previousHeartbeat);previousHeartbeat=now},16);
     const OriginalWorker=window.Worker;
     window.Worker=class extends OriginalWorker {
       constructor(url,...args){super(url,...args);this.gi=String(url).includes('indirectLighting.worker');this.requests=new Map();
-        if(this.gi)this.addEventListener('message',event=>{const r=this.requests.get(event.data.id);if(r){if(event.data.progress){r.progress=event.data.progress;return}if(event.data.lampQuery){r.lampRows=event.data.lampQuery.size*event.data.lampQuery.lights.length;return}r.ms=performance.now()-r.at;r.ok=event.data.ok;r.finished=true;r.prepareTimings=event.data.value?.prepareTimings;this.requests.delete(event.data.id)}})}
-      postMessage(message,...args){if(this.gi&&message.kind!=='lampResult'){const r={kind:message.kind,at:performance.now(),finished:false};if(message.kind==='prepare'){r.parallelLamps=message.parallelLamps;r.lightCount=message.lights.length;r.triangles=message.geometry.reduce((s,p)=>s+p.matrices.length*p.ranges.reduce((t,r)=>t+Math.floor(r.count/3),0),0)}this.requests.set(message.id,r);window.giProfile.workers.push(r)}return super.postMessage(message,...args)}
+        if(this.gi)this.addEventListener('message',event=>{const r=this.requests.get(event.data.id);if(r){if(event.data.progress){r.progress=event.data.progress;return}if(event.data.lampQuery){r.lampRows=event.data.lampRows??event.data.lampQuery.size*event.data.lampQuery.lights.length;return}r.ms=performance.now()-r.at;r.ok=event.data.ok;r.finished=true;r.prepareTimings=event.data.value?.prepareTimings;this.requests.delete(event.data.id)}})}
+      postMessage(message,...args){if(this.gi&&message.kind!=='lampResult'&&message.kind!=='lampPorts'){const r={kind:message.kind,at:performance.now(),finished:false};if(message.kind==='prepare'){r.parallelLamps=message.parallelLamps;r.lightCount=message.lights.length;r.triangles=message.geometry.reduce((s,p)=>s+p.matrices.length*p.ranges.reduce((t,r)=>t+Math.floor(r.count/3),0),0)}this.requests.set(message.id,r);window.giProfile.workers.push(r)}return super.postMessage(message,...args)}
     };
   ` })
   await call('Page.navigate', { url: `http://127.0.0.1:${port}/tests/browser/roofWallRegression.html?${encodeURIComponent(project)}` })
@@ -241,6 +245,7 @@ try {
     hardware: data.hardware, status, ...(initial ? { initial } : {}),
     workers: Object.fromEntries([...new Set(data.workers.map(r => r.kind))].map(kind => [kind, stats(data.workers.filter(r => r.kind === kind && r.finished).map(r => r.ms))])),
     probeReadbacks: stats(data.reads.filter(r => r.width === 4 && r.height === 1).map(r => r.ms)),
+    uiLongTasks: stats(data.longTasks.map(r => r.ms)), uiHeartbeatGaps: stats(data.heartbeats),
     sampledStates: Object.fromEntries(['blocked','preparing','warming','reading','volumePending','previewPending','moving'].map(key => [key, data.polls.filter(p => p[key]).length])), samples: data.polls.length, errors }
   if (data.comparisons) summary.comparisons = data.comparisons
   if (data.surfaceComparisons) summary.surfaceComparisons=data.surfaceComparisons
@@ -248,8 +253,12 @@ try {
   const viewSuffix = (data.multiviewComparisons ? '-multiview-comparison' : process.argv.includes('--multiview') || process.argv.includes('--multiview-2') ? '-multiview' : '') + (process.argv.includes('--multiview-2') ? '-2' : '')
   const path = `.tmp-gi-pipeline-${project}${data.comparisons ? '-capture-comparison' : data.surfaceComparisons ? '-surface-comparison' : status?.surfaceCacheBytes ? '-surface' : '-uncached'}${viewSuffix}${initial ? '-sun-edit' : ''}-${summary.captureBudget}.json`
   writeFileSync(path, JSON.stringify({ summary, ...data }, null, 2))
+  if (process.argv.includes('--profile-ui')) writeFileSync(path.replace('.json', '.cpuprofile'), JSON.stringify((await call('Profiler.stop')).profile))
   console.log(JSON.stringify(summary, null, 2)); console.log(`Detailed profile: ${path}`)
   if (errors.length || (!ready && !process.argv.includes('--prepare-only') && !process.argv.includes('--compare-only'))) process.exitCode = 1
+  const stallBudget = process.argv.find(arg => arg.startsWith('--max-ui-stall-ms='))?.split('=')[1]
+  if (stallBudget) assert.ok(summary.uiHeartbeatGaps.maxMs <= Number(stallBudget),
+    `UI heartbeat gap ${summary.uiHeartbeatGaps.maxMs} ms exceeds ${stallBudget} ms`)
   if (data.comparisons) {
     assert.ok(data.comparisons.some(r => r.pass === 1) && data.comparisons.some(r => r.pass === 2), 'compare both bounces')
     assert.ok(data.comparisons.every(r => r.max <= .002 + r.peak * .002), 'capture radiance matches the live-scene reference within half-float precision')

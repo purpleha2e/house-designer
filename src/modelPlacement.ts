@@ -663,6 +663,8 @@ export function normalizeFloor(
             ? [{
                 ...roof,
                 bayOutline: roof.type === 'bay' ? normalizeBayOutline(roof.bayOutline) : undefined,
+                bayRoofStyle: roof.type === 'bay' && (roof.bayRoofStyle === 'classic-lean-to' || roof.bayRoofStyle === 'fan')
+                  ? roof.bayRoofStyle : undefined,
                 bayRidgeLength: roof.type === 'bay' && Number.isFinite(roof.bayRidgeLength)
                   ? Math.max(0, roof.bayRidgeLength!) : undefined,
                 baySupportOffsets: undefined,

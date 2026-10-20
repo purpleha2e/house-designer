@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useLoader, useThree } from '@react-three/fiber'
 import { CubeUVReflectionMapping, DataTexture, FileLoader, HalfFloatType, LinearFilter, LinearSRGBColorSpace, Loader, RGBAFormat } from 'three'
-import environmentSize from '../assets/environments/roomEnvironment.json'
+import environmentSize from '../assets/environments/skyEnvironment.json'
 import { prepareTextureUpload } from '../textureUpload'
 
 import { PbrEnvironmentContext } from '../pbrEnvironmentContext'
@@ -37,10 +37,12 @@ export function PbrEnvironmentProvider({ children, intensity, disabled = false, 
 }
 function LoadedPbrEnvironment({ onLoaded }: { onLoaded: (texture: DataTexture | null) => void }) {
   const { gl, invalidate, scene } = useThree()
-  const bytes = useLoader(EnvironmentLoader, new URL('../assets/environments/roomEnvironment.bin.gz', import.meta.url).href)
+  const bytes = useLoader(EnvironmentLoader, new URL('../assets/environments/skyEnvironment.bin.gz', import.meta.url).href)
   const resources = useMemo(() => {
-    // The exact RoomEnvironment/.04 PMREM is built offline by the browser bake
-    // script. Runtime generation submitted dozens of blocking GL draws.
+    // A neutral sky/ground PMREM, baked offline to avoid blocking GL draws.
+    // Studio lamps created fixed white highlights on exterior roofs regardless
+    // of the sun. The scene sun supplies directional specular light; captured
+    // room environments replace this fallback indoors when ready.
     const texture = new DataTexture(new Uint16Array(bytes), environmentSize.width, environmentSize.height, RGBAFormat, HalfFloatType)
     texture.mapping = CubeUVReflectionMapping; texture.colorSpace = LinearSRGBColorSpace
     texture.minFilter = texture.magFilter = LinearFilter; texture.generateMipmaps = false

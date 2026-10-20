@@ -9,6 +9,7 @@ export const VIEWER_HEAD_HEIGHT = 1.8
 export function getViewerMovement(
   mode: ViewerNavigationMode, keys: ReadonlySet<string>,
   forward: readonly number[], right: readonly number[],
+  touch = { x: 0, y: 0 },
 ) {
   const flatten = (v: readonly number[]) => {
     const y = mode === 'walk' ? 0 : v[1]
@@ -16,13 +17,13 @@ export function getViewerMovement(
     return [v[0] / length, y / length, v[2] / length]
   }
   const f = flatten(forward), r = flatten(right)
-  const longitudinal = Number(keys.has('KeyW')) - Number(keys.has('KeyS'))
-  const lateral = Number(keys.has('KeyD')) - Number(keys.has('KeyA'))
+  const longitudinal = Number(keys.has('KeyW')) - Number(keys.has('KeyS')) - touch.y
+  const lateral = Number(keys.has('KeyD')) - Number(keys.has('KeyA')) + touch.x
   const vertical = mode === 'fly' ? Number(keys.has('KeyE')) - Number(keys.has('KeyQ')) : 0
   const movement = [f[0] * longitudinal + r[0] * lateral,
     f[1] * longitudinal + r[1] * lateral + vertical,
     f[2] * longitudinal + r[2] * lateral]
-  const length = Math.hypot(...movement) || 1
+  const length = Math.max(1, Math.hypot(...movement))
   return movement.map(value => value / length)
 }
 

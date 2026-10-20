@@ -58,7 +58,7 @@ export function serializeWallGeometryInput(floors: FloorLevel[], includeOpenings
       id: wall.id,
       kind: wall.kind,
       openings: includeOpenings ? wall.openings?.filter(opening =>
-        floor.elevation + opening.bottom + opening.height >= minimumOpeningTop - 1e-6) : [],
+        floor.elevation + opening.bottom + opening.height >= minimumOpeningTop - 1e-6) ?? [] : [],
       start: wall.start,
       thickness: wall.thickness,
     })),

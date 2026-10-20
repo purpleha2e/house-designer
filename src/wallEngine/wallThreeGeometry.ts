@@ -1,21 +1,23 @@
 import {
   BufferGeometry,
-  Float32BufferAttribute,
+  BufferAttribute,
 } from 'three'
 import type { WallBufferGeometryPayload } from './wallBuffer.ts'
 
 export function createWallBufferGeometry(payload: WallBufferGeometryPayload) {
   const geometry = new BufferGeometry()
+  const attribute = (data: number[] | Float32Array, size: number) =>
+    new BufferAttribute(data instanceof Float32Array ? data : new Float32Array(data), size)
 
   geometry.setAttribute(
     'position',
-    new Float32BufferAttribute(payload.positions, 3),
+    attribute(payload.positions, 3),
   )
-  geometry.setAttribute('normal', new Float32BufferAttribute(payload.normals, 3))
-  geometry.setAttribute('uv', new Float32BufferAttribute(payload.uvs, 2))
-  geometry.setAttribute('hdGIReceiverOffset', new Float32BufferAttribute(payload.lightingReceiverOffsets, 3))
+  geometry.setAttribute('normal', attribute(payload.normals, 3))
+  geometry.setAttribute('uv', attribute(payload.uvs, 2))
+  geometry.setAttribute('hdGIReceiverOffset', attribute(payload.lightingReceiverOffsets, 3))
   for (let i = 0; i < 2; i++) geometry.setAttribute(`hdGICorner${i}`,
-    new Float32BufferAttribute(payload.lightingCornerPlanes[i], 3))
+    attribute(payload.lightingCornerPlanes[i], 3))
 
   payload.groups.forEach((group) => {
     geometry.addGroup(group.start, group.count, group.materialIndex)

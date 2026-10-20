@@ -2,8 +2,10 @@ import * as polygonClipping from 'polygon-clipping'
 import type { MultiPolygon, Polygon } from 'polygon-clipping'
 import type { PlanFootprint } from './planarCutouts.ts'
 import type { Point } from './types.ts'
-import { clipRoofFace, getRoofCoverageUndersideFaces, type ResolvedRoof } from './roofJunctions.ts'
+import { clipRoofFace, getRoofCoverageUndersideFaces, roofFaceHeight, type ResolvedRoof } from './roofJunctions.ts'
 import type { RoomRoofCut } from './roofRoomCsg.ts'
+import { expandedFootprintPlanes } from './wallEngine/wallRoofClip.ts'
+import type { RoofVertex } from './roofSolidGeometry.ts'
 
 const EPS = 1e-7
 const COORDINATE_PRECISION = 6
@@ -56,9 +58,29 @@ function toFootprints(multiPolygon: MultiPolygon): PlanFootprint[] {
 
 /** Only the enclosing room ceiling can open a horizontal ceiling. A lower roof
  * consumed by that room's void must not leave a slit where it used to enter. */
-export function getRoomCeilingCutouts(cuts: RoomRoofCut[], floorId: string, ceilingElevation: number): PlanFootprint[] {
+export function getRoomCeilingCutouts(cuts: RoomRoofCut[], floorId: string, ceilingElevation: number,
+  boundaryOverlap = 0): PlanFootprint[] {
   const polygons = cuts.filter(cut => cut.roomVolume && cut.floorId === floorId && cut.roofId)
-    .map(cut => clipRoofFace(cut.face, ([, y]) => ceilingElevation - y))
+    .map(cut => {
+      let face = cut.face
+      const height = boundaryOverlap > 0 ? roofFaceHeight(face) : null
+      if (height) {
+        // The visual ceiling extends into the walls. Extend its enclosing
+        // roof cutter by the same amount or that overlap becomes a floating
+        // perimeter strip when a fitted roof removes the wall above it.
+        const minX = Math.min(...face.map(p => p[0])) - boundaryOverlap * 2
+        const maxX = Math.max(...face.map(p => p[0])) + boundaryOverlap * 2
+        const minZ = Math.min(...face.map(p => p[2])) - boundaryOverlap * 2
+        const maxZ = Math.max(...face.map(p => p[2])) + boundaryOverlap * 2
+        const bounds: RoofVertex[] = [[minX, minZ], [maxX, minZ], [maxX, maxZ], [minX, maxZ]]
+          .map(([x, z]) => [x, height({ x, y: z }), z])
+        face = expandedFootprintPlanes(face.map(([x, , y]) => ({ x, y })), boundaryOverlap)
+          .reduce(clipRoofFace, bounds)
+      }
+      // Clip after extending the footprint, preserving the exact intersection
+      // height where the horizontal and sloping ceilings meet.
+      return clipRoofFace(face, ([, y]) => ceilingElevation - y)
+    })
     .filter(face => face.length >= 3)
     .map(face => normalizeRing(face.map(([x, , y]) => ({ x, y }))))
     .filter(polygon => polygon.length >= 3 && Math.abs(polygon.reduce((sum, point, index) => {

@@ -3,6 +3,7 @@ import { BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, In
 import { MeshBVH, SAH, type SerializedBVH } from 'three-mesh-bvh'
 import type { IndirectField } from './indirectLighting.ts'
 import { createIndirectSegmentQuery } from './indirectSegmentQuery.ts'
+import { isSelectionDecoration } from './shaderWarmup.ts'
 
 export type IndirectGeometrySnapshot = {
   position: TypedArray; stride: number; offset: number; normalized: boolean; index: Uint32Array | Uint16Array | null
@@ -27,7 +28,7 @@ export function snapshotIndirectGeometry(scene: Object3D, include?: (mesh: Mesh)
   const parts: IndirectGeometrySnapshot = []
   scene.updateMatrixWorld(true)
   scene.traverse(object => {
-    if (!(object instanceof Mesh) || (include && !include(object)) || object.userData.selectionDecoration ||
+    if (!(object instanceof Mesh) || (include && !include(object)) || isSelectionDecoration(object) ||
       /model-batch|ground-image/.test(String(object.userData.houseDesignerRole))) return
     const geometry = object.geometry
     const attribute = geometry.attributes.position
@@ -65,9 +66,11 @@ export function createIndirectVisibilityFromSnapshot(parts: IndirectGeometrySnap
     const attribute = new BufferAttribute(part.position, part.stride, part.normalized)
     for (const transform of part.matrices) {
       matrix.fromArray(transform)
+      const mirrored = matrix.determinant() < 0
       for (const range of part.ranges) for (let triangle = range.start; triangle + 2 < range.start + range.count; triangle += 3) {
         for (let corner = 0; corner < 3; corner++) {
-          const vertex = part.index?.[triangle + corner] ?? triangle + corner
+          const sourceCorner = mirrored && corner ? 3 - corner : corner
+          const vertex = part.index?.[triangle + sourceCorner] ?? triangle + sourceCorner
           point.set(attribute.getComponent(vertex, part.offset), attribute.getComponent(vertex, part.offset + 1), attribute.getComponent(vertex, part.offset + 2))
             .applyMatrix4(matrix).toArray(data, offset)
           offset += 3
@@ -127,9 +130,9 @@ function createIndirectVisibilityFromTriangles(data: Float32Array, preparedTree?
     primitiveId(faceIndex: number) {
       return Math.floor((geometry.index?.getX(faceIndex * 3) ?? faceIndex * 3) / 6) + 1
     },
-    hit(origin: Vector3, direction: Vector3, max = 80) {
+    hit(origin: Vector3, direction: Vector3, max = 80, near = .025) {
       ray.set(origin, direction)
-      return tree?.raycastFirst(ray, DoubleSide, .025, max) ?? null
+      return tree?.raycastFirst(ray, DoubleSide, near, max) ?? null
     },
     distance(origin: Vector3, direction: Vector3, max = 80) {
       ray.set(origin, direction)
