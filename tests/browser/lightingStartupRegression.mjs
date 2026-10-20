@@ -89,12 +89,34 @@ try {
     console.log('Saved GI client and editor reload regression passed:',project)
     ws.close();child.kill();process.exit(0)
   }
-  await call('Page.navigate', { url: 'http://127.0.0.1:'+port+'/tests/browser/roofWallRegression.html?'+project+'&strict&materials'+(process.argv.includes('--live')?'&live-gi':'') })
+  const shaderResponsiveness = process.argv.includes('--shader-responsiveness')
+  if (shaderResponsiveness) await call('Page.addScriptToEvaluateOnNewDocument', { source: `
+    window.shaderReadbackProfile={queries:0,logs:0,gaps:[]};
+    const proto=WebGL2RenderingContext.prototype, parameter=proto.getParameter, log=proto.getProgramInfoLog;
+    const baking=()=>window.roofWallScene?.()?.scene.userData.indirectLighting?.total>0;
+    proto.getParameter=function(name){if(name===this.IMPLEMENTATION_COLOR_READ_TYPE)shaderReadbackProfile.queries++;return parameter.call(this,name)};
+    proto.getProgramInfoLog=function(program){if(baking())shaderReadbackProfile.logs++;return log.call(this,program)};
+    let previous=performance.now();setInterval(()=>{const now=performance.now();if(baking())shaderReadbackProfile.gaps.push(now-previous);previous=now},20);
+  ` })
+  await call('Page.navigate', { url: 'http://127.0.0.1:'+port+'/tests/browser/roofWallRegression.html?'+project+'&strict&materials'+(process.argv.includes('--live')?'&live-gi':'')+(shaderResponsiveness?'&reflection-handover':'') })
   for(let i=0;i<180;i++){await pause(250);if(await evaluate('!!window.roofWallScene?.()'))break}
   assert.equal(await evaluate('typeof window.roofWallScene'),'function','Editor fixture failed to mount: '+JSON.stringify(errors))
   if(process.argv.includes('--surface-cache'))await evaluate('window.roofWallScene().scene.userData.indirectSurfaceCacheEnabled=true')
   await evaluate('(()=>{const s=window.roofWallScene();s.setDpr(.5);s.camera.position.set(2,1.6,2);s.camera.lookAt(2,1.6,0);s.controls?.target?.set(2,1.6,0);s.camera.updateMatrixWorld();s.invalidate()})()')
   const status=()=>evaluate('window.roofWallScene().scene.userData.indirectLighting')
+  if(process.argv.includes('--capture-failure')) {
+    await evaluate(`(()=>{const s=roofWallScene(),compile=s.gl.compileAsync.bind(s.gl);window.captureFailures=0;s.gl.compileAsync=(...args)=>{let capture=false;args[0].traverse(o=>{for(const m of Array.isArray(o.material)?o.material:[o.material])if(m?.defines?.HD_GI_CAPTURE_VISIBILITY)capture=true});if(capture){window.captureFailures++;return Promise.reject(Error('Injected unsupported capture shader'))}return compile(...args)}})()`)
+    let failed
+    for(let i=0;i<1800;i++){await pause(100);failed=await status();if(failed?.state==='fallback')break}
+    assert.equal(failed?.state,'fallback','an unsupported capture shader reaches a terminal fallback')
+    const count=await evaluate('captureFailures');await pause(2000)
+    assert.equal(await evaluate('captureFailures'),count,'failed shader batches are not retried on every frame')
+    assert.ok(count>0&&count<=2,'at most the surface capture and its ordinary fallback are attempted')
+    assert.equal((await status()).state,'fallback','failure cannot masquerade as a completed bake')
+    assert.equal(await evaluate('!!roofWallScene().scene.userData.getBakedIndirectLighting()'),false,'failed lighting is not saved')
+    assert.deepEqual(errors,[]);console.log('PASS: unrecoverable capture failure stops after',count,'attempts; no retry loop or invalid saved bake')
+    ws.close();child.kill();process.exit(0)
+  }
   let preview
   for(let i=0;i<1800;i++){await pause(100);const s=await status();if(i%100===0)console.log('GI progress',s?.state,s?.completed,s?.total);if(s?.displayed){preview=s;break}}
   assert.ok(preview?.displayed,'startup publishes a visible volume')
@@ -150,6 +172,19 @@ try {
   // The complete house can still be compressing its cache after captures finish.
   for(let i=0;i<600;i++){if(await evaluate(`document.querySelector('[aria-label="Indirect lighting progress"]').textContent==='GI ready'`))break;await pause(100)}
   assert.equal(await evaluate(`document.querySelector('[aria-label="Indirect lighting progress"]').textContent`),'GI ready')
+  if (shaderResponsiveness) {
+    for (let i=0;i<600;i++) { if(!await evaluate('window.roofWallScene().scene.userData.shaderWarmupPending'))break;await pause(100) }
+    await pause(1500)
+    const profile=await evaluate('window.shaderReadbackProfile')
+    assert.equal(profile.queries,0,'floating-point lighting readbacks never synchronously query the queued GPU')
+    assert.equal(profile.logs,0,'prepared GI shaders never fetch successful diagnostic logs on a draw')
+    assert.ok(profile.gaps.length>0,'the UI heartbeat runs throughout the bake')
+    assert.ok(settled.reflections>0&&settled.displayed,'the lighting volume and reflective-wall capture are published')
+    assert.equal(await evaluate('window.roofWallScene().scene.userData.shaderWarmupPending'),false,'preparation finishes')
+    assert.deepEqual(errors,[])
+    console.log('PASS: GI completion, reflection handover, no synchronous diagnostic/readback queries; maximum bake heartbeat gap',Math.round(Math.max(...profile.gaps)),'ms')
+    ws.close();child.kill();process.exit(0)
+  }
   if (process.argv.includes('--continuous')) {
     const waitReady = async () => {
       let result

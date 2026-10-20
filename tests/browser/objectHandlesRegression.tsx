@@ -29,7 +29,7 @@ function Preview(){
     metrics.handleCommits=(metrics.handleCommits??0)+1
     setFloor(current=>({...current,models:current.models.map(m=>m.id===id?{...m,...updates}:m)}))
   }
-  Object.assign(window,{handleStage:()=>Konva.stages[0],handleSelection:selected,handleFloor:floor,handleSetFloor:setFloor,handleSelectModel:setSelected,handleWallMode:setWallMode})
+  Object.assign(window,{handleStage:()=>Konva.stages[0],handleSelection:selected,handleFloor:floor,handleSetFloor:setFloor,handleSelectModel:setSelected,handleWallMode:setWallMode,handleRegisterModels:registerRuntimeModels})
   Object.assign(window,{handleFloors:floors,handleSetFloors:setFloors,handleSetActiveFloor:setActiveFloorId,handleSetShowAllFloors:setShowAllFloors})
   Object.assign(window,{handleThreeScene:()=>[..._roots.values()][0]?.store.getState()})
   Object.assign(window,{handlePreview:()=>previewRef.current})

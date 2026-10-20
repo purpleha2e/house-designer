@@ -9,8 +9,10 @@ const localPfx = resolve(localCertDir, 'localhost.pfx')
 const localCert = resolve(localCertDir, 'localhost-cert.pem')
 const localKey = resolve(localCertDir, 'localhost-key.pem')
 const assetPortalTarget = process.env.ASSET_PORTAL_TARGET ?? 'http://localhost:5174'
+const workspaceTarget = process.env.WORKSPACE_TARGET ?? 'http://127.0.0.1:5175'
 
 const serverProxy = {
+  '/api/workspace': workspaceTarget,
   '/api/portal': assetPortalTarget,
   '/manufacturer-assets': assetPortalTarget,
 }

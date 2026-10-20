@@ -1,5 +1,96 @@
 # Viewport responsiveness
 
+## 2D line widths during wheel zoom (20 October 2026)
+
+Wheel zoom updates the Konva stage immediately and commits React's viewport
+after a 250 ms pause. Dividing stroke widths by the React scale only corrected
+them after release; live zoom still made the grid, walls and roof outlines thick.
+Screen-space strokes now use fixed pixel widths with `strokeScaleEnabled={false}`,
+including selection handles. Dash lengths and hit widths use pixels too. The
+wall drawing preview retains its physical wall thickness.
+
+The browser regression sends real wheel events in both directions and observes
+scene draws before the React commit and after release. It covers walls, grid,
+dimensions, object outlines, all three transform modes and four roof types.
+
+```powershell
+node tests/browser/planZoomRegression.mjs 5186
+```
+
+## Repeated lighting shader compilation (20 October 2026)
+
+The small scene missed a full-house error path: a textured imported material
+(`MetalA`) exceeded the fragment texture-unit limit in the lighting-capture
+variant. The new link-error reporting exposed that failure, but the existing
+capture error handler then retried the same entire batch every frame. Full-house
+tracing reproduced repeated bursts of 20–27 programs outside the picking pass.
+
+Capture shaders now omit the four display room/portal samplers: that mask was
+already bypassed during every capture. Cached GI visibility still supplies
+capture occlusion. The six-map material regression links with 15 samplers on a
+16-texture GPU, including its environment, GI and directional shadow inputs.
+Display room/portal masking remains unchanged.
+
+Probe captures retain the same bounded light slots throughout the house.
+Distance and zero power remain uniforms rather than generating a new material
+family for each local light-count combination. Unrecoverable capture errors
+terminate the sweep, preserve the available display and cannot save an incomplete
+bake. The optional surface-capture path can fall back once to ordinary capture;
+that path cannot enter an endless retry loop. Legacy wall overlays are also
+marked as selection decorations so they do not invalidate house preparation.
+
+The injected failure regression verifies at most two attempts, a terminal
+fallback and no saved bake. Exterior-wall selection has a separate browser check
+that counts actual GL program creation, verifies the visible highlight and
+requires zero new programs, zero warmups and unchanged GI generation.
+The small scene and the complete Colin snapshot both pass that check. The full
+house completes fresh lighting successfully, then front/side wall selections
+across both storeys and a repeated ground-floor selection create zero programs;
+each selection displays its wall highlight without restarting lighting.
+
+```powershell
+node tests/browser/captureShaderRegression.mjs 5180
+node tests/browser/lightingStartupRegression.mjs 5180 lighting-startup --capture-failure
+node tests/browser/selectionShaderRegression.mjs 5180 --walls
+node tests/browser/selectionShaderRegression.mjs 5180 --colin --published --walls --switch-floor
+```
+
+## Lighting completion and shader diagnostics (20 October 2026)
+
+Two synchronous driver queries could freeze input while the status reported
+new shaders. Three fetched successful program/shader info logs on first use,
+and its asynchronous half-float readback queried
+`IMPLEMENTATION_COLOR_READ_TYPE` before checking already-supported types.
+A reflective-wall Chrome trace measured roughly one second of first-use log
+queries and a separate 2.2-second readback capability query.
+
+The viewport now finishes shader uniform/attribute setup cooperatively after
+`compileAsync`, checking every new program for completion and link failure.
+Successful programs skip diagnostic strings; failed links still report logs.
+Normal diagnostics remain enabled for unprepared rendering paths. Readback
+checks test Three's unconditional unsigned-byte/float cases and extension-backed
+half-float case first, preserving its driver fallback for other types and
+reinstalling the shortcut after context restoration.
+
+Reflection layout assignment/restoration also advances a preparation generation.
+An older scan or queued completion frame cannot release a newer generation's
+retained display. Same-layout reflection replacements reuse their shaders.
+
+The focused reflective-wall trace completed GI and reflection publication with
+no blocking driver query during the bake; the largest capture submission was
+14 ms. The permanent complete-bake browser regression passed with no successful
+diagnostic log reads or implementation read-type queries during GI and a maximum
+UI heartbeat gap of 91 ms. This is a small software-rendered test scene, not a
+whole-house latency guarantee. The earlier cold-load/edit limitations below
+still apply.
+
+With Vite running, repeat the complete lighting regression with:
+
+```powershell
+node tests/browser/lightingStartupRegression.mjs 5180 lighting-startup --shader-responsiveness
+node --test --test-isolation=none --experimental-strip-types tests/shaderDiagnostics.test.ts tests/readbackCapabilities.test.ts tests/shaderWarmupState.test.ts tests/shaderWarmup.test.ts
+```
+
 Responsiveness applies to every editor operation, including placement, dragging,
 opening changes and finishes. Background completion time and UI response time
 are separate acceptance checks: an edit appearing eventually does not excuse a

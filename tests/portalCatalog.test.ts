@@ -2,6 +2,20 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { loadPortalCatalog } from '../src/portalCatalog.ts'
 
+test('portal catalogue carries explicit door leaf counts and ignores invalid counts', async context => {
+  const originalFetch = globalThis.fetch
+  context.after(() => { globalThis.fetch = originalFetch })
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    manufacturers: [{ assets: ['1', '2', '', '3'].map((doorLeafCount, index) => ({
+      id: `door-${index}`, assetKind: 'model', category: 'Doors',
+      files: [{ fieldName: 'model', url: '/door.glb' }],
+      metadata: { objectType: 'interior-door', doorLeafCount },
+    })) }],
+  }), { headers: { 'content-type': 'application/json' } })) as typeof fetch
+  const catalog = await loadPortalCatalog()
+  assert.deepEqual(catalog.models.map(model => model.doorLeafCount), [1, 2, undefined, undefined])
+})
+
 test('portal catalogue loading retries a transient startup failure', async (context) => {
   const originalFetch = globalThis.fetch
   let requestCount = 0

@@ -1088,6 +1088,7 @@ async function handleUpload(request, response) {
       baseColor: getMaterialBaseColorField(fields),
       colourFamily: fields.colourFamily ?? '',
       depth: fields.depth ?? '',
+      doorLeafCount: ['1', '2'].includes(fields.doorLeafCount) ? fields.doorLeafCount : '',
       finish: fields.finish ?? '',
       height: fields.height ?? '',
       imageBasedLighting: fields.imageBasedLighting === 'true' ? 'true' : 'false',
@@ -1286,6 +1287,8 @@ async function handleUpdateAsset(request, response, pathname) {
     ),
     colourFamily: fields.colourFamily ?? '',
     depth: fields.depth ?? '',
+    doorLeafCount: fields.doorLeafCount === undefined ? metadata.metadata?.doorLeafCount ?? '' :
+      ['1', '2'].includes(fields.doorLeafCount) ? fields.doorLeafCount : '',
     finish: fields.finish ?? '',
     height: fields.height ?? '',
     imageBasedLighting:

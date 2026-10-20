@@ -267,6 +267,7 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
       'Uploaded',
     color: '#64748b',
     depth: metadataDepth ?? asset.inferredDimensions?.depth ?? 1,
+    doorLeafCount: asset.metadata.doorLeafCount === '1' ? 1 : asset.metadata.doorLeafCount === '2' ? 2 : undefined,
     height: metadataHeight ?? asset.inferredDimensions?.height ?? 1,
     id: `portal-model-${asset.id}`,
     localBounds: hasLocalBounds

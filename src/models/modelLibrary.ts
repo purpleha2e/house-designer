@@ -48,6 +48,8 @@ export const stairMaterialRegions: ModelMaterialRegion[] = [
 ]
 
 export type ModelDefinition = {
+  /** Number of hinged leaves shown in the floor plan, independent of width. */
+  doorLeafCount?: 1 | 2
   windowDesign?: WindowDesign
   stairDesign?: StairDesign
   stairFootprint?: { x: number; y: number }[][]

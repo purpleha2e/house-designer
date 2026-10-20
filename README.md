@@ -1,6 +1,7 @@
 # React + TypeScript + Vite
 
 For reusable 3D-only read-only house tours, see [House viewer](docs/house-viewer.md).
+For the local account and private storage foundation, see [Accounts and workspaces](docs/accounts-and-workspaces.md).
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

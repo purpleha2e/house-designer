@@ -24,6 +24,7 @@ import {
 import { LeftToolRail, EditToolbar } from './components/LeftToolRail'
 import { ManufacturerPortal } from './components/ManufacturerPortal'
 import { MaterialEditor } from './components/MaterialEditor'
+import { AccountDialog } from './components/AccountDialog'
 import { collectLocalMaterialDefinitions, loadLocalMaterials, saveLocalMaterial, validateLocalMaterial } from './materials/localMaterials'
 import { ModelSelector } from './components/ModelSelector'
 import { WindowBuilder } from './components/WindowBuilder'
@@ -786,6 +787,7 @@ function App() {
   const [pendingModelId, setPendingModelId] = useState<string | null>(null)
   const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
   const [isMaterialEditorOpen, setIsMaterialEditorOpen] = useState(false)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
@@ -3120,7 +3122,7 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isMaterialEditorOpen || isTextEntryElement(event.target)) {
+      if (isMaterialEditorOpen || isAccountOpen || isTextEntryElement(event.target)) {
         return
       }
 
@@ -3177,6 +3179,7 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
           isMaterialEditorOpen,
+          isAccountOpen,
           activeFloor,
           activeFloorId,
           clipboardItem,
@@ -3196,6 +3199,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      {isAccountOpen && <AccountDialog onClose={() => setIsAccountOpen(false)} />}
       {isMaterialEditorOpen ? <MaterialEditor materials={availableMaterials}
         onClose={() => setIsMaterialEditorOpen(false)}
         onSave={async material => {
@@ -3303,6 +3307,7 @@ function App() {
               onNewProject={newProject}
               onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
               onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
+              onOpenAccount={() => setIsAccountOpen(true)}
               onSaveProject={saveProject}
             />
           )}
@@ -3445,7 +3450,7 @@ function App() {
           }}
         />
         <ThreeDView
-          suspended={isMaterialEditorOpen}
+          suspended={isMaterialEditorOpen || isAccountOpen}
           lightControl={localLightControl}
           savedIndirectLighting={loadedLightingCache}
           diffuseProbeResolution={diffuseProbeResolution}

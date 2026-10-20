@@ -2,6 +2,12 @@ import { spawn } from 'node:child_process'
 
 const portalPort = Number(process.env.ASSET_PORTAL_PORT ?? 5174)
 const portalHealthUrl = `http://localhost:${portalPort}/api/portal/health`
+const workspacePort = Number(process.env.WORKSPACE_PORT ?? 5175)
+const workspaceHealthUrl = `http://127.0.0.1:${workspacePort}/api/workspace/health`
+
+async function isWorkspaceRunning() {
+  try { return (await fetch(workspaceHealthUrl)).ok } catch { return false }
+}
 
 async function isPortalRunning() {
   try {
@@ -70,6 +76,16 @@ if (!(await isPortalRunning())) {
     )
     stopAll()
     process.exit(1)
+  }
+}
+
+if (!(await isWorkspaceRunning())) {
+  spawnProcess('node', ['--experimental-strip-types', 'server/workspace-service.ts'])
+  const deadline = Date.now() + 15_000
+  while (!(await isWorkspaceRunning()) && Date.now() < deadline) await wait(100)
+  if (!(await isWorkspaceRunning())) {
+    console.error(`Workspace service did not become ready at ${workspaceHealthUrl}.`)
+    stopAll(); process.exit(1)
   }
 }
 

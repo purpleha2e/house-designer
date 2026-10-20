@@ -27,6 +27,7 @@ import { INDIRECT_FURNITURE_PROBE_VERSION } from '../indirectFurnitureProbes'
 import { prepareIndirectCaptureScene } from '../indirectCaptureScene'
 import { isViewportNavigating, markViewportNavigation, runViewportTask, yieldToViewport } from '../viewportScheduling'
 import { IndirectReflectionClient } from '../indirectReflectionClient'
+import { setViewportEnvironmentMap } from '../shaderWarmupState'
 import { prepareTextureReplacement, prepareTextureUpload } from '../textureUpload'
 import { createIndirectMultiview } from '../indirectMultiview'
 import { INDIRECT_VOLUME_SAMPLING_VERSION } from '../indirectVolume'
@@ -171,12 +172,12 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
 
   const restoreReflections = useCallback(() => {
     reflectionMaterials.current.forEach((state, material) => {
-      if (material.envMap === state.assigned) { material.envMap = state.original; material.needsUpdate = true }
+      if (material.envMap === state.assigned) setViewportEnvironmentMap(scene, material, state.original)
       setIndirectLocalReflection(material, false)
     })
     reflectionMaterials.current.clear()
     reflections.current.forEach(target => target.dispose()); reflections.current.clear()
-  }, [])
+  }, [scene])
 
   const assignReflections = useCallback(() => {
     const field = displayField.current
@@ -203,7 +204,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       if (!target) {
         const previous = reflectionMaterials.current.get(material)
         if (previous && material.envMap === previous.assigned) {
-          material.envMap = previous.original; material.needsUpdate = true
+          setViewportEnvironmentMap(scene, material, previous.original)
           setIndirectLocalReflection(material, false); reflectionMaterials.current.delete(material)
         }
         return
@@ -211,14 +212,7 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       if (material.envMap === target.texture) { setIndirectLocalReflection(material, true); return }
       const existing = reflectionMaterials.current.get(material)
       reflectionMaterials.current.set(material, { original: existing?.original ?? material.envMap!, assigned: target.texture })
-      // Only program-defining changes need compilation. A replacement bake at
-      // the same resolution reuses its shader and must not suspend display.
-      const previousImage = material.envMap?.image as { height?: number } | undefined
-      const nextImage = target.texture.image as { height?: number } | undefined
-      if (material.envMap?.mapping !== target.texture.mapping || previousImage?.height !== nextImage?.height) {
-        scene.userData.shaderWarmupPending = true
-      }
-      material.envMap = target.texture; material.needsUpdate = true
+      setViewportEnvironmentMap(scene, material, target.texture)
       setIndirectLocalReflection(material, true)
     })
   }, [resources, scene])
@@ -914,12 +908,11 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
       const target = gl.getRenderTarget(), cubeFace = gl.getActiveCubeFace(), mip = gl.getActiveMipmapLevel()
       const xr = gl.xr.enabled, autoUpdate = gl.shadowMap.autoUpdate, background = bakeScene.background, autoClear = gl.autoClear
       const shadowsEnabled = gl.shadowMap.enabled, shadowsNeedUpdate = gl.shadowMap.needsUpdate
-      const activeLights = [...captureLights].filter(light => !light.distance || light.position.distanceTo(cubeCamera.position) <= light.distance)
-        // Retain zero-power variants when they fit, without letting dormant
-        // lamps displace powered lights from the bounded capture budget.
-        .sort((a, b) => Number(b.intensity > 0) - Number(a.intensity > 0) ||
-          a.position.distanceToSquared(cubeCamera.position) - b.position.distanceToSquared(cubeCamera.position))
-        .slice(0, Math.max(1, Math.min(8, gl.capabilities.maxTextures - 16)))
+      // Keep the same bounded point/spot slots for every probe. Distance and
+      // zero power are uniforms; filtering lights per room compiled another
+      // complete material family at every new light-count combination. Cached
+      // visibility uses shared atlases, not one texture sampler per lamp.
+      const activeLights = captureLights
       const stats = { ...gl.info.render }
       const pointIndices = uniforms.hdGIPointIndices.value.slice(), spotIndices = uniforms.hdGISpotIndices.value.slice()
       const hidden: { object: Mesh; visible: boolean }[] = []
@@ -1028,6 +1021,13 @@ export function IndirectLighting({ floors, revision, blocked, enabled, indoorFil
             if (captureSurface && generation.current === version && surfaceCache.current === transport) {
               transport!.dispose(); surfaceCache.current = null
               surfaceScene.current?.dispose(); surfaceScene.current = null; face.current = 0
+            } else if (generation.current === version) {
+              // A deterministic compile failure cannot heal on the next frame.
+              // Preserve the available display and report the failure once.
+              queue.current = []; face.current = 0
+              liveSweep.current = false; liveUpdates.current.reset()
+              scene.userData.indirectLighting.state = 'fallback'
+              scene.userData.indirectLighting.shaderError = error instanceof Error ? error.message : String(error)
             }
             console.warn('GI shader preparation unavailable:', error)
           })

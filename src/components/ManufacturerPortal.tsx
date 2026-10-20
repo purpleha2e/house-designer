@@ -67,6 +67,7 @@ const emptyAssetMetadata = {
   baseColor: '#ffffff',
   colourFamily: '',
   depth: '',
+  doorLeafCount: '',
   finish: '',
   height: '',
   imageBasedLighting: 'false',
@@ -951,6 +952,17 @@ export function ManufacturerPortal({
                           setMetadataField('openingWidth', event.target.value)
                         }
                       />
+                    </label>
+                  ) : null}
+                  {['exterior-door', 'interior-door', 'patio-door'].includes(metadata.objectType) ? (
+                    <label>
+                      Door leaves in floor plan
+                      <select value={metadata.doorLeafCount}
+                        onChange={event => setMetadataField('doorLeafCount', event.target.value)}>
+                        <option value="">Automatic (from model name/type)</option>
+                        <option value="1">Single leaf</option>
+                        <option value="2">Double leaf</option>
+                      </select>
                     </label>
                   ) : null}
                   <label>

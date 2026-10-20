@@ -1,5 +1,10 @@
 # Asset Portal
 
+The separate Node.js account/private-workspace service is described in
+[Accounts and workspaces](../docs/accounts-and-workspaces.md). `npm run dev:all`
+starts both services and the editor. Its local development accounts are separate
+from manufacturer portal accounts.
+
 The app's **Material editor** is separate from this portal: it requires no login
 and saves to the browser's local IndexedDB library. Used local materials and
 their texture image data are embedded in saved houses and included by the tour

@@ -6,6 +6,7 @@ type ToolbarProps = {
   onNewProject: () => void
   onOpenManufacturerPortal: () => void
   onOpenMaterialEditor: () => void
+  onOpenAccount?: () => void
   onSaveProject: () => void
 }
 
@@ -17,6 +18,7 @@ export function Toolbar({
   onNewProject,
   onOpenManufacturerPortal,
   onOpenMaterialEditor,
+  onOpenAccount,
   onSaveProject,
 }: ToolbarProps) {
   return (
@@ -24,6 +26,7 @@ export function Toolbar({
       <div>
         <h1>House Designer</h1>
       </div>
+      {onOpenAccount && <button type="button" onClick={() => { onOpenAccount(); onClose() }}>Account &amp; workspace</button>}
       <button
         type="button"
         onClick={() => {

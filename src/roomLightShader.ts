@@ -46,6 +46,13 @@ export const getRoomLightUniforms = (material: Material) => materialUniforms.get
 const roomLightShaderPars = /* glsl */ `
 varying vec3 hdRoomLightWorldPosition;
 varying vec3 hdRoomLightReceiverWorldOffset;
+uniform float hdPointLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
+uniform float hdSpotLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
+#ifdef HD_GI_CAPTURE_VISIBILITY
+// Capture already uses the GI visibility atlas. The display room/portal mask
+// is disabled for every capture, so do not retain its four texture samplers.
+float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosition, vec3 receiver) { return 1.0; }
+#else
 uniform float hdRoomLightEnabled;
 uniform float hdRoomLightCapture;
 uniform sampler2D hdRoomLightMask;
@@ -61,8 +68,6 @@ uniform vec2 hdLightPortalEdgeRanges[${MAX_LIGHT_PORTAL_PLANES}];
 uniform vec4 hdLightPortalBounds;
 uniform float hdLightPortalHeights[${MAX_LIGHT_PORTAL_PLANES}];
 uniform int hdLightPortalCount;
-uniform float hdPointLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
-uniform float hdSpotLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
 vec4 hdLightPortalRecord(int index) {
   int width = textureSize(hdLightPortalEdges, 0).x;
   return texelFetch(hdLightPortalEdges, ivec2(index % width, index / width), 0);
@@ -179,6 +184,7 @@ float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosit
   return abs(receiverRoomId - lightRoomId) < 0.5 &&
     hdRoomLightClearPath(source, receiver.xz, lightRoomId) ? 1.0 : 0.0;
 }
+#endif
 `
 
 const maskedLightsChunk = ShaderChunk.lights_fragment_begin
@@ -191,12 +197,17 @@ const maskedLightsChunk = ShaderChunk.lights_fragment_begin
   .replace(
     'vec3 geometryNormal = normal;',
     `vec3 geometryNormal = normal;
+#ifdef HD_GI_CAPTURE_VISIBILITY
+vec3 hdRoomLightReceiverPoint = hdRoomLightWorldPosition;
+float hdRoomLightReceiver = 0.0;
+#else
 vec3 hdRoomLightReceiverPoint = hdRoomLightReceiverPosition(hdRoomLightWorldPosition + hdRoomLightReceiverWorldOffset, nonPerturbedNormal);
 float hdRoomLightReceiver =
   hdRoomLightFloorCount == 0 && (hdRoomLightWorldPosition.y < hdRoomLightFloorRange.x ||
   hdRoomLightWorldPosition.y > hdRoomLightFloorRange.y)
     ? 0.0
-    : hdRoomLightRoomAt(hdRoomLightClassificationPosition(hdRoomLightReceiverPoint, nonPerturbedNormal));`,
+    : hdRoomLightRoomAt(hdRoomLightClassificationPosition(hdRoomLightReceiverPoint, nonPerturbedNormal));
+#endif`,
   )
   .replace(
     'getPointLightInfo( pointLight, geometryPosition, directLight );',
@@ -311,7 +322,7 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
     const key = originalProgramCacheKey.call(material)
     // Fade clones inherit the already-patched hook. Reapplying the controller
     // must not create a second cache key for exactly the same shader.
-    const suffix = ':house-designer-room-light-v10'
+    const suffix = ':house-designer-room-light-v11'
     // Other lighting hooks can follow this marker in a composed shader key.
     // A fade clone inherits all of them, not just the last hook.
     return /:house-designer-room-light-v\d+/.test(key)

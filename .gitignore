@@ -18,6 +18,7 @@ dist-ssr
 *.local
 .local-certs/
 manufacturer-assets/
+.workspace-data/
 
 # Local recovery/export artifacts
 recovered-chrome-localstorage-*/

@@ -152,6 +152,9 @@ import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../sunShadowCache
 import { withWallShadowReceiver } from '../materials/wallShadowReceiver'
 import { buildDoorwayFloorPatches, doorwayFloorKey } from '../doorwayFloors'
 import { configureAmbientOcclusionPass, preparePostprocessingShaders } from '../ambientOcclusionResources'
+import { completeShaderWarmup, shaderWarmupGeneration } from '../shaderWarmupState'
+import { installNonBlockingShaderDiagnostics } from '../shaderDiagnostics'
+import { installNonBlockingReadbackChecks } from '../readbackCapabilities'
 import { prepareShaderWarmupResourceRevision, compileShaderWarmup, createShaderWarmupSnapshot, prepareShaderWarmupSnapshot, prepareShaderWarmupResources, prepareShaderWarmupSceneRevision, isSelectionDecoration, shaderWarmupRevisionIsCovered } from '../shaderWarmup'
 import {
   applyImportedPbrEnvironment,
@@ -2601,7 +2604,8 @@ function WallSegmentMesh({
         {renderSurfaceMaterial('material-4', rightCapAssignment, rightCapMaterial)}
       </mesh>
       {wallIsSelected ? (
-        <mesh geometry={geometry} position={meshPosition} renderOrder={9}>
+        <mesh geometry={geometry} position={meshPosition} renderOrder={9}
+          userData={{ houseDesignerRole: 'wall-segment-highlight', selectionDecoration: true }}>
           <FootprintMaterialGroupHighlight
             materialCount={5}
             selectedMaterialIndices={
@@ -8229,7 +8233,7 @@ function WallFootprintMeshes({
             geometry={explicitGeometry}
             position={[0, elevation, 0]}
             renderOrder={9}
-            userData={{ houseDesignerRole: `wall-footprint-highlight-${wallKind}` }}
+            userData={{ houseDesignerRole: `wall-footprint-highlight-${wallKind}`, selectionDecoration: true }}
           >
             <FootprintMaterialGroupHighlight
               materialCount={materialGroupCount}
@@ -15431,22 +15435,28 @@ function ShaderWarmup({
   const [resourceRevision, setResourceRevision] = useState('')
   const scanGeneration = useRef(0)
   const [scanReady, setScanReady] = useState(0)
+  const [preparedGeneration, setPreparedGeneration] = useState(-1)
   useEffect(() => {
     const version = ++scanGeneration.current
     if (blocked) return
     let cancelled = false, timer: ReturnType<typeof setTimeout> | undefined
     const scan = async () => {
+      const generation = shaderWarmupGeneration(scene)
       const next = await prepareShaderWarmupSceneRevision(scene, () => cancelled)
       if (cancelled || next === undefined) return
       const resources = await prepareShaderWarmupResourceRevision(scene, () => cancelled)
       if (cancelled || resources === undefined) return
+      // A reflection can arrive while either cooperative scan is yielding.
+      // Reject mixed revisions before releasing the retained display.
+      if (generation !== shaderWarmupGeneration(scene)) { timer = setTimeout(() => { void scan() }, 0); return }
       const covered = completedWarmup.current?.inputs === warmupInputs &&
         shaderWarmupRevisionIsCovered(completedWarmup.current.revision, next) &&
         completedWarmup.current.resources === resources
-      if (covered && !preparingResources.current) { scene.userData.shaderWarmupPending = false; onPendingChange(false) }
+      if (covered && !preparingResources.current && completeShaderWarmup(scene, generation)) onPendingChange(false)
       else scene.userData.shaderWarmupPending = true
       setSceneRevision(previous => previous === next ? previous : next)
       setResourceRevision(previous => previous === resources ? previous : resources)
+      setPreparedGeneration(generation)
       setScanReady(version)
       timer = setTimeout(() => { void scan() }, 500)
     }
@@ -15466,7 +15476,7 @@ function ShaderWarmup({
       return undefined
     }
 
-    if (blocked || scanReady !== scanGeneration.current) {
+    if (blocked || scanReady !== scanGeneration.current || preparedGeneration !== shaderWarmupGeneration(scene)) {
       scene.userData.shaderWarmupPending = true
       onPendingChange(true)
       return undefined
@@ -15479,8 +15489,7 @@ function ShaderWarmup({
       shaderWarmupRevisionIsCovered(completedWarmup.current.revision, sceneRevision)
     const previousWarmup = completedWarmup.current?.inputs === warmupInputs ? completedWarmup.current : null
     if (programsCovered && completedWarmup.current!.resources === resourceRevision) {
-      scene.userData.shaderWarmupPending = false
-      onPendingChange(false)
+      if (completeShaderWarmup(scene, preparedGeneration)) onPendingChange(false)
       return undefined
     }
 
@@ -15676,7 +15685,7 @@ function ShaderWarmup({
             window.requestAnimationFrame(() => {
               if (!cancelled) {
                 invalidate()
-                scene.userData.shaderWarmupPending = false
+                if (!completeShaderWarmup(scene, preparedGeneration)) return
                 onPendingChange(false)
                 emitEngineActivity({
                   message: succeeded ? 'Scene shaders ready' : 'Shader preparation failed; continuing rendering',
@@ -15708,7 +15717,7 @@ function ShaderWarmup({
 
       onPendingChange(false)
     }
-  }, [blocked, scanReady, camera, composer, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, sceneRevision, resourceRevision, warmupKey, warmupInputs])
+  }, [blocked, scanReady, preparedGeneration, camera, composer, fadeWalls, fadeRoofs, gl, invalidate, offscreen, onPendingChange, scene, sceneRevision, resourceRevision, warmupKey, warmupInputs])
 
   return null
 }
@@ -21071,6 +21080,8 @@ function ThreeDScene({
           dpr={screenSpaceAmbientOcclusionEnabled || (readOnly && viewerTouchDevice) ? 1 : [1, 1.5]}
           gl={{ antialias: true, powerPreference: 'high-performance' }}
           onCreated={({ gl }) => {
+            installNonBlockingShaderDiagnostics(gl)
+            installNonBlockingReadbackChecks(gl)
             gl.info.autoReset = false
             gl.xr.enabled = true
             gl.outputColorSpace = SRGBColorSpace

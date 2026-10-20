@@ -1,0 +1,26 @@
+.account-dialog { width: min(620px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid #cbd5e1; border-radius: 12px; padding: 24px; background: #fff; color: #172033; font: 13px/1.5 system-ui, sans-serif; }
+.account-dialog::backdrop { background: #0f172a80; }
+.account-dialog header, .account-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.account-dialog h1 { margin: 0; font-size: 22px; }
+.account-dialog h2 { margin: 0; font-size: 15px; }
+.account-dialog p { color: #526177; margin: 6px 0 12px; }
+.account-dialog small { color: #526177; }
+.account-eyebrow { font-size: 10px; color: #64748b; letter-spacing: 1.5px; }
+.account-development { padding: 10px 12px; margin: 18px 0 !important; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 7px; }
+.account-dialog button, .account-dialog a { font: inherit; font-weight: 600; cursor: pointer; }
+.account-dialog button { min-height: 36px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 7px 12px; background: #f8fafc; color: #26364e; }
+.account-dialog button:hover { background: #eaf0f8; }
+.account-dialog button:disabled { opacity: .55; cursor: default; }
+.account-dialog :focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+.account-dialog .account-primary, .account-tabs button[aria-pressed="true"] { color: #fff; background: #1e40af; border-color: #1e40af; }
+.account-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.account-form { display: grid; gap: 12px; }
+.account-dialog label { display: grid; gap: 4px; font-weight: 600; }
+.account-dialog input, .account-dialog select { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: white; color: #172033; font: inherit; }
+.account-message { overflow-wrap: anywhere; min-height: 1.5em; }
+.account-summary, .account-storage { margin-bottom: 20px; }
+.account-storage progress { width: 100%; accent-color: #2563eb; }
+@media (max-width: 480px) {
+  .account-dialog { padding: 16px; }
+  .account-dialog h1 { font-size: 18px; }
+}

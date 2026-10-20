@@ -1,9 +1,12 @@
 // With Vite running: node tests/browser/selectionShaderRegression.mjs [port] [--colin]
-// --colin also needs the asset portal and tests the two rear upstairs windows.
+// --walls tests exterior-wall clicks; --colin uses the complete Colin house.
+// --published uses the prepared viewer snapshot and its bundled assets.
 import assert from 'node:assert/strict'
 import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 
+const walls = process.argv.includes('--walls')
+const published = process.argv.includes('--published')
 const colin = process.argv.includes('--colin')
 
 const child = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe', [
@@ -42,8 +45,14 @@ try {
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
   await call('Runtime.enable'); await call('Page.enable')
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
-  if (colin) await call('Page.addScriptToEvaluateOnNewDocument', { source: `window.regressionSavedGI={project:{indirectLighting:${JSON.stringify(JSON.parse(readFileSync('colin_house_v2.json','utf8')).indirectLighting)}}}` })
-  await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/roofWallRegression.html?${colin ? 'colin&materials&' + (process.argv.includes('--switch-floor') ? '' : 'upper-selection&') + 'saved-gi' : 'lighting-startup&selection-shaders'}&strict` })
+  if (published) {
+    const house=JSON.parse(readFileSync('.viewer-data/public/house.json','utf8').replaceAll('./published-assets/','/.viewer-data/public/published-assets/'))
+    if (existsSync('node_modules/.cache/selection-lighting.json')) house.project.indirectLighting=JSON.parse(readFileSync('node_modules/.cache/selection-lighting.json','utf8'))
+    await call('Fetch.enable',{patterns:[{urlPattern:'*colin_house_v2.json*'}]})
+    ws.addEventListener('message',event=>{const m=JSON.parse(event.data);if(m.method==='Fetch.requestPaused')void call('Fetch.fulfillRequest',{requestId:m.params.requestId,responseCode:200,responseHeaders:[{name:'Content-Type',value:'application/javascript'}],body:Buffer.from('export default '+JSON.stringify(house.project)).toString('base64')})})
+    await call('Page.addScriptToEvaluateOnNewDocument',{source:`window.regressionSavedGI=${JSON.stringify(house)}`})
+  } else if (colin) await call('Page.addScriptToEvaluateOnNewDocument', { source: `window.regressionSavedGI={project:{indirectLighting:${JSON.stringify(JSON.parse(readFileSync('colin_house_v2.json','utf8')).indirectLighting)}}}` })
+  await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/roofWallRegression.html?${colin ? 'colin&'+(published?'published-materials':'materials')+'&' + (process.argv.includes('--switch-floor') ? '' : 'upper-selection&') + 'saved-gi' : 'lighting-startup&selection-shaders'}&strict` })
   for (let i = 0; i < 2400; i++) {
     await pause(250)
     if (i % 120 === 0) console.log('Loading', await evaluate('window.roofWallScene?.()?.scene.userData.indirectLighting?.state'))
@@ -56,12 +65,39 @@ try {
     if(await evaluate('!window.roofWallScene().scene.userData.shaderWarmupPending&&!window.roofWallScene().scene.userData.indirectLighting.blocked'))break
   }
   await pause(1500)
+  if (published) {
+    for(let i=0;i<300;i++){const cache=await evaluate('window.roofWallScene().scene.userData.getBakedIndirectLighting?.()');if(cache){writeFileSync('node_modules/.cache/selection-lighting.json',JSON.stringify(cache));break}await pause(100)}
+  }
   await evaluate(`(() => {const s=window.roofWallScene(), gl=s.gl.getContext(), create=gl.createProgram.bind(gl);
     window.selectionPrograms=0;gl.createProgram=(...args)=>{window.selectionPrograms++;return create(...args)};
     window.selectionGeneration=s.scene.userData.indirectLighting.generation;window.houseDesignerEngineLog.clear();
     window.selectionFrames=0;const render=s.gl.render.bind(s.gl);s.gl.render=(scene,camera)=>{render(scene,camera);if(scene===s.scene){window.selectionFrames++;if(window.selectionStarted&&window.selectionFirstFrame===null&&window.regressionSelectedModelId===window.selectionExpected)window.selectionFirstFrame=performance.now()-window.selectionStarted}};
     s.camera.position.set(4,2,-6);s.camera.lookAt(4,1,0);s.controls?.target?.set(4,1,0);s.invalidate();})()`)
   const results = []
+  if (walls) {
+    const samples=colin?[
+      {position:[6.4,1.3,-7],target:[6.4,1.3,-.8877]},
+      {position:[14,1.3,6.3],target:[8.1022,1.3,6.3]},
+      {position:[14,4,6.3],target:[8.1022,4,6.3]},
+      {position:[6.4,1.3,-7],target:[6.4,1.3,-.8877]},
+    ]:[{position:[4,1.3,-4],target:[4,1.3,0]},{position:[12,1.3,2],target:[8,1.3,2]},{position:[4,1.3,-4],target:[4,1.3,0]}]
+    for(const sample of samples){
+      const point=await evaluate(`(()=>{const s=roofWallScene();s.camera.position.fromArray(${JSON.stringify(sample.position)});s.controls?.target?.fromArray(${JSON.stringify(sample.target)});s.camera.lookAt(...${JSON.stringify(sample.target)});s.camera.updateMatrixWorld();s.invalidate();const r=s.gl.domElement.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`)
+      await pause(600)
+      await call('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1})
+      await call('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1})
+      for(let i=0;i<80;i++){await pause(100);if(await evaluate(`(()=>{let n=0;roofWallScene().scene.traverse(o=>{const r=o.userData.houseDesignerRole;if(typeof r==='string'&&r.startsWith('wall-')&&r.includes('highlight'))n++});return n>0})()`))break}
+      const result=await evaluate(`(()=>{const s=roofWallScene();return {programs:selectionPrograms,surface:regressionSurface?.type,wall:regressionSurface?.wallId,generation:s.scene.userData.indirectLighting.generation,warmups:houseDesignerEngineLog.entries.filter(e=>e.type==='shader-warmup-start').length,roles:(()=>{const out=[];s.scene.traverse(o=>{if(o.userData.selectionDecoration)out.push(o.userData.houseDesignerRole??o.name)});return out})(),highlights:(()=>{let n=0;s.scene.traverse(o=>{if(typeof o.userData.houseDesignerRole==='string'&&o.userData.houseDesignerRole.startsWith('wall-')&&o.userData.houseDesignerRole.includes('highlight'))n++});return n})()}})()`)
+      console.log('Wall click',result)
+      assert.ok(['wall-face','wall-surface-fragment'].includes(result.surface),'the mouse click selects an exterior wall')
+      assert.ok(result.highlights>0,'wall highlight appears')
+      assert.equal(result.programs,0,'navigation, picking and exterior-wall highlighting create zero shaders')
+      assert.equal(result.warmups,0,'wall selection starts no shader preparation')
+      assert.equal(result.generation,await evaluate('selectionGeneration'),'wall selection preserves lighting')
+    }
+    assert.deepEqual(errors,[]);console.log('PASS: exterior-wall selection creates zero GPU programs')
+    ws.close();child.kill();process.exit(0)
+  }
   const models = colin ? await evaluate(`(async()=>{const {modelsById}=await import('/src/models/modelLibrary.ts');return window.regressionFloors[1].models.filter(m=>modelsById.get(m.modelId)?.windowDesign||m.modelId.includes('patio-door')).sort((a,b)=>Number(b.modelId.includes('patio-door'))-Number(a.modelId.includes('patio-door'))).slice(0,3).map(m=>m.id)})()`) : ['selection-window-1', 'selection-window-2', 'selection-door']
   console.log('Models', models)
   for (const selected of [models[0], models[1], models[0], models[2] ?? models[1], models[1], null, models[0], null]) {

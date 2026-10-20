@@ -1,5 +1,7 @@
 import { ToolbarIcon } from './ToolbarIcon'
 import { StairPlanSymbol } from './StairPlanSymbol'
+import { DoorPlanSymbol } from './DoorPlanSymbol'
+import { getDoorLeafCount, isPlanDoor } from '../doorPlan'
 import { useToolbarMenu } from './useToolbarMenu'
 /* eslint-disable react-hooks/set-state-in-effect */
 import { RoofSettingsFields } from './RoofSettingsFields'
@@ -560,48 +562,6 @@ function loadModelPreview(sourceUrl: string) {
   return promise
 }
 
-function isPlanDoor(definition: ModelDefinition) {
-  return definition.wallMount === 'interior-door' || definition.wallMount === 'exterior-door' ||
-    definition.wallMount === 'patio-door'
-}
-
-function DoorPlanSymbol({ width, wallThickness, doubleDoor, selected = false }: {
-  width: number
-  wallThickness: number
-  doubleDoor: boolean
-  selected?: boolean
-}) {
-  const stroke = selected ? '#2563eb' : '#334155'
-  const radius = doubleDoor ? width / 2 : width
-  return <Group name="door-plan-symbol">
-    <Rect x={-width / 2} y={-wallThickness / 2 - 1} width={width} height={wallThickness + 2}
-      fill="#f8fafc" />
-    {[-1, 1].map(side => <Line key={side}
-      points={[side * width / 2, -wallThickness / 2, side * width / 2, wallThickness / 2]}
-      stroke={stroke} strokeWidth={selected ? 2 : 1.5} strokeScaleEnabled={false} />)}
-    {(doubleDoor ? [-1, 1] : [-1]).map(side => <Group key={side}
-      x={side * width / 2} y={-wallThickness / 2} scaleX={-side}>
-      <Line points={[0, 0, 0, -radius]} stroke={stroke}
-        strokeWidth={selected ? 2.5 : 2} strokeScaleEnabled={false} hitStrokeWidth={12} />
-      <Shape name="door-swing" stroke={stroke} strokeWidth={selected ? 1.75 : 1}
-        strokeScaleEnabled={false}
-        sceneFunc={(context, shape) => {
-          context.beginPath()
-          context.arc(0, 0, radius, 0, -Math.PI / 2, true)
-          context.strokeShape(shape)
-        }}
-        hitFunc={(context, shape) => {
-          // The clear swing area remains easy to select and drag.
-          context.beginPath()
-          context.moveTo(0, 0)
-          context.arc(0, 0, radius, 0, -Math.PI / 2, true)
-          context.closePath()
-          context.fillStrokeShape(shape)
-        }} fillEnabled fill="rgba(0,0,0,0)" />
-    </Group>)}
-  </Group>
-}
-
 function GLBModelPreview({
   height,
   opacity,
@@ -656,6 +616,7 @@ function GLBModelPreview({
         opacity={0.78}
         stroke={stroke}
         strokeWidth={strokeWidth}
+        strokeScaleEnabled={false}
       />
       {previewImage ? (
         <KonvaImage
@@ -4835,6 +4796,8 @@ export function FloorplanCanvas({
     // Updating the Konva stage directly avoids rebuilding the large React
     // floorplan tree for every wheel event. Konva attribute writes normally
     // request a full scene and hit redraw, so coalesce visible redraws here.
+    // Screen-space outlines use strokeScaleEnabled={false}; dividing their
+    // widths by React's viewport.scale would leave them stale until commit.
     const autoDrawEnabled = Konva.autoDrawEnabled
     try {
       Konva.autoDrawEnabled = false
@@ -5038,6 +5001,7 @@ export function FloorplanCanvas({
                       : highlightColors.stroke
                   }
                   strokeWidth={isSelectedRoom ? 2 : 1}
+                  strokeScaleEnabled={false}
                   dash={[6, 6]}
                   listening
                   onClick={() => onSelectRoom(room.signature)}
@@ -5085,10 +5049,12 @@ export function FloorplanCanvas({
       y: (wall.end.y - wall.start.y) / wallLength,
     }
     const rotation = (getWallAngle(wall) * 180) / Math.PI
+    const wallPolygon = wallPlanPolygonsById.get(wall.id) ?? getWallPolygon(renderedWall)
 
     return wall.openings.map((opening) => {
       const definition = modelsById.get(opening.modelId)
       const isDoorOpening = definition && isPlanDoor(definition) && opening.bottom === 0
+      const markerDepth = wall.thickness * METERS_TO_PIXELS
       const center = toCanvasPoint({
         x: wall.start.x + direction.x * opening.center,
         y: wall.start.y + direction.y * opening.center,
@@ -5097,34 +5063,51 @@ export function FloorplanCanvas({
       return (
         <Group
           key={`${wall.id}-${opening.id}`}
-          x={center.x}
-          y={center.y}
-          rotation={rotation}
+          name="wall-opening-marker"
+          clipFunc={context => {
+            // Clear only the wall body, including its mitred/chamfered ends.
+            // A padded rectangle spills into room colours on angled bay walls.
+            wallPolygon.forEach((point, index) => {
+              const p = toCanvasPoint(point)
+              if (index === 0) context.moveTo(p.x, p.y)
+              else context.lineTo(p.x, p.y)
+            })
+            context.closePath()
+          }}
           listening={false}
         >
-          <Rect
-            x={0}
-            y={0}
-            width={opening.width * METERS_TO_PIXELS}
-            height={(wall.thickness + 0.08) * METERS_TO_PIXELS}
-            offsetX={(opening.width * METERS_TO_PIXELS) / 2}
-            offsetY={((wall.thickness + 0.08) * METERS_TO_PIXELS) / 2}
-            fill="#f8fafc"
-          />
-          {!isDoorOpening && <Line
-            points={[
-              (-opening.width * METERS_TO_PIXELS) / 2,
-              0,
-              (opening.width * METERS_TO_PIXELS) / 2,
-              0,
-            ]}
-            stroke="#38bdf8"
-            strokeWidth={3}
-          />}
+          <Group
+            x={center.x}
+            y={center.y}
+            rotation={rotation}
+            listening={false}
+          >
+            <Rect
+              name="wall-opening-mask"
+              x={0}
+              y={0}
+              width={opening.width * METERS_TO_PIXELS}
+              height={markerDepth}
+              offsetX={(opening.width * METERS_TO_PIXELS) / 2}
+              offsetY={markerDepth / 2}
+              fill="#f8fafc"
+            />
+            {!isDoorOpening && <Line
+              points={[
+                (-opening.width * METERS_TO_PIXELS) / 2,
+                0,
+                (opening.width * METERS_TO_PIXELS) / 2,
+                0,
+              ]}
+              stroke="#38bdf8"
+              strokeWidth={1}
+              strokeScaleEnabled={false}
+            />}
+          </Group>
         </Group>
       )
     })
-  }), [renderedWalls])
+  }), [renderedWalls, wallPlanPolygonsById])
   const transformPanelModels: { model: PlacedModel; bounds: HandleBounds; baseHeight: number; window: boolean }[] = []
   const modelFootprints = (activeFloor.models ?? []).flatMap((storedModel) => {
     const model = modelTransformPreview?.modelId === storedModel.id
@@ -5139,6 +5122,7 @@ export function FloorplanCanvas({
     const center = toCanvasPoint(model.position)
     const modelBounds = modelBoundsById[modelDefinition.id]
     const planDoor = isPlanDoor(modelDefinition)
+    const planWindow = modelDefinition.wallMount === 'window'
 
     if (modelDefinition.sourceUrl && !modelBounds && !planDoor) {
       return []
@@ -5148,7 +5132,9 @@ export function FloorplanCanvas({
     const modelWidthScale = model.widthScale ?? 1
     const modelDepthScale = model.depthScale ?? 1
     const nativeWidth = modelBounds?.width ?? modelDefinition.width
-    const nativeDepth = modelBounds?.depth ?? modelDefinition.depth
+    const nativeDepth = planWindow && modelBounds
+      ? Math.max(modelBounds.maxZ - modelBounds.minZ, 0.0001)
+      : modelBounds?.depth ?? modelDefinition.depth
     const targetScaleX =
       modelDefinition.sourceUrl && modelDefinition.normalizeToDimensions
         ? modelDefinition.width / Math.max(nativeWidth, 0.0001)
@@ -5178,7 +5164,7 @@ export function FloorplanCanvas({
           ? 0
           : modelDefinition.depth / 2
     const baseWidth = Math.max(boundsMaxX - boundsMinX, 0.1)
-    const baseDepth = Math.max(boundsMaxZ - boundsMinZ, 0.1)
+    const baseDepth = Math.max(boundsMaxZ - boundsMinZ, planWindow ? 0.001 : 0.1)
     const width = baseWidth * modelScale * modelWidthScale * METERS_TO_PIXELS
     const height = baseDepth * modelScale * modelDepthScale * METERS_TO_PIXELS
     const footprintX =
@@ -5200,7 +5186,6 @@ export function FloorplanCanvas({
     } : { x: 0, y: 0 }
     const handleCenterOffset = rotateVector(handleCenterLocal, model.rotation)
     const handleCenter = { x: model.position.x + handleCenterOffset.x, y: model.position.y + handleCenterOffset.y }
-    const labelWidth = Math.max(72, width)
     const isSelectedModel =
       model.id === selectedModelId || selectedModelIds.includes(model.id)
     // Use the actual aperture, including openings spanning joined wall segments.
@@ -5459,13 +5444,20 @@ export function FloorplanCanvas({
           <Group rotation={model.flipped ? 180 : 0} scaleX={model.mirrored ? -1 : 1}>
             <DoorPlanSymbol width={(doorMax - doorMin) * METERS_TO_PIXELS}
               wallThickness={(doorWall?.thickness ?? 0.13) * METERS_TO_PIXELS}
-              doubleDoor={modelDefinition.wallMount === 'patio-door'} selected={isSelectedModel} />
+              leafCount={getDoorLeafCount(modelDefinition)} selected={isSelectedModel} />
           </Group>
         </Group> : <Group
           rotation={model.flipped ? 180 : 0}
           scaleX={model.mirrored ? -1 : 1}
         >
-          {modelDefinition.stairDesign ? <StairPlanSymbol design={modelDefinition.stairDesign}
+          {planWindow ? <Group name="window-plan-symbol">
+            <Rect name="window-frame" x={footprintX} y={footprintY} width={width} height={height}
+              fill={modelDefinition.color} stroke={isSelectedModel ? '#2563eb' : '#334155'}
+              strokeWidth={isSelectedModel ? 2 : 1} strokeScaleEnabled={false} />
+            <Line name="window-glazing"
+              points={[footprintX, footprintY + height / 2, footprintX + width, footprintY + height / 2]}
+              stroke="#93c5fd" strokeWidth={1} strokeScaleEnabled={false} listening={false} />
+          </Group> : modelDefinition.stairDesign ? <StairPlanSymbol design={modelDefinition.stairDesign}
             scaleX={modelScale * modelWidthScale * METERS_TO_PIXELS} scaleY={modelScale * modelDepthScale * METERS_TO_PIXELS} selected={isSelectedModel} /> : modelDefinition.sourceUrl ? (
             <GLBModelPreview
               height={height}
@@ -5489,6 +5481,7 @@ export function FloorplanCanvas({
               opacity={0.72}
               stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
               strokeWidth={isSelectedModel ? 3 : 1}
+              strokeScaleEnabled={false}
             />
           ) : (
             <Rect
@@ -5502,25 +5495,11 @@ export function FloorplanCanvas({
               opacity={0.72}
               stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
               strokeWidth={isSelectedModel ? 3 : 1}
+              strokeScaleEnabled={false}
               cornerRadius={4}
             />
           )}
         </Group>}
-        {modelDefinition.sourceUrl || modelDefinition.stairDesign || planDoor ? null : (
-          <Text
-            x={0}
-            y={0}
-            width={labelWidth}
-            offsetX={labelWidth / 2}
-            offsetY={6}
-            align="center"
-            text={modelDefinition.name}
-            fill="#ffffff"
-            fontSize={10}
-            fontStyle="bold"
-            listening={false}
-          />
-        )}
         {isSelectedModel && transformMode === 'translate' ? (
           <Group x={handleCenterLocal.x * METERS_TO_PIXELS} y={handleCenterLocal.y * METERS_TO_PIXELS}
             rotation={-rotation} scaleX={gizmoScale} scaleY={gizmoScale}>
@@ -5529,6 +5508,7 @@ export function FloorplanCanvas({
               points={[0, 0, 52, 0]}
               stroke="#dc2626"
               strokeWidth={3}
+              strokeScaleEnabled={false}
               hitStrokeWidth={18}
               onPointerDown={() => {
                 modelMoveAxisRef.current = 'x'
@@ -5539,6 +5519,7 @@ export function FloorplanCanvas({
               closed
               fill="#dc2626"
               stroke="#dc2626"
+              strokeScaleEnabled={false}
               onPointerDown={() => {
                 modelMoveAxisRef.current = 'x'
               }}
@@ -5547,6 +5528,7 @@ export function FloorplanCanvas({
               points={[0, 0, 0, -52]}
               stroke="#16a34a"
               strokeWidth={3}
+              strokeScaleEnabled={false}
               hitStrokeWidth={18}
               onPointerDown={() => {
                 modelMoveAxisRef.current = 'y'
@@ -5557,6 +5539,7 @@ export function FloorplanCanvas({
               closed
               fill="#16a34a"
               stroke="#16a34a"
+              strokeScaleEnabled={false}
               onPointerDown={() => {
                 modelMoveAxisRef.current = 'y'
               }}
@@ -5570,6 +5553,7 @@ export function FloorplanCanvas({
               fill="#ffffff"
               stroke="#2563eb"
               strokeWidth={2}
+              strokeScaleEnabled={false}
               onPointerDown={() => {
                 modelMoveAxisRef.current = null
               }}
@@ -5585,6 +5569,7 @@ export function FloorplanCanvas({
               radius={13}
               stroke="#111827"
               strokeWidth={1}
+              strokeScaleEnabled={false}
               dash={[3, 3]}
               listening={false}
             />
@@ -5595,6 +5580,7 @@ export function FloorplanCanvas({
               fillEnabled={false}
               stroke="#2563eb"
               strokeWidth={3}
+              strokeScaleEnabled={false}
               hitStrokeWidth={18}
               draggable
               onPointerDown={(event) => {
@@ -5654,13 +5640,13 @@ export function FloorplanCanvas({
           const bottom = bounds.maxZ * modelScale * modelDepthScale * METERS_TO_PIXELS
           return <Group>
             <Rect x={left} y={top} width={right - left} height={bottom - top}
-              stroke="#2563eb" strokeWidth={1.5 * gizmoScale} dash={[5 * gizmoScale, 4 * gizmoScale]} listening={false} />
+              stroke="#2563eb" strokeWidth={1.5} strokeScaleEnabled={false} dash={[5, 4]} listening={false} />
             {resizeHandles.map((handle, index) => {
               const x = handle.x < 0 ? left : handle.x > 0 ? right : (left + right) / 2
               const y = handle.z < 0 ? top : handle.z > 0 ? bottom : (top + bottom) / 2
               return <Rect key={index} x={x} y={y} offsetX={4.5} offsetY={4.5}
                 width={9} height={9} scaleX={gizmoScale} scaleY={gizmoScale}
-                fill="white" stroke="#2563eb" strokeWidth={2} hitStrokeWidth={16} draggable
+                fill="white" stroke="#2563eb" strokeWidth={2} strokeScaleEnabled={false} hitStrokeWidth={16} draggable
                 dragBoundFunc={function (this: Konva.Node) { return this.getAbsolutePosition() }}
                 onPointerDown={event => {
                   event.cancelBubble = true
@@ -5709,6 +5695,7 @@ export function FloorplanCanvas({
               points={[0, 0, 52, 0]}
               stroke="#dc2626"
               strokeWidth={3}
+              strokeScaleEnabled={false}
               hitStrokeWidth={18}
               draggable
               onPointerDown={(event) => {
@@ -5738,6 +5725,7 @@ export function FloorplanCanvas({
               closed
               fill="#dc2626"
               stroke="#dc2626"
+              strokeScaleEnabled={false}
               draggable
               onPointerDown={(event) => {
                 event.cancelBubble = true
@@ -5765,6 +5753,7 @@ export function FloorplanCanvas({
               points={[0, 0, 0, -52]}
               stroke="#16a34a"
               strokeWidth={3}
+              strokeScaleEnabled={false}
               hitStrokeWidth={18}
               draggable
               onPointerDown={(event) => {
@@ -5794,6 +5783,7 @@ export function FloorplanCanvas({
               closed
               fill="#16a34a"
               stroke="#16a34a"
+              strokeScaleEnabled={false}
               draggable
               onPointerDown={(event) => {
                 event.cancelBubble = true
@@ -5825,6 +5815,7 @@ export function FloorplanCanvas({
               fill="#ffffff"
               stroke="#2563eb"
               strokeWidth={2}
+              strokeScaleEnabled={false}
               cornerRadius={3}
               draggable
               onPointerDown={(event) => {
@@ -5938,6 +5929,7 @@ export function FloorplanCanvas({
             points={[start.x, start.y, end.x, end.y]}
             stroke="#64748b"
             strokeWidth={1}
+            strokeScaleEnabled={false}
             dash={[4, 5]}
           />
           {showConnectorLines ? (
@@ -5946,11 +5938,13 @@ export function FloorplanCanvas({
                 points={[faceStart.x, faceStart.y, start.x, start.y]}
                 stroke="#64748b"
                 strokeWidth={1}
+                strokeScaleEnabled={false}
               />
               <Line
                 points={[faceEnd.x, faceEnd.y, end.x, end.y]}
                 stroke="#64748b"
                 strokeWidth={1}
+                strokeScaleEnabled={false}
               />
             </>
           ) : null}
@@ -5958,6 +5952,7 @@ export function FloorplanCanvas({
             points={[startTickA.x, startTickA.y, startTickB.x, startTickB.y]}
             stroke="#64748b"
             strokeWidth={1}
+            strokeScaleEnabled={false}
             lineCap="round"
           />
           {showChevrons ? (
@@ -5972,6 +5967,7 @@ export function FloorplanCanvas({
               ]}
               stroke="#64748b"
               strokeWidth={1}
+              strokeScaleEnabled={false}
               lineCap="round"
               lineJoin="round"
             />
@@ -5980,6 +5976,7 @@ export function FloorplanCanvas({
             points={[endTickA.x, endTickA.y, endTickB.x, endTickB.y]}
             stroke="#64748b"
             strokeWidth={1}
+            strokeScaleEnabled={false}
             lineCap="round"
           />
           {showChevrons ? (
@@ -5994,6 +5991,7 @@ export function FloorplanCanvas({
               ]}
               stroke="#64748b"
               strokeWidth={1}
+              strokeScaleEnabled={false}
               lineCap="round"
               lineJoin="round"
             />
@@ -6056,7 +6054,6 @@ export function FloorplanCanvas({
       return [(dx * c + dz * sin) * METERS_TO_PIXELS, (-dx * sin + dz * c) * METERS_TO_PIXELS]
     }
     const handleRadius = Math.max(4, 7 / viewport.scale)
-    const handleStrokeWidth = Math.max(1, 2 / viewport.scale)
     const supportBounds = getRoofPlanSupportLocalBounds(roof)
     const cornerHandles: Array<{
       corner: RoofResizeCorner
@@ -6242,10 +6239,10 @@ export function FloorplanCanvas({
       >
         {roof.type === 'bay' ? <>
           <Line closed points={getBayRoofPolygon(roof).flatMap((p) => toRoofGroupPoint(roofToWorld(roof, 0, [p.x, 0, p.y])))}
-            fill="#dbeafe" opacity={0.82} stroke={isSelectedRoof ? '#2563eb' : '#475569'} strokeWidth={2 / viewport.scale} />
+            fill="#dbeafe" opacity={0.82} stroke={isSelectedRoof ? '#2563eb' : '#475569'} strokeWidth={2} strokeScaleEnabled={false} />
           {buildBayRoofFaces(roof).map((face, index) => <Line key={index} closed
             points={face.flatMap((p) => toRoofGroupPoint(roofToWorld(roof, 0, p)))}
-            stroke="#64748b" strokeWidth={1 / viewport.scale} listening={false} />)}
+            stroke="#64748b" strokeWidth={1} strokeScaleEnabled={false} listening={false} />)}
         </> : <Rect
           x={-halfWidth}
           y={-halfDepth}
@@ -6254,21 +6251,21 @@ export function FloorplanCanvas({
           fill={roof.type === 'lean-to' ? '#dbeafe' : '#e2e8f0'}
           opacity={0.82}
           stroke={isSelectedRoof ? '#2563eb' : '#475569'}
-          strokeWidth={isSelectedRoof ? 3 / viewport.scale : 1.5 / viewport.scale}
-          dash={roof.type === 'lean-to' ? [10 / viewport.scale, 5 / viewport.scale] : undefined}
+          strokeWidth={isSelectedRoof ? 3 : 1.5} strokeScaleEnabled={false}
+          dash={roof.type === 'lean-to' ? [10, 5] : undefined}
         />}
         {roof.type === 'hip' ? (
           <>
             <Line
               points={[-halfWidth, -halfDepth, 0, 0, halfWidth, -halfDepth]}
               stroke="#64748b"
-              strokeWidth={1.25 / viewport.scale}
+              strokeWidth={1.25} strokeScaleEnabled={false}
               listening={false}
             />
             <Line
               points={[-halfWidth, halfDepth, 0, 0, halfWidth, halfDepth]}
               stroke="#64748b"
-              strokeWidth={1.25 / viewport.scale}
+              strokeWidth={1.25} strokeScaleEnabled={false}
               listening={false}
             />
           </>
@@ -6278,13 +6275,13 @@ export function FloorplanCanvas({
             return buildRoofProfileFaces(roof, input.extents, input.support).map((face, index) =>
               <Line key={`profile-${index}`} name="gable-roof-profile" closed
                 points={face.flatMap(p => toRoofGroupPoint(roofToWorld(roof, 0, p)))}
-                listening={false} stroke="#64748b" strokeWidth={1.5 / viewport.scale} />)
+                listening={false} stroke="#64748b" strokeWidth={1.5} strokeScaleEnabled={false} />)
           })()
         ) : roof.type === 'lean-to' ? (
           <Line
             points={[-halfWidth, halfDepth, halfWidth, -halfDepth]}
             stroke="#64748b"
-            strokeWidth={1.5 / viewport.scale}
+            strokeWidth={1.5} strokeScaleEnabled={false}
             listening={false}
           />
         ) : null}
@@ -6301,7 +6298,7 @@ export function FloorplanCanvas({
         />
         {resolvedRoof ? resolvedRoof.faces.map((face, index) => (
           <Line key={`junction-${index}`} points={face.flatMap(toRoofGroupPoint)} closed
-            stroke="#2563eb" strokeWidth={1 / viewport.scale} dash={[5 / viewport.scale, 4 / viewport.scale]}
+            stroke="#2563eb" strokeWidth={1} strokeScaleEnabled={false} dash={[5, 4]}
             listening={false} />
         )) : null}
         {resolvedRoof && roof.type === 'up-and-over' ? (['A', 'B'] as const).map((label, index) => {
@@ -6324,7 +6321,7 @@ export function FloorplanCanvas({
                 radius={handleRadius}
                 fill="#ffffff"
                 stroke="#2563eb"
-                strokeWidth={handleStrokeWidth}
+                strokeWidth={2} strokeScaleEnabled={false}
                 draggable
                 onDragStart={(event) => beginResize(handle.corner, event)}
                 onDragMove={resizeFromPointer}
@@ -6713,7 +6710,7 @@ export function FloorplanCanvas({
                 key={`vertical-${position}`}
                 points={[position, visibleBounds.top, position, visibleBounds.bottom]}
                 stroke="#e2e8f0"
-                strokeWidth={1 / viewport.scale}
+                strokeWidth={1} strokeScaleEnabled={false}
               />
             ))}
             {horizontalGridLines.map((position) => (
@@ -6721,7 +6718,7 @@ export function FloorplanCanvas({
                 key={`horizontal-${position}`}
                 points={[visibleBounds.left, position, visibleBounds.right, position]}
                 stroke="#e2e8f0"
-                strokeWidth={1 / viewport.scale}
+                strokeWidth={1} strokeScaleEnabled={false}
               />
             ))}
           </Layer>
@@ -6733,8 +6730,8 @@ export function FloorplanCanvas({
                   const canvasPoint = toCanvasPoint(point)
                   return [canvasPoint.x, canvasPoint.y]
                 })}
-                stroke="#64748b" strokeWidth={1.5 / viewport.scale}
-                dash={[6 / viewport.scale, 4 / viewport.scale]} listening={false} />
+                stroke="#64748b" strokeWidth={1.5} strokeScaleEnabled={false}
+                dash={[6, 4]} listening={false} />
             ))}
             {roomRegions}
           </Layer>
@@ -6778,7 +6775,7 @@ export function FloorplanCanvas({
                   draggable={!isAddingWall}
                   fill={wallPlanPerimeters.length === 0 ? '#aab4bf' : 'rgba(0, 0, 0, 0)'}
                   stroke={wallPlanPerimeters.length === 0 ? '#334155' : undefined}
-                  strokeWidth={1.5 / viewport.scale}
+                  strokeWidth={1.5} strokeScaleEnabled={false}
                   lineJoin="miter"
                   onClick={(event) => {
                     if (isAddingWall) return
@@ -6994,7 +6991,7 @@ export function FloorplanCanvas({
                 key={`${perimeter.componentId}:${index}`}
                 fill="#aab4bf"
                 stroke="#334155"
-                strokeWidth={1.5 / viewport.scale}
+                strokeWidth={1.5} strokeScaleEnabled={false}
                 lineJoin="miter"
                 listening={false}
                 sceneFunc={(context, shape) => {
@@ -7024,7 +7021,7 @@ export function FloorplanCanvas({
                 closed
                 fill="rgba(37, 99, 235, 0.12)"
                 stroke="#2563eb"
-                strokeWidth={2.5 / viewport.scale}
+                strokeWidth={2.5} strokeScaleEnabled={false}
                 listening={false}
               />
             ))}
@@ -7050,6 +7047,7 @@ export function FloorplanCanvas({
                     fill="#ffffff"
                     stroke="#2563eb"
                     strokeWidth={2}
+                    strokeScaleEnabled={false}
                     draggable
                     onDragStart={(event) => {
                       event.cancelBubble = true
@@ -7210,7 +7208,7 @@ export function FloorplanCanvas({
             {placementModel && modelPlacementPreview ? (() => {
               const center = toCanvasPoint(modelPlacementPreview.position)
               const width = Math.max(placementModel.width, 0.2) * METERS_TO_PIXELS
-              const depth = Math.max(placementModel.depth, 0.16) * METERS_TO_PIXELS
+              const depth = Math.max(placementModel.depth, placementModel.wallMount === 'window' ? 0.001 : 0.16) * METERS_TO_PIXELS
 
               return (
                 <Group
@@ -7222,7 +7220,7 @@ export function FloorplanCanvas({
                   {isPlanDoor(placementModel) ? <DoorPlanSymbol
                     width={(placementModel.openingWidth ?? placementModel.width) * METERS_TO_PIXELS}
                     wallThickness={(activeFloor.walls.find(wall => wall.id === modelPlacementPreview.wallAttachment?.wallId)?.thickness ?? 0.13) * METERS_TO_PIXELS}
-                    doubleDoor={placementModel.wallMount === 'patio-door'} selected /> : <><Rect
+                    leafCount={getDoorLeafCount(placementModel)} selected /> : <><Rect
                     x={-width / 2}
                     y={placementModel.roofMount === 'dormer' ? -depth : -depth / 2}
                     width={width}
@@ -7230,14 +7228,14 @@ export function FloorplanCanvas({
                     fill="#38bdf8"
                     opacity={0.42}
                     stroke="#0369a1"
-                    strokeWidth={2 / viewport.scale}
-                    dash={[8 / viewport.scale, 5 / viewport.scale]}
-                    cornerRadius={3 / viewport.scale}
+                    strokeWidth={2} strokeScaleEnabled={false}
+                    dash={[8, 5]}
+                    cornerRadius={placementModel.wallMount === 'window' ? 0 : 3 / viewport.scale}
                   />
                   <Line
                     points={[-width / 2, 0, width / 2, 0]}
                     stroke="#0284c7"
-                    strokeWidth={4 / viewport.scale}
+                    strokeWidth={placementModel.wallMount === 'window' ? 1 : 4} strokeScaleEnabled={false}
                   />
                   </>}
                 </Group>
@@ -7271,13 +7269,13 @@ export function FloorplanCanvas({
                     toCanvasPoint(angleWidget.baselineEnd).y,
                   ]}
                   stroke="#f97316"
-                  strokeWidth={1.25}
+                  strokeWidth={1.25} strokeScaleEnabled={false}
                   dash={[4, 4]}
                 />
                 <Line
                   points={angleWidget.arcPoints}
                   stroke="#f97316"
-                  strokeWidth={2}
+                  strokeWidth={2} strokeScaleEnabled={false}
                 />
                 <Circle
                   x={toCanvasPoint(measurementAnchor).x}
@@ -7285,7 +7283,7 @@ export function FloorplanCanvas({
                   radius={4}
                   fill="#ffffff"
                   stroke="#f97316"
-                  strokeWidth={2}
+                  strokeWidth={2} strokeScaleEnabled={false}
                 />
                 <Rect
                   x={toCanvasPoint(angleWidget.labelPoint).x - 22}
@@ -7294,7 +7292,7 @@ export function FloorplanCanvas({
                   height={24}
                   fill="#ffffff"
                   stroke="#fed7aa"
-                  strokeWidth={1}
+                  strokeWidth={1} strokeScaleEnabled={false}
                   cornerRadius={4}
                   shadowColor="#0f172a"
                   shadowOpacity={0.1}
@@ -7323,7 +7321,7 @@ export function FloorplanCanvas({
                   height={24}
                   fill="#ffffff"
                   stroke="#bfdbfe"
-                  strokeWidth={1}
+                  strokeWidth={1} strokeScaleEnabled={false}
                   cornerRadius={4}
                   shadowColor="#0f172a"
                   shadowOpacity={0.12}
@@ -7352,7 +7350,7 @@ export function FloorplanCanvas({
                   toCanvasPoint(hoverAlignmentGuide.projection).y,
                 ]}
                 stroke="#16a34a"
-                strokeWidth={1.5}
+                strokeWidth={1.5} strokeScaleEnabled={false}
                 dash={[5, 6]}
               />
             ) : null}
@@ -7381,7 +7379,7 @@ export function FloorplanCanvas({
                         snapPoint.y + yDirection * SNAP_MARKER_OUTER_RADIUS,
                       ]}
                       stroke={markerColor}
-                      strokeWidth={2}
+                      strokeWidth={2} strokeScaleEnabled={false}
                       lineCap="round"
                       listening={false}
                     />
@@ -7437,21 +7435,21 @@ export function FloorplanCanvas({
                   const active = hoverRoofPlacementPoint && Math.abs(hoverRoofPlacementPoint.x - x) < 1e-6
                   return <Line key={`roof-guide-x-${x}`} name="roof-placement-guide-vertical"
                     points={[x * METERS_TO_PIXELS, visibleBounds.top, x * METERS_TO_PIXELS, visibleBounds.bottom]}
-                    stroke="#248cff" opacity={active ? 0.9 : 0.45} strokeWidth={(active ? 1.5 : 1) / viewport.scale}
-                    dash={active ? undefined : [6 / viewport.scale, 5 / viewport.scale]} />
+                    stroke="#248cff" opacity={active ? 0.9 : 0.45} strokeWidth={active ? 1.5 : 1} strokeScaleEnabled={false}
+                    dash={active ? undefined : [6, 5]} />
                 })}
                 {Array.from(new Set(roofPlacementPoints.map(point => point.y))).map(y => {
                   const active = hoverRoofPlacementPoint && Math.abs(hoverRoofPlacementPoint.y - y) < 1e-6
                   return <Line key={`roof-guide-y-${y}`} name="roof-placement-guide-horizontal"
                     points={[visibleBounds.left, y * METERS_TO_PIXELS, visibleBounds.right, y * METERS_TO_PIXELS]}
-                    stroke="#248cff" opacity={active ? 0.9 : 0.45} strokeWidth={(active ? 1.5 : 1) / viewport.scale}
-                    dash={active ? undefined : [6 / viewport.scale, 5 / viewport.scale]} />
+                    stroke="#248cff" opacity={active ? 0.9 : 0.45} strokeWidth={active ? 1.5 : 1} strokeScaleEnabled={false}
+                    dash={active ? undefined : [6, 5]} />
                 })}
               </Group> : null}
               {bayPlacementRoof && bayPlacementGeometry ? <Group listening={false}>
                 {buildBayRoofFaces(bayPlacementGeometry).map((face, index) => <Line key={index} closed
                   points={face.flatMap((p) => { const [x, , y] = roofToWorld(bayPlacementRoof, 0, p); const c = toCanvasPoint({ x, y }); return [c.x, c.y] })}
-                  fill="#bfdbfe" opacity={0.6} stroke="#2563eb" strokeWidth={1.5 / viewport.scale} />)}
+                  fill="#bfdbfe" opacity={0.6} stroke="#2563eb" strokeWidth={1.5} strokeScaleEnabled={false} />)}
               </Group> : roofPlacementPreview ? (
                 <Group
                   x={roofPlacementPreview.center.x}
@@ -7467,8 +7465,8 @@ export function FloorplanCanvas({
                     fill="#bfdbfe"
                     opacity={0.22}
                     stroke="#2563eb"
-                    strokeWidth={2 / viewport.scale}
-                    dash={[10 / viewport.scale, 6 / viewport.scale]}
+                    strokeWidth={2} strokeScaleEnabled={false}
+                    dash={[10, 6]}
                   />
                   {roofPlacementType === 'up-and-over' ? (() => {
                     const input = roofJunctionInput(roofPlacementRidgeRoof, activeFloor.id, 0)
@@ -7482,7 +7480,7 @@ export function FloorplanCanvas({
                     return <>
                       {buildRoofProfileFaces(roofPlacementRidgeRoof, input.extents, input.support).map((face, index) =>
                         <Line key={index} name="gable-roof-profile" closed points={face.flatMap(toGroup)}
-                          stroke="#1d4ed8" strokeWidth={1.5 / viewport.scale} />)}
+                          stroke="#1d4ed8" strokeWidth={1.5} strokeScaleEnabled={false} />)}
                       {(['A', 'B'] as const).map((label, index) => {
                         const [x, y] = toGroup([ridgeX, 0, index === 0 ? input.support.minY : input.support.maxY])
                         return <Text key={label} text={label} x={x + 8 / viewport.scale} y={y - 6 / viewport.scale}
@@ -7504,7 +7502,7 @@ export function FloorplanCanvas({
                         0,
                       ]}
                       stroke="#1d4ed8"
-                      strokeWidth={2 / viewport.scale}
+                      strokeWidth={2} strokeScaleEnabled={false}
                       pointerAtEnding
                       pointerLength={Math.max(8, 10 / viewport.scale)}
                       pointerWidth={Math.max(7, 9 / viewport.scale)}
@@ -7527,9 +7525,9 @@ export function FloorplanCanvas({
                 const arrowLength = Math.min(0.5, ridge.maxLength - ridge.length + 0.05)
                 return <Group listening={false}>
                   {ridge.length > 0 ? <Line name="bay-roof-ridge" points={toPoints([ridge.start, ridge.end])}
-                    stroke="#248cff" strokeWidth={2.5 / viewport.scale} /> : null}
+                    stroke="#248cff" strokeWidth={2.5} strokeScaleEnabled={false} /> : null}
                   {arrowLength >= 0.15 ? <Arrow points={toPoints([ridge.end, { x: ridge.end.x, y: ridge.end.y + arrowLength }])}
-                    stroke="#b45309" fill="#b45309" strokeWidth={2 / viewport.scale}
+                    stroke="#b45309" fill="#b45309" strokeWidth={2} strokeScaleEnabled={false}
                     pointerLength={10 / viewport.scale} pointerWidth={8 / viewport.scale} /> : null}
                 </Group>
               })() : null}
@@ -7540,8 +7538,8 @@ export function FloorplanCanvas({
                     return [canvasPoint.x, canvasPoint.y]
                   })}
                   stroke="#2563eb"
-                  strokeWidth={1.5 / viewport.scale}
-                  dash={[6 / viewport.scale, 5 / viewport.scale]}
+                  strokeWidth={1.5} strokeScaleEnabled={false}
+                  dash={[6, 5]}
                   listening={false}
                 />
               ) : null}
@@ -7560,8 +7558,8 @@ export function FloorplanCanvas({
                         radius={roofSnapMarkerRadius}
                         fill={isSelectedPoint ? '#22c55e' : '#ffffff'}
                         stroke={isSelectedPoint ? '#15803d' : '#0f172a'}
-                        strokeWidth={1.5 / viewport.scale}
-                        hitStrokeWidth={10 / viewport.scale}
+                        strokeWidth={1.5} strokeScaleEnabled={false}
+                        hitStrokeWidth={10}
                         onClick={(event) => {
                           event.cancelBubble = true
                           toggleRoofPlacementPoint(point)
@@ -7591,8 +7589,8 @@ export function FloorplanCanvas({
                     fill={isSelectedPoint ? '#22c55e' : '#fff7ed'}
                     opacity={0.92}
                     stroke={isSelectedPoint ? '#15803d' : '#f97316'}
-                    strokeWidth={2 / viewport.scale}
-                    hitStrokeWidth={10 / viewport.scale}
+                    strokeWidth={2} strokeScaleEnabled={false}
+                    hitStrokeWidth={10}
                     onClick={(event) => {
                       event.cancelBubble = true
                       toggleRoofPlacementPoint(hoverRoofPlacementPoint)

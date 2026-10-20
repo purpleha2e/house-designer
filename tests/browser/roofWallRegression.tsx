@@ -62,6 +62,11 @@ if (searchParams.has('published-materials')) {
 const groundOnly = searchParams.has('ground')
 const showPreview = searchParams.has('preview')
 const lightingStartup = searchParams.has('lighting-startup')
+const reflectionHandover = searchParams.has('reflection-handover')
+if (reflectionHandover) registerRuntimeSurfaceMaterials([{
+  id: 'reflection-handover', manufacturer: 'Regression', productName: 'Reflective wall', category: 'paint',
+  pbr: { baseColor: '#c5b9a8', roughness: .3, metalness: 0, imageBasedLighting: true },
+}])
 const lightingStartupFloors: FloorLevel[] = [{ id: 'lighting-startup', name: 'Lighting startup', elevation: 0,
   roomHeight: 2.4, slabThickness: .2, rooms: [], roofs: [],
   walls: [
@@ -104,7 +109,10 @@ function RegressionScene() {
   const [selection, setSelection] = useState<string | null>(null)
   const [placementDefinition, setPlacementDefinition] = useState<ModelDefinition | null>(null)
   const [surfaceSelection, setSurfaceSelection] = useState<SelectableSurface | null>(null)
-  const [assignments, setAssignments] = useState(savedProject.surfaceAssignments as SurfaceMaterialAssignment[])
+  const [assignments, setAssignments] = useState(reflectionHandover ? lightingStartupFloors[0].walls.map(wall => ({
+    id: `reflection-${wall.id}`, materialId: 'reflection-handover',
+    target: { type: 'wall-face' as const, wallId: wall.id, side: 'both' as const },
+  })) : savedProject.surfaceAssignments as SurfaceMaterialAssignment[])
   Object.assign(window, {
     updateRegressionFloors: setSceneFloors,
     regressionTools: { Mesh, modelsById, syncWallOpenings, registerRuntimeSurfaceMaterials, surfaceMaterialsById },
