@@ -1,5 +1,6 @@
+import {requestedIndirectSHOrder,indirectSHCoefficientCount} from '../../src/indirectSH'
 import { BoxGeometry, Color, CubeCamera, DataTexture, DirectionalLight, HalfFloatType, LinearSRGBColorSpace,
-  Mesh, MeshStandardMaterial, PointLight, RGBAFormat, Scene, SpotLight, Vector3, WebGLCubeRenderTarget, WebGLRenderer,
+  Mesh, MeshStandardMaterial, PointLight, RGBAFormat, Scene, SpotLight, WebGLCubeRenderTarget, WebGLRenderer, WebGLRenderTarget, DataUtils,
   type SphericalHarmonics3 } from 'three'
 import { prepareIndirectCache } from '../../src/indirectLightingCache'
 import { snapshotIndirectGeometry } from '../../src/indirectVisibility'
@@ -14,6 +15,7 @@ import { INDIRECT_ATLAS_SIZE, INDIRECT_MAX_LOCAL_LIGHTS } from '../../src/indire
 const renderer = new WebGLRenderer({ antialias: false }); renderer.setSize(256, 256)
 const staticCapture = new URLSearchParams(location.search).has('static')
 const dynamicSun = new URLSearchParams(location.search).has('sun')
+const nightSurface = new URLSearchParams(location.search).has('night-surface')
 document.body.append(renderer.domElement)
 const scene = new Scene(), materials: MeshStandardMaterial[] = []
 const add = (size: number[], position: number[], color: string, metalness = 0, roughness = .8) => {
@@ -27,7 +29,10 @@ add([4,2.4,.1], [2,1.2,0], '#eeeeee'); add([4,2.4,.1], [2,1.2,4], '#eeeeee')
 add([4,.1,4], [2,2.45,2], '#eeeeee')
 add([.2,2.4,4], [1.5,1.2,2], '#aacc99', .6, .35) // Metallic partition between point lamp and probe.
 materials[6].emissive.set('#183308'); materials[6].emissiveIntensity=.15
+const emission = new DataTexture(new Uint8Array([255,80,20,255, 100,255,80,255, 80,140,255,255, 255,255,255,255]),2,2)
+emission.needsUpdate = true; materials[6].emissiveMap = emission
 const sun=new DirectionalLight('#aaccee',.3);sun.position.set(3,8,4);scene.add(sun,sun.target)
+if (nightSurface) sun.intensity = 0
 sun.userData.houseDesignerRole = 'sun-light'
 if (dynamicSun) {
   renderer.shadowMap.enabled = true; sun.castShadow = true; sun.shadow.mapSize.set(512,512)
@@ -42,30 +47,36 @@ const spot = new SpotLight('#80aaff', 6, 10, Math.PI/3, .3, 1.15); spot.position
 const lights = [point,spot]
 const floors = [{ id:'floor',elevation:0,height:2.4,rooms:[{signature:'room',polygon:[{x:0,y:0},{x:4,y:0},{x:4,y:4},{x:0,y:4}]}] }]
 scene.updateMatrixWorld(true)
+const shOrder=requestedIndirectSHOrder(),coefficientCount=indirectSHCoefficientCount(shOrder)
 const snapshots = snapshotIndirectGeometry(scene)
-const prepared = [prepareIndirectCache(floors, lights.map(l=>l.position.toArray()), snapshots, [])]
+const prepared = [prepareIndirectCache(floors, lights.map(l=>l.position.toArray()), snapshots, [], undefined, undefined, undefined, undefined, shOrder)]
 const field = prepared[0].field, uniforms = createIndirectUniforms(field)
 const triangles = prepared[0].visibility.triangleTexture()
 uniforms.hdGITriangles.value = triangles; uniforms.hdGITriangleSize.value.set(triangles.image.width,triangles.image.height)
 uniforms.hdGICapture.value = 1
+uniforms.hdGIDiffuseCapture.value = 1
 const offset = INDIRECT_ATLAS_SIZE ** 2 - INDIRECT_MAX_LOCAL_LIGHTS
 uniforms.hdGIPointIndices.value[0] = offset; uniforms.hdGISpotIndices.value[0] = offset + 1
 const roomTexture=new DataTexture(new Uint8Array([0,0,0,255]),1,1);roomTexture.needsUpdate=true
 const room = createRoomLightShaderUniforms(roomTexture); room.enabled.value = 0
 materials.forEach(m=>{ applyRoomLightShader(m,room); applyIndirectLightingShader(m,uniforms) })
 const capture = createIndirectCaptureScene(scene,true)
-const combined = createIndirectCaptureScene(scene,true); combined.enableSurfaceRadianceCapture(true)
-const size=8, cube=new WebGLCubeRenderTarget(size,{type:HalfFloatType,format:RGBAFormat,colorSpace:LinearSRGBColorSpace,generateMipmaps:false})
+const combined = createIndirectCaptureScene(scene,true)
+if (nightSurface) combined.enableNightSurfaceCapture()
+else combined.enableSurfaceRadianceCapture(true)
+const size=new URLSearchParams(location.search).has('size16')?16:8, cube=new WebGLCubeRenderTarget(size,{type:HalfFloatType,format:RGBAFormat,colorSpace:LinearSRGBColorSpace,generateMipmaps:false})
 const camera=new CubeCamera(.03,80,cube);camera.coordinateSystem=renderer.coordinateSystem;camera.updateCoordinateSystem()
 camera.position.set(2,1.2,2);camera.updateMatrixWorld(true)
-const integrator=createIndirectProbeIntegrator(size)
+const integrator=createIndirectProbeIntegrator(size,'cube',[0,1,2,3,4,5],false,shOrder)
 const cache=createIndirectSurfaceCache(renderer,[0],size,uniforms,true)!
 const updateLights=()=>{lights.forEach(l=>l.updateMatrixWorld(true));spot.target.updateMatrixWorld(true)}
 const compare=(a:SphericalHarmonics3,b:SphericalHarmonics3)=>{
-  let max=0,peak=0;for(let i=0;i<4;i++)for(let c=0;c<3;c++){const x=a.coefficients[i].getComponent(c),y=b.coefficients[i].getComponent(c);max=Math.max(max,Math.abs(x-y));peak=Math.max(peak,Math.abs(y))}return{max,peak}
+  let max=0,peak=0;for(let i=0;i<coefficientCount;i++)for(let c=0;c<3;c++){const x=a.coefficients[i].getComponent(c),y=b.coefficients[i].getComponent(c);max=Math.max(max,Math.abs(x-y));peak=Math.max(peak,Math.abs(y))}return{max,peak}
 }
 try {
+  const compileStarted=performance.now()
   await cache.compile()
+  const compileMs=performance.now()-compileStarted
   if (dynamicSun) {
     renderer.render(scene,camera.children[0]);renderer.shadowMap.autoUpdate=false
     indirectSurfaceSun(combined.scene)!.intensity=0
@@ -79,6 +90,7 @@ try {
   }
   renderer.autoClear=true;combined.scene.remove(...lights,spot.target)
   cache.ready.add(0);cache.recordLights(0,staticCapture?[]:indirectSurfaceLights(lights,lights.map(l=>({position:l.position.toArray()}))))
+  const gpuTarget = new WebGLRenderTarget(coefficientCount,4,{type:HalfFloatType,format:RGBAFormat,depthBuffer:false})
   const results=[]
   const freshCapture=async()=>{
     if (dynamicSun) {
@@ -98,18 +110,28 @@ try {
     const started=performance.now()
     const relit=await cache.relight(0,camera.position.toArray(),indirectSurfaceLights(lights,lights.map(l=>({position:l.position.toArray()}))),dynamicSun?sun:undefined)
     const relightMs=performance.now()-started
+    const read = renderer.readRenderTargetPixelsAsync
+    renderer.readRenderTargetPixelsAsync = (() => { throw Error('GPU preview attempted a readback') }) as typeof read
+    const gpuStart=performance.now()
+    try { cache.relightGPU(0,camera.position.toArray(),indirectSurfaceLights(lights,lights.map(l=>({position:l.position.toArray()}))),gpuTarget,2,dynamicSun?sun:undefined) }
+    finally { renderer.readRenderTargetPixelsAsync=read }
+    const gpuSubmitMs=performance.now()-gpuStart
+    const gpuPixels=new Uint16Array(coefficientCount*4);await renderer.readRenderTargetPixelsAsync(gpuTarget,0,2,coefficientCount,1,gpuPixels)
+    let gpuError=0
+    for(let i=0;i<coefficientCount;i++)for(let c=0;c<3;c++)gpuError=Math.max(gpuError,Math.abs(DataUtils.fromHalfFloat(gpuPixels[i*4+c])-relit.coefficients[i].getComponent(c)))
+    if(gpuError>.00001)throw Error('GPU coefficients differ: '+gpuError)
     const freshStart=performance.now()
     const fresh=await freshCapture()
     const freshMs=performance.now()-freshStart
     const second=await cache.read(0,2)
-    results.push({name,...compare(relit,fresh),secondBounce:compare(second,fresh).max,relightMs,freshMs})
+    results.push({name,...compare(relit,fresh),secondBounce:compare(second,fresh).max,relightMs,freshMs,gpuError,gpuSubmitMs})
     return fresh
   }
   await run('unchanged')
   point.intensity=8;point.color.set('#aaff80');spot.intensity=2;await run('power-colour')
   point.distance=3;point.decay=2;spot.angle=Math.PI/5;spot.penumbra=.6;await run('range-spread')
   point.position.set(.7,.7,1.8);spot.target.position.set(2.7,0,1.8)
-  const moved=prepareIndirectCache(floors,lights.map(l=>l.position.toArray()),snapshots,[]);prepared.push(moved)
+  const moved=prepareIndirectCache(floors,lights.map(l=>l.position.toArray()),snapshots,[],undefined,undefined,undefined,undefined,shOrder);prepared.push(moved)
   updateIndirectUniforms(uniforms,moved.field);uniforms.hdGICapture.value=1
   const blocked=await run('move-behind-occluder')
   // Removing blocker IDs must change the reference; matching two unoccluded
@@ -127,7 +149,8 @@ try {
     indirectSurfaceSun(capture.scene)!.castShadow=false
     await run('sun-shadows-disabled')
   }
-  Object.assign(window,{surfaceRelightingResult:{results,occlusion,glError:renderer.getContext().getError(),relighting:cache.relighting}})
+  gpuTarget.dispose()
+  Object.assign(window,{surfaceRelightingResult:{results,compileMs,occlusion,glError:renderer.getContext().getError(),relighting:cache.relighting}})
 } catch(error){Object.assign(window,{surfaceRelightingResult:{error:String(error)}})}
-finally{cache.dispose();capture.dispose();combined.dispose();cube.dispose();integrator.dispose();normal.dispose();roomTexture.dispose();prepared.forEach(p=>p.dispose())}
+finally{cache.dispose();capture.dispose();combined.dispose();cube.dispose();integrator.dispose();normal.dispose();emission.dispose();roomTexture.dispose();prepared.forEach(p=>p.dispose())}
 

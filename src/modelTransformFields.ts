@@ -1,5 +1,25 @@
 import type { PlacedModel } from './types'
 import type { HandleBounds } from './objectHandles'
+import type { ModelAssetBounds } from './modelAssetBounds'
+
+/** The plan and properties use the same asset-space dimensions on every floor. */
+export function getModelTransformBounds(definition: {
+  width: number; depth: number; sourceUrl?: string; normalizeToDimensions?: boolean
+  wallMount?: string; roofMount?: string
+}, asset?: ModelAssetBounds): HandleBounds {
+  const nativeDepth = definition.wallMount === 'window' && asset
+    ? Math.max(asset.maxZ - asset.minZ, 0.0001) : asset?.depth ?? definition.depth
+  const scaleX = definition.sourceUrl && definition.normalizeToDimensions
+    ? definition.width / Math.max(asset?.width ?? definition.width, 0.0001) : 1
+  const scaleZ = definition.sourceUrl && definition.normalizeToDimensions
+    ? definition.depth / Math.max(nativeDepth, 0.0001) : 1
+  return {
+    minX: definition.sourceUrl && asset ? asset.minX * scaleX : -definition.width / 2,
+    maxX: definition.sourceUrl && asset ? asset.maxX * scaleX : definition.width / 2,
+    minZ: definition.sourceUrl && asset ? asset.minZ * scaleZ : definition.roofMount === 'dormer' ? -definition.depth : -definition.depth / 2,
+    maxZ: definition.sourceUrl && asset ? asset.maxZ * scaleZ : definition.roofMount === 'dormer' ? 0 : definition.depth / 2,
+  }
+}
 
 export type ModelTransformField = 'width' | 'height' | 'length' | 'scaleX' | 'scaleY' | 'scaleZ' | 'rotation'
 

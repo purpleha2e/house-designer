@@ -1,0 +1,17 @@
+{
+  "id": "local-material-274bb213-6bdf-4c6c-b1fc-f2dfbf4659a8",
+  "manufacturer": "My materials",
+  "folder": "Paint",
+  "productName": "Red Paint",
+  "category": "wall-covering",
+  "collection": "Local library",
+  "pbr": {
+    "baseColor": "#ff0000",
+    "roughness": 1,
+    "metalness": 0,
+    "normalStrength": 1,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1,
+    "imageBasedLighting": true
+  }
+}

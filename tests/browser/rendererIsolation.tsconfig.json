@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.app.json",
+  "compilerOptions": { "composite": false, "incremental": false, "lib": ["ES2023", "DOM", "WebWorker"] },
+  "include": ["rendererIsolation.ts", "rendererIsolation.worker.ts", "rendererIsolationRuntime.ts", "rendererIsolationProtocol.ts", "../../src/vite-env.d.ts"]
+}

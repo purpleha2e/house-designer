@@ -14,7 +14,12 @@ import {
 } from 'three'
 import { MAX_ROOM_LIGHT_FLOORS, type RoomLightMask } from './roomLightMask.ts'
 import { applyLocalShadowReceiver } from './materials/localShadowReceiver.ts'
+import { applySunCascadeShader } from './sunCascades.ts'
+import { rendererShadowMode, rendererShadowSize } from './rendererRecovery.ts'
 import { MAX_LIGHT_PORTAL_PLANES } from './roomLightPortals.ts'
+import { INDIRECT_MAX_LOCAL_LIGHTS } from './indirectLighting.ts'
+import { cacheShaderKeyTransform } from './shaderKeyTransform.ts'
+import { roomLightOcclusionGLSL } from './roomLightOcclusion.ts'
 
 export const ROOM_LIGHT_SHADER_MAX_LIGHTS = 11
 // Offscreen GI captures provide nearby world-space lights with cached shadows.
@@ -32,13 +37,16 @@ export type RoomLightShaderUniforms = {
   unshadowedPointRoomIds: { value: Float32Array }
   unshadowedSpotRoomIds: { value: Float32Array }
   portals: { value: Texture }
-  portalEdges: { value: Texture }
   portalEdgeRanges: { value: Vector2[] }
   portalBounds: { value: Vector4 }
   portalHeights: { value: Float32Array }
   portalCount: { value: number }
   floorCount: { value: number }
   floorHeights: { value: Float32Array }
+  occlusion: { value: Vector4 }
+  occlusionRequired: { value: number }
+  pointOcclusionIds: { value: Float32Array }
+  spotOcclusionIds: { value: Float32Array }
 }
 const materialUniforms = new WeakMap<Material, RoomLightShaderUniforms>()
 export const getRoomLightUniforms = (material: Material) => materialUniforms.get(material)
@@ -48,10 +56,13 @@ varying vec3 hdRoomLightWorldPosition;
 varying vec3 hdRoomLightReceiverWorldOffset;
 uniform float hdPointLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
 uniform float hdSpotLightRoomIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
+uniform float hdPointOcclusionIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
+uniform float hdSpotOcclusionIds[${ROOM_LIGHT_SHADER_MAX_LIGHTS}];
+uniform int hdRoomLightVisibilityCount;
 #ifdef HD_GI_CAPTURE_VISIBILITY
 // Capture already uses the GI visibility atlas. The display room/portal mask
-// is disabled for every capture, so do not retain its four texture samplers.
-float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosition, vec3 receiver) { return 1.0; }
+// is disabled for every capture, so do not retain its texture samplers.
+float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosition, vec3 receiver, float occlusionIndex) { return 1.0; }
 #else
 uniform float hdRoomLightEnabled;
 uniform float hdRoomLightCapture;
@@ -63,15 +74,15 @@ uniform vec2 hdRoomLightFloorRange;
 uniform int hdRoomLightFloorCount;
 uniform float hdRoomLightFloorHeights[${MAX_ROOM_LIGHT_FLOORS}];
 uniform sampler2D hdLightPortals;
-uniform sampler2D hdLightPortalEdges;
 uniform vec2 hdLightPortalEdgeRanges[${MAX_LIGHT_PORTAL_PLANES}];
 uniform vec4 hdLightPortalBounds;
 uniform float hdLightPortalHeights[${MAX_LIGHT_PORTAL_PLANES}];
 uniform int hdLightPortalCount;
 vec4 hdLightPortalRecord(int index) {
-  int width = textureSize(hdLightPortalEdges, 0).x;
-  return texelFetch(hdLightPortalEdges, ivec2(index % width, index / width), 0);
+  int width = textureSize(hdRoomLightBoundaries, 0).x;
+  return texelFetch(hdRoomLightBoundaries, ivec2(index % width, index / width), 0);
 }
+${roomLightOcclusionGLSL}
 bool hdLightPortalContains(int layer, vec2 point, vec2 uv) {
   float cell = textureLod(hdLightPortals, vec2(uv.x, (uv.y + float(layer)) / hdLightPortalBounds.w), 0.0).r;
   if (cell < .25) return false;
@@ -93,6 +104,8 @@ bool hdLightPortalContains(int layer, vec2 point, vec2 uv) {
 }
 #ifdef HD_INDIRECT_VISIBILITY
 float hdGIDirectVisibility(vec3 p, vec3 viewNormal, float index);
+float hdGIPointIndex(int index);
+float hdGISpotIndex(int index);
 vec3 hdGIWallMountOffset(vec3 p, vec3 surfaceNormal);
 #endif
 
@@ -159,7 +172,7 @@ bool hdRoomLightClearPath(vec3 source, vec2 destination, float roomId) {
 vec3 hdRoomLightWorldSource(vec3 viewPosition) {
   return cameraPosition + vec3(dot(viewMatrix[0].xyz, viewPosition), dot(viewMatrix[1].xyz, viewPosition), dot(viewMatrix[2].xyz, viewPosition));
 }
-float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosition, vec3 receiver) {
+float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosition, vec3 receiver, float occlusionIndex) {
   if (hdRoomLightCapture > 0.5 || hdRoomLightEnabled < 0.5 || lightRoomId < 0.5) return 1.0;
   vec3 source = hdRoomLightWorldSource(lightPosition);
   bool crossesStorey = false;
@@ -179,8 +192,10 @@ float hdRoomLightFactor(float lightRoomId, float receiverRoomId, vec3 lightPosit
   // An opening does not remove the source storey's room partitions. Without
   // this check, a lamp in a sealed bedroom projects a bright portal-shaped
   // patch downstairs even though it cannot reach the stairwell entrance.
-  if (crossesStorey) return hdRoomLightFloorCount == 0 ||
-    hdRoomLightClearPath(source, entry, lightRoomId) ? 1.0 : 0.0;
+  if (crossesStorey) {
+    if (hdRoomLightFloorCount > 0 && !hdRoomLightClearPath(source, entry, lightRoomId)) return 0.0;
+    return hdRoomStoreyVisibility(occlusionIndex, source, receiver);
+  }
   return abs(receiverRoomId - lightRoomId) < 0.5 &&
     hdRoomLightClearPath(source, receiver.xz, lightRoomId) ? 1.0 : 0.0;
 }
@@ -192,8 +207,6 @@ const maskedLightsChunk = ShaderChunk.lights_fragment_begin
   // including the edge of a spot cone or a light's distance limit. Zero light
   // colour already rejects those fragments after the shadow comparison.
   .replaceAll('directLight.visible && receiveShadow', 'receiveShadow')
-  .replace('PointLight pointLight;', 'PointLight pointLight;\nfloat hdPointVisibility;')
-  .replace('SpotLight spotLight;', 'SpotLight spotLight;\nfloat hdSpotVisibility;')
   .replace(
     'vec3 geometryNormal = normal;',
     `vec3 geometryNormal = normal;
@@ -207,27 +220,69 @@ float hdRoomLightReceiver =
   hdRoomLightWorldPosition.y > hdRoomLightFloorRange.y)
     ? 0.0
     : hdRoomLightRoomAt(hdRoomLightClassificationPosition(hdRoomLightReceiverPoint, nonPerturbedNormal));
+#endif
+// Three unrolls its PBR light loops, including the injected room/portal test.
+// Evaluate visibility in a uniform-bounded loop first so the driver compiles
+// one copy of that geometry test instead of one copy for every light slot.
+#if NUM_POINT_LIGHTS > 0
+float hdPointVisibilities[NUM_POINT_LIGHTS];
+for (int hdIndex = 0; hdIndex < hdRoomLightVisibilityCount; hdIndex++) {
+  if (hdIndex >= NUM_POINT_LIGHTS) break;
+  /* HD_ZERO_LIGHT_BEGIN */
+  // Match Three's exact zero contribution test before tracing room geometry.
+  // Receiver derivatives are already evaluated outside this loop. Shadow
+  // receiver derivatives in the later PBR loop remain unconditional.
+  IncidentLight hdCandidate;
+  getPointLightInfo(pointLights[hdIndex], geometryPosition, hdCandidate);
+  hdPointVisibilities[hdIndex] = 1.0;
+  if (hdCandidate.visible) {
+  /* HD_ZERO_LIGHT_END */
+  float visibility = -1.0;
+  #ifdef HD_INDIRECT_VISIBILITY
+    visibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGIPointIndex(hdIndex));
+  #endif
+  hdPointVisibilities[hdIndex] = visibility >= 0.0 ? visibility :
+    hdRoomLightFactor(hdIndex < ${ROOM_LIGHT_SHADER_MAX_LIGHTS} ? hdPointLightRoomIds[hdIndex] : 0.0,
+      hdRoomLightReceiver, pointLights[hdIndex].position, hdRoomLightReceiverPoint,
+      hdIndex < ${ROOM_LIGHT_SHADER_MAX_LIGHTS} ? hdPointOcclusionIds[hdIndex] : -1.0);
+  /* HD_ZERO_LIGHT_BEGIN */
+  }
+  /* HD_ZERO_LIGHT_END */
+}
+#endif
+#if NUM_SPOT_LIGHTS > 0
+float hdSpotVisibilities[NUM_SPOT_LIGHTS];
+for (int hdIndex = 0; hdIndex < hdRoomLightVisibilityCount; hdIndex++) {
+  if (hdIndex >= NUM_SPOT_LIGHTS) break;
+  /* HD_ZERO_LIGHT_BEGIN */
+  IncidentLight hdCandidate;
+  getSpotLightInfo(spotLights[hdIndex], geometryPosition, hdCandidate);
+  hdSpotVisibilities[hdIndex] = 1.0;
+  if (hdCandidate.visible) {
+  /* HD_ZERO_LIGHT_END */
+  float visibility = -1.0;
+  #ifdef HD_INDIRECT_VISIBILITY
+    visibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGISpotIndex(hdIndex));
+  #endif
+  hdSpotVisibilities[hdIndex] = visibility >= 0.0 ? visibility :
+    hdRoomLightFactor(hdIndex < ${ROOM_LIGHT_SHADER_MAX_LIGHTS} ? hdSpotLightRoomIds[hdIndex] : 0.0,
+      hdRoomLightReceiver, spotLights[hdIndex].position, hdRoomLightReceiverPoint,
+      hdIndex < ${ROOM_LIGHT_SHADER_MAX_LIGHTS} ? hdSpotOcclusionIds[hdIndex] : -1.0);
+  /* HD_ZERO_LIGHT_BEGIN */
+  }
+  /* HD_ZERO_LIGHT_END */
+}
 #endif`,
   )
   .replace(
     'getPointLightInfo( pointLight, geometryPosition, directLight );',
     `getPointLightInfo( pointLight, geometryPosition, directLight );
-    #ifdef HD_INDIRECT_VISIBILITY
-      hdPointVisibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGIPointIndices[i]);
-      directLight.color *= hdPointVisibility >= 0.0 ? hdPointVisibility : hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver, pointLight.position, hdRoomLightReceiverPoint);
-    #else
-      directLight.color *= hdRoomLightFactor(hdPointLightRoomIds[i], hdRoomLightReceiver, pointLight.position, hdRoomLightReceiverPoint);
-    #endif`,
+    directLight.color *= hdPointVisibilities[i];`,
   )
   .replace(
     'getSpotLightInfo( spotLight, geometryPosition, directLight );',
     `getSpotLightInfo( spotLight, geometryPosition, directLight );
-    #ifdef HD_INDIRECT_VISIBILITY
-      hdSpotVisibility = hdGIDirectVisibility(hdRoomLightWorldPosition, nonPerturbedNormal, hdGISpotIndices[i]);
-      directLight.color *= hdSpotVisibility >= 0.0 ? hdSpotVisibility : hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver, spotLight.position, hdRoomLightReceiverPoint);
-    #else
-      directLight.color *= hdRoomLightFactor(hdSpotLightRoomIds[i], hdRoomLightReceiver, spotLight.position, hdRoomLightReceiverPoint);
-    #endif`,
+    directLight.color *= hdSpotVisibilities[i];`,
   )
 
 export function createRoomLightMaskTexture(mask: RoomLightMask) {
@@ -269,9 +324,12 @@ export function createRoomLightShaderUniforms(maskTexture: Texture, boundaries?:
     unshadowedPointRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
     unshadowedSpotRoomIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS) },
     portals: { value: maskTexture }, portalBounds: { value: new Vector4(0, 0, 1, 1) },
-    portalEdges: { value: maskTexture }, portalEdgeRanges: { value: Array.from({ length: MAX_LIGHT_PORTAL_PLANES }, () => new Vector2()) },
+    portalEdgeRanges: { value: Array.from({ length: MAX_LIGHT_PORTAL_PLANES }, () => new Vector2()) },
     portalHeights: { value: new Float32Array(MAX_LIGHT_PORTAL_PLANES) }, portalCount: { value: 0 },
     floorCount: { value: 0 }, floorHeights: { value: new Float32Array(MAX_ROOM_LIGHT_FLOORS) },
+    occlusion: { value: new Vector4() }, occlusionRequired: { value: 0 },
+    pointOcclusionIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS).fill(-1) },
+    spotOcclusionIds: { value: new Float32Array(ROOM_LIGHT_SHADER_MAX_LIGHTS).fill(-1) },
   }
 }
 
@@ -295,9 +353,12 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
       hdRoomLightMaskBounds: uniforms.maskBounds,
       hdPointLightRoomIds: uniforms.pointRoomIds,
       hdSpotLightRoomIds: uniforms.spotRoomIds,
+      hdRoomLightVisibilityCount: { value: Math.max(ROOM_LIGHT_SHADER_MAX_LIGHTS, INDIRECT_MAX_LOCAL_LIGHTS) },
       hdLightPortals: uniforms.portals, hdLightPortalBounds: uniforms.portalBounds,
-      hdLightPortalEdges: uniforms.portalEdges, hdLightPortalEdgeRanges: uniforms.portalEdgeRanges,
+      hdLightPortalEdgeRanges: uniforms.portalEdgeRanges,
       hdLightPortalHeights: uniforms.portalHeights, hdLightPortalCount: uniforms.portalCount,
+      hdRoomOcclusion: uniforms.occlusion, hdRoomOcclusionRequired: uniforms.occlusionRequired,
+      hdPointOcclusionIds: uniforms.pointOcclusionIds, hdSpotOcclusionIds: uniforms.spotOcclusionIds,
     })
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 hdRoomLightWorldPosition;\nvarying vec3 hdRoomLightReceiverWorldOffset;\n#ifndef HD_RECEIVER_ATTRIBUTE\n#define HD_RECEIVER_ATTRIBUTE\nattribute vec3 hdGIReceiverOffset;\n#endif')
@@ -317,17 +378,18 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n${roomLightShaderPars}`)
       .replace('#include <lights_fragment_begin>', maskedLightsChunk)
+    if (rendererShadowMode === 'cascaded') applySunCascadeShader(shader, renderer)
   }
-  const patchedProgramCacheKey = () => {
-    const key = originalProgramCacheKey.call(material)
+  const roomKeySuffix = `:house-designer-room-light-v24-${rendererShadowMode}-${rendererShadowSize}`
+  const transformKey = cacheShaderKeyTransform((key, suffix) => {
     // Fade clones inherit the already-patched hook. Reapplying the controller
     // must not create a second cache key for exactly the same shader.
-    const suffix = ':house-designer-room-light-v11'
     // Other lighting hooks can follow this marker in a composed shader key.
     // A fade clone inherits all of them, not just the last hook.
     return /:house-designer-room-light-v\d+/.test(key)
-      ? key.replace(/:house-designer-room-light-v\d+/g, suffix) : `${key}${suffix}`
-  }
+      ? key.replace(/:house-designer-room-light-v\d+(?:-(?:single|cascaded|off)(?:-\d+)?)?/g, suffix) : `${key}${suffix}`
+  })
+  const patchedProgramCacheKey = () => transformKey(originalProgramCacheKey.call(material), roomKeySuffix)
 
   material.onBeforeCompile = patchedOnBeforeCompile
   material.customProgramCacheKey = patchedProgramCacheKey

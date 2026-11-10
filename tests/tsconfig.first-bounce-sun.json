@@ -1,0 +1,5 @@
+{
+  "extends":"../tsconfig.app.json",
+  "compilerOptions":{"types":["vite/client","node"],"allowJs":true,"tsBuildInfoFile":"../node_modules/.tmp/first-bounce-sun.tsbuildinfo"},
+  "include":["firstBounceSun.ts","firstBounceSun.test.ts","firstBounceMapping.test.ts","firstBounceTextures.test.ts","localFinalGather.ts","../src/vite-env.d.ts"]
+}

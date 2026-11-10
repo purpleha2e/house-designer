@@ -1,7 +1,8 @@
 import { Box3, Vector3 } from 'three'
 import type { IndirectVisibility } from './indirectVisibility.ts'
+import type {IndirectContactSeed} from './indirectContactProbes.ts'
 
-export type IndirectProbeObstacle = { min: number[]; max: number[]; geometry?: boolean }
+export type IndirectProbeObstacle = { min: number[]; max: number[]; geometry?: boolean; contact?:boolean;seeds?:IndirectContactSeed[] }
 const axes = [new Vector3(1, 0, 0), new Vector3(-1, 0, 0), new Vector3(0, 1, 0),
   new Vector3(0, -1, 0), new Vector3(0, 0, 1), new Vector3(0, 0, -1)]
 

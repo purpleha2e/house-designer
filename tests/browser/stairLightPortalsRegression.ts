@@ -15,6 +15,7 @@ const mask = createRoomLightMaskStack([{ id: 'ground', elevation: 0, rooms: [{ s
     { signature: 'sealed-room', polygon: [{ x: .8, y: -3 }, { x: 3, y: -3 }, { x: 3, y: 3 }, { x: .8, y: 3 }] },
   ] }], { minX: -3, minZ: -3, size: 6 }, 64)
 const room = createRoomLightShaderUniforms(createRoomLightMaskTexture(mask), createRoomLightBoundaryTexture(mask))
+let boundaryMask = mask
 room.enabled.value = 1; room.maskBounds.value.set(-3, -3, 6, 6); room.floorRange.value.set(-.08, 2.89)
 room.floorCount.value = 2; room.floorHeights.value.set(mask.floorHeights!)
 room.pointRoomIds.value[0] = mask.roomIdsBySignature.get('upper:room')!
@@ -24,9 +25,9 @@ const light = new PointLight('white', 100, 20, 2); light.position.set(0, 5, 0); 
 const opening = [{ x: -.7, y: -.7 }, { x: .7, y: -.7 }, { x: .7, y: .7 }, { x: -.7, y: .7 }]
 function render(open: boolean, height = 0) {
   mesh.position.y = height; camera.position.set(0, height + 4, 4); camera.lookAt(0, height, 0); camera.updateMatrixWorld()
-  const data = createLightPortalTexture([2.7, 2.914].map(y => ({ y, openings: open ? [opening] : [] })), mask.bounds, 128)
+  const data = createLightPortalTexture([2.7, 2.914].map(y => ({ y, openings: open ? [opening] : [] })), mask.bounds, 128, boundaryMask.boundaries)
   room.portals.value = data.texture; room.portalBounds.value.copy(data.bounds); room.portalHeights.value.set(data.heights); room.portalCount.value = data.count
-  room.portalEdges.value = data.edges; room.portalEdgeRanges.value = data.edgeRanges
+  room.boundaries.value = data.edges; room.portalEdgeRanges.value = data.edgeRanges
   renderer.setRenderTarget(target); renderer.render(scene, camera)
   const pixels = new Uint8Array(512 * 512 * 4); renderer.readRenderTargetPixels(target, 0, 0, 512, 512, pixels)
   const at = (x: number, z: number) => {
@@ -54,12 +55,14 @@ const pathMask = createRoomLightMaskStack([
 const originalMask = room.mask.value, pathTexture = createRoomLightMaskTexture(pathMask)
 const originalBoundaries = room.boundaries.value, pathBoundaries = createRoomLightBoundaryTexture(pathMask)
 room.mask.value = pathTexture; room.boundaries.value = pathBoundaries
+boundaryMask = pathMask
 room.pointRoomIds.value[0] = pathMask.roomIdsBySignature.get('upper:hall')!
 light.position.set(-1.1, 5, 0)
 const obstructed = { downstairs: render(true), ownStorey: render(false, 3.1) }
 light.position.x = 0
 Object.assign(window, { stairConcaveRoomResult: { ...obstructed, clear: render(true) } })
 room.mask.value = originalMask; room.boundaries.value = originalBoundaries; pathTexture.dispose(); pathBoundaries.dispose()
+boundaryMask = mask
 
 // Deliberately different per-storey radiance makes the old discontinuity
 // visible. Open space must blend; a solid slab must keep the volumes separate.
@@ -98,8 +101,8 @@ scene.remove(mesh)
 const wall = new Mesh(new PlaneGeometry(6, 6), material)
 wall.rotation.y = -Math.PI / 2; wall.position.set(.7, 3, 0); scene.add(wall)
 light.intensity = 20; light.position.set(0, 5, 0); room.pointRoomIds.value[0] = mask.roomIdsBySignature.get('upper:room')!
-const portals = createLightPortalTexture([2.7, 2.914].map(y => ({ y, openings: [opening] })), mask.bounds, 128)
-room.portalEdges.value=portals.edges; room.portalEdgeRanges.value=portals.edgeRanges; room.portals.value = portals.texture; room.portalBounds.value.copy(portals.bounds); room.portalHeights.value.set(portals.heights); room.portalCount.value = portals.count
+const portals = createLightPortalTexture([2.7, 2.914].map(y => ({ y, openings: [opening] })), mask.bounds, 128, mask.boundaries)
+room.boundaries.value=portals.edges; room.portalEdgeRanges.value=portals.edgeRanges; room.portals.value = portals.texture; room.portalBounds.value.copy(portals.bounds); room.portalHeights.value.set(portals.heights); room.portalCount.value = portals.count
 camera.position.set(-3, 2.8, 1); camera.lookAt(.7, 2.8, 0); camera.updateMatrixWorld()
 const heights = [2.5,2.6,2.65,2.69,2.71,2.8,2.85,2.9,2.913,2.93]
 function sampleWall(enabled: number) {

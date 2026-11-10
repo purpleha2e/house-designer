@@ -1,0 +1,5 @@
+{
+  "extends":"./tsconfig.gi-next.json",
+  "compilerOptions":{"tsBuildInfoFile":"../node_modules/.tmp/furniture-object.tsbuildinfo"},
+  "include":["furnitureObjectGI*.ts","browser/furnitureObjectGI*.ts","../src/vite-env.d.ts"]
+}

@@ -1,12 +1,36 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { clipWallFacesInWorker, disposeIdleWallClippingWorkers, isWallClippingPending, subscribeWallClipping } from '../src/wallEngine/wallRoofClipClient.ts'
+import { clipWallFacesInWorker, disposeIdleWallClippingWorkers, isWallClippingPending, subscribeWallClipping, prepareWallFacesForRoofsInWorker } from '../src/wallEngine/wallRoofClipClient.ts'
 import type { WallMeshFace } from '../src/wallEngine/wallMesh.ts'
 import { roofFacePlanes } from '../src/wallEngine/wallRoofClip.ts'
 
 const faces = [{ wallId: 'wall' }] as WallMeshFace[]
 const options = { floorElevation: 0, volumes: [{ planes: roofFacePlanes([[0, 1, 0], [1, 1, 0], [1, 1, 1]]),
   protectedFootprints: [], excludedWallIds: new Set<string>(), clipSides: true }] }
+
+test('clipping and finish preparation deliver both streamed results in one worker job', async () => {
+  const original = globalThis.Worker
+  let worker: { onmessage?: ((event: { data: unknown }) => void) | null; job?: unknown } | undefined
+  globalThis.Worker = class {
+    onmessage?: ((event: { data: unknown }) => void) | null
+    job?: unknown
+    constructor() { worker = this }
+    postMessage(job: unknown) { this.job = structuredClone(job) }
+    terminate() {}
+  } as unknown as typeof Worker
+  try {
+    const pending = prepareWallFacesForRoofsInWorker(faces, { floorId: 'floor', floorElevation: 0, roofs: [], walls: [], roomPolygons: [] },
+      { floorId: 'floor', walls: [], rooms: [], exteriorWallSidesByWallId: new Map(), roofSupports: [] }, new AbortController().signal,
+      { floorId: 'floor', elevation: 0, walls: [], surfaceAssignments: [] })
+    const renderFaces = [{ wallId: 'finished-wall' }], pickPayload = { picked: true }, renderPayload = { rendered: true }
+    worker!.onmessage!({ data: { stream: 'faces', faces } })
+    worker!.onmessage!({ data: { stream: 'renderFaces', faces: renderFaces } })
+    worker!.onmessage!({ data: { ok: true, streamedFaces: true, pickPayload, renderPayload } })
+    assert.deepEqual(await pending, { faces, pickPayload, rendering: { renderFaces, payload: renderPayload } })
+    assert.ok('render' in (worker!.job as object))
+    assert.equal(isWallClippingPending(), false)
+  } finally { disposeIdleWallClippingWorkers(); globalThis.Worker = original }
+})
 
 test('clipping jobs terminate on cancellation, ignore late replies, and report failures without blocking fallback', async () => {
   const original = globalThis.Worker

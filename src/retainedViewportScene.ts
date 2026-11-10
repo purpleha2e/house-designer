@@ -1,7 +1,7 @@
 import { DirectionalLight, Group, HemisphereLight, Light, Material, Mesh, Object3D, PointLight, Scene, SpotLight, type BufferGeometry, type Texture } from 'three'
-import { isSelectionDecoration } from './shaderWarmup.ts'
+import { getShaderWarmupSceneRevision, isSelectionDecoration } from './shaderWarmup.ts'
 import { cloneViewportObject } from './viewportObjectClone.ts'
-import { createViewportModelTransforms } from './viewportModelTransforms.ts'
+import { createViewportInstanceTransforms, createViewportModelTransforms } from './viewportModelTransforms.ts'
 import { runViewportTask } from './viewportScheduling.ts'
 import { createViewportSurfaceVisibility, includeViewportObject } from './viewportSurfaceVisibility.ts'
 
@@ -35,6 +35,8 @@ function* retainedViewportSteps(source: Scene) {
   const ownedMeshes: (() => void)[] = []
   const lightCopies: { source: Light; copy: Light }[] = []
   const transforms = createViewportModelTransforms(source)
+  const instances = createViewportInstanceTransforms(source)
+  const geometryBindings: { source: Mesh; copy: Mesh; feature: string }[] = []
   const visibility = createViewportSurfaceVisibility()
   const retain = (resource: Material | BufferGeometry | Texture) => {
     if (!resources.has(resource)) { resources.add(resource); releases.push(retainResource(resource)) }
@@ -63,7 +65,12 @@ function* retainedViewportSteps(source: Scene) {
   }
   try {
   const objects: Object3D[] = []
-  source.traverse(object => { if (includeViewportObject(object)) objects.push(object) })
+  source.traverse(object => {
+    // Invisible ceiling blockers still cast sunlight. A retained scene needs
+    // them too when a moved model forces its shared shadow map to refresh.
+    if (includeViewportObject(object) || (object.userData.houseDesignerSunShadowBlocker &&
+      object.parent && includeViewportObject(object.parent))) objects.push(object)
+  })
   for (const object of objects) {
     yield
     if (isSelectionDecoration(object)) continue
@@ -74,10 +81,14 @@ function* retainedViewportSteps(source: Scene) {
     proxy.matrix.copy(object.matrixWorld); proxy.matrixWorld.copy(object.matrixWorld)
     proxy.matrixAutoUpdate = false; proxy.matrixWorldAutoUpdate = false
     if (proxy instanceof Mesh) transforms.bind(object, proxy)
+    instances.bind(object, proxy)
     proxy.onBeforeRender = object.onBeforeRender; proxy.onAfterRender = object.onAfterRender
     if (proxy instanceof Mesh && object instanceof Mesh) {
       retain(object.geometry)
       proxy.material = Array.isArray(object.material) ? object.material.map(copyMaterial) : copyMaterial(object.material)
+      if (object.userData.houseDesignerRole === 'wall-engine-render') {
+        geometryBindings.push({ source: object, copy: proxy, feature: getShaderWarmupSceneRevision(object) })
+      }
     }
     if ((proxy instanceof DirectionalLight || proxy instanceof SpotLight) &&
       (object instanceof DirectionalLight || object instanceof SpotLight)) {
@@ -97,9 +108,22 @@ function* retainedViewportSteps(source: Scene) {
   }
   scene.updateMatrixWorld(true); scene.matrixWorldAutoUpdate = false
   completed = true
-  return { scene, syncTransforms: transforms.sync, syncVisibility: visibility.sync,
+  return { scene, syncTransforms() { const changed = transforms.sync(); return instances.sync() || changed }, syncVisibility: visibility.sync,
+    syncGeometry() {
+      let changed = false
+      for (const binding of geometryBindings) {
+        if (!binding.source.parent || binding.copy.geometry === binding.source.geometry) continue
+        // An opening changes vertices, not shader features. Keep the already
+        // compiled display material while unrelated room/GI jobs finish.
+        if (getShaderWarmupSceneRevision(binding.source) !== binding.feature) continue
+        retain(binding.source.geometry)
+        binding.copy.geometry = binding.source.geometry
+        binding.copy.userData.wallPreparedWalls = binding.source.userData.wallPreparedWalls
+        changed = true
+      }
+      return changed
+    },
     // Freeze geometry and program features, while keeping light uniforms live.
-    // The retained display must acknowledge a switch before GI/shaders finish.
     syncLighting() {
       let changed = false
       for (const { source, copy } of lightCopies) {

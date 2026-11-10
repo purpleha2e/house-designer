@@ -2,6 +2,7 @@
 
 For reusable 3D-only read-only house tours, see [House viewer](docs/house-viewer.md).
 For the local account and private storage foundation, see [Accounts and workspaces](docs/accounts-and-workspaces.md).
+For the opt-in opposing-view lighting experiment and measurements, see [Experimental fast GI](docs/fast-gi.md).
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

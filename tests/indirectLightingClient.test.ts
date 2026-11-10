@@ -7,7 +7,8 @@ import type { IndirectLampQuery } from '../src/indirectLampPreparation.ts'
 class FakeWorker {
   static all: FakeWorker[] = []
   onmessage?: (event: { data: unknown }) => void
-  onerror?: (event: { message: string }) => void
+  onerror?: (event: { message: string; filename?: string; lineno?: number; colno?: number }) => void
+  onmessageerror?: () => void
   messages: { kind?: string; id: number; data?: Float32Array; firstRow?: number; rowCount?: number; port?: MessagePort; ports?: MessagePort[] }[] = []
   terminated = false
   url: URL
@@ -39,6 +40,44 @@ const largeRequest = { floors: [], lights: query.lights, obstacles: [], geometry
   ranges: [{ start: 0, count: 90000 }], matrices: [[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]], structural: false,
 }] }
 
+test('coordinator failures report the worker location and stop pending work', async () => withWorkers(async () => {
+  const client = new IndirectLightingClient(), pending = client.prepare({ ...largeRequest, geometry: [] })
+  const rejected = assert.rejects(pending, /module import failed.*worker.js:12:4/)
+  const worker = FakeWorker.all[0]
+  worker.onerror?.({ message: 'module import failed', filename: 'https://example.test/assets/worker.js', lineno: 12, colno: 4 })
+  await rejected
+  assert.equal(worker.terminated, true)
+}))
+
+test('worker construction failures reject preparation through the same fallback path', async () => withWorkers(async () => {
+  Object.defineProperty(globalThis, 'Worker', { configurable: true, value: class {
+    constructor() { throw new Error('Worker blocked by browser policy') }
+  } })
+  const client = new IndirectLightingClient()
+  await assert.rejects(client.prepare({ ...largeRequest, geometry: [] }), /blocked by browser policy/)
+  client.dispose()
+}))
+
+test('late errors from a superseded coordinator cannot terminate its replacement', async () => withWorkers(async () => {
+  const client = new IndirectLightingClient(), old = client.prepare({ ...largeRequest, geometry: [] })
+  const rejected = assert.rejects(old, /superseded/), worker = FakeWorker.all[0]
+  const current = client.prepare({ ...largeRequest, geometry: [] }), latest = FakeWorker.all[1]
+  await rejected
+  worker.onerror?.({ message: 'obsolete failure' }); worker.onmessageerror?.()
+  assert.equal(latest.terminated, false)
+  latest.respond({ id: latest.messages[0].id, ok: true, value: 'prepared' })
+  assert.equal(await current, 'prepared')
+  client.dispose()
+}))
+
+test('unreadable coordinator messages reject rather than leaving preparation pending', async () => withWorkers(async () => {
+  const client = new IndirectLightingClient(), pending = client.prepare({ ...largeRequest, geometry: [] })
+  const rejected = assert.rejects(pending, /could not be decoded/)
+  FakeWorker.all[0].onmessageerror?.()
+  await rejected
+  assert.equal(FakeWorker.all[0].terminated, true)
+}))
+
 test('preparation progress keeps the request pending and small scenes stay serial', async () => withWorkers(async () => {
   const client = new IndirectLightingClient(), stages: string[] = []
   const pending = client.prepare({ ...largeRequest, geometry: [] }, progress => stages.push(progress.stage))
@@ -49,6 +88,21 @@ test('preparation progress keeps the request pending and small scenes stay seria
   assert.equal(await pending, 'prepared')
   assert.deepEqual(stages, ['geometry'])
   client.dispose()
+}))
+
+test('a completed coordinator stays warm across geometry edits', async () => withWorkers(async () => {
+  const client = new IndirectLightingClient(), first = client.prepare({ ...largeRequest, geometry: [] })
+  const worker = FakeWorker.all[0]
+  worker.respond({ id: worker.messages[0].id, ok: true, value: 'first' })
+  assert.equal(await first, 'first')
+  const next = client.prepare({ ...largeRequest, geometry: [] })
+  assert.equal(FakeWorker.all.length, 1)
+  assert.equal(worker.terminated, false)
+  assert.equal(worker.messages[1].kind, 'prepare')
+  worker.respond({ id: worker.messages[1].id, ok: true, value: 'next' })
+  assert.equal(await next, 'next')
+  client.dispose()
+  assert.equal(worker.terminated, true)
 }))
 
 test('helper rows assemble correctly when replies arrive out of order, then all helpers stop', async () => withWorkers(async () => {

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getModelTransformValues, updateModelTransformField } from '../src/modelTransformFields.ts'
+import { getModelTransformBounds, getModelTransformValues, updateModelTransformField } from '../src/modelTransformFields.ts'
 import type { PlacedModel } from '../src/types.ts'
 import { getModelOpenings, normalizeFloor } from '../src/modelPlacement.ts'
 import type { ModelDefinition } from '../src/models/modelLibrary.ts'
@@ -9,6 +9,22 @@ const model: PlacedModel = { id: 'box', modelId: 'box', position: { x: 3, y: 4 }
   scale: 2, widthScale: 1.5, depthScale: 0.5 }
 const bounds = { minX: -1, maxX: 1, minZ: -2, maxZ: 2 }
 const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-10, `${a} != ${b}`)
+
+test('properties on another floor reuse the same normalized asset dimensions as the plan', () => {
+  const asset = { minX: 1, maxX: 5, minZ: .02, maxZ: .1, width: 4, depth: .1, height: 2 }
+  const definition = { sourceUrl: '/window.glb', width: 1.8, depth: .08, wallMount: 'window', normalizeToDimensions: true }
+  const bounds = getModelTransformBounds(definition, asset)
+  close(bounds.maxX - bounds.minX, 1.8)
+  close(bounds.maxZ - bounds.minZ, .08)
+  const selected = { ...model, scale: .8, widthScale: 1, depthScale: 1.25 }
+  const values = getModelTransformValues(selected, bounds, 2)
+  close(values.width, 1.44); close(values.height, 1.6); close(values.length, .1)
+  const changed = { ...selected, ...updateModelTransformField(selected, bounds, 'width', 1.6, 2) }
+  close(getModelTransformValues(changed, bounds, 2).width, 1.6)
+  close(getModelTransformValues(changed, bounds, 2).height, 1.6)
+  assert.deepEqual(getModelTransformBounds({ width: 2, depth: 1 }), { minX: -1, maxX: 1, minZ: -.5, maxZ: .5 })
+  assert.deepEqual(getModelTransformBounds({ width: 2, depth: 1, roofMount: 'dormer' }), { minX: -1, maxX: 1, minZ: -1, maxZ: 0 })
+})
 
 test('typing width changes only X and preserves the centre', () => {
   const next = { ...model, ...updateModelTransformField(model, bounds, 'width', 7) }

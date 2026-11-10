@@ -1,21 +1,27 @@
 import { Camera, DataUtils, HalfFloatType, Mesh, OrthographicCamera, PlaneGeometry, RGBAFormat,
   Scene, ShaderMaterial, SphericalHarmonics3, WebGLRenderTarget, type Texture, type WebGLRenderer } from 'three'
+import { indirectSHCoefficientCount, indirectSHIntegrationGLSL, type IndirectSHOrder } from './indirectSH.ts'
 
-/** Integrate first-order RGB SH on the GPU; read four pixels instead of six images. */
-export function createIndirectProbeIntegrator(size: number, layout: 'cube' | 'array' = 'cube', faceLayers: readonly number[] = [0, 1, 2, 3, 4, 5]) {
+/** Integrate the selected RGB SH bands on the GPU; read coefficient pixels instead of six images. */
+export function createIndirectProbeIntegrator(size: number, layout: 'cube' | 'array' = 'cube', faceLayers: readonly number[] = [0, 1, 2, 3, 4, 5], separateSky=false, shOrder: IndirectSHOrder = 1) {
+  const coefficientCount = indirectSHCoefficientCount(shOrder)
   const scene = new Scene(), camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
   const geometry = new PlaneGeometry(2, 2)
   const material = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { radiance: { value: null } },
+    uniforms: { radiance: { value: null }, hdGISampleSize: { value: size } },
     vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: /* glsl */ `
       uniform ${layout === 'cube' ? 'samplerCube' : 'highp sampler2DArray'} radiance;
+      uniform int hdGISampleSize;
       ${layout === 'array' ? `const int hdGIFaceLayers[6] = int[6](${faceLayers.join(',')});` : ''}
+      ${indirectSHIntegrationGLSL(shOrder)}
       void main() {
-        int coefficient = int(gl_FragCoord.x);
+        int coefficient = int(gl_FragCoord.x) % ${coefficientCount};
+        bool skyOnly=gl_FragCoord.x>${coefficientCount}.0;
         vec3 sum = vec3(0.0); float totalWeight = 0.0;
         for (int face = 0; face < 6; face++) {
-          for (int y = 0; y < ${size}; y++) for (int x = 0; x < ${size}; x++) {
+          // Runtime bounds avoid expanding 1536 samples into one huge program.
+          for (int y = 0; y < hdGISampleSize; y++) for (int x = 0; x < hdGISampleSize; x++) {
             float col = -1.0 + (float(x) + .5) * ${2 / size};
             float row = 1.0 - (float(y) + .5) * ${2 / size};
             vec3 p;
@@ -28,9 +34,9 @@ export function createIndirectProbeIntegrator(size: number, layout: 'cube' | 'ar
             float lengthSquared = dot(p, p);
             float weight = 4.0 / (sqrt(lengthSquared) * lengthSquared);
             vec3 direction = normalize(p);
-            float basis = coefficient == 0 ? .2820947918 : .4886025119 *
-              (coefficient == 1 ? direction.y : coefficient == 2 ? direction.z : direction.x);
-            sum += ${layout === 'cube' ? 'textureCube(radiance, direction)' : `texture(radiance, vec3((vec2(float(x), float(y)) + .5) / ${size}.0, float(hdGIFaceLayers[face])))`}.rgb * basis * weight;
+            float basis = hdSHRadianceBasis(coefficient,direction);
+            vec4 value=${layout === 'cube' ? 'textureCube(radiance, direction)' : `texture(radiance, vec3((vec2(float(x), float(y)) + .5) / ${size}.0, float(hdGIFaceLayers[face])))`};
+            sum += (skyOnly&&value.a>.5?vec3(0.0):value.rgb) * basis * weight;
             totalWeight += weight;
           }
         }
@@ -38,8 +44,20 @@ export function createIndirectProbeIntegrator(size: number, layout: 'cube' | 'ar
       }`,
   })
   scene.add(new Mesh(geometry, material))
-  const target = new WebGLRenderTarget(4, 1, { type: HalfFloatType, format: RGBAFormat, depthBuffer: false })
+  const width=coefficientCount*(separateSky?2:1)
+  const target = new WebGLRenderTarget(width, 1, { type: HalfFloatType, format: RGBAFormat, depthBuffer: false })
   return {
+    /** Queue coefficients directly into an atlas row, without a CPU readback. */
+    render(renderer: WebGLRenderer, cube: { texture: Texture }, destination: WebGLRenderTarget, row: number) {
+      const previous = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
+      const autoClear = renderer.autoClear, stats = { ...renderer.info.render }
+      material.uniforms.radiance.value = cube.texture
+      try {
+        renderer.autoClear = false
+        destination.viewport.set(0, row, coefficientCount, 1); destination.scissor.set(0, row, coefficientCount, 1); destination.scissorTest = true
+        renderer.setRenderTarget(destination); renderer.render(scene, camera)
+      } finally { renderer.setRenderTarget(previous, face, mip); renderer.autoClear = autoClear; Object.assign(renderer.info.render, stats) }
+    },
     compile(renderer: WebGLRenderer, cube: { texture: Texture }) {
       material.uniforms.radiance.value = cube.texture
       const previous = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
@@ -52,16 +70,18 @@ export function createIndirectProbeIntegrator(size: number, layout: 'cube' | 'ar
       // readPixels queues a copy into Three's own PBO before yielding. The cube
       // and integration target can then be reused in GPU command order, but
       // every outstanding read must own its CPU destination buffer.
-      const pixels = new Uint16Array(16)
+      const pixels = new Uint16Array(width*4)
       const previous = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
       const stats = { ...renderer.info.render }
       material.uniforms.radiance.value = cube.texture
       try { renderer.setRenderTarget(target); renderer.render(scene, camera) }
       finally { renderer.setRenderTarget(previous, face, mip); Object.assign(renderer.info.render, stats) }
-      await renderer.readRenderTargetPixelsAsync(target, 0, 0, 4, 1, pixels)
+      await renderer.readRenderTargetPixelsAsync(target, 0, 0, width, 1, pixels)
       const sh = new SphericalHarmonics3()
-      for (let i = 0; i < 4; i++) sh.coefficients[i].set(DataUtils.fromHalfFloat(pixels[i * 4]), DataUtils.fromHalfFloat(pixels[i * 4 + 1]), DataUtils.fromHalfFloat(pixels[i * 4 + 2]))
-      return sh
+      for (let i = 0; i < coefficientCount; i++) sh.coefficients[i].set(DataUtils.fromHalfFloat(pixels[i * 4]), DataUtils.fromHalfFloat(pixels[i * 4 + 1]), DataUtils.fromHalfFloat(pixels[i * 4 + 2]))
+      const sky=separateSky?new SphericalHarmonics3():undefined
+      if(sky)for(let i=0;i<coefficientCount;i++)sky.coefficients[i].set(DataUtils.fromHalfFloat(pixels[coefficientCount*4+i*4]),DataUtils.fromHalfFloat(pixels[coefficientCount*4+1+i*4]),DataUtils.fromHalfFloat(pixels[coefficientCount*4+2+i*4]))
+      return Object.assign(sh,{sky})
     },
     dispose() { geometry.dispose(); material.dispose(); target.dispose() },
   }

@@ -1,0 +1,17 @@
+{
+  "id": "local-material-f3364549-7e0d-4b67-a0ac-139780d98b6f",
+  "manufacturer": "My materials",
+  "folder": "Paint",
+  "productName": "Valspar Gentle Fawn",
+  "category": "wall-covering",
+  "collection": "Local library",
+  "pbr": {
+    "baseColor": "#a59387",
+    "roughness": 1,
+    "metalness": 0,
+    "normalStrength": 1,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1,
+    "imageBasedLighting": true
+  }
+}

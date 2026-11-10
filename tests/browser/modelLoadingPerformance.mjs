@@ -44,18 +44,30 @@ try {
   }
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
   await call('Runtime.enable'); await call('Page.enable')
+  await call('Page.addScriptToEvaluateOnNewDocument',{source:`
+    window.loadingUiProfile={tasks:[],gaps:[]};
+    new PerformanceObserver(list=>{for(const e of list.getEntries())loadingUiProfile.tasks.push({at:e.startTime,ms:e.duration})}).observe({type:'longtask',buffered:true});
+    let last=performance.now();setInterval(()=>{const now=performance.now();loadingUiProfile.gaps.push({at:now,ms:now-last});last=now},16);
+  `})
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
-  await call('Page.navigate', { url: `http://127.0.0.1:${port}/` })
+  await call('Page.navigate', { url: `http://127.0.0.1:${port}/${process.argv[3]??''}` })
   for (let i = 0; i < 120; i++) {
     await pause(500)
     if (await evaluate('!!window.houseDesignerEngineLog')) break
   }
-  await evaluate(`(async()=>{const {_roots}=await import('/node_modules/.vite/deps/@react-three_fiber.js');window.perfScene=()=>[..._roots.values()][0]?.store.getState()})()`)
-  const status = () => evaluate(`({gi:window.perfScene?.()?.scene.userData.indirectLighting,
+  if (!await evaluate('!!window.perfScene')) await evaluate(`(async()=>{const {getEditorState}=await import('/tests/browser/rendererTestModules.ts');window.perfScene=getEditorState})()`)
+  const observedLogs = new Map()
+  const status = async () => {
+    const value = await evaluate(`({gi:window.perfScene?.()?.scene.userData.indirectLighting,
     warming:!!window.perfScene?.()?.scene.userData.shaderWarmupPending,
     shadows:window.perfScene?.()?.gl.shadowMap.type,
     overlay:!!document.querySelector('.viewport-preparing-overlay'),
+    preparation:window.perfScene?.()?.scene.userData.viewportPreparation,
+    warmup:window.perfScene?.()?.scene.userData.shaderWarmupProfile,
     logs:window.houseDesignerEngineLog?.entries ?? []})`)
+    for (const entry of value.logs) observedLogs.set(entry.index,entry)
+    return value
+  }
   let initial
   for (let i = 0; i < 1200; i++) {
     await pause(500); initial = await status()
@@ -76,7 +88,7 @@ try {
     await pause(500); settled = await status()
     const elapsed = Date.now() - started
     if (elapsed - lastPrint > 10000) {
-      console.log('Springfield', elapsed, settled.gi?.state, settled.gi?.completed, settled.gi?.total, 'warming', settled.warming)
+      console.log('Springfield', elapsed, settled.gi?.state, settled.gi?.completed, settled.gi?.total, 'warming', settled.warming, settled.preparation)
       lastPrint = elapsed
     }
     // Require a new warmup: the outgoing scene can still report ready during Load.
@@ -84,6 +96,7 @@ try {
     if (!readyMs && prepared && !settled.warming && !settled.gi?.blocked && !settled.overlay) {
       readyMs = elapsed; console.log('Scene usable', readyMs, 'ms')
     }
+    if (settled.gi?.state === 'fallback') throw Error(JSON.stringify(settled.gi))
     if (readyMs && settled.gi?.rooms === 17 && settled.gi.state === 'ready' && !settled.gi.volumePending && !settled.warming) break
   }
   const totalMs = Date.now() - started
@@ -95,10 +108,20 @@ try {
   assert.ok(settled.gi.previewUpdates > 0, 'the full house publishes live previews')
   assert.equal(settled.warming, false, 'display resumes after reflection shaders')
   assert.equal(settled.shadows, 1)
-  assert.deepEqual(errors, [])
-  const result = { readyMs, totalMs, gi: settled.gi, logs: settled.logs }
-  writeFileSync('.tmp-model-loading-performance.json', JSON.stringify(result, null, 2))
-  writeFileSync('.tmp-model-loading-performance.png', Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
+  const readyAt=await evaluate('performance.now()')
+  const settleMs=Number(process.argv.find(arg=>arg.startsWith('--settle-ms='))?.split('=')[1]??0)
+  if(settleMs)await pause(settleMs)
+  const postGi=await evaluate(`({tasks:loadingUiProfile.tasks.filter(e=>e.at>=${readyAt}),maxGap:Math.max(0,...loadingUiProfile.gaps.filter(e=>e.at>=${readyAt}).map(e=>e.ms))})`)
+  // React reports errors caught by ModelLoadBoundary as exception events too.
+  // Keep known missing external assets visible in the report, while requiring
+  // the editor to recover and complete the real house/lighting transition.
+  const recoveredModels = [...observedLogs.values()].filter(entry=>entry.type==='model-load-failed')
+  const unexpectedErrors = errors.filter(error=>!recoveredModels.some(entry=>
+    entry.detail.includes(error.exception?.description?.split('\n')[0]?.replace(/^Error: /,''))))
+  assert.deepEqual(unexpectedErrors, [])
+  const result = { readyMs, totalMs, gi: settled.gi, postGi, warmup:settled.warmup, recoveredModels, logs: [...observedLogs.values()] }
+  writeFileSync('logs/model-loading-performance.json', JSON.stringify(result, null, 2))
+  writeFileSync('node_modules/.cache/model-loading-performance.png', Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
   console.log('PASS', JSON.stringify({ readyMs, totalMs, probes: settled.gi.probes, faces: settled.gi.capturedFaces,
-    captureMs: settled.gi.captureMs, firstPreviewMs: settled.gi.firstPreviewMs, previewUpdates: settled.gi.previewUpdates }))
+    captureMs: settled.gi.captureMs, firstPreviewMs: settled.gi.firstPreviewMs, previewUpdates: settled.gi.previewUpdates, postGi, recoveredModels }))
 } finally { ws?.close(); child.kill() }

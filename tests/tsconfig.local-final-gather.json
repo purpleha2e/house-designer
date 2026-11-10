@@ -1,0 +1,5 @@
+{
+  "extends":"../tsconfig.app.json",
+  "compilerOptions":{"types":["vite/client","node"],"allowJs":true,"tsBuildInfoFile":"../node_modules/.tmp/local-final-gather.tsbuildinfo"},
+  "include":["localFinalGather.ts","localFinalGather.test.ts","localFinalGatherInput.test.ts","../src/vite-env.d.ts"]
+}

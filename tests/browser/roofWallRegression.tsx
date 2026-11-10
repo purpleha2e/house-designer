@@ -1,8 +1,9 @@
 import React, { startTransition, StrictMode, useState } from 'react'
 import { createLocalLightControl } from '../../src/localLightControl'
+import { wallSurfaceMeshes } from './wallSurfaceInspection.js'
 import { createRoot } from 'react-dom/client'
 import { _roots } from '@react-three/fiber'
-import { DoubleSide, Mesh, Raycaster, Vector3 } from 'three'
+import { DoubleSide, Mesh, PerspectiveCamera, Raycaster, Vector3 } from 'three'
 import { ThreeDView } from '../../src/components/ThreeDView'
 import { ContextPanel } from '../../src/components/ContextPanel'
 import redHouse from '../../red_house_3.json'
@@ -13,7 +14,8 @@ import roofTests1 from '../../roof_tests_1.json'
 import roofTests2 from '../../roof_tests_2.json'
 import roofTests3 from '../../roof_tests_3.json'
 import springfield from '../../springfield_13.json'
-import springfield14 from '../../colin_house_v2.json'
+const springfield14 = new URLSearchParams(location.search).has('springfield-14')
+  ? await (await fetch('/springfield_14.json')).json() : undefined
 import colin from '../../colin_house_v2.json'
 import loftTest from '../../loft_test.json'
 import floorTest from '../../floor_test.json'
@@ -31,6 +33,10 @@ import type { PublishedHouse } from '../../src/viewer/viewerProject'
 
 const noop = () => {}
 const searchParams = new URLSearchParams(location.search)
+const kitchenCamera=new PerspectiveCamera();kitchenCamera.position.set(4.65,1.6,9.95);kitchenCamera.lookAt(2.1,1.25,4.95)
+const kitchenCameraState={position:{x:kitchenCamera.position.x,y:kitchenCamera.position.y,z:kitchenCamera.position.z},quaternion:{x:kitchenCamera.quaternion.x,y:kitchenCamera.quaternion.y,z:kitchenCamera.quaternion.z,w:kitchenCamera.quaternion.w}}
+const stairwellCamera=new PerspectiveCamera();stairwellCamera.position.set(4,4.25,15.8);stairwellCamera.lookAt(6.22,3.25,15.31785)
+const stairwellCameraState={position:{x:stairwellCamera.position.x,y:stairwellCamera.position.y,z:stairwellCamera.position.z},quaternion:{x:stairwellCamera.quaternion.x,y:stairwellCamera.quaternion.y,z:stairwellCamera.quaternion.z,w:stairwellCamera.quaternion.w}}
 const regressionSavedGI = (window as unknown as { regressionSavedGI?: PublishedHouse }).regressionSavedGI
 const isSpringfield = searchParams.has('springfield')
 const isRoofTests = searchParams.has('roof-tests')
@@ -39,7 +45,11 @@ const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRoofTests3 = searchParams.has('roof-tests-3')
 const isRedHouseDoor = searchParams.has('red-house-door')
 const isLoftTest = searchParams.has('loft-test')
-const savedProject = searchParams.has('new-test') ? await (await fetch('/new_test.json')).json() as typeof colin : searchParams.has('colin') ? colin : searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const savedProject = searchParams.has('bedroom-daylight') ? await (await fetch(searchParams.has('bedroom-live')?'/tmp/bedroom-live-project.json':'/tmp/bedroom-daylight-project.json')).json() as typeof colin : searchParams.has('gi-l2-house') ? await (await fetch('/tmp/gi-l2-house-project.json')).json() as typeof colin : searchParams.has('artefact-audit') ? await (await fetch('/tmp/render-artefacts/project.json')).json() as typeof colin : searchParams.has('gi-test') ? await (await fetch('/gi-test.json')).json() as typeof colin : searchParams.has('new-test') ? await (await fetch('/new_test.json')).json() as typeof colin : searchParams.has('colin') ? colin : searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+if(searchParams.has('bedroom-daylight')){
+  Object.assign(savedProject.sunPosition,{strength:1})
+  Object.assign(savedProject.indirectLighting.settings,{skyStrength:Number(searchParams.get('skyStrength')??1)})
+}
 // Match the editor's load path: model definitions determine doorway reveals
 // and therefore the solid boundaries used when closing roof junctions.
 if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefinitions)) {
@@ -47,10 +57,10 @@ if ('modelDefinitions' in savedProject && Array.isArray(savedProject.modelDefini
 }
 if (searchParams.has('materials')) {
   const catalog = await loadPortalCatalog()
-  registerRuntimeSurfaceMaterials(catalog.materials)
+  registerRuntimeSurfaceMaterials([...catalog.materials, ...('materialDefinitions' in savedProject && Array.isArray(savedProject.materialDefinitions) ? savedProject.materialDefinitions : [])])
   registerRuntimeModels(catalog.models)
 }
-if ('materialDefinitions' in savedProject && Array.isArray(savedProject.materialDefinitions)) {
+if (!searchParams.has('materials') && 'materialDefinitions' in savedProject && Array.isArray(savedProject.materialDefinitions)) {
   registerRuntimeSurfaceMaterials(savedProject.materialDefinitions)
 }
 if (searchParams.has('published-materials')) {
@@ -78,6 +88,9 @@ const lightingStartupFloors: FloorLevel[] = [{ id: 'lighting-startup', name: 'Li
   models: [{ id: 'startup-light', modelId: 'point-light', position: { x: 2, y: 2 }, elevation: 1.8,
     rotation: 0, scale: 1, lightPower: 1000 }],
 }]
+if (lightingStartup && searchParams.has('bed-gi')) {
+  lightingStartupFloors[0].models.push({ id: 'gi-bed', modelId: 'king-bed', position: { x: 4, y: 2 }, rotation: 0, scale: 1 })
+}
 if (lightingStartup && searchParams.has('live-gi')) {
   lightingStartupFloors[0].walls.push({ id: 'sealed-partition', start: { x: 4, y: 0 }, end: { x: 4, y: 4 },
     height: 2.4, thickness: .2, kind: 'internal', openings: [] })
@@ -101,12 +114,29 @@ const previewSource = sourceFloors[0].roofs?.[0]
 const floors = showPreview && previewSource
   ? sourceFloors.map((floor, index) => index === 0 ? { ...floor, roofs: [] } : floor)
   : sourceFloors
+// Isolated GI diagnostic fixture. The authored project file is never written.
+if(searchParams.has('furniture-occlusion-removed'))for(const floor of floors)
+  floor.models=floor.models.filter(model=>model.id!=='46781408-4e43-455d-971c-4d580142191c')
+const furnitureDisplacement=Number(searchParams.get('furniture-occlusion-displacement')??0)
+if(furnitureDisplacement)for(const floor of floors)floor.models=floor.models.map(model=>model.id==='46781408-4e43-455d-971c-4d580142191c'
+  ?{...model,position:{...model.position,x:model.position.x-furnitureDisplacement}}:model)
+// Door-confidence experiments change only the isolated in-memory fixture.
+const confidencePose=searchParams.get('door-confidence-pose')
+if(confidencePose==='moved'||confidencePose==='rotated')for(const floor of floors)
+  floor.models=floor.models.map(model=>model.id!=='a05cbb5f-52ea-4231-94ef-19667bc1c609'?model:{...model,
+    position:{...model.position,x:model.position.x-(confidencePose==='moved'?.4:0)},
+    rotation:model.rotation+(confidencePose==='rotated'?Math.PI/6:0),wallAttachment:undefined})
+const confidenceFreshCache=searchParams.has('door-confidence-fresh')
+  ?{...savedProject.indirectLighting,projectKey:'diagnostic-force-fresh-door-confidence'}:undefined
 function RegressionScene() {
+  const [skyPreferences,setSkyPreferences]=useState((window as unknown as {regressionSkyPreferences?: React.ComponentProps<typeof ThreeDView>['ambientLighting']}).regressionSkyPreferences)
+  if(searchParams.has('sky-preferences'))Object.assign(window,{regressionSkyPreferences:skyPreferences})
+  const [lightingMode,setLightingMode]=useState<'preview'|'automatic'>(searchParams.has('preview-lighting')?'preview':'automatic')
   const [lightControl] = useState(createLocalLightControl)
   const [activeFloorId, setActiveFloorId] = useState(searchParams.has('upper-selection') ? floors[1].id : groundOnly || lightingStartup ? floors[0].id : savedProject.activeFloorId)
   const [sunPosition, setSunPosition] = useState(savedProject.sunPosition)
   const [sceneFloors, setSceneFloors] = useState(floors as unknown as FloorLevel[])
-  const [selection, setSelection] = useState<string | null>(null)
+  const [selection, setSelection] = useState<string | null>(searchParams.has('bed-gi') ? 'gi-bed' : null)
   const [placementDefinition, setPlacementDefinition] = useState<ModelDefinition | null>(null)
   const [surfaceSelection, setSurfaceSelection] = useState<SelectableSurface | null>(null)
   const [assignments, setAssignments] = useState(reflectionHandover ? lightingStartupFloors[0].walls.map(wall => ({
@@ -115,6 +145,7 @@ function RegressionScene() {
   })) : savedProject.surfaceAssignments as SurfaceMaterialAssignment[])
   Object.assign(window, {
     updateRegressionFloors: setSceneFloors,
+    regressionSetLightingMode: setLightingMode,
     regressionTools: { Mesh, modelsById, syncWallOpenings, registerRuntimeSurfaceMaterials, surfaceMaterialsById },
     selectRegressionModel: setSelection,
     chooseRegressionOpening: (id: string | null) => setPlacementDefinition(id ? modelsById.get(id) ?? null : null),
@@ -127,13 +158,27 @@ function RegressionScene() {
     updateRegressionAssignments: setAssignments,
     regressionSunPosition: sunPosition,
     updateRegressionSunPosition: setSunPosition,
+    regressionMoveWindow: (delta: number) => setSceneFloors(current => {
+      const owner = current.find(floor => floor.models.some(model => /window/i.test(model.modelId) && model.wallAttachment))
+      const model = owner?.models.find(model => /window/i.test(model.modelId) && model.wallAttachment)
+      const wall = owner?.walls.find(wall => wall.id === model?.wallAttachment?.wallId)
+      if (!owner || !model?.wallAttachment || !wall) throw new Error('No attached window in fixture')
+      const length = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y)
+      return current.map(floor => floor !== owner ? floor : syncWallOpenings({ ...floor,
+        models: floor.models.map(candidate => candidate !== model ? candidate : { ...model,
+          position: { x: model.position.x + delta * (wall.end.x - wall.start.x) / length,
+            y: model.position.y + delta * (wall.end.y - wall.start.y) / length },
+          wallAttachment: { ...model.wallAttachment!, offset: model.wallAttachment!.offset + delta },
+        }),
+      }, modelsById))
+    }),
   })
   const selectedModel = sceneFloors.flatMap(floor => floor.models).find(model => model.id === selection)
   const selectedDefinition = selectedModel ? modelsById.get(selectedModel.modelId) : undefined
-  const commitModel = (id: string, updates: Partial<PlacedModel>) => setSceneFloors(current => current.map(floor => syncDormerWindows({
+  const commitModel = (id: string, updates: Partial<PlacedModel>) => setSceneFloors(current => current.map(floor => syncWallOpenings(syncDormerWindows({
     ...floor, models: floor.models.map(model => model.id === id
       ? model.dormerAttachment ? updateDormerWindow(floor, model, updates, modelsById) : { ...model, ...updates } : model),
-  }, modelsById)))
+  }, modelsById), modelsById)))
   const updateModel = (id: string, updates: Partial<PlacedModel>) => {
     if (typeof updates.lightEnabled === 'boolean') {
       lightControl.setEnabled(id, updates.lightEnabled)
@@ -164,6 +209,8 @@ function RegressionScene() {
     onRenameRoom={noop} onUpdateRoomCeilingMode={noop} onUpdateModel={updateModel} onUpdateWall={noop}
   /> : null}
   <ThreeDView
+  {...(searchParams.has('sky-preferences')?{ambientLighting:skyPreferences,onAmbientLightingChange:setSkyPreferences}:{})}
+  lightingUpdateMode={lightingMode}
   lightControl={lightControl}
   placementModel={placementDefinition} onPlaceModel={noop} onCancelModelPlacement={() => setPlacementDefinition(null)}
   roofPlacementPreview={showPreview && previewSource ? {
@@ -171,7 +218,7 @@ function RegressionScene() {
     roof: { ...previewSource, id: '__roof-placement-preview__' },
   } : null}
   activeFloorId={activeFloorId} floors={sceneFloors}
-  cameraRestoreRevision={1} cameraViewState={savedProject.threeDView.camera}
+  cameraRestoreRevision={1} cameraViewState={searchParams.has('stairwell-diagnostics')?stairwellCameraState:searchParams.has('kitchen-diagnostics')?kitchenCameraState:savedProject.threeDView.camera}
   isEngineConsoleOpen={false} lightDirection={sunPosition}
   modelAssetVersion={1} onCameraViewStateChange={noop} onClearSelection={() => { setSelection(null); setSurfaceSelection(null) }}
   onEngineConsoleOpenChange={noop} onLightDirectionChange={position => {
@@ -181,9 +228,12 @@ function RegressionScene() {
   }}
   onSelectFloor={noop} onSelectModel={(modelId, floorId) => { setActiveFloorId(floorId); setSelection(modelId) }} onSelectRoof={(roofId, floorId) => setSurfaceSelection({ type: 'roof', roofId, floorId })} onSelectSurface={surface => {
     setActiveFloorId(getSurfaceSelectionFloorId(surface, activeFloorId, sceneFloors))
-    setSurfaceSelection(surface)
+    const next = searchParams.has('toggle-selection') && JSON.stringify(surfaceSelection) === JSON.stringify(surface) ? null : surface
+    const metrics = window as unknown as { regressionSurfaceChanges?: (SelectableSurface | null)[] }
+    ;(metrics.regressionSurfaceChanges ??= []).push(next)
+    setSurfaceSelection(next)
   }}
-  savedIndirectLighting={searchParams.has('new-test') ? savedProject.indirectLighting : searchParams.has('saved-gi') ? regressionSavedGI?.project.indirectLighting : undefined}
+  savedIndirectLighting={confidenceFreshCache ?? (searchParams.has('new-test') || searchParams.has('saved-colin') ? savedProject.indirectLighting : searchParams.has('saved-gi') ? regressionSavedGI?.project.indirectLighting : undefined)}
   onUpdateModel={updateModel} selectedModelId={selection} selectedRoofId={null}
   selectedSurface={surfaceSelection} selectedWallId={null} sceneRevision={1} showAllFloors={!searchParams.has('edit-floor')}
   surfaceAssignments={assignments}
@@ -218,10 +268,7 @@ setTimeout(() => {
     }
     boundaries.push({ role: object.userData.houseDesignerRole, roofId: object.userData.roofId, minX, maxX })
   })
-  const infillMeshes: Mesh[] = []
-  state?.scene.traverse((object) => {
-    if (object instanceof Mesh && object.userData.houseDesignerRole === 'roof-infill') infillMeshes.push(object)
-  })
+  const infillMeshes: Mesh[] = state ? wallSurfaceMeshes(state.scene) : []
   const wallSolidShadows = (() => {
     const walls: Mesh[] = []
     state?.scene.traverse(object => {

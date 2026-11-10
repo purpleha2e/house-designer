@@ -1,0 +1,5 @@
+{
+  "extends": "../tsconfig.app.json",
+  "compilerOptions": {"types":["vite/client","node"],"noUnusedLocals": false,"noUnusedParameters": false,"tsBuildInfoFile": "../node_modules/.tmp/gi-next.tsbuildinfo"},
+  "include": ["giNext*.ts","browser/giNext*.ts","../src/vite-env.d.ts"]
+}

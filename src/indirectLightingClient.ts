@@ -1,10 +1,13 @@
 import type { IndirectWorkerRequest } from './indirectLighting.worker.ts'
-import type { PreparedIndirectCache } from './indirectLightingCache.ts'
+import type { IndirectInterpolationProfile,PreparedIndirectCache } from './indirectLightingCache.ts'
 import type { IndirectZoneChange, IndirectZonePlan, IndirectZoneProbe } from './indirectLightingZones.ts'
 import type { IndirectPreparationProgress } from './indirectPreparation.ts'
 import { IndirectLampPool } from './indirectLampPool.ts'
+import type { IndirectInterpolationGraph } from './indirectVolume.ts'
+import type {IndirectContactReceiverQuery} from './indirectContactReceivers.ts'
 
-/** Replacing the worker cancels obsolete geometry work, rather than queueing edits behind it. */
+/** Cancel obsolete active work, while retaining an idle worker's loaded modules
+ * and warm ray-tracing code for the next edit. */
 export class IndirectLightingClient {
   private worker: Worker | null = null
   private lampPool: IndirectLampPool | null = null
@@ -12,15 +15,18 @@ export class IndirectLightingClient {
   private nextId = 0
   private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void;
     progress?: (progress: IndirectPreparationProgress) => void }>()
-  private request<T>(request: Omit<Extract<IndirectWorkerRequest, { kind: 'prepare' }>, 'id'> |
+  private async request<T>(request: Omit<Extract<IndirectWorkerRequest, { kind: 'prepare' }>, 'id'> |
     Omit<Extract<IndirectWorkerRequest, { kind: 'volume' | 'preview' }>, 'id'> |
     Omit<Extract<IndirectWorkerRequest, { kind: 'plan' }>, 'id'> |
+    Omit<Extract<IndirectWorkerRequest, { kind: 'gpuPreview' }>, 'id'> |
+    Omit<Extract<IndirectWorkerRequest, { kind: 'contactReceivers' }>, 'id'> |
     Omit<Extract<IndirectWorkerRequest, { kind: 'lights' }>, 'id'> |
     Omit<Extract<IndirectWorkerRequest, { kind: 'floor' }>, 'id'>,
     progress?: (progress: IndirectPreparationProgress) => void): Promise<T> {
     if (!this.worker) {
-      this.worker = new Worker(new URL('./indirectLighting.worker.ts', import.meta.url), { type: 'module' })
-      this.worker.onmessage = event => {
+      const worker = this.worker = new Worker(new URL('./indirectLighting.worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = event => {
+        if (this.worker !== worker) return
         const { id, ok, value, error, progress, lampQuery } = event.data, pending = this.pending.get(id)
         if (!pending) return
         if (progress) {
@@ -48,7 +54,15 @@ export class IndirectLightingClient {
         if (this.lampPool) { this.lampPool.dispose(); this.lampPool = null }
         if (ok) pending?.resolve(value); else pending?.reject(new Error(error))
       }
-      this.worker.onerror = event => { this.dispose(new Error(event.message || 'GI worker failed')) }
+      worker.onerror = event => {
+        if (this.worker !== worker) return
+        const reason = event.message || event.error?.message || 'GI worker failed to load or stopped unexpectedly'
+        const location = event.filename ? ` (${event.filename}${event.lineno ? `:${event.lineno}:${event.colno || 0}` : ''})` : ''
+        this.dispose(new Error(`${reason}${location}`))
+      }
+      worker.onmessageerror = () => {
+        if (this.worker === worker) this.dispose(new Error('GI worker response could not be decoded'))
+      }
     }
     const id = ++this.nextId
     return new Promise<T>((resolve, reject) => {
@@ -58,7 +72,7 @@ export class IndirectLightingClient {
   }
   prepare(request: Omit<Extract<IndirectWorkerRequest, { kind: 'prepare' }>, 'id' | 'kind'>,
     onProgress?: (progress: IndirectPreparationProgress) => void) {
-    this.dispose()
+    if (this.pending.size) this.dispose()
     // Reserve cores for rendering and the coordinator.
     const cores = typeof navigator === 'undefined' ? 1 : navigator.hardwareConcurrency || 1
     const count = Math.min(3, Math.max(0, cores - 2))
@@ -69,7 +83,7 @@ export class IndirectLightingClient {
     return this.request<PreparedIndirectCache>({ ...request, kind: 'prepare', parallelLamps: !!this.lampWorkerCount }, onProgress)
   }
   volume(coefficients: Uint16Array[], positions: Float32Array) {
-    return this.request<{ volume: Uint16Array; floor: Uint16Array }>({ kind: 'volume', coefficients, positions })
+    return this.request<{ volume: Uint16Array; floor: Uint16Array;interpolationProfile?:IndirectInterpolationProfile }>({ kind: 'volume', coefficients, positions })
   }
   preview(coefficients: Uint16Array[], positions: Float32Array) {
     return this.request<{ volume: Uint16Array; floor: Uint16Array }>({ kind: 'preview', coefficients, positions })
@@ -77,6 +91,10 @@ export class IndirectLightingClient {
   plan(previous: IndirectZoneProbe[], changes: IndirectZoneChange[]) {
     return this.request<IndirectZonePlan>({ kind: 'plan', previous, changes })
   }
+  gpuPreview() {
+    return this.request<{ volume: IndirectInterpolationGraph; floor: IndirectInterpolationGraph }>({ kind: 'gpuPreview' })
+  }
+  contactReceivers(query:IndirectContactReceiverQuery){return this.request<Int16Array>({...query,kind:'contactReceivers'})}
   lights(positions: [number, number, number][], zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] }) {
     return this.request<{ distances: Float32Array; positions: Float32Array; zonePlan?: IndirectZonePlan }>({ kind: 'lights', positions, zones })
   }

@@ -1,0 +1,5 @@
+{
+  "extends":"../tsconfig.app.json",
+  "compilerOptions":{"types":["vite/client","node"],"allowJs":true,"noUnusedLocals":false,"noUnusedParameters":false,"tsBuildInfoFile":"../node_modules/.tmp/local-light.tsbuildinfo"},
+  "include":["localLight*.ts","browser/localLightSnapshot.ts","../src/vite-env.d.ts"]
+}

@@ -1,0 +1,6 @@
+{
+  "id": 14,
+  "value": "{\"field\":{\"state\":\"ready\",\"bakes\":1,\"ms\":11508.400000035763,\"rays\":2604000,\"cell\":0.35,\"dimensions\":[35,25,62],\"eaveLayers\":5,\"eaveDimensions\":[135,253],\"bytes\":1327104,\"enabled\":true,\"strength\":0.75},\"roofs\":{\"roof-top\":{\"count\":8,\"visible\":8,\"vertices\":1509},\"roof-shell\":{\"count\":8,\"visible\":8,\"vertices\":1656},\"roof-eaves\":{\"count\":8,\"visible\":8,\"vertices\":3885},\"roof-soffit\":{\"count\":8,\"visible\":8,\"vertices\":453},\"roof-underside\":{\"count\":8,\"visible\":8,\"vertices\":7677}}}",
+  "errors": [],
+  "assets": []
+}

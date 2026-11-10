@@ -26,6 +26,13 @@ export function configureAmbientOcclusionPass(pass: AmbientOcclusionPass | null)
   })
   const renderTransparency = pass.renderTransparency
   pass.renderTransparency = function(renderer) {
+    // EffectComposer's preceding RenderPass has updated this same scene for
+    // the current frame. N8AO only filters visibility for its two mask draws;
+    // walking every transform again for each draw repeats that work. Restore
+    // the root flag before the next frame so edits and animation still update.
+    const scene = this.scene
+    const matrixWorldAutoUpdate = scene?.matrixWorldAutoUpdate
+    if (scene) scene.matrixWorldAutoUpdate = false
     const { shadowMap } = renderer
     const { autoUpdate, needsUpdate } = shadowMap
     shadowMap.autoUpdate = false
@@ -33,6 +40,7 @@ export function configureAmbientOcclusionPass(pass: AmbientOcclusionPass | null)
     try {
       renderTransparency.call(this, renderer)
     } finally {
+      if (scene) scene.matrixWorldAutoUpdate = matrixWorldAutoUpdate!
       shadowMap.autoUpdate = autoUpdate
       shadowMap.needsUpdate = needsUpdate
     }

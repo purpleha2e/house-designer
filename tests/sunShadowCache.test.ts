@@ -26,6 +26,20 @@ function fixture() {
   return { scene, light, parent, caster, update }
 }
 
+test('disabled sun shadows retain their map and defer caster changes until enabled', () => {
+  const { light, caster, update } = fixture()
+  update()
+  const map = light.shadow.map
+  light.shadow.intensity = 0
+  caster.position.x += 1
+  assert.equal(update(), false)
+  assert.equal(update(), false)
+  assert.equal(light.shadow.map, map)
+  light.shadow.intensity = 1
+  assert.equal(update(), true, 'the changed caster must be rendered on re-enable')
+  assert.equal(update(), false)
+})
+
 test('temporarily detached materials invalidate once and recover when reattached', () => {
   const { caster, update } = fixture()
   const original = caster.material

@@ -1,15 +1,18 @@
+import type {IndirectSpatialInterpolation} from './indirectSpatialInterpolation.ts'
 import { Vector3 } from 'three'
 import { createIndirectProbeObstacles, type IndirectProbeObstacle } from './indirectProbeObstacles.ts'
 import { createIndirectField, INDIRECT_ATLAS_SIZE, INDIRECT_MASK_SIZE, INDIRECT_MAX_LOCAL_LIGHTS, serializeIndirectField,
   writeIndirectPosition, type IndirectFloor } from './indirectLighting.ts'
-import { createIndirectVisibilityFromSnapshot, writeIndirectVisibility, type IndirectGeometrySnapshot } from './indirectVisibility.ts'
-import { createIndirectVolumeLookup, writeIndirectCeilingRow, writeIndirectVolumeRow } from './indirectVolume.ts'
+import { createIndirectVisibilityFromSnapshot, writeIndirectVisibility, type IndirectGeometrySnapshot, type IndirectVisibilitySnapshot } from './indirectVisibility.ts'
+import { createIndirectVolumeLookup, writeIndirectCeilingRow, writeIndirectVolumeRow,type IndirectInterpolationReuseData } from './indirectVolume.ts'
 import { pointIsInsideRoomPolygon } from './roomLightMask.ts'
 import { createIndirectFloorLookup, writeIndirectFloorLayer, writeIndirectFloorRow } from './indirectFloorLighting.ts'
 import { planIndirectZones, type IndirectZoneChange, type IndirectZoneProbe } from './indirectLightingZones.ts'
-import { addIndirectFurnitureProbes } from './indirectFurnitureProbes.ts'
+import { addIndirectFloorCoverageProbes, addIndirectFurnitureProbes } from './indirectFurnitureProbes.ts'
+import {addIndirectContactProbes} from './indirectContactProbes.ts'
 import { createIndirectPreviewField } from './indirectLivePreview.ts'
 import { createIndirectPreparationTimer, type IndirectPreparationProgress } from './indirectPreparation.ts'
+import type { IndirectSHOrder } from './indirectSH.ts'
 
 export const INDIRECT_MIN_PROBE_SPACING = 0.6
 
@@ -63,12 +66,13 @@ export function pruneRedundantIndirectProbes(field: ReturnType<typeof createIndi
 export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [number, number, number][],
   geometry: IndirectGeometrySnapshot, obstacles: IndirectProbeObstacle[],
   zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[]; captureNewOnly?: boolean },
-  onProgress?: (progress: IndirectPreparationProgress) => void) {
+  onProgress?: (progress: IndirectPreparationProgress) => void, previousVisibility?: IndirectVisibilitySnapshot,
+  previousInterpolation?:{volume:IndirectInterpolationReuseData;floor:IndirectInterpolationReuseData;preview:IndirectInterpolationReuseData;previewFloor:IndirectInterpolationReuseData}, shOrder: IndirectSHOrder = 1,spatialInterpolation:IndirectSpatialInterpolation='legacy',contactLighting=false) {
   const timer = createIndirectPreparationTimer(onProgress)
   timer.start('layout')
-  const field = createIndirectField(floors, lights.length)
+  const field = createIndirectField(floors, lights.length, shOrder,spatialInterpolation,contactLighting)
   timer.start('geometry')
-  const visibility = createIndirectVisibilityFromSnapshot(geometry)
+  const visibility = createIndirectVisibilityFromSnapshot(geometry, previousVisibility)
   timer.start('structure')
   const structure = createIndirectVisibilityFromSnapshot(geometry.filter(part => part.structural))
   timer.start('probes')
@@ -88,7 +92,9 @@ export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [num
     writeIndirectPosition(field.positionData, probe.index, probe.position)
   }
   pruneRedundantIndirectProbes(field, visibility)
+  if(contactLighting)addIndirectContactProbes(field, boxes.filter((_,i)=>obstacles[i].contact), visibility,obstacles.flatMap(o=>o.seeds??[]))
   addIndirectFurnitureProbes(field, boxes, visibility)
+  addIndirectFloorCoverageProbes(field, boxes, visibility)
   timer.start('ceilings')
   for (let row = 0; row < field.floors.length * INDIRECT_MASK_SIZE; row++) writeIndirectCeilingRow(field, row, structure)
   structure.dispose()
@@ -101,13 +107,17 @@ export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [num
   })
   timer.start('tables')
   const triangles = visibility.triangleTexture()
-  const lookup = createIndirectVolumeLookup(field, visibility)
-  const floorLookup = createIndirectFloorLookup(field, visibility)
+  const reusable=(data:IndirectInterpolationReuseData|undefined)=>data&&zones?.changes.length?{previous:data,changes:zones.changes}:undefined
+  const lookup = createIndirectVolumeLookup(field, visibility,undefined,reusable(previousInterpolation?.volume))
+  const floorLookup = createIndirectFloorLookup(field, visibility,reusable(previousInterpolation?.floor))
   const preview = createIndirectPreviewField(field)
   preview.coefficients = field.coefficients.map(data => data.slice())
   preview.positionData = field.positionData.slice()
-  const previewLookup = createIndirectVolumeLookup(preview, visibility)
-  const previewFloorLookup = createIndirectFloorLookup(preview, visibility)
+  const previewLookup = createIndirectVolumeLookup(preview, visibility,undefined,reusable(previousInterpolation?.preview))
+  const previewFloorLookup = createIndirectFloorLookup(preview, visibility,reusable(previousInterpolation?.previewFloor))
+  // Release descriptors for old layouts rejected by the compatibility checks.
+  // eslint-disable-next-line no-useless-assignment -- The returned closures otherwise retain this generator parameter.
+  previousInterpolation=undefined
   timer.start('zones')
   const zonePlan = zones ? planIndirectZones(field, visibility, zones.previous, zones.changes) : undefined
   if (zones?.captureNewOnly && zonePlan && zones.previous.every(previous => field.probes.some(probe =>
@@ -118,17 +128,25 @@ export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [num
     zonePlan.first = field.probes.filter(probe => !previousIndices.has(probe.index)).map(probe => probe.index)
   }
   timer.start('ready')
+  const interpolationProfile={warmVolumeRows:0,warmFloorRows:0,warmVolumeCpuMs:0,warmFloorCpuMs:0,evaluations:[] as {copyMs:number;decodeMs:number;volumeMs:number;floorMs:number;outputCopyMs:number;visibilityTests:number}[]}
+  const interpolationStatistics=()=>({...interpolationProfile,volume:lookup.statistics(),floor:floorLookup.statistics(),preview:previewLookup.statistics(),previewFloor:previewFloorLookup.statistics(),dimensions:{volumeCells:field.volume.rows*field.volume.n,floorCells:field.floors.length*field.floorLayer.n**2,volumeN:field.volume.n,floorN:field.floorLayer.n,probes:field.probes.length}})
   return { field, visibility,
+    interpolationStatistics,
+    interpolationReuse(){return{volume:lookup.reuseData(),floor:floorLookup.reuseData(),preview:previewLookup.reuseData(),previewFloor:previewFloorLookup.reuseData()}},
     /** Populate geometry-only weights while the renderer captures bounce one.
      * Yield between rows so previews and edit requests can take priority. */
     *warmVisibility() {
-      const result = new Float64Array(12)
+      const result = new Float64Array(field.coefficientCount * 3)
       for (let row = 0; row < field.volume.rows; row++) {
+        const started=performance.now()
         writeIndirectVolumeRow(field, row, result, visibility, lookup, true)
+        interpolationProfile.warmVolumeCpuMs+=performance.now()-started;interpolationProfile.warmVolumeRows++
         yield
       }
       for (let row = 0; row < field.floors.length * field.floorLayer.n; row++) {
+        const started=performance.now()
         writeIndirectFloorRow(field, row, visibility, floorLookup, true)
+        interpolationProfile.warmFloorCpuMs+=performance.now()-started;interpolationProfile.warmFloorRows++
         yield
       }
     },
@@ -143,29 +161,41 @@ export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [num
       lights = positions.map(position => [...position])
       return { distances: field.distanceData.slice(), positions: field.positionData.slice() }
     },
-    snapshot() { return { field: serializeIndirectField(field), zonePlan, prepareTimings: { ...timer.timings }, triangles: { data: triangles.image.data as Float32Array,
+    snapshot() { return { field: serializeIndirectField(field), zonePlan, geometryRefitted: visibility.refitted, prepareTimings: { ...timer.timings }, triangles: { data: triangles.image.data as Float32Array,
       width: triangles.image.width, height: triangles.image.height } } },
     plan(previous: IndirectZoneProbe[], changes: IndirectZoneChange[]) {
       return planIndirectZones(field, visibility, previous, changes)
+    },
+    gpuPreview() {
+      const result = new Float64Array(field.coefficientCount * 3)
+      for (let row = 0; row < preview.volume.rows; row++) writeIndirectVolumeRow(preview, row, result, visibility, previewLookup, true)
+      for (let row = 0; row < preview.floors.length * preview.floorLayer.n; row++) writeIndirectFloorRow(preview, row, visibility, previewFloorLookup, true)
+      return { volume: previewLookup.graph(), floor: previewFloorLookup.graph() }
     },
     preview(coefficients: Uint16Array[], positions: Float32Array) {
       // Separate coefficient buffers preserve completed full-resolution bounce data.
       coefficients.forEach((data, colour) => preview.coefficients[colour].set(data))
       preview.positionData.set(positions)
       previewLookup.refreshCoefficients(); previewFloorLookup.refreshCoefficients()
-      const result = new Float64Array(12)
+      const result = new Float64Array(field.coefficientCount * 3)
       for (let row = 0; row < preview.volume.rows; row++) writeIndirectVolumeRow(preview, row, result, visibility, previewLookup)
       writeIndirectFloorLayer(preview, visibility, previewFloorLookup)
       return { volume: preview.volume.data.slice(), floor: preview.floorLayer.data.slice() }
     },
     volume(coefficients: Uint16Array[], positions: Float32Array) {
+      let at=performance.now();const beforeRays=lookup.statistics().visibilityTests+floorLookup.statistics().visibilityTests
       coefficients.forEach((values, index) => field.coefficients[index].set(values)); field.positionData.set(positions)
+      const copyMs=performance.now()-at;at=performance.now()
       lookup.refreshCoefficients()
       floorLookup.refreshCoefficients()
-      const result = new Float64Array(12)
+      const decodeMs=performance.now()-at;at=performance.now()
+      const result = new Float64Array(field.coefficientCount * 3)
       for (let row = 0; row < field.volume.rows; row++) writeIndirectVolumeRow(field, row, result, visibility, lookup)
+      const volumeMs=performance.now()-at;at=performance.now()
       writeIndirectFloorLayer(field, visibility, floorLookup)
-      return field.volume.data.slice()
+      const floorMs=performance.now()-at;at=performance.now();const data=field.volume.data.slice(),outputCopyMs=performance.now()-at
+      interpolationProfile.evaluations.push({copyMs,decodeMs,volumeMs,floorMs,outputCopyMs,visibilityTests:lookup.statistics().visibilityTests+floorLookup.statistics().visibilityTests-beforeRays});if(interpolationProfile.evaluations.length>8)interpolationProfile.evaluations.shift()
+      return data
     },
     dispose() { preview.dispose(); field.dispose(); visibility.dispose() },
   }
@@ -182,3 +212,4 @@ export function prepareIndirectCache(...args: Parameters<typeof prepareIndirectC
   return step.value
 }
 export type PreparedIndirectCache = ReturnType<ReturnType<typeof prepareIndirectCache>['snapshot']>
+export type IndirectInterpolationProfile=ReturnType<ReturnType<typeof prepareIndirectCache>['interpolationStatistics']>

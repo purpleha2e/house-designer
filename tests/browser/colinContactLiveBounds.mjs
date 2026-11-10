@@ -1,0 +1,11 @@
+// Read only the disposable Chrome profile owned by the Colin verification run.
+import {readdirSync,readFileSync,statSync,writeFileSync} from 'node:fs'
+const root='node_modules/.cache/browser-test-profiles',profiles=readdirSync(root).filter(p=>p.startsWith('lighting-audit-')).sort((a,b)=>statSync(`${root}/${b}`).birthtimeMs-statSync(`${root}/${a}`).birthtimeMs)
+for(const profile of profiles){
+ let port;try{port=readFileSync(`${root}/${profile}/DevToolsActivePort`,'utf8').split('\n')[0]}catch{continue}
+ let targets;try{targets=await(await fetch(`http://127.0.0.1:${port}/json/list`)).json()}catch{continue}
+ const target=targets.find(t=>t.type==='page'&&t.url.includes('roofWallRegression.html')&&t.url.includes('giContacts=local'));if(!target)continue
+ const ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise(r=>ws.addEventListener('open',r,{once:true}))
+ const result=await new Promise((resolve,reject)=>{ws.addEventListener('message',e=>{const m=JSON.parse(e.data);if(m.id===1)m.result?.exceptionDetails?reject(Error(JSON.stringify(m.result.exceptionDetails))):resolve(m.result.result.value)});ws.send(JSON.stringify({id:1,method:'Runtime.evaluate',params:{expression:`(async()=>{const {Box3}=await import('/node_modules/.vite/deps/three.js?v=7b650951'),{getIndirectReceiverSeeds}=await import((performance.getEntriesByType('resource').find(e=>e.name.includes('/src/indirectReceiverSafety.ts'))?.name??(await(await fetch('/src/components/ThreeDView.tsx')).text()).split('from "').find(s=>s.startsWith('/src/indirectReceiverSafety')).split('"')[0])),s=roofWallScene(),models=[];s.scene.traverse(o=>{if(o.name.startsWith('model-transform-')){const b=new Box3().setFromObject(o),seeds=[],safety=[];o.traverse(child=>{if(child.userData.indirectReceiverSafety)safety.push(child.userData.indirectReceiverSafety);for(const seed of getIndirectReceiverSeeds(child))seeds.push(seed)});models.push({name:o.name,contact:!!o.userData.indirectContactModel,min:b.min.toArray(),max:b.max.toArray(),seeds,safety})}});return models})()`,awaitPromise:true,returnByValue:true}}))})
+ ws.close();writeFileSync('docs/colin-contact-fix/baseline/models.json',JSON.stringify(result,null,2));console.log('Exported',result.length,'model bounds');break
+}

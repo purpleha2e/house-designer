@@ -35,22 +35,24 @@ export function clipWallFacesForRoofsInWorker(faces: WallMeshFace[], input: Wall
   if (!faces.length) return Promise.resolve(faces)
   return requestClipJob(createWallRoofClipInputJob(faces, input), signal)
 }
-export type PreparedWallSelection = { faces: WallMeshFace[]; pickPayload: WallBufferGeometryPayload }
+export type PreparedWallSelection = { faces: WallMeshFace[]; pickPayload: WallBufferGeometryPayload;
+  rendering?: ReturnType<typeof prepareWallRendering> }
 export function prepareWallFacesForRoofsInWorker(faces: WallMeshFace[], input: WallRoofClipInput,
-  selection: WallSelectionInput, signal: AbortSignal): Promise<PreparedWallSelection> {
+  selection: WallSelectionInput, signal: AbortSignal, render?: Omit<WallRenderJob, 'kind' | 'faces'>): Promise<PreparedWallSelection> {
   if (signal.aborted) return Promise.reject(signal.reason)
-  return requestClipJob<PreparedWallSelection>({ ...createWallRoofClipInputJob(faces, input), selection }, signal)
+  return requestClipJob<PreparedWallSelection>({ ...createWallRoofClipInputJob(faces, input), selection, render }, signal)
 }
 export function prepareWallRenderingInWorker(job: WallRenderJob, signal: AbortSignal) {
   if(signal.aborted)return Promise.reject(signal.reason)
   return requestClipJob<ReturnType<typeof prepareWallRendering>>(job,signal)
 }
-function requestClipJob<T = WallMeshFace[]>(job: WallRenderJob | WallRoofClipJob | WallRoofClipInputJob | (WallRoofClipInputJob & { selection: WallSelectionInput }), signal: AbortSignal): Promise<T> {
+function requestClipJob<T = WallMeshFace[]>(job: WallRenderJob | WallRoofClipJob | WallRoofClipInputJob | (WallRoofClipInputJob & { selection: WallSelectionInput; render?: Omit<WallRenderJob, 'kind' | 'faces'> }), signal: AbortSignal): Promise<T> {
   changePendingJobs(1)
   return new Promise((resolve, reject) => {
     let worker: Worker | undefined
     let settled = false
     const receivedFaces: WallMeshFace[] = []
+    const receivedRenderFaces: WallMeshFace[] = []
     const cleanup = (reuse = false) => {
       if (settled) return
       settled = true
@@ -70,12 +72,14 @@ function requestClipJob<T = WallMeshFace[]>(job: WallRenderJob | WallRoofClipJob
       worker.onmessage = ({ data }) => {
         if (signal.aborted || settled) return
         if (data.stream === 'faces') { receivedFaces.push(...data.faces); return }
+        if (data.stream === 'renderFaces') { receivedRenderFaces.push(...data.faces); return }
         if (data.streamedFaces) {
           if (data.result) data.result.renderFaces = receivedFaces
           else data.faces = receivedFaces
         }
         cleanup(data.ok)
-        if (data.ok) resolve('kind' in job ? data.result : 'selection' in job ? { faces: data.faces, pickPayload: data.pickPayload } as T : data.faces)
+        if (data.ok) resolve('kind' in job ? data.result : 'selection' in job ? { faces: data.faces, pickPayload: data.pickPayload,
+          rendering: data.renderPayload ? { renderFaces: receivedRenderFaces, payload: data.renderPayload } : undefined } as T : data.faces)
         else reject(new Error(data.error))
       }
       worker.onerror = event => fail(event.error ?? new Error(event.message))

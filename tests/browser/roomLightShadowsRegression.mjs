@@ -45,29 +45,39 @@ try {
   await call('Runtime.enable'); await call('Page.enable')
   await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/roofWallRegression.html?lighting-startup&live-gi` })
   await until('window.roofWallScene?.()?.scene.userData.indirectLighting?.state === "ready"', 'initial scene')
+  if(process.argv.includes('--original-visibility'))await evaluate(`(()=>{
+    const s=roofWallScene(),render=s.gl.render,seen=new WeakSet();s.gl.render=function(scene,camera){
+      scene.traverse(o=>{for(const m of o.material?(Array.isArray(o.material)?o.material:[o.material]):[]){if(seen.has(m))continue;seen.add(m);const hook=m.onBeforeCompile,key=m.customProgramCacheKey;m.onBeforeCompile=function(shader,renderer){hook.call(this,shader,renderer);shader.fragmentShader=shader.fragmentShader.replaceAll(/\\/\\* HD_ZERO_LIGHT_BEGIN \\*\\/[\\s\\S]*?\\/\\* HD_ZERO_LIGHT_END \\*\\//g,'')};m.customProgramCacheKey=()=>key.call(m)+':original-visibility-test';m.needsUpdate=true}});
+      return render.call(this,scene,camera)
+    }
+  })()`)
+  const doorwayGeneration=await evaluate('window.roofWallScene().scene.userData.indirectLighting.generation')
   await evaluate(`window.updateRegressionFloors(window.regressionFloors.map(f=>({...f,
     walls:f.walls.map(w=>w.id==='sealed-partition'?{...w,openings:[{id:'door',modelId:'door',center:2,width:1.5,bottom:0,height:2.1}]}:w)})))`)
-  await until('window.roofWallScene().scene.userData.indirectLighting?.state === "ready" && !window.roofWallScene().scene.userData.shaderWarmupPending', 'open doorway scene')
+  await until(`window.roofWallScene().scene.userData.indirectLighting?.generation>${doorwayGeneration}&&window.roofWallScene().scene.userData.indirectLighting?.state === "ready" && !window.roofWallScene().scene.userData.shaderWarmupPending`, 'open doorway scene')
   await evaluate(`document.querySelector('[aria-label="3D view menu"]').click()`)
   const set = async (label, value) => {
     await evaluate(`(()=>{const input=[...document.querySelectorAll('label')].find(l=>l.textContent.trim()===${JSON.stringify(label)})?.querySelector('input');if(!input)throw Error('Missing control '+${JSON.stringify(label)});if(input.checked!==${value})input.click()})()`)
     await pause(400)
+    await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(true))))')
   }
   await set('Daylight', false)
+  await until('!window.roofWallScene().scene.userData.shaderWarmupPending&&!window.roofWallScene().scene.userData.indirectScanPending','night shader features prepared')
   await set('Light shadows', false)
   await evaluate(`(async()=>{
-    const {OrthographicCamera,WebGLRenderTarget,Vector3,Raycaster,Mesh,BoxGeometry,MeshStandardMaterial}=await import('/node_modules/.vite/deps/three.js');
+    const {OrthographicCamera,WebGLRenderTarget,Vector3,Raycaster,Mesh,BoxGeometry,MeshStandardMaterial}=await import('/tests/browser/rendererTestModules.ts');
     const s=window.roofWallScene(),camera=new OrthographicCamera(-1.8,1.8,1.8,-1.8,.01,10);
     camera.position.set(6,2.3,2);camera.lookAt(6,0,2);camera.updateMatrixWorld();
     const target=new WebGLRenderTarget(512,512),blocker=new Mesh(new BoxGeometry(.35,1.2,.5),new MeshStandardMaterial());
     blocker.position.set(5.5,.6,2);blocker.castShadow=true;blocker.receiveShadow=true;blocker.visible=false;s.scene.add(blocker);
     window.roomShadowProbe={camera,target,blocker};
     window.sampleRoomShadows=()=>{
-      const {scene,gl}=s;scene.updateMatrixWorld(true);let mask;
+      const {scene,gl}=s;scene.updateMatrixWorld(true);let mask,pointRoomIds;
       scene.traverse(o=>{if(o.isLight){if(!o.isPointLight&&!o.isSpotLight)o.intensity=0;if(o.shadow)o.shadow.needsUpdate=true}
         if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material]){
           const u=gl.properties.get(m).uniforms;if(u?.hdGIIndoorFill)u.hdGIIndoorFill.value=0;if(u?.hdGIProbeStrength)u.hdGIProbeStrength.value=0;
           if(u?.hdRoomLightEnabled)mask=u.hdRoomLightEnabled.value;
+          if(u?.hdPointLightRoomIds)pointRoomIds=Array.from(u.hdPointLightRoomIds.value);
         }});
       gl.setRenderTarget(target);gl.render(scene,camera);
       const meshes=[];scene.traverse(o=>{if(o.isMesh&&o.visible)meshes.push(o)});
@@ -77,7 +87,7 @@ try {
         const p=hit.point.clone().project(camera),pixel=new Uint8Array(4);gl.readRenderTargetPixels(target,Math.floor((p.x+1)*256),Math.floor((p.y+1)*256),1,1,pixel);
         pixels.push({rgb:[...pixel.slice(0,3)],point:hit.point.toArray(),role:hit.object.userData.houseDesignerRole});
       }
-      gl.setRenderTarget(null);return{mask,pixels,shadows:scene.children.filter(o=>o.isPointLight&&o.power>0).map(o=>({cast:o.castShadow,map:!!o.shadow.map}))};
+      gl.setRenderTarget(null);return{mask,pointRoomIds,pixels,shadows:scene.children.filter(o=>o.isPointLight&&o.power>0).map(o=>({cast:o.castShadow,map:!!o.shadow.map}))};
     };
   })()`)
   const roomOnly = await evaluate('window.sampleRoomShadows()')
@@ -90,7 +100,7 @@ try {
   const unshadowed = await evaluate('window.sampleRoomShadows()')
   // A thin low caster exposes detached contact shadows that the broad box
   // cannot detect. Two lights illuminate its surrounding floor.
-  await evaluate(`(async()=>{const {PointLight}=await import('/node_modules/.vite/deps/three.js');const {LOCAL_LIGHT_SHADOW_BIAS,LOCAL_LIGHT_SHADOW_NORMAL_BIAS,LOCAL_LIGHT_SHADOW_RADIUS}=await import('/src/lightShadowResources.ts');const {blocker}=window.roomShadowProbe;
+  await evaluate(`(async()=>{const {PointLight}=await import('/tests/browser/rendererTestModules.ts');const {LOCAL_LIGHT_SHADOW_BIAS,LOCAL_LIGHT_SHADOW_NORMAL_BIAS,LOCAL_LIGHT_SHADOW_RADIUS}=await import('/src/lightShadowResources.ts');const {blocker}=window.roomShadowProbe;
     blocker.scale.set(.1,1/6,1.6);blocker.position.y=.112;blocker.castShadow=true;
     const light=new PointLight('white',.5,12,2);light.position.set(6.5,1.8,3.4);light.castShadow=true;
     light.shadow.mapSize.set(1024,1024);light.shadow.bias=LOCAL_LIGHT_SHADOW_BIAS;light.shadow.normalBias=LOCAL_LIGHT_SHADOW_NORMAL_BIAS;light.shadow.radius=LOCAL_LIGHT_SHADOW_RADIUS;
@@ -112,6 +122,7 @@ try {
   console.log('CLEAR_FLOOR',JSON.stringify({clearFloor,clearReference}))
   await evaluate('window.roofWallScene().scene.remove(window.roomShadowProbe.secondLight);window.roomShadowPoints=null')
   await set('Shadows', false)
+  await until('!window.roofWallScene().scene.children.some(o=>o.isPointLight&&o.power>0&&o.castShadow)','global shadows disabled')
   const globalOff = await evaluate('window.sampleRoomShadows()')
   await set('Shadows', true)
   await set('Light shadows', false)
@@ -125,7 +136,9 @@ try {
   clearFloor.pixels.forEach((pixel,i)=>assert.ok(brightness(pixel) >= brightness(clearReference.pixels[i]) * .9,
     'millimetre bias does not add false shadows to unobstructed floor'))
   assert.equal(roomOnly.mask, 1)
-  assert.equal(crossRoom.mask, 0, 'local shadows replace the room restriction')
+  assert.equal(crossRoom.mask, 1, 'the room controller stays enabled for lights without shadow slots')
+  assert.ok(roomOnly.pointRoomIds[0]>0, 'an unshadowed lamp uses its room restriction')
+  assert.equal(crossRoom.pointRoomIds[0], 0, 'the shadowed lamp bypasses its room restriction')
   assert.ok(brightness(crossRoom.pixels[0]) > brightness(roomOnly.pixels[0]) + 15, 'direct light crosses the open doorway')
   assert.ok(brightness(crossRoom.pixels[1]) < brightness(crossRoom.pixels[0]) * .25, 'solid partition still blocks direct light')
   assert.ok(brightness(unshadowed.pixels[2]) > brightness(shadowed.pixels[2]) + 15, 'object in neighbouring room casts a shadow')
@@ -133,13 +146,14 @@ try {
   assert.equal(restored.mask, 1, 'disabling local shadows restores the room mask')
   // Move the camera downstairs while the editing floor (and its lamps) stays
   // upstairs. The slab's camera-hidden visual cap still has to block them.
+  const stackedGeneration=await evaluate('window.roofWallScene().scene.userData.indirectLighting.generation')
   await evaluate(`(()=>{const f=window.regressionFloors[0];window.updateRegressionFloors([
     {...f,models:[]},{...f,id:'upper-shadow-test',name:'Upper',elevation:2.7,
       walls:f.walls.map(w=>({...w,id:'upper-'+w.id})),models:f.models.map(m=>({...m,id:'upper-lamp'}))}
   ]);window.updateRegressionActiveFloor('upper-shadow-test');})()`)
   await set('Light shadows',true)
   await pause(500)
-  await until(`window.regressionFloors.length===2&&window.roofWallScene().scene.userData.indirectLighting?.state==='ready'&&!window.roofWallScene().scene.userData.shaderWarmupPending`,'stacked floors')
+  await until(`window.regressionFloors.length===2&&window.roofWallScene().scene.userData.indirectLighting?.generation>${stackedGeneration}&&window.roofWallScene().scene.userData.indirectLighting?.state==='ready'&&!window.roofWallScene().scene.userData.shaderWarmupPending`,'stacked floors')
   await evaluate(`(()=>{const s=window.roofWallScene();s.camera.position.set(6,1.6,2);s.camera.lookAt(4,1.2,2);s.camera.updateMatrixWorld();s.invalidate();})()`)
   await pause(500)
   const below = await evaluate(`(()=>{const s=window.roofWallScene();const slabs=[],caps=[];s.scene.traverse(o=>{

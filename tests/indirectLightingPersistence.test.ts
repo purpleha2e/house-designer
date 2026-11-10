@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CubeUVReflectionMapping, DataUtils, Group, SphericalHarmonics3 } from 'three'
 import { createIndirectField, writeIndirectProbe } from '../src/indirectLighting.ts'
-import { INDIRECT_CACHE_VERSION, indirectAssetIdentity, indirectContentKey, indirectProjectKey, loadIndirectLighting, loadIndirectReflections, saveIndirectLighting,
-  savedIndirectLightingMatches, type IndirectLightingSettings } from '../src/indirectLightingPersistence.ts'
+import { INDIRECT_CACHE_VERSION, INDIRECT_CAPTURE_VISIBILITY_VERSION, indirectAssetIdentity, indirectContentKey, indirectProjectKey, loadIndirectLighting, loadIndirectReflections, saveIndirectLighting,
+  savedIndirectLightingMatches, legacyIndirectLightingMatches, type IndirectLightingSettings } from '../src/indirectLightingPersistence.ts'
 import { createIndirectVolumeLookup, writeIndirectVolumeRow } from '../src/indirectVolume.ts'
 import { createIndirectVisibility } from '../src/indirectVisibility.ts'
 import type { FloorLevel } from '../src/types.ts'
@@ -12,6 +12,71 @@ const floors = [{ id: 'ground', elevation: 0, height: 3, rooms: [{ signature: 'r
   polygon: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }] }] }]
 const settings: IndirectLightingSettings = { daylight: true, lights: true, shadows: true, lightShadows: false,
   hideRoofs: false, floorSlabs: true, ambientTerm: .32, softAmbientShading: true, softAmbientStrength: 1, nightFill: true, groundPlane: true }
+
+test('camera-dependent captures stay display-compatible but require a fresh direct baseline',async()=>{
+  const field=createIndirectField(floors),saved=await saveIndirectLighting(field,'project','assets','geometry',settings,[])
+  const previous={...saved,captureVisibilityVersion:undefined}
+  assert.equal(saved.captureVisibilityVersion,INDIRECT_CAPTURE_VISIBILITY_VERSION)
+  assert.equal(savedIndirectLightingMatches(previous,'project','assets',settings),false)
+  assert.equal(legacyIndirectLightingMatches(previous,'project','assets',settings),true)
+  const restored=await loadIndirectLighting(previous,{allowLegacy:true})
+  try{assert.deepEqual(restored.field.coefficients,field.coefficients);assert.deepEqual(restored.field.volume.data,field.volume.data)}finally{field.dispose();restored.field.dispose()}
+})
+
+test('bakes missing exterior roof sky require recapture while their display remains loadable',async()=>{
+  const field=createIndirectField(floors),saved=await saveIndirectLighting(field,'project','assets','geometry',settings,[])
+  const previous={...saved,captureVisibilityVersion:1}
+  try{
+    assert.equal(savedIndirectLightingMatches(saved,'project','assets',settings),true)
+    assert.equal(savedIndirectLightingMatches(previous,'project','assets',settings),false)
+    assert.equal(legacyIndirectLightingMatches(previous,'project','assets',settings),true)
+    await assert.rejects(loadIndirectLighting(previous),/Invalid saved GI/)
+    const display=await loadIndirectLighting(previous,{allowLegacy:true})
+    try{assert.deepEqual(display.field.coefficients,field.coefficients)}finally{display.field.dispose()}
+  }finally{field.dispose()}
+})
+
+test('L2 cache preserves every signed band and cannot be interpreted as L1', async () => {
+  const field = createIndirectField(floors, 0, 2), sh = new SphericalHarmonics3()
+  sh.coefficients.forEach((c, i) => c.set(.1 * i, -.03 * i, .2 - i * .02))
+  field.probes.forEach(p => writeIndirectProbe(field, p.index, sh))
+  field.volume.data.fill(DataUtils.toHalfFloat(.3))
+  field.floorLayer.data.fill(DataUtils.toHalfFloat(.7)); field.floorLayer.ready = true
+  const saved = await saveIndirectLighting(field, 'project', 'assets', 'geometry', settings, [], field.coefficients, field.coefficients)
+  const restored = await loadIndirectLighting(saved)
+  try {
+    assert.equal(saved.version, 10); assert.equal(restored.field.shOrder, 2)
+    assert.deepEqual(restored.field.coefficients, field.coefficients)
+    assert.deepEqual(restored.directCoefficients, field.coefficients)
+    assert.deepEqual(restored.skyCoefficients, field.coefficients)
+    assert.deepEqual(restored.field.volume.data, field.volume.data)
+    assert.deepEqual(restored.field.floorLayer.data, field.floorLayer.data)
+    assert.equal(savedIndirectLightingMatches(saved, 'project', 'assets', settings), false)
+    assert.equal(savedIndirectLightingMatches(saved, 'project', 'assets', {...settings, shOrder: 2}), true)
+    const previous = await loadIndirectLighting({ ...saved, version: 8 }, { allowLegacy: true })
+    assert.deepEqual(previous.field.coefficients, field.coefficients); previous.field.dispose()
+    assert.equal(savedIndirectLightingMatches({ ...saved, version: 8 }, 'project', 'assets', {...settings, shOrder: 2}), false)
+    await assert.rejects(loadIndirectLighting({...saved, version: 5}), /Invalid saved GI/)
+    await assert.rejects(loadIndirectLighting({...saved, layout: {...saved.layout, shOrder: 1}}), /Invalid saved GI/)
+  } finally { field.dispose(); restored.field.dispose() }
+})
+
+test('separated sky irradiance survives saving and old transport can be retained explicitly',async()=>{
+  const field=createIndirectField(floors),sky=field.coefficients.map(data=>data.slice());sky[0][4]=DataUtils.toHalfFloat(.37)
+  const saved=await saveIndirectLighting(field,'project','assets','geometry',settings,[],undefined,sky),loaded=await loadIndirectLighting(saved)
+  assert.deepEqual(loaded.skyCoefficients,sky)
+  await assert.rejects(loadIndirectLighting({...saved,skyCoefficients:[]}),/Invalid saved GI/)
+  await assert.rejects(loadIndirectLighting({...saved,version:4}),/Invalid saved GI/)
+  const old=await loadIndirectLighting({...saved,version:4},{allowLegacy:true});assert.deepEqual(old.field.volume.data,field.volume.data)
+  const previous=await loadIndirectLighting({...saved,version:5},{allowLegacy:true})
+  assert.deepEqual(previous.field.volume.data,field.volume.data);previous.field.dispose()
+  assert.equal(savedIndirectLightingMatches({...saved,version:5},'project','assets',settings),false)
+  assert.equal(savedIndirectLightingMatches({...saved,version:4},'project','assets',settings),false)
+  const batched = await loadIndirectLighting({...saved,version:7},{allowLegacy:true})
+  assert.deepEqual(batched.field.volume.data,field.volume.data);batched.field.dispose()
+  assert.equal(savedIndirectLightingMatches({...saved,version:7},'project','assets',settings),false)
+  field.dispose();loaded.field.dispose();old.field.dispose()
+})
 
 test('saved floor layers round-trip without changing the original probe or volume data', async () => {
   const field = createIndirectField(floors, 0)
@@ -82,7 +147,7 @@ test('saved GI rejects design, asset and lighting changes while remaining portab
   assert.equal(key, indirectProjectKey({ ...project, floors: project.floors.map(f => ({ ...f, name: 'Renamed' })) }))
   assert.notEqual(key, indirectProjectKey({ ...project, sunPosition: { azimuth: 2, elevation: .8 } }))
   assert.notEqual(key, indirectProjectKey({ ...project, floors: project.floors.map(f => ({ ...f, elevation: 1 })) }))
-  const cache = { version: INDIRECT_CACHE_VERSION, projectKey: key, assetKey: 'assets', settings } as Parameters<typeof savedIndirectLightingMatches>[0]
+  const cache = { version: INDIRECT_CACHE_VERSION, captureVisibilityVersion: INDIRECT_CAPTURE_VISIBILITY_VERSION, projectKey: key, assetKey: 'assets', settings } as Parameters<typeof savedIndirectLightingMatches>[0]
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', settings), true)
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, daylightBounceStrength: 1 }), true,
     'legacy daylight bakes use the default strength')
@@ -103,6 +168,21 @@ test('saved GI rejects design, asset and lighting changes while remaining portab
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, lights: false }), false)
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, lightShadows: true }), true,
     'display shadow maps do not invalidate independent captured lighting')
+  assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, nightAmbientTerm: settings.ambientTerm }), true,
+    'legacy enabled Night fill uses the saved ambient level')
+  assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, nightAmbientTerm: .03 }), false,
+    'a changed night level prepares the corresponding lighting')
+  const current = { ...settings, nightFill: undefined, nightAmbientTerm: .07 }
+  const currentCache = { ...cache!, settings: current }
+  assert.equal(savedIndirectLightingMatches(currentCache, key, 'assets', current), true,
+    'current saved models do not require the removed Night fill flag')
+  for (const nightFill of [false, true]) {
+    assert.equal(savedIndirectLightingMatches(currentCache, key, 'assets', { ...current, nightFill }), true,
+      'an explicit night ambient level is independent of a legacy toggle')
+  }
+  for (const nightAmbientTerm of [-1, .86, NaN, Infinity]) {
+    assert.equal(savedIndirectLightingMatches({ ...cache!, settings: { ...settings, nightAmbientTerm } }, key), false)
+  }
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, diffuseProbeResolution: 16 }), true, 'legacy bakes use 16 samples per axis')
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, diffuseProbeResolution: 4 }), false)
   const lowResolution = { ...cache!, settings: { ...settings, diffuseProbeResolution: 4 as const } }
@@ -139,4 +219,19 @@ test('volume previews and bounce updates reuse geometry visibility without chang
   const fullPassRays = rays
   assert.equal(update(false, .75), fullPassRays, 'second bounce performs no new visibility rays')
   field.dispose(); visibility.dispose()
+})
+
+
+test('sky intensity has an independent persistent cache identity with legacy default one', async () => {
+ const field=createIndirectField(floors)
+ try {
+  const original=await saveIndirectLighting(field,'sky-project','assets','geometry',{...settings,skyStrength:1},[])
+  assert.equal(savedIndirectLightingMatches(original,'sky-project','assets',settings),true)
+  for(const skyStrength of [0,.5,1.5,2,3]) {
+   assert.equal(savedIndirectLightingMatches(original,'sky-project','assets',{...settings,skyStrength}),false)
+   const saved=await saveIndirectLighting(field,'sky-project','assets','geometry',{...settings,skyStrength},[])
+   assert.equal(savedIndirectLightingMatches(saved,'sky-project','assets',{...settings,skyStrength}),true)
+   const loaded=await loadIndirectLighting(saved);assert.deepEqual(loaded.field.coefficients,field.coefficients);loaded.field.dispose()
+  }
+ } finally {field.dispose()}
 })

@@ -1,0 +1,11 @@
+import {readFileSync,writeFileSync} from 'node:fs'
+import {gunzipSync} from 'node:zlib'
+import {Vector3} from 'three'
+import {restoreIndirectVisibility} from '../src/indirectVisibility.ts'
+const dir=process.argv[2]??'docs/colin-contact-fix/iteration-10',models=JSON.parse(readFileSync(`${dir}/models.json`)),seeds=models.find(m=>m.name.endsWith('8911c06a')).seeds,layout=JSON.parse(readFileSync('docs/gi-spatial-accuracy/baseline/field-cache.json')).layout,regular=layout.probes.filter(p=>!p.kind),raw=gunzipSync(readFileSync('docs/colin-contact-fix/baseline/geometry.f32.gz')),visibility=restoreIndirectVisibility({positions:new Float32Array(raw.buffer,raw.byteOffset,raw.length/4),tree:null}),target=new Vector3(2.456140315883101,.5704070701967253,17.367366838191565),selected=JSON.parse(readFileSync('docs/colin-contact-fix/contact-layout-trace.json')).selected.filter(p=>!p.floor)
+const visible=p=>regular.some(probe=>{const q=new Vector3().fromArray(probe.position),d=p.clone().sub(q),distance=d.length();return distance<3.5&&!visibility.occluded(q,d.divideScalar(distance),distance-.0002,.0001)})
+try{
+ const chosen=[{name:'reported gap',...seeds.reduce((a,b)=>new Vector3().fromArray(a.receiver).distanceTo(target)<new Vector3().fromArray(b.receiver).distanceTo(target)?a:b)},...selected.map((p,i)=>({name:`selected ${i+1}`,...seeds.reduce((a,b)=>new Vector3().fromArray(a.position).distanceTo(new Vector3().fromArray(p.position))<new Vector3().fromArray(b.position).distanceTo(new Vector3().fromArray(p.position))?a:b)}))]
+ const rows=chosen.map(s=>{const p=new Vector3().fromArray(s.receiver),n=new Vector3().fromArray(s.normal).normalize(),range=layout.ranges.find(r=>p.y>=r.bottom&&p.y<r.top),step=layout.bounds.size/(Math.ceil(layout.bounds.size/.16)),bias=.02+(Math.abs(n.x)+Math.abs(n.z))*step+Math.abs(n.y)*(range.top-range.bottom)/11,displaced=p.clone().addScaledVector(n,bias);return{...s,bias,receiverVisible:visible(p.clone().addScaledVector(n,.001)),displacedVisible:visible(displaced),displaced:displaced.toArray()}})
+ writeFileSync(`${dir}/displacement-support.json`,JSON.stringify(rows,null,2));for(const r of rows)console.log(r.name,JSON.stringify({gap:r.gap,bias:r.bias,receiver:r.receiverVisible,displaced:r.displacedVisible}))
+}finally{visibility.dispose()}

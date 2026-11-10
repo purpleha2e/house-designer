@@ -163,8 +163,35 @@ try {
   assert.ok(Math.abs(angledFrame.depth - .04*1.5*60) < 1e-6, 'window depth scale is respected')
   assert.equal(angledFrame.radius, 0)
   writeFileSync('node_modules/.cache/window-plan.png', Buffer.from((await call('Page.captureScreenshot', {format:'png'})).data,'base64'))
+  const measurementPoint = await evaluate(`(() => {
+    const stage=handleStage(),bounds=stage.container().getBoundingClientRect();
+    const label=stage.findOne('.dimension-rulers').find('Text').find(n=>{const r=n.getClientRect();return r.y>150&&r.x>60&&r.x+r.width<stage.width()-60});
+    if(!label)throw Error('No visible measurement label');
+    const p=label.getAbsoluteTransform().point({x:label.width()/2,y:label.height()/2});
+    const local=stage.getAbsoluteTransform().copy().invert().point(p);
+    handleSetFloor(f=>({...f,models:[{id:'under-measurement',modelId:'handle-test-box',position:{x:local.x/60,y:local.y/60},rotation:0,scale:1}]}));
+    return{x:p.x+bounds.left,y:p.y+bounds.top};
+  })()`)
+  const pick = async (point, expected) => {
+    await pause(150)
+    await call('Input.dispatchMouseEvent',{type:'mouseMoved',...point})
+    await call('Input.dispatchMouseEvent',{type:'mousePressed',...point,button:'left',clickCount:1})
+    await call('Input.dispatchMouseEvent',{type:'mouseReleased',...point,button:'left',clickCount:1})
+    await pause(150)
+    assert.equal(await evaluate('handleSelection'),expected)
+  }
+  await pick(measurementPoint,'under-measurement')
+  await evaluate(`handleSetFloor(f=>({...f,models:[
+    {id:'overlap-point',modelId:'point-light',position:{x:5.8,y:4.5},rotation:0,scale:1},
+    {id:'overlap-spot',modelId:'spotlight',position:{x:6.6,y:4.5},rotation:0,scale:1},
+    {id:'covering-furniture',modelId:'handle-test-box',position:{x:6.2,y:4.5},rotation:0,scale:1}
+  ]}))`)
+  for(const [id,x] of [['overlap-point',5.8],['overlap-spot',6.6]]) {
+    const point=await evaluate(`(()=>{const s=handleStage(),r=s.container().getBoundingClientRect(),p=s.getAbsoluteTransform().point({x:${x}*60,y:4.5*60});return{x:p.x+r.left,y:p.y+r.top}})()`)
+    await pick(point,id)
+  }
   assert.deepEqual(errors, [])
-  console.log('PASS: door leaves/jambs/thresholds, selection and constant strokes; rectangular windows at model depth; angled openings preserve room-colour pixels; no white labels')
+  console.log('PASS: door/window plan symbols; room-colour pixels; measurements pass clicks through; point/spot lights win over furniture; no white labels')
 } finally {
   ws?.close()
   child.kill()

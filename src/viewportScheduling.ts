@@ -1,6 +1,7 @@
 /** Keep background render work out of active navigation, including the gap
  * between an input event and the frame that consumes it. */
 let navigationUntil = 0
+let interactionUntil = 0
 let preparations = 0
 const preparationListeners = new Set<() => void>()
 export const isViewportPreparationPending = () => preparations > 0
@@ -25,6 +26,22 @@ export function publishViewportUpdate(apply: () => void, cancelled: () => boolea
 }
 export function markViewportNavigation(now = performance.now()) { navigationUntil = now + 200 }
 export function isViewportNavigating(now = performance.now()) { return now < navigationUntil }
+export function markViewportInteraction(now = performance.now()) { interactionUntil = now + 200 }
+export function isViewportInteracting(now = performance.now()) {
+  return isViewportNavigating(now) || now < interactionUntil
+}
+
+/** Give menus, selection, text entry and 2D gestures the same priority as a
+ * 3D walk. Passive hover must not indefinitely starve background preparation. */
+export function installViewportInputPriority(target: EventTarget) {
+  const activity = (event: Event) => {
+    if (event.type === 'pointermove' && !(event as PointerEvent).buttons) return
+    markViewportInteraction()
+  }
+  const events = ['pointerdown', 'pointerup', 'pointermove', 'pointercancel', 'wheel', 'keydown', 'keyup', 'input']
+  for (const name of events) target.addEventListener(name, activity, { capture: true, passive: true })
+  return () => { for (const name of events) target.removeEventListener(name, activity, { capture: true }) }
+}
 
 /** Yield a task, allowing input and a display frame before the next CPU batch. */
 export function yieldToViewport() {
@@ -33,7 +50,7 @@ export function yieldToViewport() {
 
 export async function waitForViewportIdle(cancelled: () => boolean = () => false) {
   await yieldToViewport()
-  while (!cancelled() && isViewportNavigating()) await new Promise(resolve => setTimeout(resolve, 50))
+  while (!cancelled() && isViewportInteracting()) await new Promise(resolve => setTimeout(resolve, 50))
   return !cancelled()
 }
 

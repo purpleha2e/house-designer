@@ -1,3 +1,6 @@
+import { renderModelPlanPreview } from '../modelPlanPreview'
+import { traceModelPlanPreview } from '../modelPlanDrawingClient'
+import type { ModelPlanDrawing } from '../modelPlanDrawing'
 import { ToolbarIcon } from './ToolbarIcon'
 import { StairPlanSymbol } from './StairPlanSymbol'
 import { DoorPlanSymbol } from './DoorPlanSymbol'
@@ -24,7 +27,6 @@ import {
   Arrow,
   Circle,
   Group,
-  Image as KonvaImage,
   Layer,
   Line,
   Rect,
@@ -35,7 +37,7 @@ import {
 import Konva from 'konva'
 import { resizeHandles, resizeObjectFromHandle, type HandleBounds, type ResizeHandle } from '../objectHandles'
 import type { ModelTransformPreviewRef } from '../modelTransformPreview'
-import { getModelTransformValues, updateModelTransformField } from '../modelTransformFields'
+import { getModelTransformBounds, getModelTransformValues, updateModelTransformField } from '../modelTransformFields'
 import { ObjectTransformPanel } from './ObjectTransformPanel'
 import { GroundImageControls, GroundImageLayer } from './GroundImage'
 import { getWallDragDelta } from '../wallDragModifiers'
@@ -87,16 +89,12 @@ import {
   type WallTopology,
 } from '../wallTopology'
 import {
-  AmbientLight,
   Box3,
-  DirectionalLight,
-  OrthographicCamera,
-  Scene,
-  Vector3,
   WebGLRenderer,
 } from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
+import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { createFloorplanGltfLoader, createFloorplanKtx2Loader } from '../floorplanAssetLoading'
+import { clearModelAssetBounds, getModelAssetBounds, rememberModelAssetBounds, type ModelAssetBounds } from '../modelAssetBounds'
 
 const METERS_TO_PIXELS = 60
 const MIN_WALL_LENGTH_METERS = 0.15
@@ -403,25 +401,16 @@ type AngleWidget = {
   label: string
 }
 
-type ModelBounds = {
-  depth: number
-  height: number
-  maxX: number
-  maxZ: number
-  minX: number
-  minZ: number
-  width: number
-}
+type ModelBounds = ModelAssetBounds
 
-const modelPreviewCache = new Map<string, HTMLCanvasElement>()
-const modelPreviewPromiseCache = new Map<string, Promise<HTMLCanvasElement>>()
-const modelBoundsCache = new Map<string, ModelBounds>()
+const modelPreviewCache = new Map<string, ModelPlanDrawing>()
+const modelPreviewPromiseCache = new Map<string, Promise<ModelPlanDrawing>>()
 const modelBoundsPromiseCache = new Map<string, Promise<ModelBounds>>()
 const modelGltfPromiseCache = new Map<
   string,
   ReturnType<GLTFLoader['loadAsync']>
 >()
-const sharedModelKtx2Loader = new KTX2Loader()
+const sharedModelKtx2Loader = createFloorplanKtx2Loader()
 let sharedModelKtx2Renderer: WebGLRenderer | null = null
 
 function configureModelGltfLoader(loader: GLTFLoader) {
@@ -440,7 +429,7 @@ function configureModelGltfLoader(loader: GLTFLoader) {
 export function clearFloorplanModelAssetCaches() {
   modelPreviewCache.clear()
   modelPreviewPromiseCache.clear()
-  modelBoundsCache.clear()
+  clearModelAssetBounds()
   modelBoundsPromiseCache.clear()
   modelGltfPromiseCache.clear()
 }
@@ -452,7 +441,7 @@ function loadModelGltf(sourceUrl: string) {
     return cachedPromise
   }
 
-  const loader = new GLTFLoader()
+  const loader = createFloorplanGltfLoader()
   configureModelGltfLoader(loader)
   const promise = loader.loadAsync(sourceUrl)
   modelGltfPromiseCache.set(sourceUrl, promise)
@@ -461,6 +450,8 @@ function loadModelGltf(sourceUrl: string) {
 }
 
 function loadModelBounds(sourceUrl: string) {
+  const cachedBounds = getModelAssetBounds(sourceUrl)
+  if (cachedBounds) return Promise.resolve(cachedBounds)
   const cachedPromise = modelBoundsPromiseCache.get(sourceUrl)
 
   if (cachedPromise) {
@@ -468,18 +459,7 @@ function loadModelBounds(sourceUrl: string) {
   }
 
   const promise = loadModelGltf(sourceUrl).then((gltf) => {
-    const bounds = new Box3().setFromObject(gltf.scene)
-    const size = new Vector3()
-    bounds.getSize(size)
-    return {
-      depth: Math.max(size.z, 0.1),
-      height: Math.max(size.y, 0.1),
-      maxX: bounds.max.x,
-      maxZ: bounds.max.z,
-      minX: bounds.min.x,
-      minZ: bounds.min.z,
-      width: Math.max(size.x, 0.1),
-    }
+    return rememberModelAssetBounds(sourceUrl, new Box3().setFromObject(gltf.scene))
   })
 
   modelBoundsPromiseCache.set(sourceUrl, promise)
@@ -500,58 +480,9 @@ function loadModelPreview(sourceUrl: string) {
     return cachedPromise
   }
 
-  const promise = loadModelGltf(sourceUrl).then((gltf) => {
-    const canvas = document.createElement('canvas')
-    const size = 512
-    canvas.width = size
-    canvas.height = size
-
-    const scene = new Scene()
-    const model = gltf.scene.clone(true)
-    scene.add(model)
-
-    const bounds = new Box3().setFromObject(model)
-    const modelSize = new Vector3()
-    const center = new Vector3()
-    bounds.getSize(modelSize)
-    bounds.getCenter(center)
-
-    const cameraSize = Math.max(modelSize.x, modelSize.z, 0.1) * 0.65
-    const camera = new OrthographicCamera(
-      -cameraSize,
-      cameraSize,
-      cameraSize,
-      -cameraSize,
-      0.01,
-      Math.max(modelSize.y * 4, 20),
-    )
-    camera.position.set(
-      center.x,
-      center.y + Math.max(modelSize.y * 2, 10),
-      center.z,
-    )
-    camera.lookAt(center)
-
-    scene.add(new AmbientLight('#ffffff', 1.9))
-    const light = new DirectionalLight('#ffffff', 2.6)
-    light.position.set(center.x + 3, center.y + 6, center.z + 4)
-    scene.add(light)
-
-    const renderer = new WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      canvas,
-      preserveDrawingBuffer: true,
-    })
-    renderer.setClearColor(0x000000, 0)
-    renderer.setPixelRatio(1)
-    renderer.setSize(size, size, false)
-    renderer.render(scene, camera)
-    renderer.forceContextLoss()
-    renderer.dispose()
-
-    modelPreviewCache.set(sourceUrl, canvas)
-    return canvas
+  const promise = loadModelGltf(sourceUrl).then(gltf => renderModelPlanPreview(gltf.scene)).then(traceModelPlanPreview).then(drawing => {
+    modelPreviewCache.set(sourceUrl, drawing)
+    return drawing
   })
 
   modelPreviewPromiseCache.set(sourceUrl, promise)
@@ -565,6 +496,7 @@ function loadModelPreview(sourceUrl: string) {
 function GLBModelPreview({
   height,
   opacity,
+  selected,
   sourceUrl,
   stroke,
   strokeWidth,
@@ -574,6 +506,7 @@ function GLBModelPreview({
 }: {
   height: number
   opacity: number
+  selected: boolean
   sourceUrl: string
   stroke: string
   strokeWidth: number
@@ -581,7 +514,7 @@ function GLBModelPreview({
   x: number
   y: number
 }) {
-  const [previewImage, setPreviewImage] = useState<HTMLCanvasElement | null>(
+  const [previewImage, setPreviewImage] = useState<ModelPlanDrawing | null>(
     () => modelPreviewCache.get(sourceUrl) ?? null,
   )
 
@@ -612,22 +545,37 @@ function GLBModelPreview({
         y={y}
         width={width}
         height={height}
-        fill="#ffffff"
+        fill={previewImage ? undefined : '#ffffff'}
+        listening={!previewImage}
         opacity={0.78}
-        stroke={stroke}
+        stroke={!previewImage || selected ? stroke : undefined}
         strokeWidth={strokeWidth}
         strokeScaleEnabled={false}
       />
-      {previewImage ? (
-        <KonvaImage
-          image={previewImage}
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          opacity={opacity}
-        />
-      ) : null}
+      {previewImage ? <Group x={x} y={y} opacity={opacity} name="model-plan-drawing">
+        <Shape name="model-plan-silhouette" fill="white" stroke="#111827" strokeWidth={1} strokeScaleEnabled={false}
+          sceneFunc={(context, shape) => {
+            context.beginPath()
+            for (const path of previewImage.outlines) {
+              for (let i = 0; i < path.length; i += 2) {
+                if (i === 0) context.moveTo(path[i] * width, path[i + 1] * height)
+                else context.lineTo(path[i] * width, path[i + 1] * height)
+              }
+              context.closePath()
+            }
+            context.fillStrokeShape(shape)
+          }} />
+        <Shape name="model-plan-detail" stroke="#111827" strokeWidth={1} strokeScaleEnabled={false}
+          lineJoin="round" lineCap="round" listening={false}
+          sceneFunc={(context, shape) => {
+            context.beginPath()
+            for (const path of previewImage.lines) for (let i = 0; i < path.length; i += 2) {
+              if (i === 0) context.moveTo(path[i] * width, path[i + 1] * height)
+              else context.lineTo(path[i] * width, path[i + 1] * height)
+            }
+            context.strokeShape(shape)
+          }} />
+      </Group> : null}
     </>
   )
 }
@@ -3565,12 +3513,12 @@ export function FloorplanCanvas({
     ]
     const cachedBounds = Object.fromEntries(
       requiredDefinitions.flatMap((definition) => {
-        const bounds = modelBoundsCache.get(definition.id)
+        const bounds = getModelAssetBounds(getModelAssetUrl(definition.sourceUrl!, modelAssetVersion))
         return bounds ? [[definition.id, bounds] as const] : []
       }),
     ) as Record<string, ModelBounds>
     const missingDefinitions = requiredDefinitions.filter(
-      (definition) => !modelBoundsCache.has(definition.id),
+      (definition) => !getModelAssetBounds(getModelAssetUrl(definition.sourceUrl!, modelAssetVersion)),
     )
 
     setModelBoundsById(cachedBounds)
@@ -3580,7 +3528,6 @@ export function FloorplanCanvas({
         const bounds = await loadModelBounds(
           getModelAssetUrl(definition.sourceUrl!, modelAssetVersion),
         )
-        modelBoundsCache.set(definition.id, bounds)
         return [definition.id, bounds] as const
       }),
     ).then((results) => {
@@ -5109,7 +5056,11 @@ export function FloorplanCanvas({
     })
   }), [renderedWalls, wallPlanPolygonsById])
   const transformPanelModels: { model: PlacedModel; bounds: HandleBounds; baseHeight: number; window: boolean }[] = []
-  const modelFootprints = (activeFloor.models ?? []).flatMap((storedModel) => {
+  // Lights are small editing targets: keep them above furniture regardless of
+  // the order the objects were added to the house.
+  const modelFootprints = (activeFloor.models ?? []).toSorted((first, second) =>
+    Number(Boolean(modelsById.get(first.modelId)?.isLight)) - Number(Boolean(modelsById.get(second.modelId)?.isLight)),
+  ).flatMap((storedModel) => {
     const model = modelTransformPreview?.modelId === storedModel.id
       ? { ...storedModel, ...modelTransformPreview.updates }
       : storedModel
@@ -5131,38 +5082,8 @@ export function FloorplanCanvas({
     const modelScale = model.scale ?? 1
     const modelWidthScale = model.widthScale ?? 1
     const modelDepthScale = model.depthScale ?? 1
-    const nativeWidth = modelBounds?.width ?? modelDefinition.width
-    const nativeDepth = planWindow && modelBounds
-      ? Math.max(modelBounds.maxZ - modelBounds.minZ, 0.0001)
-      : modelBounds?.depth ?? modelDefinition.depth
-    const targetScaleX =
-      modelDefinition.sourceUrl && modelDefinition.normalizeToDimensions
-        ? modelDefinition.width / Math.max(nativeWidth, 0.0001)
-        : 1
-    const targetScaleZ =
-      modelDefinition.sourceUrl && modelDefinition.normalizeToDimensions
-        ? modelDefinition.depth / Math.max(nativeDepth, 0.0001)
-        : 1
-    const boundsMinX =
-      modelDefinition.sourceUrl && modelBounds
-        ? modelBounds.minX * targetScaleX
-        : -modelDefinition.width / 2
-    const boundsMaxX =
-      modelDefinition.sourceUrl && modelBounds
-        ? modelBounds.maxX * targetScaleX
-        : modelDefinition.width / 2
-    const boundsMinZ =
-      modelDefinition.sourceUrl && modelBounds
-        ? modelBounds.minZ * targetScaleZ
-        : modelDefinition.roofMount === 'dormer'
-          ? -modelDefinition.depth
-          : -modelDefinition.depth / 2
-    const boundsMaxZ =
-      modelDefinition.sourceUrl && modelBounds
-        ? modelBounds.maxZ * targetScaleZ
-        : modelDefinition.roofMount === 'dormer'
-          ? 0
-          : modelDefinition.depth / 2
+    const { minX: boundsMinX, maxX: boundsMaxX, minZ: boundsMinZ, maxZ: boundsMaxZ } =
+      getModelTransformBounds(modelDefinition, modelBounds)
     const baseWidth = Math.max(boundsMaxX - boundsMinX, 0.1)
     const baseDepth = Math.max(boundsMaxZ - boundsMinZ, planWindow ? 0.001 : 0.1)
     const width = baseWidth * modelScale * modelWidthScale * METERS_TO_PIXELS
@@ -5461,7 +5382,8 @@ export function FloorplanCanvas({
             scaleX={modelScale * modelWidthScale * METERS_TO_PIXELS} scaleY={modelScale * modelDepthScale * METERS_TO_PIXELS} selected={isSelectedModel} /> : modelDefinition.sourceUrl ? (
             <GLBModelPreview
               height={height}
-              opacity={0.92}
+              opacity={1}
+              selected={isSelectedModel}
               sourceUrl={getModelAssetUrl(
                 modelDefinition.sourceUrl,
                 modelAssetVersion,
@@ -6491,6 +6413,18 @@ export function FloorplanCanvas({
     [...roofPlacementSnapPoints, ...roofPlacementPoints].map(point => [getRoofPlacementPointKey(point), point]),
   ).values())
 
+  // A 3D selection can belong to another floor without moving the plan. Use
+  // metadata already published by that visible 3D model, never load its floor.
+  if (!transformPanelModels.length && selectedModelId) {
+    const model = floors.flatMap(floor => floor.models).find(model => model.id === selectedModelId)
+    const definition = model && modelsById.get(model.modelId)
+    const asset = definition?.sourceUrl ? getModelAssetBounds(getModelAssetUrl(definition.sourceUrl, modelAssetVersion)) : undefined
+    if (model && definition && (!definition.sourceUrl || asset) &&
+      ((!definition.wallMount && !definition.roofMount && !definition.isLight) || definition.wallMount === 'window')) {
+      transformPanelModels.push({ model, bounds: getModelTransformBounds(definition, asset),
+        baseHeight: definition.height, window: definition.wallMount === 'window' })
+    }
+  }
   const transformControls = transformPanelModels[0] ? (
         <ObjectTransformPanel key={transformPanelModels[0].model.id}
           values={getModelTransformValues(transformPanelModels[0].model, transformPanelModels[0].bounds, transformPanelModels[0].baseHeight)}
@@ -7242,7 +7176,7 @@ export function FloorplanCanvas({
               )
             })() : null}
 
-            {dimensionRulers}
+            <Group name="dimension-rulers" listening={false}>{dimensionRulers}</Group>
 
             {measurementWall ? (
               <Line

@@ -5,7 +5,7 @@ import { BoxGeometry, Color, DataUtils, DirectionalLight, Fog, Mesh, MeshPhysica
 import { createIndirectField } from '../src/indirectLighting.ts'
 import { applyIndirectLightingShader, createIndirectUniforms, updateIndirectUniforms } from '../src/indirectLightingShader.ts'
 import { createMaterialVariationShader, defaultMaterialVariation } from '../src/materials/proceduralVariation.ts'
-import { applyIndirectSurfaceCapture, applyIndirectSurfaceRadianceCapture, createIndirectSurfaceCache, indirectSurfaceCaptureKey, prepareIndirectSurfaceCaptureKey, indirectSurfaceCacheLayout,
+import { applyIndirectNightSurfaceCapture, applyIndirectSurfaceCapture, applyIndirectSurfaceRadianceCapture, createIndirectSurfaceCache, indirectSurfaceCaptureKey, prepareIndirectSurfaceCaptureKey, indirectSurfaceCacheLayout,
   supportsIndirectSurfaceCapture } from '../src/indirectSurfaceCache.ts'
 
 test('surface invalidation can yield across frames and cancel without publishing a partial key', async () => {
@@ -52,7 +52,26 @@ test('unlit capture retains finish composition and receiver bias without PBR or 
     assert.match(shader.fragmentShader, /texture2D\(aoMap, vAoMapUv\)/)
     assert.match(shader.fragmentShader, /hdVariationNoise\(hdVariationPosition/)
     assert.doesNotMatch(shader.fragmentShader, /lights_physical|lights_fragment|shadowmap|hdGIDirectVisibility|hdGIVolumeIrradiance|sampler3D/)
-    assert.ok(material.customProgramCacheKey().endsWith(':surface-data-v4'))
+    assert.ok(material.customProgramCacheKey().endsWith(':surface-data-v5'))
+    assert.match(shader.fragmentShader, /hdGIContactReceiver\(\)>.5\)bias=min\(bias,hdGIReceiverBiasLimit.x\)/)
+  } finally { restore(); material.dispose(); field.dispose() }
+})
+
+test('night capture retains emission and material data without compiling lamp or visibility shaders', () => {
+  const field = createIndirectField([], 0), material = new MeshStandardMaterial()
+  Object.assign(material, createMaterialVariationShader({ ...defaultMaterialVariation, enabled: true, broadStrength: .1 }))
+  const restore = applyIndirectLightingShader(material, createIndirectUniforms(field))
+  applyIndirectNightSurfaceCapture(material)
+  const shader = { uniforms: {}, vertexShader: ShaderLib.standard.vertexShader, fragmentShader: ShaderLib.standard.fragmentShader } as Parameters<typeof material.onBeforeCompile>[0]
+  try {
+    material.onBeforeCompile(shader, {} as WebGLRenderer)
+    for (const [location, output] of [[1, 'Receiver'], [2, 'Normal'], [3, 'Response'], [4, 'Material']])
+      assert.match(shader.fragmentShader, new RegExp(`layout\\(location = ${location}\\) out highp vec4 hdSurface${output};`))
+    assert.match(shader.fragmentShader, /emissivemap_fragment/)
+    assert.match(shader.fragmentShader, /gl_FragColor = vec4\(totalEmissiveRadiance, 1.0\)/)
+    assert.match(shader.fragmentShader, /geometryRoughness/)
+    assert.match(shader.fragmentShader, /hdVariationNoise\(hdVariationPosition/)
+    assert.doesNotMatch(shader.fragmentShader, /lights_physical|lights_fragment|shadowmap|hdGIDirectVisibility|hdGIVolumeIrradiance|sampler3D/)
   } finally { restore(); material.dispose(); field.dispose() }
 })
 
@@ -62,7 +81,11 @@ test('surface identity survives lighting changes but invalidates texture, normal
   scene.add(new Mesh(geometry, material), light); scene.updateMatrixWorld(true)
   const key = () => indirectSurfaceCaptureKey(scene, {} as WebGLRenderer)
   try {
-    const original = key()
+    const compile=material.onBeforeCompile
+    const diagnostic={value:0},ready={value:0}
+    material.onBeforeCompile=(shader,renderer)=>{compile(shader,renderer);Object.assign(shader.uniforms,{hdLightingDiagnostic:diagnostic,hdDiagnosticSkyReady:ready})}
+    const original = key();diagnostic.value=4;ready.value=1
+    assert.equal(key(),original,'diagnostic view uniforms are never capture dependencies')
     light.position.x = 10; light.intensity = 4; scene.updateMatrixWorld(true)
     material.envMap = new Texture()
     assert.equal(key(), original, 'sun and reflections do not change material data')
@@ -128,7 +151,7 @@ test('relighting retains original lamp visibility until invalidation and support
     assert.equal(released, false, 'the original atlas survives a moved lamp and source field disposal')
     cache.setLightingKey('sun-original'); assert.equal(cache.canRelight(0), true)
     cache.setLightingKey('sun-changed'); assert.equal(cache.canRelight(0), false)
-    assert.equal(released, true); assert.equal(cache.ready.has(0), true, 'sun edits retain cached material/depth data')
+    assert.equal(released, true); assert.equal(cache.ready.has(0), false, 'a changed baseline must refresh all MRT inputs, including a day/night shader change')
     attachments = 4
     const fallback = createIndirectSurfaceCache(renderer, [0], 4, uniforms, true)!
     assert.equal(fallback.relighting, false); assert.equal(fallback.target.textures.length, 4)

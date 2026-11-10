@@ -3,8 +3,9 @@ import {
   BufferAttribute,
 } from 'three'
 import type { WallBufferGeometryPayload } from './wallBuffer.ts'
+import { indexGeometry } from '../indexedGeometry.ts'
 
-export function createWallBufferGeometry(payload: WallBufferGeometryPayload) {
+export function createWallBufferGeometry(payload: WallBufferGeometryPayload, indexed = false) {
   const geometry = new BufferGeometry()
   const attribute = (data: number[] | Float32Array, size: number) =>
     new BufferAttribute(data instanceof Float32Array ? data : new Float32Array(data), size)
@@ -26,5 +27,8 @@ export function createWallBufferGeometry(payload: WallBufferGeometryPayload) {
   geometry.computeBoundingBox()
   geometry.computeBoundingSphere()
 
-  return geometry
+  if (!indexed) return geometry
+  const result = indexGeometry(geometry)
+  geometry.dispose()
+  return result
 }

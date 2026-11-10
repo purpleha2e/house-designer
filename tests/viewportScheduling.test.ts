@@ -1,6 +1,28 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { CameraInputTiming, isViewportNavigating, markViewportNavigation, isViewportPreparationPending, publishViewportUpdate, runViewportPreparation, subscribeViewportPreparation } from '../src/viewportScheduling.ts'
+import { CameraInputTiming, isViewportNavigating, markViewportNavigation, isViewportPreparationPending, publishViewportUpdate, runViewportPreparation, subscribeViewportPreparation, installViewportInputPriority, isViewportInteracting, markViewportInteraction } from '../src/viewportScheduling.ts'
+
+test('2D gestures, selection and menu input defer background publication without passive-hover starvation', async () => {
+  const target = new EventTarget(), remove = installViewportInputPriority(target)
+  markViewportNavigation(-Infinity); markViewportInteraction(-Infinity)
+  try {
+    target.dispatchEvent(new Event('pointermove'))
+    assert.equal(isViewportInteracting(), false)
+    for (const type of ['pointerdown', 'wheel', 'keydown', 'input', 'pointermove']) {
+      const event = new Event(type); Object.defineProperty(event, 'buttons', { value: 1 })
+      target.dispatchEvent(event)
+      let published = false
+      const task = publishViewportUpdate(() => { published = true }, () => false)
+      await new Promise(resolve => setTimeout(resolve, 10))
+      assert.equal(published, false, `${type} has priority over background publication`)
+      markViewportInteraction(-Infinity)
+      await task
+      assert.equal(published, true)
+    }
+  } finally { remove(); markViewportInteraction(-Infinity) }
+  target.dispatchEvent(new Event('pointerdown'))
+  assert.equal(isViewportInteracting(), false, 'cleanup releases global input listeners')
+})
 
 test('camera integrates current frame time and discards time lost to a stall', () => {
   const timing = new CameraInputTiming(0)

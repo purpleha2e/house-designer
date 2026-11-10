@@ -65,6 +65,8 @@ export async function prepareTextureReplacement(renderer: WebGLRenderer, previou
   texture.minFilter=previous.minFilter;texture.magFilter=previous.magFilter;texture.unpackAlignment=previous.unpackAlignment
   texture.wrapS=previous.wrapS;texture.wrapT=previous.wrapT;texture.flipY=previous.flipY;texture.generateMipmaps=false;texture.needsUpdate=true
   if(texture instanceof Data3DTexture&&previous instanceof Data3DTexture)texture.wrapR=previous.wrapR
-  if(!await prepareTextureUpload(renderer,texture,cancelled)){texture.dispose();return undefined}
-  return texture
+  try {
+    if(!await prepareTextureUpload(renderer,texture,cancelled)){texture.dispose();return undefined}
+    return texture
+  } catch (error) { texture.dispose(); throw error }
 }

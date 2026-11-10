@@ -74,6 +74,12 @@ export class SunShadowCache {
 
   update(light: DirectionalLight, scene: Object3D, cameraLayers: number, shadowMapType: number) {
     const shadow = light.shadow, camera = shadow.camera
+    // Keep a valid sampler while disabled, but do not render or advance the
+    // caster signature. Re-enabling must notice edits made while shadows were off.
+    if (shadow.intensity === 0) {
+      shadow.needsUpdate = !shadow.map
+      return shadow.needsUpdate
+    }
     let state = this.previous.get(light)
     if (!state) { state = new ShadowState(); this.previous.set(light, state) }
     state.begin()

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Scene, Vector3 } from 'three'
+import { BoxGeometry, Group, Mesh, MeshBasicMaterial, PerspectiveCamera, Scene, Vector3 } from 'three'
+import { TransformControls } from 'three-stdlib'
 import { createViewportSelection } from '../src/viewportSelection.ts'
 import { retainViewportScene } from '../src/retainedViewportScene.ts'
 import { createOpaqueViewportScene } from '../src/opaqueViewportScene.ts'
@@ -79,4 +80,32 @@ test('unchanged frames leave house geometry alone while nested selection changes
   copies = 0; display.traverse(o => { if (o instanceof Mesh) copies++ })
   assert.equal(copies, 0, 'nested removal cannot leave stale selection geometry')
   selection.clear(); geometry.dispose(); material.dispose()
+})
+
+test('prepared displays position real transform handles at the newly attached object', () => {
+  const source = new Scene(), display = new Scene(), selection = createViewportSelection()
+  const floor = new Group(), first = new Group(), second = new Group()
+  floor.position.y = 2.7; first.position.set(3, 1, 8); second.position.set(9, 0.8, 4)
+  floor.add(first, second); source.add(floor)
+  const camera = new PerspectiveCamera(50, 1, .1, 100)
+  camera.position.set(5, 8, 20)
+  const controls = new TransformControls(camera)
+  source.add(controls)
+  const originalTransforms = [first, second].map(o => o.position.toArray())
+  try {
+    for (const [index, object] of [first, second, first].entries()) {
+      controls.attach(object)
+      selection.sync(source, display, String(index))
+      const expected = object.getWorldPosition(new Vector3())
+      assert.ok(controls.worldPosition.distanceTo(expected) < 1e-9,
+        'the controls must update even when only the prepared display is rendered')
+      const handle = controls.gizmo.gizmo.translate.children.find(o => o instanceof Mesh && o.name === 'X' && o.visible) as Mesh
+      assert.ok(handle, 'the real translate handle is visible')
+      let copy: Mesh | undefined
+      display.traverse(o => { if (o instanceof Mesh && o.geometry === handle.geometry) copy = o })
+      assert.ok(copy)
+      assert.ok(copy.getWorldPosition(new Vector3()).distanceTo(handle.getWorldPosition(new Vector3())) < 1e-9)
+    }
+    assert.deepEqual([first, second].map(o => o.position.toArray()), originalTransforms)
+  } finally { selection.clear(); controls.dispose() }
 })

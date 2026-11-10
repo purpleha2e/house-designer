@@ -1,0 +1,78 @@
+{
+  "before": {
+    "calls": 552,
+    "cpuMs": 32,
+    "retained": false
+  },
+  "field": {
+    "state": "ready",
+    "bakes": 1,
+    "ms": 4995.900000035763,
+    "rays": 2604000,
+    "cell": 0.35,
+    "dimensions": [
+      35,
+      25,
+      62
+    ],
+    "eaveLayers": 5,
+    "eaveDimensions": [
+      135,
+      253
+    ],
+    "bytes": 1327104,
+    "enabled": true,
+    "strength": 0.75
+  },
+  "receivers": {
+    "frames": 30,
+    "shadedFrames": 30,
+    "glazing": 22,
+    "shadedGlazing": 0
+  },
+  "after": {
+    "calls": 552,
+    "cpuMs": 27.400000035762787,
+    "retained": false
+  },
+  "reenabled": {
+    "state": "ready",
+    "bakes": 1,
+    "ms": 4995.900000035763,
+    "rays": 2604000,
+    "cell": 0.35,
+    "dimensions": [
+      35,
+      25,
+      62
+    ],
+    "eaveLayers": 5,
+    "eaveDimensions": [
+      135,
+      253
+    ],
+    "bytes": 1327104,
+    "enabled": true,
+    "strength": 0.75
+  },
+  "edited": {
+    "state": "ready",
+    "bakes": 2,
+    "ms": 2899.400000035763,
+    "rays": 2604000,
+    "cell": 0.35,
+    "dimensions": [
+      35,
+      25,
+      62
+    ],
+    "eaveLayers": 5,
+    "eaveDimensions": [
+      135,
+      253
+    ],
+    "bytes": 1327104
+  },
+  "glError": 0,
+  "errors": []
+}

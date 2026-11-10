@@ -1,0 +1,4 @@
+{
+  "extends":"./tsconfig.gi-next.json",
+  "include":["giSelective*.ts","giParametric*.ts","giNextAcceleration*.ts","browser/giSelective*.ts","browser/giNextAcceleration.ts","../src/vite-env.d.ts"]
+}

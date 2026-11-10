@@ -1,0 +1,17 @@
+{
+  "id": "local-material-398c1908-3988-4f01-b3bf-9c76bd8e06ac",
+  "manufacturer": "My materials",
+  "folder": "",
+  "productName": "Hopper Head",
+  "category": "wall-covering",
+  "collection": "Local library",
+  "pbr": {
+    "baseColor": "#4f5455",
+    "roughness": 0.84,
+    "metalness": 0,
+    "normalStrength": 1,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1,
+    "imageBasedLighting": true
+  }
+}

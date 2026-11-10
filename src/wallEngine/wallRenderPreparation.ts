@@ -4,7 +4,7 @@ import type { WallMeshFace as WallEngineFace } from './wallMesh.ts'
 import type { FloorAssembly } from '../storeyGeometry.ts'
 import { findStoreyBoundaryAssignment, findUpperFacadeSourceForRoofCut, findWallFragmentAssignmentForFace } from '../wallFragmentAssignments.ts'
 import { buildWallBufferGeometryPayload } from './wallBuffer.ts'
-import { wallMaterialBatchKey } from './wallMaterialBatchKey.ts'
+import { resolvedWallMaterialBatchKey, wallMaterialBatchKey } from './wallMaterialBatchKey.ts'
 export function resolveWallEngineFinish({
   source,
   surfaceAssignments,
@@ -226,14 +226,19 @@ export function wallMaterialAssignmentsMatch(
   )
 }
 
-export type WallRenderJob = {kind:'render';faces:WallEngineFace[];walls:Wall[];surfaceAssignments:SurfaceMaterialAssignment[];floorId:string;elevation:number;assembly?:FloorAssembly}
-export function prepareWallRendering({faces,walls,surfaceAssignments,floorId,elevation,assembly}:WallRenderJob) {
+export type WallRenderJob = {kind:'render';faces:WallEngineFace[];walls:Wall[];surfaceAssignments:SurfaceMaterialAssignment[];floorId:string;elevation:number;assembly?:FloorAssembly;availableMaterialIds?:string[];untexturedMaterialIds?:string[]}
+export function prepareWallRendering({faces,walls,surfaceAssignments,floorId,elevation,assembly,availableMaterialIds,untexturedMaterialIds}:WallRenderJob) {
   const renderFaces=applyFragmentMaterialSources(faces,surfaceAssignments,floorId,elevation,assembly)
   const wallsById=new Map(walls.map(wall=>[wall.id,wall])),keys=new Map<string,string>()
+  const available = availableMaterialIds ? new Set(availableMaterialIds) : undefined
+  const untextured = new Set(untexturedMaterialIds)
   const payload=buildWallBufferGeometryPayload(renderFaces,{floorId,materialBatchKey:source=>{
     const sourceKey=JSON.stringify([source.wallId,source.side,source.role,source.fragmentId])
     const existing=keys.get(sourceKey);if(existing!==undefined)return existing
-    const finish=resolveWallEngineFinish({source,surfaceAssignments,wallsById}),key=wallMaterialBatchKey(finish.assignment,finish.fallback)
+    const finish=resolveWallEngineFinish({source,surfaceAssignments,wallsById})
+    const key=available ? resolvedWallMaterialBatchKey(finish.assignment,finish.fallback,!!finish.assignment&&available.has(finish.assignment.materialId),
+      !finish.assignment || !untextured.has(finish.assignment.materialId))
+      : wallMaterialBatchKey(finish.assignment,finish.fallback)
     keys.set(sourceKey,key);return key
   }})
   return {renderFaces,payload}

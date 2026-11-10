@@ -8,19 +8,35 @@ import { applyRoomLightShader, getRoomLightUniforms } from './roomLightShader.ts
 import { createViewportModelTransforms } from './viewportModelTransforms.ts'
 import { createViewportSurfaceVisibility, hasViewportSurfaceVisibility, includeViewportObject } from './viewportSurfaceVisibility.ts'
 
-/** A display-only PBR copy: shared geometry/textures and alpha glass, without
- * transmission, shadows or postprocessing. Source objects remain the pick targets. */
-function* opaqueViewportSteps(source: Scene, options: { lighting?: boolean } = {}) {
+/** A display-only PBR copy: shared geometry/textures and alpha glass. The lit
+ * stage preserves sunlight shadows while the full effects prepare. */
+type OpaqueViewportOptions = { lighting?: boolean; basic?: boolean }
+function* opaqueViewportSteps(source: Scene, options: OpaqueViewportOptions = {}) {
+  const sourceRoot = source
   source.updateMatrixWorld(true)
   const display = new Scene()
+  display.userData.basicGeometryViewport = options.basic === true
+  display.userData.projectGeneration = source.userData.projectGeneration
+  let sunShadows = false
+  source.traverse(object => {
+    if (options.lighting && object instanceof DirectionalLight &&
+      object.userData.houseDesignerRole === 'sun-light' && object.castShadow) sunShadows = true
+  })
+  display.userData.preparedLightingViewport = sunShadows
   display.background = source.background instanceof Color ? source.background.clone() : new Color('#233041')
   const lightCopies: { source: Light; copy: Light }[] = []
   const transforms = createViewportModelTransforms(source)
   const visibility = createViewportSurfaceVisibility()
+  const opaqueMaterials = new Map<Material, MeshStandardMaterial>()
   if (options.lighting) {
     source.traverseVisible(object => {
       if (!(object instanceof Light)) return
       const copy = object.clone(false); copy.castShadow = false
+      if (sunShadows && object instanceof DirectionalLight && copy instanceof DirectionalLight &&
+        object.userData.houseDesignerRole === 'sun-light') {
+        copy.castShadow = true
+        copy.shadow = object.shadow // The display's source owns this GPU map.
+      }
       if (copy instanceof DirectionalLight || copy instanceof SpotLight) display.add(copy.target)
       display.add(copy); lightCopies.push({ source: object, copy })
     })
@@ -49,12 +65,13 @@ function* opaqueViewportSteps(source: Scene, options: { lighting?: boolean } = {
   const meshes: Mesh[] = []
   source.traverse(object => {
     if (!(object instanceof Mesh) || !object.geometry.attributes.position?.count) return
-    if (!includeViewportObject(object)) return
+    const blocker = sunShadows && object.userData.houseDesignerSunShadowBlocker &&
+      object.parent && includeViewportObject(object.parent)
+    if (!includeViewportObject(object) && !blocker) return
     if (isSelectionDecoration(object) || object.userData.houseDesignerRole === 'wall-engine-pick') return
     const materials = Array.isArray(object.material) ? object.material : [object.material]
-    if (materials.some(m => (m.visible || hasViewportSurfaceVisibility(m)) && m.colorWrite && m.opacity > 0)) meshes.push(object)
+    if (blocker || materials.some(m => (m.visible || hasViewportSurfaceVisibility(m)) && m.colorWrite && m.opacity > 0)) meshes.push(object)
   })
-  const opaqueMaterials = new Map<Material, MeshStandardMaterial>()
   const resources = new Set<{ dispose(): void }>(), releases: (() => void)[] = []
   const retain = (resource: { dispose(): void }) => {
     if (!resources.has(resource)) { resources.add(resource); releases.push(retainResource(resource)) }
@@ -71,22 +88,28 @@ function* opaqueViewportSteps(source: Scene, options: { lighting?: boolean } = {
       const common = { color: m.color ?? 0xffffff, map: m.map ?? null,
         side: DoubleSide, transparent, opacity, alphaTest: m.alphaTest,
         alphaMap: m.alphaMap ?? null, depthWrite: transparent ? false : m.depthWrite,
+        shadowSide: m.shadowSide,
         forceSinglePass: true,
         vertexColors: m.vertexColors, visible: m.visible && m.colorWrite && m.opacity > 0, toneMapped: false,
         polygonOffset: m.polygonOffset, polygonOffsetFactor: m.polygonOffsetFactor, polygonOffsetUnits: m.polygonOffsetUnits }
       result = new MeshStandardMaterial({ ...common,
-        roughness: m.roughness ?? 1, metalness: m.metalness ?? 0,
-        roughnessMap: m.roughnessMap ?? null, metalnessMap: m.metalnessMap ?? null,
-        normalMap: m.normalMap ?? null, ...(m.normalScale ? { normalScale: m.normalScale } : {}),
+        // The first geometry display keeps colour, glass and alpha coverage,
+        // but does not wait for detailed PBR shader variants. The authored
+        // material and subsequent full display are unchanged.
+        roughness: options.basic ? 1 : m.roughness ?? 1, metalness: options.basic ? 0 : m.metalness ?? 0,
+        roughnessMap: options.basic ? null : m.roughnessMap ?? null, metalnessMap: options.basic ? null : m.metalnessMap ?? null,
+        normalMap: options.basic ? null : m.normalMap ?? null, ...(m.normalScale ? { normalScale: m.normalScale } : {}),
         ...(m.normalMapType !== undefined ? { normalMapType: m.normalMapType } : {}),
-        aoMap: m.aoMap ?? null, aoMapIntensity: m.aoMapIntensity ?? 1,
+        aoMap: options.basic ? null : m.aoMap ?? null, aoMapIntensity: m.aoMapIntensity ?? 1,
         emissive: m.emissive ?? 0x000000, emissiveIntensity: m.emissiveIntensity ?? 1, emissiveMap: m.emissiveMap ?? null,
       })
       if (options.lighting) {
         const room = getRoomLightUniforms(source), indirect = getIndirectLightingUniforms(source)
         if (room) applyRoomLightShader(result, { ...room,
           pointRoomIds: room.unshadowedPointRoomIds, spotRoomIds: room.unshadowedSpotRoomIds })
-        if (indirect) applyIndirectLightingShader(result, indirect)
+        // Share lighting values while freezing this prepared display's shader
+        // feature. Enabling fast GI prepares the live scene in the background.
+        if (indirect) applyIndirectLightingShader(result, indirect, !!indirect.hdFastFeature.value)
       }
       for (const value of Object.values(result)) if (value?.isTexture) retain(value)
       opaqueMaterials.set(source, result)
@@ -94,21 +117,38 @@ function* opaqueViewportSteps(source: Scene, options: { lighting?: boolean } = {
     }
     return result
   }
-  let completed = false, disposed = false
+  let completed = false, disposed = false, preparedMeshes = 0
   const dispose = () => {
     if (disposed) return
     disposed = true
     opaqueMaterials.forEach(m => m.dispose())
-    lightCopies.forEach(({ copy }) => { if (copy instanceof PointLight || copy instanceof SpotLight || copy instanceof DirectionalLight) copy.dispose() })
+    lightCopies.forEach(({ source, copy }) => {
+      if (copy instanceof PointLight || copy instanceof SpotLight || copy instanceof DirectionalLight) {
+        if (!('shadow' in source) || source.shadow !== copy.shadow) copy.dispose()
+      }
+    })
     releases.forEach(release => release()); display.clear()
   }
   try {
   for (const source of meshes) {
     yield
+    let owner: typeof source.parent = source
+    while (owner && owner !== sourceRoot) owner = owner.parent
+    if (!owner) continue
+    preparedMeshes++
     retain(source.geometry)
+    if (sunShadows && source.userData.houseDesignerSunShadowBlocker) {
+      const blocker = cloneViewportObject(source)
+      for (const material of Array.isArray(source.material) ? source.material : [source.material]) retain(material)
+      blocker.object.matrixAutoUpdate = false; blocker.object.matrix.copy(source.matrixWorld)
+      display.add(blocker.object); releases.push(blocker.dispose)
+      continue
+    }
     const add = (matrix: Matrix4) => {
       const mesh = new Mesh(source.geometry, Array.isArray(source.material) ? source.material.map(opaque) : opaque(source.material))
       mesh.matrixAutoUpdate = false; mesh.matrix.copy(matrix); mesh.frustumCulled = false
+      mesh.castShadow = sunShadows && source.castShadow
+      mesh.receiveShadow = sunShadows && source.receiveShadow
       mesh.renderOrder = source.renderOrder
       transforms.bind(source, mesh, matrix)
       visibility.bindObject(source, mesh)
@@ -118,7 +158,8 @@ function* opaqueViewportSteps(source: Scene, options: { lighting?: boolean } = {
       const copy = cloneViewportObject(source)
       copy.object.material = Array.isArray(source.material) ? source.material.map(opaque) : opaque(source.material)
       copy.object.matrixAutoUpdate = false; copy.object.matrix.copy(source.matrixWorld)
-      copy.object.castShadow = copy.object.receiveShadow = false
+      copy.object.castShadow = sunShadows && source.castShadow
+      copy.object.receiveShadow = sunShadows && source.receiveShadow
       transforms.bind(source, copy.object)
       visibility.bindObject(source, copy.object)
       display.add(copy.object); releases.push(copy.dispose)
@@ -138,17 +179,17 @@ function* opaqueViewportSteps(source: Scene, options: { lighting?: boolean } = {
     }
   })
   completed = true
-  return { scene: display, meshes: meshes.length, syncLighting, syncTransforms: transforms.sync, syncVisibility: visibility.sync, dispose }
+  return { scene: display, meshes: preparedMeshes, syncLighting, syncTransforms: transforms.sync, syncVisibility: visibility.sync, dispose }
   } finally { if (!completed) dispose() }
 }
 
-export function createOpaqueViewportScene(source: Scene, options: { lighting?: boolean } = {}) {
+export function createOpaqueViewportScene(source: Scene, options: OpaqueViewportOptions = {}) {
   const steps = opaqueViewportSteps(source, options)
   let next = steps.next()
   while (!next.done) next = steps.next()
   return next.value
 }
 
-export function prepareOpaqueViewportScene(source: Scene, options: { lighting?: boolean }, cancelled: () => boolean) {
+export function prepareOpaqueViewportScene(source: Scene, options: OpaqueViewportOptions, cancelled: () => boolean) {
   return runViewportTask(opaqueViewportSteps(source, options), cancelled)
 }

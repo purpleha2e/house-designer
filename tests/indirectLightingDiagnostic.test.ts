@@ -19,10 +19,64 @@ test('inspection preserves constant irradiance and matches exact blends without 
   field.probes.forEach(probe => writeIndirectProbe(field, probe.index, sh)); fill(field, visibility)
   const before = field.coefficients.map(data => data.slice()), volume = field.volume.data.slice()
   const report = inspectIndirectPoint(field, visibility, new Vector3(2, .018, 2), new Vector3(0, 1, 0), [])
+  assert.equal(report.bounces, null, 'an older bake without first-pass data cannot provide a comparison')
   report.displayed.rgb.forEach((value, i) => assert.ok(Math.abs(value - report.exactAtSurface.rgb[i]) < .001))
-  assert.ok(report.bias > .1 && report.bias < .15)
+  assert.ok(report.bias > .2 && report.bias < .3)
   field.coefficients.forEach((data, i) => assert.deepEqual(data, before[i])); assert.deepEqual(field.volume.data, volume)
   visibility.dispose(); field.dispose()
+})
+
+test('wall receivers exclude far-side light at every sub-cell alignment', () => {
+  const field = fixture(), visibility = createIndirectVisibility(new Group()), normal = new Vector3(-1, 0, 0)
+  const step = field.bounds.size / (field.volume.n - 1), { volume } = field
+  let oldLeaks = 0
+  try {
+    for (const phase of [.02, .1, .25, .5, .75, .9, .98]) {
+      const wall = field.bounds.minX + (Math.floor(volume.n / 2) + phase) * step
+      volume.data.fill(0)
+      for (let z = 0; z < volume.n; z++) for (let y = 0; y < volume.height; y++) for (let x = 0; x < volume.n; x++) {
+        const offset = ((z * volume.height * field.coefficientCount + y) * volume.n + x) * 4
+        volume.data[offset] = DataUtils.toHalfFloat(field.bounds.minX + x * step >= wall ? 1 : 0)
+        volume.data[offset + 3] = DataUtils.toHalfFloat(1)
+      }
+      const p = new Vector3(wall - .001, 1.2, 2)
+      if (sampleDisplayedIndirect(field, 0, p.clone().addScaledVector(normal, .02 + .5 * step), normal).rgb[0] > .001) oldLeaks++
+      const report = inspectIndirectPoint(field, visibility, p, normal, [])
+      assert.equal(report.displayed.rgb[0], 0, `no far-side contribution at alignment ${phase}`)
+      assert.equal(report.displayed.coverage, 1, 'measured dark samples remain valid')
+    }
+    assert.ok(oldLeaks > 0, 'the fixture reproduces the half-cell footprint leak')
+  } finally { field.dispose(); visibility.dispose() }
+})
+
+test('bounce breakdown compares the same directional sample without changing either bake', () => {
+  const field = fixture(), visibility = createIndirectVisibility(new Group()), first = new SphericalHarmonics3()
+  first.coefficients[0].set(1, .5, .125); first.coefficients[1].set(.4, .2, .05)
+  field.probes.forEach(probe => writeIndirectProbe(field, probe.index, first))
+  const direct = field.coefficients.map(channel => channel.slice())
+  const directBefore = direct.map(channel => channel.slice())
+  const final = first.clone().scale(3)
+  field.probes.forEach(probe => writeIndirectProbe(field, probe.index, final))
+  const before = field.coefficients.map(channel => channel.slice()), volume = field.volume.data.slice()
+  const point = new Vector3(2, .018, 2), normal = new Vector3(0, 1, 0)
+  try {
+    const report = inspectIndirectPoint(field, visibility, point, normal, [], direct), bounces = report.bounces!
+    const expected = new Vector3(); first.getIrradianceAt(normal, expected)
+    bounces.firstRGB.forEach((value, channel) => assert.ok(Math.abs(value - expected.getComponent(channel)) < .001))
+    assert.ok(Math.abs(bounces.gain! - 3) < .002)
+    assert.ok(Math.abs(bounces.additionalPercent! - 200 / 3) < .03)
+    bounces.finalRGB.forEach((value, channel) => assert.equal(value, bounces.firstRGB[channel] + bounces.additionalRGB[channel]))
+    assert.deepEqual(bounces.finalRGB, report.exactAtSurface.rgb)
+    field.coefficients.forEach((channel, i) => assert.deepEqual(channel, before[i])); assert.deepEqual(field.volume.data, volume)
+    assert.deepEqual(direct, directBefore)
+    field.probes.forEach(probe => writeIndirectProbe(field, probe.index, first.clone().scale(.5)))
+    const reduction = inspectIndirectPoint(field, visibility, point, normal, [], direct).bounces!
+    assert.ok(reduction.additionalBrightness < 0, 'signed changes must not invent extra light')
+    field.coefficients.forEach(channel => channel.fill(0)); direct.forEach(channel => channel.fill(0))
+    const dark = inspectIndirectPoint(field, visibility, point, normal, [], direct).bounces!
+    assert.equal(dark.gain, null); assert.equal(dark.additionalPercent, null)
+    assert.equal(dark.finalBrightness, 0); assert.equal(dark.additionalBrightness, 0)
+  } finally { visibility.dispose(); field.dispose() }
 })
 
 test('probe colours are evaluated in the selected surface direction, rather than the visible sphere side', () => {
@@ -46,7 +100,8 @@ test('inspection identifies volume filtering that imports light across a thin so
     writeIndirectProbe(field, probe.index, i % 2 ? warm : black)
   })
   fill(field, visibility)
-  const report = inspectIndirectPoint(field, visibility, new Vector3(2.01, .018, 2), new Vector3(0, 1, 0), [{ position: [3, 1, 2], color: '#ffaa55' }])
+  const report = inspectIndirectPoint(field, visibility, new Vector3(2.01, .018, 2), new Vector3(0, 1, 0), [{ position: [3, 1, 2], color: '#ffaa55' }], field.coefficients.map(channel => channel.slice()))
+  assert.equal(report.bounces!.firstBrightness, 0, 'first-bounce inspection must also exclude probes behind the wall')
   assert.deepEqual(report.exactAtSurface.rgb, [0, 0, 0]); assert.deepEqual(report.exactAtShiftedSample.rgb, [0, 0, 0])
   assert.ok(report.displayed.rgb[0] > .02, `filtered red ${report.displayed.rgb[0]}`)
   assert.equal(report.lamps[0].visibleAtSurface, false)

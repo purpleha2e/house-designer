@@ -1,7 +1,26 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { PointLight, SpotLight, WebGLCubeRenderTarget, WebGLRenderTarget } from 'three'
-import { releaseLightShadowResources, setLightShadowEnabled, createLightShadowControl } from '../src/lightShadowResources.ts'
+import { releaseLightShadowResources, setLightShadowEnabled, createLightShadowControl, combineLightShadowControls } from '../src/lightShadowResources.ts'
+
+test('master shadows gate local maps without changing the Light shadows preference', () => {
+  const master = createLightShadowControl(true), local = createLightShadowControl(true)
+  const combined = combineLightShadowControls(master, local), light = new PointLight()
+  light.shadow.map = new WebGLCubeRenderTarget(16)
+  const release = combined.subscribe(() => setLightShadowEnabled(light.shadow, combined.get(), true))
+  master.set(false)
+  assert.equal(light.shadow.intensity, 0)
+  assert.equal(light.shadow.needsUpdate, false)
+  assert.equal(local.get(), true)
+  master.set(true)
+  assert.equal(light.shadow.intensity, 1)
+  local.set(false)
+  master.set(false); master.set(true)
+  assert.equal(light.shadow.intensity, 0)
+  release(); local.set(true)
+  assert.equal(light.shadow.intensity, 0, 'both subscriptions are detached')
+  releaseLightShadowResources(light.shadow)
+})
 
 test('a scene-local toggle applies shadow state synchronously and detaches removed lights', () => {
   const control = createLightShadowControl(true), otherScene = createLightShadowControl(true)

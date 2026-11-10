@@ -8,6 +8,7 @@ export function createViewportSelection() {
   const copies = new Map<Mesh, Mesh>()
   const groups = new Map<number, Group>()
   const watched = new Set<Object3D>(), candidates = new Set<Mesh>()
+  const controls = new Set<Object3D & { object?: Object3D }>()
   let current: Scene | undefined, dirty = true, lastRevision: string | undefined
   const changed = () => { dirty = true }
   const unwatch = (object: Object3D) => {
@@ -15,7 +16,7 @@ export function createViewportSelection() {
     watched.delete(object)
   }
   const clear = () => {
-    root.removeFromParent(); root.clear(); copies.clear(); groups.clear()
+    root.removeFromParent(); root.clear(); copies.clear(); groups.clear(); controls.clear()
     watched.forEach(unwatch); candidates.clear(); current = undefined; dirty = true
   }
   return { clear, sync(source: Scene, display: Scene, revision?: string) {
@@ -24,7 +25,7 @@ export function createViewportSelection() {
     if (source !== current) { clear(); current = source }
     if (dirty || revision !== lastRevision) {
       const present = new Set<Object3D>()
-      candidates.clear()
+      candidates.clear(); controls.clear()
       const visit = (object: Object3D, selected: boolean) => {
         present.add(object)
         if (!watched.has(object)) {
@@ -32,12 +33,21 @@ export function createViewportSelection() {
           object.addEventListener('childadded', changed); object.addEventListener('childremoved', changed)
         }
         selected ||= isSelectionDecorationRoot(object)
+        if ('isTransformControls' in object && object.isTransformControls === true) controls.add(object)
         if (selected && object instanceof Mesh) candidates.add(object)
         for (const child of object.children) visit(child, selected)
       }
       visit(source, false)
       watched.forEach(object => { if (!present.has(object)) unwatch(object) })
       dirty = false; lastRevision = revision
+    }
+    // These controls normally position/scale their handles in updateMatrixWorld
+    // during a source-scene render. A prepared display renders only the copies;
+    // update the live control first so new attachments cannot stay at the origin.
+    for (const control of controls) {
+      control.object?.updateWorldMatrix(true, false)
+      control.updateWorldMatrix(true, false)
+      control.updateMatrixWorld(true)
     }
     const active = new Set<Mesh>()
     for (const object of candidates) {

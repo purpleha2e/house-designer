@@ -1,4 +1,5 @@
 import type { Material } from 'three'
+import { cacheShaderKeyTransform } from '../shaderKeyTransform.ts'
 
 type ShaderOverrides = Partial<
   Pick<Material, 'customProgramCacheKey' | 'onBeforeCompile'>
@@ -15,6 +16,7 @@ export function withSpecularOnlyImageBasedLighting(
 ): ShaderOverrides {
   const baseCompile = overrides.onBeforeCompile
   const baseCacheKey = overrides.customProgramCacheKey
+  const transformKey = cacheShaderKeyTransform((key, suffix) => key.includes(suffix) ? key : key + suffix)
 
   return {
     ...overrides,
@@ -30,7 +32,7 @@ ${LIGHTING_END_CHUNK}`,
     },
     customProgramCacheKey: () => {
       const key = baseCacheKey?.() ?? 'standard', suffix = '-house-designer-specular-ibl-v1'
-      return key.includes(suffix) ? key : key + suffix
+      return transformKey(key, suffix)
     },
   }
 }

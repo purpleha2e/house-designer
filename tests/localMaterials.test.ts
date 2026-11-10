@@ -28,3 +28,17 @@ test('local material files reject session URLs and external resources that canno
   }
   assert.throws(() => validateLocalMaterial({ ...material('test'), pbr: { normalStrength: NaN } }), /setting/)
 })
+
+test('reusing a validated image never bypasses changed image bytes, hashes or material settings', () => {
+  const value = material('cached')
+  validateLocalMaterial(value); validateLocalMaterial(value)
+  value.pbr.normalStrength = NaN
+  assert.throws(() => validateLocalMaterial(value), /setting/)
+  value.pbr.normalStrength = 1
+  value.pbr.baseColorTextureUrl = 'data:image/png;base64,invalid!'
+  assert.throws(() => validateLocalMaterial(value), /image data/)
+  value.pbr.baseColorTextureUrl = 'data:image/webp;base64,YWJj=='
+  validateLocalMaterial(value)
+  value.pbr.textureSourceHashes = { baseColorTextureUrl: 'invalid' }
+  assert.throws(() => validateLocalMaterial(value), /hash/)
+})

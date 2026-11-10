@@ -1,9 +1,127 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BackSide, BoxGeometry, DoubleSide, FrontSide, Group, InstancedMesh, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Scene, Texture } from 'three'
-import { getShaderWarmupResourceRevision, prepareShaderWarmupResourceRevision, compileShaderWarmup, createShaderWarmupSnapshot, getShaderWarmupSceneRevision, prepareShaderWarmupSceneRevision, prepareShaderWarmupResources, recordViewportGeometryUpload, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
+import { BackSide, BoxGeometry, DoubleSide, FrontSide, Group, HemisphereLight, InstancedMesh, Light, Mesh, MeshBasicMaterial, MeshStandardMaterial, PerspectiveCamera, Scene, Texture, WebGLRenderTarget } from 'three'
+import { getShaderWarmupResourceRevision, prepareShaderWarmupResourceRevision, compileShaderWarmup, drainShaderWarmupPrograms, createShaderWarmupSnapshot, getShaderWarmupSceneRevision, prepareShaderWarmupSceneRevision, prepareShaderWarmupResources, prepareShaderWarmupPipelines, recordViewportGeometryUpload, registerShaderFadeSource, shaderWarmupRevisionIsCovered } from '../src/shaderWarmup.ts'
 import type { WebGLRenderer } from 'three'
 import { roofSurfaceHighlightMaterialParameters, roofSurfaceHighlightRoles } from '../src/roofSelection.ts'
+
+test('a failed warmup variant cannot release its source while another submitted program is still polling', async () => {
+  const failure=new Error('linked variant failed')
+  let finish:()=>void=()=>{},released=false
+  const slow=new Promise<void>(resolve=>{finish=resolve})
+  const work=drainShaderWarmupPrograms([Promise.reject(failure),slow])
+  const owner=work.catch(()=>{released=true})
+  await new Promise(resolve=>setTimeout(resolve,0))
+  assert.equal(released,false,'the source must remain owned after the first failure')
+  finish();await assert.rejects(work,error=>error===failure);await owner
+  assert.equal(released,true)
+})
+
+for (const obsolete of ['cancel', 'detach', 'replace geometry', 'replace material'] as const) test(`resource compilation yields with restored state and rejects ${obsolete} before uploading`, async () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial(), mesh = new Mesh(geometry,material)
+  scene.add(mesh)
+  const previous = new WebGLRenderTarget(2,2), target = new WebGLRenderTarget(1,1)
+  let bound: WebGLRenderTarget|null = previous, release: (()=>void)|undefined, cancelled = false, draws = 0
+  const renderer = { properties:{}, shadowMap:{autoUpdate:true,needsUpdate:true}, autoClear:true, info:{render:{calls:9}},
+    getRenderTarget:()=>bound, setRenderTarget:(value: typeof bound)=>{bound=value},getActiveCubeFace:()=>3,getActiveMipmapLevel:()=>2,
+    compileAsync:async (batch: Scene, _camera: PerspectiveCamera, targetScene: Scene)=>{
+      assert.equal(bound,target);assert.equal(batch,targetScene)
+      assert.equal(geometry.drawRange.count,Infinity,'borrowed geometry is untouched while compilation is pending')
+      await new Promise<void>(resolve=>{release=resolve})
+    }, render:()=>{draws++},
+  } as unknown as WebGLRenderer
+  const work=prepareShaderWarmupResources(renderer,scene,new PerspectiveCamera(),scene,true,()=>cancelled,undefined,target)
+  try {
+    for(let i=0;i<50&&!release;i++)await new Promise(resolve=>setTimeout(resolve,0))
+    assert.ok(release);assert.equal(bound,previous);assert.equal(renderer.autoClear,true);assert.equal(renderer.shadowMap.autoUpdate,true)
+    if(obsolete==='cancel')cancelled=true
+    if(obsolete==='detach'){mesh.removeFromParent();geometry.dispose()}
+    if(obsolete==='replace geometry'){mesh.geometry=new BoxGeometry();geometry.dispose()}
+    if(obsolete==='replace material'){mesh.material=new MeshStandardMaterial();material.dispose()}
+    release();assert.equal(await work,obsolete!=='cancel');assert.equal(draws,0)
+    assert.equal(bound,previous);assert.equal(renderer.info.render.calls,9)
+  } finally {release?.();geometry.dispose();material.dispose();if(mesh.geometry!==geometry)mesh.geometry.dispose();if(mesh.material!==material)mesh.material.dispose();previous.dispose();target.dispose()}
+})
+
+test('resource preparation compiles the matching custom shader pass and restores the current state after asynchronous work', async () => {
+  const scene=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial();scene.add(new Mesh(geometry,material))
+  const target=new WebGLRenderTarget(1,1),previous=new WebGLRenderTarget(2,2),interleaved=new WebGLRenderTarget(3,3)
+  let bound: WebGLRenderTarget|null=previous,drawn=false
+  const renderer={properties:{},shadowMap:{autoUpdate:true,needsUpdate:true},autoClear:true,info:{render:{calls:7}},
+    getRenderTarget:()=>bound,setRenderTarget:(value:typeof bound)=>{bound=value},getActiveCubeFace:()=>0,getActiveMipmapLevel:()=>0,
+  } as unknown as WebGLRenderer
+  try {
+    assert.equal(await prepareShaderWarmupResources(renderer,scene,new PerspectiveCamera(),scene,true,()=>false,
+      ()=>{assert.equal(bound,target);assert.equal(geometry.drawRange.count,-1);drawn=true},target,
+      async batch=>{assert.equal(bound,target);assert.ok(batch.children.some(o=>o instanceof Mesh));await Promise.resolve();assert.equal(bound,previous);bound=interleaved}),true)
+    assert.equal(drawn,true);assert.equal(bound,interleaved,'a later operation owns the current target after the await')
+    assert.equal(renderer.autoClear,true);assert.equal(geometry.drawRange.count,Infinity)
+  } finally {geometry.dispose();material.dispose();target.dispose();previous.dispose();interleaved.dispose()}
+})
+
+test('warmup batches do not gather the target scene lights twice, including nested lights', async () => {
+  const scene = new Scene(), group = new Group(), light = new HemisphereLight(), mesh = new Mesh(new BoxGeometry(), new MeshStandardMaterial())
+  group.add(light, mesh); scene.add(group)
+  let batches = 0
+  try {
+    assert.equal(await compileShaderWarmup({} as WebGLRenderer, scene, new PerspectiveCamera(), scene, { compile: async batch => {
+      const lights: Light[] = []
+      scene.traverseVisible(object => { if (object instanceof Light) lights.push(object) })
+      batch.traverseVisible(object => { if (object instanceof Light) lights.push(object) })
+      assert.deepEqual(lights, [light]); batches++
+      assert.equal(light.parent, group); assert.equal(mesh.parent, group)
+    } }), true)
+    assert.equal(batches, 1)
+    const addition = new Group(), newLight = new HemisphereLight()
+    addition.add(newLight, mesh.clone())
+    assert.equal(await compileShaderWarmup({} as WebGLRenderer, addition, new PerspectiveCamera(), scene, { compile: async batch => {
+      const lights: Light[] = []
+      scene.traverseVisible(object => { if (object instanceof Light) lights.push(object) })
+      batch.traverseVisible(object => { if (object instanceof Light) lights.push(object) })
+      assert.deepEqual(lights, [light, newLight], 'new lights outside the target scene remain available')
+    } }), true)
+  } finally { mesh.geometry.dispose(); mesh.material.dispose() }
+})
+
+test('warmup clones preserve constant lighting receiver attributes', () => {
+  const scene = new Scene(), geometry = new BoxGeometry()
+  const defaults = { hdGIReceiverOffset: [0, .1, 0], hdGIReceiverMaxBias: [.2] }
+  const material = Object.assign(new MeshStandardMaterial(), { defaultAttributeValues: defaults })
+  scene.add(new Mesh(geometry, material))
+  const snapshot = createShaderWarmupSnapshot(scene, { fadeRoofs: false, fadeWalls: false })
+  try {
+    let count = 0
+    snapshot.root.traverse(object => {
+      if (!(object instanceof Mesh)) return
+      for (const clone of Array.isArray(object.material) ? object.material : [object.material]) {
+        assert.deepEqual(clone.defaultAttributeValues, defaults)
+        count++
+      }
+    })
+    assert.ok(count > 0)
+  } finally { snapshot.dispose(); geometry.dispose(); material.dispose() }
+})
+
+test('project replacement tolerates temporarily detached indexed materials', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  const mesh = new Mesh(geometry, [undefined as unknown as MeshStandardMaterial, material])
+  scene.add(mesh)
+  try {
+    assert.doesNotThrow(() => getShaderWarmupSceneRevision(scene))
+    assert.doesNotThrow(() => getShaderWarmupResourceRevision(scene))
+    const pending = createShaderWarmupSnapshot(scene, { fadeRoofs: false, fadeWalls: false })
+    assert.equal(pending.root.children.filter(o => o instanceof Mesh).length, 0)
+    pending.dispose()
+    delete mesh.material[0]
+    const sparse = createShaderWarmupSnapshot(scene, { fadeRoofs: false, fadeWalls: false })
+    assert.equal(sparse.root.children.filter(o => o instanceof Mesh).length, 0)
+    sparse.dispose()
+    mesh.material[0] = material
+    const attached = createShaderWarmupSnapshot(scene, { fadeRoofs: false, fadeWalls: false })
+    assert.ok(attached.root.children.some(o => o instanceof Mesh))
+    attached.dispose()
+  } finally { geometry.dispose(); material.dispose() }
+})
 
 test('roof surface selection neither invalidates house programs nor starts resource preparation', () => {
   const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
@@ -128,6 +246,31 @@ test('resource-only edits walk nested live meshes without copying the house or u
     oldGeometry.dispose(); changedGeometry.dispose(); guideGeometry.dispose(); material.dispose(); guideMaterial.dispose()
   }
 })
+for (const pipeline of [false, true]) test(`${pipeline ? 'pipeline' : 'resource'} preparation never uploads a source detached and disposed after its scan`, async () => {
+  const scene=new Scene(),group=new Group(),material=new MeshStandardMaterial()
+  const active=new Mesh(new BoxGeometry(),material),obsolete=new Mesh(new BoxGeometry(),material)
+  group.add(active,obsolete);scene.add(group)
+  const target=new WebGLRenderTarget(1,1),draws: unknown[]=[],disposed: number[]=[]
+  for(const mesh of [active,obsolete])mesh.geometry.addEventListener('dispose',()=>disposed.push(mesh.geometry.id))
+  const renderer={properties:{},shadowMap:{},info:{render:{}},getRenderTarget:()=>null,
+    setRenderTarget:()=>{},getActiveCubeFace:()=>0,getActiveMipmapLevel:()=>0,
+    getContext:()=>({fenceSync:()=>null,flush:()=>{}}),
+  } as unknown as WebGLRenderer
+  const render=(batch: Scene)=>{
+    batch.traverse(object=>{if(object instanceof Mesh)draws.push(object.geometry)})
+    obsolete.removeFromParent();obsolete.geometry.dispose()
+  }
+  try {
+    const ready=pipeline
+      ? await prepareShaderWarmupPipelines(renderer,scene,new PerspectiveCamera(),scene,target,()=>false,render)
+      : await prepareShaderWarmupResources(renderer,scene,new PerspectiveCamera(),scene,false,()=>false,render)
+    assert.equal(ready,true)
+    assert.deepEqual(draws,[active.geometry], 'a detached owner has already made its final disposal')
+    assert.deepEqual(disposed,[obsolete.geometry.id], 'preparation never disposes borrowed live geometry')
+    assert.equal(active.parent,group);assert.deepEqual(active.geometry.drawRange,{start:0,count:Infinity})
+  } finally {active.geometry.dispose();material.dispose();target.dispose()}
+})
+
 test('shader preparation yields to input and submits equivalent programs only once', async () => {
   const scene=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial()
   for(let i=0;i<100;i++)scene.add(new Mesh(geometry,material.clone()))
@@ -378,6 +521,60 @@ test('selection variants are prepared and retained with each material slot until
   assert.equal(releases, 2)
 })
 
+
+test('capture pipeline preparation drains each real draw and restores shared geometry and renderer state', async () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), materials = [new MeshStandardMaterial(), new MeshStandardMaterial()]
+  scene.add(new Mesh(geometry, materials)); geometry.setDrawRange(3, 12)
+  const target = new WebGLRenderTarget(16, 16), previous = new WebGLRenderTarget(2, 2)
+  let bound = previous, active = false, draws = 0, polls = 0, deleted = 0
+  const context = {
+    SYNC_GPU_COMMANDS_COMPLETE: 1, ALREADY_SIGNALED: 2, CONDITION_SATISFIED: 3, WAIT_FAILED: 4,
+    fenceSync: () => { active = true; return {} }, flush() {}, isContextLost: () => false,
+    clientWaitSync: () => { polls++; if (polls % 2) return 0; active = false; return 3 },
+    deleteSync: () => { deleted++ },
+  }
+  const renderer = { autoClear: true, shadowMap: { autoUpdate: true, needsUpdate: true }, info: { render: { calls: 7 } },
+    getContext: () => context, getRenderTarget: () => bound, setRenderTarget: (value: typeof bound) => { bound = value },
+    getActiveCubeFace: () => 0, getActiveMipmapLevel: () => 0,
+    render: (batch: Scene) => {
+      assert.equal(active, false, 'drain the preceding native pipeline before submitting another')
+      assert.equal(bound, target); assert.deepEqual(geometry.drawRange, { start: 3, count: 3 })
+      const mesh = batch.children.find(object => object instanceof Mesh) as Mesh
+      assert.equal(mesh.frustumCulled, false); assert.equal(mesh.material, materials[draws++])
+    },
+  } as unknown as WebGLRenderer
+  try {
+    assert.equal(await prepareShaderWarmupPipelines(renderer, scene, new PerspectiveCamera(), scene, target, () => false), true)
+    assert.equal(draws, 2); assert.equal(deleted, 2); assert.equal(bound, previous)
+    assert.deepEqual(geometry.drawRange, { start: 3, count: 12 }); assert.equal(scene.children.length, 1)
+    assert.equal(renderer.autoClear, true); assert.equal(renderer.shadowMap.autoUpdate, true); assert.equal(renderer.shadowMap.needsUpdate, true)
+    assert.equal(await prepareShaderWarmupPipelines(renderer, scene, new PerspectiveCamera(), scene, target, () => true), false)
+    assert.equal(draws, 2)
+  } finally { geometry.dispose(); materials.forEach(material => material.dispose()); target.dispose(); previous.dispose() }
+})
+
+test('capture compilation can serialize individual variants to bound driver pressure', async () => {
+  const scene = new Scene(), geometry = new BoxGeometry()
+  for (let i = 0; i < 5; i++) {
+    const material = new MeshStandardMaterial(); material.defines = { VARIANT: i }
+    scene.add(new Mesh(geometry, material))
+  }
+  let active = 0, maximum = 0, submitted = 0
+  try {
+    assert.equal(await compileShaderWarmup({} as WebGLRenderer, scene, new PerspectiveCamera(), scene, {
+      batchSize: 1, maxInFlight: 1,
+      compile: async batch => {
+        assert.equal(batch.children.length, 1); submitted++
+        maximum = Math.max(maximum, ++active)
+        await new Promise(resolve => setTimeout(resolve, 5)); active--
+      },
+    }), true)
+    assert.equal(submitted, 5); assert.equal(maximum, 1)
+  } finally {
+    scene.traverse(o => { if (o instanceof Mesh) (o.material as MeshStandardMaterial).dispose() })
+    geometry.dispose()
+  }
+})
 
 test('shader compilation overlaps bounded batches and cancellation drains outstanding polls', async () => {
   const scene = new Scene(), geometry = new BoxGeometry()

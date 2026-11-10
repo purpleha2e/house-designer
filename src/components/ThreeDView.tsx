@@ -4,6 +4,7 @@ import { basicSceneDiagnostic, opaqueMaterialDiagnostic, pbrMaterialDiagnostic }
 import { BasicSceneRenderer } from './BasicSceneRenderer'
 import { ToolbarIcon } from './ToolbarIcon'
 import { useToolbarMenu } from './useToolbarMenu'
+import { normalizeExposureStops } from '../projectViewState'
 import { ViewerCameraControls } from '../viewer/ViewerCameraControls'
 import { GamepadCameraControls } from './GamepadCameraControls'
 import { ViewerStairs } from '../viewer/ViewerStairs'
@@ -17,8 +18,14 @@ import {
   useProgress,
 } from '@react-three/drei'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { createPortal } from 'react-dom'
 import { TransformControls as TransformControlsImpl } from 'three-stdlib'
-import { ModelSelectionHighlight, createSelectionHighlightMaterial, updateSelectionHighlightMaterial } from './ModelSelectionHighlight'
+import { ModelSelectionHighlight } from './ModelSelectionHighlight'
+import { WindowClearanceRulers } from './WindowClearanceRulers'
+import { ExteriorSkyOcclusion } from './ExteriorSkyOcclusion'
+import { applyCameraLook } from '../cameraLook'
+import { createSelectionHighlightMaterial, updateSelectionHighlightMaterial } from '../modelSelectionHighlight'
+import { isSelectionOnlyPublication } from '../selectionPublication'
 import { GroundImage3D } from './GroundImage3D'
 import { WindowMesh } from './WindowMesh'
 import { StairMesh } from './StairMesh'
@@ -29,17 +36,25 @@ import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing'
 import { SceneRenderer } from './SceneRenderer'
+import { AmbientOcclusionToggle } from './AmbientOcclusionToggle'
+import { WallOpeningPreview } from './WallOpeningPreview'
 import { registerViewportSurfaceVisibility } from '../viewportSurfaceVisibility'
 import { useBuildingRooms, useBuildingGables, useBuildingStoreys, useLightingCacheKeys } from './useBuildingPreparation'
 import { CameraInputTiming, markViewportNavigation, isViewportNavigating, yieldToViewport, runViewportPreparation, publishViewportUpdate, isViewportPreparationPending, subscribeViewportPreparation } from '../viewportScheduling'
 import { getImportedModelTransform } from '../importedModelTransform'
+import { rememberModelAssetBounds } from '../modelAssetBounds'
 import { attachWallMountedLighting } from '../wallMountedLighting'
-import { getLocalLightLimits, MAX_REALTIME_LOCAL_LIGHTS } from '../localLightBudget'
+import {attachIndirectReceiverSafety} from '../indirectReceiverSafety'
+import {requestedIndirectContacts} from '../indirectContactProbes'
+import { getLocalLightLimits, localLightPoolCapacities, MAX_REALTIME_LOCAL_LIGHTS, prioritizeEmittingLights, prioritizeVisibleLights } from '../localLightBudget'
+import { createIndirectLiveInput, type IndirectLiveInput } from '../indirectLiveInput'
 import { createLocalLightControl, type LocalLightControl } from '../localLightControl'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { PbrEnvironmentProvider } from './PbrEnvironment'
 import { IndirectLighting } from './IndirectLighting'
+import { FurnitureLightingExperiment } from './FurnitureLightingExperiment'
 import { formatIndirectLightingEngineStatus, formatIndirectLightingProgress, formatViewportPreparationStatus } from '../indirectLightingProgress'
+import { formatFastGIProgress } from '../fastGIProgress'
 import { formatViewerStatus } from '../viewer/viewerStatus'
 import { DIFFUSE_PROBE_RESOLUTIONS, normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from '../indirectProbeResolution'
 import { validIndirectLightingSettings, type IndirectLightingSettings, type SavedIndirectLighting } from '../indirectLightingPersistence'
@@ -90,11 +105,14 @@ import {
   Vector4,
   WebGLRenderTarget,
   type Camera,
-  type Light,
+  Light,
+  type Scene,
   MeshStandardMaterial,
   type Side,
   type Texture,
   type WebGLRenderer,
+  type AmbientLight,
+  type HemisphereLight,
 } from 'three'
 import {
   Component,
@@ -135,24 +153,32 @@ import { ImportedModelBatching, isBatchedModelSource } from '../importedModelBat
 import type { ModelTransformPreview, ModelTransformPreviewRef } from '../modelTransformPreview'
 import { pickTargetFromColorBuffer } from '../pickNeighborhood'
 import { participatesInColorPick } from '../colorPickPolicy'
+import { colorPickSampleFrustum } from '../colorPickFrustum'
 import { createRoomLightMask } from '../roomLightMask'
 import { createLightPortalTexture, type LightPortalPlane } from '../roomLightPortals'
+import { useRoomLightOcclusion } from './useRoomLightOcclusion'
+import { indirectLightingStructureKey } from '../indirectContinuousLighting'
 import {
   applyRoomLightShader,
   createRoomLightMaskTexture,
-  createRoomLightBoundaryTexture,
   createRoomLightShaderUniforms,
 } from '../roomLightShader'
 import { findClosestWallFace } from '../wallPickFallback'
 import { WallViewFadeContext, isFadedWallSurface, useWallViewFade } from './WallViewFade'
 import { isProximityFadedObject, RoofViewFadeContext, RoofVisibilityContext, useProximityViewFade } from './ProximityViewFade'
 import { LOCAL_LIGHT_SHADOW_BIAS, LOCAL_LIGHT_SHADOW_NORMAL_BIAS, LOCAL_LIGHT_SHADOW_RADIUS,
-  releaseLightShadowResources, setLightShadowEnabled, createLightShadowControl, type LightShadowControl } from '../lightShadowResources'
+  releaseLightShadowResources, setLightShadowEnabled, createLightShadowControl, combineLightShadowControls, type LightShadowControl, type LightShadowState } from '../lightShadowResources'
 import { SUN_SHADOW_NORMAL_BIAS_METERS, SunShadowCache } from '../sunShadowCache'
+import { SunCascades } from '../sunCascades'
+import { rendererShadowMode, rendererShadowSize, rendererAuditEnabled, rendererContextRecoveryEnabled } from '../rendererRecovery'
+import { normalizeSunStrength } from '../sunStrength'
 import { withWallShadowReceiver } from '../materials/wallShadowReceiver'
 import { buildDoorwayFloorPatches, doorwayFloorKey } from '../doorwayFloors'
 import { configureAmbientOcclusionPass, preparePostprocessingShaders } from '../ambientOcclusionResources'
-import { completeShaderWarmup, shaderWarmupGeneration } from '../shaderWarmupState'
+import { completeShaderWarmup, failShaderWarmup, finishShaderWarmup, requestShaderWarmup, shaderWarmupGeneration, subscribeShaderWarmup } from '../shaderWarmupState'
+import { installRendererHealth } from '../rendererHealth'
+import { createViewportScanScheduler } from '../viewportScan'
+import { activeAmbientTerm, ambientLightingPreferences, normalizeAmbientLightingPreferences, normalizeSkyStrength, restoreAmbientSettings, viewportAmbientFillIntensity, type AmbientLightingPreferences } from '../ambientLighting'
 import { installNonBlockingShaderDiagnostics } from '../shaderDiagnostics'
 import { installNonBlockingReadbackChecks } from '../readbackCapabilities'
 import { prepareShaderWarmupResourceRevision, compileShaderWarmup, createShaderWarmupSnapshot, prepareShaderWarmupSnapshot, prepareShaderWarmupResources, prepareShaderWarmupSceneRevision, isSelectionDecoration, shaderWarmupRevisionIsCovered } from '../shaderWarmup'
@@ -193,6 +219,7 @@ import { subtractPlanCutouts, type PlanCutout } from '../planarCutouts'
 import { getSlabOpeningRevealEdges, getSlabOpeningRevealHeights, splitSlabOpeningRevealsAtWalls, trimSlabRevealsAtStairs } from '../slabOpeningReveals'
 import { STAIR_OPENING_WALL_FIT_DISTANCE } from '../stairOpeningFit'
 import { clipSkirtingAtOpenings } from '../skirtingOpenings'
+import { batchSkirtingByMaterial, DEFAULT_SKIRTING_MATERIAL, type SkirtingGeometryPart } from '../skirtingBatching'
 import { snapStairApertureToWalls } from '../stairPlacement'
 import { getStairLandingPosition } from '../stairLandings'
 import {
@@ -216,8 +243,10 @@ import {
   normalizeMaterialVariation,
 } from '../materials/proceduralVariation'
 import { withSpecularOnlyImageBasedLighting } from '../materials/imageBasedLighting'
+import { updateSurfaceMaterialShader } from '../materials/surfaceMaterialShader'
 import { buildWallBufferGeometryPayload } from '../wallEngine/wallBuffer'
-import { wallMaterialBatchKey } from '../wallEngine/wallMaterialBatchKey'
+import { hasWallMaterialTextures, resolvedWallMaterialBatchKey } from '../wallEngine/wallMaterialBatchKey'
+import { batchWallSurfaces, type WallSurfaceBatchPart } from '../wallSurfaceBatching'
 import { prepareWallRenderingInWorker, prepareWallFacesForRoofsInWorker, isWallClippingPending, subscribeWallClipping } from '../wallEngine/wallRoofClipClient'
 import { createWallRoofClipInputJob } from '../wallEngine/wallRoofClipJob'
 import { getExposedAssemblyEdges, type StoreyGeometry } from '../storeyGeometry'
@@ -263,6 +292,7 @@ import type {
   WallBodyOccluder,
 } from '../threeDLevelPreparation'
 import { refreshRenderedFloorOpenings, serializeWallGeometryInput } from '../threeDLevelPreparation'
+import { traceEditorPreparation } from '../editorPreparationTrace'
 import type { RoofPlacementPreview } from './FloorplanCanvas'
 import {
   prepareRenderedFloorsInWorkers,
@@ -288,11 +318,17 @@ const CEILING_VISUAL_OVERLAP_METERS = 0.035
 type WallEngineFace = FloorWallSurfaceFace
 
 type ThreeDViewProps = {
+  lightingUpdateMode?: 'preview' | 'automatic'
   suspended?: boolean
   lightControl?: LocalLightControl
   diffuseProbeResolution?: DiffuseProbeResolution
   onDiffuseProbeResolutionChange?: (resolution: DiffuseProbeResolution) => void
+  exposureStops?: number
+  onExposureStopsChange?: (stops: number) => void
   savedIndirectLighting?: SavedIndirectLighting
+  lightingResetRevision?: number
+  ambientLighting?: AmbientLightingPreferences
+  onAmbientLightingChange?: (preferences: AmbientLightingPreferences) => void
   onIndirectLightingReady?: (cache: SavedIndirectLighting | undefined) => void
   readOnly?: boolean
   viewerTouchDevice?: boolean
@@ -335,8 +371,15 @@ type RenderOptions = {
   fadeObstructingWalls: boolean
   ambientOcclusion: boolean
   ambientOcclusionIntensity: number
+  exteriorSkyOcclusion: boolean
+  exteriorSkyOcclusionStrength: number
+  exteriorSkyFill: number
   ambientTerm: number
+  nightAmbientTerm: number
   daylightBounceStrength: number
+  skyMode:'clear'|'overcast'
+  skyStrength:number
+  diffuseBounces:number
   softAmbientShading: boolean
   softAmbientStrength: number
   bakedLightmaps: boolean
@@ -347,10 +390,11 @@ type RenderOptions = {
   giProbes: boolean
   giInspector: boolean
   indirectLighting: boolean
+  fastGI: boolean
+  roomReflections: boolean
   lightMarkers: boolean
   lightShadows: boolean
   lights: boolean
-  nightFill: boolean
   occlusionCulling: boolean
   referenceFloors: boolean
   rearFaceOnly: boolean
@@ -360,12 +404,13 @@ type RenderOptions = {
   skybox: boolean
   wallPerimeter: boolean
   wireframe: boolean
+  whiteModel: boolean
   wireframeHiddenSurfaces: boolean
 }
 
 type RenderToggleOption = Exclude<
   keyof RenderOptions,
-  'ambientOcclusionIntensity' | 'ambientTerm' | 'softAmbientStrength' | 'daylightBounceStrength'
+  'ambientOcclusionIntensity' | 'exteriorSkyOcclusionStrength' | 'exteriorSkyFill' | 'ambientTerm' | 'nightAmbientTerm' | 'softAmbientStrength' | 'daylightBounceStrength' | 'skyMode' | 'skyStrength' | 'diffuseBounces'
 >
 
 type PortalFloorGeometry = {
@@ -800,6 +845,7 @@ type LightDirection = SunPosition
 type WalkNavigationMode = 'look' | 'orbit'
 
 type PickGesture = {
+  moved?: boolean
   pointerId: number
   shiftKey?: boolean
   x: number
@@ -1578,15 +1624,35 @@ function getSunAppearance(elevation: number) {
   }
 }
 
-function AmbientFillLight({ intensity, strength }: { intensity: number; strength: number }) {
+function AmbientFillLight({ ambientTerm, daylight, strength }: {
+  ambientTerm: number; daylight: boolean; strength: number
+}) {
+  const ambient = useRef<AmbientLight>(null), sky = useRef<HemisphereLight>(null)
+  const { scene, invalidate } = useThree()
+  const intensity = viewportAmbientFillIntensity(ambientTerm, daylight, false)
+  useFrame(() => {
+    const uniforms = scene.userData.getIndirectUniforms?.()
+    const exteriorSkyReady = daylight && uniforms?.hdGIEnabled.value > .5 &&
+      uniforms?.hdGIFloorCount.value > 0 && uniforms?.hdSkyMode.value > .5
+    const budget = viewportAmbientFillIntensity(ambientTerm, daylight, exteriorSkyReady)
+    const constant = budget * (1 - .55 * strength), hemisphere = budget * 1.05 * strength
+    if (ambient.current && sky.current && (ambient.current.intensity !== constant || sky.current.intensity !== hemisphere)) {
+      ambient.current.intensity = constant; sky.current.intensity = hemisphere
+      scene.userData.liveLightRevision = (scene.userData.liveLightRevision ?? 0) + 1
+      invalidate()
+    }
+    const previous = scene.userData.ambientFillBudget
+    if (previous?.requested !== ambientTerm || previous?.applied !== budget || previous?.exteriorSkyReady !== !!exteriorSkyReady)
+      scene.userData.ambientFillBudget = { requested: ambientTerm, applied: budget, exteriorSkyReady: !!exteriorSkyReady }
+  })
   // Split the existing ambient budget into a constant fill and tilted sky
   // hemisphere. Unequal horizontal components separate perpendicular walls;
   // the neutral ground colour keeps finishes neutral and the mean brightness
   // close to the old fill. Neither light casts shadows or uses sampled AO.
   return <>
-    <ambientLight intensity={intensity * (1 - 0.55 * strength)}
+    <ambientLight ref={ambient} intensity={intensity * (1 - 0.55 * strength)}
       userData={{ houseDesignerRole: 'ambient-fill' }} />
-    <hemisphereLight color="#ffffff" groundColor="#404040" position={[1, 2, 3]}
+    <hemisphereLight ref={sky} color="#ffffff" groundColor="#404040" position={[1, 2, 3]}
       intensity={intensity * 1.05 * strength}
       userData={{ houseDesignerRole: 'ambient-sky-fill' }} />
   </>
@@ -1599,6 +1665,7 @@ function SunLight({
   sceneBounds,
   shadowMapSize = 2048,
   shadows,
+  shadowControl,
 }: {
   enabled: boolean
   lightDirection: LightDirection
@@ -1606,9 +1673,24 @@ function SunLight({
   sceneBounds: ReturnType<typeof getSceneBounds>
   shadowMapSize?: number
   shadows: boolean
+  shadowControl: LightShadowState
 }) {
   const lightRef = useRef<DirectionalLight>(null)
   const targetRef = useRef<Object3D>(null)
+  const { scene, invalidate } = useThree()
+  useLayoutEffect(() => {
+    const update = () => {
+      const shadow = lightRef.current?.shadow
+      if (!shadow) return
+      shadow.intensity = shadows && shadowControl.get() ? 1 : 0
+      shadow.autoUpdate = false
+      shadow.needsUpdate = !shadow.map || shadow.intensity > 0
+      scene.userData.liveLightRevision = (scene.userData.liveLightRevision ?? 0) + 1
+      invalidate()
+    }
+    update()
+    return shadowControl.subscribe(update)
+  }, [shadowControl, shadows, scene, invalidate])
 
   useEffect(() => {
     if (lightRef.current && targetRef.current) {
@@ -1619,16 +1701,17 @@ function SunLight({
   const horizontalDistance = Math.max(sceneBounds.size * 0.9, 12)
   const verticalDistance = Math.max(sceneBounds.maxElevation + 8, 8)
   const lastApplied = useRef<{
-    azimuth: number; elevation: number; enabled: boolean; bounds: typeof sceneBounds
+    azimuth: number; elevation: number; strength: number; enabled: boolean; bounds: typeof sceneBounds
   } | null>(null)
   useFrame(() => {
     const light = lightRef.current
     if (!light) return
     light.userData.indirectPreview = !!previewDirectionRef.current
     const direction = previewDirectionRef.current ?? lightDirection
+    const strength = normalizeSunStrength(lightDirection.strength)
     const previous = lastApplied.current
     if (previous?.azimuth === direction.azimuth && previous.elevation === direction.elevation &&
-      previous.enabled === enabled && previous.bounds === sceneBounds) return
+      previous.strength === strength && previous.enabled === enabled && previous.bounds === sceneBounds) return
     // A drag changes only the existing light. Persisted scene state (including
     // baked lighting) is updated once when the control is released.
     const radius = horizontalDistance * Math.max(0.08, Math.cos(direction.elevation))
@@ -1639,8 +1722,8 @@ function SunLight({
     )
     const appearance = getSunAppearance(direction.elevation)
     light.color.copy(appearance.color)
-    light.intensity = enabled ? appearance.intensity : 0
-    lastApplied.current = { ...direction, enabled, bounds: sceneBounds }
+    light.intensity = enabled ? appearance.intensity * strength : 0
+    lastApplied.current = { ...direction, strength, enabled, bounds: sceneBounds }
   })
   const shadowCameraFar =
     horizontalDistance + verticalDistance + sceneBounds.size + sceneBounds.maxElevation
@@ -1654,7 +1737,7 @@ function SunLight({
       <directionalLight
         ref={lightRef}
         userData={{ houseDesignerRole: 'sun-light' }}
-        castShadow={enabled && shadows}
+        castShadow={shadows}
         shadow-autoUpdate={false}
         shadow-mapSize-width={shadowMapSize}
         shadow-mapSize-height={shadowMapSize}
@@ -1687,9 +1770,15 @@ function ExternalWallMaterial({
   wireframe: boolean
 }) {
   const shader = useMemo(() => wallShadowReceiver ? withWallShadowReceiver() : {}, [wallShadowReceiver])
+  const materialRef = useRef<MeshStandardMaterial>(null)
+  useLayoutEffect(() => {
+    if (!materialRef.current) return
+    updateSurfaceMaterialShader(materialRef.current, shader)
+    materialRef.current.needsUpdate = true
+  }, [shader])
   return (
     <meshStandardMaterial
-      {...shader}
+      ref={materialRef}
       attach={attach}
       color="#94a3b8"
       roughness={0.82}
@@ -2636,9 +2725,15 @@ function InternalWallMaterial({
   wireframe: boolean
 }) {
   const shader = useMemo(() => wallShadowReceiver ? withWallShadowReceiver() : {}, [wallShadowReceiver])
+  const materialRef = useRef<MeshStandardMaterial>(null)
+  useLayoutEffect(() => {
+    if (!materialRef.current) return
+    updateSurfaceMaterialShader(materialRef.current, shader)
+    materialRef.current.needsUpdate = true
+  }, [shader])
   return (
     <meshStandardMaterial
-      {...shader}
+      ref={materialRef}
       attach={attach}
       color="#cbd5e1"
       roughness={0.72}
@@ -2659,6 +2754,7 @@ const GableClipContext = createContext(new Map<string, { gableWallIds: string[];
 const BuildingRoomCutsContext = createContext<RoomRoofCut[]>([])
 
 const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
+  authoredWalls,
   castsShadow,
   onlyStoreyBoundary = false,
   clipToInheritedRoofs = false,
@@ -2676,6 +2772,7 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
   wallClippingRoofs,
   wireframe,
 }: {
+  authoredWalls: Wall[]
   castsShadow: boolean
   onlyStoreyBoundary?: boolean
   clipToInheritedRoofs?: boolean
@@ -2786,6 +2883,15 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
   const [{ faces, pickPayload }, setPreparedWalls] = useState(() => ({
     faces: [] as WallEngineFace[], pickPayload: buildWallBufferGeometryPayload([], { floorId, groupBy: 'face' }),
   }))
+  const clippedInput = useRef<typeof stableRoofClipOptions | undefined>(undefined)
+  const renderedSource = useRef<{ faces: WallEngineFace[]; key: string } | undefined>(undefined)
+  const availableMaterialKey = JSON.stringify([...new Set(surfaceAssignments.map(a => a.materialId).filter(id => surfaceMaterialsById.has(id)))].sort()
+    .map(id => [id, hasWallMaterialTextures(surfaceMaterialsById.get(id)!)]))
+  const { availableMaterialIds, untexturedMaterialIds } = useMemo(() => {
+    const entries = JSON.parse(availableMaterialKey) as [string, boolean][]
+    return { availableMaterialIds: entries.map(([id]) => id), untexturedMaterialIds: entries.filter(([, textured]) => !textured).map(([id]) => id) }
+  }, [availableMaterialKey])
+  const wallFinishKey = JSON.stringify([walls, authoredWalls, surfaceAssignments, floorId, elevation, storeyGeometry?.assembly, availableMaterialKey])
   // Roof/gable calculations can recreate equivalent plane closures after an
   // opening edit on another floor. Compare the actual clipping coefficients.
   // Faces already have a memoized identity. Serializing every vertex on every
@@ -2806,9 +2912,16 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
       roofSupports: wallClippingRoofs.filter(candidate => candidate.roof.clipsGeometry !== false).map(candidate => ({
         roofId: candidate.roof.id, supportPolygon: roofBoundsPolygon(candidate.resolved, candidate.resolved.support),
       })),
-    }, controller.signal).then(async (prepared) => {
+    }, controller.signal, { walls, surfaceAssignments, floorId, elevation, assembly: storeyGeometry?.assembly, availableMaterialIds, untexturedMaterialIds }).then(async (prepared) => {
       if (controller.signal.aborted) return
-      await publishViewportUpdate(() => startTransition(() => setPreparedWalls(prepared)), () => controller.signal.aborted)
+      await publishViewportUpdate(() => startTransition(() => {
+        clippedInput.current = stableRoofClipOptions
+        setPreparedWalls(prepared)
+        if (prepared.rendering) {
+          renderedSource.current = { faces: prepared.faces, key: wallFinishKey }
+          setWallRendering({ ...prepared.rendering, preparedWalls: authoredWalls })
+        }
+      }), () => controller.signal.aborted)
       recordEngineLog('wall-roof-clipping-complete', `${floorId}: ${Math.round(performance.now() - startedAt)}ms in worker`)
     }).catch((error) => {
       if (controller.signal.aborted) return
@@ -2878,19 +2991,28 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
       rooms,
     })
   }, [faces, floorId, renderedWalls, rooms])
-  const [{renderFaces,payload},setWallRendering]=useState(()=>({renderFaces:[] as WallEngineFace[],payload:buildWallBufferGeometryPayload([],{floorId})}))
+  const [{renderFaces,payload,preparedWalls},setWallRendering]=useState(()=>({renderFaces:[] as WallEngineFace[],payload:buildWallBufferGeometryPayload([],{floorId}),preparedWalls:[] as Wall[]}))
   useLayoutEffect(()=>{
+    if (clippedInput.current !== stableRoofClipOptions ||
+      (renderedSource.current?.faces === faces && renderedSource.current.key === wallFinishKey)) return
     const controller=new AbortController()
-    void prepareWallRenderingInWorker({kind:'render',faces,walls,surfaceAssignments,floorId,elevation,assembly:storeyGeometry?.assembly},controller.signal)
-      .then(result=>publishViewportUpdate(()=>startTransition(()=>setWallRendering(result)),()=>controller.signal.aborted))
+    void prepareWallRenderingInWorker({kind:'render',faces,walls,surfaceAssignments,floorId,elevation,assembly:storeyGeometry?.assembly,availableMaterialIds,untexturedMaterialIds},controller.signal)
+      .then(result=>publishViewportUpdate(()=>startTransition(()=>{
+        // Preview edits against the authored inputs that produced this mesh.
+        // Topology can extend/snap endpoints to close joins; those solved walls
+        // differ from the project even when no edit is pending.
+        renderedSource.current={faces,key:wallFinishKey};setWallRendering({...result,preparedWalls:authoredWalls})
+      }),()=>controller.signal.aborted))
       .catch(error=>{if(!controller.signal.aborted)console.error('Wall finish preparation failed; retaining previous geometry.',error)})
     return()=>controller.abort()
-  },[faces,walls,surfaceAssignments,floorId,elevation,storeyGeometry?.assembly])
-  const geometry = useMemo(() => createWallBufferGeometry(payload), [payload])
+  },[faces,walls,authoredWalls,surfaceAssignments,floorId,elevation,storeyGeometry?.assembly,stableRoofClipOptions,wallFinishKey,availableMaterialIds,untexturedMaterialIds])
+  const geometry = useMemo(() => createWallBufferGeometry(payload, true), [payload])
+  const wallScene = useThree(state => state.scene)
+  useLayoutEffect(() => { requestShaderWarmup(wallScene) }, [geometry, wallScene])
   const hasRenderGeometry = payload.materialSlots.length > 0
   const paletteKey = JSON.stringify(payload.materialSlots.map(slot => {
     const finish = resolveWallEngineMaterial({ source: slot.source, surfaceAssignments, wallsById })
-    return wallMaterialBatchKey(finish.assignment, finish.fallback)
+    return resolvedWallMaterialBatchKey(finish.assignment, finish.fallback, !!finish.material, !!finish.material && hasWallMaterialTextures(finish.material))
   }))
   const pickGeometry = useMemo(
     () => createWallBufferGeometry(pickPayload),
@@ -3035,7 +3157,8 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
         position={[0, elevation, 0]}
         receiveShadow={castsShadow}
         renderOrder={2}
-        userData={{ houseDesignerRole: 'wall-engine-render', floorId }}
+        userData={{ houseDesignerRole: 'wall-engine-render', floorId, wallOpeningPreviewEligible: !onlyStoreyBoundary,
+          wallPreparedWalls: preparedWalls, wallMaterialKeys: JSON.parse(paletteKey) }}
       >
         {payload.materialSlots.map((slot) => (
           <WallEngineMaterialSlot
@@ -4424,6 +4547,9 @@ function formatEngineConsoleLine(entry: EngineLogEntry) {
 }
 
 function getAssetFileName(assetUrl: string) {
+  // Embedded images have no filename. Parsing/splitting a multi-MB data URI
+  // just to label a preparation event was measurable foreground work.
+  if (assetUrl.startsWith('data:')) return 'Embedded image'
   try {
     return new URL(assetUrl, window.location.href).pathname.split('/').pop() ??
       assetUrl
@@ -4984,12 +5110,16 @@ function SurfaceMeshStandardMaterial({
     // Maps arrive asynchronously after an untextured shader may have compiled.
     // Assigning a Three material's map alone does not rebuild that shader.
     if (materialRef.current) {
+      // Reordering batched meshes reapplies JSX properties to their subtree.
+      // Keep shader hooks out of those properties so GI/White mode and room
+      // lighting wrappers survive reattachment as well as finish updates.
+      updateSurfaceMaterialShader(materialRef.current, surfaceMaterialShader)
       materialRef.current.needsUpdate = true
       invalidate()
     }
   }, [invalidate, textures.map, textures.normalMap, textures.roughnessMap,
     textures.metalnessMap, textures.aoMap, textures.displacementMap, variationKey,
-    environmentMap])
+    environmentMap, surfaceMaterialShader])
 
   return (
     <meshStandardMaterial
@@ -4999,7 +5129,6 @@ function SurfaceMeshStandardMaterial({
         imageBasedLightingEnabled ? 'ibl-reflections-v1' : 'direct-lighting-v1'
       }`}
       ref={materialRef}
-      {...surfaceMaterialShader}
       {...environmentProps}
       attach={attach}
       aoMap={textures.aoMap ?? null}
@@ -6098,6 +6227,7 @@ function createSkirtingRunGeometry(elevation: number, roofClipVolumes: ClipPlane
 
 const SkirtingBoards = memo(function SkirtingBoards({
   elevation,
+  floorId,
   geometryContextWalls,
   models,
   renderedWalls,
@@ -6108,6 +6238,7 @@ const SkirtingBoards = memo(function SkirtingBoards({
   wireframe,
 }: {
   elevation: number
+  floorId: string
   geometryContextWalls: Wall[]
   models: PlacedModel[]
   renderedWalls: RenderedWall[]
@@ -6332,13 +6463,22 @@ const SkirtingBoards = memo(function SkirtingBoards({
     }))])
   useEffect(() => {
     let cancelled = false
-    const next = new Map<string, BufferGeometry>()
+    let next = new Map<string, BufferGeometry>()
     void runViewportPreparation((function* () {
-      for (const run of skirtingRuns) {
-        next.set(run.key, createSkirtingRunGeometry(elevation, roofClipVolumes, run, skirtingRuns))
-        yield
+      const parts: SkirtingGeometryPart[] = []
+      try {
+        for (const run of skirtingRuns) {
+          parts.push({
+            geometry: createSkirtingRunGeometry(elevation, roofClipVolumes, run, skirtingRuns),
+            materialKey: DEFAULT_SKIRTING_MATERIAL.key,
+          })
+          yield
+        }
+        next = batchSkirtingByMaterial(parts)
+        return next
+      } finally {
+        parts.forEach(({ geometry }) => geometry.dispose())
       }
-      return next
     })(), () => cancelled).then(result => {
       if (!result || cancelled) { next.forEach(geometry => geometry.dispose()); return }
       setGeometries(result)
@@ -6352,8 +6492,8 @@ const SkirtingBoards = memo(function SkirtingBoards({
   return (
     <group renderOrder={3}>
       {[...geometries].map(([key, geometry]) => (
-        <mesh key={key} geometry={geometry} receiveShadow userData={{ houseDesignerRole: 'skirting' }}>
-          <meshStandardMaterial color="#f8fafc" flatShading roughness={0.58} wireframe={wireframe} />
+        <mesh key={key} geometry={geometry} receiveShadow userData={{ houseDesignerRole: 'skirting', floorId, materialKey: key }}>
+          <meshStandardMaterial color={DEFAULT_SKIRTING_MATERIAL.color} flatShading roughness={DEFAULT_SKIRTING_MATERIAL.roughness} wireframe={wireframe} />
         </mesh>
       ))}
     </group>
@@ -9618,6 +9758,8 @@ function SelectableRoomSurfaceMesh({
       </mesh>
       {isSelected ? (
         <mesh
+          name={`${type}-selection-highlight`}
+          userData={{ selectionDecoration: true, houseDesignerRole: `${type}-highlight`, floorId, roomSignature: room.signature }}
           position={[0, y, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           renderOrder={6}
@@ -9673,6 +9815,49 @@ function RoofSurfaceHighlight({ geometry, roofId, part, side = FrontSide }: {
   </mesh>
 }
 
+const WallSurfaceBatchContext = createContext<((parts: WallSurfaceBatchPart[]) => () => void) | null>(null)
+
+function WallSurfaceBatches({ children, wireframe }: { children: ReactNode; wireframe: boolean }) {
+  // Independently fading surfaces need independently controlled materials.
+  const fade = useContext(RoofViewFadeContext)
+  const enabled = !fade && !wireframe
+  const [sources, setSources] = useState(new Map<symbol, WallSurfaceBatchPart[]>())
+  const register = useCallback((parts: WallSurfaceBatchPart[]) => {
+    const id = Symbol()
+    setSources(current => new Map(current).set(id, parts))
+    return () => setSources(current => { const next = new Map(current); next.delete(id); return next })
+  }, [])
+  const batches = useMemo(() => enabled ? batchWallSurfaces([...sources.values()].flat()) : [], [enabled, sources])
+  const scene = useThree(state => state.scene)
+  useLayoutEffect(() => { requestShaderWarmup(scene) }, [batches, scene])
+  useEffect(() => () => batches.forEach(batch => batch.geometry.dispose()), [batches])
+  return <WallSurfaceBatchContext.Provider value={enabled ? register : null}>
+    {children}
+    {batches.map(({ key, geometry, sources: parts }) => {
+      const first = parts[0]
+      const roofIds = [...new Set(parts.map(part => part.roofId))]
+      let start = 0
+      const wallSurfaceSources = parts.map(part => {
+        const count = part.geometry.index?.count ?? part.geometry.getAttribute('position').count
+        const range = { start, count, roofId: part.roofId, wallId: part.wallId, interior: part.interior }
+        start += count
+        return range
+      })
+      return <mesh key={key} geometry={geometry} castShadow={first.castShadow} receiveShadow={first.receiveShadow}
+        renderOrder={first.renderOrder} userData={{ houseDesignerRole: 'roof-infill', floorId: first.floorId,
+          solidGable: first.solidGable, roofIds, roofId: roofIds.length === 1 ? roofIds[0] : undefined,
+          interior: parts.every(part => part.interior), wallSurfaceBatch: true, wallSurfaceSources }}>
+        {first.assignment && first.material ? <SurfaceMeshStandardMaterial assignment={first.assignment}
+          material={first.material} displacementEnabled={false} wallShadowReceiver
+          polygonOffsetFactor={first.polygonOffset ? 0 : undefined} polygonOffsetUnits={first.polygonOffset ? 0 : undefined}
+          side={first.side} shadowSide={first.shadowSide} textureQuality={getWallSurfaceTextureQuality(first.material)} wireframe={false} />
+          : first.fallback === 'internal' ? <InternalWallMaterial wallShadowReceiver side={first.side} shadowSide={first.shadowSide} wireframe={false} />
+          : <ExternalWallMaterial wallShadowReceiver side={first.side} shadowSide={first.shadowSide} wireframe={false} />}
+      </mesh>
+    })}
+  </WallSurfaceBatchContext.Provider>
+}
+
 function RoofInfillMesh({
   bottomY, buildingRoomCuts, exteriorSide, floorId, infillFaces,
   onRegisterPickTarget, renderedWall, roof, roofFaceSide,
@@ -9689,6 +9874,7 @@ function RoofInfillMesh({
 }) {
   const frontMeshRef = useRef<Mesh>(null!)
   const backMeshRef = useRef<Mesh>(null!)
+  const registerBatch = useContext(WallSurfaceBatchContext)
   const geometry = useMemo(() => {
     const source = createRoofInfillGeometry({
       bottomY, infillFaces, exteriorSide, renderedWall, roof,
@@ -9726,7 +9912,6 @@ function RoofInfillMesh({
     ? facingWireframeGeometry(geometry) : null, [geometry, roofFaceSide, wireframe])
   useEffect(() => () => geometry?.dispose(), [geometry])
   useEffect(() => () => facingWireframe?.dispose(), [facingWireframe])
-  if (!geometry) return null
   const { wall } = renderedWall
   const gableAssignment = infillRole === 'gable' ? surfaceAssignments.findLast(item =>
     item.target.type === 'roof' && item.target.floorId === floorId &&
@@ -9735,6 +9920,19 @@ function RoofInfillMesh({
     getRoofInfillMaterialAssignment(surfaceAssignments, wall, frontWallSide)
   const backAssignment = gableAssignment ??
     getRoofInfillMaterialAssignment(surfaceAssignments, wall, frontWallSide === 1 ? -1 : 1)
+  const frontMaterial = frontAssignment ? surfaceMaterialsById.get(frontAssignment.materialId) : undefined
+  const backMaterial = backAssignment ? surfaceMaterialsById.get(backAssignment.materialId) : undefined
+  useLayoutEffect(() => {
+    if (!registerBatch || !geometry) return
+    return registerBatch(([FrontSide, BackSide] as const).flatMap(side =>
+      roofFaceSide !== undefined && roofFaceSide !== side ? [] : [{
+        geometry, floorId, assignment: side === FrontSide ? frontAssignment : backAssignment,
+        material: side === FrontSide ? frontMaterial : backMaterial, fallback: 'external', side, shadowSide: DoubleSide,
+        castShadow: shadowsEnabled && side === FrontSide, receiveShadow: shadowsEnabled, renderOrder: 2,
+        roofId: roof.id, wallId: wall.id,
+      }]))
+  }, [registerBatch, geometry, floorId, frontAssignment, backAssignment, frontMaterial, backMaterial, roofFaceSide, shadowsEnabled, roof.id, wall.id])
+  if (!geometry) return null
   return (
     <>
       {([FrontSide, BackSide] as const).map(side => {
@@ -9745,13 +9943,13 @@ function RoofInfillMesh({
           <mesh
             key={side}
             ref={side === FrontSide ? frontMeshRef : backMeshRef}
-            castShadow={shadowsEnabled && side === FrontSide}
+            castShadow={!registerBatch && shadowsEnabled && side === FrontSide}
             geometry={facingWireframe ?? geometry}
-            userData={{ houseDesignerRole: 'roof-infill', roofId: roof.id, wallId: wall.id }}
+            userData={{ houseDesignerRole: registerBatch ? 'gable-pick' : 'roof-infill', roofId: roof.id, wallId: wall.id }}
             receiveShadow={shadowsEnabled}
             renderOrder={2}
           >
-            {facingWireframe ? <RoofFaceWireframeMaterial side={side} /> :
+            {registerBatch ? <meshBasicMaterial visible={false} side={side} /> : facingWireframe ? <RoofFaceWireframeMaterial side={side} /> :
             assignment && material ? (
               <SurfaceMeshStandardMaterial
                 assignment={assignment}
@@ -9786,6 +9984,7 @@ function SolidGableSurface({ gable, faces, onRegisterPickTarget, selectedSurface
   shadowsEnabled: boolean; surfaceAssignments: SurfaceMaterialAssignment[]; wireframe: boolean
 }) {
   const ref = useRef<Mesh>(null!)
+  const registerBatch = useContext(WallSurfaceBatchContext)
   useProximityViewFade({ objectRef: ref, eligible: !faces[0].interior })
   const source = faces[0]
   const surface = useMemo(() => getGableSurface(gable, source), [gable, source])
@@ -9815,12 +10014,21 @@ function SolidGableSurface({ gable, faces, onRegisterPickTarget, selectedSurface
   const assignment = gableAssignment ?? (source.wall && source.wallSide
     ? getRoofInfillMaterialAssignment(surfaceAssignments, source.wall, source.wallSide) : undefined)
   const material = assignment ? surfaceMaterialsById.get(assignment.materialId) : undefined
+  useLayoutEffect(() => {
+    if (!registerBatch) return
+    return registerBatch([{
+      geometry, floorId: surface.spaceFloorId ?? surface.floorId, assignment, material,
+      fallback: source.interior ? 'internal' : 'external', side: FrontSide, shadowSide: BackSide,
+      castShadow: shadowsEnabled, receiveShadow: shadowsEnabled, renderOrder: 0,
+      polygonOffset: !!material, solidGable: true, roofId: gable.roofId, wallId: source.wall?.id, interior: source.interior,
+    }])
+  }, [registerBatch, geometry, surface, assignment, material, source, shadowsEnabled, gable.roofId])
   // These faces bound a solid, like the wall engine. Casting the sun-facing
   // skin shadows that same skin and produces stripes across the whole gable.
-  return <><mesh ref={ref} geometry={geometry} castShadow={shadowsEnabled} receiveShadow={shadowsEnabled}
-    userData={{ houseDesignerRole: 'roof-infill', solidGable: true, roofId: gable.roofId,
+  return <><mesh ref={ref} geometry={geometry} castShadow={!registerBatch && shadowsEnabled} receiveShadow={shadowsEnabled}
+    userData={{ houseDesignerRole: registerBatch ? 'gable-pick' : 'roof-infill', solidGable: !registerBatch, roofId: gable.roofId,
       wallId: source.wall?.id, interior: source.interior }}>
-    {assignment && material ? <SurfaceMeshStandardMaterial assignment={assignment} displacementEnabled={false} wallShadowReceiver
+    {registerBatch ? <meshBasicMaterial visible={false} side={FrontSide} /> : assignment && material ? <SurfaceMeshStandardMaterial assignment={assignment} displacementEnabled={false} wallShadowReceiver
       material={material} polygonOffsetFactor={0} polygonOffsetUnits={0} side={FrontSide} shadowSide={BackSide}
       textureQuality={getWallSurfaceTextureQuality(material)} wireframe={wireframe} />
       : source.interior ? <InternalWallMaterial wallShadowReceiver shadowSide={BackSide} wireframe={wireframe} />
@@ -11316,6 +11524,8 @@ function RoomFloorExtensionPatch({ floorId, roomSignature, elevation, polygon, o
     {assignment ? <RoomFloorFinishMesh elevation={elevation} polygon={polygon} openings={openings}
       assignment={assignment} materialId={assignment.materialId} wireframe={wireframe} /> : null}
     {isSelected ? <mesh position={[0, elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS, 0]}
+      name="room-floor-extension-selection-highlight"
+      userData={{ selectionDecoration: true, houseDesignerRole: 'room-floor-highlight', floorId, roomSignature }}
       rotation={[-Math.PI / 2, 0, 0]} renderOrder={6} raycast={() => null}>
       <shapeGeometry args={[highlightShapes]} />
       <meshBasicMaterial color="#f97316" depthTest depthWrite={false} opacity={0.28}
@@ -11459,6 +11669,8 @@ function RoomPortalFloorMesh({
       </mesh>
       {isSelected ? (
         <mesh
+          name="portal-floor-selection-highlight"
+          userData={{ selectionDecoration: true, houseDesignerRole: 'portal-floor-highlight', floorId }}
           position={[0, y, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           renderOrder={6}
@@ -12379,22 +12591,47 @@ function snapWindowWallOffset({
 }
 
 const ModelTransformPreviewContext = createContext<ModelTransformPreviewRef | undefined>(undefined)
+const LiveGeometryFloorsContext = createContext<{ current: FloorLevel[] } | undefined>(undefined)
+const liveModelIndexes = new WeakMap<FloorLevel[], Map<string, { model: PlacedModel; elevation: number }>>()
+function liveModelIndex(floors: FloorLevel[]) {
+  let index = liveModelIndexes.get(floors)
+  if (!index) { index = new Map(floors.flatMap(floor => floor.models.map(model => [model.id, { model, elevation: floor.elevation }] as const))); liveModelIndexes.set(floors, index) }
+  return index
+}
 
-function LiveModelTransform({ object, model, position, rotation, scale }: {
+function LiveModelTransform({ object, model, position, rotation, scale, floorElevation, height }: {
   object: MutableRefObject<Object3D>; model: PlacedModel
   position: [number, number, number]; rotation: number; scale: [number, number, number]
+  floorElevation: number; height?: { key: 'height' | 'wallOpeningBottom'; fallback: number }
 }) {
   const previewRef = useContext(ModelTransformPreviewContext)
+  const liveFloors = useContext(LiveGeometryFloorsContext)
+  const livePreview = useRef<{ source: PlacedModel; elevation: number; value: ModelTransformPreview } | null>(null)
+  const existence = useRef<{ seen: boolean; hidden: boolean; visible: boolean }>({ seen: false, hidden: false, visible: true })
   const lastPreviewRef = useRef<ModelTransformPreview | null>(null)
   useFrame(() => {
     const group = object.current
     if (!group) return
-    const preview = previewRef?.current
+    const live = liveFloors && liveModelIndex(liveFloors.current).get(model.id)
+    if (live) existence.current.seen = true
+    if (liveFloors && existence.current.seen && !live) {
+      if (!existence.current.hidden) { existence.current.visible = group.visible; existence.current.hidden = true }
+      group.visible = false; return
+    }
+    if (existence.current.hidden) { group.visible = existence.current.visible; existence.current.hidden = false }
+    if (live && (live.model !== model || live.elevation !== floorElevation) &&
+      (livePreview.current?.source !== live.model || livePreview.current.elevation !== live.elevation)) {
+      livePreview.current = { source: live.model, elevation: live.elevation, value: { modelId: model.id, updates: live.model, committed: true } }
+    } else if (!live || (live.model === model && live.elevation === floorElevation)) livePreview.current = null
+    const direct = previewRef?.current
+    const preview = direct?.modelId === model.id ? direct : livePreview.current?.value
     if (preview?.modelId === model.id) {
       if (lastPreviewRef.current === preview) return
       const updates = preview.updates
       group.position.set(position[0] + (updates.position ? updates.position.x - model.position.x : 0),
-        position[1], position[2] + (updates.position ? updates.position.y - model.position.y : 0))
+        position[1] + (live ? live.elevation - floorElevation : 0) +
+          (height && updates[height.key] !== undefined ? updates[height.key]! - (model[height.key] ?? height.fallback) : 0),
+        position[2] + (updates.position ? updates.position.y - model.position.y : 0))
       group.rotation.y = updates.rotation === undefined ? rotation : -updates.rotation
       const uniformScale = updates.scale ?? model.scale ?? 1
       group.scale.set(uniformScale * (updates.widthScale ?? model.widthScale ?? 1), uniformScale,
@@ -12411,7 +12648,7 @@ function LiveModelTransform({ object, model, position, rotation, scale }: {
       lastPreviewRef.current = null
     } else return
     group.updateWorldMatrix(true, true)
-  })
+  }, -1)
   return null
 }
 
@@ -12471,6 +12708,7 @@ function ModelMesh({
   const dormerWallContacts = useContext(DormerWallContactsContext)
   const dormerBaseElevations = useContext(DormerBaseElevationsContext)
   const mountedModelBatching = useContext(ImportedModelBatchingContext)
+  const mountedPreviewRef = useContext(ModelTransformPreviewContext)
   const groupRef = useRef<Object3D>(null!)
   const transformModifierRef = useRef({ ctrlKey: false, shiftKey: false })
   const transformStartRef = useRef<ObjectTransformSnapshot | null>(null)
@@ -12566,21 +12804,24 @@ function ModelMesh({
         })
       : model.position)
   const displayRotation = dormerPlacement?.rotation ?? wallMountedDisplayRotation
+  const contactReceivers=requestedIndirectContacts()&&!modelDefinition.wallMount&&!modelDefinition.isLight&&
+    !['stairs','structural','window','dormer-window','patio-door','interior-door','exterior-door'].includes(modelDefinition.objectType??'')
   const mountedLightingKey = JSON.stringify([displayPosition, floorSnapY, displayRotation,
     model.scale, model.widthScale, model.depthScale, model.flipped, model.mirrored, modelAssetVersion,
     wallMountWall && [wallMountWall.start, wallMountWall.end, wallMountWall.thickness, wallMountWall.kind]])
   const registerMountedPickTarget = useCallback((target: PickTarget) => {
+    const releaseReceiver=contactReceivers?attachIndirectReceiverSafety(target.object):undefined
     const restore = wallMountWall && modelDefinition.wallMount && !model.dormerAttachment
       ? attachWallMountedLighting(target.object, wallMountWall,
           wallMountWall.kind === 'external' ? wallMountedDisplaySide : undefined)
       : undefined
     mountedModelBatching?.invalidate()
     const unregister = onRegisterPickTarget(target)
-    return () => { unregister(); restore?.(); mountedModelBatching?.invalidate() }
+    return () => { unregister(); restore?.(); releaseReceiver?.(); mountedModelBatching?.invalidate() }
     // Placement changes require rebuilding local planes even when the source
     // geometry, asset and wall remain the same.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mountedLightingKey, wallMountedDisplaySide, modelDefinition.wallMount,
+  }, [mountedLightingKey, wallMountedDisplaySide, modelDefinition.wallMount,contactReceivers,
     model.dormerAttachment, mountedModelBatching, onRegisterPickTarget])
   const registerMountedWindow = useCallback((object: Object3D) => registerMountedPickTarget({
     blocksCollision: false, floorId, kind: 'model', modelId: model.id, object,
@@ -13012,13 +13253,18 @@ function ModelMesh({
     }
   }
   const commitObjectTransform = () => {
+    const start = transformStartRef.current, object = groupRef.current
+    // Merely pressing/releasing a gizmo must not run opening snaps, normalize
+    // an existing wall rotation or create an undo entry.
+    if (start && object && object.position.equals(start.position) && object.scale.equals(start.scale) &&
+      object.rotation.y === start.rotationY) return
     const snappedTransform = applyObjectSnaps()
 
     if (!snappedTransform) {
       return
     }
 
-    onUpdateModel(model.id, {
+    const updates: Partial<PlacedModel> = {
       height: snappedTransform.height,
       position: snappedTransform.position,
       rotation: snappedTransform.rotation,
@@ -13029,7 +13275,9 @@ function ModelMesh({
       depthScale: snappedTransform.depthScale,
       roofAttachment: snappedTransform.roofAttachment,
       dormerAttachment: snappedTransform.dormerAttachment,
-    })
+    }
+    if (mountedPreviewRef) mountedPreviewRef.current = { modelId: model.id, updates, committed: true }
+    onUpdateModel(model.id, updates)
   }
   const localModelTransform = (
     <group
@@ -13087,7 +13335,6 @@ function ModelMesh({
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
           batchable={
-            !isSelected &&
             Boolean(modelDefinition.wallMount) &&
             Object.keys(model.materialOverrides ?? {}).length === 0
           }
@@ -13131,7 +13378,8 @@ function ModelMesh({
   const modelGroup = (
     <group
       name={`model-transform-${model.id}`}
-      userData={{ indirectLightModel: !!modelDefinition.isLight, indirectStairModel: modelDefinition.objectType === 'stairs' }}
+      userData={{ indirectLightModel: !!modelDefinition.isLight, indirectStairModel: modelDefinition.objectType === 'stairs',indirectContactModel:contactReceivers,
+        exteriorSkyReceiver: ['window', 'patio-door', 'exterior-door', 'dormer-window'].includes(modelDefinition.wallMount ?? modelDefinition.objectType ?? '') }}
       ref={groupRef}
       position={[displayPosition.x, floorSnapY, displayPosition.y]}
       rotation={[0, -displayRotation, 0]}
@@ -13143,19 +13391,45 @@ function ModelMesh({
       renderOrder={isActive ? 3 : 1}
     >
       <LiveModelTransform object={groupRef} model={model}
+        floorElevation={elevation} height={modelDefinition.isLight ? { key: 'height', fallback: modelDefinition.height }
+          : modelDefinition.wallMount === 'window' ? { key: 'wallOpeningBottom', fallback: WINDOW_SILL_HEIGHT_METERS } : undefined}
         position={[displayPosition.x, floorSnapY, displayPosition.y]} rotation={-displayRotation}
         scale={[(model.scale ?? 1) * (model.widthScale ?? 1), model.scale ?? 1,
           (model.scale ?? 1) * (model.depthScale ?? 1)]} />
       {localModelTransform}
-      {isSelected && <ModelSelectionHighlight object={groupRef} />}
+      <ModelSelectionHighlight object={groupRef} selected={isSelected} />
     </group>
   )
 
   if (isSelected && isActive && transformEnabled && (!model.dormerAttachment || transformMode !== 'rotate') &&
     (!modelDefinition.roofMount || (modelDefinition.roofMount === 'dormer' && transformMode === 'translate'))) {
+    const opening = wallMountWall?.openings?.find(item => item.id === model.id || item.id.startsWith(`${model.id}:`))
+    const openingMetrics = wallMountWall ? getWallModelOpeningMetrics(model, wallMountWall) : null
     return (
       <>
         {modelGroup}
+        {(modelDefinition.wallMount === 'window' || modelDefinition.wallMount === 'patio-door') && !model.dormerAttachment && wallMountWall && openingMetrics && transformMode === 'translate' ? (
+          <WindowClearanceRulers object={groupRef} modelId={model.id}
+            openingType={modelDefinition.wallMount}
+            wall={wallMountWall} walls={walls} anchor={[displayPosition.x, floorSnapY, displayPosition.y]}
+            center={(model.wallAttachment?.offset ?? 0) + openingMetrics.centerOffset} width={openingMetrics.width}
+            bottom={opening?.bottom ?? floorSnapY - elevation} height={opening?.height ?? scaledModelHeight}
+            elevation={elevation} ceiling={Math.min(roomHeight, wallMountWall.height)}
+            onChange={({ center, bottom }) => {
+              const offset = center - openingMetrics.centerOffset
+              const updates: Partial<PlacedModel> = {
+                position: getPointAtWallOffset(wallMountWall, offset),
+                wallAttachment: { ...model.wallAttachment!, offset },
+                ...(isVerticallyEditableWindow ? { wallOpeningBottom: bottom } : {}),
+              }
+              const display = getWallMountedModelDisplayPosition({ definition: modelDefinition, importedLocalBounds,
+                model, offset, rotation: wallMountedDisplayRotation, side: wallMountedDisplaySide, wall: wallMountWall })
+              groupRef.current.position.set(display.x, isVerticallyEditableWindow ? elevation + bottom : floorSnapY, display.y)
+              groupRef.current.updateWorldMatrix(true, true)
+              if (mountedPreviewRef) mountedPreviewRef.current = { modelId: model.id, updates, committed: true }
+              onUpdateModel(model.id, updates)
+            }} />
+        ) : null}
         <TransformControls
           object={groupRef}
           mode={transformMode}
@@ -13176,9 +13450,14 @@ function ModelMesh({
           }}
           onObjectChange={() => {
             if (transformMode === 'translate') {
-              applyObjectSnaps()
+              const updates = applyObjectSnaps()
+              if (updates && mountedPreviewRef) mountedPreviewRef.current = { modelId: model.id, updates }
             } else {
               groupRef.current.rotation.y = getTransformRotation(groupRef.current.rotation.y, transformModifierRef.current)
+              const object = groupRef.current, scale = Math.max(.02, Math.abs(object.scale.y))
+              if (mountedPreviewRef) mountedPreviewRef.current = { modelId: model.id, updates: {
+                rotation: -object.rotation.y, scale, widthScale: Math.abs(object.scale.x) / scale, depthScale: Math.abs(object.scale.z) / scale,
+              } }
             }
           }}
           onMouseUp={() => {
@@ -13489,6 +13768,7 @@ function SolidFloorScene({
       ))}
       {wallEngineRenderedWalls.length > 0 || rooms.length > 0 ? (
         <WallEngineWallMeshes
+          authoredWalls={floor.walls}
           castsShadow={shadowsEnabled}
           clipToInheritedRoofs={Boolean(floor.floorFootprints?.length)}
           elevation={floor.elevation}
@@ -13524,6 +13804,7 @@ function SolidFloorScene({
       ))}
       <SkirtingBoards
         elevation={floor.elevation}
+        floorId={floor.id}
         geometryContextWalls={geometryContextWalls}
         models={visibleModels}
         stairOpenings={stairOpenings}
@@ -14007,12 +14288,7 @@ function ImportedModelMaterialOverride({
             ? environmentIntensity
             : 0
         }
-        if (shaderOverrides.onBeforeCompile) {
-          material.onBeforeCompile = shaderOverrides.onBeforeCompile
-        }
-        if (shaderOverrides.customProgramCacheKey) {
-          material.customProgramCacheKey = shaderOverrides.customProgramCacheKey
-        }
+        updateSurfaceMaterialShader(material, shaderOverrides)
 
         material.userData.houseDesignerSurfaceMaterialOverride = materialId
         material.needsUpdate = true
@@ -14100,7 +14376,7 @@ function ImportedModelContent({
   const normalizedGroupRef = useRef<Object3D>(null!)
   const batching = useContext(ImportedModelBatchingContext)
   const pbrEnvironment = useContext(PbrEnvironmentContext)
-  const { gl } = useThree()
+  const { gl,scene:viewportRoot,invalidate } = useThree()
   useEffect(() => {
     recordEngineLog('model-load-start', getAssetFileName(sourceUrl))
   }, [sourceUrl])
@@ -14236,6 +14512,10 @@ function ImportedModelContent({
     targetWidth,
   ])
 
+  // The plan uses the same unscaled asset bounds. Publishing scalar metadata
+  // avoids reloading the GLB when selection activates a different plan floor.
+  useEffect(() => { rememberModelAssetBounds(sourceUrl, bounds.box) }, [sourceUrl, bounds.box])
+
   useEffect(() => {
     if (!normalizeToDimensions) {
       onBoundsChange({
@@ -14297,6 +14577,7 @@ function ImportedModelContent({
   }, [blocksCollision, floorId, modelId, onRegisterPickTarget])
 
   useEffect(() => {
+    let shaderFeaturesChanged=false
     scene.traverse((object) => {
       if ('castShadow' in object) {
         object.castShadow = castsShadow
@@ -14353,6 +14634,8 @@ function ImportedModelContent({
                 transparent: material.transparent,
               }
 
+            const nextTransparent=daylightEnabled?glass.transparent:true
+            shaderFeaturesChanged ||= material.transparent!==nextTransparent
             if (daylightEnabled) {
               material.color.setHex(glass.color)
               material.opacity = glass.opacity
@@ -14382,21 +14665,25 @@ function ImportedModelContent({
           }
 
           if ('side' in material) {
+            shaderFeaturesChanged ||= material.side!==DoubleSide
             material.side = DoubleSide
           }
 
           if ('opacity' in material && material.opacity <= 0.001) {
+            shaderFeaturesChanged ||= material.transparent
             material.opacity = 1
             material.transparent = false
           }
 
           if ('wireframe' in material) {
+            shaderFeaturesChanged ||= material.wireframe!==wireframe
             material.wireframe = wireframe
             material.needsUpdate = true
           }
         }
       }
     })
+    if(shaderFeaturesChanged){requestShaderWarmup(viewportRoot);invalidate()}
     batching?.invalidate()
   }, [
     batching,
@@ -14408,6 +14695,8 @@ function ImportedModelContent({
     materialRegions,
     pbrEnvironment,
     scene,
+    viewportRoot,
+    invalidate,
     wireframe,
   ])
 
@@ -14533,13 +14822,9 @@ function setIdsEqual(firstIds: ReadonlySet<string>, secondIds: ReadonlySet<strin
     return false
   }
 
-  for (const id of firstIds) {
-    if (!secondIds.has(id)) {
-      return false
-    }
-  }
-
-  return true
+  // Insertion order assigns the fixed shadow slots, even if membership matches.
+  const ordered = [...secondIds]
+  return [...firstIds].every((id, index) => id === ordered[index])
 }
 
 function RendererLightCapabilities({
@@ -14557,71 +14842,48 @@ function RendererLightCapabilities({
   return null
 }
 
-function getStableLocalLightIds({
-  limit,
-  visibleRenderedFloors,
-}: {
-  activeFloorId: string
-  limit: number
-  visibleRenderedFloors: RenderedFloorData[]
-}) {
-  const lightIds: string[] = [], disabledIds: string[] = []
-
-  for (const renderedFloor of visibleRenderedFloors) {
-    const floor = renderedFloor.floor
-
-    for (const model of floor.models ?? []) {
-      const modelDefinition = modelsById.get(model.modelId)
-
-      if (!modelDefinition?.isLight) continue
-      // Dormant lamps retain a zero-power slot when capacity allows. Enabled
-      // lamps take priority, so switching one off cannot starve another lamp.
-      if (model.lightEnabled === false) disabledIds.push(model.id)
-      else lightIds.push(model.id)
-    }
-  }
-
-  return new Set(
-    [...lightIds, ...disabledIds]
-      .slice(0, limit)
-  )
-}
-
 function LocalLightBudgetController({
-  activeFloorId,
   enabled,
   localLightLimit,
+  localShadowLightLimit,
   onLocalLightIdsChange,
   visibleRenderedFloors,
 }: {
-  activeFloorId: string
   enabled: boolean
   localLightLimit: number
+  localShadowLightLimit: number
   onLocalLightIdsChange: (lightIds: ReadonlySet<string>) => void
   visibleRenderedFloors: RenderedFloorData[]
 }) {
   const lastIdsRef = useRef<ReadonlySet<string>>(new Set())
-
-  useEffect(() => {
-    const nextIds = enabled
-      ? getStableLocalLightIds({
-          activeFloorId,
-          limit: localLightLimit,
-          visibleRenderedFloors,
-        })
-      : new Set<string>()
+  const { camera } = useThree()
+  const lastPosition = useRef(new Vector3(Infinity, Infinity, Infinity))
+  const elapsed = useRef(0)
+  const candidates = useMemo(() => visibleRenderedFloors.flatMap(data => getFloorLocalLightSlots(data.floor, true)
+    .map(slot => ({ ...slot, floorId: data.floor.id, room: getRoomContainingPoint(data.rooms, { x: slot.position[0], y: slot.position[2] })?.signature }))), [visibleRenderedFloors])
+  const update = useCallback(() => {
+    const floor = [...visibleRenderedFloors].sort((a, b) => b.floor.elevation - a.floor.elevation)
+      .find(data => camera.position.y >= data.floor.elevation - .05)
+    const room = floor && getRoomContainingPoint(floor.rooms, { x: camera.position.x, y: camera.position.z })?.signature
+    const ordered = prioritizeVisibleLights(candidates.map(light => ({ ...light,
+      priority: light.floorId === floor?.floor.id ? room && light.room === room ? 0 : 1 : 2,
+      distanceSquared: (light.position[0] - camera.position.x) ** 2 + (light.position[1] - camera.position.y) ** 2 + (light.position[2] - camera.position.z) ** 2,
+    })), [...lastIdsRef.current], localShadowLightLimit)
+    const nextIds = new Set(enabled ? ordered.slice(0, localLightLimit).map(light => light.id) : [])
+    lastPosition.current.copy(camera.position)
 
     if (!setIdsEqual(lastIdsRef.current, nextIds)) {
       lastIdsRef.current = nextIds
       onLocalLightIdsChange(nextIds)
     }
-  }, [
-    activeFloorId,
-    enabled,
-    localLightLimit,
-    onLocalLightIdsChange,
-    visibleRenderedFloors,
-  ])
+  }, [camera, candidates, enabled, localLightLimit, localShadowLightLimit, onLocalLightIdsChange, visibleRenderedFloors])
+  useEffect(update, [update])
+  useFrame((_, delta) => {
+    elapsed.current += delta
+    if (elapsed.current < .25 || lastPosition.current.distanceToSquared(camera.position) < .0625) return
+    elapsed.current = 0
+    update()
+  })
 
   return null
 }
@@ -14695,23 +14957,24 @@ function getLocalLightSlots({
     }
   }
 
-  return slots.slice(0, MAX_REALTIME_LOCAL_LIGHTS)
+  const order = new Map([...localLightIds].map((id, index) => [id, index]))
+  return prioritizeEmittingLights(slots.sort((a, b) => order.get(a.id)! - order.get(b.id)!)).slice(0, MAX_REALTIME_LOCAL_LIGHTS)
 }
 
-function LightShadowToggle({ control }: { control: LightShadowControl }) {
+function LightShadowToggle({ control, label = 'Light shadows' }: { control: LightShadowControl; label?: string }) {
   const enabled = useSyncExternalStore(control.subscribe, control.get)
   return <label><input type="checkbox" checked={enabled} onChange={event => {
     const value = event.currentTarget.checked
     control.set(value)
-    recordEngineLog('render-option-applied', `lightShadows -> ${value ? 'on' : 'off'}`)
-  }} />Light shadows</label>
+    recordEngineLog('render-option-applied', `${label} -> ${value ? 'on' : 'off'}`)
+  }} />{label}</label>
 }
 
 function usePooledLightShadowResources(
   lightRef: MutableRefObject<PointLight | SpotLight>,
   enabled: boolean,
   active: boolean,
-  control: LightShadowControl,
+  control: LightShadowState,
 ) {
   useLayoutEffect(() => {
     const update = () => setLightShadowEnabled(lightRef.current.shadow, enabled && control.get(), active)
@@ -14725,7 +14988,7 @@ function usePooledLightShadowResources(
 }
 
 function useLiveLocalLight(lightRef: MutableRefObject<PointLight | SpotLight>, slot: LocalLightSlot | null,
-  control: LocalLightControl, castShadow: boolean, shadowControl: LightShadowControl) {
+  control: LocalLightControl, castShadow: boolean, shadowControl: LightShadowState) {
   const { scene, invalidate } = useThree()
   useLayoutEffect(() => {
     if (!slot) return
@@ -14749,7 +15012,7 @@ function PooledLocalSpotLight({
 }: {
   castShadow: boolean
   control: LocalLightControl
-  shadowControl: LightShadowControl
+  shadowControl: LightShadowState
   slot: LocalLightSlot | null
 }) {
   const lightRef = useRef<SpotLight>(null!)
@@ -14800,7 +15063,7 @@ function PooledLocalPointLight({
 }: {
   castShadow: boolean
   control: LocalLightControl
-  shadowControl: LightShadowControl
+  shadowControl: LightShadowState
   slot: LocalLightSlot | null
 }) {
   const lightRef = useRef<PointLight>(null!)
@@ -14829,7 +15092,7 @@ function PooledLocalPointLight({
   )
 }
 
-function getLocalLightPoolCapacities(visibleRenderedFloors: RenderedFloorData[], maxLights: number) {
+function getLocalLightPoolCapacities(visibleRenderedFloors: RenderedFloorData[], maxLights: number, maxShadowLights: number) {
   let point = 0, spot = 0
   for (const { floor } of visibleRenderedFloors) {
     const kinds = (floor.models ?? []).map(model => modelsById.get(model.modelId))
@@ -14837,7 +15100,7 @@ function getLocalLightPoolCapacities(visibleRenderedFloors: RenderedFloorData[],
     point = Math.min(maxLights, point + kinds.filter(definition => definition?.lightKind !== 'spot').length)
     spot = Math.min(maxLights, spot + kinds.filter(definition => definition?.lightKind === 'spot').length)
   }
-  return { point, spot }
+  return localLightPoolCapacities(point, spot, maxLights, maxShadowLights)
 }
 
 function FixedLocalLightPool({
@@ -14853,7 +15116,7 @@ function FixedLocalLightPool({
   activeFloorId: string
   control: LocalLightControl
   localLightIds: ReadonlySet<string>
-  shadowControl: LightShadowControl
+  shadowControl: LightShadowState
   maxLights?: number
   maxShadowLights: number
   shadowsEnabled: boolean
@@ -14889,7 +15152,10 @@ function FixedLocalLightPool({
   // Installed lights determine capacity, including switched-off lamps. Toggling
   // power and switching the editing floor must preserve shader light counts.
   // Empty slots have zero power, but must remain in the renderer's light list.
-  const capacities = useMemo(() => getLocalLightPoolCapacities(visibleRenderedFloors, maxLights), [maxLights, visibleRenderedFloors])
+  const capacities = useMemo(() => getLocalLightPoolCapacities(visibleRenderedFloors, maxLights, maxShadowLights), [maxLights, maxShadowLights, visibleRenderedFloors])
+  const { scene, invalidate } = useThree()
+  useLayoutEffect(() => { requestShaderWarmup(scene); invalidate() },
+    [capacities.point, capacities.spot, capacities.shadowPoint, capacities.shadowSpot, shadowsEnabled, scene, invalidate])
   const pointPoolSlots = useMemo(
     () =>
       Array.from(
@@ -14915,7 +15181,7 @@ function FixedLocalLightPool({
         <PooledLocalPointLight
           control={control}
           key={`point-${index}`}
-          castShadow={castPooledShadows && index < maxShadowLights}
+          castShadow={castPooledShadows && index < capacities.shadowPoint}
           shadowControl={shadowControl}
           slot={slot}
         />
@@ -14924,7 +15190,7 @@ function FixedLocalLightPool({
         <PooledLocalSpotLight
           control={control}
           key={`spot-${index}`}
-          castShadow={castPooledShadows && capacities.point + index < maxShadowLights}
+          castShadow={castPooledShadows && index < capacities.shadowSpot}
           shadowControl={shadowControl}
           slot={slot}
         />
@@ -14934,6 +15200,8 @@ function FixedLocalLightPool({
 }
 
 function RoomLightMaskController({
+  occlusionRevision,
+  occlusionBlocked,
   shadowsEnabled,
   activeRenderedFloor,
   floors,
@@ -14944,10 +15212,12 @@ function RoomLightMaskController({
   visibleRenderedFloors,
   portals,
 }: {
+  occlusionRevision: string
+  occlusionBlocked: boolean
   shadowsEnabled: boolean
   activeRenderedFloor: RenderedFloorData | null
   floors: FloorLevel[]
-  shadowControl: LightShadowControl
+  shadowControl: LightShadowState
   localLightIds: ReadonlySet<string>
   maxLights: number
   maxShadowLights: number
@@ -14992,16 +15262,20 @@ function RoomLightMaskController({
     return () => { window.clearTimeout(timer); worker?.terminate() }
   }, [maskKey])
   const maskTexture = useMemo(() => createRoomLightMaskTexture(mask), [mask])
-  const boundaryTexture = useMemo(() => createRoomLightBoundaryTexture(mask), [mask])
-  const [uniforms] = useState(() => createRoomLightShaderUniforms(maskTexture, boundaryTexture))
   const portalKey = JSON.stringify({ portals, bounds: maskInput.bounds })
   const portalData = useMemo(() => {
     const input = JSON.parse(portalKey) as { portals: LightPortalPlane[]; bounds: typeof maskInput.bounds }
-    return createLightPortalTexture(input.portals, input.bounds)
-  }, [portalKey])
+    return createLightPortalTexture(input.portals, input.bounds, 512, mask.boundaries)
+  }, [portalKey, mask])
+  const boundaryTexture = portalData.edges
+  const [uniforms] = useState(() => createRoomLightShaderUniforms(maskTexture, boundaryTexture))
+  const occlusionLights = useMemo(() => visibleRenderedFloors.flatMap(({ floor }) => getFloorLocalLightSlots(floor, true))
+    .map(slot => ({ id: slot.id, position: slot.position })), [visibleRenderedFloors])
+  const preparedOcclusionLights = useRoomLightOcclusion(scene, occlusionRevision, occlusionBlocked,
+    occlusionLights, boundaryTexture, uniforms, invalidate)
   useLayoutEffect(() => {
     uniforms.portals.value = portalData.texture; uniforms.portalBounds.value.copy(portalData.bounds)
-    uniforms.portalEdges.value = portalData.edges; uniforms.portalEdgeRanges.value = portalData.edgeRanges
+    uniforms.portalEdgeRanges.value = portalData.edgeRanges
     uniforms.portalHeights.value.set(portalData.heights); uniforms.portalCount.value = portalData.count
     invalidate()
   }, [portalData, uniforms, invalidate])
@@ -15022,7 +15296,7 @@ function RoomLightMaskController({
       const lightShadowsEnabled = shadowsEnabled && shadowControl.get()
       const floor = activeRenderedFloor?.floor
       uniforms.mask.value = maskTexture
-      uniforms.boundaries.value = boundaryTexture; uniforms.boundariesReady.value = 1
+      uniforms.boundariesReady.value = 1
       uniforms.floorCount.value = mask.floorHeights?.length ?? 0
       uniforms.floorHeights.value.fill(0); uniforms.floorHeights.value.set(mask.floorHeights ?? [])
       // Lamps outside the shadow budget still emit light. Geometry visibility
@@ -15050,9 +15324,11 @@ function RoomLightMaskController({
       uniforms.spotRoomIds.value.fill(0)
       uniforms.unshadowedPointRoomIds.value.fill(0)
       uniforms.unshadowedSpotRoomIds.value.fill(0)
+      uniforms.pointOcclusionIds.value.fill(-1)
+      uniforms.spotOcclusionIds.value.fill(-1)
 
       if (floor) {
-        const capacities = getLocalLightPoolCapacities(visibleRenderedFloors, maxLights)
+        const capacities = getLocalLightPoolCapacities(visibleRenderedFloors, maxLights, maxShadowLights)
         const modelsByInstanceId = new Map(visibleRenderedFloors.flatMap(data => (data.floor.models ?? []).map(model => [model.id, { model, data }] as const)))
         const getLightRoomId = (slot: LocalLightSlot) => {
           const entry = modelsByInstanceId.get(slot.id)
@@ -15063,19 +15339,21 @@ function RoomLightMaskController({
         slots.filter((slot) => slot.kind === 'point').slice(0, maxLights)
           .forEach((slot, index) => {
             uniforms.unshadowedPointRoomIds.value[index] = getLightRoomId(slot)
-            uniforms.pointRoomIds.value[index] = lightShadowsEnabled && index < maxShadowLights ? 0 : getLightRoomId(slot)
+            uniforms.pointRoomIds.value[index] = lightShadowsEnabled && index < capacities.shadowPoint ? 0 : getLightRoomId(slot)
+            uniforms.pointOcclusionIds.value[index] = preparedOcclusionLights?.findIndex(light => light.id === slot.id) ?? -1
           })
         slots.filter((slot) => slot.kind === 'spot').slice(0, maxLights)
           .forEach((slot, index) => {
             uniforms.unshadowedSpotRoomIds.value[index] = getLightRoomId(slot)
-            uniforms.spotRoomIds.value[index] = lightShadowsEnabled && capacities.point + index < maxShadowLights ? 0 : getLightRoomId(slot)
+            uniforms.spotRoomIds.value[index] = lightShadowsEnabled && index < capacities.shadowSpot ? 0 : getLightRoomId(slot)
+            uniforms.spotOcclusionIds.value[index] = preparedOcclusionLights?.findIndex(light => light.id === slot.id) ?? -1
           })
       }
       invalidate()
     }
     update()
     return shadowControl.subscribe(update)
-  }, [activeRenderedFloor, floors, invalidate, shadowControl, shadowsEnabled, mask, maskTexture, boundaryTexture, maxLights, maxShadowLights, slots, uniforms, visibleRenderedFloors])
+  }, [activeRenderedFloor, floors, invalidate, shadowControl, shadowsEnabled, mask, maskTexture, maxLights, maxShadowLights, slots, uniforms, visibleRenderedFloors, preparedOcclusionLights])
 
   const scanMaterials = useCallback(() => {
     let changed = false
@@ -15108,7 +15386,6 @@ function RoomLightMaskController({
   })
 
   useEffect(() => () => maskTexture.dispose(), [maskTexture])
-  useEffect(() => () => boundaryTexture.dispose(), [boundaryTexture])
   useEffect(() => () => {
     restorersRef.current.forEach((restore) => restore())
     restorersRef.current.clear()
@@ -15187,14 +15464,20 @@ function ViewerProgress({ indicatorRef, preparation }: {
   return null
 }
 
-function IndirectLightingProgress({ indicatorRef, engineRef, preparation }: {
+function IndirectLightingProgress({ indicatorRef, engineRef, fastRef, preparation }: {
   indicatorRef: { current: HTMLDivElement | null }; engineRef: { current: HTMLDivElement | null }
+  fastRef: { current: HTMLSpanElement | null }
   preparation: string | null
 }) {
   useFrame(({ scene }) => {
     const indicator = indicatorRef.current
     if (!indicator) return
-    const text = formatIndirectLightingProgress(scene.userData.indirectLighting)
+    const fast=scene.userData.fastGI
+    const fastEnabled=fast?.options.enabled??false
+    const fastText=formatFastGIProgress(fastEnabled,fast?.stats,fast?.weight)
+    if(fastRef.current&&fastRef.current.textContent!==fastText)fastRef.current.textContent=fastText
+    const probeText=formatIndirectLightingProgress(scene.userData.indirectLighting)
+    const text = fastEnabled?`${probeText} · ${fastText}`:probeText
     if (indicator.textContent !== text) indicator.textContent = text
     const engine = engineRef.current
     if (engine) {
@@ -15202,7 +15485,7 @@ function IndirectLightingProgress({ indicatorRef, engineRef, preparation }: {
       engine.dataset.giStatus = detail
       if (!engine.dataset.engineMessage || engine.dataset.engineMessage === 'Engine idle') {
         if (engine.textContent !== detail) engine.textContent = detail
-        engine.classList.toggle('is-idle', /^(GI ready|GI off|GI unavailable)/.test(detail))
+        engine.classList.toggle('is-idle', /^(GI ready|GI off|Probe GI off|GI unavailable)/.test(detail))
       }
     }
   })
@@ -15330,15 +15613,24 @@ function SunShadowBlockerFilter() {
     const shadowMap = gl.shadowMap as ShadowMapWithRender
     const originalRender = shadowMap.render.bind(shadowMap)
     const sunCache = new SunShadowCache()
+    const cascades = rendererShadowMode === 'cascaded' ? new SunCascades(gl) : null
+    const isDisplayDraw = (renderScene: Object3D, renderCamera: Camera) =>
+      renderCamera === camera && (renderScene === scene || renderScene.userData.retainedViewport === true ||
+        renderScene.userData.preparedLightingViewport === true) && !gl.xr.isPresenting
     const renderLights: typeof originalRender = (lights, renderScene, renderCamera) => {
+      let cascadeLights: DirectionalLight[] = []
       if (shadowMap.enabled) {
         for (const light of lights) {
           if (light instanceof DirectionalLight && light.userData.houseDesignerRole === 'sun-light') {
             sunCache.update(light, renderScene, renderCamera.layers.mask, shadowMap.type)
+            if (cascades && isDisplayDraw(renderScene, renderCamera)) {
+              cascadeLights = cascades.prepare(renderCamera, light, renderScene, shadowMap.type)
+            }
           }
         }
       }
-      originalRender(lights, renderScene, renderCamera)
+      originalRender([...lights, ...cascadeLights], renderScene, renderCamera)
+      if (cascadeLights.length) cascades?.publish()
     }
 
     const patchedRender: ShadowMapWithRender['render'] = (
@@ -15346,6 +15638,11 @@ function SunShadowBlockerFilter() {
       renderScene,
       renderCamera,
     ) => {
+      // Fullscreen effects and GI use other scenes/cameras and disable these
+      // shared uniforms. Restore them for display draws even when AO requests
+      // shadow reuse and the renderer's depth-map pass is skipped.
+      if (shadowMap.enabled && isDisplayDraw(renderScene, renderCamera)) cascades?.publish()
+      else cascades?.disable()
       // Postprocessing may temporarily hide opaque objects. Honour a request
       // to reuse shadow maps before inspecting that temporary scene state.
       if (!shadowMap.enabled || (!shadowMap.autoUpdate && !shadowMap.needsUpdate)) return
@@ -15400,6 +15697,7 @@ function SunShadowBlockerFilter() {
     shadowMap.render = patchedRender
 
     return () => {
+      cascades?.dispose()
       if (shadowMap.render === patchedRender) {
         shadowMap.render = originalRender
       }
@@ -15439,7 +15737,7 @@ function ShaderWarmup({
   useEffect(() => {
     const version = ++scanGeneration.current
     if (blocked) return
-    let cancelled = false, timer: ReturnType<typeof setTimeout> | undefined
+    let cancelled = false
     const scan = async () => {
       const generation = shaderWarmupGeneration(scene)
       const next = await prepareShaderWarmupSceneRevision(scene, () => cancelled)
@@ -15448,7 +15746,7 @@ function ShaderWarmup({
       if (cancelled || resources === undefined) return
       // A reflection can arrive while either cooperative scan is yielding.
       // Reject mixed revisions before releasing the retained display.
-      if (generation !== shaderWarmupGeneration(scene)) { timer = setTimeout(() => { void scan() }, 0); return }
+      if (generation !== shaderWarmupGeneration(scene)) { scheduler.request(); return }
       const covered = completedWarmup.current?.inputs === warmupInputs &&
         shaderWarmupRevisionIsCovered(completedWarmup.current.revision, next) &&
         completedWarmup.current.resources === resources
@@ -15458,10 +15756,11 @@ function ShaderWarmup({
       setResourceRevision(previous => previous === resources ? previous : resources)
       setPreparedGeneration(generation)
       setScanReady(version)
-      timer = setTimeout(() => { void scan() }, 500)
     }
-    void scan()
-    return () => { cancelled = true; clearTimeout(timer) }
+    const scheduler = createViewportScanScheduler(scan)
+    const unsubscribe = subscribeShaderWarmup(scene, scheduler.request)
+    scheduler.request()
+    return () => { cancelled = true; unsubscribe(); scheduler.dispose() }
   }, [blocked, onPendingChange, scene, warmupInputs])
 
   useEffect(() => () => {
@@ -15498,12 +15797,13 @@ function ShaderWarmup({
         const prepared = new Set(JSON.parse(completedWarmup.current.revision) as string[])
         const current = JSON.parse(sceneRevision || '[]') as string[]
         recordEngineLog('shader-warmup-reason', completedWarmup.current.inputs !== warmupInputs
-          ? 'Renderer settings changed' : `${current.filter(entry => !prepared.has(entry)).length} new material variants`)
+          ? 'Renderer settings changed' : programsCovered ? 'Scene resources changed; reusing shaders'
+            : `${current.filter(entry => !prepared.has(entry)).length} new material variants`)
       } catch { recordEngineLog('shader-warmup-reason', 'Shader feature format changed') }
     }
 
     let cancelled = false
-    const profile = { startedAt: performance.now(), stages: {} as Record<string, number>,
+    const profile = { startedAt: performance.now(), programsReused: programsCovered, stages: {} as Record<string, number>,
       batches: [] as { submittedMs: number; readyMs: number; objects: number; programs: number }[], cancelled: false }
     const history = (scene.userData.shaderWarmupProfile ??= []) as typeof profile[]
     history.push(profile); if (history.length > 20) history.shift()
@@ -15550,7 +15850,7 @@ function ShaderWarmup({
           `${SHADER_WARMUP_TIMEOUT_MS}ms`,
         )
         emitEngineActivity({
-          message: 'Shader preparation continuing in background...',
+          message: programsCovered ? 'Scene resource preparation continuing in background...' : 'Shader preparation continuing in background...',
           minimumVisibleMs: 700,
         })
       }, SHADER_WARMUP_TIMEOUT_MS)
@@ -15663,8 +15963,9 @@ function ShaderWarmup({
           recordEngineLog('shader-warmup-complete')
         }
       } catch (error) {
+        const failed = failShaderWarmup(scene, preparedGeneration, error, cancelled)
         recordEngineLog(
-          'shader-warmup-failed',
+          failed ? 'shader-warmup-failed' : 'shader-warmup-cancelled',
           error instanceof Error ? error.message : String(error),
         )
       } finally {
@@ -15685,10 +15986,22 @@ function ShaderWarmup({
             window.requestAnimationFrame(() => {
               if (!cancelled) {
                 invalidate()
-                if (!completeShaderWarmup(scene, preparedGeneration)) return
+                const outcome = finishShaderWarmup(scene, preparedGeneration, succeeded, cancelled)
+                if (outcome === 'obsolete') return
+                if (outcome === 'retry') {
+                  onPendingChange(true)
+                  recordEngineLog('shader-warmup-retry', 'Lighting resources changed during preparation')
+                  emitEngineActivity({ message: 'Preparing updated scene resources...', minimumVisibleMs: 700 })
+                  return
+                }
+                if (outcome === 'failed') {
+                  onPendingChange(true)
+                  emitEngineActivity({ message: '3D material preparation failed; keeping the prepared view', minimumVisibleMs: 5000 })
+                  return
+                }
                 onPendingChange(false)
                 emitEngineActivity({
-                  message: succeeded ? 'Scene shaders ready' : 'Shader preparation failed; continuing rendering',
+                  message: programsCovered ? 'Scene resources ready' : 'Scene shaders ready',
                   minimumVisibleMs: 700,
                 })
               }
@@ -16465,7 +16778,7 @@ function LightGimbal({
     const direction = previewDirectionRef.current
     previewDirectionRef.current = null
     setPreviewDirection(null)
-    if (commit && direction) onLightDirectionChange(direction)
+    if (commit && direction) onLightDirectionChange({ ...lightDirection, ...direction })
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId)
     }
@@ -16823,16 +17136,8 @@ function WalkCameraControls({
         return
       }
 
-      camera.rotation.order = 'YXZ'
-      camera.rotation.y -= event.movementX * WALK_LOOK_SENSITIVITY
-      camera.rotation.x = Math.max(
-        -WALK_MAX_PITCH_RADIANS,
-        Math.min(
-          WALK_MAX_PITCH_RADIANS,
-          camera.rotation.x - event.movementY * WALK_LOOK_SENSITIVITY,
-        ),
-      )
-      camera.rotation.z = 0
+      applyCameraLook(camera, -event.movementX * WALK_LOOK_SENSITIVITY,
+        -event.movementY * WALK_LOOK_SENSITIVITY, WALK_MAX_PITCH_RADIANS)
     }
     const handlePointerLockChange = () => {
       const isLocked = document.pointerLockElement === gl.domElement
@@ -17438,6 +17743,17 @@ function withColorPickRender<T>({
     // meshes alone lets handles reappear in the pick buffer and compile a new
     // shadow-disabled material variant. Hide their parent for the entire pass.
     selectionRoots.forEach(({ object }) => { object.visible = false })
+    if (samplePoint) {
+      scene.updateMatrixWorld(true)
+      camera.updateMatrixWorld(true)
+      const sampleFrustum = colorPickSampleFrustum(camera, width, height, samplePoint)
+      renderables.forEach(object => {
+        // Hiding a parent mesh would also hide its independently bounded children.
+        // Honour explicit culling exclusions for deformed/custom geometry.
+        if (object.visible && object.frustumCulled && !object.children.length &&
+          !sampleFrustum.intersectsObject(object as Mesh)) object.visible = false
+      })
+    }
     // Picking substitutes temporary materials/visibility. It must not replace
     // a cached lighting shadow map with that temporary scene.
     gl.shadowMap.enabled = false
@@ -17934,6 +18250,7 @@ function ModelPicker({
       }
 
       pickGestureRef.current = {
+        moved: false,
         pointerId: event.pointerId,
         shiftKey: event.shiftKey,
         x: event.clientX,
@@ -17941,6 +18258,12 @@ function ModelPicker({
       }
     }
 
+    const handlePointerMove = (event: PointerEvent) => {
+      const gesture = pickGestureRef.current
+      if (gesture?.pointerId === event.pointerId &&
+        (event.clientX !== gesture.x || event.clientY !== gesture.y)) gesture.moved = true
+    }
+    const handlePointerCancel = () => { pickGestureRef.current = null }
     const handlePointerUp = (event: PointerEvent) => {
       const pickGesture = pickGestureRef.current
 
@@ -17948,7 +18271,7 @@ function ModelPicker({
 
       if (
         !active ||
-        isTransformingRef.current ||
+        (isTransformingRef.current && pickGesture?.moved) ||
         !pickGesture ||
         pickGesture.pointerId !== event.pointerId
       ) {
@@ -18060,10 +18383,14 @@ function ModelPicker({
     }
 
     element.addEventListener('pointerdown', handlePointerDown, true)
+    element.addEventListener('pointermove', handlePointerMove, true)
+    element.addEventListener('pointercancel', handlePointerCancel, true)
     element.addEventListener('pointerup', handlePointerUp, true)
 
     return () => {
       element.removeEventListener('pointerdown', handlePointerDown, true)
+      element.removeEventListener('pointermove', handlePointerMove, true)
+      element.removeEventListener('pointercancel', handlePointerCancel, true)
       element.removeEventListener('pointerup', handlePointerUp, true)
     }
   }, [
@@ -18906,19 +19233,70 @@ function useBackgroundPreparationStatus(subscribe: (listener: () => void) => () 
 }
 
 export function ThreeDView(props: ThreeDViewProps) {
+  const [preparationHost, setPreparationHost] = useState<HTMLDivElement | null>(null)
+  const [presentedProject, setPresentedProject] = useState<number | null>(null)
+  const projectRevision = props.lightingResetRevision ?? 0
+  const projectPreparing = !props.readOnly && !basicSceneDiagnostic && presentedProject !== projectRevision
+  const finishProjectPreparation = useCallback((revision: number) => {
+    // A retained frame from the outgoing project cannot acknowledge a newer load.
+    setPresentedProject(current => Math.max(current ?? -1, revision))
+  }, [])
+  const [liveLightingInput] = useState(createIndirectLiveInput)
+  const liveGeometryFloors = useRef(props.floors)
+  const ownModelPreview = useRef<ModelTransformPreview | null>(null)
+  useLayoutEffect(() => {
+    liveGeometryFloors.current = props.floors
+    if (ownModelPreview.current?.committed) ownModelPreview.current = null
+    liveLightingInput.set(props.floors.flatMap(floor => getFloorLocalLightSlots(floor, true)))
+  }, [liveLightingInput, props.floors])
   // useSyncExternalStore would force an in-flight scene transition to restart
   // synchronously whenever a worker completes. Status is safe to defer: the
   // display renderer reads the authoritative worker flags on every frame.
   const isWallGeometryPending = useBackgroundPreparationStatus(subscribeWallClipping, isWallClippingPending)
   const isRoofGeometryPending = useBackgroundPreparationStatus(subscribeRoofAssembly, isRoofAssemblyPending)
   const isCooperativePreparationPending = useBackgroundPreparationStatus(subscribeViewportPreparation, isViewportPreparationPending)
-  const inputs = useMemo(() => ({ ...props, isWallGeometryPending, isRoofGeometryPending, isCooperativePreparationPending }),
-    [props, isWallGeometryPending, isRoofGeometryPending, isCooperativePreparationPending])
-  const deferred = useDeferredValue(inputs)
-  return <DeferredThreeDScene {...deferred} />
+  const inputs = useMemo(() => ({ ...props, modelTransformPreviewRef: props.modelTransformPreviewRef ?? ownModelPreview,
+    liveLightingInput, liveGeometryFloors, isWallGeometryPending, isRoofGeometryPending, isCooperativePreparationPending }),
+    [props, liveLightingInput, isWallGeometryPending, isRoofGeometryPending, isCooperativePreparationPending])
+  // Give the imperative transform/opening preview a display frame before a
+  // large React scene rebuild starts. Continued edits coalesce to the latest.
+  // Publish at normal priority after that yield. Nesting background publication
+  // and another deferred value can leave restored inputs queued while the old
+  // scene keeps rendering. Canvas retains its own deferred reconciliation.
+  const [paintedInputs, setPaintedInputs] = useState(() => inputs)
+  useEffect(() => {
+    if (inputs === paintedInputs) return
+    let second: number | undefined
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const first = requestAnimationFrame(() => { second = requestAnimationFrame(() => {
+      timer = setTimeout(() => setPaintedInputs(inputs), 0)
+    }) })
+    return () => { cancelAnimationFrame(first); if (second !== undefined) cancelAnimationFrame(second); clearTimeout(timer) }
+  }, [inputs, paintedInputs])
+  // Keep the loading cover outside the deferred scene update so it can paint
+  // immediately when Load replaces a project, before the heavy scene catches up.
+  const sceneInputs = paintedInputs.lightingResetRevision !== props.lightingResetRevision ||
+    // eslint-disable-next-line react-hooks/refs -- Compares input identities only; never reads a ref's current value.
+    isSelectionOnlyPublication(paintedInputs, inputs) ? inputs : paintedInputs
+  return <>
+    <DeferredThreeDScene key={projectRevision} {...sceneInputs} onPreparationHostChange={setPreparationHost} onProjectSceneReady={finishProjectPreparation} />
+    {preparationHost && projectPreparing ? createPortal(
+      <div className="viewport-preparing-overlay" role="status" aria-live="polite" aria-busy="true" data-project-revision={projectRevision}>
+        <div className="viewport-preparing-panel">Preparing 3D scene...</div>
+      </div>, preparationHost) : null}
+  </>
 }
 
 const DeferredThreeDScene = memo(ThreeDScene)
+
+function ViewExposure({ stops }: { stops: number }) {
+  const { gl, invalidate } = useThree()
+  useLayoutEffect(() => {
+    gl.toneMappingExposure = 2 ** normalizeExposureStops(stops)
+    invalidate()
+  }, [gl, invalidate, stops])
+  return null
+}
 
 function DeferredCanvasContents({ children }: { children: ReactNode }) {
   // Canvas owns a separate React root. Its asynchronous render bridge does not
@@ -18928,6 +19306,11 @@ function DeferredCanvasContents({ children }: { children: ReactNode }) {
 }
 
 function ThreeDScene({
+  onPreparationHostChange,
+  onProjectSceneReady,
+  lightingUpdateMode = 'automatic',
+  liveGeometryFloors,
+  liveLightingInput,
   suspended = false,
   isWallGeometryPending,
   isRoofGeometryPending,
@@ -18935,7 +19318,12 @@ function ThreeDScene({
   lightControl: requestedLightControl,
   diffuseProbeResolution: requestedDiffuseProbeResolution,
   onDiffuseProbeResolutionChange,
+  exposureStops: requestedExposureStops,
+  onExposureStopsChange,
   savedIndirectLighting,
+  lightingResetRevision = 0,
+  ambientLighting,
+  onAmbientLightingChange,
   onIndirectLightingReady,
   readOnly = false,
   viewerTouchDevice = false,
@@ -18971,11 +19359,36 @@ function ThreeDScene({
   showAllFloors,
   showImages = false,
   surfaceAssignments,
-}: ThreeDViewProps & { isWallGeometryPending: boolean; isRoofGeometryPending: boolean; isCooperativePreparationPending: boolean }) {
+}: ThreeDViewProps & { liveGeometryFloors: { current: FloorLevel[] }; liveLightingInput: IndirectLiveInput; isWallGeometryPending: boolean; isRoofGeometryPending: boolean; isCooperativePreparationPending: boolean; onPreparationHostChange: (host: HTMLDivElement | null) => void; onProjectSceneReady: (revision: number) => void }) {
+  const finishProjectPresentation = useCallback(() => {
+    traceEditorPreparation('interactive-3d', lightingResetRevision)
+    onProjectSceneReady(lightingResetRevision)
+  }, [onProjectSceneReady, lightingResetRevision])
+  const viewportScene = useRef<Scene | null>(null)
+  const [bakeRevision, setBakeRevision] = useState(0)
+  const [activeBakeRevision, setActiveBakeRevision] = useState(0)
+  const requestedBakeFloors = useRef<FloorLevel[] | null>(null)
+  useLayoutEffect(() => {
+    if (requestedBakeFloors.current === sourceFloors) setActiveBakeRevision(bakeRevision)
+  }, [sourceFloors, bakeRevision])
+  const [localExposureStops, setLocalExposureStops] = useState(0)
+  const exposureStops = normalizeExposureStops(requestedExposureStops ?? localExposureStops)
   const localLightControl = useMemo(() => requestedLightControl ?? createLocalLightControl(), [requestedLightControl])
   const placementModel = readOnly ? null : requestedPlacementModel
   const roofPlacementPreview = readOnly ? null : requestedRoofPlacementPreview
   const selectedModelId = readOnly ? null : requestedSelectedModelId
+  const [furnitureLightingEnabled, setFurnitureLightingEnabled] = useState(false)
+  const [rendererContextGeneration, setRendererContextGeneration] = useState(0)
+  const [furnitureLightingTarget, setFurnitureLightingTarget] = useState('')
+  const [furnitureLightingStatus, setFurnitureLightingStatus] = useState('Waiting for room lighting.')
+  const furnitureLightingChoices = sourceFloors.flatMap(floor => (floor.models ?? []).flatMap(model => {
+    const definition = modelsById.get(model.modelId)
+    return definition?.sourceUrl && !definition.isLight && !definition.wallMount && !definition.roofMount && definition.objectType !== 'stairs'
+      ? [{ id: model.id, label: `${definition.name} — ${floor.name}` }] : []
+  }))
+  const furnitureLightingId = furnitureLightingChoices.some(m => m.id === furnitureLightingTarget) ? furnitureLightingTarget
+    : furnitureLightingChoices.find(m => m.id === selectedModelId)?.id
+      ?? furnitureLightingChoices.find(m => /sofa/i.test(m.label))?.id ?? furnitureLightingChoices[0]?.id ?? ''
   const selectedRoofId = readOnly ? null : requestedSelectedRoofId
   const selectedSurface = readOnly ? null : requestedSelectedSurface
   const selectedWallId = readOnly ? null : requestedSelectedWallId
@@ -19005,6 +19418,10 @@ function ThreeDScene({
   } | null>(null)
   const pickBufferCaptureRef = useRef<(() => void) | null>(null)
   const threeHostRef = useRef<HTMLDivElement | null>(null)
+  const registerPreparationHost = useCallback((host: HTMLDivElement | null) => {
+    threeHostRef.current = host
+    onPreparationHostChange(host)
+  }, [onPreparationHostChange])
   const threePaneRef = useRef<HTMLElement | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isTransformingModel, setIsTransformingModel] = useState(false)
@@ -19027,6 +19444,7 @@ function ThreeDScene({
   const fpsIndicatorRef = useRef<HTMLDivElement>(null)
   const shaderIndicatorRef = useRef<HTMLDivElement>(null)
   const indirectLightingIndicatorRef = useRef<HTMLDivElement>(null)
+  const fastGIStatusRef = useRef<HTMLSpanElement>(null)
   const callsIndicatorRef = useRef<HTMLDivElement>(null)
   const resourcesIndicatorRef = useRef<HTMLDivElement>(null)
   const trianglesIndicatorRef = useRef<HTMLDivElement>(null)
@@ -19056,27 +19474,31 @@ function ThreeDScene({
     useState(false)
   const [, setRoomVisibilityState] =
     useState<FloorVisibilityState | null>(null)
-  const [renderOptions, setRenderOptions] = useState<RenderOptions>({
+  const [localRenderOptions, setRenderOptions] = useState<RenderOptions>({
     fadeObstructingRoofs: false,
     fadeObstructingWalls: false,
     ambientOcclusion: true,
     ambientOcclusionIntensity: 0.25,
-    ambientTerm: 0.32,
+    exteriorSkyOcclusion: false,
+    exteriorSkyOcclusionStrength: .75,
+    exteriorSkyFill: .75,
+    ...restoreAmbientSettings(),
     daylightBounceStrength: 1,
+    skyMode:'clear',skyStrength:1,diffuseBounces:6,
     softAmbientShading: true,
     softAmbientStrength: 1,
     bakedLightmaps: false,
-    daylight: true,
     floorSlabs: true,
     frontFaceOnly: false,
     groundPlane: true,
     giProbes: false,
     giInspector: false,
     indirectLighting: true,
+    fastGI: /^(1|captures)$/.test(new URLSearchParams(location.search).get('fastGI') ?? ''),
+    roomReflections: false,
     lightMarkers: false,
     lightShadows: false,
     lights: true,
-    nightFill: true,
     occlusionCulling: true,
     referenceFloors: true,
     rearFaceOnly: false,
@@ -19086,19 +19508,48 @@ function ThreeDScene({
     skybox: false,
     wallPerimeter: false,
     wireframe: false,
+    whiteModel: false,
     wireframeHiddenSurfaces: false,
-    ...(validIndirectLightingSettings(savedIndirectLighting?.settings) ? savedIndirectLighting!.settings : {}),
+    ...(validIndirectLightingSettings(savedIndirectLighting?.settings)
+      ? { ...savedIndirectLighting!.settings, ...restoreAmbientSettings(savedIndirectLighting!.settings) } : {}),
+    ...normalizeAmbientLightingPreferences(ambientLighting),
     ...(basicSceneDiagnostic ? { ambientOcclusion: false, softAmbientShading: false, daylight: false,
       lights: false, shadows: false, indirectLighting: false, occlusionCulling: false } : {}),
   })
+  const renderOptions = useMemo<RenderOptions>(() => ({ ...localRenderOptions,
+    ...(!basicSceneDiagnostic ? normalizeAmbientLightingPreferences(ambientLighting) : {}),
+    // Keep casting/receiving features and their programs prepared. Display
+    // switches change shadow intensity, never the renderer's shader family.
+    shadows: !basicSceneDiagnostic && rendererShadowMode !== 'off',
+  }), [localRenderOptions, ambientLighting])
+  const [sceneShadowControl] = useState(() => createLightShadowControl(localRenderOptions.shadows))
   const [lightShadowControl] = useState(() => createLightShadowControl(renderOptions.lightShadows))
+  const effectiveLightShadowControl = useMemo(() => combineLightShadowControls(sceneShadowControl, lightShadowControl), [sceneShadowControl, lightShadowControl])
   useEffect(() => {
-    if (savedIndirectLighting && validIndirectLightingSettings(savedIndirectLighting.settings)) lightShadowControl.set(savedIndirectLighting.settings.lightShadows)
-  }, [savedIndirectLighting, lightShadowControl])
+    if (savedIndirectLighting && validIndirectLightingSettings(savedIndirectLighting.settings)) {
+      lightShadowControl.set(savedIndirectLighting.settings.lightShadows)
+      sceneShadowControl.set(savedIndirectLighting.settings.shadows)
+    }
+  }, [savedIndirectLighting, lightShadowControl, sceneShadowControl])
+  const [softFloorGICm,setSoftFloorGICm]=useState(10)
+  const [softFloorGIStatus,setSoftFloorGIStatus]=useState('')
+  const [exteriorSkyStatus, setExteriorSkyStatus] = useState('')
+  const previousLightingSource = useRef({ revision: lightingResetRevision, saved: savedIndirectLighting })
   useEffect(() => {
-    if (!basicSceneDiagnostic && savedIndirectLighting && validIndirectLightingSettings(savedIndirectLighting.settings)) setRenderOptions(options => ({ ...options, ...savedIndirectLighting.settings,
-      daylightBounceStrength: savedIndirectLighting.settings.daylightBounceStrength ?? 1 }))
-  }, [savedIndirectLighting])
+    const reset = previousLightingSource.current.revision !== lightingResetRevision
+    const changed = previousLightingSource.current.saved !== savedIndirectLighting
+    previousLightingSource.current = { revision: lightingResetRevision, saved: savedIndirectLighting }
+    if (basicSceneDiagnostic || (!reset && !changed)) return
+    if (savedIndirectLighting && validIndirectLightingSettings(savedIndirectLighting.settings)) {
+      setRenderOptions(options => ({ ...options,skyMode:savedIndirectLighting.settings.skyMode??ambientLighting?.skyMode??'clear',skyStrength:savedIndirectLighting.settings.skyStrength??1, ...savedIndirectLighting.settings,
+        ...restoreAmbientSettings(savedIndirectLighting.settings),
+        ...normalizeAmbientLightingPreferences(ambientLighting),
+        daylightBounceStrength: savedIndirectLighting.settings.daylightBounceStrength ?? 1 }))
+    } else if (reset) {
+      setRenderOptions(options => ({ ...options,skyMode:ambientLighting?.skyMode??'clear',skyStrength:1, ...restoreAmbientSettings(), ...normalizeAmbientLightingPreferences(ambientLighting) }))
+    }
+  }, [savedIndirectLighting, lightingResetRevision, basicSceneDiagnostic, ambientLighting])
+  const ambientTerm = activeAmbientTerm(renderOptions)
   const [localDiffuseProbeResolution, setLocalDiffuseProbeResolution] = useState(() =>
     normalizeDiffuseProbeResolution(savedIndirectLighting?.settings.diffuseProbeResolution))
   useEffect(() => {
@@ -19226,6 +19677,7 @@ function ThreeDScene({
   }), [floors, preparedFloors])
   const indirectFloors = useMemo(() => renderedFloors.map(data => ({
     id: data.floor.id, elevation: data.floor.elevation, height: data.floor.roomHeight,
+    indoorPartitions: data.renderedWalls.filter(({ wall }) => wall.kind === 'internal').map(getWallPolygon),
     rooms: (() => {
       const rooms = data.rooms.flatMap(room => {
         const polygon = getRenderableRoomPolygon(room, data.roomSurfacePolygonsBySignature)
@@ -19247,17 +19699,20 @@ function ThreeDScene({
   }), [sourceFloors, lightDirection, surfaceAssignments, modelAssetVersion])
   const lightingCacheKeys = useLightingCacheKeys(lightingKeyInput)
   const indirectCacheSettings = useMemo<IndirectLightingSettings>(() => ({
+    skyMode:renderOptions.skyMode,skyStrength:renderOptions.skyStrength,diffuseBounces:renderOptions.diffuseBounces,
     diffuseProbeResolution,
     daylightBounceStrength: renderOptions.daylightBounceStrength,
-    daylight: renderOptions.daylight, lights: renderOptions.lights, shadows: renderOptions.shadows,
+    daylight: renderOptions.daylight, lights: renderOptions.lights,
+    get shadows() { return sceneShadowControl.get() },
     // Save the current display preference without making it a bake dependency.
     get lightShadows() { return lightShadowControl.get() },
     hideRoofs: renderOptions.hideRoofs, floorSlabs: renderOptions.floorSlabs,
-    ambientTerm: renderOptions.ambientTerm, softAmbientShading: renderOptions.softAmbientShading,
-    softAmbientStrength: renderOptions.softAmbientStrength, nightFill: renderOptions.nightFill, groundPlane: renderOptions.groundPlane,
-  }), [lightShadowControl, renderOptions.daylight, renderOptions.lights, renderOptions.shadows, renderOptions.hideRoofs,
-    renderOptions.floorSlabs, renderOptions.ambientTerm, renderOptions.softAmbientShading, renderOptions.softAmbientStrength,
-    renderOptions.nightFill, renderOptions.groundPlane, renderOptions.daylightBounceStrength, diffuseProbeResolution])
+    ambientTerm: renderOptions.ambientTerm, nightAmbientTerm: renderOptions.nightAmbientTerm,
+    softAmbientShading: renderOptions.softAmbientShading,
+    softAmbientStrength: renderOptions.softAmbientStrength, groundPlane: renderOptions.groundPlane,
+  }), [sceneShadowControl, lightShadowControl, renderOptions.skyMode,renderOptions.skyStrength,renderOptions.diffuseBounces,renderOptions.daylight, renderOptions.lights, renderOptions.hideRoofs,
+    renderOptions.floorSlabs, renderOptions.ambientTerm, renderOptions.nightAmbientTerm, renderOptions.softAmbientShading, renderOptions.softAmbientStrength,
+    renderOptions.groundPlane, renderOptions.daylightBounceStrength, diffuseProbeResolution])
   // Selection and camera state do not participate in the world-space lighting cache.
   const indirectLightingRevision = useMemo(() => JSON.stringify({
     floors, surfaceAssignments, lightDirection, modelAssetVersion,
@@ -19265,10 +19720,12 @@ function ThreeDScene({
     shadows: renderOptions.shadows,
     hideRoofs: renderOptions.hideRoofs, floorSlabs: renderOptions.floorSlabs,
     // Local shadow maps are a display option; captures use independent visibility.
-    lightingSettings: { ...indirectCacheSettings, lightShadows: undefined },
+    lightingSettings: { ...indirectCacheSettings, shadows: undefined, lightShadows: undefined },
   }), [floors, surfaceAssignments, lightDirection, modelAssetVersion, renderOptions.daylight,
     renderOptions.lights, renderOptions.shadows, renderOptions.hideRoofs,
     renderOptions.floorSlabs, indirectCacheSettings])
+  const roomOcclusionRevision = useMemo(() => indirectLightingStructureKey(JSON.stringify({ floors, surfaceAssignments, modelAssetVersion })),
+    [floors, surfaceAssignments, modelAssetVersion])
   const storeyInputs = useMemo(() => preparedFloors.map(data => ({
     data,
     exteriorSides: getExteriorWallSidesByWallId(data.geometryContextWalls, data.rooms),
@@ -19292,7 +19749,7 @@ function ThreeDScene({
     ? [{ bottom: storey.assembly.bottom, top: storey.assembly.top, footprints: storey.assembly.footprints }] : []))
   const gableAssemblies = useMemo(() => JSON.parse(gableAssemblyKey), [gableAssemblyKey])
   const preparedGables = useBuildingGables(roofRoomFloors, wallClippingRoofs, buildingRoomVolumes, gableAssemblies,
-    preparedBuildingRooms.key + roofRoomGeometryKey)
+    roofGeometryKey + roofRoomGeometryKey)
   const roofGables = preparedGables.value
   const [isLevelPreparationPending, setIsLevelPreparationPending] =
     useState(canPrepareLevelsInWorkers)
@@ -19439,48 +19896,21 @@ function ThreeDScene({
   const shaderWarmupKey = useMemo(
     () =>
       JSON.stringify({
-        floorCount: showAllFloorsInScene
-          ? floors.length
-          : floors.some((floor) => floor.id === activeFloorId)
-            ? 1
-            : 0,
-        // Program features and resources are scanned separately; asset IDs do not invalidate shaders.
-        renderOptions: {
-          ambientOcclusion: renderOptions.ambientOcclusion,
-          bakedLightmaps: renderOptions.bakedLightmaps,
-          floorSlabs: renderOptions.floorSlabs,
-          lightMarkers: renderOptions.lightMarkers,
-          lights: renderOptions.lights,
-          referenceFloors: renderOptions.referenceFloors,
-          shadows: renderOptions.shadows,
-          skybox: renderOptions.skybox,
-          wallPerimeter: renderOptions.wallPerimeter,
-          wireframe: renderOptions.wireframe,
-        },
-        showAllFloors: showAllFloorsInScene,
-        wallKinds: Array.from(
-          new Set(
-            (showAllFloorsInScene
-              ? floors
-              : floors.filter((floor) => floor.id === activeFloorId)
-            ).flatMap((floor) => floor.walls.map((wall) => wall.kind)),
-          ),
-        ).sort(),
+        // Floor count, wall kinds and visible geometry are covered by the
+        // material/resource scans. Changing houses must not discard reusable
+        // programs just because the next building has another storey.
+        shadows: renderOptions.shadows && !isXrPresenting,
+        skybox: renderOptions.skybox,
+        lights: getLocalLightPoolCapacities(visibleRenderedFloors,
+          isXrPresenting ? Math.min(localLightLimit, XR_MAX_REALTIME_LOCAL_LIGHTS) : localLightLimit, localShadowLightLimit),
       }),
     [
-      activeFloorId,
-      floors,
-      renderOptions.ambientOcclusion,
-      renderOptions.bakedLightmaps,
-      renderOptions.floorSlabs,
-      renderOptions.lightMarkers,
-      renderOptions.lights,
-      renderOptions.referenceFloors,
+      isXrPresenting,
+      localLightLimit,
+      localShadowLightLimit,
       renderOptions.shadows,
       renderOptions.skybox,
-      renderOptions.wallPerimeter,
-      renderOptions.wireframe,
-      showAllFloorsInScene,
+      visibleRenderedFloors,
     ],
   )
   const lightIndicator = useMemo(() => {
@@ -19505,7 +19935,7 @@ function ThreeDScene({
       `lights ${lightIndicator.contributing}/${lightIndicator.total}`,
       `limit ${localLightLimit}`,
       `floors ${visibleRenderedFloors.length}`,
-      renderOptions.shadows ? 'scene shadows on' : 'scene shadows off',
+      sceneShadowControl.get() ? 'scene shadows on' : 'scene shadows off',
       lightShadowControl.get() ? 'light shadows on' : 'light shadows off',
       renderOptions.ambientOcclusion
         ? `AO ${renderOptions.ambientOcclusionIntensity.toFixed(2)}`
@@ -19513,7 +19943,7 @@ function ThreeDScene({
       objectFrustumCullingEnabled
         ? 'object frustum culling on'
         : 'object frustum culling off',
-      `ambient ${renderOptions.ambientTerm.toFixed(2)}`,
+      `ambient ${ambientTerm.toFixed(2)}`,
       renderOptions.bakedLightmaps ? 'baked lightmaps on' : 'baked lightmaps off',
       renderOptions.lights ? 'lights on' : 'lights off',
       latestStats
@@ -19521,12 +19951,14 @@ function ThreeDScene({
         : 'stats pending',
     ].join(' | ')
   }, [
+    sceneShadowControl,
+    lightShadowControl,
     lightIndicator.contributing,
     lightIndicator.total,
     localLightLimit,
     renderOptions.ambientOcclusion,
     renderOptions.ambientOcclusionIntensity,
-    renderOptions.ambientTerm,
+    ambientTerm,
     renderOptions.bakedLightmaps,
     renderOptions.lightShadows,
     renderOptions.lights,
@@ -19664,7 +20096,7 @@ function ThreeDScene({
           if (currentIndicator) {
             currentIndicator.dataset.engineMessage = 'Engine idle'
             currentIndicator.textContent = currentIndicator.dataset.giStatus ?? 'GI preparing'
-            currentIndicator.classList.toggle('is-idle', /^(GI ready|GI off|GI unavailable)/.test(currentIndicator.textContent))
+            currentIndicator.classList.toggle('is-idle', /^(GI ready|GI off|Probe GI off|GI unavailable)/.test(currentIndicator.textContent))
           }
 
           engineStatusTimerRef.current = null
@@ -19706,6 +20138,20 @@ function ThreeDScene({
 
   const updateRenderOption = (option: RenderToggleOption) => {
     const nextEnabled = !renderOptions[option]
+    if (option === 'daylight' && viewportScene.current) {
+      const scene = viewportScene.current
+      // Gate before React changes material/light features, rather than waiting
+      // for the cooperative shader scan after an unprepared display draw.
+      requestShaderWarmup(scene)
+      if (!nextEnabled) {
+        scene.traverse(object => {
+          if (object instanceof Light && ['sun-light', 'ambient-fill', 'ambient-sky-fill'].includes(object.userData.houseDesignerRole)) object.intensity = 0
+        })
+        const indirect = scene.userData.getIndirectUniforms?.()
+        if (indirect) { indirect.hdGIDisplayStrength.value = 0; indirect.hdGIIndoorFill.value = renderOptions.nightAmbientTerm }
+        if (scene.background instanceof Color) scene.background.set('#020617')
+      }
+    }
     const activityMessage = (() => {
       if (option === 'lightShadows') {
         return nextEnabled
@@ -19747,6 +20193,7 @@ function ThreeDScene({
         `${option} -> ${nextEnabled ? 'on' : 'off'}`,
         stallSnapshotRef.current,
       )
+      if (option === 'daylight') onAmbientLightingChange?.({ ...ambientLightingPreferences(renderOptions), daylight: nextEnabled })
       setRenderOptions((currentOptions) => {
         const enabled = !currentOptions[option]
         return {
@@ -19765,7 +20212,7 @@ function ThreeDScene({
     })
     renderOptionFrameIdsRef.current = []
 
-    if (!activityMessage || option === 'lightShadows') {
+    if (!activityMessage || option === 'lightShadows' || option === 'ambientOcclusion') {
       applyRenderOptionUpdate()
       return
     }
@@ -19786,6 +20233,8 @@ function ThreeDScene({
   }
   const updateAmbientTerm = (ambientTerm: number) => {
     const clampedAmbientTerm = Math.max(0, Math.min(0.85, ambientTerm))
+    onAmbientLightingChange?.({ ...ambientLightingPreferences(renderOptions),
+      [renderOptions.daylight ? 'ambientTerm' : 'nightAmbientTerm']: clampedAmbientTerm })
 
     recordEngineLog(
       'render-option-applied',
@@ -19794,7 +20243,7 @@ function ThreeDScene({
     )
     setRenderOptions((currentOptions) => ({
       ...currentOptions,
-      ambientTerm: clampedAmbientTerm,
+      [currentOptions.daylight ? 'ambientTerm' : 'nightAmbientTerm']: clampedAmbientTerm,
     }))
   }
   const updateSoftAmbientStrength = (strength: number) => {
@@ -20034,9 +20483,24 @@ function ThreeDScene({
     }
   }, [floorGeometryStatusKey, showEngineStatus])
 
-  const screenSpaceAmbientOcclusionEnabled =
-    effectsStarted && renderOptions.ambientOcclusion && !isXrPresenting && !(readOnly && viewerTouchDevice) &&
+  const postprocessingExpected =
+    !basicSceneDiagnostic && !isXrPresenting && !(readOnly && viewerTouchDevice) &&
     !(renderOptions.wireframe && renderOptions.wireframeHiddenSurfaces)
+  const postprocessingEnabled = effectsStarted && postprocessingExpected
+  const postprocessingEffects = useMemo(() => <>
+    <N8AO
+      ref={configureAmbientOcclusionPass}
+      aoRadius={0.28}
+      distanceFalloff={1}
+      intensity={renderOptions.ambientOcclusionIntensity}
+      aoSamples={AMBIENT_OCCLUSION_SETTINGS.aoSamples}
+      denoiseSamples={AMBIENT_OCCLUSION_SETTINGS.denoiseSamples}
+      denoiseRadius={AMBIENT_OCCLUSION_SETTINGS.denoiseRadius}
+      halfRes={AMBIENT_OCCLUSION_SETTINGS.halfRes}
+      color={ambientOcclusionColor}
+    />
+    <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+  </>, [renderOptions.ambientOcclusionIntensity])
   const fakeAmbientOcclusionEnabled =
     renderOptions.ambientOcclusion && isXrPresenting
   const fakeAmbientOcclusionIntensity = renderOptions.ambientOcclusionIntensity
@@ -20345,6 +20809,7 @@ function ThreeDScene({
         {/* Keep wall-owned slab facades visible when their lower
             storey's rooms and wall bodies are hidden for editing. */}
         <WallEngineWallMeshes onlyStoreyBoundary
+          authoredWalls={floor.walls}
           castsShadow={renderOptions.shadows}
           clipToInheritedRoofs={Boolean(floor.floorFootprints?.length)}
           elevation={floor.elevation} floorId={floor.id}
@@ -20566,6 +21031,7 @@ function ThreeDScene({
               : null}
             {wallEngineRenderedWalls.length > 0 || visibleRoomsForFloor.length > 0 ? (
               <WallEngineWallMeshes
+                authoredWalls={floor.walls}
                 castsShadow={hasShadowSurface}
                 clipToInheritedRoofs={Boolean(floor.floorFootprints?.length)}
                 elevation={floor.elevation}
@@ -20603,6 +21069,7 @@ function ThreeDScene({
               <SkirtingBoards
                 stairOpenings={floorStairOpenings}
                 elevation={floor.elevation}
+                floorId={floor.id}
                 geometryContextWalls={geometryContextWalls}
                 models={visibleModelsForFloor}
                 renderedWalls={renderedWalls}
@@ -20762,6 +21229,17 @@ function ThreeDScene({
             </a>
           ) : null}
                 <div className="viewport-menu-heading">Render settings</div>
+                <label className="render-options-slider" title="Brightens or darkens the view without recalculating GI. 0 EV is the original exposure.">
+                  <span>View exposure</span>
+                  <input aria-label="View exposure" aria-valuetext={`${exposureStops > 0 ? '+' : ''}${exposureStops.toFixed(2)} EV`}
+                    type="range" min="-2" max="4" step="0.25" value={exposureStops}
+                    onChange={event => {
+                      const stops = normalizeExposureStops(Number(event.currentTarget.value))
+                      if (requestedExposureStops === undefined) setLocalExposureStops(stops)
+                      onExposureStopsChange?.(stops)
+                    }} />
+                  <span>{exposureStops > 0 ? '+' : ''}{exposureStops.toFixed(2)} EV</span>
+                </label>
                 <label className="render-options-slider probe-resolution-slider" title="Samples per cubemap face for diffuse probe lighting. Changing this rebuilds the lighting.">
                   <span>Diffuse probe resolution</span>
                   <input
@@ -20803,14 +21281,7 @@ function ThreeDScene({
                     {renderOptions.ambientOcclusionIntensity.toFixed(2)}
                   </span>
                 </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={renderOptions.shadows}
-                    onChange={() => updateRenderOption('shadows')}
-                  />
-                  Shadows
-                </label>
+                <LightShadowToggle control={sceneShadowControl} label="Shadows" />
                 <label>
                   <input
                     type="checkbox"
@@ -20818,6 +21289,41 @@ function ThreeDScene({
                     onChange={() => updateRenderOption('daylight')}
                   />
                   Daylight
+                </label>
+                <label className="render-options-slider">
+                  <span>Daylight sky</span>
+                  <select aria-label="Daylight sky" value={renderOptions.skyMode} disabled={!renderOptions.daylight}
+                    onChange={event=>{const skyMode=event.currentTarget.value as 'clear'|'overcast';onAmbientLightingChange?.({...ambientLightingPreferences(renderOptions),skyMode});setRenderOptions(options=>({...options,skyMode}))}}>
+                    <option value="clear">Clear</option><option value="overcast">Overcast</option>
+                  </select>
+                </label>
+                <label className="render-options-slider" title="Scales sky illumination and reflections. Recalculates indirect lighting.">
+                  <span>Sky intensity</span>
+                  <select aria-label="Sky intensity" value={renderOptions.skyStrength} disabled={!renderOptions.daylight}
+                    onChange={event => {
+                      const skyStrength = normalizeSkyStrength(Number(event.currentTarget.value))
+                      onAmbientLightingChange?.({ ...ambientLightingPreferences(renderOptions), skyStrength })
+                      setRenderOptions(options => ({ ...options, skyStrength }))
+                    }}>
+                    <option value="0">0&times; (off)</option><option value="0.5">0.5&times;</option><option value="1">1&times; (default)</option>
+                    <option value="1.5">1.5&times;</option><option value="2">2&times;</option><option value="3">3&times;</option>
+                    {![0,.5,1,1.5,2,3].includes(renderOptions.skyStrength) && <option value={renderOptions.skyStrength}>{renderOptions.skyStrength}&times;</option>}
+                  </select>
+                </label>
+                <label className="render-options-slider" title="Balances diffuse skylight on outdoor surfaces. 100% restores the previous brightness. Indoor GI, direct sunlight and exposure are unchanged.">
+                  <span>Exterior sky fill</span>
+                  <input aria-label="Exterior sky fill" type="range" min="0" max="1.5" step="0.05"
+                    disabled={!renderOptions.daylight} value={renderOptions.exteriorSkyFill}
+                    onChange={event => setRenderOptions(options => ({ ...options, exteriorSkyFill: Number(event.target.value) }))} />
+                  <span>{Math.round(renderOptions.exteriorSkyFill * 100)}%</span>
+                </label>
+                <label className="render-options-slider" title="Scales direct sunlight and its reflected light. Sky illumination and exposure stay unchanged.">
+                  <span>Sun strength</span>
+                  <select aria-label="Sun strength" value={normalizeSunStrength(lightDirection.strength)} disabled={!renderOptions.daylight}
+                    onChange={event=>onLightDirectionChange({...lightDirection,strength:normalizeSunStrength(Number(event.currentTarget.value))})}>
+                    <option value="0">Off</option><option value="0.5">0.5×</option><option value="1">1× (default)</option><option value="2">2×</option><option value="4">4×</option>
+                    {![0,.5,1,2,4].includes(normalizeSunStrength(lightDirection.strength))&&<option value={normalizeSunStrength(lightDirection.strength)}>{normalizeSunStrength(lightDirection.strength)}×</option>}
+                  </select>
                 </label>
                 <label className="render-options-slider" title="Strength of sun and sky light captured for indirect lighting. Changes recalculate the GI probes.">
                   <span>Daylight bounce strength</span>
@@ -20828,7 +21334,7 @@ function ThreeDScene({
                     step="0.1"
                     aria-label="Daylight bounce strength"
                     value={renderOptions.daylightBounceStrength}
-                    disabled={!renderOptions.daylight || !renderOptions.indirectLighting}
+                    disabled={!renderOptions.daylight || !(renderOptions.indirectLighting || renderOptions.fastGI)}
                     onChange={(event) => {
                       const daylightBounceStrength = Math.max(0, Math.min(4, Number(event.currentTarget.value)))
                       setRenderOptions(options => ({ ...options, daylightBounceStrength }))
@@ -20836,7 +21342,7 @@ function ThreeDScene({
                   />
                   <span>{renderOptions.daylightBounceStrength.toFixed(1)}×</span>
                 </label>
-                <label title="Show diffuse light from the GI probes. Switching this off keeps the bake for comparison.">
+                <label title="World-space indirect lighting updates progressively in the background after edits.">
                   <input
                     type="checkbox"
                     checked={renderOptions.indirectLighting}
@@ -20844,6 +21350,49 @@ function ThreeDScene({
                   />
                   Indirect lighting (GI)
                 </label>
+                <label className="render-options-slider" title="Geometry-aware smoothing radius for floor indirect lighting. Defaults to 10 cm. Preparation runs in the background.">
+                  <span>Soft floor GI</span>
+                  <select aria-label="Soft floor GI radius" value={softFloorGICm} disabled={!renderOptions.indirectLighting}
+                    onChange={event=>setSoftFloorGICm(Number(event.currentTarget.value))}>
+                    <option value="0">Off</option><option value="5">5 cm</option><option value="10">10 cm</option><option value="20">20 cm</option>
+                  </select>
+                </label>
+                {softFloorGICm>0&&<div role="status" className="viewport-menu-description">{softFloorGIStatus||'Waiting for lighting…'}</div>}
+                <label title="Experimental cached shading for sheltered exterior walls and roofs. Bake once after geometry changes; toggle to compare.">
+                  <input type="checkbox" checked={renderOptions.exteriorSkyOcclusion} onChange={() => updateRenderOption('exteriorSkyOcclusion')} />
+                  Exterior sky occlusion (experimental)
+                </label>
+                {renderOptions.exteriorSkyOcclusion && <>
+                  <label className="render-options-slider">
+                    <span>Sky occlusion strength</span>
+                    <input aria-label="Exterior sky occlusion strength" type="range" min="0" max="1" step="0.05"
+                      value={renderOptions.exteriorSkyOcclusionStrength}
+                      onChange={event => setRenderOptions(options => ({ ...options, exteriorSkyOcclusionStrength: Number(event.target.value) }))} />
+                    <span>{Math.round(renderOptions.exteriorSkyOcclusionStrength * 100)}%</span>
+                  </label>
+                  <div role="status" className="viewport-menu-description">{exteriorSkyStatus || 'Waiting for building geometry…'}</div>
+                </>}
+                <label title="Capture local room reflections after diffuse GI. This adds capture and filtering work.">
+                  <input type="checkbox" checked={renderOptions.roomReflections} onChange={() => updateRenderOption('roomReflections')} />
+                  Update local room reflections
+                </label>
+                {(import.meta.env.DEV && new URLSearchParams(location.search).has('lightingDiagnostics')) && <label title="Experimental comparison only. Normal editing uses world-space probe GI.">
+                  <input
+                    type="checkbox"
+                    checked={renderOptions.fastGI}
+                    disabled={lightingUpdateMode === 'preview' && !renderOptions.indirectLighting}
+                    onChange={() => updateRenderOption('fastGI')}
+                  />
+                  Lighting preview
+                </label>}
+                {!readOnly && lightingUpdateMode === 'preview' && <button type="button" onClick={() => {
+                  requestedBakeFloors.current = liveGeometryFloors.current
+                  setRenderOptions(options => ({ ...options, indirectLighting: true }))
+                  setBakeRevision(value => value + 1)
+                }}>Bake lighting</button>}
+                <span ref={fastGIStatusRef} aria-label="Fast GI status" aria-live="polite" hidden={!renderOptions.fastGI} style={{ display: renderOptions.fastGI ? 'block' : 'none', fontSize: 12, padding: '0 0 6px 24px', opacity: .8 }}>
+                  {renderOptions.fastGI ? 'Fast GI preparing…' : 'Fast GI off'}
+                </span>
                 <label>
                   <input
                     type="checkbox"
@@ -20851,14 +21400,6 @@ function ThreeDScene({
                     onChange={() => updateRenderOption('bakedLightmaps')}
                   />
                   Baked lightmaps
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={renderOptions.nightFill}
-                    onChange={() => updateRenderOption('nightFill')}
-                  />
-                  Night fill
                 </label>
                 <label title="Soft sky fill that helps distinguish wall directions and sloping surfaces.">
                   <input
@@ -20883,19 +21424,20 @@ function ThreeDScene({
                   />
                   <span>{Math.round(renderOptions.softAmbientStrength * 100)}%</span>
                 </label>
-                <label className="render-options-slider">
+                <label className="render-options-slider" title={`Ambient fill for ${renderOptions.daylight ? 'Daylight' : 'night'} mode. Each mode remembers its own value.`}>
                   <span>Ambient term</span>
                   <input
                     type="range"
                     min="0"
                     max="0.85"
                     step="0.01"
-                    value={renderOptions.ambientTerm}
+                    aria-label="Ambient term"
+                    value={ambientTerm}
                     onChange={(event) =>
                       updateAmbientTerm(Number(event.currentTarget.value))
                     }
                   />
-                  <span>{renderOptions.ambientTerm.toFixed(2)}</span>
+                  <span>{ambientTerm.toFixed(2)}</span>
                 </label>
                 <label>
                   <input
@@ -20961,6 +21503,27 @@ function ThreeDScene({
                   />
                   Countryside skybox
                 </label>
+                <label title="White surfaces with the current lighting, GI, shadows and ambient occlusion. Glass stays transparent.">
+                  <input type="checkbox" checked={renderOptions.whiteModel} onChange={() => updateRenderOption('whiteModel')} />
+                  White model
+                </label>
+                {!readOnly && <>
+                  <label title="Try one directional lighting sample above a chosen furniture item. Session only; off by default.">
+                    <input type="checkbox" aria-label="Experimental furniture lighting" checked={furnitureLightingEnabled}
+                      disabled={!furnitureLightingId}
+                      onChange={event => { setFurnitureLightingTarget(furnitureLightingId); setFurnitureLightingEnabled(event.target.checked) }} />
+                    Experimental furniture lighting
+                  </label>
+                  {furnitureLightingEnabled && <>
+                    <label style={{ minWidth: 0 }}>Furniture
+                      <select aria-label="Furniture lighting target" value={furnitureLightingId} style={{ minWidth: 0, flex: 1 }}
+                        onChange={event => { setFurnitureLightingTarget(event.target.value); setFurnitureLightingStatus('Waiting for room lighting.') }}>
+                        {furnitureLightingChoices.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                      </select>
+                    </label>
+                    <div className="viewport-probe-legend" role="status">{furnitureLightingStatus}</div>
+                  </>}
+                </>}
                 <label>
                   <input
                     type="checkbox"
@@ -21048,7 +21611,7 @@ function ThreeDScene({
       )}
 
       <div
-        ref={threeHostRef}
+        ref={registerPreparationHost}
         className={
           `three-host${initialScenePreparationPending ? ' is-preparing' : ''}${placementModel ? ' placing-opening' : ''}`
         }
@@ -21077,21 +21640,30 @@ function ThreeDScene({
           }}
           // Mobile tours keep saved GI and glass, without AO's repeated scene /
           // transparency passes. Keep resolution bounded when AO is bypassed.
-          dpr={screenSpaceAmbientOcclusionEnabled || (readOnly && viewerTouchDevice) ? 1 : [1, 1.5]}
+          dpr={postprocessingEnabled || (readOnly && viewerTouchDevice) ? 1 : [1, 1.5]}
           gl={{ antialias: true, powerPreference: 'high-performance' }}
-          onCreated={({ gl }) => {
-            installNonBlockingShaderDiagnostics(gl)
+          onCreated={({ gl, scene }) => {
+            viewportScene.current = scene
+            scene.userData.projectGeneration = lightingResetRevision
+            installNonBlockingShaderDiagnostics(gl, { contextSafePolling: rendererContextRecoveryEnabled })
             installNonBlockingReadbackChecks(gl)
+            if (rendererAuditEnabled) installRendererHealth(gl, scene, () => {
+              if (!rendererContextRecoveryEnabled) return
+              requestShaderWarmup(scene)
+              setRendererContextGeneration(value => value + 1)
+            })
             gl.info.autoReset = false
             gl.xr.enabled = true
             gl.outputColorSpace = SRGBColorSpace
             gl.toneMapping = ACESFilmicToneMapping
-            gl.toneMappingExposure = 1
+            gl.toneMappingExposure = 2 ** exposureStops
           }}
           tabIndex={0}
         >
           <DeferredCanvasContents>
+          <ViewExposure stops={exposureStops} />
         <ModelTransformPreviewContext.Provider value={modelTransformPreviewRef}>
+        <LiveGeometryFloorsContext.Provider value={liveGeometryFloors}>
         <DormerRoomClipContext.Provider value={dormerInteriors.roomClipPlanes}>
         <DormerWallJunctionContext.Provider value={dormerInteriors.wallJunctionSolids}>
         <DormerWallContactsContext.Provider value={dormerInteriors.wallContacts}>
@@ -21105,12 +21677,14 @@ function ThreeDScene({
           <MaterialVariationVrContext.Provider value={isXrPresenting}>
             <PbrEnvironmentProvider
               disabled={!effectsStarted}
+              daylightSky={{enabled:renderOptions.daylight,mode:renderOptions.skyMode,strength:renderOptions.skyStrength,background:!renderOptions.skybox}}
               onReady={finishEnvironmentPreparation}
               intensity={renderOptions.daylight ? 0.55 : renderOptions.lights ? 0.16 : 0}
             >
             <WallViewFadeContext.Provider value={renderOptions.fadeObstructingWalls && !isXrPresenting && !renderOptions.wireframe}>
             <RoofViewFadeContext.Provider value={renderOptions.fadeObstructingRoofs && !isXrPresenting && !renderOptions.wireframe}>
             <RoofVisibilityContext.Provider value={!renderOptions.hideRoofs}>
+            <WallSurfaceBatches wireframe={renderOptions.wireframe}>
             {!renderOptions.hideRoofs && <BuildingGableMeshes visibleFloorIds={showAllFloorsInScene || renderOptions.roofsOnly ? null : [activeFloorId]}
               selectedSurface={selectedSurface}
               onRegisterPickTarget={registerPickTarget} roofFaceSide={roofFaceSide}
@@ -21166,12 +21740,12 @@ function ThreeDScene({
             /> : null}
             <FpsCounter onFpsChange={updateFps} movingOnly={readOnly} />
             <RendererStatsSampler onStatsChange={updateRendererStats} />
-            {!readOnly && <IndirectLightingProgress indicatorRef={indirectLightingIndicatorRef} engineRef={engineStatusRef} preparation={
+            {!readOnly && <IndirectLightingProgress indicatorRef={indirectLightingIndicatorRef} engineRef={engineStatusRef} fastRef={fastGIStatusRef} preparation={
               isAssetLoadPending || isTexturePreloadPending ? 'Loading models and textures...'
                 : shaderWarmupBlocked ? 'Preparing scene geometry...'
                   : !lightingSceneReady ? 'Preparing lighting...'
                     : !environmentReady ? 'Preparing environment...'
-                      : isShaderWarmupPending ? 'Preparing scene shaders...' : null
+                      : isShaderWarmupPending ? 'Preparing scene...' : null
             } />}
             {readOnly && <ViewerProgress indicatorRef={viewerStatusRef} preparation={
               isAssetLoadPending || isTexturePreloadPending ? 'Loading models and textures...'
@@ -21180,7 +21754,8 @@ function ThreeDScene({
                     : !environmentReady || isShaderWarmupPending ? 'Preparing scene effects...'
                       : scenePreparationPending ? 'Preparing view...' : null
             } />}
-            <SunShadowBlockerFilter />
+            <SunShadowBlockerFilter key={`shadows-${rendererContextGeneration}`} />
+            {!readOnly && <WallOpeningPreview liveFloors={liveGeometryFloors} modelPreview={modelTransformPreviewRef} assignments={surfaceAssignments} />}
             <CameraRoomVisibilityTracker
               activeFloor={activeFloor}
               enabled={lightingStarted && occlusionCullingEnabled}
@@ -21197,15 +21772,17 @@ function ThreeDScene({
               surfaceAssignments={surfaceAssignments}
             />}
             {effectsStarted && <ShaderWarmup
+              key={`shaders-${rendererContextGeneration}`}
               composer={sceneComposerRef}
               blocked={!environmentReady || shaderWarmupBlocked || isXrPresenting}
               fadeWalls={renderOptions.fadeObstructingWalls}
               fadeRoofs={renderOptions.fadeObstructingRoofs}
-              offscreen={screenSpaceAmbientOcclusionEnabled}
+              offscreen={postprocessingEnabled}
               onPendingChange={updateShaderWarmupPending}
               warmupKey={`${shaderWarmupKey}:${activeLocalLightLimit}`}
             />}
-            {basicSceneDiagnostic ? <BasicSceneRenderer pending={scenePreparationPendingReasons} /> : <SceneRenderer opaquePending={shaderWarmupBlocked} onOpaqueReady={startLightingPreparation} lightingStarted={lightingStarted} onLightingReady={startEffectsPreparation} blocked={!effectsStarted || !environmentReady || initialScenePreparationPending || isShaderWarmupPending || isAssetLoadPending || isTexturePreloadPending} offscreen={screenSpaceAmbientOcclusionEnabled}
+            {basicSceneDiagnostic ? <BasicSceneRenderer pending={scenePreparationPendingReasons} /> : <SceneRenderer key={`display-${rendererContextGeneration}`} contentRevision={`${floorGeometryStatusKey}:${sceneRevision}`} opaquePending={shaderWarmupBlocked} onOpaqueReady={startLightingPreparation} lightingStarted={lightingStarted} onLightingReady={startEffectsPreparation} blocked={!effectsStarted || !environmentReady || initialScenePreparationPending || isShaderWarmupPending || isAssetLoadPending || isTexturePreloadPending} offscreen={postprocessingEnabled} postprocessingExpected={postprocessingExpected}
+              onSceneReady={finishProjectPresentation}
               staticScene={readOnly} geometryPending={isLevelPreparationPending || isWallGeometryPending || isRoofGeometryPending || isCooperativePreparationPending || preparedBuildingRooms.pending || preparedGables.pending || preparedStoreys.pending}
               composer={sceneComposerRef} editing={isTransformingModel || !!placementModel || !!roofPlacementPreview || renderOptions.giProbes}
               selectionRevision={JSON.stringify([activeFloorId, selectedModelId, selectedRoofId, selectedWallId, selectedSurface])}
@@ -21224,49 +21801,47 @@ function ThreeDScene({
               onLocalLightLimitChange={updateLocalLightLimit}
             />
             <LocalLightBudgetController
-              activeFloorId={activeFloorId}
               enabled={renderOptions.lights}
               localLightLimit={activeLocalLightLimit}
+              localShadowLightLimit={localShadowLightLimit}
               onLocalLightIdsChange={updateLocalLightIds}
               visibleRenderedFloors={visibleRenderedFloors}
             />
-            <color
+            {!renderOptions.daylight&&<color
               attach="background"
               args={[renderOptions.daylight ? '#eef2f7' : '#020617']}
-            />
+            />}
             {!renderOptions.roofsOnly && renderOptions.daylight && renderOptions.skybox ? (
               <CountrysideSkybox />
             ) : null}
             {lightingStarted && <>
             <AmbientFillLight
               strength={renderOptions.softAmbientShading ? renderOptions.softAmbientStrength : 0}
-              intensity={
-                renderOptions.daylight
-                  ? 0.45 + renderOptions.ambientTerm
-                  : renderOptions.nightFill
-                    ? renderOptions.ambientTerm
-                    : 0
-              }
+              ambientTerm={ambientTerm}
+              daylight={renderOptions.daylight}
             />
             <SunLight
+              shadowControl={sceneShadowControl}
               enabled={renderOptions.daylight}
               lightDirection={lightDirection}
               previewDirectionRef={sunPreviewDirectionRef}
               sceneBounds={sceneBounds}
-              shadowMapSize={isXrPresenting ? XR_SUN_SHADOW_MAP_SIZE : 2048}
+              shadowMapSize={isXrPresenting ? XR_SUN_SHADOW_MAP_SIZE : rendererShadowSize}
               shadows={sunShadowsEnabled}
             />
             <FixedLocalLightPool
               control={localLightControl}
               activeFloorId={activeFloorId}
               localLightIds={localLightIds}
-              shadowControl={lightShadowControl}
+              shadowControl={effectiveLightShadowControl}
               maxLights={activeLocalLightLimit}
               maxShadowLights={localShadowLightLimit}
               shadowsEnabled={renderOptions.shadows && !isXrPresenting}
               visibleRenderedFloors={visibleRenderedFloors}
             />
             <RoomLightMaskController
+              occlusionRevision={roomOcclusionRevision}
+              occlusionBlocked={shaderWarmupBlocked || isTransformingModel}
               portals={renderOptions.floorSlabs ? visibleRenderedFloors.flatMap(({ floor }) => {
                 const input = floorSurfaceInputs.get(floor.id)
                 return input?.upperFloor ? [
@@ -21277,17 +21852,29 @@ function ThreeDScene({
               shadowsEnabled={renderOptions.shadows && !isXrPresenting}
               activeRenderedFloor={activeRenderedFloor}
               floors={floors}
-              shadowControl={lightShadowControl}
+              shadowControl={effectiveLightShadowControl}
               localLightIds={localLightIds}
               maxLights={activeLocalLightLimit}
               maxShadowLights={localShadowLightLimit}
               visibleRenderedFloors={visibleRenderedFloors}
             />
+            {furnitureLightingEnabled && furnitureLightingId && <FurnitureLightingExperiment
+              modelId={furnitureLightingId} onStatus={setFurnitureLightingStatus} />}
             <IndirectLighting
+              key={`gi-${rendererContextGeneration}`}
+              softFloorGICm={softFloorGICm}
+              onSoftFloorGIStatus={setSoftFloorGIStatus}
+              whiteModel={renderOptions.whiteModel}
+              captureReflections={renderOptions.roomReflections}
+              automaticBake={lightingUpdateMode === 'automatic'}
+              bakeRevision={activeBakeRevision}
+              liveEditPending={() => liveGeometryFloors.current !== sourceFloors}
+              liveInput={liveLightingInput}
               cacheBlocked={shaderWarmupBlocked || lightingCacheKeys.pending || isTransformingModel}
               effectsEnabled={effectsStarted}
               inspectPoint={renderOptions.giInspector}
               diffuseEnabled={renderOptions.indirectLighting}
+              fastEnabled={renderOptions.fastGI && (lightingUpdateMode === 'automatic' || renderOptions.indirectLighting)}
               diffuseProbeResolution={diffuseProbeResolution}
               floors={indirectFloors}
               revision={indirectLightingRevision}
@@ -21304,10 +21891,16 @@ function ThreeDScene({
               daylight={renderOptions.daylight}
               daylightBounceStrength={renderOptions.daylightBounceStrength}
               localLights={indirectLocalLights}
-              indoorFill={renderOptions.daylight || renderOptions.nightFill ? renderOptions.ambientTerm : 0}
+              indoorFill={ambientTerm}
+              exteriorSkyFill={readOnly ? 1 : renderOptions.exteriorSkyFill}
             />
             </>}
 
+            {!readOnly && !basicSceneDiagnostic && <ExteriorSkyOcclusion
+              enabled={renderOptions.exteriorSkyOcclusion && renderOptions.daylight && !renderOptions.wireframe}
+              strength={renderOptions.exteriorSkyOcclusionStrength}
+              blocked={shaderWarmupBlocked || isTransformingModel}
+              onStatus={setExteriorSkyStatus} />}
             {!renderOptions.roofsOnly && allFloorsPlane ? (
               <>
                 <mesh
@@ -21414,27 +22007,18 @@ function ThreeDScene({
               pickTargetsRef={pickTargetsRef}
               selectedModelId={selectedModelId}
             />}
-            {screenSpaceAmbientOcclusionEnabled ? (
+            {postprocessingEnabled ? (<>
+              <AmbientOcclusionToggle composer={sceneComposerRef} enabled={renderOptions.ambientOcclusion} />
               <EffectComposer
                 ref={sceneComposerRef}
                 enabled={false}
                 multisampling={0}
                 resolutionScale={AMBIENT_OCCLUSION_SETTINGS.resolutionScale}
               >
-                <N8AO
-                  ref={configureAmbientOcclusionPass}
-                  aoRadius={0.28}
-                  distanceFalloff={1}
-                  intensity={renderOptions.ambientOcclusionIntensity}
-                  aoSamples={AMBIENT_OCCLUSION_SETTINGS.aoSamples}
-                  denoiseSamples={AMBIENT_OCCLUSION_SETTINGS.denoiseSamples}
-                  denoiseRadius={AMBIENT_OCCLUSION_SETTINGS.denoiseRadius}
-                  halfRes={AMBIENT_OCCLUSION_SETTINGS.halfRes}
-                  color={ambientOcclusionColor}
-                />
-                <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+                {postprocessingEffects}
               </EffectComposer>
-            ) : null}
+            </>) : null}
+            </WallSurfaceBatches>
             </RoofVisibilityContext.Provider>
             </RoofViewFadeContext.Provider>
             </WallViewFadeContext.Provider>
@@ -21450,6 +22034,7 @@ function ThreeDScene({
         </DormerWallContactsContext.Provider>
         </DormerWallJunctionContext.Provider>
         </DormerRoomClipContext.Provider>
+        </LiveGeometryFloorsContext.Provider>
         </ModelTransformPreviewContext.Provider>
           </DeferredCanvasContents>
         </Canvas>
@@ -21469,13 +22054,6 @@ function ThreeDScene({
         {readOnly ? <><div ref={viewerStatusRef} className="viewer-status" role="status" aria-live="polite" aria-atomic="true" aria-label="Scene status">
           Preparing view...
         </div><div ref={fpsIndicatorRef} className="viewer-performance" aria-label="Movement frame rate" title="Last frame rate measured while moving">-- FPS</div></> : null}
-        {!readOnly && initialScenePreparationPending ? (
-          <div className="viewport-preparing-overlay" aria-live="polite">
-            <div className="viewport-preparing-panel">
-              Preparing 3D scene...
-            </div>
-          </div>
-        ) : null}
         {!readOnly ? <div className="viewport-indicators">
           <div
             ref={fpsIndicatorRef}

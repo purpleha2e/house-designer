@@ -83,9 +83,11 @@ try {
   await evaluate(`(async()=>{const url=performance.getEntriesByType('resource').find(e=>e.name.includes('/@react-three_fiber.js'))?.name;const {_roots}=await import(url);window.probeScene=()=>[..._roots.values()].map(r=>r.store.getState().scene).find(s=>s.userData.getBakedIndirectLighting)})()`)
   const viewMenu = () => evaluate(`document.querySelector('[aria-label="3D view menu"]').click()`)
   const projectAction = async name => {
+    if (name === 'Save to device') await evaluate('window.savedProjectText=undefined')
     await evaluate(`document.querySelector('[aria-label="Project menu"]').click()`)
     await wait(`!!document.querySelector('.project-menu-dropdown')`, 'project menu opened')
     await evaluate(`[...document.querySelectorAll('.project-menu-dropdown button')].find(e=>e.textContent.trim()==='${name}').click()`)
+    if (name === 'Save to device') await wait('typeof window.savedProjectText==="string"', 'project saved to test file')
   }
   const ready = label => wait(`window.probeScene()?.userData.indirectLighting?.state==='ready'&&!!window.probeScene().userData.getBakedIndirectLighting?.()`, label)
   await ready('baseline ready')
@@ -93,6 +95,8 @@ try {
   const baseline=await evaluate('({...window.probeScene().userData.indirectLighting})')
   assert.ok(baseline.floorProbes>0,'raised bed receives underside captures')
   await viewMenu()
+  await evaluate(`(()=>{const input=document.querySelector('input[aria-label="View exposure"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'2');input.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await wait('document.querySelector(\'input[aria-label="View exposure"]\')?.value==="2"', 'view exposure updated')
   await evaluate('[...document.querySelectorAll("label")].find(e=>e.textContent.trim()==="Inspect GI point").querySelector("input").click()')
   await viewMenu()
   await wait('!!window.probeScene().userData.inspectIndirectPoint','inspector armed')
@@ -101,7 +105,16 @@ try {
   const report=await evaluate('window.probeScene().userData.indirectPointInspection')
   assert.equal(report.floorId,'ground');assert.equal(report.bias,.004);assert.equal(report.floorLayer,true)
   assert.ok(report.probes.length>0);assert.ok(report.probes.every(p=>p.finalRGB.length===3))
+  assert.ok(report.bounces, 'completed lighting includes first-bounce data')
+  assert.deepEqual(report.bounces.finalRGB, report.exactAtSurface.rgb)
+  assert.ok(await evaluate(`(()=>{const table=document.querySelector('table[aria-label="Bounce contribution"]');return ['First bounce','Additional bounce','Final GI'].every(text=>table?.textContent.includes(text))})()`))
   assert.ok(await evaluate('!!document.querySelector(\'[aria-label="GI point inspection"]\')'))
+  await evaluate('window.probeScene().userData.inspectIndirectPoint([.5,.018,3],[0,1,0])')
+  await wait('window.probeScene().userData.indirectPointInspection?.point[0]===.5', 'lit surface comparison ready')
+  const lit=await evaluate('window.probeScene().userData.indirectPointInspection.bounces')
+  assert.ok(lit.firstBrightness>0&&lit.finalBrightness>0, 'lit surface has measurable first and final GI')
+  assert.ok(Number.isFinite(lit.gain)&&Number.isFinite(lit.additionalPercent))
+  writeFileSync('tmp/gi-bounce-inspection.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
   const target=await evaluate('(async()=>{const url=performance.getEntriesByType("resource").find(e=>e.name.includes("/@react-three_fiber.js"))?.name;const {_roots}=await import(url);const r=[..._roots.values()].map(r=>r.store.getState()).find(r=>r.scene===window.probeScene());r.camera.position.set(6,1.6,3.4);r.camera.lookAt(6,.02,2);r.camera.updateMatrixWorld();r.invalidate();window.inspectRoot=r;const rect=r.gl.domElement.getBoundingClientRect();return {x:rect.right-35,y:rect.top+rect.height*.75}})()')
   await new Promise(r=>setTimeout(r,500))
   await call('Input.dispatchMouseEvent',{type:'mousePressed',x:target.x,y:target.y,button:'left',clickCount:1})
@@ -115,6 +128,7 @@ try {
   await evaluate('(()=>{const original=URL.createObjectURL;URL.createObjectURL=function(blob){if(blob.type==="application/json")window.inspectionBlob=blob;return original.call(this,blob)};[...document.querySelectorAll("button")].find(e=>e.textContent.trim()==="Download report").click()})()')
   const downloaded=JSON.parse(await evaluate('window.inspectionBlob.text()'))
   assert.deepEqual(downloaded.point,picked.point)
+  assert.deepEqual(downloaded.bounces,picked.bounces)
   writeFileSync('.tmp-gi-point-inspection.png',Buffer.from((await call('Page.captureScreenshot',{format:'png'})).data,'base64'))
   await evaluate('window.probeScene().userData.inspectIndirectPoint([100,.018,100],[0,1,0])')
   await wait('document.querySelector(\'[aria-label="GI point inspection"]\')?.textContent.includes("Choose a surface inside")','outside point rejected')
@@ -125,9 +139,10 @@ try {
   const after=await evaluate('window.probeScene().userData.indirectLighting')
   assert.equal(after.generation,baseline.generation);assert.equal(after.capturedFaces,baseline.capturedFaces)
 
-  await projectAction('Save')
+  await projectAction('Save to device')
   startupProject=JSON.parse(await evaluate('window.savedProjectText'))
   assert.ok(startupProject.indirectLighting,'completed bake saved')
+  assert.equal(startupProject.threeDView.exposureStops, 2, 'view exposure saves outside GI settings')
   await call('Page.addScriptToEvaluateOnNewDocument',{source:'window.inspectionReloaded=true'})
   await call('Page.reload',{ignoreCache:true})
   await wait('window.inspectionReloaded&&!!document.querySelector(\'[aria-label="3D view menu"]\')&&performance.getEntriesByType("resource").some(e=>e.name.includes("/@react-three_fiber.js"))','fresh editor')
@@ -135,6 +150,7 @@ try {
   await wait('window.probeScene()?.userData.indirectLighting?.source==="saved"&&window.probeScene().userData.indirectLighting.state==="ready"','restored lighting')
   const savedBaseline=await evaluate('({...window.probeScene().userData.indirectLighting})')
   await viewMenu()
+  assert.equal(await evaluate('document.querySelector(\'input[aria-label="View exposure"]\')?.value'), '2', 'saved view exposure restored')
   await evaluate('[...document.querySelectorAll("label")].find(e=>e.textContent.trim()==="Inspect GI point").querySelector("input").click()')
   await viewMenu()
   await wait('!!window.probeScene().userData.inspectIndirectPoint','saved inspector armed')
@@ -142,10 +158,15 @@ try {
   await wait('!!window.probeScene().userData.indirectPointInspection','saved inspection ready')
   const savedReport=await evaluate('window.probeScene().userData.indirectPointInspection')
   assert.deepEqual(savedReport.displayed,report.displayed);assert.deepEqual(savedReport.exactAtSurface,report.exactAtSurface)
+  assert.deepEqual(savedReport.bounces,report.bounces)
   assert.equal(await evaluate('window.probeScene().userData.indirectLighting.generation'),savedBaseline.generation)
   assert.equal(await evaluate('window.probeScene().userData.indirectLighting.capturedFaces'),0)
 
-  await projectAction('Save')
+  if (process.argv.includes('--bounce-comparison')) {
+    assert.deepEqual(errors, [])
+    console.log('PASS: first/final bounce UI, lit and unlit samples, surface picking, downloaded report and saved-lighting round trip', JSON.stringify(lit))
+  } else {
+  await projectAction('Save to device')
   startupProject=JSON.parse(await evaluate('window.savedProjectText'))
   startupProject.indirectLighting.floorLayer.version = 1
   await call('Page.addScriptToEvaluateOnNewDocument',{source:'window.legacyFloorReloaded=true'})
@@ -158,7 +179,7 @@ try {
   assert.deepEqual(startupProject.indirectLighting.coefficients,await evaluate('window.probeScene().userData.getBakedIndirectLighting().coefficients'))
   assert.deepEqual(startupProject.indirectLighting.volume,await evaluate('window.probeScene().userData.getBakedIndirectLighting().volume'))
 
-  await projectAction('Save')
+  await projectAction('Save to device')
   startupProject=JSON.parse(await evaluate('window.savedProjectText'))
   delete startupProject.indirectLighting.layout.floorProbeLayoutVersion
   startupProject.indirectLighting.layout.probes=startupProject.indirectLighting.layout.probes.filter(probe=>probe.kind!=='floor')
@@ -183,4 +204,5 @@ try {
   assert.ok(underside.displayed.rgb.some(value=>value>.0001),'captured indirect light is present beneath the bed')
   assert.deepEqual(errors,[])
   console.log('PASS: point inspection, actual floor picking, persistence, old floor-cache refinement and regional underside capture upgrade',JSON.stringify({point:picked.point,bias:picked.bias,probes:picked.probes.length,upgrade,underside:underside.displayed}))
+  }
 } finally {for(const timer of timers)clearTimeout(timer);ws?.close();child.kill()}

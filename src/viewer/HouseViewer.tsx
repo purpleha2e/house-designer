@@ -63,7 +63,9 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
     <main ref={viewerRef} className="house-viewer" aria-label="Read-only house viewer">
       <ThreeDView readOnly viewerTouchDevice={touchDevice} viewerMode={mode} onViewerStairs={navigate}
         savedIndirectLighting={house.project.indirectLighting}
+        ambientLighting={house.project.threeDView?.ambientLighting}
         diffuseProbeResolution={house.project.threeDView?.diffuseProbeResolution}
+        exposureStops={house.project.threeDView?.exposureStops}
         viewerToolbar={aspectControls => (
           <header className="viewer-toolbar" aria-label="House viewer controls">
             <button type="button" className="viewer-menu-toggle" aria-expanded={menuOpen}

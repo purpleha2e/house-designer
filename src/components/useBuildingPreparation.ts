@@ -5,26 +5,7 @@ import type { BuildingRoof } from '../roofBuildingGeometry'
 import type { BuildingRoomVolumes } from '../buildingRoomVolumes'
 import type { FloorLevel } from '../types'
 import type { FloorAssembly, StoreyGeometry } from '../storeyGeometry'
-
-function request<T>(data: BuildingPreparationRequest, signal: AbortSignal) {
-  return new Promise<T>((resolve, reject) => {
-    let worker: Worker | undefined
-    const finish = (error?: unknown, value?: T) => {
-      signal.removeEventListener('abort', abort); worker?.terminate()
-      if (error) reject(error); else resolve(value!)
-    }
-    const abort = () => finish(signal.reason ?? new DOMException('Aborted', 'AbortError'))
-    try {
-      if (signal.aborted) { abort(); return }
-      worker = new Worker(new URL('../buildingPreparation.worker.ts', import.meta.url), { type: 'module' })
-      signal.addEventListener('abort', abort, { once: true })
-      worker.onmessage = ({ data }) => data.ok ? finish(undefined, data.result) : finish(new Error(data.error))
-      worker.onerror = event => finish(new Error(event.message || 'Building preparation failed'))
-      worker.onmessageerror = () => finish(new Error('Building preparation response could not be read'))
-      worker.postMessage(data)
-    } catch (error) { finish(error) }
-  })
-}
+import { requestBuildingPreparation as request } from '../buildingPreparationClient'
 export function useBuildingRooms(roofKey: string, roomKey: string) {
   const key = roofKey + roomKey
   const [prepared, setPrepared] = useState<{ key: string; roofs: BuildingRoof[]; rooms: BuildingRoomVolumes }>({
@@ -44,12 +25,13 @@ export function useBuildingGables(floors: FloorLevel[], roofs: BuildingRoof[], r
   const key = roomKey + JSON.stringify(assemblies)
   const [prepared, setPrepared] = useState<{ key: string; value: ReturnType<typeof prepareBuildingGables> }>({ key: '', value: { gables: [], clipData: new Map() } })
   useEffect(() => {
+    if (prepared.key === key) return
     const controller = new AbortController()
     void request<ReturnType<typeof prepareBuildingGables>>({ kind: 'gables', floors, roofs: encodeBuildingRoofs(roofs), rooms, assemblies }, controller.signal)
       .then(value => publishViewportUpdate(() => startTransition(() => setPrepared({ key, value })), () => controller.signal.aborted))
       .catch(error => { if (!controller.signal.aborted) console.error('Gable preparation failed:', error) })
     return () => controller.abort()
-  }, [key, floors, roofs, rooms, assemblies])
+  }, [key, floors, roofs, rooms, assemblies, prepared.key])
   return { value: prepared.value.gables, clipData: prepared.value.clipData, pending: prepared.key !== key }
 }
 
@@ -70,7 +52,10 @@ export function useLightingCacheKeys(input: Extract<BuildingPreparationRequest, 
   useEffect(() => {
     const controller = new AbortController()
     void request<{ projectKey: string; assetKey: string }>(input, controller.signal)
-      .then(value => publishViewportUpdate(() => startTransition(() => setPrepared({ input, ...value })), () => controller.signal.aborted))
+      // This result releases the GI update gate. A non-expiring transition can
+      // starve behind continuous viewport work after changing the sun, leaving
+      // an already completed key calculation marked pending indefinitely.
+      .then(value => publishViewportUpdate(() => setPrepared({ input, ...value }), () => controller.signal.aborted))
       .catch(error => { if (!controller.signal.aborted) console.error('Lighting cache validation failed:', error) })
     return () => controller.abort()
   }, [input])

@@ -1,4 +1,5 @@
 import { Vector3, type Camera } from 'three'
+import { applyCameraLook } from './cameraLook.ts'
 
 export type NavigationGamepad = Pick<Gamepad, 'connected' | 'mapping' | 'axes'>
 export type GamepadNavigationInput = { moveX: number; moveY: number; lookX: number; lookY: number }
@@ -44,10 +45,7 @@ export function createGamepadNavigation() {
     // Never catch up navigation after a stalled or background frame.
     if (!Number.isFinite(delta) || delta <= 0 || delta > 0.1) return
     const dt = Math.min(delta, 0.05)
-    camera.rotation.order = 'YXZ'
-    camera.rotation.y -= input.lookX * LOOK_SPEED * dt
-    camera.rotation.x = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, camera.rotation.x - input.lookY * LOOK_SPEED * dt))
-    camera.rotation.z = 0
+    applyCameraLook(camera, -input.lookX * LOOK_SPEED * dt, -input.lookY * LOOK_SPEED * dt, MAX_PITCH)
     camera.getWorldDirection(forward)
     right.setFromMatrixColumn(camera.matrixWorld, 0)
     if (options.walk) { forward.y = 0; right.y = 0 }

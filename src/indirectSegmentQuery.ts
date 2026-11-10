@@ -27,12 +27,12 @@ export function createIndirectSegmentQuery(tree: MeshBVH | null) {
   const indices = tree.geometry.index!.array, vertices = tree.geometry.attributes.position.array
   const stack = new Int32Array(nodes.length / 4)
   const origins = new Float64Array(3), directions = new Float64Array(3), inverses = new Float64Array(3)
-  return (origin: Vector3, direction: Vector3, max: number) => {
-    if (max <= .025) return false
+  return (origin: Vector3, direction: Vector3, max: number, nearDistance = .025) => {
+    if (max <= nearDistance) return false
     const ox = origin.x, oy = origin.y, oz = origin.z, dx = direction.x, dy = direction.y, dz = direction.z
     const length = direction.length()
     if (length === 0) return false
-    const near = .025 / length, far = max / length
+    const near = nearDistance / length, far = max / length
     origins[0] = ox; origins[1] = oy; origins[2] = oz
     directions[0] = dx; directions[1] = dy; directions[2] = dz
     inverses[0] = 1 / dx; inverses[1] = 1 / dy; inverses[2] = 1 / dz

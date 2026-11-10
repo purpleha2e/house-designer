@@ -10,10 +10,11 @@ import type { IndirectInspectionRequest } from '../indirectLightingDiagnostic.wo
 
 type Snapshot = { field: IndirectField; generation: number; ready: boolean; direct?: Uint16Array[];
   lights: { position: number[]; color: string }[] }
-const rgbText = (rgb: number[]) => rgb.map(value => value.toFixed(3)).join(', ')
+const numberText = (value: number) => Number(value.toPrecision(3)).toString()
+const rgbText = (rgb: number[]) => rgb.map(numberText).join(', ')
 const swatch = (rgb: number[]) => {
   // A shared compression makes colours comparable without clipping high irradiance.
-  const c = new Color().setRGB(...rgb.map(value => value / (1 + value)) as [number, number, number]).convertLinearToSRGB()
+  const c = new Color().setRGB(...rgb.map(value => Math.max(0, value) / (1 + Math.max(0, value))) as [number, number, number]).convertLinearToSRGB()
   return `rgb(${Math.round(c.r * 255)},${Math.round(c.g * 255)},${Math.round(c.b * 255)})`
 }
 
@@ -23,14 +24,14 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
   const latest = useRef(snapshot)
   useLayoutEffect(() => { latest.current = snapshot }, [snapshot])
   const [report, setReport] = useState<IndirectPointInspection | null>(null)
-  const [message, setMessage] = useState('Click the orange carpet patch to inspect its lighting.')
+  const [message, setMessage] = useState('Wait for GI ready, then click an indoor surface to inspect its lighting.')
   const [busy, setBusy] = useState(false)
   const reportGeneration = useRef(-1)
   const liveGeneration = useRef(-1)
   useFrame(() => {
     liveGeneration.current = latest.current().generation
     if (reportGeneration.current >= 0 && reportGeneration.current !== liveGeneration.current) {
-      reportGeneration.current = -1; setReport(null); setMessage('Lighting changed. Click the carpet again to inspect the new bake.')
+      reportGeneration.current = -1; setReport(null); setMessage('Lighting changed. Click the surface again to inspect the new bake.')
     }
   })
   useEffect(() => {
@@ -41,7 +42,7 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
     gl.domElement.style.cursor = 'crosshair'
     const inspect = (point: Vector3, normal: Vector3) => {
       const current = latest.current()
-      if (!current.ready || gl.xr.isPresenting) { setMessage('Wait for GI ready, then click the carpet.'); return }
+      if (!current.ready || gl.xr.isPresenting) { setMessage('Wait for GI ready, then click an indoor surface.'); return }
       const request = ++sequence
       activeWorker?.terminate()
       const diagnostic = new Worker(new URL('../indirectLightingDiagnostic.worker.ts', import.meta.url), { type: 'module' })
@@ -50,7 +51,7 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
       diagnostic.onmessage = event => {
         if (disposed || request !== sequence) return
         diagnostic.terminate(); activeWorker = null; setBusy(false)
-        if (current.generation !== liveGeneration.current) { setMessage('Lighting changed during inspection. Click the carpet again.'); return }
+        if (current.generation !== liveGeneration.current) { setMessage('Lighting changed during inspection. Click the surface again.'); return }
         if (!event.data.ok) { setMessage(event.data.error); return }
         reportGeneration.current = current.generation
         setReport(event.data.result); setMessage('Click another surface to compare it.')
@@ -109,15 +110,30 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
   }
   const rows = report ? [['Displayed GI', report.displayed.rgb], ['Exact blend at surface', report.exactAtSurface.rgb],
     ['Exact blend at shifted sample', report.exactAtShiftedSample.rgb]] as const : []
+  const bounces = report?.bounces
+  const bounceRows = bounces ? [['First bounce', bounces.firstBrightness, bounces.firstRGB],
+    ['Additional bounce', bounces.additionalBrightness, bounces.additionalRGB], ['Final GI', bounces.finalBrightness, bounces.finalRGB]] as const : []
   return <Html fullscreen calculatePosition={(_, __, size) => [size.width / 2, size.height / 2]}
     onOcclude={() => {}} zIndexRange={[50, 50]} style={{ pointerEvents: 'none' }}><section className="gi-inspection-panel" aria-label="GI point inspection" aria-busy={busy}>
     <strong>GI point inspection</strong>
     <p aria-live="polite">{message}</p>
     {report && <>
+      {bounces ? <>
+        <table aria-label="Bounce contribution"><thead><tr><th>Light at this surface</th><th>Relative brightness</th></tr></thead><tbody>
+          {bounceRows.map(([label, value, rgb]) => <tr key={label}><td>{label}</td><td><span className="gi-inspection-swatch" style={{ background: swatch(rgb) }} />{numberText(value)}</td></tr>)}
+        </tbody></table>
+        {bounces.gain !== null && <p>Final GI is {numberText(bounces.gain)} times the first bounce.
+          {bounces.additionalPercent !== null && <> The additional bounce contributes {bounces.additionalPercent.toFixed(1)}% of the final total.</>}</p>}
+        {bounces.firstBrightness === 0 && <p>{bounces.finalBrightness > 0
+          ? 'The first bounce is zero here; the additional bounce supplies the final GI.' : 'No bounced light was measured at this point.'}</p>}
+        <p>These estimates compare the same surface position and direction. First bounce already means reflected light; direct lamp light is excluded. Values are linear, before textures and exposure, and are not lux.</p>
+      </> : <p>First-bounce data is unavailable for this bake.</p>}
+      <details><summary>Sampling checks and RGB values</summary>
       <table><tbody>{rows.map(([label, rgb]) => <tr key={label}><td>{label}</td><td><span className="gi-inspection-swatch" style={{ background: swatch([...rgb]) }} />{rgbText([...rgb])}</td></tr>)}</tbody></table>
       <p>Sample offset: {(report.bias * 100).toFixed(1)} cm. Values show probe light in the surface direction, before material textures.</p>
       {report.floorLayer && <p>Visible probe support: {report.exactAtSurface.support.toFixed(4)}. Floor confidence: {(report.exactAtSurface.confidence * 100).toFixed(1)}%.</p>}
-      <p>Orange only in Displayed GI points to volume filtering. Orange at the shifted sample but less at the surface points to the offset. Orange in all three needs a capture or bounce check.</p>
+      <p>Differences between Displayed GI and the exact blends can reveal filtering or sample-offset effects.</p>
+      </details>
       <details><summary>Nearby probes, evaluated in the surface direction</summary><table><thead><tr><th>Probe</th><th>Light</th><th>Visible</th></tr></thead><tbody>
         {report.probes.map(probe => <tr key={probe.index}><td>{probe.index} · {probe.distance.toFixed(2)} m</td><td><span className="gi-inspection-swatch" style={{ background: swatch(probe.finalRGB) }} />{rgbText(probe.finalRGB)}</td><td>{probe.visibleAtSurface ? 'Yes' : 'No'}</td></tr>)}
       </tbody></table></details>

@@ -291,7 +291,12 @@ function renderAssemblyFaces(input: RoofAssemblyInput, faces: SolidFace[], share
     // edge behind it. Trim these exterior faces too, while retaining the actual
     // sloping underside and outer skin that enclose the room.
     if (part === 'soffit' || part === 'shell') {
-      const clipped = carveRoofSurfaceByRooms(geometry, input.exteriorTrimCuts ?? [],
+      // A roof-derived trim cap meets its own lower skin. Applying the
+      // cutter's overlap there punches a hole through that skin (notably
+      // above projecting bays). Only other enclosures may consume it.
+      // Boxed eaves still use every cut, including this roof's cap.
+      const cuts = (input.exteriorTrimCuts ?? []).filter(cut => part !== 'soffit' || cut.roofId !== roof.id)
+      const clipped = carveRoofSurfaceByRooms(geometry, cuts,
         point => roofToLocal(roof, elevation, point))
       if (clipped !== geometry) geometry.dispose()
       return [part, clipped]

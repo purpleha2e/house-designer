@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { Quaternion, Vector3 } from 'three'
+import { parsePublishedHouse } from '../src/viewer/viewerProject.ts'
 import {
   ALL_FLOORS_VIEW_ID,
   DEFAULT_FLOORPLAN_VIEWPORT,
   DEFAULT_THREE_D_CAMERA_STATE,
+  normalizeExposureStops,
   normalizeSavedThreeDViewState,
   normalizeSavedTwoDViewState,
 } from '../src/projectViewState.ts'
@@ -11,8 +14,15 @@ import {
 test('older projects default to the active floor and original camera', () => {
   assert.deepEqual(
     normalizeSavedThreeDViewState(undefined, ['ground'], 'ground'),
-    { camera: DEFAULT_THREE_D_CAMERA_STATE, floorViewId: 'ground', diffuseProbeResolution: 16 },
+    { camera: DEFAULT_THREE_D_CAMERA_STATE, floorViewId: 'ground', diffuseProbeResolution: 16, exposureStops: 0 },
   )
+})
+
+test('a new project camera faces the starter plan rather than the sky above it', () => {
+  const p = DEFAULT_THREE_D_CAMERA_STATE.position, q = DEFAULT_THREE_D_CAMERA_STATE.quaternion
+  const forward = new Vector3(0, 0, -1).applyQuaternion(new Quaternion(q.x, q.y, q.z, q.w))
+  const target = new Vector3(4 - p.x, -p.y, 4 - p.z).normalize()
+  assert.ok(forward.dot(target) > .99999)
 })
 
 test('restores all-floors view and normalizes the saved camera orientation', () => {
@@ -41,6 +51,7 @@ test('rejects stale floor ids and non-finite camera values', () => {
     camera: DEFAULT_THREE_D_CAMERA_STATE,
     floorViewId: 'ground',
     diffuseProbeResolution: 16,
+    exposureStops: 0,
   })
 })
 
@@ -50,6 +61,29 @@ test('restores probe quality independently of whether a bake has completed', () 
     assert.equal(normalizeSavedThreeDViewState(saved, ['ground'], 'ground').diffuseProbeResolution, resolution)
   }
   assert.equal(normalizeSavedThreeDViewState({ diffuseProbeResolution: 4096 }, ['ground'], 'ground').diffuseProbeResolution, 16)
+})
+
+test('exposure restores independently of the bake and bounds invalid saved values', () => {
+  const saved = JSON.parse(JSON.stringify({ exposureStops: 2.25 }))
+  assert.equal(normalizeSavedThreeDViewState(saved, ['ground'], 'ground').exposureStops, 2.25)
+  assert.equal(normalizeExposureStops(100), 4); assert.equal(normalizeExposureStops(-100), -2)
+  for (const value of [undefined, null, '2', NaN, Infinity, -Infinity]) assert.equal(normalizeExposureStops(value), 0)
+})
+
+test('ambient preferences save independently of GI and restore the mode and both levels', () => {
+  const ambientLighting = { daylight: false, ambientTerm: .47, nightAmbientTerm: .07 }
+  const saved = JSON.parse(JSON.stringify({ ambientLighting }))
+  assert.deepEqual(normalizeSavedThreeDViewState(saved, ['ground'], 'ground').ambientLighting, ambientLighting)
+  assert.equal(normalizeSavedThreeDViewState({ ambientLighting: { ...ambientLighting, nightAmbientTerm: null } }, ['ground'], 'ground').ambientLighting, undefined)
+})
+
+test('published tours retain the authored ambient mode and independent levels', () => {
+  const ambientLighting = { daylight: false, ambientTerm: .47, nightAmbientTerm: .07 }
+  const house = parsePublishedHouse(JSON.parse(JSON.stringify({ title: 'Ambient test', materials: [], project: {
+    floors: [{ id: 'ground', name: 'Ground', elevation: 0, walls: [] }],
+    threeDView: normalizeSavedThreeDViewState({ ambientLighting }, ['ground'], 'ground'),
+  } })))
+  assert.deepEqual(house.project.threeDView?.ambientLighting, ambientLighting)
 })
 
 test('restores independent 2D pan and zoom values for each current floor', () => {

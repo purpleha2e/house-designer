@@ -17,6 +17,37 @@ function closed(assembly: ReturnType<typeof assembleRoofCells>) {
   assert.ok(assembly.faces.every(face => face.points.flat().every(Number.isFinite)))
 }
 
+test('Colin gable overhang retains its lower skin above the projecting bay room', () => {
+  const { floors } = JSON.parse(readFileSync(new URL('../colin_house_v2.json', import.meta.url), 'utf8')) as { floors: FloorLevel[] }
+  const roofs = resolveBuildingRoofs(floors)
+  const { cuts, exteriorTrimCuts } = buildBuildingRoomVolumes(floors, roofs)
+  const target = roofs.find(candidate => candidate.roof.id === 'b9c4f4d7-2ea6-4bc2-8b59-481280115509')!
+  const parts = createJoinedRoofAssemblyGeometries(roofs.map(candidate => ({
+    resolved: candidate.resolved, abuttingWalls: candidate.abuttingWalls, roomCuts: cuts, exteriorTrimCuts,
+  })))
+  const geometry = parts.get(target.roof.id)!
+  const material = new MeshBasicMaterial()
+  const soffit = new Mesh(geometry.soffit, material)
+  soffit.position.set(target.roof.position.x, target.resolved.elevation, target.roof.position.y)
+  soffit.rotation.y = target.roof.rotation
+  soffit.updateMatrixWorld(true)
+  const topSkin = soffit.clone()
+  topSkin.geometry = geometry.top
+  topSkin.updateMatrixWorld(true)
+  try {
+    for (const z of [17.92, 17.98, 18.04]) for (const x of [0, .4, .8, 1.26, 1.7, 2.1, 2.5]) {
+      const hit = new Raycaster(new Vector3(x, 4.8, z), new Vector3(0, 1, 0)).intersectObject(soffit)[0]
+      assert.ok(hit, `no sky-visible hole in the underside at ${x}, ${z}`)
+      const top = new Raycaster(new Vector3(x, 10, z), new Vector3(0, -1, 0)).intersectObject(topSkin)[0]
+      assert.ok(top && Math.abs(top.point.y - hit.point.y - target.roof.thickness!) < 1e-5,
+        'the retained surface is the existing lower skin, not a patch above it')
+    }
+  } finally {
+    for (const roof of parts.values()) Object.values(roof).forEach(part => part?.dispose())
+    material.dispose()
+  }
+})
+
 test('cutting a constructed roof panel closes the cut and retains its material ownership', () => {
   const panel = roofPanelSolid([[0, 1, 0], [2, 2, 0], [2, 2, 2], [0, 1, 2]], (x) => 0.8 + x / 2, 'top', 'underside', 'shell')!
   const cells = subtractSolid(panel, [[1, 0, 0, -1], [0, 0, 1, -1]], 'shell')

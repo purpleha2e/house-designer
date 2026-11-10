@@ -27,6 +27,7 @@ export function indirectLocalChanges(previousRevision: string, revision: string,
   try {
     const previous = JSON.parse(previousRevision), current = JSON.parse(revision)
     if (!Array.isArray(previous.floors) || !Array.isArray(current.floors)) return null
+    if(previous.modelAssetVersion!==current.modelAssetVersion)return null
     const globals = (value: Record<string, unknown>) => Object.fromEntries(Object.entries(value)
       .filter(([key]) => key !== 'floors' && key !== 'modelAssetVersion'))
     if (indirectContentKey(globals(previous)) !== indirectContentKey(globals(current))) return null

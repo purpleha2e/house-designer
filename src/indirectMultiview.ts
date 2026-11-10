@@ -1,3 +1,4 @@
+import type { IndirectSHOrder } from './indirectSH.ts'
 import { Color, DataArrayTexture, Frustum, HalfFloatType, LinearSRGBColorSpace, Matrix4, Mesh,
   MeshBasicMaterial, MeshStandardMaterial, NearestFilter, ShaderChunk, WebGLRenderTarget,
   type Camera, type CubeCamera, type Material, type Scene, type WebGLRenderer } from 'three'
@@ -28,7 +29,7 @@ export function indirectMultiviewRotations(camera: CubeCamera, first: number, vi
   }
 }
 
-export function createIndirectMultiview(renderer: WebGLRenderer, size: number, source: Scene, preferredViews: 2 | 3 = 3) {
+export function createIndirectMultiview(renderer: WebGLRenderer, size: number, source: Scene, preferredViews: 2 | 3 = 3, shOrder: IndirectSHOrder = 1) {
   const nativeRenderer = renderer as WebGLRenderer & {
     setRenderTargetFramebuffer(target: WebGLRenderTarget, framebuffer: WebGLFramebuffer): void
   }
@@ -93,7 +94,7 @@ export function createIndirectMultiview(renderer: WebGLRenderer, size: number, s
   texture.type = HalfFloatType; texture.minFilter = texture.magFilter = NearestFilter
   texture.colorSpace = LinearSRGBColorSpace; texture.needsUpdate = true
   const target = new WebGLRenderTarget(size, size, { depthBuffer: false, type: HalfFloatType })
-  const integrator = createIndirectProbeIntegrator(size, 'array', [0, 3, 1, 4, 2, 5])
+  const integrator = createIndirectProbeIntegrator(size, 'array', [0, 3, 1, 4, 2, 5], false, shOrder)
   const depth = gl.createTexture()!, framebuffer = gl.createFramebuffer()!
   const previousTarget = renderer.getRenderTarget(), previousFace = renderer.getActiveCubeFace(), previousMip = renderer.getActiveMipmapLevel()
   let disposed = false

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { workspaceClient, formatWorkspaceBytes, type WorkspaceSession } from '../workspace/workspaceClient'
 import './AccountDialog.css'
 
-export function AccountDialog({ onClose }: { onClose: () => void }) {
+export function AccountDialog({ onClose, onSignedIn }: { onClose: () => void; onSignedIn?: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null)
   const controller = useRef<AbortController | null>(null)
   const [session, setSession] = useState<WorkspaceSession | null>(null)
@@ -38,6 +38,7 @@ export function AccountDialog({ onClose }: { onClose: () => void }) {
       const next = await workspaceClient.authenticate(action, { name: String(fields.get('name') ?? ''),
         email: String(fields.get('email') ?? ''), password: String(fields.get('password') ?? '') }, signal)
       setSession(next)
+      if (next.user) onSignedIn?.()
     })
   }
   return <dialog ref={dialog} className="account-dialog" aria-label="Account and private workspace"

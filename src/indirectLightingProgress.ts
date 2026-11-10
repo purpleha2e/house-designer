@@ -8,11 +8,13 @@ export function formatViewportPreparationStatus(status: ViewportPreparationStatu
 }
 
 export type IndirectLightingStatus = {
-  state?: string; enabled?: boolean; blocked?: boolean; paused?: boolean
+  state?: string; enabled?: boolean; diffuseEnabled?: boolean; blocked?: boolean; paused?: boolean
   completed?: number; total?: number; volumePending?: boolean; displayed?: boolean
   preparing?: boolean; warming?: boolean; reading?: boolean; pendingUpdate?: boolean; xr?: boolean
+  gpuPreview?: boolean; gpuPreviewProbes?: number; gpuPreviewTotal?: number
   floorPreparing?: boolean
   cacheReason?: string
+  failureReason?: string
   prepareStage?: IndirectPreparationStage
   previewPending?: boolean; previewUpdates?: number; firstPreviewMs?: number; moving?: boolean
   probes?: number; capturedProbes?: number; rooms?: number; reflections?: number
@@ -24,8 +26,11 @@ export type IndirectLightingStatus = {
 export function formatIndirectLightingProgress(status?: IndirectLightingStatus) {
   if (!status) return 'GI preparing'
   if (status.enabled === false) return 'GI off'
+  if (status.diffuseEnabled === false) return 'Probe GI off'
   if (status.state === 'fallback') return 'GI unavailable'
+  if (status.state === 'preview') return 'GI preview'
   if (status.state === 'loading') return 'GI loading saved lighting'
+  if (status.gpuPreview) return 'GI live preview'
   if (status.saving) return 'GI saving lighting'
   if (status.floorPreparing) return 'GI refining floor lighting'
   if (status.state === 'ready' && !status.volumePending) return 'GI ready'
@@ -38,8 +43,11 @@ export function formatIndirectLightingProgress(status?: IndirectLightingStatus) 
 export function formatIndirectLightingEngineStatus(status?: IndirectLightingStatus) {
   if (!status) return 'GI preparing'
   if (status.enabled === false) return 'GI off'
-  if (status.state === 'fallback') return 'GI unavailable'
+  if (status.diffuseEnabled === false) return 'Probe GI off'
+  if (status.state === 'fallback') return status.failureReason ? `GI unavailable: ${status.failureReason}` : 'GI unavailable'
+  if (status.state === 'preview') return 'Preview lighting · bake lighting for a full-quality saved result'
   if (status.state === 'loading') return 'GI loading saved lighting'
+  if (status.gpuPreview) return `GI updating lighting ? ${status.gpuPreviewProbes ?? 0}/${status.gpuPreviewTotal ?? 0} probes ? preview displayed`
   if (status.saving) return 'GI compressing lighting for saving'
   if (status.floorPreparing) return 'GI refining floor lighting from saved probes'
   if (status.blocked && !(status.state === 'ready' && !status.volumePending && !status.pendingUpdate)) return 'GI waiting for scene preparation or editing'
@@ -56,7 +64,7 @@ export function formatIndirectLightingEngineStatus(status?: IndirectLightingStat
   if (status.pendingUpdate || !status.total) return `GI waiting to update${suffix}`
   if (status.reflection) return `GI capturing reflections · ${status.reflections ?? 0}/${status.rooms ?? 0}${progress}`
   const first = status.firstProbes ?? status.probes ?? 0, second = status.secondProbes ?? status.probes ?? 0
-  const captured = status.pass === 2 ? Math.max(0, (status.completed ?? 0) - first) : status.partial ? Math.min(first, status.completed ?? 0) : status.capturedProbes ?? 0
+  const captured = (status.pass??1) >= 2 ? Math.min(second,Math.max(0, (status.completed ?? 0) - first - Math.max(0,(status.pass??2)-2)*second)) : status.partial ? Math.min(first, status.completed ?? 0) : status.capturedProbes ?? 0
   const zones = status.partial ? ` · ${status.zones ?? 0} zones · ${status.reusedProbes ?? 0} probes reused` : ''
-  return `GI bounce ${status.pass ?? 1} · ${captured}/${status.pass === 2 ? second : first} probes · ${status.reading ? 'reading light' : `face ${Math.min(6, (status.face ?? 0) + 1)}/6`}${zones}${progress}${suffix}`
+  return `GI bounce ${status.pass ?? 1} · ${captured}/${(status.pass??1) >= 2 ? second : first} probes · ${status.reading ? 'reading light' : `face ${Math.min(6, (status.face ?? 0) + 1)}/6`}${zones}${progress}${suffix}`
 }

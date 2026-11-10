@@ -45,7 +45,10 @@ test('lighting progress distinguishes preparation, paused captures, refinement a
   assert.equal(formatIndirectLightingProgress({ state: 'ready', total: 4, completed: 4, volumePending: true }), 'GI building 99%')
   assert.equal(formatIndirectLightingProgress({ state: 'ready' }), 'GI ready')
   assert.equal(formatIndirectLightingProgress({ enabled: false }), 'GI off')
+  assert.equal(formatIndirectLightingProgress({ diffuseEnabled: false, state: 'refining', pass: 2 }), 'Probe GI off')
   assert.equal(formatIndirectLightingProgress({ state: 'fallback' }), 'GI unavailable')
+  assert.equal(formatIndirectLightingProgress({ state: 'fallback', failureReason: 'worker failed' }), 'GI unavailable')
+  assert.equal(formatIndirectLightingEngineStatus({ state: 'fallback', failureReason: 'worker failed' }), 'GI unavailable: worker failed')
 })
 
 test('engine lighting status identifies the current work and retained lighting', () => {
@@ -68,6 +71,7 @@ test('engine lighting status identifies the current work and retained lighting',
   assert.equal(formatIndirectLightingEngineStatus({ ...status, state: 'ready', reflections: 17, blocked: true }), 'GI ready · 274 probes · 17 reflections',
     'selection preparation does not claim the completed bake is waiting to run')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, enabled: false, blocked: true }), 'GI off')
+  assert.equal(formatIndirectLightingEngineStatus({ ...status, diffuseEnabled: false, reading: true }), 'Probe GI off')
   assert.equal(formatIndirectLightingEngineStatus({ ...status, state: 'fallback' }), 'GI unavailable')
 })
 
@@ -77,4 +81,12 @@ test('regional progress counts recaptures separately from retained probes', () =
   assert.match(formatIndirectLightingEngineStatus(status), /bounce 2 · 2\/20 probes/)
   assert.match(formatIndirectLightingEngineStatus(status), /2 zones · 40 probes reused/)
   assert.match(formatIndirectLightingEngineStatus({ ...status, pass: 1, completed: 3 }), /bounce 1 · 3\/18 probes/)
+})
+
+
+test('live preview progress takes priority over scene warmup and saving', () => {
+  const status={state:'updating',gpuPreview:true,gpuPreviewProbes:4,gpuPreviewTotal:30,blocked:true,saving:true}
+  assert.equal(formatIndirectLightingProgress(status),'GI live preview')
+  assert.equal(formatIndirectLightingEngineStatus(status),'GI updating lighting ? 4/30 probes ? preview displayed')
+  assert.equal(formatIndirectLightingProgress({...status,diffuseEnabled:false}),'Probe GI off')
 })

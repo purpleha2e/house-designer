@@ -1,11 +1,11 @@
 // Run on roofWallRegression.html?materials&red-house-door.
 export async function checkSolidGables() {
   const { Raycaster, Vector3 } = await import('/node_modules/.vite/deps/three.js')
+  const { wallSurfaceMeshes } = await import('./wallSurfaceInspection.js')
   const state = window.roofWallScene()
   state.scene.updateMatrixWorld(true)
-  const gables = [], walls = []
+  const gables = wallSurfaceMeshes(state.scene).filter(object => object.userData.solidGable && object.userData.roofId === 'b490e12e-e2cc-4509-801c-33d0e68a1aa2'), walls = []
   state.scene.traverse(object => {
-    if (object.userData.solidGable && object.userData.roofId === 'b490e12e-e2cc-4509-801c-33d0e68a1aa2') gables.push(object)
     if (object.userData.houseDesignerRole === 'wall-engine-render') walls.push(object)
   })
   if (!gables.length || !walls.length) throw new Error('Gable/wall meshes have not loaded')

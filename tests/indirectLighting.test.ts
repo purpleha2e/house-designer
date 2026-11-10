@@ -7,6 +7,52 @@ import { pointIsInsideRoomPolygon } from '../src/roomLightMask.ts'
 import { applySpecularOnlyImageBasedLighting } from '../src/materials/imageBasedLighting.ts'
 import { createIndirectVisibility, createIndirectVisibilityFromSnapshot, snapshotIndirectGeometry, indirectOctDirection, indirectOctUV, indirectVisibilityWeight, writeIndirectVisibility, indirectGeometryRanges } from '../src/indirectVisibility.ts'
 import { INDIRECT_VOLUME_HEIGHT, createIndirectVolumeLookup, sampleIndirectCoefficients, writeIndirectCeilingRow, writeIndirectVolumeRow } from '../src/indirectVolume.ts'
+import { ImportedModelBatching } from '../src/importedModelBatching.ts'
+
+test('lighting geometry is unchanged by render batching and still respects hidden ancestors', () => {
+  const root = new Group(), geometry = new BoxGeometry(2, .15, 3), material = new MeshStandardMaterial()
+  const batching = new ImportedModelBatching(), models = [new Group(), new Group()]
+  root.add(batching.group, ...models)
+  models.forEach((model, i) => {
+    model.add(new Mesh(geometry, material)); model.position.set(5 * i, 2, -3 * i)
+    model.rotation.y = .6; model.scale.x = -1
+    batching.register(model, `stairs-${i}`)
+  })
+  try {
+    const before = snapshotIndirectGeometry(root)
+    batching.update()
+    assert.equal(models[0].children[0].visible, false, 'fixture actually batches the source meshes')
+    assert.deepEqual(snapshotIndirectGeometry(root), before, 'all blockers are retained exactly once at their authored transforms')
+    models[0].visible = false
+    assert.equal(snapshotIndirectGeometry(root).length, 1, 'hidden parent wins even before the batch updates')
+    batching.update()
+    assert.equal(snapshotIndirectGeometry(root).length, 1)
+    models[1].removeFromParent()
+    assert.equal(snapshotIndirectGeometry(root).length, 0, 'stale render proxies are never snapshot sources')
+  } finally { batching.reset(); geometry.dispose(); material.dispose() }
+})
+
+test('indoor partition footprints cover surfaces above low walls without changing probes or exterior occupancy', () => {
+  const rect = (x: number, z: number, w: number, h: number) => [{ x, y: z }, { x: x+w, y: z }, { x: x+w, y: z+h }, { x, y: z+h }]
+  for (const shift of [0, 17.3]) {
+    const floor = { id: 'ground', elevation: 4.2, height: 3, rooms: [
+      { signature: 'left', polygon: rect(shift, 0, 2, 4) },
+      { signature: 'right', polygon: rect(shift+2.2, 0, 2, 4) },
+    ] }
+    const original = createIndirectField([floor]), field = createIndirectField([{ ...floor, indoorPartitions: [rect(shift+2, 0, .2, 4)] }])
+    const occupied = (f: typeof field, x: number, z: number) => {
+      const ix = Math.floor((x-f.bounds.minX)/f.bounds.size*INDIRECT_MASK_SIZE), iz = Math.floor((z-f.bounds.minZ)/f.bounds.size*INDIRECT_MASK_SIZE)
+      return (f.mask.image.data as Uint8Array)[(iz*INDIRECT_MASK_SIZE+ix)*4]
+    }
+    assert.equal(occupied(original, shift+2.1, 2), 0, 'old room-only mask reproduces the strip')
+    assert.equal(occupied(field, shift+2.1, 2), 255, 'the short wall footprint remains indoors')
+    assert.equal(occupied(field, shift+2.1, 4.15), 0, 'outdoor space beyond the partition remains outside')
+    assert.deepEqual(field.probes.map(p=>p.position.toArray()), original.probes.map(p=>p.position.toArray()), 'partitions do not add probes inside walls')
+    const restored = restoreIndirectField(serializeIndirectField(field))
+    assert.equal(occupied(restored, shift+2.1, 2), 255)
+    restored.dispose(); field.dispose(); original.dispose()
+  }
+})
 
 test('placement guide descendants never become lighting occluders', () => {
   const root = new Group(), guide = new Group(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()

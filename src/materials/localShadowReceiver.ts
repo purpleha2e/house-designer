@@ -18,6 +18,17 @@ float getShadow( sampler2DShadow shadowMap, vec2 shadowMapSize, float shadowInte
   // Cover that depth uncertainty, rather than moving the receiver through
   // centimetres of world space or covering an entire filtered texel.
   float rasterBias = .000001 + dot(abs(depthGradient), 1.0 / shadowMapSize) / hdShadowRasterSteps;
+  // A plane extrapolated across a ridge can lie above the opposite roof
+  // slope. Such filtered taps must not brighten an occluded centre sample.
+  vec2 centreTap = (floor(shadowCoord.xy * shadowMapSize) + .5) / shadowMapSize;
+  float centreReference = shadowCoord.z + dot(depthGradient, centreTap - shadowCoord.xy);
+  #ifdef USE_REVERSED_DEPTH_BUFFER
+    centreReference -= shadowBias - rasterBias;
+  #else
+    centreReference += shadowBias - rasterBias;
+  #endif
+  float centreShadow = centreReference < 0.0 || centreReference > 1.0 ? 1.0
+    : texture(shadowMap, vec3(centreTap, centreReference));
   float phi = interleavedGradientNoise(gl_FragCoord.xy) * PI2;
   float shadow = 0.0;
   for (int i = 0; i < 5; i++) {
@@ -34,7 +45,7 @@ float getShadow( sampler2DShadow shadowMap, vec2 shadowMapSize, float shadowInte
     // cleared depth incorrectly turns that tap into a solid shadow.
     shadow += reference < 0.0 || reference > 1.0 ? 1.0 : texture(shadowMap, vec3(tap, reference));
   }
-  return mix(1.0, shadow * .2, shadowIntensity);
+  return mix(1.0, min(centreShadow, shadow * .2), shadowIntensity);
 }
 `
 const rasterStepsByRenderer = new WeakMap<WebGLRenderer, number>()

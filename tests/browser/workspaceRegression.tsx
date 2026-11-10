@@ -13,6 +13,7 @@ export function Harness() {
     <p>The editor remains available without signing in.</p>
     {menu && <Toolbar onClose={() => setMenu(false)} isEngineConsoleOpen={false} onEngineConsoleOpenChange={noop}
       onNewProject={noop} onLoadProject={noop} onSaveProject={noop} onOpenManufacturerPortal={noop}
+      onSaveToDevice={noop} onSaveToCloud={noop} canSave={false} isSaving={false}
       onOpenMaterialEditor={noop} onOpenAccount={() => setAccount(true)} />}
     {account && <AccountDialog onClose={() => setAccount(false)} />}
   </main>

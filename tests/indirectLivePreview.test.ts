@@ -137,3 +137,39 @@ test('moving a lamp reuses prepared geometry and only refreshes its visibility t
   assert.throws(() => cache.updateLights([]), /light count changed/)
   cache.dispose()
 })
+
+
+test('GPU interpolation graph exports exact visible links independently of captured validity', () => {
+  const scene = new Group(), geometry = new BoxGeometry(.08, 3, 4), material = new MeshStandardMaterial()
+  const wall = new Mesh(geometry, material); wall.position.set(2, 1.5, 2); scene.add(wall)
+  const cache = prepareIndirectCache(floors, [], snapshotIndirectGeometry(scene), [])
+  const preview = createIndirectPreviewField(cache.field)
+  try {
+    const graph = cache.gpuPreview()
+    const positions = cache.field.positionData.slice()
+    const coefficients = cache.field.coefficients.map((a,c)=>a.map((_,i)=>DataUtils.toHalfFloat((c+1)*(.2+(i%17)/20))))
+    for (const probe of cache.field.probes.filter((_,i)=>i%3)) positions[probe.index*4+3]=0
+    const expected = cache.preview(coefficients, positions)
+    const evaluate = (table: typeof graph.volume, voxel: number, coefficient: number, floor: boolean) => {
+      const sum = [0,0,0]; let support = 0
+      for (let i=table.offsets[voxel];i<table.offsets[voxel]+table.counts[voxel];i++) {
+        const index=table.indices[i],weight=table.weights[i]
+        if (positions[index*4+3]<.5) continue
+        support+=weight
+        for(let c=0;c<3;c++)sum[c]+=DataUtils.fromHalfFloat(coefficients[c][index*4+coefficient])*weight
+      }
+      return [...sum.map(v=>support>0?v/support*(floor?Math.min(1,support/.1):1):0),support>0?1:0]
+    }
+    for (const floor of [false,true]) {
+      const layer=floor?preview.floorLayer:preview.volume, table=floor?graph.floor:graph.volume, data=floor?expected.floor:expected.volume
+      for(let z=0;z<layer.n;z++)for(let row=0;row<layer.height;row++)for(let x=0;x<layer.n;x++)for(let coefficient=0;coefficient<4;coefficient++) {
+        const f=floor?row:Math.floor(row/14),iy=Math.max(0,Math.min(11,row%14-1))
+        const voxelRow=floor?f*layer.n+z:(f*layer.n+z)*12+iy
+        const result=evaluate(table,voxelRow*layer.n+x,coefficient,floor)
+        const offset=((z*layer.height*4+coefficient*layer.height+row)*layer.n+x)*4
+        result.forEach((v,c)=>assert.ok(Math.abs(v-DataUtils.fromHalfFloat(data[offset+c]))<.002))
+      }
+    }
+    assert.deepEqual(cache.gpuPreview(),graph,'exported graph does not depend on current lighting or missing captures')
+  } finally { preview.dispose();cache.dispose();geometry.dispose();material.dispose() }
+})

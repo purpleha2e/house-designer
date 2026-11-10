@@ -27,9 +27,11 @@ export async function checkLoftSkirtingLightLeak() {
       sun.intensity = 0; const reference = render()
       for (const mesh of skirting) {
         const p = mesh.geometry.attributes.position, n = mesh.geometry.attributes.normal
-        for (let i = 0; i < p.count; i += 3) {
-          if (n.getY(i) < 0.99) continue
-          const vertices = [0, 1, 2].map(j => new Vector3().fromBufferAttribute(p, i + j).applyMatrix4(mesh.matrixWorld))
+        const indices = mesh.geometry.index
+        for (let i = 0; i < (indices?.count ?? p.count); i += 3) {
+          const ids = [0, 1, 2].map(j => indices ? indices.getX(i + j) : i + j)
+          if (n.getY(ids[0]) < 0.99) continue
+          const vertices = ids.map(id => new Vector3().fromBufferAttribute(p, id).applyMatrix4(mesh.matrixWorld))
           for (let a = 1; a < 30; a++) for (let b = 1; b < 30 - a; b++) {
             const point = vertices[0].clone().multiplyScalar(a / 30)
               .addScaledVector(vertices[1], b / 30).addScaledVector(vertices[2], 1 - (a + b) / 30)

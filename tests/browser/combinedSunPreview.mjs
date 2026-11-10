@@ -1,0 +1,55 @@
+import fs from 'node:fs'
+import {lightingBrowser} from './lightingHarness.mjs'
+if(!process.argv.includes('--full-room'))throw Error('Full-room validation requires explicit --full-room opt-in; it loads the house and may prepare GI. Use only after the machine is stable.')
+const root='docs/combined-sun-preview';fs.mkdirSync(root,{recursive:true})
+fs.copyFileSync('colin_house_v2.json','tmp/combined-sun-preview-project.json')
+const b=await lightingBrowser(),started=Date.now(),status={}
+const save=()=>fs.writeFileSync(root+'/browser-progress.json',JSON.stringify({...status,seconds:(Date.now()-started)/1000,errors:b.errors.slice(-5)},null,2))
+async function wait(expression,timeout=1800000){const end=Date.now()+timeout;while(!await b.evaluate(expression)){if(Date.now()>end)throw Error('Timeout '+expression);status.scene=await b.evaluate('({preview:window.roofWallScene?.()?.scene.userData.localSunPreview,gi:window.roofWallScene?.()?.scene.userData.indirectLighting,separation:window.roofWallScene?.()?.scene.userData.sunBounceExperiment})');save();await new Promise(r=>setTimeout(r,1000))}}
+async function screenshot(name){const r=await b.call('Page.captureScreenshot',{format:'png'});fs.writeFileSync(root+'/'+name+'.png',Buffer.from(r.data,'base64'))}
+try{
+  await b.call('Emulation.setDeviceMetricsOverride',{width:1000,height:760,deviceScaleFactor:2,mobile:false})
+  await b.call('Page.addScriptToEvaluateOnNewDocument',{source:`const f=window.fetch;window.fetch=(u,...a)=>f(typeof u==='string'&&u==='/tmp/bedroom-daylight-project.json'?'/tmp/combined-sun-preview-project.json':u,...a);`})
+  await b.call('Page.navigate',{url:'http://127.0.0.1:5181/tests/browser/roofWallRegression.html?colin&materials&saved-colin&bedroom-daylight&sky-intensity&preview-lighting'})
+  status.stage='loading';save()
+  await wait(`(()=>{const u=window.roofWallScene?.()?.scene.userData,g=u?.indirectLighting;return (g?.state==='ready'||(g?.state==='preview'&&g.diffuseReady&&!g.preparing&&!g.blocked))&&!u.shaderWarmupPending&&u.progressiveStartup?.phase==='full'})()`)
+  status.stage='baseline';save();await screenshot('original')
+  await b.evaluate(`document.querySelector('[aria-label="3D view menu"]').click();true`)
+  await wait(`!!document.querySelector('[aria-label="Local sunlight bounce preview (Experimental)"]')`,30000)
+  await b.evaluate(`document.querySelector('[aria-label="Local sunlight bounce preview (Experimental)"]').click();true`)
+  await b.evaluate(`document.querySelector('[aria-label="3D view menu"]').click();true`)
+  status.stage='tracing';save()
+  await wait(`(()=>{const p=roofWallScene().scene.userData.localSunPreview;return p?.active||p?.message?.startsWith('Preview unavailable')})()`)
+  const active=await b.evaluate('roofWallScene().scene.userData.localSunPreview');if(!active.active)throw Error(JSON.stringify(active))
+  if(active.unsupported>active.width*active.height*.05)throw Error('Insufficient supported coverage: '+JSON.stringify(active))
+  if(!active.combined||!active.presented)throw Error('Combined preview was not presented');
+  status.separation=await b.evaluate('roofWallScene().scene.userData.sunBounceExperiment');
+  if(!status.separation.ready)throw Error('Missing source-separated field');
+  status.active=active;await new Promise(r=>setTimeout(r,1000));await screenshot('combined')
+  const button=await b.evaluate(`(()=>{const e=document.querySelector('[aria-label="Hold to compare original lighting"]'),r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2,accessible:getComputedStyle(e).pointerEvents!=='none'&&r.y>=0&&r.bottom<=innerHeight}})()`)
+  if(!button.accessible)throw Error('Comparison control is not visible and clickable')
+  await b.call('Input.dispatchMouseEvent',{type:'mousePressed',x:button.x,y:button.y,button:'left',clickCount:1})
+  await wait('roofWallScene().scene.userData.getIndirectUniforms().hdLocalSunDisplay.value===0',10000)
+  status.instantOriginal=await b.evaluate('roofWallScene().scene.userData.getIndirectUniforms().hdLocalSunReady.value===1')
+  await new Promise(r=>setTimeout(r,500));await screenshot('original-held')
+  await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',x:button.x,y:button.y,button:'left',clickCount:1})
+  await wait('roofWallScene().scene.userData.getIndirectUniforms().hdLocalSunDisplay.value===1',10000)
+  status.instantPreview=await b.evaluate('roofWallScene().scene.userData.getIndirectUniforms().hdLocalSunReady.value===1')
+  if(!status.instantOriginal||!status.instantPreview)throw Error('Instant original comparison discarded the prepared result')
+  const before=await b.evaluate('roofWallScene().gl.info.memory')
+  // A camera change must hide the old screen-space image before publication.
+  status.cameraStaleHidden=await b.evaluate(`(()=>{const s=roofWallScene();s.camera.position.x+=.1;s.camera.updateMatrixWorld();s.invalidate();return new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(s.scene.userData.getIndirectUniforms().hdLocalSunReady.value===0))))})()`)
+  if(!status.cameraStaleHidden)throw Error('Stale camera result stayed active')
+  await b.evaluate(`document.querySelector('[aria-label="3D view menu"]').click();true`)
+  await b.evaluate(`document.querySelector('[aria-label="Local sunlight bounce preview (Experimental)"]').click();true`)
+  await wait('!roofWallScene().scene.userData.localSunPreview',30000)
+  status.disabledRestored=await b.evaluate('roofWallScene().scene.userData.getIndirectUniforms().hdLocalSunReady.value===0&&roofWallScene().scene.userData.getIndirectUniforms().hdLocalSunFeature.value===0')
+  await b.evaluate(`(()=>{const s=roofWallScene();s.camera.position.x-=.1;s.camera.updateMatrixWorld();s.invalidate();document.querySelector('[aria-label="3D view menu"]').click();return true})()`)
+  await new Promise(r=>setTimeout(r,1500));await screenshot('restored')
+  status.memoryBeforeDisable=before;status.memoryAfterDisable=await b.evaluate('roofWallScene().gl.info.memory')
+  const shaderErrors=b.errors.filter(e=>/Shader Error|VALIDATE_STATUS|shader error|WebGL: INVALID|uniform.*error/i.test(e));if(shaderErrors.length)throw Error(shaderErrors.join('\n'))
+  if(!status.disabledRestored)throw Error('Off failed to restore original GI')
+  status.sourceFieldAvailable=await b.evaluate('!!roofWallScene().scene.userData.getLightingField()');
+  status.stage='passed';save();console.log(JSON.stringify(status))
+}catch(e){status.stage='failed';status.error=String(e);save();throw e}
+finally{b.close()}

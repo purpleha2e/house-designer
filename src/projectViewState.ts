@@ -5,12 +5,14 @@ import type {
   ThreeDViewCameraState,
 } from './types.ts'
 import { normalizeDiffuseProbeResolution } from './indirectProbeResolution.ts'
+import { normalizeAmbientLightingPreferences } from './ambientLighting.ts'
 
 export const ALL_FLOORS_VIEW_ID = 'all'
 
 export const DEFAULT_THREE_D_CAMERA_STATE: ThreeDViewCameraState = {
   position: { x: 6, y: 5, z: 8 },
-  quaternion: { w: 1, x: 0, y: 0, z: 0 },
+  // Look at the starter plan near (4, 0, 4), rather than horizontally above it.
+  quaternion: { w: 0.888450709334306, x: -0.397327236145883, y: 0.20973476206080316, z: 0.09379623704253993 },
 }
 
 export const DEFAULT_FLOORPLAN_VIEWPORT: FloorplanViewportState = {
@@ -21,6 +23,10 @@ export const DEFAULT_FLOORPLAN_VIEWPORT: FloorplanViewportState = {
 
 function finite(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+export function normalizeExposureStops(value: unknown) {
+  return finite(value) ? Math.max(-2, Math.min(4, value)) : 0
 }
 
 export function normalizeThreeDViewCameraState(
@@ -78,11 +84,14 @@ export function normalizeSavedThreeDViewState(
     (typeof candidate?.floorViewId === 'string' && floorIds.includes(candidate.floorViewId))
       ? candidate.floorViewId
       : activeFloorId
+  const ambientLighting = normalizeAmbientLightingPreferences(candidate?.ambientLighting)
 
   return {
     camera: normalizeThreeDViewCameraState(candidate?.camera),
     floorViewId,
     diffuseProbeResolution: normalizeDiffuseProbeResolution(candidate?.diffuseProbeResolution),
+    exposureStops: normalizeExposureStops(candidate?.exposureStops),
+    ...(ambientLighting ? { ambientLighting } : {}),
   }
 }
 

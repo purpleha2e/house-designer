@@ -5,6 +5,21 @@ import { createRoomLightMask, createRoomLightMaskStack, getRoomLightMaskIdAtPoin
 import { applyRoomLightShader, createRoomLightShaderUniforms } from '../src/roomLightShader.ts'
 import { buildDoorwayFloorPatches } from '../src/doorwayFloors.ts'
 import type { Point, Wall } from '../src/types.ts'
+import { createLightPortalTexture } from '../src/roomLightPortals.ts'
+
+test('room boundaries and portal polygons share one atlas without changing record indices', () => {
+  const boundaries = Float32Array.from({ length: 1025 * 4 }, (_, index) => index / 4)
+  const opening = [{ x: .2, y: .2 }, { x: .8, y: .2 }, { x: .8, y: .8 }, { x: .2, y: .8 }]
+  const packed = createLightPortalTexture([{ y: 3, openings: [opening] }, { y: 6, openings: [] }],
+    { minX: 0, minZ: 0, size: 1 }, 4, boundaries)
+  try {
+    const records = packed.edges.image.data as Float32Array
+    assert.deepEqual(records.subarray(0, boundaries.length), boundaries, 'room lookup indices remain unchanged across atlas rows')
+    assert.deepEqual(packed.edgeRanges.slice(0, 2).map(range => range.toArray()), [[1025, 1030], [1030, 1030]])
+    assert.equal(records[1025 * 4], 4, 'the portal header follows the room records')
+    assert.deepEqual(Array.from(records.subarray(1026 * 4, 1027 * 4)), Array.from(new Float32Array([.2, .2, .8, .2])))
+  } finally { packed.dispose() }
+})
 
 test('overlapping storeys have independent globally unique room IDs in one mask atlas', () => {
   const polygon = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }, { x: 0, y: 4 }]
@@ -71,8 +86,13 @@ test('room light shader masks point and spot contributions while preserving exis
   material.onBeforeCompile(shader as never, {} as never)
   assert.equal(originalHookCalled, true)
   assert.match(shader.vertexShader, /hdRoomLightWorldPosition/)
-  assert.match(shader.fragmentShader, /hdPointLightRoomIds\[i\]/)
-  assert.match(shader.fragmentShader, /hdSpotLightRoomIds\[i\]/)
+  assert.match(shader.fragmentShader, /hdPointLightRoomIds\[hdIndex\]/)
+  assert.match(shader.fragmentShader, /hdSpotLightRoomIds\[hdIndex\]/)
+  assert.match(shader.fragmentShader, /hdIndex < hdRoomLightVisibilityCount/)
+  assert.match(shader.fragmentShader, /directLight.color \*= hdPointVisibilities\[i\]/)
+  assert.match(shader.fragmentShader, /directLight.color \*= hdSpotVisibilities\[i\]/)
+  assert.doesNotMatch(shader.fragmentShader, /hdRoomLightFactor\(hd(?:Point|Spot)LightRoomIds\[i\]/,
+    'Three must not duplicate the room/portal geometry check in its unrolled light loops')
   assert.equal(shader.uniforms.hdRoomLightMask, uniforms.mask)
 
   restore()

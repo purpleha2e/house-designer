@@ -20,6 +20,11 @@ export function materialMapCount(material: SurfaceMaterialProduct) {
   return materialMapSlots.filter(({ key }) => material.pbr[key]).length
 }
 
+// Registering and then saving a portable material validates the same bytes
+// again. Cache only successful image checks, weakly owned by its PBR record;
+// metadata is always checked and a changed URL always gets a new validation.
+const validatedImages = new WeakMap<object, Partial<Record<MaterialMapKey, string>>>()
+
 /** Portable definitions contain image bytes, never a browser-session blob URL. */
 export function validateLocalMaterial(value: unknown): asserts value is SurfaceMaterialProduct {
   const material = value as SurfaceMaterialProduct | null
@@ -36,9 +41,13 @@ export function validateLocalMaterial(value: unknown): asserts value is SurfaceM
   }
   for (const { key } of materialMapSlots) {
     const url = material.pbr[key]
-    if (url !== undefined && (typeof url !== 'string' ||
-      !/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/]+={0,2}$/.test(url))) {
-      throw new Error('Local material textures must contain PNG, JPEG or WebP image data.')
+    if (url === undefined) delete validatedImages.get(material.pbr)?.[key]
+    if (url !== undefined && validatedImages.get(material.pbr)?.[key] !== url) {
+      if (typeof url !== 'string' || !/^data:image\/(png|jpeg|webp);base64,[a-zA-Z0-9+/]+={0,2}$/.test(url)) {
+        throw new Error('Local material textures must contain PNG, JPEG or WebP image data.')
+      }
+      const cached = validatedImages.get(material.pbr) ?? {}
+      cached[key] = url; validatedImages.set(material.pbr, cached)
     }
     const hash = material.pbr.textureSourceHashes?.[key]
     if (hash !== undefined && !/^[a-f0-9]{64}$/.test(hash)) throw new Error('Invalid texture source hash.')

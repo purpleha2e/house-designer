@@ -17,6 +17,7 @@ test('tour explains paused or unavailable lighting without claiming to be calcul
   assert.equal(formatViewerStatus(null, { paused: true }), 'Lighting paused while moving...')
   assert.equal(formatViewerStatus(null, { xr: true }), 'Lighting paused during VR.')
   assert.equal(formatViewerStatus(null, { enabled: false }), 'Scene ready.')
+  assert.equal(formatViewerStatus(null, { state: 'preview' }), 'Scene ready. Preview lighting.')
   assert.equal(formatViewerStatus(null, { state: 'fallback' }), 'Scene ready. Indirect lighting unavailable.')
   assert.equal(formatViewerStatus(null, { state: 'fallback', cacheReason: 'Saved lighting does not match the house.' }),
     'Scene ready. Saved lighting does not match the house.')

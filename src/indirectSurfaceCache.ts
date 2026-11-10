@@ -1,13 +1,16 @@
-import { Color, DataUtils, DepthTexture, FloatType, HalfFloatType, LinearSRGBColorSpace, Material, Mesh, MeshStandardMaterial, NearestFilter,
+import { AlwaysDepth, Color, DataUtils, DepthTexture, FloatType, HalfFloatType, LinearSRGBColorSpace, Material, Mesh, MeshStandardMaterial, NearestFilter,
   OrthographicCamera, PlaneGeometry, RGBAFormat, Scene, ShaderLib, ShaderMaterial, SphericalHarmonics3, Texture, Vector2,
   WebGLCubeRenderTarget, WebGLRenderTarget, type BufferAttribute, type InterleavedBufferAttribute, type Object3D, type WebGLRenderer } from 'three'
-import { indirectLightingShaderDeclarations, indirectReceiverShaderDeclarations, indirectVolumeShaderDeclarations, type IndirectUniforms } from './indirectLightingShader.ts'
+import { indirectShaderDefines, indirectLightingShaderDeclarations, indirectReceiverShaderDeclarations, indirectVolumeShaderDeclarations, type IndirectUniforms } from './indirectLightingShader.ts'
+import { indirectSHCoefficientCount, indirectSHIntegrationGLSL } from './indirectSH.ts'
 import { createIndirectProbeIntegrator } from './indirectProbeIntegration.ts'
 import { createIndirectSurfaceRelighting, type SurfaceLight } from './indirectSurfaceRelighting.ts'
 import { runViewportTask } from './viewportScheduling.ts'
+import { daylightSkyGLSL } from './daylightSky.ts'
+import { lightingDiagnosticGLSL } from './lightingDiagnostics.ts'
 
 const CACHE_BUDGET = 64 * 1024 * 1024
-const BYTES_PER_PIXEL = 8 + 8 + 16 + 16 + 8 + 4 // direct atlas, captured radiance, receiver, normal, response and depth
+const BYTES_PER_PIXEL = 8 + 8 + 8 + 16 + 16 + 8 + 4 // direct atlas, captured radiance, batched replay, receiver, normal, response and depth
 
 const attributeKeys = new WeakMap<BufferAttribute | InterleavedBufferAttribute, { version: number; key: string }>()
 function* attributeKey(attribute: BufferAttribute | InterleavedBufferAttribute): Generator<void, string> {
@@ -51,7 +54,7 @@ function* surfaceCaptureKeySteps(scene: Scene, renderer: WebGLRenderer): Generat
       material.flatShading, material.vertexColors, material.normalMapType, material.normalScale.toArray(),
       material.bumpScale, material.aoMapIntensity, material.displacementScale, material.displacementBias,
       material.map, material.metalnessMap, material.normalMap, material.bumpMap, material.aoMap, material.displacementMap] : []
-    const authored = Object.entries(shader.uniforms).filter(([name]) => !/^hd(GI|RoomLight|PointLightRoomIds|SpotLightRoomIds)/.test(name))
+    const authored = Object.entries(shader.uniforms).filter(([name]) => !/^hd(GI|Sky|Diagnostic|LightingDiagnostic|RoomLight|PointLightRoomIds|SpotLightRoomIds)/.test(name))
       .map(([name, uniform]) => [name, surfaceValue(uniform.value)])
     const key = JSON.stringify([material.type, material.visible, material.side, material.alphaTest, material.alphaHash,
       material.opacity, surfaceValue((material as Material & { alphaMap?: Texture | null }).alphaMap),
@@ -169,6 +172,9 @@ const surfaceFragment = /* glsl */ `
       1.0, hdSurfaceP, hdSurfaceFloor);
     gl_FragColor = vec4(hdSurfaceP, hdSurfaceId + 1.0);
     hdSurfaceNormal = vec4(hdSurfaceN, hdSurfaceFloor);
+    #ifdef HD_GI_CONTACT_RECEIVERS
+    if(hdGIContactReceiver()>.5)hdSurfaceNormal.w=-hdGIContactReceiver();
+    #endif
     vec3 hdResponse = diffuseColor.rgb * (1.0 - metalnessFactor) / PI;
     #ifdef USE_AOMAP
       hdResponse *= (texture2D(aoMap, vAoMapUv).r - 1.0) * aoMapIntensity + 1.0;
@@ -190,13 +196,14 @@ const surfaceFragment = /* glsl */ `
 export function applyIndirectSurfaceCapture(material: Material) {
   const compile = material.onBeforeCompile, key = material.customProgramCacheKey()
   const standard = material instanceof MeshStandardMaterial
-  material.customProgramCacheKey = () => key + ':surface-data-v4'
+  material.customProgramCacheKey = () => key + ':surface-data-v5'
   material.onBeforeCompile = (shader, renderer) => {
     if (standard) shader.fragmentShader = surfaceFragment
     compile.call(material, shader, renderer)
     shader.fragmentShader = shader.fragmentShader.replace(indirectLightingShaderDeclarations, indirectReceiverShaderDeclarations)
+      .replace(lightingDiagnosticGLSL,'').replace('#define HD_LIGHTING_DIAGNOSTICS','')
       .replace('#define HD_INDIRECT_VISIBILITY', '')
-    shader.fragmentShader = `
+    shader.fragmentShader = `#define HD_GI_SURFACE_DATA
       layout(location = 1) out highp vec4 hdSurfaceNormal;
       layout(location = 2) out highp vec4 hdSurfaceResponse;
       ` + shader.fragmentShader
@@ -207,12 +214,42 @@ export function applyIndirectSurfaceCapture(material: Material) {
   }
 }
 
-/** Keep the ordinary PBR result and record transport inputs in the same draw.
- * The cloned capture material owns this hook; display materials stay unchanged. */
-export function applyIndirectSurfaceRadianceCapture(material: Material, relighting = false) {
+/** At night the immutable baseline is emission alone. Record it with receiver
+ * geometry instead of compiling the entire lit house shader family into MRT. */
+export function applyIndirectNightSurfaceCapture(material: Material) {
+  applyIndirectSurfaceCapture(material)
   const compile = material.onBeforeCompile, key = material.customProgramCacheKey()
   const standard = material instanceof MeshStandardMaterial
-  material.customProgramCacheKey = () => key + (relighting ? ':surface-radiance-v3-relight' : ':surface-radiance-v2')
+  material.customProgramCacheKey = () => key + ':night-relight-v1'
+  material.onBeforeCompile = (shader, renderer) => {
+    compile.call(material, shader, renderer)
+    shader.fragmentShader = shader.fragmentShader
+      .replace('layout(location = 1) out highp vec4 hdSurfaceNormal;',
+        'layout(location = 1) out highp vec4 hdSurfaceReceiver;\nlayout(location = 2) out highp vec4 hdSurfaceNormal;')
+      .replace('layout(location = 2) out highp vec4 hdSurfaceResponse;',
+        'layout(location = 3) out highp vec4 hdSurfaceResponse;\nlayout(location = 4) out highp vec4 hdSurfaceMaterial;')
+    if (standard) {
+      shader.fragmentShader = shader.fragmentShader
+        .replace('uniform vec3 diffuse;', 'uniform vec3 diffuse, emissive;\n#include <emissivemap_pars_fragment>')
+        .replace('vec4 diffuseColor = vec4(diffuse, opacity);',
+          'vec4 diffuseColor = vec4(diffuse, opacity);\nvec3 totalEmissiveRadiance = emissive;\n#include <emissivemap_fragment>')
+        .replace('gl_FragColor = vec4(hdSurfaceP, hdSurfaceId + 1.0);',
+          'hdSurfaceReceiver = vec4(hdSurfaceP, hdSurfaceId + 1.0);\ngl_FragColor = vec4(totalEmissiveRadiance, 1.0);')
+        .replace('hdSurfaceResponse = vec4(hdResponse, 1.0);', `
+          vec3 dxy = max(abs(dFdx(nonPerturbedNormal)), abs(dFdy(nonPerturbedNormal)));
+          float geometryRoughness = max(max(dxy.x, dxy.y), dxy.z);
+          hdSurfaceResponse = vec4(hdResponse, min(max(roughnessFactor, .0525) + geometryRoughness, 1.0));
+          hdSurfaceMaterial = vec4(diffuseColor.rgb, metalnessFactor + 1.0);`)
+    } else shader.fragmentShader = shader.fragmentShader.replace(/}\s*$/, 'hdSurfaceReceiver = vec4(0.0); hdSurfaceMaterial = vec4(0.0);\n}')
+  }
+}
+
+/** Keep the ordinary PBR result and record transport inputs in the same draw.
+ * The cloned capture material owns this hook; display materials stay unchanged. */
+export function applyIndirectSurfaceRadianceCapture(material: Material, relighting = false, rawReceiver = false) {
+  const compile = material.onBeforeCompile, key = material.customProgramCacheKey()
+  const standard = material instanceof MeshStandardMaterial
+  material.customProgramCacheKey = () => key + (relighting ? ':surface-radiance-v4-relight' : ':surface-radiance-v2') + (rawReceiver ? ':raw-receiver' : '')
   material.onBeforeCompile = (shader, renderer) => {
     compile.call(material, shader, renderer)
     shader.fragmentShader = `
@@ -228,8 +265,14 @@ export function applyIndirectSurfaceRadianceCapture(material: Material, relighti
       vec3 hdSurfaceP; float hdSurfaceFloor;
       float hdSurfaceId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdSurfaceGeometricN,
         1.0, hdSurfaceP, hdSurfaceFloor);
-      hdSurfaceReceiver = vec4(hdSurfaceP, hdSurfaceId + 1.0);
+      hdSurfaceReceiver = ${rawReceiver ? 'vec4(hdGIWorldPosition, 1.0)' : 'vec4(hdSurfaceP, hdSurfaceId + 1.0)'};
+      // Preserve the exact exterior sky eligibility, including roof undersides.
+      // Transport recognizes only positive indoor receiver IDs.
+      ${relighting && !rawReceiver ? 'if(hdSurfaceId < 0.0 && (hdGIExteriorFootprint(hdGIWorldPosition) || (hdGIFloorCount > 0 && hdSurfaceGeometricN.y >= -.01))) hdSurfaceReceiver.a = -1.0;' : ''}
       hdSurfaceNormal = vec4(hdSurfaceN, hdSurfaceFloor);
+      #ifdef HD_GI_CONTACT_RECEIVERS
+      if(hdGIContactReceiver()>.5)hdSurfaceNormal.w=-hdGIContactReceiver();
+      #endif
       vec3 hdResponse = diffuseColor.rgb * (1.0 - metalnessFactor) / PI;
       #ifdef USE_AOMAP
         hdResponse *= (texture2D(aoMap, vAoMapUv).r - 1.0) * aoMapIntensity + 1.0;
@@ -251,7 +294,9 @@ export function applyIndirectSurfaceRadianceCapture(material: Material, relighti
 
 /** Geometry/material samples are captured once; pass two evaluates their diffuse
  * transport against the completed first-bounce volume without scene draws. */
-export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: number[], size: number, uniforms: IndirectUniforms, relight = false) {
+export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: number[], size: number, uniforms: IndirectUniforms, relight = false,nearForProbe:(probe:number)=>number=()=>.03) {
+  const shOrder = uniforms.hdGISHOrder.value === 2 ? 2 : 1
+  const coefficientCount = indirectSHCoefficientCount(shOrder)
   const context = renderer.getContext()
   if (!('clearBufferfv' in context)) return null
   if (!renderer.extensions.has('EXT_color_buffer_float') || context.getParameter(context.MAX_DRAW_BUFFERS) < 4) return null
@@ -273,20 +318,26 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
   const tile = { value: new Vector2() }, ready = new Set<number>()
   const scene = new Scene(), camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1), geometry = new PlaneGeometry(2, 2)
   const material = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { hdSurfaceRadiance: { value: radiance.texture },
-      hdSurfaceAtlas: { value: new Vector2(layout.width, layout.height) }, hdSurfaceSlot: { value: 0 } },
+    uniforms: { hdSurfaceRadiance: { value: radiance.texture }, hdSurfaceNormal: { value: target.textures[2] },
+      hdSurfaceAtlas: { value: new Vector2(layout.width, layout.height) }, hdSurfaceSlot: { value: 0 },hdSurfaceBatch:{value:0}, hdGISampleSize: { value: size } },
     vertexShader: 'void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }',
     fragmentShader: /* glsl */ `
       uniform sampler2D hdSurfaceRadiance;
+      uniform sampler2D hdSurfaceNormal;
       uniform vec2 hdSurfaceAtlas;
       uniform float hdSurfaceSlot;
+      uniform float hdSurfaceBatch;
+      uniform int hdGISampleSize;
+      ${indirectSHIntegrationGLSL(shOrder)}
       void main() {
-        int coefficient = int(gl_FragCoord.x);
+        int coefficient = int(gl_FragCoord.x) % ${coefficientCount};
+        bool skyOnly = gl_FragCoord.x > ${coefficientCount}.0;
         vec3 sum = vec3(0.0); float totalWeight = 0.0;
         for (int face = 0; face < 6; face++) {
-          float tileIndex = hdSurfaceSlot * 6.0 + float(face);
+          float slot=hdSurfaceBatch>.5?floor(gl_FragCoord.y):hdSurfaceSlot;
+          float tileIndex = slot * 6.0 + float(face);
           vec2 origin = vec2(mod(tileIndex, ${layout.columns}.0), floor(tileIndex / ${layout.columns}.0)) * ${size}.0;
-          for (int y = 0; y < ${size}; y++) for (int x = 0; x < ${size}; x++) {
+          for (int y = 0; y < hdGISampleSize; y++) for (int x = 0; x < hdGISampleSize; x++) {
             float col = -1.0 + (float(x) + .5) * ${2 / size};
             float row = 1.0 - (float(y) + .5) * ${2 / size};
             vec3 p;
@@ -298,10 +349,11 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
             else p = vec3(-col, row, -1.0);
             float lengthSquared = dot(p, p), weight = 4.0 / (sqrt(lengthSquared) * lengthSquared);
             vec3 direction = normalize(p);
-            float basis = coefficient == 0 ? .2820947918 : .4886025119 *
-              (coefficient == 1 ? direction.y : coefficient == 2 ? direction.z : direction.x);
+            float basis = hdSHRadianceBasis(coefficient, direction);
             vec2 uv = (origin + vec2(float(x), float(y)) + .5) / hdSurfaceAtlas;
-            sum += texture2D(hdSurfaceRadiance, uv).rgb * basis * weight; totalWeight += weight;
+            vec3 value=texture2D(hdSurfaceRadiance,uv).rgb;
+            if(skyOnly&&length(texture2D(hdSurfaceNormal,uv).xyz)>.5)value=vec3(0.0);
+            sum += value * basis * weight; totalWeight += weight;
           }
         }
         gl_FragColor = vec4(sum * (12.5663706144 / totalWeight), 1.0);
@@ -311,7 +363,7 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
   // Relight each texel once, then reuse the existing inexpensive SH reduction.
   // Putting volume sampling inside the SH loop duplicates it four times and
   // makes driver compilation of the fixed-size loops excessively expensive.
-  const replayScene = new Scene(), replay = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
+  const replayScene = new Scene(), replay = new ShaderMaterial({ defines: indirectShaderDefines(uniforms), depthTest: false, depthWrite: false, toneMapped: false,
     uniforms: { ...uniforms, hdSurfaceRadiance: { value: currentRadiance.texture }, hdSurfacePositions: { value: target.textures[1] },
       hdSurfaceNormals: { value: target.textures[2] }, hdSurfaceResponses: { value: target.textures[3] },
       hdSurfaceAtlas: { value: new Vector2(layout.width, layout.height) }, hdSurfaceOrigin: { value: new Vector2() } },
@@ -327,30 +379,34 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
         vec4 position = texture2D(hdSurfacePositions, uv);
         if (position.a > .5) {
           vec4 normal = texture2D(hdSurfaceNormals, uv); vec3 mean;
-          light += texture2D(hdSurfaceResponses, uv).rgb *
-            hdGIVolumeIrradiance(position.a - 1.0, position.xyz, normal.xyz, normal.a, mean);
+          vec3 bounce;
+          #ifdef HD_GI_CONTACT_RECEIVERS
+          if(normal.a<-.5)bounce=hdGIContactIrradiance(-normal.a,normal.xyz,mean);else
+          #endif
+          bounce=hdGIVolumeIrradiance(position.a - 1.0, position.xyz, normal.xyz, normal.a, mean);
+          light += texture2D(hdSurfaceResponses, uv).rgb * bounce;
         }
         gl_FragColor = vec4(light, 1.0);
       }`,
   })
   replayScene.add(new Mesh(geometry, replay))
   const copyScene = new Scene(), copy = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false,
-    uniforms: { hdSurfaceCube: { value: null }, hdSurfaceTile: tile, hdSurfaceFace: { value: 0 },
+    uniforms: { ...uniforms, hdSurfaceCube: { value: null }, hdSurfaceTile: tile, hdSurfaceFace: { value: 0 },
       hdSurfaceCaptured: { value: target.textures[0] }, hdSurfaceCombined: { value: 0 },
+      hdSurfaceNormal: { value: target.textures[2] },
       hdSurfaceAtlas: { value: new Vector2(layout.width, layout.height) } },
     vertexShader: material.vertexShader,
     fragmentShader: /* glsl */ `
       uniform samplerCube hdSurfaceCube;
       uniform sampler2D hdSurfaceCaptured;
+      uniform sampler2D hdSurfaceNormal;
+      uniform vec3 hdSkyRadianceBase;
+      ${daylightSkyGLSL}
       uniform float hdSurfaceCombined;
       uniform vec2 hdSurfaceAtlas;
       uniform vec2 hdSurfaceTile;
       uniform int hdSurfaceFace;
       void main() {
-        if (hdSurfaceCombined > .5) {
-          gl_FragColor = texture2D(hdSurfaceCaptured, gl_FragCoord.xy / hdSurfaceAtlas);
-          return;
-        }
         vec2 pixel = gl_FragCoord.xy - hdSurfaceTile;
         float col = -1.0 + pixel.x * ${2 / size};
         float row = 1.0 - pixel.y * ${2 / size};
@@ -361,18 +417,27 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
         else if (hdSurfaceFace == 3) p = vec3(col, -1.0, row);
         else if (hdSurfaceFace == 4) p = vec3(col, row, 1.0);
         else p = vec3(-col, row, -1.0);
-        gl_FragColor = textureCube(hdSurfaceCube, p);
+        vec2 uv=gl_FragCoord.xy/hdSurfaceAtlas;
+        if(hdSurfaceCombined>.5){
+          vec3 value=texture2D(hdSurfaceCaptured,uv).rgb;
+          if(length(texture2D(hdSurfaceNormal,uv).xyz)<.5)value=hdSkyRadiance(normalize(p),hdSkyRadianceBase);
+          gl_FragColor=vec4(value,1.0);
+        }else gl_FragColor = textureCube(hdSurfaceCube, p);
       }`,
   })
   copyScene.add(new Mesh(geometry, copy))
   const replayTarget = new WebGLCubeRenderTarget(size, { type: HalfFloatType, format: RGBAFormat,
     generateMipmaps: false, colorSpace: LinearSRGBColorSpace, depthBuffer: false })
-  const replayIntegrator = createIndirectProbeIntegrator(size)
-  const integrated = new WebGLRenderTarget(4, 1, { type: HalfFloatType, format: RGBAFormat, depthBuffer: false })
+  const replayIntegrator = createIndirectProbeIntegrator(size, 'cube', [0,1,2,3,4,5], false, shOrder)
+  const relightIntegrator = createIndirectProbeIntegrator(size,'cube',[0,1,2,3,4,5],true,shOrder)
+  const integrated = new WebGLRenderTarget(coefficientCount * 2, 1, { type: HalfFloatType, format: RGBAFormat, depthBuffer: false })
+  const batchRadiance=radiance.clone(),batchIntegrated=new WebGLRenderTarget(coefficientCount,probes.length,{type:HalfFloatType,format:RGBAFormat,depthBuffer:false})
+  batchRadiance.scissorTest=true;batchIntegrated.scissorTest=true
   const zero = new Float32Array(4), skyPixel = new Float32Array(4), skyColor = new Color()
   let disposed = false, compiled = false, compilation: Promise<unknown> | undefined
   const reads = new Set<Promise<unknown>>()
-  const relighter = relighting ? createIndirectSurfaceRelighting(renderer, target, radiance.texture, layout, uniforms, replayTarget, replayIntegrator) : null
+  const copyPrograms=new Map<number,{material:ShaderMaterial;scene:Scene}>(),retained=new Set<number>()
+  const relighter = relighting ? createIndirectSurfaceRelighting(renderer, target, radiance.texture, layout, uniforms, replayTarget, relightIntegrator) : null
   let lightingKey = ''
   const copyFace = (probe: number, face: number, cube: WebGLCubeRenderTarget, combined: boolean, destinations: WebGLRenderTarget[]) => {
     const [x, y] = layout.tile(probe, face), stats = { ...renderer.info.render }, autoClear = renderer.autoClear
@@ -386,12 +451,93 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
       }
     } finally { renderer.autoClear = autoClear; Object.assign(renderer.info.render, stats) }
   }
-  const release = () => { target.dispose(); radiance.dispose(); if (currentRadiance !== radiance) currentRadiance.dispose(); integrated.dispose(); replayTarget.dispose(); replayIntegrator.dispose();
-    geometry.dispose(); material.dispose(); replay.dispose(); copy.dispose(); relighter?.dispose(); ready.clear() }
-  return { target, tile, layout, ready, sky: skyColor, relighting,
-    setLightingKey(key: string) { if (key !== lightingKey) { relighter?.clear(); lightingKey = key } },
-    recordLights(probe: number, lights: SurfaceLight[]) { relighter?.record(probe, lights) },
+  const release = () => { target.dispose(); radiance.dispose(); if (currentRadiance !== radiance) currentRadiance.dispose(); integrated.dispose();batchRadiance.dispose();batchIntegrated.dispose(); replayTarget.dispose(); replayIntegrator.dispose();relightIntegrator.dispose();
+    geometry.dispose(); material.dispose(); replay.dispose(); copy.dispose();copyPrograms.forEach(p=>p.material.dispose()); relighter?.dispose(); ready.clear() }
+  return { target, tile, layout, ready, sky: skyColor, relighting,radiance,currentRadiance,captureNear:nearForProbe,
+    /** Regional edits retain unaffected receiver tiles. Their original and
+     * current direct radiance are immutable inputs to subsequent Jacobi passes. */
+    async retainFrom(previous:{target:WebGLRenderTarget;radiance:WebGLRenderTarget;currentRadiance:WebGLRenderTarget;layout:typeof layout;ready:Set<number>;relighting:boolean;captureNear?:(probe:number)=>number},indices:readonly number[],cancelled:()=>boolean){
+      if(!relighting||!previous.relighting||layout.width!==previous.layout.width||layout.height!==previous.layout.height||
+        [...layout.slots].some(([index,slot])=>previous.layout.slots.get(index)!==slot))return 0
+      const reusable=indices.filter(index=>previous.ready.has(index)&&(previous.captureNear?.(index)??.03)===nearForProbe(index));if(!reusable.length)return 0
+      const work=(async()=>{
+      const pairs=[[previous.target,target],[previous.radiance,radiance],[previous.currentRadiance,currentRadiance]] as const
+      for(const [source,destination]of pairs){
+        if(cancelled()||disposed)return 0
+        const count=destination.textures.length
+        let program=copyPrograms.get(count)
+        if(!program){
+          const withDepth=!!destination.depthTexture
+          const material=new ShaderMaterial({depthTest:withDepth,depthWrite:withDepth,depthFunc:AlwaysDepth,toneMapped:false,
+            uniforms:{...Object.fromEntries(source.textures.map((texture,index)=>[`source${index}`,{value:texture}])),sourceDepth:{value:source.depthTexture}},vertexShader:'void main(){gl_Position=vec4(position.xy,0.,1.);}',
+            fragmentShader:`${withDepth?'uniform sampler2D sourceDepth;':''}${Array.from({length:count},(_,i)=>`uniform sampler2D source${i};${i?`layout(location=${i})out highp vec4 copied${i};`:''}`).join('\n')}
+              void main(){vec2 uv=gl_FragCoord.xy/vec2(${layout.width}.0,${layout.height}.0);
+              ${Array.from({length:count},(_,i)=>`${i?`copied${i}`:'gl_FragColor'}=texture2D(source${i},uv);`).join('\n')}${withDepth?'gl_FragDepth=texture2D(sourceDepth,uv).r;':''}}`})
+          const scene=new Scene();scene.add(new Mesh(geometry,material));program={material,scene};copyPrograms.set(count,program)
+        }
+        source.textures.forEach((texture,index)=>{program!.material.uniforms[`source${index}`].value=texture})
+        program.material.uniforms.sourceDepth.value=source.depthTexture
+        const targetBefore=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel(),auto=renderer.autoClear,stats={...renderer.info.render}
+        let linking:Promise<unknown>
+        try{destination.viewport.set(0,0,destination.width,destination.height);destination.scissor.set(0,0,destination.width,destination.height);renderer.setRenderTarget(destination);linking=renderer.compileAsync(program.scene,camera)}
+        finally{renderer.setRenderTarget(targetBefore,face,mip)}
+        await linking
+        if(cancelled()||disposed)return 0
+        try{renderer.autoClear=false;renderer.setRenderTarget(destination);renderer.render(program.scene,camera)}
+        finally{renderer.setRenderTarget(targetBefore,face,mip);renderer.autoClear=auto;Object.assign(renderer.info.render,stats)}
+      }
+      reusable.forEach(index=>{ready.add(index);retained.add(index)});return reusable.length
+      })()
+      reads.add(work);try{return await work}finally{reads.delete(work)}
+    },
+    hydrateRetained(){if(relighter){retained.forEach(index=>relighter.record(index,[],nearForProbe(index)));retained.clear()}},
+    /** Same Jacobi replay and SH integration as read(), submitted in bounded
+     * atlas chunks. One small asynchronous read replaces a read per probe. */
+    async readBatch(indices:readonly number[],cancelled:()=>boolean,measure:(name:string,draw:()=>void,wallMs?:number)=>void=(_,draw)=>draw()){
+      if(indices.some(index=>!ready.has(index)))throw Error('Batch requested uncaptured probe surfaces')
+      const tick=()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()))
+      const draw=(destination:WebGLRenderTarget,y:number,height:number,operation:()=>void)=>{
+        const previous=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel(),stats={...renderer.info.render},auto=renderer.autoClear
+        try{renderer.autoClear=false;destination.viewport.set(0,y,destination.width,height);destination.scissor.set(0,y,destination.width,height);renderer.setRenderTarget(destination);operation()}
+        finally{renderer.setRenderTarget(previous,face,mip);renderer.autoClear=auto;Object.assign(renderer.info.render,stats)}
+      }
+      const work=(async()=>{
+        try{
+          for(let y=0;y<layout.height;y+=64){if(disposed||cancelled())return
+            replay.uniforms.hdSurfaceOrigin.value.set(0,0)
+            draw(batchRadiance,y,Math.min(64,layout.height-y),()=>measure('cached atlas diffuse relighting',()=>renderer.render(replayScene,camera)))
+            await tick()
+          }
+          material.uniforms.hdSurfaceRadiance.value=batchRadiance.texture;material.uniforms.hdSurfaceBatch.value=1
+          for(let row=0;row<probes.length;row+=32){if(disposed||cancelled())return
+            draw(batchIntegrated,row,Math.min(32,probes.length-row),()=>measure('batched SH integration',()=>renderer.render(scene,camera)))
+            await tick()
+          }
+          if(disposed||cancelled())return
+          const pixels=new Uint16Array(probes.length*coefficientCount*4),previous=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel()
+          let reading:Promise<unknown>|undefined
+          const readAt=performance.now()
+          try{renderer.setRenderTarget(null);measure('batched probe readback submission',()=>{reading=renderer.readRenderTargetPixelsAsync(batchIntegrated,0,0,coefficientCount,probes.length,pixels)})}
+          finally{renderer.setRenderTarget(previous,face,mip)}
+          await reading
+          measure('batched probe readback wall wait',()=>{},performance.now()-readAt)
+          if(disposed||cancelled())return
+          return new Map(indices.map(index=>{const slot=layout.slots.get(index)!,sh=new SphericalHarmonics3()
+            for(let c=0;c<coefficientCount;c++)sh.coefficients[c].set(DataUtils.fromHalfFloat(pixels[slot*coefficientCount*4+c*4]),DataUtils.fromHalfFloat(pixels[slot*coefficientCount*4+c*4+1]),DataUtils.fromHalfFloat(pixels[slot*coefficientCount*4+c*4+2]))
+            return [index,sh] as const
+          }))
+        }finally{material.uniforms.hdSurfaceRadiance.value=radiance.texture;material.uniforms.hdSurfaceBatch.value=0}
+      })()
+      reads.add(work);try{return await work}finally{reads.delete(work)}
+    },
+    setLightingKey(key: string) { if (key !== lightingKey) { relighter?.clear(); ready.clear(); lightingKey = key } },
+    recordLights(probe: number, lights: SurfaceLight[]) { relighter?.record(probe, lights,nearForProbe(probe)) },
     canRelight(probe: number) { return ready.has(probe) && !!relighter?.has(probe) },
+    relightGPU(probe: number, position: number[], lights: SurfaceLight[], destination: WebGLRenderTarget, row: number,
+      sun?: import('three').DirectionalLight, sunStrength = 1) {
+      if (!relighter || !ready.has(probe)) throw new Error('Surface relighting is unavailable')
+      relighter.render(probe, position, lights, destination, row, sun, sunStrength)
+    },
     relight(probe: number, position: number[], lights: SurfaceLight[], sun?: import('three').DirectionalLight, sunStrength = 1) {
       if (!relighter) throw new Error('Surface relighting is unavailable')
       const result = relighter.read(probe, position, lights, () => {
@@ -439,9 +585,9 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
     async read(probe: number, bounce: number) {
       const slot = layout.slots.get(probe)
       if (slot === undefined) throw new Error('Missing GI surface probe')
-      const pixels = new Uint16Array(16), previous = renderer.getRenderTarget()
+      const pixels = new Uint16Array(coefficientCount * 8), previous = renderer.getRenderTarget()
       const face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel(), stats = { ...renderer.info.render }
-      if (bounce === 2) {
+      if (bounce >= 2) {
         let result: ReturnType<typeof replayIntegrator.read>
         try {
           for (let cubeFace = 0; cubeFace < 6; cubeFace++) {
@@ -457,12 +603,14 @@ export function createIndirectSurfaceCache(renderer: WebGLRenderer, probes: numb
       material.uniforms.hdSurfaceSlot.value = slot
       try { renderer.setRenderTarget(integrated); renderer.render(scene, camera) }
       finally { renderer.setRenderTarget(previous, face, mip); Object.assign(renderer.info.render, stats) }
-      const read = renderer.readRenderTargetPixelsAsync(integrated, 0, 0, 4, 1, pixels)
+      const read = renderer.readRenderTargetPixelsAsync(integrated, 0, 0, coefficientCount * 2, 1, pixels)
       reads.add(read)
       try { await read } finally { reads.delete(read) }
       const sh = new SphericalHarmonics3()
-      for (let i = 0; i < 4; i++) sh.coefficients[i].set(...Array.from(pixels.slice(i * 4, i * 4 + 3), DataUtils.fromHalfFloat) as [number, number, number])
-      return sh
+      for (let i = 0; i < coefficientCount; i++) sh.coefficients[i].set(...Array.from(pixels.slice(i * 4, i * 4 + 3), DataUtils.fromHalfFloat) as [number, number, number])
+      const sky=new SphericalHarmonics3()
+      for(let i=0;i<coefficientCount;i++)sky.coefficients[i].set(...Array.from(pixels.slice(coefficientCount*4+i*4,coefficientCount*4+i*4+3),DataUtils.fromHalfFloat) as [number,number,number])
+      return Object.assign(sh,{sky})
     },
     dispose() {
       if (disposed) return

@@ -1,0 +1,28 @@
+import {readFileSync,writeFileSync,existsSync} from 'node:fs'
+const root='docs/gi-selective',d=JSON.parse(readFileSync(`${root}/surface/local.json`)),mean=a=>a.reduce((s,v)=>s+v,0)/a.length,summary=a=>({mean:mean(a),sd:Math.sqrt(mean(a.map(v=>(v-mean(a))**2))),min:Math.min(...a),max:Math.max(...a)})
+const indirect=r=>r.sky.map((v,c)=>v+r.reflected[c])
+const points=d.points.map(p=>({...p,ref:indirect(p.cohort==='detailed'?d.detailed.find(r=>r.name===p.name).reference:p.reference)}))
+const perError=(v,p)=>mean(v.map((v,c)=>Math.abs(v-p.ref[c])))
+function metrics(indices,values){const errors=indices.flatMap(i=>values[i].map((v,c)=>v-points[i].ref[c]));return{mae:mean(errors.map(Math.abs)),rmse:Math.sqrt(mean(errors.map(v=>v*v))),max:Math.max(...errors.map(Math.abs)),regressions:indices.filter(i=>perError(values[i],points[i])>perError(points[i].volume,points[i])+1e-9).length,significantRegressions:indices.filter(i=>perError(values[i],points[i])>perError(points[i].volume,points[i])+.02).length}}
+const result={definition:'Unweighted RGB errors against sky + reflected reference. Significant regression: per-point RGB MAE exceeds production by >0.02. Statistics are across eight separate seed deployments, not a combined higher-ray estimator.',cohorts:{},timings:{snapshotMs:d.snapshotMs,setupMs:d.setupMs,selectionMs:d.selectionMs,referenceMs:d.referenceMs,textureBytes:d.snapshotTextureBytes,budgets:{}},seams:[]}
+for(const cohort of ['detailed','face-centre']){
+ const indices=points.flatMap((p,i)=>p.cohort===cohort?[i]:[]),r={count:indices.length,selected:indices.filter(i=>points[i].selection.selected).length,baseline:{},candidates:[]};result.cohorts[cohort]=r
+ for(const method of ['volume','vertex'])r.baseline[method]=metrics(indices,points.map(p=>p[method]))
+ for(const budget of [4,8,16,32])for(const method of ['replace','half','control']){const runs=d.experiments.filter(e=>e.budget===budget),rows=runs.map(e=>({seed:e.seed,...metrics(indices,e.values.map(v=>v[method]))})),variance=indices.map(i=>mean([0,1,2].map(c=>summary(runs.map(e=>e.values[i][method][c])).sd)));r.candidates.push({budget,method,stats:Object.fromEntries(Object.keys(rows[0]).filter(k=>k!=='seed').map(k=>[k,summary(rows.map(r=>r[k]))])),meanPointChannelSeedSD:mean(variance),maxPointChannelSeedSD:Math.max(...variance),runs:rows})}
+}
+for(const budget of [4,8,16,32]){const runs=d.experiments.filter(e=>e.budget===budget);result.timings.budgets[budget]=Object.fromEntries(['cpuMs','queries','shadowRays','terminalCalls'].map(k=>[k,summary(runs.map(e=>e[k]))]))}
+for(const [i,p]of points.entries())if(p.cohort==='detailed'&&(p.face===151||p.face===1049))result.seams.push({name:p.name,face:p.face,volume:mean(p.volume),vertex:mean(p.vertex),reference:mean(p.ref),referenceConservativeSE:mean(d.detailed.find(r=>r.name===p.name).reference.skyStandardError.map((v,c)=>v+d.detailed.find(r=>r.name===p.name).reference.reflectedStandardError[c])),selection:p.selection,candidates:[4,8,16,32].flatMap(budget=>['replace','half','control'].map(method=>({budget,method,...summary(d.experiments.filter(e=>e.budget===budget).map(e=>mean(e.values[i][method])))})))})
+result.selectionReasons=Object.fromEntries([...new Set(points.flatMap(p=>p.selection.reasons))].map(reason=>[reason,points.filter(p=>p.selection.reasons.includes(reason)).length]))
+if(existsSync(`${root}/display/stored.json`)){
+ const stored=JSON.parse(readFileSync(`${root}/display/stored.json`));result.stored={metadata:stored.metadata,cohorts:{},seams:[]}
+ for(const cohort of ['detailed','face-centre']){const indices=points.flatMap((p,i)=>p.cohort===cohort?[i]:[]),rows=stored.runs.map(e=>({seed:e.seed,...metrics(indices,e.values)}));result.stored.cohorts[cohort]={runs:rows,stats:Object.fromEntries(Object.keys(rows[0]).filter(k=>k!=='seed').map(k=>[k,summary(rows.map(r=>r[k]))]))}}
+ for(const [i,p]of points.entries())if(p.cohort==='detailed'&&(p.face===151||p.face===1049))result.stored.seams.push({name:p.name,reference:mean(p.ref),production:mean(p.volume),candidate:summary(stored.runs.map(r=>mean(r.values[i])))})
+}
+writeFileSync(`${root}/metrics.json`,JSON.stringify(result,null,2))
+const csv=['cohort,name,face,selected,method,budget,seed,r,g,b,reference_r,reference_g,reference_b,mae,production_mae']
+for(const [i,p]of points.entries())for(const method of ['volume','vertex'])csv.push([p.cohort,JSON.stringify(p.name),p.face,p.selection.selected,method,0,0,...p[method],...p.ref,perError(p[method],p),perError(p.volume,p)].join(','))
+for(const [i,p]of points.entries())for(const e of d.experiments)for(const method of ['replace','half','control'])csv.push([p.cohort,JSON.stringify(p.name),p.face,p.selection.selected,method,e.budget,e.seed,...e.values[i][method],...p.ref,perError(e.values[i][method],p),perError(p.volume,p)].join(','))
+if(existsSync(`${root}/display/stored.json`)){const stored=JSON.parse(readFileSync(`${root}/display/stored.json`));for(const [i,p]of points.entries())for(const r of stored.runs)csv.push([p.cohort,JSON.stringify(p.name),p.face,p.selection.selected,'stored-residual',32,r.seed,...r.values[i],...p.ref,perError(r.values[i],p),perError(p.volume,p)].join(','))}
+writeFileSync(`${root}/per-surface.csv`,csv.join('\n'))
+for(const [name,r]of Object.entries(result.cohorts)){console.log(name,r.count,r.selected,r.baseline);console.table(r.candidates.map(c=>({budget:c.budget,method:c.method,mae:c.stats.mae.mean,range:`${c.stats.mae.min.toFixed(4)}–${c.stats.mae.max.toFixed(4)}`,rmse:c.stats.rmse.mean,max:c.stats.max.max,regressions:c.stats.significantRegressions.mean,seedSD:c.meanPointChannelSeedSD})))}
+console.log(JSON.stringify({timings:result.timings,stored:result.stored,selection:result.selectionReasons},null,2))

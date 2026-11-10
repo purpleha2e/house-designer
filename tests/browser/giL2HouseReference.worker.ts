@@ -1,0 +1,2 @@
+import {createSceneLightingReference} from '../sceneLightingReference'
+self.onmessage=({data})=>{const start=performance.now(),r=createSceneLightingReference(data.scene);try{const results=data.points.map((p:any,i:number)=>r.evaluate(p,16384,6,1234+i*1009,6));self.postMessage({ok:true,results,elapsedMs:performance.now()-start})}catch(error){self.postMessage({ok:false,error:String(error)})}finally{r.dispose()}}

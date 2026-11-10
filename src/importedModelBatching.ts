@@ -3,6 +3,11 @@ import { DynamicDrawUsage, Group, InstancedMesh, Matrix4, Mesh, Object3D } from 
 // Original meshes remain the authoritative pick/collision/transform objects.
 const batchedSources = new WeakSet<Object3D>()
 export const isBatchedModelSource = (object: Object3D) => batchedSources.has(object)
+/** Preserve authoritative pick/GI sources while a render-only batch draws. */
+export function setBatchedModelSource(object: Object3D, batched: boolean) {
+  if (batched) batchedSources.add(object)
+  else batchedSources.delete(object)
+}
 
 type Member = { mesh: Mesh; modelId: string }
 type Batch = { mesh: InstancedMesh; members: Member[]; capacity: number }

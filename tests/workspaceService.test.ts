@@ -13,6 +13,32 @@ const project = JSON.stringify({ floors: [{ id: 'ground', walls: [] }] })
 const material = JSON.stringify({ id: 'local-material-test', manufacturer: 'My materials',
   category: 'wall-covering', productName: 'Private brick', pbr: { baseColor: '#a53c25', roughness: .7 } })
 
+test('saving a cloud design overwrites its stable ID without duplicate storage and preserves ownership', async () => {
+  const f = await fixture({ quotaBytes: Buffer.byteLength(project) + 20 })
+  try {
+    const { cookie } = await f.register()
+    const { asset } = await (await f.upload(cookie)).json()
+    const updated = JSON.stringify({ floors: [{ id: 'upper', walls: [] }] })
+    const path = `/assets/${asset.id}?${new URLSearchParams({ name: 'saved.house.json', kind: 'project' })}`
+    const response = await f.api(path, { method: 'PUT', body: updated }, cookie)
+    assert.equal(response.status, 200)
+    assert.equal((await response.json()).asset.id, asset.id)
+    assert.equal(await (await f.api(`/assets/${asset.id}`, {}, cookie)).text(), updated)
+    const list = await (await f.api('/assets', {}, cookie)).json()
+    assert.equal(list.assets.length, 1)
+    assert.equal(list.workspace.usedBytes, Buffer.byteLength(updated))
+    const other = await f.register('other@example.test')
+    assert.equal((await f.api(path, { method: 'PUT', body: project }, other.cookie)).status, 404)
+    const tooLarge = JSON.stringify({ floors: [{ id: 'upper', walls: [] }], extra: 'x'.repeat(1000) })
+    assert.equal((await f.api(path, { method: 'PUT', body: tooLarge }, cookie)).status, 413)
+    assert.equal(await (await f.api(`/assets/${asset.id}`, {}, cookie)).text(), updated, 'a failed save keeps the previous design')
+    await f.restart()
+    assert.equal(await (await f.api(`/assets/${asset.id}`, {}, cookie)).text(), updated)
+    assert.equal((await f.api(`/assets/${asset.id}`, { method: 'DELETE' }, cookie)).status, 200)
+    assert.equal((await (await f.api('/assets', {}, cookie)).json()).workspace.usedBytes, 0)
+  } finally { await f.cleanup() }
+})
+
 async function fixture(options: Partial<Parameters<typeof createWorkspaceService>[0]> = {}) {
   const parent = resolve(tmpdir()), directory = await mkdtemp(join(parent, 'house-workspace-test-'))
   let service: Awaited<ReturnType<typeof createWorkspaceService>>

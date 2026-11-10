@@ -4,6 +4,7 @@ import { indirectVisibilityShaderDeclarations, type IndirectUniforms } from './i
 import { INDIRECT_ATLAS_SIZE, INDIRECT_MAX_LOCAL_LIGHTS } from './indirectLighting.ts'
 import { retainResource } from './retainedViewportScene.ts'
 import type { createIndirectProbeIntegrator } from './indirectProbeIntegration.ts'
+import { daylightSkyGLSL, daylightSkyIrradianceGLSL } from './daylightSky.ts'
 
 const MAX_LIGHTS = 8 // Matches the bounded capture-light budget.
 export type SurfaceLight = { position: number[]; direction: number[]; color: number[];
@@ -36,12 +37,12 @@ export function indirectSurfaceSun(scene: Scene) {
 
 /** Re-evaluate PBR light on cached receivers. With a dynamic sun the immutable
  * capture omits that sun; its current shadowed light is added here alongside
- * the lamps. Sky/emissive terms remain cached. Original lamp subtraction always
- * uses the same baseline, so repeated edits never accumulate delta error. */
+ * the lamps. Exterior sky uses its cached diffuse response; emission stays cached.
+ * Subtraction always uses the original baseline, so edits do not accumulate error. */
 export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface: WebGLRenderTarget, radiance: Texture,
   layout: Layout, uniforms: IndirectUniforms, cube: WebGLCubeRenderTarget, integrator: ReturnType<typeof createIndirectProbeIntegrator>) {
   const geometry = new PlaneGeometry(2, 2), scene = new Scene(), camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
-  const records = new Map<number, { lights: SurfaceLight[]; visibility: Visibility; near: number; far: number }>()
+  const records = new Map<number, { lights: SurfaceLight[]; visibility: Visibility; near: number; far: number; skyBase: Vector3; groundSun: Vector3 }>()
   const visibility = new Map<string, Visibility>()
   const bank = () => ({ positions: Array.from({ length: MAX_LIGHTS }, () => new Vector3()),
     colors: Array.from({ length: MAX_LIGHTS }, () => new Vector3()), axes: Array.from({ length: MAX_LIGHTS }, () => new Vector4()),
@@ -57,6 +58,7 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
     defines: { STANDARD: 1, HD_GI_CAPTURE_VISIBILITY: 1, USE_SHADOWMAP: 1,
       [pcf ? 'SHADOWMAP_TYPE_PCF' : vsm ? 'SHADOWMAP_TYPE_VSM' : 'SHADOWMAP_TYPE_BASIC']: 1 },
     uniforms: { ...uniforms, dfgLUT: { value: null },
+      hdSurfaceReceiver: { value: surface.textures[1] }, hdOldSkyBase: { value: new Vector3() }, hdOldGroundSun: { value: new Vector3() },
       hdSurfaceRadiance: { value: radiance }, hdSurfaceNormal: { value: surface.textures[2] },
       hdSurfaceResponse: { value: surface.textures[3] }, hdSurfaceMaterial: { value: surface.textures[4] },
       hdSurfaceDepth: { value: surface.depthTexture }, hdSurfaceAtlas: { value: new Vector2(layout.width, layout.height) },
@@ -79,6 +81,10 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
       #include <lights_physical_pars_fragment>
       #include <shadowmap_pars_fragment>
       ${indirectVisibilityShaderDeclarations}
+      ${daylightSkyGLSL}
+      ${daylightSkyIrradianceGLSL}
+      uniform vec3 hdSkyRadianceBase, hdOldSkyBase, hdOldGroundSun;
+      uniform sampler2D hdSurfaceReceiver;
       uniform sampler2D hdSurfaceRadiance, hdSurfaceNormal, hdSurfaceResponse, hdSurfaceMaterial, hdSurfaceDepth;
       uniform sampler2D hdOldPositions, hdOldDistances;
       uniform vec2 hdSurfaceAtlas, hdSurfaceOrigin, hdSurfaceClip;
@@ -102,13 +108,14 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
         IncidentLight light; light.direction = hdSunDirection; light.color = hdSunColor * visibility; light.visible = true;
         ReflectedLight result = ReflectedLight(vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0));
         RE_Direct_Physical(light, p, n, viewDir, n, material, result);
-        return result.directDiffuse + result.directSpecular;
+        return result.directDiffuse;
       }
 
       vec3 hdLocalRadiance(bool previous, vec3 p, vec3 n, vec3 viewDir, PhysicalMaterial material) {
         ReflectedLight result = ReflectedLight(vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0));
-        for (int i = 0; i < ${MAX_LIGHTS}; i++) {
-          if (i >= (previous ? hdOldCount : hdNewCount)) break;
+        // Keep exact visibility/PBR as one runtime loop. Static bounds let
+        // drivers duplicate both light banks and every triangle test eight times.
+        for (int i = 0; i < (previous ? hdOldCount : hdNewCount); i++) {
           vec4 parameters = previous ? hdOldLightParameters[i] : hdNewLightParameters[i];
           vec3 position = previous ? hdOldLightPositions[i] : hdNewLightPositions[i];
           vec4 axis = previous ? hdOldLightAxes[i] : hdNewLightAxes[i];
@@ -130,13 +137,12 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
           IncidentLight light; light.direction = direction; light.color = color * falloff * max(0.0, visible); light.visible = true;
           RE_Direct_Physical(light, p, n, viewDir, n, material, result);
         }
-        return result.directDiffuse + result.directSpecular;
+        return result.directDiffuse;
       }
       void main() {
         vec2 uv = (hdSurfaceOrigin + gl_FragCoord.xy) / hdSurfaceAtlas;
         vec3 base = texture2D(hdSurfaceRadiance, uv).rgb;
         vec4 finish = texture2D(hdSurfaceMaterial, uv);
-        if (finish.a < .5) { gl_FragColor = vec4(base, 1.0); return; }
         vec2 pixel = gl_FragCoord.xy / ${layout.size}.0;
         float col = pixel.x * 2.0 - 1.0, row = 1.0 - pixel.y * 2.0;
         vec3 direction;
@@ -146,6 +152,7 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
         else if (hdSurfaceFace == 3) direction = vec3(col, -1.0, row);
         else if (hdSurfaceFace == 4) direction = vec3(col, row, 1.0);
         else direction = vec3(-col, row, -1.0);
+        if (finish.a < .5) { gl_FragColor = vec4(hdSkyRadiance(normalize(direction),hdSkyRadianceBase), 0.0); return; }
         float depth = texture2D(hdSurfaceDepth, uv).r;
         float distance = hdSurfaceClip.x * hdSurfaceClip.y /
           (hdSurfaceClip.y - depth * (hdSurfaceClip.y - hdSurfaceClip.x));
@@ -158,6 +165,12 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
         material.roughness = texture2D(hdSurfaceResponse, uv).a;
         material.specularColor = vec3(.04); material.specularF90 = 1.0;
         material.specularColorBlended = mix(material.specularColor, finish.rgb, material.metalness);
+        // Always adjust the immutable baseline. A sky-only edit has zero
+        // solar delta, preserving independent sun-reflected ground.
+        if (texture2D(hdSurfaceReceiver, uv).a < -.5) {
+          vec3 skyDelta = hdSkyDiffuseIrradiance(n, hdSkyRadianceBase - hdOldSkyBase, hdSkySunIrradiance - hdOldGroundSun);
+          base += texture2D(hdSurfaceResponse, uv).rgb * skyDelta;
+        }
         vec3 before = hdLocalRadiance(true, p, n, viewDir, material);
         vec3 after = hdLocalRadiance(false, p, n, viewDir, material);
         gl_FragColor = vec4(max(base + after - before + hdSunRadiance(p, n, viewDir, material), vec3(0.0)), 1.0);
@@ -178,6 +191,49 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
     data.axes[i].set(...light.direction as [number, number, number], light.penumbra)
     data.parameters[i].set(light.distance, light.decay, light.cone, light.index)
   })
+  const render = (probe: number, position: number[], lights: SurfaceLight[], captured: (() => void) | undefined, sun: DirectionalLight | undefined, sunStrength: number, integrate: () => void) => {
+    const record = records.get(probe)
+    if (!record) throw new Error('Missing surface lighting baseline')
+    material.uniforms.hdOldSkyBase.value.copy(record.skyBase)
+    material.uniforms.hdOldGroundSun.value.copy(record.groundSun)
+    populate(old, record.lights); populate(current, lights)
+    material.uniforms.hdOldCount.value = record.lights.length; material.uniforms.hdNewCount.value = lights.length
+    material.uniforms.hdOldPositions.value = record.visibility.positions; material.uniforms.hdOldDistances.value = record.visibility.distances
+    material.uniforms.hdOldLayout.value.copy(record.visibility.layout)
+    material.uniforms.hdSurfaceClip.value.set(record.near, record.far)
+    material.uniforms.hdSurfaceProbe.value.fromArray(position)
+    material.uniforms.hdSunColor.value.set(0, 0, 0)
+    material.uniforms.hdSunShadow.value.set(0, 0, 0, 0)
+    material.uniforms.hdSunMap.value = emptySunShadow
+    if (sun) {
+      sun.updateWorldMatrix(true, false); sun.target.updateWorldMatrix(true, false)
+      material.uniforms.hdSunDirection.value.setFromMatrixPosition(sun.matrixWorld)
+        .sub(new Vector3().setFromMatrixPosition(sun.target.matrixWorld)).normalize()
+      if (sun.visible) material.uniforms.hdSunColor.value.set(sun.color.r, sun.color.g, sun.color.b).multiplyScalar(sun.intensity * sunStrength)
+      const shadow = sun.shadow
+      if (renderer.shadowMap.enabled && sun.castShadow && shadow.map) {
+        material.uniforms.hdSunMap.value = vsm ? shadow.map.texture : shadow.map.depthTexture
+        material.uniforms.hdSunMatrix.value.copy(shadow.matrix)
+        material.uniforms.hdSunMapSize.value.copy(shadow.mapSize)
+        material.uniforms.hdSunShadow.value.set(shadow.intensity, shadow.bias, shadow.normalBias, shadow.radius)
+      }
+    }
+    const target = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
+    const autoClear = renderer.autoClear, stats = { ...renderer.info.render }
+    try {
+      renderer.autoClear = true
+      for (let face = 0; face < 6; face++) {
+        material.uniforms.hdSurfaceOrigin.value.set(...layout.tile(probe, face))
+        material.uniforms.hdSurfaceFace.value = face; material.uniformsNeedUpdate = true
+        renderer.setRenderTarget(cube, face); renderer.render(scene, camera)
+      }
+      captured?.()
+      renderer.setRenderTarget(null)
+      integrate()
+    } finally {
+      renderer.setRenderTarget(target, face, mip); renderer.autoClear = autoClear; Object.assign(renderer.info.render, stats)
+    }
+  }
   return {
     clear() { for (const probe of records.keys()) releaseRecord(probe) },
     has: (probe: number) => records.has(probe),
@@ -192,7 +248,7 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
           release() { releasePositions(); releaseDistances() } }
         visibility.set(key, data)
       }
-      data.users++; records.set(probe, { lights: structuredClone(lights), visibility: data, near, far })
+      data.users++; records.set(probe, { lights: structuredClone(lights), visibility: data, near, far, skyBase: uniforms.hdSkyRadianceBase.value.clone(), groundSun: uniforms.hdSkySunIrradiance.value.clone() })
       // Interrupted cold captures may span several lamp layouts. Bound retained
       // visibility atlases; evicted samples use a fresh ordinary capture.
       while (visibility.size > 4) {
@@ -201,48 +257,13 @@ export function createIndirectSurfaceRelighting(renderer: WebGLRenderer, surface
       }
     },
     compile() { return renderer.compileAsync(scene, camera) },
-    async read(probe: number, position: number[], lights: SurfaceLight[], captured?: () => void, sun?: DirectionalLight, sunStrength = 1) {
-      const record = records.get(probe)
-      if (!record) throw new Error('Missing surface lighting baseline')
-      populate(old, record.lights); populate(current, lights)
-      material.uniforms.hdOldCount.value = record.lights.length; material.uniforms.hdNewCount.value = lights.length
-      material.uniforms.hdOldPositions.value = record.visibility.positions; material.uniforms.hdOldDistances.value = record.visibility.distances
-      material.uniforms.hdOldLayout.value.copy(record.visibility.layout)
-      material.uniforms.hdSurfaceClip.value.set(record.near, record.far)
-      material.uniforms.hdSurfaceProbe.value.fromArray(position)
-      material.uniforms.hdSunColor.value.set(0, 0, 0)
-      material.uniforms.hdSunShadow.value.set(0, 0, 0, 0)
-      material.uniforms.hdSunMap.value = emptySunShadow
-      if (sun) {
-        sun.updateWorldMatrix(true, false); sun.target.updateWorldMatrix(true, false)
-        material.uniforms.hdSunDirection.value.setFromMatrixPosition(sun.matrixWorld)
-          .sub(new Vector3().setFromMatrixPosition(sun.target.matrixWorld)).normalize()
-        if (sun.visible) material.uniforms.hdSunColor.value.set(sun.color.r, sun.color.g, sun.color.b).multiplyScalar(sun.intensity * sunStrength)
-        const shadow = sun.shadow
-        if (renderer.shadowMap.enabled && sun.castShadow && shadow.map) {
-          material.uniforms.hdSunMap.value = vsm ? shadow.map.texture : shadow.map.depthTexture
-          material.uniforms.hdSunMatrix.value.copy(shadow.matrix)
-          material.uniforms.hdSunMapSize.value.copy(shadow.mapSize)
-          material.uniforms.hdSunShadow.value.set(shadow.intensity, shadow.bias, shadow.normalBias, shadow.radius)
-        }
-      }
-      const target = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
-      const autoClear = renderer.autoClear, stats = { ...renderer.info.render }
-      let result: ReturnType<typeof integrator.read>
-      try {
-        renderer.autoClear = true
-        for (let face = 0; face < 6; face++) {
-          material.uniforms.hdSurfaceOrigin.value.set(...layout.tile(probe, face))
-          material.uniforms.hdSurfaceFace.value = face; material.uniformsNeedUpdate = true
-          renderer.setRenderTarget(cube, face); renderer.render(scene, camera)
-        }
-        captured?.()
-        renderer.setRenderTarget(null)
-        result = integrator.read(renderer, cube)
-      } finally {
-        renderer.setRenderTarget(target, face, mip); renderer.autoClear = autoClear; Object.assign(renderer.info.render, stats)
-      }
-      return await result
+    read(probe: number, position: number[], lights: SurfaceLight[], captured?: () => void, sun?: DirectionalLight, sunStrength = 1) {
+      let result!: ReturnType<typeof integrator.read>
+      render(probe, position, lights, captured, sun, sunStrength, () => { result = integrator.read(renderer, cube) })
+      return result
+    },
+    render(probe: number, position: number[], lights: SurfaceLight[], destination: WebGLRenderTarget, row: number, sun?: DirectionalLight, sunStrength = 1) {
+      render(probe, position, lights, undefined, sun, sunStrength, () => integrator.render(renderer, cube, destination, row))
     },
     dispose() { for (const probe of records.keys()) releaseRecord(probe); geometry.dispose(); material.dispose(); emptySunShadow?.dispose() },
   }

@@ -2,18 +2,23 @@ import { BufferGeometry, DirectionalLight, Group, InstancedMesh, Light, Material
   Object3D, ObjectSpaceNormalMap, PointLight, Scene, SpotLight, Vector3 } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { isSelectionDecoration } from './shaderWarmup.ts'
-import { applyIndirectSurfaceCapture, applyIndirectSurfaceRadianceCapture } from './indirectSurfaceCache.ts'
+import { applyIndirectNightSurfaceCapture, applyIndirectSurfaceCapture, applyIndirectSurfaceRadianceCapture } from './indirectSurfaceCache.ts'
 import { runViewportTask } from './viewportScheduling.ts'
+import { applyIndirectLightingShader, getIndirectLightingUniforms } from './indirectLightingShader.ts'
+import { isLightingGlazing } from './lightingVisibility.ts'
+import { indirectCaptureMaterialKey } from './indirectCaptureBatching.ts'
+import { hasViewportSurfaceVisibility, includeViewportObject } from './viewportSurfaceVisibility.ts'
 
 type Renderable = Object3D & { material: Material | Material[]; geometry: BufferGeometry }
 
 /** A retained offscreen scene. Live geometry/textures and sun shadow maps remain
  * owned by the editor; only capture materials and merged buffers are owned here. */
-function* captureSceneSteps(source: Scene, localLights: boolean) {
+function* captureSceneSteps(source: Scene, localLights: boolean, merge = true) {
   source.updateMatrixWorld(true)
   const scene = new Scene(), materials = new Map<Material, Material>()
   const geometries = new Set<BufferGeometry>(), instances: InstancedMesh[] = []
   const batches = new Map<string, Mesh[]>()
+  const materialKeys=new Map<Material,string>()
   const orderedGroups = new Map<number, Group>()
   const centre = new Vector3()
   let sourceMeshes = 0, mergedMeshes = 0
@@ -31,6 +36,8 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
     let material = materials.get(original)
     if (material) return material
     material = original.clone()
+    // A navigation-hidden floor/ceiling still reflects and blocks light.
+    if (hasViewportSurfaceVisibility(original)) material.visible = true
     if (material instanceof MeshStandardMaterial) {
       material.defines = { ...(original as MeshStandardMaterial).defines, HD_GI_CAPTURE_VISIBILITY: 1 }
     }
@@ -39,9 +46,15 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
     if (attributes.defaultAttributeValues) Object.assign(material, { defaultAttributeValues: attributes.defaultAttributeValues })
     const key = original.customProgramCacheKey()
     material.customProgramCacheKey = () => key
+    // Imported finish overrides can replace onBeforeCompile after the live GI
+    // controller has registered its uniforms. The MRT receiver pass still needs
+    // that shader hook. Reinstall on the owned clone; the hook is idempotent.
+    const indirect = getIndirectLightingUniforms(original)
+    if (indirect) applyIndirectLightingShader(material, indirect)
     // Navigation fades and glass are handled once, rather than per capture.
-    if (original.transparent) {
-      if (!(original instanceof MeshStandardMaterial) || /glass|glazing/i.test(original.name)) material.visible = false
+    if (isLightingGlazing(original)) material.visible = false
+    else if (original.transparent) {
+      if (!(original instanceof MeshStandardMaterial)) material.visible = false
       else { material.transparent = false; material.opacity = 1; material.depthWrite = true }
     }
     materials.set(original, material)
@@ -49,6 +62,7 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
   }
   const addProxy = (object: Renderable) => {
     const proxy = object.clone(false) as Renderable
+    proxy.visible = true // includeViewportObject already rejected genuinely hidden objects.
     proxy.matrix.copy(object.matrixWorld); proxy.matrixWorld.copy(object.matrixWorld)
     proxy.matrixAutoUpdate = false; proxy.matrixWorldAutoUpdate = false
     proxy.onBeforeRender = object.onBeforeRender; proxy.onAfterRender = object.onAfterRender
@@ -71,7 +85,7 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
     return proxy
   }
   const objects: Object3D[] = []
-  source.traverseVisible(object => objects.push(object))
+  source.traverse(object => { if (includeViewportObject(object)) objects.push(object) })
   for (const object of objects) {
     yield
     if (isSelectionDecoration(object) || object.userData.houseDesignerRole === 'ground-image') continue
@@ -99,7 +113,7 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
     const geometry: BufferGeometry = object.geometry
     // Preserve group/draw-range semantics, skinning, morphs, instances, mirrored
     // winding and object callbacks through ordinary proxies.
-    if (object.type !== 'Mesh' || 'isInstancedMesh' in object || 'isBatchedMesh' in object ||
+    if (!merge || object.type !== 'Mesh' || 'isInstancedMesh' in object || 'isBatchedMesh' in object ||
       'isInstancedBufferGeometry' in geometry || Array.isArray(object.material) || !proxy.material.visible ||
       proxy.material.transparent || geometry.morphAttributes.position?.length ||
       (object.material instanceof MeshStandardMaterial &&
@@ -112,24 +126,33 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
     geometry.boundingBox?.getCenter(centre).applyMatrix4(object.matrixWorld)
     const attributes = Object.entries(geometry.attributes).map(([name, attribute]) =>
       [name, attribute.itemSize, attribute.normalized, attribute.array.constructor.name]).sort()
-    const key = JSON.stringify([object.material.uuid, object.receiveShadow, object.layers.mask, object.renderOrder, proxy.parent?.renderOrder,
+    const worldBatch=source.userData.indirectWorldCaptureBatching!==false&&!geometry.attributes.hdGIReceiverLinearNormal&&!geometry.attributes.hdGIReceiverOffset&&!geometry.attributes.hdGICorner0&&!geometry.attributes.hdGIWallMount0&&
+      !/wall|roof|ceiling|slab/.test(String(object.userData.houseDesignerRole))&&!(object.material.clippingPlanes?.length)
+    let materialKey=object.material.uuid
+    if(worldBatch){materialKey=materialKeys.get(object.material)??indirectCaptureMaterialKey(object.material);materialKeys.set(object.material,materialKey)}
+    proxy.userData.indirectWorldBatch=worldBatch
+    const key = JSON.stringify([materialKey, object.receiveShadow, object.layers.mask, object.renderOrder, proxy.parent?.renderOrder,
       object.frustumCulled, !!geometry.index, attributes,
-      object.matrixWorld.elements,
+      worldBatch?'world':object.matrixWorld.elements,
       Math.floor(centre.x / 8), Math.floor(centre.y / 4), Math.floor(centre.z / 8)])
     const group = batches.get(key) ?? []; group.push(proxy as Mesh); batches.set(key, group)
   }
   for (const members of batches.values()) {
     yield
     if (members.length < 2) continue
-    // Keep vertex/normal/receiver data in the original local coordinates.
-    // Baking transforms into float vertices can change coverage at openings.
-    const geometry = mergeGeometries(members.map(mesh => mesh.geometry), false)
+    // Special architectural receivers keep their local data. Ordinary static
+    // furniture can share world-coordinate batches, preserving normals/UVs.
+    const worldBatch=members[0].userData.indirectWorldBatch===true
+    const inputs:BufferGeometry[]=[]
+    for(const mesh of members){yield;inputs.push(worldBatch?mesh.geometry.clone().applyMatrix4(mesh.matrixWorld):mesh.geometry)}
+    const geometry = mergeGeometries(inputs, false)
+    if(worldBatch)inputs.forEach(geometry=>geometry.dispose())
     if (!geometry) continue
     geometries.add(geometry)
     const first = members[0], merged = new Mesh(geometry, first.material)
     merged.receiveShadow = first.receiveShadow; merged.layers.mask = first.layers.mask
     merged.renderOrder = first.renderOrder; merged.frustumCulled = first.frustumCulled
-    merged.matrix.copy(first.matrix); merged.matrixWorld.copy(first.matrixWorld)
+    if(!worldBatch){merged.matrix.copy(first.matrix); merged.matrixWorld.copy(first.matrixWorld)}
     merged.matrixAutoUpdate = false; merged.matrixWorldAutoUpdate = false
     geometry.computeBoundingSphere()
     const parent = first.parent!
@@ -144,12 +167,17 @@ function* captureSceneSteps(source: Scene, localLights: boolean) {
   scene.matrixWorldAutoUpdate = false
   completed = true
   return { scene, sourceMeshes, mergedMeshes, materials: materials.size,
-    enableSurfaceRadianceCapture(relighting = false) {
-      materials.forEach(material => applyIndirectSurfaceRadianceCapture(material, relighting))
+    enableSurfaceRadianceCapture(relighting = false, rawReceiver = false) {
+      materials.forEach(material => applyIndirectSurfaceRadianceCapture(material, relighting, rawReceiver))
     },
     enableSurfaceCapture() {
       materials.forEach(material => applyIndirectSurfaceCapture(material))
       // This pass records material data only, with no lighting variants.
+      scene.children.filter(object => object instanceof Light).forEach(light => light.removeFromParent())
+      scene.environment = null
+    },
+    enableNightSurfaceCapture() {
+      materials.forEach(material => applyIndirectNightSurfaceCapture(material))
       scene.children.filter(object => object instanceof Light).forEach(light => light.removeFromParent())
       scene.environment = null
     },
@@ -169,4 +197,17 @@ export function createIndirectCaptureScene(source: Scene, localLights: boolean) 
  * cloning every model and merging every material batch. */
 export function prepareIndirectCaptureScene(source: Scene, localLights: boolean, cancelled: () => boolean = () => false) {
   return runViewportTask(captureSceneSteps(source, localLights),cancelled)
+}
+
+/** The immediate GI experiment must progress during navigation as well. Keep
+ * each CPU task small, without waiting for the probe scheduler's idle gate. */
+export async function prepareFastCaptureScene(source: Scene, cancelled: () => boolean) {
+  const steps = captureSceneSteps(source, false, false)
+  try {
+    while (!cancelled()) {
+      const start = performance.now()
+      do { const next = steps.next(); if (next.done) return next.value } while (performance.now() - start < 3)
+      await new Promise(resolve => setTimeout(resolve, 0))
+    }
+  } finally { steps.return(undefined!) }
 }

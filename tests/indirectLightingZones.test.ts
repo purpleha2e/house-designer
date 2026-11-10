@@ -25,7 +25,8 @@ test('window additions, removal and movement dirty only their old/new opening bo
   assert.deepEqual(changes[0], { floorId: 'ground', min: [1.4, .8, -.35], max: [2.6, 2, .35] })
   assert.deepEqual(indirectOpeningChanges(after, before), changes)
   assert.equal(indirectOpeningChanges(after, revision([withWindow(6)]))!.length, 2)
-  assert.ok(indirectOpeningChanges(before, revision([withWindow()], { modelAssetVersion: 1 })), 'a new window asset can accompany its opening')
+  assert.equal(indirectOpeningChanges(before, revision([withWindow()], { modelAssetVersion: 1 })), null,
+    'a changed asset definition can alter geometry beyond the measured opening bounds')
 })
 
 test('global light, quality, structure, furniture and unknown revisions require full bakes', () => {

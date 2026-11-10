@@ -1,9 +1,12 @@
-import { BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, InstancedMesh, Matrix4, Mesh,
+import { Box3, BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, InstancedMesh, Matrix4, Mesh,
   MeshStandardMaterial, NearestFilter, Ray, RGBAFormat, Vector3, type Object3D, type TypedArray } from 'three'
-import { MeshBVH, SAH, type SerializedBVH } from 'three-mesh-bvh'
+import { getBVHExtremes, MeshBVH, SAH, type SerializedBVH } from 'three-mesh-bvh'
 import type { IndirectField } from './indirectLighting.ts'
 import { createIndirectSegmentQuery } from './indirectSegmentQuery.ts'
 import { isSelectionDecoration } from './shaderWarmup.ts'
+import { isLightingGlazing } from './lightingVisibility.ts'
+import { isBatchedModelSource } from './importedModelBatching.ts'
+import { hasViewportSurfaceVisibility } from './viewportSurfaceVisibility.ts'
 
 export type IndirectGeometrySnapshot = {
   position: TypedArray; stride: number; offset: number; normalized: boolean; index: Uint32Array | Uint16Array | null
@@ -11,34 +14,56 @@ export type IndirectGeometrySnapshot = {
 }[]
 
 /** Shared by cache identity and worker snapshots. Changing a finish to glass
- * changes visibility; changing the order of opaque material groups does not. */
+ * changes visibility; changing the order of opaque material groups does not.
+ * Registered navigation hiding never removes a physical floor/ceiling. */
 export function indirectGeometryRanges(object: Mesh) {
   const geometry = object.geometry, materials = Array.isArray(object.material) ? object.material : [object.material]
   const count = geometry.index?.count ?? geometry.attributes.position?.count ?? 0
   const groups = geometry.groups.length ? geometry.groups : [{ start: 0, count, materialIndex: 0 }]
   return groups.filter(group => {
     const material = materials[Array.isArray(object.material) ? group.materialIndex ?? 0 : 0]
-    return material instanceof MeshStandardMaterial && !/glass|glazing/i.test(material.name) && (material.opacity > 0 || material.transparent)
+    return material instanceof MeshStandardMaterial && (material.visible || hasViewportSurfaceVisibility(material)) && !isLightingGlazing(material) && (material.opacity > 0 || material.transparent)
   }).map(group => ({ start: group.start, count: Math.min(group.count, count - group.start) }))
 }
 
 /** Copy only descriptors on the UI thread. postMessage clones the source buffers;
  * world transforms, triangle expansion and BVH construction happen in the worker. */
 export function snapshotIndirectGeometry(scene: Object3D, include?: (mesh: Mesh) => boolean): IndirectGeometrySnapshot {
+  const steps = snapshotIndirectGeometrySteps(scene, include)
+  let next = steps.next()
+  while (!next.done) next = steps.next()
+  return next.value
+}
+
+/** Descriptor collection can yield between meshes; triangle expansion and BVH
+ * construction remain in the worker. The caller fences the scene revision. */
+export function* snapshotIndirectGeometrySteps(scene: Object3D, include?: (mesh: Mesh) => boolean): Generator<void, IndirectGeometrySnapshot> {
   const parts: IndirectGeometrySnapshot = []
   scene.updateMatrixWorld(true)
-  scene.traverse(object => {
+  const objects: Object3D[] = []
+  scene.traverse(object => objects.push(object))
+  for (const object of objects) {
+    yield
     if (!(object instanceof Mesh) || (include && !include(object)) || isSelectionDecoration(object) ||
-      /model-batch|ground-image/.test(String(object.userData.houseDesignerRole))) return
+      /model-batch|ground-image/.test(String(object.userData.houseDesignerRole))) continue
+    // Render batching hides the editable source meshes and draws instances
+    // instead. Snapshot each source once, including those hidden only by the
+    // batching manager; genuinely hidden models/ancestors still stay excluded.
+    let attached = false, visible = true
+    for (let parent: Object3D | null = object; parent; parent = parent.parent) {
+      if (!parent.visible && !isBatchedModelSource(parent) && !hasViewportSurfaceVisibility(parent)) visible = false
+      if (parent === scene) attached = true
+    }
+    if (!attached || !visible) continue
     const geometry = object.geometry
     const attribute = geometry.attributes.position
-    if (!attribute) return
+    if (!attribute) continue
     const interleaved = !(attribute instanceof BufferAttribute)
     const position = interleaved ? attribute.data.array : attribute.array
     const stride = interleaved ? attribute.data.stride : attribute.itemSize
     const attributeOffset = interleaved ? attribute.offset : 0
     const ranges = indirectGeometryRanges(object)
-    if (!ranges.length) return
+    if (!ranges.length) continue
     const matrices: number[][] = []
     for (let instance = 0; instance < (object instanceof InstancedMesh ? object.count : 1); instance++) {
       const matrix = object.matrixWorld.clone()
@@ -48,7 +73,7 @@ export function snapshotIndirectGeometry(scene: Object3D, include?: (mesh: Mesh)
     parts.push({ position, stride, offset: attributeOffset, normalized: attribute.normalized,
       index: geometry.index ? geometry.index.array as Uint32Array | Uint16Array : null, ranges, matrices,
       structural: /roof|ceiling|slab/.test(String(object.userData.houseDesignerRole)) })
-  })
+  }
   return parts
 }
 
@@ -58,9 +83,15 @@ export function createIndirectVisibility(scene: Object3D, include?: (mesh: Mesh)
 
 export type IndirectVisibilitySnapshot = { positions: Float32Array; tree: SerializedBVH | null }
 
-export function createIndirectVisibilityFromSnapshot(parts: IndirectGeometrySnapshot) {
+export function createIndirectVisibilityFromSnapshot(parts: IndirectGeometrySnapshot, previous?: IndirectVisibilitySnapshot) {
   const count = parts.reduce((sum, part) => sum + part.ranges.reduce((n, range) => n + Math.floor(range.count / 3) * 9, 0) * part.matrices.length, 0)
-  const data = new Float32Array(count), point = new Vector3(), matrix = new Matrix4()
+  // A local cutout can add/remove a few triangles without changing the rest of
+  // a million-triangle house. Keep a small bounded reserve so an exact refit
+  // remains possible; reserved triangles have zero area and cannot occlude.
+  const triangles=count/9,reserve=triangles>=1024?Math.min(256,Math.ceil(triangles*.02))*9:0
+  const canRefit=previous?.tree&&count<=previous.positions.length&&count>=previous.positions.length*.95
+  const capacity=canRefit?previous.positions.length:count+reserve
+  const data = new Float32Array(capacity), point = new Vector3(), matrix = new Matrix4()
   let offset = 0
   for (const part of parts) {
     const attribute = new BufferAttribute(part.position, part.stride, part.normalized)
@@ -78,7 +109,12 @@ export function createIndirectVisibilityFromSnapshot(parts: IndirectGeometrySnap
       }
     }
   }
-  return createIndirectVisibilityFromTriangles(data)
+  if(count)for(let vertex=count;vertex<data.length;vertex+=3)data.set(data.subarray(count-3,count),vertex)
+  // Refits still update every node and triangle. A substantial topology change
+  // exceeds the reserve and falls back to a fresh SAH tree.
+  const reusable = canRefit&&previous?.tree
+    ? { ...previous.tree, roots: previous.tree.roots.map(root => root.slice(0)) } : undefined
+  return createIndirectVisibilityFromTriangles(data, reusable, !!reusable)
 }
 
 /** Helpers reuse the prepared tree, including its reordered triangle index. */
@@ -86,19 +122,38 @@ export function restoreIndirectVisibility(snapshot: IndirectVisibilitySnapshot) 
   return createIndirectVisibilityFromTriangles(snapshot.positions, snapshot.tree)
 }
 
-function createIndirectVisibilityFromTriangles(data: Float32Array, preparedTree?: SerializedBVH | null) {
+function createIndirectVisibilityFromTriangles(data: Float32Array, preparedTree?: SerializedBVH | null, refit = false) {
   const count = data.length
   const geometry = new BufferGeometry(); geometry.setAttribute('position', new BufferAttribute(data, 3))
   // Millions of visibility segments reuse this tree. A cheap midpoint split
   // leaves large overlapping nodes around detailed furniture and long walls;
   // spend a little more on construction to minimize every subsequent ray.
-  const tree = preparedTree ? MeshBVH.deserialize(preparedTree, geometry) :
+  let tree = preparedTree ? MeshBVH.deserialize(preparedTree, geometry) :
     count ? new MeshBVH(geometry, { strategy: SAH, targetLeafSize: 4 }) : null
+  if (refit && tree) {
+    const score=()=>getBVHExtremes(tree!).reduce((sum,root)=>sum+root.surfaceAreaScore,0)
+    const before=score();tree.refit()
+    // CSG can reorder many triangle IDs even when its triangle count barely
+    // changes. A correct refit can then make millions of visibility rays much
+    // slower. Rebuild before those queries if the SAH cost has deteriorated.
+    if(score()>before*1.5){
+      // Deserialization shares the old snapshot's index; do not reorder it.
+      geometry.setIndex(null)
+      tree=new MeshBVH(geometry,{strategy:SAH,targetLeafSize:4});refit=false
+    }
+  }
   const ray = new Ray()
   let triangles: DataTexture | null = null
   return {
+    refitted: refit,
     snapshot(): IndirectVisibilitySnapshot { return { positions: data, tree: tree ? MeshBVH.serialize(tree, { cloneBuffers: false }) : null } },
     occluded: createIndirectSegmentQuery(tree),
+    trianglesInBox(box: Box3, visit: (a: Vector3, b: Vector3, c: Vector3) => void) {
+      tree?.shapecast({ intersectsBounds: bounds => bounds.intersectsBox(box), intersectsTriangle: triangle => {
+        if (box.intersectsTriangle(triangle)) visit(triangle.a, triangle.b, triangle.c)
+        return false
+      } })
+    },
     triangleTexture() {
       if (!triangles) {
         // Source meshes generally tessellate each quad into consecutive pairs.

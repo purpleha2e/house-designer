@@ -5,6 +5,9 @@ import environmentSize from '../assets/environments/skyEnvironment.json'
 import { prepareTextureUpload } from '../textureUpload'
 
 import { PbrEnvironmentContext } from '../pbrEnvironmentContext'
+import type {Texture} from 'three'
+import {DaylightEnvironment} from './DaylightEnvironment'
+import type {DaylightSkyMode} from '../daylightSky'
 
 class EnvironmentLoader extends Loader<ArrayBuffer> {
   load(url: string, onLoad: (data: ArrayBuffer) => void, onProgress?: (event: ProgressEvent) => void, onError?: (error: unknown) => void) {
@@ -22,18 +25,30 @@ class EnvironmentLoader extends Loader<ArrayBuffer> {
   }
 }
 
-export function PbrEnvironmentProvider({ children, intensity, disabled = false, onReady }: {
-  children: ReactNode; intensity: number; disabled?: boolean; onReady?: () => void
+export function PbrEnvironmentProvider({ children, intensity, disabled = false, onReady,daylightSky }: {
+  children: ReactNode; intensity: number; disabled?: boolean; onReady?: () => void;daylightSky?:{enabled:boolean;mode:DaylightSkyMode;strength?:number;background:boolean}
 }) {
-  const [map, setMap] = useState<DataTexture | null>(null)
-  const loaded = useCallback((texture: DataTexture | null) => { setMap(texture); if (texture) onReady?.() }, [onReady])
+  const [fallback, setFallback] = useState<Texture | null>(null),[dayMap,setDayMap]=useState<Texture|null>(null)
+  const map=daylightSky?.enabled?dayMap??fallback:fallback
+  const loaded = useCallback((texture: Texture | null) => { setFallback(texture); if (texture) onReady?.() }, [onReady])
+  const loadedDay=useCallback((texture:Texture|null)=>setDayMap(texture),[])
   const value = useMemo(() => ({ intensity: disabled ? 0 : intensity, map: disabled ? null : map }), [disabled, intensity, map])
   // Keep this provider and its children mounted while the loader suspends.
   // Switching wrapper components here would rebuild every mesh and reset controls.
   return <PbrEnvironmentContext.Provider value={value}>
     {children}
     <Suspense fallback={null}>{!disabled && <LoadedPbrEnvironment onLoaded={loaded} />}</Suspense>
+    <Suspense fallback={null}>{!disabled&&daylightSky&&<LoadedDaylightEnvironments onLoaded={loadedDay} enabled={daylightSky.enabled} mode={daylightSky.mode} strength={daylightSky.strength} background={daylightSky.background}/>}</Suspense>
   </PbrEnvironmentContext.Provider>
+}
+function LoadedDaylightEnvironments(props:{onLoaded:(texture:Texture|null)=>void;enabled:boolean;mode:DaylightSkyMode;strength?:number;background:boolean}){
+  const bytes=useLoader(EnvironmentLoader,[
+    new URL('../assets/environments/daylight-clear.bin.gz',import.meta.url).href,
+    new URL('../assets/environments/daylight-overcast.bin.gz',import.meta.url).href,
+    new URL('../assets/environments/daylight-ground.bin.gz',import.meta.url).href,
+  ])
+  const sources=useMemo(()=>({clear:new Uint16Array(bytes[0]),overcast:new Uint16Array(bytes[1]),ground:new Uint16Array(bytes[2])}),[bytes])
+  return <DaylightEnvironment {...props} sources={sources}/>
 }
 function LoadedPbrEnvironment({ onLoaded }: { onLoaded: (texture: DataTexture | null) => void }) {
   const { gl, invalidate, scene } = useThree()
@@ -51,6 +66,7 @@ function LoadedPbrEnvironment({ onLoaded }: { onLoaded: (texture: DataTexture | 
   }, [bytes])
   useEffect(() => {
     let cancelled = false
+    // eslint-disable-next-line react-hooks/immutability -- Three.js scene state is renderer-owned.
     scene.environment = null
     void prepareTextureUpload(gl, resources, () => cancelled).then(ready => {
       if (!cancelled && ready) { onLoaded(resources); invalidate() }

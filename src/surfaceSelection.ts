@@ -1,5 +1,19 @@
 import type { FloorLevel, SelectableSurface } from './types.ts'
 
+/** Selection owns the properties context; the plan's active floor stays put. */
+export function getSelectionContextFloor(floors: readonly FloorLevel[], activeFloor: FloorLevel, selection: {
+  modelId: string | null; wallId: string | null; roofId: string | null; surface: SelectableSurface | null
+}) {
+  if (selection.modelId) return floors.find(floor => floor.models.some(model => model.id === selection.modelId)) ?? activeFloor
+  if (selection.surface) {
+    const id = getSurfaceSelectionFloorId(selection.surface, activeFloor.id, floors)
+    return floors.find(floor => floor.id === id) ?? activeFloor
+  }
+  if (selection.wallId) return floors.find(floor => floor.walls.some(wall => wall.id === selection.wallId)) ?? activeFloor
+  if (selection.roofId) return floors.find(floor => floor.roofs?.some(roof => roof.id === selection.roofId)) ?? activeFloor
+  return activeFloor
+}
+
 /** A loft can use the underside of a roof owned by the storey below it.
  * Selecting that ceiling must not switch the editing floor (and its lights).
  * The surface itself keeps the owner's floorId for material assignments. */

@@ -7,9 +7,12 @@ export type LightPortalPlane = { y: number; openings: Point[][] }
 
 /** Interior/exterior cells use the cheap mask. Boundary cells retain exact
  * polygons: shrinking the void by a texel casts false bands on adjacent walls. */
-export function createLightPortalTexture(planes: LightPortalPlane[], bounds: { minX: number; minZ: number; size: number }, size = 512) {
+export function createLightPortalTexture(planes: LightPortalPlane[], bounds: { minX: number; minZ: number; size: number }, size = 512,
+  roomBoundaries: Float32Array = new Float32Array()) {
   const layers = planes.slice(0, MAX_LIGHT_PORTAL_PLANES), data = new Uint8Array(size * size * Math.max(1, layers.length))
-  const records: number[] = [], edgeRanges = Array.from({ length: MAX_LIGHT_PORTAL_PLANES }, () => new Vector2())
+  // Room boundaries and portal edges use identical RGBA float records. One
+  // atlas preserves exact geometry while saving a fragment texture sampler.
+  const records: number[] = Array.from(roomBoundaries), edgeRanges = Array.from({ length: MAX_LIGHT_PORTAL_PLANES }, () => new Vector2())
   for (const [layer, plane] of layers.entries()) {
     edgeRanges[layer].x = records.length / 4
     for (const opening of plane.openings) {

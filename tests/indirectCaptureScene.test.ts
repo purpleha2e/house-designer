@@ -1,9 +1,57 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BoxGeometry, BufferAttribute, DirectionalLight, Group, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial,
-  PointLight, Scene, Texture, Vector3 } from 'three'
-import { createShaderWarmupSnapshot } from '../src/shaderWarmup.ts'
+  PointLight, Scene, ShaderLib, Texture, Vector3 } from 'three'
+import { applyIndirectLightingShader, createIndirectUniforms } from '../src/indirectLightingShader.ts'
+import { createIndirectField } from '../src/indirectLighting.ts'
+import { compileShaderWarmup, createShaderWarmupSnapshot, getShaderWarmupSceneRevision } from '../src/shaderWarmup.ts'
+import { PerspectiveCamera, type WebGLRenderer } from 'three'
 import { createIndirectCaptureScene, prepareIndirectCaptureScene } from '../src/indirectCaptureScene.ts'
+
+test('rebuilt opening capture scenes reuse retained programs while a new material feature still compiles', async () => {
+  const field = createIndirectField([]), uniforms = createIndirectUniforms(field)
+  const material = new MeshStandardMaterial(), geometry = new BoxGeometry()
+  applyIndirectLightingShader(material, uniforms)
+  const source = new Scene(), wall = new Mesh(geometry, material)
+  source.add(wall)
+  // Include untouched furnished rooms: their size must not increase the delta.
+  for (let i = 0; i < 100; i++) source.add(new Mesh(geometry, material))
+  const original = createIndirectCaptureScene(source, true)
+  original.enableSurfaceRadianceCapture(true)
+  const retained = createShaderWarmupSnapshot(original.scene, { fadeWalls: false, fadeRoofs: false })
+  const revision = getShaderWarmupSceneRevision(retained.root)
+  const replacement = geometry.clone(), texture = new Texture()
+  const newMaterial = material.clone()
+  newMaterial.normalMap = texture
+  applyIndirectLightingShader(newMaterial, uniforms)
+  let moved: ReturnType<typeof createIndirectCaptureScene> | undefined
+  let changed: ReturnType<typeof createIndirectCaptureScene> | undefined
+  try {
+    wall.geometry = replacement; wall.position.x = .5
+    moved = createIndirectCaptureScene(source, true)
+    moved.enableSurfaceRadianceCapture(true)
+    const reused = createShaderWarmupSnapshot(moved.scene, { fadeWalls: false, fadeRoofs: false, preparedRevision: revision })
+    let submissions = 0
+    try {
+      assert.equal(reused.root.children.length, 0, 'moving a door does not copy the furnished capture scene for recompilation')
+      await compileShaderWarmup({} as WebGLRenderer, reused.root, new PerspectiveCamera(), moved.scene,
+        { compile: async batch => { submissions += batch.children.length } })
+      assert.equal(submissions, 0)
+    } finally { reused.dispose() }
+    wall.material = newMaterial
+    changed = createIndirectCaptureScene(source, true)
+    changed.enableSurfaceRadianceCapture(true)
+    const delta = createShaderWarmupSnapshot(changed.scene, { fadeWalls: false, fadeRoofs: false, preparedRevision: revision })
+    try {
+      await compileShaderWarmup({} as WebGLRenderer, delta.root, new PerspectiveCamera(), changed.scene,
+        { compile: async batch => { submissions += batch.children.length } })
+      assert.equal(submissions, 1, 'only the newly introduced normal-map variant is submitted')
+    } finally { delta.dispose() }
+  } finally {
+    retained.dispose(); original.dispose(); moved?.dispose(); changed?.dispose()
+    field.dispose(); material.dispose(); newMaterial.dispose(); geometry.dispose(); replacement.dispose(); texture.dispose()
+  }
+})
 
 test('background capture preparation matches synchronous output and cancels obsolete work', async () => {
   const source=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial()
@@ -155,4 +203,23 @@ test('bake-only visibility is enabled on capture copies without adding it to dis
   })
   warmup.dispose()
   capture.dispose(); geometry.dispose(); material.dispose()
+})
+
+
+test('capture restores GI receiver declarations after an imported finish replaces its shader hook', () => {
+  const scene=new Scene(),geometry=new BoxGeometry(),material=new MeshStandardMaterial(),field=createIndirectField([],0)
+  applyIndirectLightingShader(material,createIndirectUniforms(field))
+  material.onBeforeCompile=shader=>{shader.uniforms.importedFinish={value:1}}
+  scene.add(new Mesh(geometry,material))
+  const capture=createIndirectCaptureScene(scene,false)
+  try {
+    capture.enableSurfaceRadianceCapture(true)
+    const owned=(capture.scene.children.find(o=>o instanceof Mesh) as Mesh).material as MeshStandardMaterial
+    const shader={uniforms:{},vertexShader:ShaderLib.standard.vertexShader,fragmentShader:ShaderLib.standard.fragmentShader} as Parameters<typeof material.onBeforeCompile>[0]
+    owned.onBeforeCompile(shader,{} as never)
+    assert.equal(shader.uniforms.importedFinish.value,1)
+    assert.match(shader.fragmentShader,/varying vec3 hdGIWorldPosition;/)
+    assert.match(shader.fragmentShader,/float hdGIReceiver\(/)
+    assert.match(shader.vertexShader,/hdGIWorldPosition =/)
+  } finally {capture.dispose();field.dispose();geometry.dispose();material.dispose()}
 })

@@ -359,6 +359,8 @@ export type FloorLevel = {
 export type SunPosition = {
   azimuth: number
   elevation: number
+  /** Relative source intensity; omitted in older projects means 1. */
+  strength?: number
 }
 
 export type ThreeDViewCameraState = {
@@ -378,6 +380,8 @@ export type SavedTwoDViewState = {
 
 export type SavedThreeDViewState = {
   camera: ThreeDViewCameraState
+  ambientLighting?: import('./ambientLighting').AmbientLightingPreferences
+  exposureStops?: number
   diffuseProbeResolution?: import('./indirectProbeResolution').DiffuseProbeResolution
   /** A floor id, or `all` when the combined storey view is active. */
   floorViewId: string

@@ -17,6 +17,7 @@ type UserRow = WorkspaceUser & { password_hash: string; password_salt: string }
 type AssetRow = {
   id: string; workspace_id: string; name: string; kind: PrivateAsset['kind']; byte_size: number
   content_type: string; created_at: number; sha256: string
+  object_key?: string | null
 }
 const sessionHash = (token: string) => createHash('sha256').update(token).digest('hex')
 const derivePassword = (password: string, salt: string) => new Promise<Buffer>((resolve, reject) => {
@@ -81,11 +82,14 @@ export async function createWorkspaceStore({ directory, quotaBytes = 100 * 1024 
       state TEXT NOT NULL CHECK(state IN ('pending','ready','deleting'))
     );
     CREATE INDEX IF NOT EXISTS assets_workspace ON assets(workspace_id);`)
+  if (!(db.prepare('PRAGMA table_info(assets)').all() as { name: string }[]).some(column => column.name === 'object_key')) {
+    db.exec('ALTER TABLE assets ADD COLUMN object_key TEXT')
+  }
   // Incomplete uploads/deletions from an interrupted process never become
   // visible. Their reservations are reclaimed before the service accepts work.
   try {
-    for (const row of db.prepare("SELECT id,workspace_id FROM assets WHERE state != 'ready'").all() as { id: string; workspace_id: string }[]) {
-      await objects.delete(row.workspace_id, row.id)
+    for (const row of db.prepare("SELECT id,workspace_id,object_key FROM assets WHERE state != 'ready'").all() as AssetRow[]) {
+      await objects.delete(row.workspace_id, row.object_key ?? row.id)
       db.prepare('DELETE FROM assets WHERE id=?').run(row.id)
     }
   } catch (error) { db.close(); throw error }
@@ -113,6 +117,7 @@ export async function createWorkspaceStore({ directory, quotaBytes = 100 * 1024 
     db.prepare('INSERT INTO sessions VALUES (?,?,?)').run(sessionHash(token), user.id, expiresAt)
     return { token, expiresAt, user: publicUser(user) }
   }
+  const replacing = new Set<string>()
   return {
     close: () => db.close(), workspace,
     async register(input: { email?: unknown; name?: unknown; password?: unknown }) {
@@ -155,7 +160,7 @@ export async function createWorkspaceStore({ directory, quotaBytes = 100 * 1024 
       const owner = transaction(() => {
         const current = workspace(userId)
         if (current.usedBytes + contents.byteLength > current.quotaBytes) throw new WorkspaceError(413, 'This file would exceed your storage allowance.')
-        db.prepare("INSERT INTO assets VALUES (?,?,?,?,?,?,?,?, 'pending')").run(id, current.id, name, kind,
+        db.prepare("INSERT INTO assets (id,workspace_id,name,kind,byte_size,content_type,sha256,created_at,state) VALUES (?,?,?,?,?,?,?,?, 'pending')").run(id, current.id, name, kind,
           contents.byteLength, contentType, createHash('sha256').update(contents).digest('hex'), now())
         return current
       })
@@ -171,14 +176,49 @@ export async function createWorkspaceStore({ directory, quotaBytes = 100 * 1024 
       }
       return publicAsset(ownedAsset(userId, id))
     },
+    async replaceProject(userId: string, id: string, input: { name: string; kind: PrivateAsset['kind']; contentType: string; contents: Uint8Array }) {
+      const previous = ownedAsset(userId, id)
+      if (previous.kind !== 'project' || input.kind !== 'project') throw new WorkspaceError(400, 'Only house designs can be overwritten here.')
+      if (replacing.has(id)) throw new WorkspaceError(409, 'This design is already being saved.')
+      replacing.add(id)
+      const key = randomUUID(), hash = createHash('sha256').update(input.contents).digest('hex')
+      try {
+        transaction(() => {
+          const owner = workspace(userId), extra = Math.max(0, input.contents.byteLength - previous.byte_size)
+          if (owner.usedBytes + extra > owner.quotaBytes) throw new WorkspaceError(413, 'This file would exceed your storage allowance.')
+          db.prepare("INSERT INTO assets (id,workspace_id,name,kind,byte_size,content_type,sha256,created_at,state,object_key) VALUES (?,?,?,?,?,?,?,?,'pending',?)")
+            .run(key, previous.workspace_id, input.name, 'project', extra, input.contentType, hash, now(), key)
+        })
+        try {
+          await objects.put(previous.workspace_id, key, input.contents)
+          transaction(() => {
+            db.prepare('UPDATE assets SET name=?,byte_size=?,content_type=?,sha256=?,object_key=? WHERE id=?')
+              .run(input.name, input.contents.byteLength, input.contentType, hash, key, id)
+            // Track the superseded blob until deletion succeeds, including after
+            // interruption. The logical design ID and download URL stay stable.
+            db.prepare("UPDATE assets SET byte_size=0,state='deleting',object_key=? WHERE id=?").run(previous.object_key ?? id, key)
+          })
+        } catch (error) {
+          await objects.delete(previous.workspace_id, key)
+          db.prepare('DELETE FROM assets WHERE id=?').run(key)
+          throw error
+        }
+        try {
+          await objects.delete(previous.workspace_id, previous.object_key ?? id)
+          db.prepare('DELETE FROM assets WHERE id=?').run(key)
+        } catch { /* Startup recovery owns the tracked obsolete blob. */ }
+        return publicAsset(ownedAsset(userId, id))
+      } finally { replacing.delete(id) }
+    },
     async download(userId: string, id: string) {
       const row = ownedAsset(userId, id)
-      return { asset: publicAsset(row), contents: await objects.get(row.workspace_id, id) }
+      return { asset: publicAsset(row), contents: await objects.get(row.workspace_id, row.object_key ?? id) }
     },
     async remove(userId: string, id: string) {
       const row = ownedAsset(userId, id)
+      if (replacing.has(id)) throw new WorkspaceError(409, 'This design is being saved.')
       db.prepare("UPDATE assets SET state='deleting' WHERE id=?").run(id)
-      try { await objects.delete(row.workspace_id, id); db.prepare('DELETE FROM assets WHERE id=?').run(id) }
+      try { await objects.delete(row.workspace_id, row.object_key ?? id); db.prepare('DELETE FROM assets WHERE id=?').run(id) }
       catch (error) { db.prepare("UPDATE assets SET state='ready' WHERE id=?").run(id); throw error }
     },
   }

@@ -1,3 +1,4 @@
+import type {IndirectSpatialInterpolation} from './indirectSpatialInterpolation.ts'
 import type { IndirectProbeObstacle } from './indirectProbeObstacles.ts'
 import { prepareIndirectCache, prepareIndirectCacheSteps } from './indirectLightingCache.ts'
 import { restoreIndirectField, INDIRECT_MASK_SIZE, type IndirectFloor, type IndirectFieldData } from './indirectLighting.ts'
@@ -10,17 +11,22 @@ import { traceIndirectLampPorts } from './indirectLampPool.ts'
 import { Vector3 } from 'three'
 import { writeIndirectVisibility } from './indirectVisibility.ts'
 import { createIndirectVolumeLookup, writeIndirectCeilingRow, writeIndirectVolumeRow } from './indirectVolume.ts'
+import type { IndirectSHOrder } from './indirectSH.ts'
+import {selectIndirectContactLinks,type IndirectContactReceiverQuery} from './indirectContactReceivers.ts'
 
 export type IndirectWorkerRequest = { id: number } & (
   { kind: 'prepare'; floors: IndirectFloor[]; lights: [number, number, number][]; geometry: IndirectGeometrySnapshot; obstacles: IndirectProbeObstacle[];
-    parallelLamps?: boolean; zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[]; captureNewOnly?: boolean } } |
+    parallelLamps?: boolean; shOrder?: IndirectSHOrder; spatialInterpolation?:IndirectSpatialInterpolation;contactLighting?:boolean; zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[]; captureNewOnly?: boolean } } |
   { kind: 'lampResult'; data?: Float32Array } |
   { kind: 'lampPorts'; ports: MessagePort[] } |
   { kind: 'volume' | 'preview'; coefficients: Uint16Array[]; positions: Float32Array } |
+  { kind: 'gpuPreview' } |
+  ({kind:'contactReceivers'}&IndirectContactReceiverQuery) |
   { kind: 'plan'; previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } |
   { kind: 'lights'; positions: [number, number, number][]; zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } } |
   { kind: 'floor'; field: IndirectFieldData; coefficients: Uint16Array[]; geometry: IndirectGeometrySnapshot; refineVolume?: boolean })
 let cache: ReturnType<typeof prepareIndirectCache> | null = null
+let geometryRefits = 0
 let lampPending: { id: number; query: IndirectLampQuery; resolve: (data?: Float32Array) => void; cancel?: () => void } | undefined
 let warmVersion = 0
 let warmRows: Generator<void> | null = null
@@ -56,10 +62,16 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
       if (lampPending === pending) { pending.resolve(data); lampPending = undefined }
     } else if (request.kind === 'prepare') {
       stopWarming()
+      // Limit refits so repeated large rearrangements cannot indefinitely degrade
+      // the tree. Only recognized local edits may reuse its partitioning.
+      const previousVisibility = cache && request.zones?.changes.length && geometryRefits < 8
+        ? cache.visibility.snapshot() : undefined
+      const previousInterpolation=cache&&request.zones?.changes.length?cache.interpolationReuse():undefined
+      geometryRefits = previousVisibility ? geometryRefits + 1 : 0
       cache?.dispose()
       cache = null
       const steps = prepareIndirectCacheSteps(request.floors, request.lights, request.geometry, request.obstacles, request.zones,
-        progress => self.postMessage({ id: request.id, progress }))
+        progress => self.postMessage({ id: request.id, progress }), previousVisibility,previousInterpolation,request.shOrder,request.spatialInterpolation,request.contactLighting)
       let step = steps.next()
       while (!step.done) {
         const { field, visibility, lights } = step.value
@@ -74,11 +86,22 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
       cache = step.value
       self.postMessage({ id: request.id, ok: true, value: cache.snapshot() })
       warmVisibility(cache)
+    } else if(request.kind==='contactReceivers'){
+      const visibility=request.geometry?createIndirectVisibilityFromSnapshot(request.geometry):cache?.visibility
+      if(!visibility)throw new Error('GI contact geometry has not been prepared')
+      try{const value=selectIndirectContactLinks(request,visibility);self.postMessage({id:request.id,ok:true,value},{transfer:[value.buffer]})}finally{if(request.geometry)visibility.dispose()}
     } else if (request.kind === 'lights') {
       if (!cache) throw new Error('GI geometry has not been prepared')
       const data = cache.updateLights(request.positions)
       const zonePlan = request.zones ? cache.plan(request.zones.previous, request.zones.changes) : undefined
       self.postMessage({ id: request.id, ok: true, value: { ...data, zonePlan } }, { transfer: [data.distances.buffer, data.positions.buffer] })
+    } else if (request.kind === 'gpuPreview') {
+      if (!cache) throw new Error('GI geometry has not been prepared')
+      const value = cache.gpuPreview()
+      const buffers=(graph:typeof value.volume)=>[graph.offsets.buffer,graph.counts.buffer,graph.indices.buffer,graph.weights.buffer,...(graph.supports?[graph.supports.buffer]:[]),...(graph.supportOverrides?[graph.supportOverrides.indices.buffer,graph.supportOverrides.weights.buffer]:[])]
+      self.postMessage({ id: request.id, ok: true, value }, { transfer: [
+        ...buffers(value.volume),...buffers(value.floor),
+      ] })
     } else if (request.kind === 'plan') {
       if (!cache) throw new Error('GI geometry has not been prepared')
       self.postMessage({ id: request.id, ok: true, value: cache.plan(request.previous, request.changes) })
@@ -91,7 +114,7 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
           try {
             for (let row = 0; row < field.floors.length * INDIRECT_MASK_SIZE; row++) writeIndirectCeilingRow(field, row, structure)
           } finally { structure.dispose() }
-          const volumeLookup = createIndirectVolumeLookup(field, visibility), result = new Float64Array(12)
+          const volumeLookup = createIndirectVolumeLookup(field, visibility), result = new Float64Array(field.coefficientCount * 3)
           volumeLookup.refreshCoefficients()
           for (let row = 0; row < field.volume.rows; row++) writeIndirectVolumeRow(field, row, result, visibility, volumeLookup)
         }
@@ -108,7 +131,7 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
       // Once final evaluation starts it finishes any remaining weights itself.
       if (request.kind === 'volume') stopWarming()
       const data = request.kind === 'preview' ? cache.preview(request.coefficients, request.positions) :
-        { volume: cache.volume(request.coefficients, request.positions), floor: cache.field.floorLayer.data.slice() }
+        { volume: cache.volume(request.coefficients, request.positions), floor: cache.field.floorLayer.data.slice(),interpolationProfile:cache.interpolationStatistics() }
       self.postMessage({ id: request.id, ok: true, value: data }, { transfer: [data.volume.buffer, data.floor.buffer] })
     }
   } catch (error) {

@@ -6,6 +6,7 @@ export function formatViewerStatus(preparation: string | null, lighting?: Indire
   if (lighting?.enabled === false) return 'Scene ready.'
   if (lighting?.state === 'fallback') return `Scene ready. ${lighting.cacheReason ?? 'Indirect lighting unavailable.'}`
   if (lighting?.state === 'loading') return 'Loading saved lighting...'
+  if (lighting?.state === 'preview') return 'Scene ready. Preview lighting.'
   if (lighting?.floorPreparing) return 'Preparing floor lighting...'
   if (lighting?.state === 'ready' && !lighting.volumePending && !lighting.pendingUpdate) return 'Scene ready.'
   if (lighting?.xr) return 'Lighting paused during VR.'

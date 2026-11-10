@@ -34,6 +34,8 @@ export const workspaceClient = {
   upload: (file: File, kind: WorkspaceAsset['kind'], signal?: AbortSignal) => request<{ asset: WorkspaceAsset; workspace: Workspace }>(
     `/assets?${new URLSearchParams({ name: file.name, kind })}`, { method: 'POST', body: file, signal }),
   remove: (id: string, signal?: AbortSignal) => request<{ ok: boolean; workspace: Workspace }>(`/assets/${encodeURIComponent(id)}`, { method: 'DELETE', signal }),
+  replaceProject: (id: string, file: File) => request<{ asset: WorkspaceAsset; workspace: Workspace }>(
+    `/assets/${encodeURIComponent(id)}?${new URLSearchParams({ name: file.name, kind: 'project' })}`, { method: 'PUT', body: file }),
   downloadUrl: (id: string) => `${endpoint}/assets/${encodeURIComponent(id)}`,
 }
 

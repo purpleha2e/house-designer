@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
+import { applyCameraLook } from '../cameraLook'
 import { getViewerMovement, VIEWER_HEAD_HEIGHT, type ViewerNavigationMode } from './viewerNavigation'
 import { CameraInputTiming, markViewportNavigation } from '../viewportScheduling'
 import { ViewerTouchContext } from './viewerTouchInput'
@@ -48,12 +49,9 @@ export function ViewerCameraControls({ mode, floorElevation, enabled }: {
       }
       resyncLook.current = false
       markViewportNavigation()
-      camera.rotation.order = 'YXZ'
       const lookSensitivity = event.pointerType === 'touch' ? 0.006 : 0.003
-      camera.rotation.y -= (event.clientX - drag.x) * lookSensitivity
-      camera.rotation.x = Math.max(-Math.PI * 0.47, Math.min(Math.PI * 0.47,
-        camera.rotation.x - (event.clientY - drag.y) * lookSensitivity))
-      camera.rotation.z = 0
+      applyCameraLook(camera, -(event.clientX - drag.x) * lookSensitivity,
+        -(event.clientY - drag.y) * lookSensitivity, Math.PI * .47)
       drag.x = event.clientX; drag.y = event.clientY
     }
     const up = (event: PointerEvent) => {

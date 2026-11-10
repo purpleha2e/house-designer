@@ -8,6 +8,10 @@ type ToolbarProps = {
   onOpenMaterialEditor: () => void
   onOpenAccount?: () => void
   onSaveProject: () => void
+  onSaveToDevice: () => void
+  onSaveToCloud: () => void
+  canSave: boolean
+  isSaving: boolean
 }
 
 export function Toolbar({
@@ -20,6 +24,10 @@ export function Toolbar({
   onOpenMaterialEditor,
   onOpenAccount,
   onSaveProject,
+  onSaveToDevice,
+  onSaveToCloud,
+  canSave,
+  isSaving,
 }: ToolbarProps) {
   return (
     <div className="project-menu-dropdown">
@@ -47,6 +55,8 @@ export function Toolbar({
       </button>
       <button
         type="button"
+        disabled={!canSave}
+        title={canSave ? 'Overwrite the last saved destination' : 'Choose Save to cloud or Save to device first'}
         onClick={() => {
           onSaveProject()
           onClose()
@@ -54,6 +64,8 @@ export function Toolbar({
       >
         Save
       </button>
+      <button type="button" disabled={isSaving} onClick={() => { onSaveToCloud(); onClose() }}>Save to cloud</button>
+      <button type="button" disabled={isSaving} onClick={() => { onSaveToDevice(); onClose() }}>Save to device</button>
       <button
         type="button"
         onClick={() => {

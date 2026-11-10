@@ -42,8 +42,18 @@ try {
   }
   await call('Page.enable'); await call('Runtime.enable'); await call('Profiler.enable');await call('Log.enable');await call('Performance.enable')
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
+  if (process.argv.includes('--gpu-preview')) {
+    await call('Page.navigate', {url:`http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/indirectGpuPreviewRegression.html`})
+    let result
+    for(let i=0;i<900&&!result;i++){
+      await new Promise(resolve=>setTimeout(resolve,100));result=await evaluate('window.gpuPreviewResult')
+      if(errors.length)throw Error(JSON.stringify(errors))
+    }
+    assert.ok(result,'GPU preview did not finish');assert.ok(!result.error,JSON.stringify(result));assert.equal(result.glError,0)
+    console.log('PASS GPU preview:',JSON.stringify(result));ws.close();browser.kill();process.exit(0)
+  }
   if (process.argv.includes('--surface-relighting')) {
-    await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5186}/tests/browser/indirectSurfaceRelightingRegression.html?${process.argv.includes('--static-capture')?'static&':''}${process.argv.includes('--sun')?'sun':''}` })
+    await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5186}/tests/browser/indirectSurfaceRelightingRegression.html?${process.argv.includes('--l2')?'giSH=2&':''}${process.argv.includes('--static-capture')?'static&':''}${process.argv.includes('--sun')?'sun':''}${process.argv.includes('--size16')?'&size16':''}${process.argv.includes('--night-surface')?'&night-surface':''}` })
     let result
     for(let i=0;i<900&&!result;i++) {
       await new Promise(resolve=>setTimeout(resolve,100));result=await evaluate('window.surfaceRelightingResult')

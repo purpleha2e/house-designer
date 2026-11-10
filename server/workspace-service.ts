@@ -128,6 +128,10 @@ export async function createWorkspaceService({ directory, quotaBytes, maxUploadB
         json(response, 201, { asset, workspace: store.workspace(user.id) }); return
       }
       const assetMatch = path.match(/^\/api\/workspace\/assets\/([a-f0-9-]{36})$/)
+      if (assetMatch && method === 'PUT') {
+        const asset = await store.replaceProject(user.id, assetMatch[1], validateUpload(url, await body(request, maxUploadBytes)))
+        json(response, 200, { asset, workspace: store.workspace(user.id) }); return
+      }
       if (assetMatch && method === 'GET') {
         const { asset, contents } = await store.download(user.id, assetMatch[1])
         response.writeHead(200, { 'Content-Type': asset.contentType, 'Content-Length': contents.byteLength,

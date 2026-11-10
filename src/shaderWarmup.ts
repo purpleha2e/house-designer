@@ -88,6 +88,8 @@ function* shaderRevisionSteps(scene: Object3D, changed?: { prepared: Set<string>
     const source = object as Renderable
     if (!source.material || isSelectionDecoration(object)) continue
     for (const attached of Array.isArray(source.material) ? source.material : [source.material]) {
+      // React can detach an indexed material while the project is replaced.
+      if (!attached) continue
       const material = fadeSources.get(attached) ?? attached
       let materialKey = materialKeys.get(material)
       if (materialKey === undefined) {
@@ -151,6 +153,7 @@ function* shaderResourceRevisionSteps(scene: Object3D) {
     if (!mesh.geometry || !mesh.material || isSelectionDecoration(object)) continue
     entries.add(mesh.geometry.uuid + ':' + geometryResourceKey(mesh.geometry))
     for (const attached of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      if (!attached) continue
       const material = fadeSources.get(attached) ?? attached
       if (materials.has(material)) continue
       materials.add(material)
@@ -242,6 +245,7 @@ function* shaderSnapshotSteps(scene: Object3D, options: {
     const cached = variants.get(variantKey)
     if (cached) return cached
     const material = source.clone()
+    if ('defaultAttributeValues' in source) Object.assign(material, { defaultAttributeValues: source.defaultAttributeValues })
     if ('defines' in source) Object.assign(material, { defines: { ...(source.defines as Record<string, unknown>) } })
     // Material.clone deliberately omits application shader hooks.
     material.onBeforeCompile = source.onBeforeCompile.bind(source)
@@ -268,6 +272,9 @@ function* shaderSnapshotSteps(scene: Object3D, options: {
       if (sourceRoot === scene && isSelectionDecoration(object)) continue
       if (sourceRoot === scene && changed && !changed.objects.has(object)) continue
       if (!source.material || !(source.material instanceof Material || Array.isArray(source.material))) continue
+      // Preserve material/group indices; a later scan picks up this mesh once
+      // all of its finishes have attached instead of compacting the array.
+      if (Array.isArray(source.material) && Array.from(source.material).some(material => !material)) continue
       const role = object.userData.houseDesignerRole
       const mesh = object as Mesh
       const features = JSON.stringify([object.type,
@@ -342,6 +349,7 @@ function* shaderSnapshotSteps(scene: Object3D, options: {
       const entries = originals.map(original => {
         if (!original.transparent || original.side !== DoubleSide || original.forceSinglePass) return original
         const material = original.clone()
+        if ('defaultAttributeValues' in original) Object.assign(material, { defaultAttributeValues: original.defaultAttributeValues })
         if ('defines' in original) Object.assign(material, { defines: { ...(original.defines as Record<string, unknown>) } })
         material.onBeforeCompile = original.onBeforeCompile.bind(original)
         const key = original.customProgramCacheKey(); material.customProgramCacheKey = () => key
@@ -377,11 +385,20 @@ export async function prepareShaderWarmupSnapshot(scene: Object3D, options: Para
   return undefined
 }
 
+/** Keep every submitted poller alive through failure before an owner can
+ * dispose the shared source materials used by another submitted variant. */
+export async function drainShaderWarmupPrograms(programs: Promise<unknown>[]) {
+  const results = await Promise.allSettled(programs)
+  const failure = results.find(result => result.status === 'rejected')
+  if (failure?.status === 'rejected') throw failure.reason
+}
+
 /** compileAsync submits all programs synchronously before it returns a Promise.
  * Submit small batches in separate tasks, retaining every variant until ready. */
 export async function compileShaderWarmup(renderer: WebGLRenderer, root: Object3D, camera: Camera, targetScene: Scene,
   options: { cancelled?: () => boolean; compile?: (batch: Object3D) => Promise<unknown>;
     preparedRevision?: string;
+    batchSize?: number; maxInFlight?: number;
     onProgress?: (completed: number, total: number) => void } = {}) {
   const cancelled = options.cancelled ?? (() => false)
   // Transform/vertex positions do not create shader variants. One representative
@@ -401,20 +418,30 @@ export async function compileShaderWarmup(renderer: WebGLRenderer, root: Object3
   // the slowest program in every batch. Keep a bounded queue in flight.
   const inFlight = new Set<Promise<void>>()
   const submitted: Promise<void>[] = []
-  const total = Math.ceil(children.length / 4)
+  const batchSize = Math.max(1, Math.floor(options.batchSize ?? 4))
+  const maxInFlight = Math.max(1, Math.floor(options.maxInFlight ?? 4))
+  const total = Math.ceil(children.length / batchSize)
   let completed = 0
   options.onProgress?.(completed, total)
   let failure: unknown, failed = false
+  // WebGLRenderer.compile gathers lights from both targetScene and its new
+  // object argument. A batch of this scene's existing children must not add
+  // those same lights twice: that compiles the wrong light-count variant.
+  const targetLights = new WeakSet<Object3D>()
+  targetScene.traverseVisible(object => { if (object instanceof Light) targetLights.add(object) })
   try {
     for (let offset = 0; offset < children.length;) {
       if (!await waitForViewportIdle(cancelled) || failed) break
-      const part = new Group(); part.children = children.slice(offset, offset + 4)
+      const part = new Group(); part.children = children.slice(offset, offset + batchSize)
+      part.traverseVisible = callback => Group.prototype.traverseVisible.call(part, object => {
+        if (!(object instanceof Light) || !targetLights.has(object)) callback(object)
+      })
       const compile = options.compile ? options.compile(part) : renderer.compileAsync(part, camera, targetScene)
       const pending = compile.then(() => { options.onProgress?.(++completed, total) }, error => { failed = true; failure = error })
       submitted.push(pending); inFlight.add(pending)
       void pending.then(() => inFlight.delete(pending))
-      offset += 4
-      if (inFlight.size >= 4) await Promise.race(inFlight)
+      offset += batchSize
+      if (inFlight.size >= maxInFlight) await Promise.race(inFlight)
     }
   } finally {
     // Three keeps polling the snapshot materials. Cancellation or an error
@@ -426,10 +453,19 @@ export async function compileShaderWarmup(renderer: WebGLRenderer, root: Object3
 
 }
 
+/** Preparation yields after collecting source meshes. An edit can detach and
+ * dispose one before its turn; uploading it then would recreate GPU resources
+ * after the owner's final disposal. Borrow only sources still in this root. */
+function isWarmupSourceAttached(root: Object3D, source: Object3D) {
+  for (let object: Object3D | null = source; object; object = object.parent) if (object === root) return true
+  return false
+}
+
 /** Shader readiness alone does not upload textures/vertex buffers. Warm one
  * geometry at a time with a zero-length draw, yielding between short batches. */
 export async function prepareShaderWarmupResources(renderer: WebGLRenderer, root: Object3D, camera: Camera, targetScene: Scene,
-  offscreen: boolean, cancelled: () => boolean, render?: (scene: Scene) => void, renderTarget?: WebGLRenderTarget | null) {
+  offscreen: boolean, cancelled: () => boolean, render?: (scene: Scene) => void, renderTarget?: WebGLRenderTarget | null,
+  compile?: (scene: Scene) => Promise<unknown>) {
   const textures = new Set<Texture>(), geometries = new Set<Mesh['geometry']>(), proxies: Mesh[] = []
   const cache = resourceCache(renderer)
   let started = performance.now()
@@ -440,6 +476,7 @@ export async function prepareShaderWarmupResources(renderer: WebGLRenderer, root
     const mesh=object as Mesh
     if (!mesh.geometry || !mesh.material) continue
     for (const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]) {
+      if (!material) continue
       for (const value of Object.values(material)) if (value instanceof Texture) textures.add(value)
     }
     if (!geometries.has(mesh.geometry)) { geometries.add(mesh.geometry); proxies.push(mesh) }
@@ -459,29 +496,99 @@ export async function prepareShaderWarmupResources(renderer: WebGLRenderer, root
     for (const source of proxies) {
       if(performance.now()-started>3){if(!await waitForViewportIdle(cancelled))return false;started=performance.now()}
       if(cancelled())return false
+      if(!isWarmupSourceAttached(root,source))continue
       const resourceKey=geometryResourceKey(source.geometry)
       if(cache.entries.get(source.geometry)===resourceKey)continue
       const materials=Array.isArray(source.material)?source.material:[source.material]
       if(materials.some(m=>'transmission' in m&&Number(m.transmission)>0))continue
       const copy=cloneViewportObject(source),proxy=copy.object
       proxy.visible=true;proxy.frustumCulled=false;proxy.layers.enableAll();scene.add(proxy)
-      const range={...proxy.geometry.drawRange},previous=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel()
-      const autoClear=renderer.autoClear,autoUpdate=renderer.shadowMap.autoUpdate,needsUpdate=renderer.shadowMap.needsUpdate,stats={...renderer.info.render}
+      const sourceGeometry=source.geometry, sourceMaterials=[...materials]
       try {
-        // A negative count exits Three before issuing a GL draw. A count of
-        // zero still calls drawElements, which validates not-yet-created
-        // shadow samplers and multiview framebuffer state on a cold scene.
-        proxy.geometry.setDrawRange(0,-1)
-        renderer.autoClear=false;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=false
-        renderer.setRenderTarget(target)
-        if(render)render(scene);else renderer.render(scene,camera)
-        recordViewportGeometryUpload(renderer, source.geometry)
+        // Resource proxies can select a different target/light variant from
+        // the preceding warmup. Link that exact variant asynchronously before
+        // render's setProgram() reaches synchronous uniform reflection.
+        // Custom shader passes supply their matching compile adapter too.
+        if (compile || !render) {
+          const previous=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel()
+          let linking: Promise<unknown>
+          try {
+            renderer.setRenderTarget(target)
+            linking=compile ? compile(scene) : renderer.compileAsync(scene,camera,scene)
+          } finally { renderer.setRenderTarget(previous,face,mip) }
+          await linking
+          if(cancelled())return false
+          const current=Array.isArray(source.material)?source.material:[source.material]
+          // Compilation yields. Do not recreate buffers/programs for a source
+          // whose owner detached, replaced or disposed it in the meantime.
+          if(!isWarmupSourceAttached(root,source)||source.geometry!==sourceGeometry||
+            current.length!==sourceMaterials.length||current.some((value,index)=>value!==sourceMaterials[index]))continue
+        }
+        const range={...proxy.geometry.drawRange},previous=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel()
+        const autoClear=renderer.autoClear,autoUpdate=renderer.shadowMap.autoUpdate,needsUpdate=renderer.shadowMap.needsUpdate,stats={...renderer.info.render}
+        try {
+          // A negative count exits Three before issuing a GL draw. Zero still
+          // validates not-yet-created shadow samplers on a cold scene.
+          proxy.geometry.setDrawRange(0,-1)
+          renderer.autoClear=false;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=false
+          renderer.setRenderTarget(target)
+          if(render)render(scene);else renderer.render(scene,camera)
+          recordViewportGeometryUpload(renderer, source.geometry)
+        } finally {
+          proxy.geometry.setDrawRange(range.start,range.count)
+          renderer.autoClear=autoClear;renderer.shadowMap.autoUpdate=autoUpdate;renderer.shadowMap.needsUpdate=needsUpdate
+          renderer.setRenderTarget(previous,face,mip);Object.assign(renderer.info.render,stats)
+        }
       } finally {
-        proxy.geometry.setDrawRange(range.start,range.count);scene.remove(proxy);copy.dispose()
-        renderer.autoClear=autoClear;renderer.shadowMap.autoUpdate=autoUpdate;renderer.shadowMap.needsUpdate=needsUpdate
-        renderer.setRenderTarget(previous,face,mip);Object.assign(renderer.info.render,stats)
+        scene.remove(proxy);copy.dispose()
       }
     }
     return !cancelled()
   } finally { if(renderTarget===undefined)target?.dispose() }
+}
+
+/** Linking does not prepare every native vertex-layout/render-target pipeline.
+ * Exercise a tiny real draw per variant and drain it before queuing the next.
+ * The owned offscreen target is cleared again before any actual capture. */
+export async function prepareShaderWarmupPipelines(renderer: WebGLRenderer, root: Object3D, camera: Camera,
+  targetScene: Scene, target: WebGLRenderTarget, cancelled: () => boolean, render?: (scene: Scene) => void) {
+  const scene = new Scene(), context = renderer.getContext() as WebGL2RenderingContext
+  scene.environment = targetScene.environment; scene.environmentIntensity = targetScene.environmentIntensity
+  scene.environmentRotation.copy(targetScene.environmentRotation); scene.fog = targetScene.fog
+  targetScene.traverseVisible(object => { if (object instanceof Light) scene.add(object.clone(false)) })
+  const objects: Mesh[] = []
+  root.traverse(object => { const mesh = object as Mesh; if (mesh.geometry && mesh.material) objects.push(mesh) })
+  for (const source of objects) for (const material of Array.isArray(source.material) ? source.material : [source.material]) {
+    if (!material) continue
+    if (!await waitForViewportIdle(cancelled)) return false
+    if (!isWarmupSourceAttached(root,source)) continue
+    const copy = cloneViewportObject(source), proxy = copy.object
+    proxy.material = material; proxy.visible = true; proxy.frustumCulled = false; proxy.layers.enableAll()
+    scene.add(proxy)
+    const range = { ...proxy.geometry.drawRange }, previous = renderer.getRenderTarget()
+    const face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
+    const autoClear = renderer.autoClear, autoUpdate = renderer.shadowMap.autoUpdate, needsUpdate = renderer.shadowMap.needsUpdate
+    const stats = { ...renderer.info.render }
+    let fence: WebGLSync | null
+    try {
+      proxy.geometry.setDrawRange(range.start, Math.min(3, range.count))
+      renderer.autoClear = false; renderer.shadowMap.autoUpdate = false; renderer.shadowMap.needsUpdate = false
+      renderer.setRenderTarget(target)
+      if (render) render(scene); else renderer.render(scene, camera)
+      fence = context.fenceSync(context.SYNC_GPU_COMMANDS_COMPLETE, 0); context.flush()
+    } finally {
+      proxy.geometry.setDrawRange(range.start, range.count); scene.remove(proxy); copy.dispose()
+      renderer.autoClear = autoClear; renderer.shadowMap.autoUpdate = autoUpdate; renderer.shadowMap.needsUpdate = needsUpdate
+      renderer.setRenderTarget(previous, face, mip); Object.assign(renderer.info.render, stats)
+    }
+    if (fence) try {
+      while (!cancelled() && !context.isContextLost()) {
+        await new Promise(resolve => setTimeout(resolve, 4))
+        const status = context.clientWaitSync(fence, 0, 0)
+        if (status === context.ALREADY_SIGNALED || status === context.CONDITION_SATISFIED) break
+        if (status === context.WAIT_FAILED) throw new Error('Capture pipeline preparation failed')
+      }
+    } finally { context.deleteSync(fence) }
+  }
+  return !cancelled()
 }

@@ -31,6 +31,7 @@ try {
     if (request) { pending.delete(message.id); clearTimeout(request.timer); message.error ? request.reject(message.error) : request.resolve(message.result) }
     if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description ?? message.params.exceptionDetails.text)
     if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'error') errors.push(message.params.args.map(a => a.value ?? a.description).join(' '))
+    if (message.method === 'Runtime.consoleAPICalled' && message.params.type === 'warning') console.log('Browser warning', message.params.args.map(a => a.value ?? a.description).join(' '))
   })
   const send = (method, params = {}, sessionId) => new Promise((resolve, reject) => {
     const requestId = ++id, timer = setTimeout(() => { pending.delete(requestId); reject(Error(`${method} timed out`)) }, 30000)
@@ -49,7 +50,18 @@ try {
   if (process.argv.includes('--profile-ui')) { await call('Profiler.enable'); await call('Profiler.start') }
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
   await call('Page.addScriptToEvaluateOnNewDocument', { source: `
-    window.giProfile={workers:[],reads:[],polls:[],longTasks:[],heartbeats:[]};
+    // Freeze the profiled module graph while unrelated fixture files are edited.
+    // An HMR document reload would otherwise invalidate the timing run.
+    const NativeSocket=window.WebSocket;
+    window.WebSocket=class extends NativeSocket{constructor(url,protocols){super(url,protocols);if(protocols==='vite-hmr')this.addEventListener('message',event=>event.stopImmediatePropagation())}};
+    window.giProfile={workers:[],reads:[],polls:[],longTasks:[],heartbeats:[],driverStalls:[]};
+    for(const name of ['getProgramParameter','getShaderInfoLog','getProgramInfoLog','getActiveUniform','getUniformLocation',
+      'texImage2D','texSubImage2D','texImage3D','texSubImage3D','finish','readPixels','getBufferSubData','clientWaitSync','linkProgram','compileShader','drawElements','drawArrays']) {
+      const original=WebGL2RenderingContext.prototype[name];if(!original)continue;
+      WebGL2RenderingContext.prototype[name]=function(...args){const at=performance.now();try{return original.apply(this,args)}finally{
+        const ms=performance.now()-at;if(ms>50)giProfile.driverStalls.push({name,at,ms,state:window.roofWallScene?.()?.scene.userData.indirectLighting?.state});
+      }};
+    }
     new PerformanceObserver(list=>{for(const entry of list.getEntries())window.giProfile.longTasks.push({at:entry.startTime,ms:entry.duration,
       state:window.roofWallScene?.()?.scene.userData.indirectLighting?.state})}).observe({type:'longtask',buffered:true});
     let previousHeartbeat=performance.now();setInterval(()=>{const now=performance.now();window.giProfile.heartbeats.push(now-previousHeartbeat);previousHeartbeat=now},16);
@@ -60,7 +72,7 @@ try {
       postMessage(message,...args){if(this.gi&&message.kind!=='lampResult'&&message.kind!=='lampPorts'){const r={kind:message.kind,at:performance.now(),finished:false};if(message.kind==='prepare'){r.parallelLamps=message.parallelLamps;r.lightCount=message.lights.length;r.triangles=message.geometry.reduce((s,p)=>s+p.matrices.length*p.ranges.reduce((t,r)=>t+Math.floor(r.count/3),0),0)}this.requests.set(message.id,r);window.giProfile.workers.push(r)}return super.postMessage(message,...args)}
     };
   ` })
-  await call('Page.navigate', { url: `http://127.0.0.1:${port}/tests/browser/roofWallRegression.html?${encodeURIComponent(project)}` })
+  await call('Page.navigate', { url: `http://127.0.0.1:${port}/tests/browser/roofWallRegression.html?${encodeURIComponent(project)}${process.argv.includes('--published') ? '&published-materials' : ''}${process.argv.includes('--gpu-timing')?'&lightingProfile':''}` })
   const start = Date.now()
   let attached = false, status, ready = false, lastLog = 0, initial
   while (Date.now() - start < seconds * 1000) {
@@ -219,7 +231,7 @@ try {
       const {generation,state,completed,total,probes,rooms,preparing,warming,reading,volumePending,previewPending,pendingUpdate,blocked,pass,captureMs,capturedFaces,firstPreviewMs,bakeStartedAt,maxFaceMs,moving,inFlight,maxInFlight}=s;
       const poll={at:performance.now(),generation,state,completed,total,probes,rooms,preparing,warming,reading,volumePending,previewPending,pendingUpdate,blocked,pass,captureMs,capturedFaces,firstPreviewMs,bakeStartedAt,maxFaceMs,moving,inFlight,maxInFlight,prepareTimings:s.prepareTimings,prepareStage:s.prepareStage,captureSceneMs:s.captureSceneMs,captureMergedMeshes:s.captureMergedMeshes,captureSceneMeshes:s.captureSceneMeshes,captureDrawCalls:s.captureDrawCalls,captureTriangles:s.captureTriangles,multiviewViews:s.multiviewViews,multiviewBatches:s.multiviewBatches,multiviewProbes:s.multiviewProbes,surfaceCacheBytes:s.surfaceCacheBytes,surfaceCachedProbes:s.surfaceCachedProbes,surfaceReplayedProbes:s.surfaceReplayedProbes,surfaceReusedFaces:s.surfaceReusedFaces,surfaceDataFaces:s.surfaceDataFaces};window.giProfile.polls.push(poll);return poll})()`)
     if (Date.now() - lastLog > 10000) { console.log('GI', JSON.stringify(status)); lastLog = Date.now() }
-    if (status?.state === 'fallback') throw Error(`GI unavailable: ${JSON.stringify(status)}`)
+    if (status?.state === 'fallback') { console.log('GI failure', await evaluate('window.roofWallScene().scene.userData.indirectLighting')); break }
     if (process.argv.includes('--compare-only') && await evaluate('window.giProfile.comparisons?.filter(r=>r.pass===2).length>=72')) break
     if (process.argv.includes('--prepare-only') && status?.prepareTimings && status?.probes) break
     if (status?.state === 'ready' && !status.volumePending && !status.pendingUpdate) {
@@ -235,7 +247,12 @@ try {
   }
   if (process.argv.includes('--compare-surfaces')) await evaluate('(async()=>{while(window.giProfile.surfacePending)await new Promise(resolve=>setTimeout(resolve,50))})()')
   if (process.argv.includes('--compare-multiview')) await evaluate('(async()=>{while(window.giProfile.multiviewPending)await new Promise(resolve=>setTimeout(resolve,50))})()')
-  const data = await evaluate('window.giProfile')
+  const settleMs = Number(process.argv.find(arg => arg.startsWith('--settle-ms='))?.split('=')[1] ?? 0)
+  if (ready && settleMs > 0) {
+    await evaluate('window.giProfile.readyAt=performance.now()')
+    await new Promise(resolve => setTimeout(resolve, settleMs))
+  }
+  const data = await evaluate('({...window.giProfile, lightingPerformance:window.roofWallScene()?.scene.userData.getLightingPerformance?.(), warmup:window.roofWallScene()?.scene.userData.shaderWarmupProfile, progressive:window.roofWallScene()?.scene.userData.progressiveStartup})')
   const stats = values => {
     const sorted = values.filter(Number.isFinite).sort((a, b) => a - b)
     return { count: sorted.length, sumMs: sorted.reduce((a, b) => a + b, 0), minMs: sorted[0], maxMs: sorted.at(-1), medianMs: sorted[Math.floor(sorted.length * .5)], p95Ms: sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * .95))] }
@@ -244,14 +261,15 @@ try {
     bakeMs: status?.bakeStartedAt ? status.at - status.bakeStartedAt : undefined,
     hardware: data.hardware, status, ...(initial ? { initial } : {}),
     workers: Object.fromEntries([...new Set(data.workers.map(r => r.kind))].map(kind => [kind, stats(data.workers.filter(r => r.kind === kind && r.finished).map(r => r.ms))])),
-    probeReadbacks: stats(data.reads.filter(r => r.width === 4 && r.height === 1).map(r => r.ms)),
-    uiLongTasks: stats(data.longTasks.map(r => r.ms)), uiHeartbeatGaps: stats(data.heartbeats),
+    probeReadbacks: stats(data.reads.filter(r => (r.width === 4 || r.width === 8) && r.height === 1).map(r => r.ms)),
+    uiLongTasks: stats(data.longTasks.map(r => r.ms)), uiHeartbeatGaps: stats(data.heartbeats), driverStalls: data.driverStalls,
+    ...(data.readyAt ? { postReadyLongTasks: data.longTasks.filter(task => task.at >= data.readyAt) } : {}),
     sampledStates: Object.fromEntries(['blocked','preparing','warming','reading','volumePending','previewPending','moving'].map(key => [key, data.polls.filter(p => p[key]).length])), samples: data.polls.length, errors }
   if (data.comparisons) summary.comparisons = data.comparisons
   if (data.surfaceComparisons) summary.surfaceComparisons=data.surfaceComparisons
   if (data.multiviewComparisons) summary.multiviewComparisons=data.multiviewComparisons
   const viewSuffix = (data.multiviewComparisons ? '-multiview-comparison' : process.argv.includes('--multiview') || process.argv.includes('--multiview-2') ? '-multiview' : '') + (process.argv.includes('--multiview-2') ? '-2' : '')
-  const path = `.tmp-gi-pipeline-${project}${data.comparisons ? '-capture-comparison' : data.surfaceComparisons ? '-surface-comparison' : status?.surfaceCacheBytes ? '-surface' : '-uncached'}${viewSuffix}${initial ? '-sun-edit' : ''}-${summary.captureBudget}.json`
+  const path = process.argv.find(arg=>arg.startsWith('--output='))?.slice(9) ?? `logs/gi-pipeline-${project}${data.comparisons ? '-capture-comparison' : data.surfaceComparisons ? '-surface-comparison' : status?.surfaceCacheBytes ? '-surface' : '-uncached'}${viewSuffix}${initial ? '-sun-edit' : ''}-${summary.captureBudget}.json`
   writeFileSync(path, JSON.stringify({ summary, ...data }, null, 2))
   if (process.argv.includes('--profile-ui')) writeFileSync(path.replace('.json', '.cpuprofile'), JSON.stringify((await call('Profiler.stop')).profile))
   console.log(JSON.stringify(summary, null, 2)); console.log(`Detailed profile: ${path}`)

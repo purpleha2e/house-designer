@@ -1,0 +1,4 @@
+import assert from 'node:assert/strict'
+import {lightingBrowser} from './lightingHarness.mjs'
+const browser=await lightingBrowser()
+try{await browser.call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5180}/tests/browser/captureBatching.html`});await browser.wait('!!window.captureBatchingResult');const r=await browser.evaluate('captureBatchingResult');console.log(JSON.stringify(r));assert.equal(r.error,undefined);assert.equal(r.glError,0);assert.ok(r.afterCalls<r.beforeCalls*.5,'world/material batching removes redundant draws');assert.ok(r.maxError<.003&&r.meanError<.0001,'capture pixels preserve position, normals, UVs and distinct finish uniforms');assert.deepEqual(browser.errors,[]);console.log('PASS capture batching preserves GPU pixels and authored variation uniforms')}finally{browser.close()}

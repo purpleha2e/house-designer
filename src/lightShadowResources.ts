@@ -24,6 +24,18 @@ export function createLightShadowControl(initial: boolean) {
   }
 }
 export type LightShadowControl = ReturnType<typeof createLightShadowControl>
+export type LightShadowState = Pick<LightShadowControl, 'get' | 'subscribe'>
+
+/** The master switch gates local shadows without changing their own preference. */
+export function combineLightShadowControls(master: LightShadowState, local: LightShadowState): LightShadowState {
+  return {
+    get: () => master.get() && local.get(),
+    subscribe(listener) {
+      const releaseMaster = master.subscribe(listener), releaseLocal = local.subscribe(listener)
+      return () => { releaseMaster(); releaseLocal() }
+    },
+  }
+}
 
 /** Keep the shader light counts and targets stable across display toggles. */
 export function setLightShadowEnabled(shadow: LightShadow, enabled: boolean, active: boolean) {

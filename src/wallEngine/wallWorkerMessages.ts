@@ -3,7 +3,9 @@ import type { WallSelectionInput } from './wallSelectionPreparation.ts'
 import type { WallRenderJob } from './wallRenderPreparation.ts'
 import type { WallRoofClipInputJob, WallRoofClipJob } from './wallRoofClipJob.ts'
 
-export type WallWorkerJob = WallRenderJob | WallRoofClipJob | WallRoofClipInputJob | (WallRoofClipInputJob & { selection: WallSelectionInput })
+export type WallWorkerJob = WallRenderJob | WallRoofClipJob | WallRoofClipInputJob | (WallRoofClipInputJob & {
+  selection: WallSelectionInput; render?: Omit<WallRenderJob, 'kind' | 'faces'>
+})
 export const WALL_MESSAGE_FACE_LIMIT = 128
 export type WallWorkerMessage = WallWorkerJob |
   { stream: 'start'; job: WallWorkerJob; sharedWallFaces: boolean } |

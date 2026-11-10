@@ -1,10 +1,47 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BatchedMesh, BoxGeometry, Group, InstancedMesh, Light, Matrix4, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PointLight, SpotLight, Scene, Texture, Vector3 } from 'three'
+import { BatchedMesh, BoxGeometry, DirectionalLight, Group, InstancedMesh, Light, Matrix4, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PointLight, SpotLight, Scene, Texture, Vector3, WebGLRenderTarget } from 'three'
 import { createOpaqueViewportScene, prepareOpaqueViewportScene } from '../src/opaqueViewportScene.ts'
 import { createIndirectField } from '../src/indirectLighting.ts'
 import { applyIndirectLightingShader, createIndirectUniforms, getIndirectLightingUniforms } from '../src/indirectLightingShader.ts'
 import { applyRoomLightShader, createRoomLightShaderUniforms, getRoomLightUniforms } from '../src/roomLightShader.ts'
+
+test('basic geometry fallback keeps authored colour, glass and cutouts without detailed shader inputs', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), map = new Texture()
+  const source = new MeshPhysicalMaterial({ color: '#778899', map, alphaMap: map, alphaTest: .4,
+    normalMap: map, roughnessMap: map, metalnessMap: map, aoMap: map, transmission: 1, transparent: true })
+  scene.add(new Mesh(geometry, source))
+  const display = createOpaqueViewportScene(scene, { basic: true })
+  const copy = (display.scene.children.find(o => o instanceof Mesh) as Mesh).material as MeshStandardMaterial
+  assert.equal(display.scene.userData.basicGeometryViewport, true)
+  assert.ok(copy.color.equals(source.color)); assert.equal(copy.map, map); assert.equal(copy.alphaMap, map)
+  assert.equal(copy.alphaTest, .4); assert.equal(copy.transparent, true); assert.ok(copy.opacity < 1)
+  for (const key of ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap'] as const) assert.equal(copy[key], null)
+  assert.equal(source.normalMap, map); assert.equal(source.transmission, 1)
+  display.dispose(); geometry.dispose(); source.dispose(); map.dispose()
+})
+
+test('early sunlight preserves casters, receivers and hidden ceiling blockers without owning the source shadow map', () => {
+  const source = new Scene(), sun = new DirectionalLight(), geometry = new BoxGeometry()
+  sun.userData.houseDesignerRole = 'sun-light'; sun.castShadow = true
+  sun.shadow.map = new WebGLRenderTarget(16,16)
+  let disposed = 0; sun.shadow.map.addEventListener('dispose',()=>disposed++)
+  const surface = new Mesh(geometry,new MeshStandardMaterial())
+  surface.castShadow = surface.receiveShadow = true
+  const blocker = new Mesh(geometry,new MeshStandardMaterial({colorWrite:false}))
+  blocker.userData.houseDesignerSunShadowBlocker = true; blocker.visible = false; blocker.castShadow = true
+  source.add(sun,sun.target,surface,blocker)
+  const snapshot = createOpaqueViewportScene(source,{lighting:true})
+  assert.equal(snapshot.scene.userData.preparedLightingViewport,true)
+  const light = snapshot.scene.children.find(o=>o instanceof DirectionalLight) as DirectionalLight
+  assert.equal(light.castShadow,true); assert.equal(light.shadow,sun.shadow)
+  const copy = snapshot.scene.children.find(o=>o instanceof Mesh&&!o.userData.houseDesignerSunShadowBlocker) as Mesh
+  assert.equal(copy.castShadow,true); assert.equal(copy.receiveShadow,true)
+  const shadowBlocker = snapshot.scene.children.find(o=>o.userData.houseDesignerSunShadowBlocker) as Mesh
+  assert.ok(shadowBlocker); assert.equal(shadowBlocker.castShadow,true); assert.equal(shadowBlocker.visible,false)
+  snapshot.dispose(); assert.equal(disposed,0,'releasing the preview must not clear the live sun map')
+  sun.dispose(); geometry.dispose(); (surface.material as MeshStandardMaterial).dispose(); (blocker.material as MeshStandardMaterial).dispose()
+})
 
 test('startup copies yield to input and release partial resources on cancellation', async () => {
   const source = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
@@ -18,6 +55,18 @@ test('startup copies yield to input and release partial resources on cancellatio
   assert.equal(disposed, 1, 'cancelled copies release any leases on source geometry')
   assert.equal(source.children.length, 2000)
   material.dispose()
+})
+
+test('a cooperative startup copy cannot revive a detached geometry owner', async () => {
+  const source = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
+  const mesh = new Mesh(geometry, material); source.add(mesh)
+  let disposed = 0; geometry.addEventListener('dispose', () => disposed++)
+  const work = prepareOpaqueViewportScene(source, { basic: true }, () => false)
+  mesh.removeFromParent(); geometry.dispose()
+  const display = await work
+  assert.equal(display?.meshes, 0)
+  assert.equal(display?.scene.children.some(o => o instanceof Mesh), false)
+  display?.dispose(); assert.equal(disposed, 1); material.dispose()
 })
 
 test('early lighting shares diffuse uniforms and room masks with alpha glass, without reflections or shadows', () => {

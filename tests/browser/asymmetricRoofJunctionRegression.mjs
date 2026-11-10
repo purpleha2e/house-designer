@@ -59,12 +59,16 @@ try {
     const s=window.roofWallScene();s.scene.updateMatrixWorld(true);
     const sourceId='8e321618-2fa0-4ea5-99ec-8210302fe639',targetId='b46c5b90-ecdc-4d0f-a6a5-976b793c7270';
     const sourceTiles=[],targetTiles=[],sourceEnd=[],targetGable=[],walls=[];
+    const {wallSurfaceMeshes}=await import('/tests/browser/wallSurfaceInspection.js');
+    for(const o of wallSurfaceMeshes(s.scene)){
+      const d=o.userData;
+      if(d.roofId===sourceId&&d.wallId==='3b9a14db-f2c3-4944-ab7c-006906d8175e')sourceEnd.push(o);
+      if(d.roofId===targetId)targetGable.push(o);
+    }
     s.scene.traverse(o=>{
       const d=o.userData;
       if(d.houseDesignerRole==='roof-top'&&d.roofId===sourceId)sourceTiles.push(o);
       if(d.houseDesignerRole==='roof-top'&&d.roofId===targetId)targetTiles.push(o);
-      if(d.houseDesignerRole==='roof-infill'&&d.roofId===sourceId&&d.wallId==='3b9a14db-f2c3-4944-ab7c-006906d8175e')sourceEnd.push(o);
-      if(d.houseDesignerRole==='roof-infill'&&d.roofId===targetId)targetGable.push(o);
       if(d.houseDesignerRole==='wall-engine-render'&&d.floorId===window.regressionFloors[1].id)walls.push(o);
     });
     if(!sourceTiles.length||!targetTiles.length||!targetGable.length||!walls.length)return null;

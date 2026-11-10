@@ -2,10 +2,74 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BoxGeometry, Group, Mesh, MeshStandardMaterial, Vector3 } from 'three'
 import { createIndirectField, roomProbePoint, type IndirectFloor } from '../src/indirectLighting.ts'
-import { snapshotIndirectGeometry, createIndirectVisibilityFromSnapshot, restoreIndirectVisibility, writeIndirectVisibility } from '../src/indirectVisibility.ts'
+import { snapshotIndirectGeometry, createIndirectVisibilityFromSnapshot, restoreIndirectVisibility, writeIndirectVisibility, indirectOctDirection } from '../src/indirectVisibility.ts'
 import { applyIndirectLampRows, traceIndirectLampRows } from '../src/indirectLampPreparation.ts'
 import { pointIsInsideRoomPolygon } from '../src/roomLightMask.ts'
 import type { Point } from '../src/types.ts'
+
+test('small topology changes in a large scene use exact reserved-capacity refits',()=>{
+  const scene=new Group(),material=new MeshStandardMaterial(),geometry=new BoxGeometry(6,4,6,12,12,12)
+  scene.add(new Mesh(geometry,material));const before=createIndirectVisibilityFromSnapshot(snapshotIndirectGeometry(scene))
+  const added=new Mesh(new BoxGeometry(.1,3,3),material);added.position.set(4,0,0);scene.add(added)
+  const parts=snapshotIndirectGeometry(scene),refit=createIndirectVisibilityFromSnapshot(parts,before.snapshot()),fresh=createIndirectVisibilityFromSnapshot(parts)
+  assert.equal(refit.refitted,true)
+  try{for(let i=0;i<256;i++){const direction=indirectOctDirection((i+.5)/256,(i*.618)%1),origin=new Vector3(8,1,2)
+    const a=refit.hit(origin,direction),b=fresh.hit(origin,direction);assert.equal(!!a,!!b);if(a&&b)assert.ok(Math.abs(a.distance-b.distance)<1e-5)
+  }}finally{before.dispose();refit.dispose();fresh.dispose();geometry.dispose();added.geometry.dispose();material.dispose()}
+})
+
+test('triangle reordering rebuilds a degraded BVH before expensive lighting queries',()=>{
+  const scene=new Group(),material=new MeshStandardMaterial(),geometry=new BoxGeometry(1,2,1)
+  for(let i=0;i<64;i++){const mesh=new Mesh(geometry,material);mesh.position.set(i*2,1,0);scene.add(mesh)}
+  const parts=snapshotIndirectGeometry(scene),before=createIndirectVisibilityFromSnapshot(parts)
+  const reordered=parts.map((_,i)=>parts[i*17%64]),actual=createIndirectVisibilityFromSnapshot(reordered,before.snapshot()),fresh=createIndirectVisibilityFromSnapshot(reordered)
+  try{
+    assert.equal(actual.refitted,false,'an exact but poorly partitioned refit must be rebuilt')
+    for(let i=0;i<64;i++){
+      const origin=new Vector3(i*2,1,-3),direction=new Vector3(0,0,1)
+      assert.equal(actual.hit(origin,direction)?.distance,fresh.hit(origin,direction)?.distance)
+      assert.equal(before.hit(origin,direction)?.distance,2.5,'rebuilding does not corrupt the previous snapshot index')
+    }
+  }finally{actual.dispose();fresh.dispose();before.dispose();geometry.dispose();material.dispose()}
+})
+
+test('refitted geometry matches a fresh BVH after movement and triangle reordering', () => {
+  const scene = new Group(), material = new MeshStandardMaterial()
+  const left = new Mesh(new BoxGeometry(.2, 2.4, 2), material)
+  const right = new Mesh(new BoxGeometry(.2, 2.4, 2), material)
+  left.position.set(0, 1.2, 1); right.position.set(0, 1.2, 4); scene.add(left, right)
+  const before = createIndirectVisibilityFromSnapshot(snapshotIndirectGeometry(scene))
+  left.position.z -= .6; right.position.z -= .6
+  // Reordered parts exercise an old partition whose triangle IDs now refer to
+  // different meshes. Bounds must be recomputed rather than reused unchanged.
+  const parts = snapshotIndirectGeometry(scene).reverse()
+  const refitted = createIndirectVisibilityFromSnapshot(parts, before.snapshot())
+  const fresh = createIndirectVisibilityFromSnapshot(parts)
+  const helper = restoreIndirectVisibility(structuredClone(refitted.snapshot()))
+  try {
+    assert.equal(refitted.refitted, true)
+    for (const origin of [new Vector3(-2, 1, 1.5), new Vector3(2, 1, 3), new Vector3(-2, 3, 2)]) {
+      for (let y = 0; y < 20; y++) for (let x = 0; x < 20; x++) {
+        const direction = indirectOctDirection((x + .5) / 20, (y + .5) / 20)
+        const actual = refitted.hit(origin, direction), expected = fresh.hit(origin, direction)
+        assert.equal(!!actual, !!expected)
+        if (actual && expected) {
+          assert.ok(Math.abs(actual.distance - expected.distance) < 1e-6)
+          assert.equal(refitted.primitiveId(actual.faceIndex!), fresh.primitiveId(expected.faceIndex!))
+        }
+      }
+    }
+    // The old wall position is solid; its replacement has an open gap here.
+    assert.ok(before.hit(new Vector3(-2, 1, 1.8), new Vector3(1, 0, 0)))
+    assert.equal(refitted.hit(new Vector3(-2, 1, 1.8), new Vector3(1, 0, 0)), null)
+    assert.deepEqual(refitted.triangleTexture().image.data, fresh.triangleTexture().image.data)
+    const lampTask = { lights: [[-2, 1, 1.8] as [number, number, number]], size: 16, firstRow: 0, rowCount: 16 }
+    assert.deepEqual(traceIndirectLampRows(lampTask, helper), traceIndirectLampRows(lampTask, fresh),
+      'parallel helpers receive the refitted tree and resolve the same occluder IDs')
+    const resized = createIndirectVisibilityFromSnapshot(parts.slice(1), refitted.snapshot())
+    try { assert.equal(resized.refitted, false) } finally { resized.dispose() }
+  } finally { before.dispose(); refitted.dispose(); fresh.dispose(); helper.dispose(); left.geometry.dispose(); right.geometry.dispose(); material.dispose() }
+})
 
 // Original exhaustive search is the reference for placement and tie breaking.
 function exhaustivePoint(polygon: Point[], requested: Point, inset = .18) {

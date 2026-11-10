@@ -137,8 +137,10 @@ export function buildBuildingRoomVolumes(floors: FloorLevel[], roofs: BuildingRo
         thickness: getRoofThickness(candidate.roof),
         faces: getRoofRenderableOuterFaces(candidate.resolved),
       })), polygons)
-    exteriorTrimCuts.push(...[...horizontalFaces, ...exteriorTrimCap.map(piece => piece.face)]
-      .map(face => ({ face, thickness: 0, bottomY, floorId: floor.id, footprintOverlap: 0.003 })))
+    exteriorTrimCuts.push(...[
+      ...horizontalFaces.map(face => ({ face, roofId: undefined })),
+      ...exteriorTrimCap.map(({ face, roofId }) => ({ face, roofId })),
+    ].map(({ face, roofId }) => ({ face, roofId, thickness: 0, bottomY, floorId: floor.id, footprintOverlap: 0.003 })))
 
     // Room floor polygons stop at wall finishes. A doorway or window is also
     // interior space, and must not leave roof fragments between those polygons.
