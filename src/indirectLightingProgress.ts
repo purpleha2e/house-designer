@@ -1,7 +1,8 @@
 import { indirectPreparationLabels, type IndirectPreparationStage } from './indirectPreparation.ts'
 
 export type ViewportPreparationStatus = { message: string; startedAt: number; completed?: number; total?: number }
-export function formatViewportPreparationStatus(status: ViewportPreparationStatus | undefined, now: number) {
+export function formatViewportPreparationStatus(status: ViewportPreparationStatus | undefined, now: number, failure?: { message: string }) {
+  if (failure) return 'Scene preparation failed'
   if (!status) return null
   const batches = status.total ? ` ${status.completed ?? 0}/${status.total} batches` : ''
   return `${status.message}${batches} (${Math.max(0, Math.floor((now - status.startedAt) / 1000))}s)`

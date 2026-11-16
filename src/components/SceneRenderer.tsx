@@ -1,11 +1,11 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Matrix4, NoToneMapping } from 'three'
+import { Matrix4 } from 'three'
 import type { EffectComposer } from 'postprocessing'
 import { shouldRenderSceneFrame } from '../sceneRenderSchedule'
 import { retainViewportScene, prepareRetainedViewportScene } from '../retainedViewportScene'
 import { createOpaqueViewportScene, prepareOpaqueViewportScene } from '../opaqueViewportScene'
-import { compileShaderWarmup, drainShaderWarmupPrograms, prepareShaderWarmupResources } from '../shaderWarmup'
+import { compileShaderWarmup, prepareShaderWarmupResources } from '../shaderWarmup'
 import { createViewportSelection } from '../viewportSelection'
 import { isWallClippingPending } from '../wallEngine/wallRoofClipClient'
 import { isRoofAssemblyPending } from '../roofAssemblyClient'
@@ -14,12 +14,12 @@ import { getWallOpeningPreview } from '../wallOpeningPreview'
 import { createLightingDiagnosticDisplay } from '../lightingDiagnosticDisplay'
 import { installRendererAttributeDefaults } from '../rendererAttributeDefaults'
 import { recordRendererFrame } from '../rendererHealth'
+import { FloorDisplayBatching } from '../floorDisplayBatching'
 
 /** Own the display draw so asset/shader preparation cannot trigger synchronous
  * first-use compilation, and static display frames do not compete with GI. */
-export function SceneRenderer({ blocked, geometryPending, contentRevision = '', offscreen, postprocessingExpected = offscreen, composer, editing, wireframe, selectionRevision, opaquePending, onOpaqueReady, lightingStarted, onLightingReady, onSceneReady, staticScene = false }: {
+export function SceneRenderer({ blocked, geometryPending, contentRevision = '', offscreen, composer, editing, wireframe, selectionRevision, opaquePending, onOpaqueReady, lightingStarted, onLightingReady, onSceneReady, staticScene = false }: {
   blocked: boolean; offscreen: boolean; composer: RefObject<EffectComposer | null>
-  postprocessingExpected?: boolean
   editing: boolean; wireframe: boolean; geometryPending: boolean
   selectionRevision: string; opaquePending: boolean; onOpaqueReady: () => void
   lightingStarted: boolean; onLightingReady: () => void
@@ -47,16 +47,21 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
   const previewWork = useRef(false)
   const previewFailed = useRef(false)
   const previewContent = useRef(contentRevision)
+  const presentedContent = useRef(contentRevision)
+  const editPreview = useRef<ReturnType<typeof createOpaqueViewportScene> | null>(null)
+  const editPreviewWork = useRef(false)
+  const editPreviewFailed = useRef(false)
+  const editPreviewVersion = useRef(0)
+  const editContent = useRef(contentRevision)
   const startupContent = useRef(contentRevision)
-  const lit = useRef<ReturnType<typeof createOpaqueViewportScene> | null>(null)
-  const lightingWork = useRef(false), lightingReady = useRef(false), generation = useRef(0)
-  const litFence = useRef<WebGLSync | null>(null)
-  const diffuseFence = useRef<WebGLSync | null>(null)
+  const lightingWork = useRef(false), generation = useRef(0)
   const opaqueStableSince = useRef(0)
   const fence = useRef<WebGLSync | null>(null)
   const startedAt = useRef(0)
   const needsSnapshot = useRef(true)
   const snapshotWork = useRef(false), snapshotGeneration = useRef(0)
+  const floorBatches = useRef<FloorDisplayBatching | null>(null)
+  if (!floorBatches.current) floorBatches.current = new FloorDisplayBatching()
   const {gl,invalidate}=useThree()
   useEffect(() => installRendererAttributeDefaults(gl), [gl])
   useEffect(() => {
@@ -67,33 +72,39 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
   useEffect(() => () => {
     generation.current++
     snapshotGeneration.current++
-    retained.current?.dispose(); opaque.current?.dispose(); lit.current?.dispose(); preview.current?.dispose()
+    editPreviewVersion.current++
+    editPreview.current?.dispose()
+    floorBatches.current?.dispose()
+    retained.current?.dispose(); opaque.current?.dispose(); preview.current?.dispose()
     liveSelection.current?.clear()
     diagnosticDisplay.current?.dispose(); diagnosticDisplay.current = null
     if (fence.current) (gl.getContext() as WebGL2RenderingContext).deleteSync(fence.current)
-    if (litFence.current) (gl.getContext() as WebGL2RenderingContext).deleteSync(litFence.current)
-    if (diffuseFence.current) (gl.getContext() as WebGL2RenderingContext).deleteSync(diffuseFence.current)
   }, [gl])
   useFrame(({ camera, gl, scene, size }, delta) => {
+    // React's composer resize effect observes CSS dimensions, not DPR. Keep
+    // its offscreen buffers in step with movement-only resolution changes;
+    // shrinking just the canvas would still shade the full-sized scene.
+    const effects = composer.current
+    if (offscreen && effects && (effects.inputBuffer.width !== gl.domElement.width ||
+      effects.inputBuffer.height !== gl.domElement.height)) effects.setSize(size.width, size.height)
+    const currentContent = `${contentRevision}:${scene.userData.viewportMaterialRevision ?? 0}`
     recordRendererFrame(gl, camera)
     if (!startedAt.current) startedAt.current = performance.now()
     // The display gate reads worker state immediately; expensive React scene
     // reconciliation is allowed to follow later as a background transition.
     const workerPending = isWallClippingPending() || isRoofAssemblyPending() || isViewportPreparationPending()
-    if (!fullFramePresented.current && startupContent.current !== contentRevision) {
+    if (!fullFramePresented.current && startupContent.current !== currentContent) {
       // Initial preparation may overlap wall/window edits. Its snapshots are
       // immutable and belong to that content revision, never to later walls.
-      startupContent.current = contentRevision; generation.current++
+      startupContent.current = currentContent; generation.current++
       // Keep this project's prepared basic view navigable until its replacement
       // is uploaded. The project-key boundary prevents cross-project reuse.
       if (!preview.current && opaque.current) { preview.current = opaque.current; opaque.current = null }
       previewWork.current = false; previewFailed.current = false
       opaque.current?.dispose(); opaque.current = null; opaqueWork.current = false; opaqueReady.current = false
-      lit.current?.dispose(); lit.current = null; lightingWork.current = false; lightingReady.current = false
-      for (const ref of [fence, litFence, diffuseFence]) {
-        if (ref.current) (gl.getContext() as WebGL2RenderingContext).deleteSync(ref.current)
-        ref.current = null
-      }
+      lightingWork.current = false
+      if (fence.current) (gl.getContext() as WebGL2RenderingContext).deleteSync(fence.current)
+      fence.current = null
       opaqueStableSince.current = 0
     }
     const preparing = (blocked || geometryPending || workerPending || scene.userData.shaderWarmupPending || scene.userData.indirectScanPending) && !gl.xr.isPresenting
@@ -101,14 +112,67 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
       needsSnapshot.current = true
       if (snapshotWork.current) { snapshotGeneration.current++; snapshotWork.current = false }
     }
-    // A new shader/resource request can arrive between the first completed
-    // display and its asynchronous retained snapshot. Keep that completed
-    // frame instead of replacing it with the shadow-free startup preview.
+    // Geometry edits must not wait for new lighting programs to replace a
+    // retained placement preview. Prepare a simple view of the finished meshes
+    // once all geometry workers settle, then restore the full lit display.
+    const showEdit = fullFramePresented.current && preparing && currentContent !== presentedContent.current &&
+      onSceneReady === presentedCallback.current && !wireframe
+    if (editContent.current !== currentContent || !showEdit || geometryPending || workerPending) {
+      editPreviewVersion.current++
+      editPreviewWork.current = false
+      editPreviewFailed.current = false
+      editPreview.current?.dispose(); editPreview.current = null
+      delete scene.userData.geometryEditPreview
+      editContent.current = currentContent
+    }
+    if (showEdit && !geometryPending && !workerPending && !editPreview.current && !editPreviewWork.current && !editPreviewFailed.current) {
+      editPreviewWork.current = true
+      const version = editPreviewVersion.current, started = performance.now()
+      const cancelled = () => version !== editPreviewVersion.current
+      void (async () => {
+        const next = await prepareOpaqueViewportScene(scene, { basic: true }, cancelled)
+        if (!next) return
+        try {
+          const ready = await compileShaderWarmup(gl, next.scene, camera, next.scene, { cancelled })
+          if (!ready || !await prepareShaderWarmupResources(gl, next.scene, camera, next.scene, false, cancelled) || cancelled()) {
+            next.dispose(); return
+          }
+          editPreview.current = next
+          scene.userData.geometryEditPreview = { readyMs: performance.now() - started, displayed: false }
+          invalidate()
+        } catch (error) { next.dispose(); throw error }
+      })().catch(error => {
+        if (!cancelled()) { editPreviewFailed.current = true; console.warn('Updated geometry display unavailable:', error) }
+      }).finally(() => { if (!cancelled()) editPreviewWork.current = false })
+    }
+    if (showEdit && editPreview.current) {
+      camera.updateMatrixWorld()
+      const transformsChanged = editPreview.current.syncTransforms()
+      const visibilityChanged = editPreview.current.syncVisibility(camera.position)
+      const now = performance.now(), nextDimensions = `${size.width}:${size.height}:${gl.getPixelRatio()}`
+      const changed = !scene.userData.geometryEditPreview.displayed || transformsChanged || visibilityChanged ||
+        !view.current.equals(camera.matrixWorld) || !projection.current.equals(camera.projectionMatrix) ||
+        dimensions.current !== nextDimensions || selection.current !== selectionRevision
+      if (!shouldRenderSceneFrame(now, lastDraw.current, changed, editing, undefined, false, false, true)) return
+      liveSelection.current!.sync(scene, editPreview.current.scene, selectionRevision)
+      const shadows = gl.shadowMap.enabled, autoClear = gl.autoClear
+      try {
+        gl.shadowMap.enabled = false; gl.autoClear = true
+        gl.render(editPreview.current.scene, camera)
+      } finally { gl.shadowMap.enabled = shadows; gl.autoClear = autoClear }
+      scene.userData.geometryEditPreview.displayed = true
+      lastDraw.current = now
+      view.current.copy(camera.matrixWorld); projection.current.copy(camera.projectionMatrix)
+      dimensions.current = nextDimensions; selection.current = selectionRevision
+      return
+    }
+    // Preserve the last complete frame if preparation interrupts its retained
+    // snapshot and the updated geometry display is not ready yet.
     if (preparing && fullFramePresented.current && !retained.current) return
     // Geometry readiness is independent of asset, GI and detailed shader
     // readiness. Reuse the existing simple direct/ambient preview materials
     // on the actual meshes while the richer display prepares separately.
-    if (!retained.current && !opaque.current && (!preview.current || previewContent.current !== contentRevision) && !previewWork.current && !previewFailed.current &&
+    if (!retained.current && !opaque.current && (!preview.current || previewContent.current !== currentContent) && !previewWork.current && !previewFailed.current &&
       !geometryPending && !workerPending) {
       previewWork.current = true
       const version = generation.current, cancelled = () => version !== generation.current
@@ -119,65 +183,19 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
           const ready = await compileShaderWarmup(gl, next.scene, camera, next.scene, { cancelled })
           if (!ready || !await prepareShaderWarmupResources(gl, next.scene, camera, next.scene, true, cancelled) || cancelled()) { next.dispose(); return }
           if (opaque.current || retained.current) { next.dispose(); return }
-          preview.current?.dispose(); preview.current = next; previewContent.current = contentRevision; invalidate()
+          preview.current?.dispose(); preview.current = next; previewContent.current = currentContent; invalidate()
         } catch (error) { next.dispose(); throw error }
       })().catch(error => {
         if (!cancelled()) { previewFailed.current = true; console.warn('Basic geometry display unavailable:', error) }
       })
         .finally(() => { if (!cancelled()) previewWork.current = false })
     }
-    if (lightingStarted && opaqueReady.current && !lightingWork.current && !opaquePending &&
-      !scene.userData.indirectScanPending && scene.userData.indirectLighting) {
+    if (lightingStarted && opaqueReady.current && !lightingWork.current) {
+      // The opaque view is already interactive. Prepare the final lighting and
+      // effects directly instead of compiling a second, disposable GI scene
+      // with different material and tone-mapping variants first.
       lightingWork.current = true
-      const version = generation.current, started = performance.now()
-      scene.userData.viewportPreparation = { message: 'Preparing lighting shaders...', startedAt: started }
-      void (async () => {
-        const cancelled = () => version !== generation.current
-        const next = await prepareOpaqueViewportScene(scene, { lighting: true }, cancelled)
-        if (!next) return
-        try {
-          const ready = await compileShaderWarmup(gl, next.scene, camera, next.scene, {
-            cancelled: () => version !== generation.current,
-            onProgress: (completed, total) => {
-              if (version === generation.current) scene.userData.viewportPreparation = {
-                message: 'Preparing lighting shaders...', startedAt: started, completed, total,
-              }
-            },
-            compile: batch => {
-              const target = gl.getRenderTarget(), face = gl.getActiveCubeFace(), mip = gl.getActiveMipmapLevel()
-              const toneMapping = gl.toneMapping
-              try {
-                gl.setRenderTarget(null)
-                const direct = gl.compileAsync(batch, camera, next.scene)
-                // EffectComposer takes ownership of tone mapping when it is
-                // constructed. That can happen after this lit preview starts
-                // preparing. Retain both actual direct-display configurations
-                // so its shared shadow blockers cannot link on the first draw.
-                if (postprocessingExpected && toneMapping !== NoToneMapping) {
-                  gl.toneMapping = NoToneMapping
-                  try { return drainShaderWarmupPrograms([direct, gl.compileAsync(batch, camera, next.scene)]) }
-                  catch (error) {
-                    // A synchronous second-submission failure must still drain
-                    // the first poller before its source snapshot is released.
-                    return drainShaderWarmupPrograms([direct]).then(() => { throw error }, () => { throw error })
-                  }
-                }
-                return direct
-              } finally { gl.toneMapping = toneMapping; gl.setRenderTarget(target, face, mip) }
-            },
-          })
-          if (!ready || !await prepareShaderWarmupResources(gl, next.scene, camera, next.scene, true, cancelled)) { next.dispose(); return }
-          lit.current = next
-          delete scene.userData.viewportPreparation
-          scene.userData.progressiveStartup.lightingCompileMs = performance.now() - started
-        } catch (error) { next.dispose(); throw error }
-      })().catch(error => {
-        if (version !== generation.current) return
-        console.warn('Early lighting unavailable:', error)
-        scene.userData.progressiveStartup.lightingError = String(error)
-        delete scene.userData.viewportPreparation
-        onLightingReady()
-      })
+      onLightingReady()
     }
     if (!retained.current && !opaque.current && !opaqueWork.current) {
       if (opaquePending) opaqueStableSince.current = 0
@@ -197,7 +215,9 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
                 finally { gl.shadowMap.enabled = shadows }
               },
             })
-            if (!ready || !await prepareShaderWarmupResources(gl, next.scene, camera, next.scene, true, cancelled) || !next.meshes) {
+            // A new project legitimately has no meshes. Its prepared background
+            // must still advance startup so lighting/effects can mount.
+            if (!ready || !await prepareShaderWarmupResources(gl, next.scene, camera, next.scene, true, cancelled)) {
               next.dispose(); return
             }
             opaque.current = next
@@ -223,7 +243,7 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
     }
     if (!retained.current && opaque.current && (preparing || !opaqueReady.current)) {
       const enabled = gl.shadowMap.enabled, autoClear = gl.autoClear
-      const display = lit.current ?? opaque.current
+      const display = opaque.current
       display.syncLighting()
       const transformsChanged = display.syncTransforms()
       const visibilityChanged = display.syncVisibility(camera.position)
@@ -235,7 +255,7 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
       const changed = visibilityChanged || transformsChanged || !view.current.equals(camera.matrixWorld) ||
         !projection.current.equals(camera.projectionMatrix) || dimensions.current !== nextDimensions ||
         selection.current !== selectionRevision
-      if (changed || editing || now - lastDraw.current >= 100 || (lit.current && !litFence.current && !lightingReady.current)) {
+      if (changed || editing || now - lastDraw.current >= 100) {
         try { gl.shadowMap.enabled = enabled && display.scene.userData.preparedLightingViewport === true; gl.autoClear = true; gl.render(display.scene, camera) }
         finally { gl.shadowMap.enabled = enabled; gl.autoClear = autoClear }
         lastDraw.current = now
@@ -251,36 +271,6 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
             context.deleteSync(fence.current); fence.current = null; opaqueReady.current = true
             scene.userData.progressiveStartup = { ...scene.userData.progressiveStartup, startedAtMs: startedAt.current, opaqueReadyMs: performance.now() - startedAt.current, phase: 'lighting', frames: 0 }
             onOpaqueReady()
-          }
-        }
-      }
-      if (lit.current && !lightingReady.current) {
-        if (!litFence.current) { litFence.current = context.fenceSync(context.SYNC_GPU_COMMANDS_COMPLETE, 0); context.flush() }
-        else {
-          const status = context.clientWaitSync(litFence.current, 0, 0)
-          if (status === context.ALREADY_SIGNALED || status === context.CONDITION_SATISFIED) {
-            context.deleteSync(litFence.current); litFence.current = null; lightingReady.current = true
-            Object.assign(scene.userData.progressiveStartup, { phase: 'lit', lightingReadyMs: performance.now() - startedAt.current,
-              programsAtLighting: gl.info.programs?.length ?? 0 })
-            onLightingReady()
-          }
-        }
-      }
-      // The lit preview now has the real sun, shadow casters and camera
-      // cascades. It can release the loading cover while final effects compile.
-      if (lightingReady.current && lit.current?.scene.userData.preparedLightingViewport &&
-        !geometryPending && !workerPending && !opaquePending &&
-        !scene.userData.indirectScanPending && onSceneReady !== presentedCallback.current) {
-        presentedCallback.current = onSceneReady
-        onSceneReady?.()
-      }
-      if (lit.current && scene.userData.indirectLighting?.diffuseReady && !scene.userData.progressiveStartup.diffuseReadyMs) {
-        if (!diffuseFence.current) { diffuseFence.current = context.fenceSync(context.SYNC_GPU_COMMANDS_COMPLETE, 0); context.flush() }
-        else {
-          const status = context.clientWaitSync(diffuseFence.current, 0, 0)
-          if (status === context.ALREADY_SIGNALED || status === context.CONDITION_SATISFIED) {
-            context.deleteSync(diffuseFence.current); diffuseFence.current = null
-            scene.userData.progressiveStartup.diffuseReadyMs = performance.now() - startedAt.current
           }
         }
       }
@@ -315,7 +305,7 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
       dimensions.current !== nextDimensions || selection.current !== selectionRevision || exposure.current !== gl.toneMappingExposure
     const now = performance.now()
     if (!gl.xr.isPresenting && !shouldRenderSceneFrame(now, lastDraw.current, changed, editing, scene.userData.indirectLighting,
-      geometryPending, staticScene && !preparing && !needsSnapshot.current)) return
+      geometryPending, staticScene && !preparing && !needsSnapshot.current, preparing)) return
     const diagnosticUnlit=scene.userData.lightingDiagnosticUnlit===true
     if (diagnosticUnlit) {
       if (!diagnosticDisplay.current) {
@@ -341,7 +331,7 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
         gl.shadowMap.needsUpdate = !!(transformsChanged || geometryChanged || lightingChanged ||
           !view.current.equals(camera.matrixWorld) || !projection.current.equals(camera.projectionMatrix))
       }
-      const draw=()=>{
+      const draw=()=>floorBatches.current!.draw(displayScene,()=>{
       const restoreFloorGI=scene.userData.bindSoftFloorGI?.()
       const restoreSunOffFloorGI=scene.userData.bindSunOffSoftFloorGI?.()
       const restoreSunBounceGI=scene.userData.bindSunBounceGI?.()
@@ -356,7 +346,7 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
       else gl.render(displayScene, camera)
       previewPresented=true
       } finally { restoreLocalSunPreview?.(previewPresented); restoreSunBounceGI?.(); restoreSunOffFloorGI?.(); restoreFloorGI?.() }
-      }
+      })
       if(scene.userData.lightingPublicationAt!==undefined&&scene.userData.measureLightingApplication){scene.userData.measureLightingApplication(draw);delete scene.userData.lightingPublicationAt}
       else draw()
     } finally {
@@ -373,7 +363,6 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
         if (!next) return
         retained.current?.dispose(); retained.current = next; needsSnapshot.current = false
         opaque.current?.dispose(); opaque.current = null
-        lit.current?.dispose(); lit.current = null
         if (scene.userData.progressiveStartup && scene.userData.progressiveStartup.phase !== 'full') {
           scene.userData.progressiveStartup.phase = 'full'
           scene.userData.progressiveStartup.fullReadyMs = performance.now() - startedAt.current
@@ -383,9 +372,16 @@ export function SceneRenderer({ blocked, geometryPending, contentRevision = '', 
         console.warn('Retaining prepared view failed:', error)
       })
     }
-    // The prepared lit preview can release the cover earlier. Other retained
+    // The basic geometry preview can release the cover earlier. Other retained
     // frames may still belong to the previous house.
-    if (!preparing) fullFramePresented.current = true
+    if (!preparing) {
+      if (!fullFramePresented.current && scene.userData.progressiveStartup) {
+        scene.userData.progressiveStartup.lightingReadyMs = performance.now() - startedAt.current
+        scene.userData.progressiveStartup.programsAtLighting = gl.info.programs?.length ?? 0
+      }
+      fullFramePresented.current = true
+      presentedContent.current = currentContent
+    }
     if (!preparing && onSceneReady !== presentedCallback.current) {
       presentedCallback.current = onSceneReady
       onSceneReady?.()

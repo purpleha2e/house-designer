@@ -1,3 +1,5 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Vite and asset portal running: node tests/browser/stairBuilderRegression.mjs [port]
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
@@ -63,7 +65,7 @@ try {
   await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5186}/tests/browser/roofCreatePreviewRegression.html?basic-scene&pbr-materials` })
   await until(`!!window.roofCreateScene?.() && !!document.querySelector('[aria-label="Project menu"]')`)
   const floor = { id: 'ground', name: 'Ground', elevation: 0, roomHeight: 2.7, slabThickness: .2, walls: [], rooms: [], roofs: [], models: [] }
-  await evaluate(`window.fixture=${JSON.stringify({ activeFloorId: 'ground', wallKind: 'external', floors: [floor, { ...floor, id: 'upper', name: 'Upper', elevation: 2.9 }] })};window.alert=msg=>{throw Error(msg)};window.showOpenFilePicker=async()=>[{getFile:async()=>new File([JSON.stringify(window.fixture)],'stairs.house.json')}];window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async value=>{window.savedStairProject=JSON.parse(value)},close:async()=>{}})})`)
+  await evaluate(`window.fixture=${JSON.stringify({ activeFloorId: 'ground', wallKind: 'external', floors: [floor, { ...floor, id: 'upper', name: 'Upper', elevation: 2.9 }] })};window.alert=msg=>{throw Error(msg)};${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([JSON.stringify(window.fixture)],'stairs.house.json')}];${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async value=>{window.savedStairProject=JSON.parse(value)},close:async()=>{}})})`)
   await menu('Load'); await until(`document.body.textContent.includes('stairs / Ground')`)
   const initialStairIds = await evaluate(`(async()=>{const {modelLibrary}=await import('/src/models/modelLibrary.ts');return modelLibrary.filter(m=>m.stairDesign).map(m=>m.id)})()`)
   await aria('Add object'); await click('Build stairs')

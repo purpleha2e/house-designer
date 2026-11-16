@@ -1,0 +1,252 @@
+{
+  "combined": [
+    {
+      "name": "ceiling above sunlit carpet",
+      "rgb": [
+        0.10125732421875,
+        0.0950927734375,
+        0.090576171875
+      ]
+    },
+    {
+      "name": "upper-right ceiling corner",
+      "rgb": [
+        0.12744140625,
+        0.1260986328125,
+        0.1251220703125
+      ]
+    },
+    {
+      "name": "upper-right wall",
+      "rgb": [
+        0.101318359375,
+        0.09429931640625,
+        0.08892822265625
+      ]
+    },
+    {
+      "name": "lower wall near carpet",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "sunlit carpet",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "shadowed carpet",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "direct": [
+    {
+      "name": "ceiling above sunlit carpet",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "upper-right ceiling corner",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "upper-right wall",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "lower wall near carpet",
+      "rgb": [
+        0.0667724609375,
+        0.05975341796875,
+        0.052337646484375
+      ]
+    },
+    {
+      "name": "sunlit carpet",
+      "rgb": [
+        0.0755615234375,
+        0.06524658203125,
+        0.05474853515625
+      ]
+    },
+    {
+      "name": "shadowed carpet",
+      "rgb": [
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "indirect": [
+    {
+      "name": "ceiling above sunlit carpet",
+      "rgb": [
+        0.029205322265625,
+        0.026763916015625,
+        0.024932861328125
+      ]
+    },
+    {
+      "name": "upper-right ceiling corner",
+      "rgb": [
+        0.02630615234375,
+        0.025238037109375,
+        0.02508544921875
+      ]
+    },
+    {
+      "name": "upper-right wall",
+      "rgb": [
+        0.0258636474609375,
+        0.022705078125,
+        0.02044677734375
+      ]
+    },
+    {
+      "name": "lower wall near carpet",
+      "rgb": [
+        0.02154541015625,
+        0.01934814453125,
+        0.0180206298828125
+      ]
+    },
+    {
+      "name": "sunlit carpet",
+      "rgb": [
+        0.0139007568359375,
+        0.01214599609375,
+        0.01088714599609375
+      ]
+    },
+    {
+      "name": "shadowed carpet",
+      "rgb": [
+        0.0125579833984375,
+        0.01068115234375,
+        0.01025390625
+      ]
+    }
+  ],
+  "gi-off": [
+    {
+      "name": "ceiling above sunlit carpet",
+      "rgb": [
+        0.101806640625,
+        0.101806640625,
+        0.101806640625
+      ]
+    },
+    {
+      "name": "upper-right ceiling corner",
+      "rgb": [
+        0.101806640625,
+        0.101806640625,
+        0.101806640625
+      ]
+    },
+    {
+      "name": "upper-right wall",
+      "rgb": [
+        0.07745361328125,
+        0.0736083984375,
+        0.07061767578125
+      ]
+    },
+    {
+      "name": "lower wall near carpet",
+      "rgb": [
+        0.144287109375,
+        0.1334228515625,
+        0.12298583984375
+      ]
+    },
+    {
+      "name": "sunlit carpet",
+      "rgb": [
+        0.1278076171875,
+        0.1131591796875,
+        0.09869384765625
+      ]
+    },
+    {
+      "name": "shadowed carpet",
+      "rgb": [
+        0.049041748046875,
+        0.0438232421875,
+        0.043121337890625
+      ]
+    }
+  ],
+  "false-colour": [
+    {
+      "name": "ceiling above sunlit carpet",
+      "rgb": [
+        0,
+        0.71484375,
+        1
+      ]
+    },
+    {
+      "name": "upper-right ceiling corner",
+      "rgb": [
+        0,
+        0.66357421875,
+        1
+      ]
+    },
+    {
+      "name": "upper-right wall",
+      "rgb": [
+        0,
+        0.8486328125,
+        1
+      ]
+    },
+    {
+      "name": "lower wall near carpet",
+      "rgb": [
+        0,
+        0.7119140625,
+        1
+      ]
+    },
+    {
+      "name": "sunlit carpet",
+      "rgb": [
+        0,
+        0.681640625,
+        1
+      ]
+    },
+    {
+      "name": "shadowed carpet",
+      "rgb": [
+        0,
+        0.650390625,
+        1
+      ]
+    }
+  ]
+}

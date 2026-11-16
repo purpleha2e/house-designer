@@ -1,0 +1,170 @@
+{
+  "before": {
+    "programs": [
+      "18,19,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display",
+      "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+      "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display-exterior-sky-eaves6",
+      "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+      "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display-exterior-sky-eaves6",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v2:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display-exterior-sky-eaves6",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520710,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}",
+      "0,1,onBeforeCompile(){}",
+      "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile(){}",
+      "14,15,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "16,17,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile(){}"
+    ],
+    "lights": [
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "PointLight",
+        "power": 0
+      },
+      {
+        "type": "SpotLight",
+        "power": 0
+      },
+      {
+        "type": "SpotLight",
+        "power": 0
+      },
+      {
+        "type": "SpotLight",
+        "power": 0
+      },
+      {
+        "type": "SpotLight",
+        "power": 0
+      }
+    ]
+  },
+  "after": {
+    "ms": 319.40000000596046,
+    "programs": [
+      "18,19,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display",
+      "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+      "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display-exterior-sky-eaves6",
+      "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+      "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display-exterior-sky-eaves6",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v2:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display-exterior-sky-eaves6",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}",
+      "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520710,srgb,onBeforeCompile(){}:house-designer-room-light-v30-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v47-display",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}",
+      "0,1,onBeforeCompile(){}",
+      "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile(){}",
+      "14,15,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+      "16,17,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile(){}",
+      "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,4,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,e=>{e.fragmentShader=e.fragmentShader.replace(`#include <map_fragment>`,`#include <map_fragment>\n diffuseColor.rgb = diffuse;`)}"
+    ],
+    "profiles": [
+      {
+        "startedAt": 8908.199999988079,
+        "programsReused": false,
+        "stages": {
+          "delayAndSceneScan": 0,
+          "snapshot": 42.400000005960464,
+          "compile": 28.80000001192093,
+          "resources": 3.199999988079071,
+          "postprocessing": 0
+        },
+        "batches": [
+          {
+            "submittedMs": 0.30000001192092896,
+            "readyMs": 4.600000023841858,
+            "objects": 2,
+            "programs": 31
+          }
+        ],
+        "cancelled": false
+      }
+    ],
+    "atlas": {
+      "ready": true,
+      "lights": 1,
+      "faces": 1,
+      "completed": 1,
+      "texture": "985ed8d5-34b1-4abd-93bb-cf9cfbde9515",
+      "width": 514,
+      "height": 514,
+      "tile": 512,
+      "builds": 1
+    }
+  },
+  "errors": [],
+  "state": {
+    "body": "2D floor\nFloor 0\n100%\nFloor 0 internal area: 29m2\nContext\n\nFloor 0 - Spotlight\n\nFloor elev.\n0.00 m\nRoom height\n2.40 m\nCeiling / floor depth\n0.30 m\nType\nLighting\nLength\n-\nDepth\n-\nHeight\n1.80 m\nEnabled\nColour\nPower\nRange (m)\nFalloff\nSpread\nActions\nDelete\n3D floors\nAll floors\nFloor 0\nCompiling 1 shader...\n47 FPS\n1/1 lights\n31 shaders\nGI preparing\n9 calls\n27 geo / 30 tex\n96 tris\nVR NOT SUPPORTED",
+    "atlas": {
+      "ready": true,
+      "lights": 1,
+      "faces": 1,
+      "completed": 1,
+      "texture": "985ed8d5-34b1-4abd-93bb-cf9cfbde9515",
+      "width": 514,
+      "height": 514,
+      "tile": 512,
+      "builds": 1
+    }
+  }
+}

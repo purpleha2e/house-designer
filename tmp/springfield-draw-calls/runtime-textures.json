@@ -1,0 +1,4577 @@
+{
+  "textures": [
+    {
+      "name": "Image_4",
+      "width": 4096,
+      "height": 4096,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube007",
+          "material": "Plastic.001",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_1",
+      "width": 4096,
+      "height": 4096,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube007_11",
+          "material": "KitchenTap",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 4096,
+      "height": 4096,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube007_11",
+          "material": "KitchenTap",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_2",
+      "width": 4096,
+      "height": 4096,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube007_11",
+          "material": "KitchenTap",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube007_11",
+          "material": "KitchenTap",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_1",
+      "width": 2048,
+      "height": 2048,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 2048,
+      "height": 2048,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_3",
+      "width": 2048,
+      "height": 2048,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorBase_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "doorFrame_geo",
+          "material": "interior_door_white",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "stair-treads",
+          "material": "stairs_treads",
+          "slot": "map"
+        },
+        {
+          "object": "stair-risers",
+          "material": "stairs_risers",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "stair-treads",
+          "material": "stairs_treads",
+          "slot": "normalMap"
+        },
+        {
+          "object": "stair-risers",
+          "material": "stairs_risers",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "stair-treads",
+          "material": "stairs_treads",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "stair-risers",
+          "material": "stairs_risers",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Leather026_2K_Color",
+      "width": 2048,
+      "height": 2048,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "leather",
+          "material": "Material.002",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 2048,
+      "height": 2048,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        },
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        },
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        },
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        },
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        },
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        },
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        },
+        {
+          "object": "Cube008",
+          "material": "WhiteMarble.004",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "white-marble_albedo",
+      "width": 2048,
+      "height": 2048,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube007_1",
+          "material": "WhiteMarble",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "stair-spindles",
+          "material": "stairs_spindles",
+          "slot": "map"
+        },
+        {
+          "object": "stair-posts",
+          "material": "stairs_posts",
+          "slot": "map"
+        },
+        {
+          "object": "stair-handrails",
+          "material": "stairs_handrails",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "stair-spindles",
+          "material": "stairs_spindles",
+          "slot": "normalMap"
+        },
+        {
+          "object": "stair-posts",
+          "material": "stairs_posts",
+          "slot": "normalMap"
+        },
+        {
+          "object": "stair-handrails",
+          "material": "stairs_handrails",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 2048,
+      "height": 2048,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 12,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "",
+          "material": "",
+          "slot": "roughnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "HSM0012",
+          "material": "_HSM0012_CasualSofa_V402___Default",
+          "slot": "map"
+        },
+        {
+          "object": "HSM0012",
+          "material": "_HSM0012_CasualSofa_V402___Default",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "table2_Material_BaseColor",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube033",
+          "material": "Material.013",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "table2_Material_Normal",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube033",
+          "material": "Material.013",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "table2_Material_Metallic-table2_Material_Roughness",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube033",
+          "material": "Material.013",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube033",
+          "material": "Material.013",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_1",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "KitchenCabinet90Degrees",
+          "material": "KitchenCabinetRounded",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "KitchenCabinet90Degrees",
+          "material": "KitchenCabinetRounded",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_2",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "KitchenCabinet90Degrees",
+          "material": "KitchenCabinetRounded",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "KitchenCabinet90Degrees",
+          "material": "KitchenCabinetRounded",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_1",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "map"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_2",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_1",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "map"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "map"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_2",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "bath_Material_BaseColor",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001",
+          "material": "Material.001",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "bath_Material_Normal",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001",
+          "material": "Material.001",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "bath_Material_Metallic.png-bath_Material_Roughness.png",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001",
+          "material": "Material.001",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "Material.001",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Shower_Material_BaseColor",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube031",
+          "material": "Material.011",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Shower_Material_Normal",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube031",
+          "material": "Material.011",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Shower_Material_Metallic-Shower_Material_Roughness",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube031",
+          "material": "Material.011",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube031",
+          "material": "Material.011",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "littlecabinet2_Material_BaseColor",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "map"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "map"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "map"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "map"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "map"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "littlecabinet2_Material_Normal",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "normalMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "littlecabinet2_Material_Metallic.png-littlecabinet2_Material_Roughness.png",
+      "width": 1024,
+      "height": 1024,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "metalnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "__Color_008_4",
+      "width": 640,
+      "height": 886,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "ID3538001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3528001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57031",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57035",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57036",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57038",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3417001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3407001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57042",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3377001_1",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3357001_1",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3347001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3327001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57051",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3292001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57053",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_58001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3212001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3239001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3250001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3261001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3272001",
+          "material": "__Color_008_4.001",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "__Color_A07_1",
+      "width": 1426,
+      "height": 360,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 11,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "group_57027",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3538001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3528001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57030",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57039",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3417001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3407001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57043",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3367001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3347001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "group_57048",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3327001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3292001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3212001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3239001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3250001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3261001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        },
+        {
+          "object": "ID3272001_1",
+          "material": "__Color_A07_1.001",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_1",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001",
+          "material": "MetalB",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_0",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001",
+          "material": "MetalB",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_3",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_1",
+          "material": "WoodA",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_2",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_1",
+          "material": "WoodA",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_5",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_2",
+          "material": "MetalA",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_4",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_2",
+          "material": "MetalA",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_6",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_2",
+          "material": "MetalA",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube001_2",
+          "material": "MetalA",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_8",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_3",
+          "material": "WoodB",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Image_7",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_3",
+          "material": "WoodB",
+          "slot": "normalMap"
+        }
+      ]
+    },
+    {
+      "name": "Image_9",
+      "width": 512,
+      "height": 512,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Cube001_3",
+          "material": "WoodB",
+          "slot": "roughnessMap"
+        },
+        {
+          "object": "Cube001_3",
+          "material": "WoodB",
+          "slot": "metalnessMap"
+        }
+      ]
+    },
+    {
+      "name": "mhYdyzC",
+      "width": 600,
+      "height": 401,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 10,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "group_57037",
+          "material": "mhYdyzC.001",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "__Color_I01_1",
+      "width": 413,
+      "height": 413,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 9,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "group_57050",
+          "material": "__Color_I01_1.001",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "Screen_shot_2013-03-30_at_17.55.11",
+      "width": 236,
+      "height": 467,
+      "compressed": true,
+      "format": 36492,
+      "type": 1009,
+      "mipmaps": 9,
+      "generateMipmaps": false,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "ID120",
+          "material": "Screen_shot_2013-03-30_at_17.55.11",
+          "slot": "map"
+        },
+        {
+          "object": "ID150",
+          "material": "Screen_shot_2013-03-30_at_17.55.11",
+          "slot": "map"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "width": 336,
+      "height": 256,
+      "compressed": false,
+      "format": 1023,
+      "type": 1016,
+      "mipmaps": 0,
+      "generateMipmaps": false,
+      "minFilter": 1006,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_rail",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "centre_meeting_frame_left",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "centre_meeting_frame_right",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_outer_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_outer_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube033",
+          "material": "Material.013",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "KitchenCabinet90Degrees",
+          "material": "KitchenCabinetRounded",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube006_1",
+          "material": "metal",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder013_1",
+          "material": "metal",
+          "slot": "envMap"
+        },
+        {
+          "object": "metal_frame",
+          "material": "metal",
+          "slot": "envMap"
+        },
+        {
+          "object": "Plane005_1",
+          "material": "Material.008",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube007_5",
+          "material": "Gold.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube007_6",
+          "material": "Gold.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube007_7",
+          "material": "Gold.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube007_8",
+          "material": "Gold.005",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube007_9",
+          "material": "Gold.006",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube007_10",
+          "material": "Gold.001",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube007_11",
+          "material": "KitchenTap",
+          "slot": "envMap"
+        },
+        {
+          "object": "_falcon110classic_2",
+          "material": "Gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "MetalB",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001_2",
+          "material": "MetalA",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_2",
+          "material": "Dorado.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube008_3",
+          "material": "Dorado.004",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_rail",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "centre_meeting_frame_left",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "centre_meeting_frame_right",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_outer_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_outer_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_rail",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "centre_meeting_frame_left",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "centre_meeting_frame_right",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_outer_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_outer_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.003",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "stair-spindles",
+          "material": "stairs_spindles",
+          "slot": "envMap"
+        },
+        {
+          "object": "stair-posts",
+          "material": "stairs_posts",
+          "slot": "envMap"
+        },
+        {
+          "object": "stair-handrails",
+          "material": "stairs_handrails",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "Material.018",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "Material.001",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube031",
+          "material": "Material.011",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube029",
+          "material": "Material.009",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube038",
+          "material": "Material.020",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleBase_geo",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "handleHandle_geo001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder001",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube003",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cylinder002",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube004",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "Cube005",
+          "material": "door_hardware_gold",
+          "slot": "envMap"
+        },
+        {
+          "object": "bottom_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "left_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "right_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "top_frame",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_1",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        },
+        {
+          "object": "vertical_mullion_2",
+          "material": "painted_white_frame.002",
+          "slot": "envMap"
+        }
+      ]
+    },
+    {
+      "name": "Wood_Cherry_Original",
+      "width": 256,
+      "height": 256,
+      "compressed": false,
+      "format": 1023,
+      "type": 1009,
+      "mipmaps": 0,
+      "generateMipmaps": true,
+      "minFilter": 1008,
+      "anisotropy": 1,
+      "owners": [
+        {
+          "object": "Mesh",
+          "material": "[Wood_Cherry_Original]",
+          "slot": "map"
+        },
+        {
+          "object": "Mesh",
+          "material": "[Wood_Cherry_Original]",
+          "slot": "map"
+        }
+      ]
+    }
+  ],
+  "gpuTextureObjects": 104,
+  "errors": []
+}

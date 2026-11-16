@@ -7,11 +7,12 @@ import {isBatchedModelSource} from './importedModelBatching.ts'
 import type {Texture} from 'three'
 import type {LocalSunPreviewData} from './localSunPreview.ts'
 import {LOCAL_SUN_PREVIEW_BUDGET} from './localSunPreview.ts'
+import {waitForViewportIdle} from './viewportScheduling.ts'
 
 /** Opt-in current-scene metadata. Original texture images are sampled on the GPU
  * so KTX2 and sRGB interpretation follow Three. Preview images are capped at
  * 256px per side and 16 MiB in total; nothing is persisted or sent to a server. */
-export async function snapshotLocalSunPreview(s:RootState,cancelled:()=>boolean,report:(text:string)=>void):Promise<{data:LocalSunPreviewData;primaryVisibility:()=>Uint8Array}>{
+export async function snapshotLocalSunPreview(s:RootState,cancelled:()=>boolean,report:(text:string)=>void,fullDiffuse=false):Promise<{data:LocalSunPreviewData;primaryVisibility:()=>Uint8Array}>{
   const meshes:{mesh:Mesh;ranges:ReturnType<typeof indirectGeometryRanges>}[]=[],textures:Texture[]=[],materials:LocalSunPreviewData['materials']=[],ids=new Map<MeshStandardMaterial,number>()
   const textureIndex=(map:Texture|null)=>{if(!map)return -1;let id=textures.findIndex(t=>t.source===map.source&&t.colorSpace===map.colorSpace&&t.flipY===map.flipY&&t.format===map.format&&t.type===map.type);if(id<0){id=textures.length;textures.push(map)}map.updateMatrix();return id}
   const sampling=(map:Texture|null)=>map?{matrix:map.matrix.toArray(),wrapS:map.wrapS,wrapT:map.wrapT}:undefined
@@ -27,6 +28,7 @@ export async function snapshotLocalSunPreview(s:RootState,cancelled:()=>boolean,
   const viewBindings:{start:number;count:number;mesh:Mesh;material:MeshStandardMaterial}[]=[]
   const v=new Vector3(),matrix=new Matrix4(),local=new Matrix4(),normalMatrix=new Matrix3();let output=0,owner=0
   for(const {mesh,ranges}of meshes){
+    await waitForViewportIdle(cancelled)
     if(cancelled())throw Error('cancelled')
     const g=mesh.geometry,entries=Array.isArray(mesh.material)?mesh.material:[mesh.material],groups=g.groups.length?g.groups:[{start:0,count:g.index?.count??g.attributes.position.count,materialIndex:0}]
     for(let instance=0;instance<(mesh instanceof InstancedMesh?mesh.count:1);instance++,owner++){
@@ -38,13 +40,16 @@ export async function snapshotLocalSunPreview(s:RootState,cancelled:()=>boolean,
         if(id===undefined){
           id=materials.length;if(id>=65535)throw Error('Too many preview materials');ids.set(m,id)
           const map=textureIndex(m.map),alphaMap=m.alphaTest>0||m.transparent?textureIndex(m.alphaMap):-1,metalnessMap=m.metalness>0?textureIndex(m.metalnessMap):-1,channel=m.map?.channel??0
-          const uvMismatch=(alphaMap>=0&&m.alphaMap!.channel!==channel)||(metalnessMap>=0&&m.metalnessMap!.channel!==channel)
+          const emissionMap=fullDiffuse&&m.emissiveIntensity>0&&m.emissive.toArray().some(v=>v>0)?textureIndex(m.emissiveMap):-1
+          const uvMismatch=(alphaMap>=0&&m.alphaMap!.channel!==channel)||(metalnessMap>=0&&m.metalnessMap!.channel!==channel)||(emissionMap>=0&&m.emissiveMap!.channel!==channel)
           const unsupported=uvMismatch?'Separate UV channels':m.alphaHash||m.alphaToCoverage?'Stochastic alpha':m.blending!==NormalBlending?'Custom blending':m.vertexColors?'Vertex colours':mesh.morphTargetInfluences?.length?'Morph targets':Reflect.get(mesh,'isSkinnedMesh')?'Skinned geometry':undefined
           const shadowSide=(m.shadowSide??(s.gl.shadowMap.type===VSMShadowMap?m.side:m.side===2?2:1-m.side)) as 0|1|2
           materials.push({color:m.color.toArray(),metalness:m.metalness,map,matrix:m.map?.matrix.toArray()??[1,0,0,0,1,0,0,0,1],wrapS:m.map?.wrapS??1001,wrapT:m.map?.wrapT??1001,side:m.side as 0|1|2,shadowSide,flatShading:m.flatShading,opacity:m.opacity,opaquePipeline:!m.transparent&&m.blending===NormalBlending&&!m.alphaToCoverage,alphaTest:m.alphaTest,alphaMap,metalnessMap,alphaSampling:sampling(m.alphaMap),metalnessSampling:sampling(m.metalnessMap),transmission:Number(Reflect.get(m,'transmission')??0),vertexColors:m.vertexColors,unsupported})
+          if(fullDiffuse)Object.assign(materials[id],{emission:m.emissive.toArray().map(v=>v*m.emissiveIntensity),emissionMap,emissionSampling:sampling(m.emissiveMap)})
         }
         const uv=g.attributes[m.map?.channel?`uv${m.map.channel}`:'uv']
         for(let triangle=range.start;triangle+2<range.start+range.count;triangle+=3){
+          if(triangle%12288===0){await waitForViewportIdle(cancelled);if(cancelled())throw Error('cancelled')}
           materialIndices[output/3]=id;owners[output/3]=owner
           for(let corner=0;corner<3;corner++){
             const j=mirrored&&corner?3-corner:corner,index=g.index?.getX(triangle+j)??triangle+j
@@ -59,10 +64,22 @@ export async function snapshotLocalSunPreview(s:RootState,cancelled:()=>boolean,
   }
   const maxSide=Math.min(LOCAL_SUN_PREVIEW_BUDGET.maxTextureSide,Math.max(1,Math.floor(Math.sqrt(LOCAL_SUN_PREVIEW_BUDGET.maxTextureBytes/Math.max(1,textures.length)/8))))
   const images:LocalSunPreviewData['textures']=[],quadScene=new Scene(),camera=new OrthographicCamera(-1,1,1,-1,0,1),geometry=new PlaneGeometry(2,2)
-  const material=new ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,uniforms:{source:{value:null as Texture|null}},vertexShader:'varying vec2 tUV;void main(){tUV=uv;gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:'varying vec2 tUV;uniform sampler2D source;void main(){gl_FragColor=texture2D(source,tUV);}'})
+  const material=new ShaderMaterial({name:'Refinement texture readback',depthTest:false,depthWrite:false,toneMapped:false,uniforms:{source:{value:null as Texture|null}},vertexShader:'varying vec2 tUV;void main(){tUV=uv;gl_Position=vec4(position.xy,0.,1.);}',fragmentShader:'varying vec2 tUV;uniform sampler2D source;void main(){gl_FragColor=texture2D(source,tUV);}'})
   quadScene.add(new Mesh(geometry,material));let bytes=0
   try{
+    // A first render reflects uniforms synchronously and can wait seconds for
+    // the driver. Prepare the exact linear-target program before any readback.
+    if(textures.length){
+      const target=new WebGLRenderTarget(1,1,{type:HalfFloatType,depthBuffer:false})
+      const previous=s.gl.getRenderTarget(),face=s.gl.getActiveCubeFace(),mip=s.gl.getActiveMipmapLevel()
+      let compilation:Promise<unknown>
+      try{s.gl.setRenderTarget(target);compilation=s.gl.compileAsync(quadScene,camera,quadScene)}
+      finally{s.gl.setRenderTarget(previous,face,mip)}
+      try{await compilation;if(!await waitForViewportIdle(cancelled))throw Error('cancelled')}
+      finally{target.dispose()}
+    }
     for(const texture of textures){
+      await waitForViewportIdle(cancelled)
       if(cancelled())throw Error('cancelled')
       report(`Reading material ${images.length+1}/${textures.length}`)
       const image=texture.image as {width:number;height:number};if(!image?.width||!image.height)throw Error('A material texture has not loaded')
@@ -88,5 +105,9 @@ export async function snapshotLocalSunPreview(s:RootState,cancelled:()=>boolean,
     }
     return visible
   }
-  return{data:{positions,normals,uvs,materialIndices,owners,materials,textures:images,sunDirection:sun?sun.getWorldPosition(new Vector3()).sub(sun.target.getWorldPosition(new Vector3())).normalize().toArray():[0,1,0],sunIrradiance:sun?sun.color.toArray().map(c=>c*sun!.intensity):[0,0,0],daylightGain:s.scene.userData.getBakedIndirectLighting?.()?.settings.daylightBounceStrength??uniforms.hdSkyRadianceBase.value.x/.65},primaryVisibility}
+  const sunDirection=sun?sun.getWorldPosition(new Vector3()).sub(sun.target.getWorldPosition(new Vector3())).normalize().toArray():[0,1,0]
+  const gain=s.scene.userData.getRefinementDaylightGain?.()??s.scene.userData.getBakedIndirectLighting?.()?.settings.daylightBounceStrength??uniforms.hdSkyRadianceBase.value.x/.65
+  const sunIrradiance=sun?.visible?sun.color.toArray().map(c=>c*sun!.intensity):[0,0,0]
+  const refinement=fullDiffuse?{skyBase:uniforms.hdSkyRadianceBase.value.toArray(),skySun:sunIrradiance.map(v=>v*gain*Math.max(0,sunDirection[1])),skyMode:uniforms.hdSkyMode.value>1.5?'overcast' as const:'clear' as const,sunDirection,sunIrradiance:sunIrradiance.map(v=>v*gain),lights:s.scene.userData.getRefinementLights?.()??[]}:undefined
+  return{data:{positions,normals,uvs,materialIndices,owners,materials,textures:images,sunDirection,sunIrradiance,daylightGain:gain,refinement},primaryVisibility}
 }

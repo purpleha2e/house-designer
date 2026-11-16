@@ -106,6 +106,19 @@ function getModelId(fileName: string) {
 }
 
 const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
+  'waterfall-shaker-island': {
+    name: 'Ivory Waterfall Shaker Island',
+    category: 'Kitchen', objectType: 'kitchen', color: '#666b65',
+    width: 2.4, depth: 1.05, height: 1.422768,
+    localBounds: { minX: -1.2, maxX: 1.2, minZ: -0.525, maxZ: 0.525 },
+    previewUrl: new URL('./assets/waterfall_shaker_island.png', import.meta.url).href,
+    materialRegions: [
+      { id: 'stone', label: 'Worktop and waterfall', sourceMaterialNames: ['Ivory veined stone'] },
+      { id: 'cabinetry', label: 'Shaker cabinetry', sourceMaterialNames: ['Warm grey shaker cabinetry'] },
+      { id: 'sink', label: 'Fireclay sink', sourceMaterialNames: ['Ivory fireclay sink'] },
+      { id: 'hardware', label: 'Tap and hardware', sourceMaterialNames: ['Aged bronze hardware'] },
+    ],
+  },
   'front-door': {
     normalizeToDimensions: true,
     normalizationMeshName: 'Cube.003',

@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // With Vite running: node tests/browser/roofFootprintClippingRegression.mjs [port] [screenshot.png]
 import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
 import { rmSync, writeFileSync } from 'node:fs'
@@ -57,7 +58,7 @@ try {
   await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/roofCreatePreviewRegression.html` })
   await waitFor(`!!window.roofCreateStage?.() && !!window.roofCreateScene?.() && !!document.querySelector('[aria-label="Project menu"]')`)
 
-  await evaluate(`(async()=>{const data=await fetch('/colin_house_v2.json').then(r=>r.text());window.showOpenFilePicker=async()=>[{getFile:async()=>new File([data],'colin_house_v2.json')}];document.querySelector('[aria-label="Project menu"]').click()})()`)
+  await evaluate(`(async()=>{const data=await fetch('/colin_house_v2.json').then(r=>r.text());${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([data],'colin_house_v2.json')}];document.querySelector('[aria-label="Project menu"]').click()})()`)
   await pause(300)
   await evaluate(`[...document.querySelectorAll('.project-menu-dropdown button')].find(el=>el.textContent.trim()==='Load').click()`)
   await pause(25000)

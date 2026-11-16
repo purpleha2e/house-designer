@@ -1,4 +1,4 @@
-import type { WebGLRenderer } from 'three'
+import type { Material, WebGLRenderer } from 'three'
 import { yieldToViewport } from './viewportScheduling.ts'
 import { cacheLightingUniformArrays } from './rendererUniformArrays.ts'
 
@@ -57,7 +57,22 @@ export function installNonBlockingShaderDiagnostics(renderer: WebGLRenderer, opt
     // replaces them. Submit with the same native compile(), then use the existing
     // cancellable program checks instead of stacking two independent pollers.
     const pending = submit ? Promise.resolve(submit(...args)).then(() => args[0]) : compile(...args)
-    const programs = renderer.info.programs?.filter(program => !initialised.has(program)) ?? []
+    // A geometry preview or one material batch must not wait for unrelated
+    // programs submitted by the full scene, nor inherit their old failures.
+    // Three submits synchronously before compileAsync returns. Include both
+    // sides from each submitted material's program map, not the global cache.
+    const selected = new Set<Program>()
+    if (renderer.properties && args[0]) args[0].traverse(object => {
+      const mesh = object as typeof object & { isMesh?: boolean; isPoints?: boolean; isLine?: boolean; isSprite?: boolean; material?: Material | Material[] }
+      if (!(mesh.isMesh || mesh.isPoints || mesh.isLine || mesh.isSprite) || !mesh.material) return
+      for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const properties = renderer.properties.get(material) as { programs?: Map<string, Program> }
+        const variants = properties.programs as Map<string, Program> | undefined
+        variants?.forEach(program => selected.add(program))
+      }
+    })
+    const programs = [...(renderer.properties && args[0] ? selected : renderer.info.programs ?? [])]
+      .filter(program => !initialised.has(program))
     return pending.then(async result => {
       for (const program of programs) await initialise(program, true)
       if (epoch !== contextEpoch || renderer.getContext().isContextLost?.()) throw new Error('Shader preparation interrupted by WebGL context change')

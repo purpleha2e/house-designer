@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Real Springfield bake, with the downstairs toilet lamp switched off in an
 // isolated test copy. Verify wall filtering against exact probe visibility.
 import assert from 'node:assert/strict'
@@ -9,7 +10,7 @@ const errors=()=>b.errors.filter(e=>!/^THREE\.BufferGeometryUtils: \.merge(Attri
 async function wait(e){const end=Date.now()+600000;while(!await b.evaluate(e)){assert.deepEqual(errors(),[]);if(Date.now()>end)throw Error(e);await new Promise(r=>setTimeout(r,250))}}
 try{
  await b.call('Emulation.setDeviceMetricsOverride',{width:1500,height:950,deviceScaleFactor:1,mobile:false})
- await b.call('Page.addScriptToEvaluateOnNewDocument',{source:`const f=fetch;window.fetch=(i,o)=>f(String(i?.url??i).includes('/bb35ad04a6c60479b06147e9ddd58e7e/processed/model.glb')?'/src/models/assets/interior_door_closed.glb':i,o);window.confirm=()=>false;window.showOpenFilePicker=async()=>[{getFile:async()=>{const p=await(await fetch('/springfield_14.json')).json();p.floors[0].models.find(m=>m.id==='04d995c9-4188-4e94-9bbe-f13e03af4bc5').lightEnabled=false;delete p.indirectLighting;return new File([JSON.stringify(p)],'springfield_14.json')}}];`})
+ await b.call('Page.addScriptToEvaluateOnNewDocument',{source:`const f=fetch;window.fetch=(i,o)=>f(String(i?.url??i).includes('/bb35ad04a6c60479b06147e9ddd58e7e/processed/model.glb')?'/src/models/assets/interior_door_closed.glb':i,o);window.confirm=()=>false;${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>{const p=await(await fetch('/springfield_14.json')).json();p.floors[0].models.find(m=>m.id==='04d995c9-4188-4e94-9bbe-f13e03af4bc5').lightEnabled=false;delete p.indirectLighting;return new File([JSON.stringify(p)],'springfield_14.json')}}];`})
  await b.call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5180}/tests/browser/editorRegression.html`})
  await wait('!!window.perfScene?.()')
  await b.evaluate(`document.querySelector('[aria-label="Project menu"]').click()`)

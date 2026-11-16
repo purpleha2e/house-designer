@@ -20,6 +20,9 @@ try {
     window.skyCheckbox=()=>[...document.querySelectorAll('label')].find(l=>l.textContent.trim()==='Exterior sky occlusion (experimental)').querySelector('input');
     })()`)
   await b.wait(`!!document.querySelector('#three-settings-menu')`)
+  assert.equal(await b.evaluate('skyCheckbox().checked'), true, 'Exterior sky occlusion defaults to on')
+  await b.evaluate('skyCheckbox().click()')
+  await b.wait('roofWallScene().scene.userData.getIndirectUniforms().hdExteriorSkyStrength.value===0')
   await b.evaluate(`document.querySelector('#three-settings-menu').style.visibility='hidden'`)
   await b.evaluate(`window.setExteriorFill=value=>{const input=document.querySelector('input[aria-label="Exterior sky fill"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,String(value));input.dispatchEvent(new Event('input',{bubbles:true}));};setExteriorFill(1)`)
   await b.wait('roofWallScene().scene.userData.getIndirectUniforms().hdExteriorSkyFill.value===1')

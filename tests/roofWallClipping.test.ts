@@ -55,6 +55,30 @@ function boundaryFace(z: number, top = 2.4): WallMeshFace {
   }
 }
 
+test('an inherited roof removes wall bottom caps above its slope and keeps the supported base', () => {
+  const wall: Wall = { id: 'loft-wall', kind: 'internal', start: { x: 0, y: 0 }, end: { x: 4, y: 0 },
+    thickness: 0.3, height: 2.4, openings: [] }
+  const faces = buildFloorWallSurfaceFaces({ renderedWalls: getRenderedWalls([wall]), rooms: [], useWallBodyPerimeterMesh: true })
+  assert.ok(faces.some(face => face.kind === 'bottom'))
+  const options = createWallRoofClipOptions({ floorElevation: 5.23, floorId: 'loft', walls: [wall],
+    clipToInheritedRoofs: true, roofs: [{ floorId: 'below', supportPolygon: [],
+      undersideFaces: [[[-1, 4.5, -1], [5, 7.5, -1], [5, 7.5, 1], [-1, 4.5, 1]]] }] })
+  const clipped = runWallRoofClipJob(structuredClone(createWallRoofClipJob(faces, options)))
+  const bottoms = clipped.filter(face => face.kind === 'bottom')
+  assert.ok(bottoms.length, 'the base beneath the roof must remain')
+  for (const face of bottoms) for (const { position: [x, y] } of face.vertices) {
+    assert.ok(5.23 + y <= 5 + x * 0.5 + 1e-7, 'no floating bottom cap above the roof')
+  }
+  const hitAt = (x: number) => bottoms.some(face => {
+    const ray = new Ray(new Vector3(x, -1, 0), new Vector3(0, 1, 0))
+    return face.vertices.slice(1, -1).some((v, i) => ray.intersectTriangle(
+      new Vector3(...face.vertices[0].position), new Vector3(...v.position),
+      new Vector3(...face.vertices[i + 2].position), false, new Vector3()))
+  })
+  assert.equal(hitAt(0.2), false)
+  assert.equal(hitAt(2), true)
+})
+
 test('a loft knee wall clips to the inherited roof while a raised storey wall stays independent', () => {
   const wall: Wall = { id: 'knee', kind: 'internal', start: { x: 0, y: 0 }, end: { x: 4, y: 0 },
     thickness: 0.15, height: 2.4, allowRoofClipHeight: true,

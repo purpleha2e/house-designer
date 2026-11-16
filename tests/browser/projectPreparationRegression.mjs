@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Real editor replacement: correct basic geometry releases the cover even while
 // an optional model and enhanced shaders remain pending. The asset substitution
 // below is only a scheduling fault injection, never a visual reproduction.
@@ -39,7 +40,7 @@ try {
   console.log('Colin prepared; initial cover dismissed')
   await b.evaluate(`(async()=>{
     const contents=await(await fetch('/springfield_14.json')).text();
-    window.showOpenFilePicker=async()=>[{getFile:async()=>new File([contents],'springfield_14.json')}];
+    ${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([contents],'springfield_14.json')}];
     window.preparationTrace=[];window.loadStarted=performance.now();
     window.traceTimer=setInterval(()=>{const d=perfScene()?.scene.userData??{},o=document.querySelector('.viewport-preparing-overlay');
       preparationTrace.push({ms:performance.now()-loadStarted,covered:!!o,revision:o?.dataset.projectRevision,warming:d.shaderWarmupPending,preparation:d.viewportPreparation?.message})},100);

@@ -59,6 +59,7 @@ try {
   assert.equal(result.final.active,false)
   assert.ok(result.wallMove.oldEnd[0]>245&&result.wallMove.newEnd[0]<200&&result.wallMove.body[0]<200&&result.wallMove.hole[0]>245,'wall movement preserves both its body and openings')
   assert.ok(result.wallAdd[0]<200&&result.wallRemove[0]>245,'wall additions and removal update immediately')
+  assert.ok(result.noOpenings[0]<200&&result.beforeLastOpening[0]<200&&result.lastOpening[0]>245,'the dynamic loop includes the last opening only when its count is active')
   assert.equal(result.compiles,0)
   assert.equal(result.glError,0)
   assert.deepEqual(errors,[])

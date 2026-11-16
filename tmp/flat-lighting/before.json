@@ -1,0 +1,4383 @@
+{
+  "points": [
+    {
+      "name": "ceiling above sunlit floor",
+      "position": [
+        2.5,
+        2.795,
+        2.3
+      ],
+      "normal": [
+        0,
+        -1,
+        0
+      ],
+      "albedo": 0.8,
+      "inspection": {
+        "floorId": "room",
+        "point": [
+          2.5,
+          2.795,
+          2.3
+        ],
+        "normal": [
+          0,
+          -1,
+          0
+        ],
+        "shiftedPoint": [
+          2.5,
+          2.5154545454545456,
+          2.3
+        ],
+        "bias": 0.27954545454545454,
+        "gridStep": [
+          0.15714285714285714,
+          0.2595454545454545,
+          0.15714285714285714
+        ],
+        "floorLayer": false,
+        "floorGridStep": null,
+        "displayed": {
+          "rgb": [
+            0.45101000564578597,
+            0.4716544109251901,
+            0.5012637559011405
+          ],
+          "coverage": 1
+        },
+        "exactAtSurface": {
+          "rgb": [
+            0.45595700907920544,
+            0.4772129418692706,
+            0.5076146433801806
+          ],
+          "support": 6.437829581501799,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.45595700907920544,
+            0.4772129418692706,
+            0.5076146433801806
+          ]
+        },
+        "exactAtShiftedSample": {
+          "rgb": [
+            0.4512682725575961,
+            0.4720208797317372,
+            0.5017075096474928
+          ],
+          "support": 7.52678660092893,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.4512682725575961,
+            0.4720208797317372,
+            0.5017075096474928
+          ]
+        },
+        "bounces": {
+          "firstRGB": [
+            0.241061141135748,
+            0.248614050430716,
+            0.25937974425630383
+          ],
+          "additionalRGB": [
+            0.21489586794345744,
+            0.2285988914385546,
+            0.24823489912387675
+          ],
+          "finalRGB": [
+            0.45595700907920544,
+            0.4772129418692706,
+            0.5076146433801806
+          ],
+          "firstBrightness": 0.2477855850088132,
+          "additionalBrightness": 0.22710334839837726,
+          "finalBrightness": 0.47488893340719046,
+          "gain": 1.9165317199154248,
+          "additionalPercent": 47.82241328914038
+        },
+        "probes": [
+          {
+            "index": 33,
+            "position": [
+              2.5,
+              2.096250057220459,
+              2
+            ],
+            "distance": 0.7567545724950562,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4470843562011719,
+              0.46674000952148437,
+              0.49470894140625
+            ],
+            "firstPassRGB": [
+              0.23746247656250002,
+              0.24367129260253906,
+              0.25226459765625
+            ]
+          },
+          {
+            "index": 21,
+            "position": [
+              1.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 1.160895121443869,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.484265330078125,
+              0.5070437680664062,
+              0.5397437211914062
+            ],
+            "firstPassRGB": [
+              0.2792718134765625,
+              0.28895918969726564,
+              0.30294934399414064
+            ]
+          },
+          {
+            "index": 22,
+            "position": [
+              3.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 1.5322132628952718,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.45776967749023434,
+              0.48061497705078127,
+              0.513145328125
+            ],
+            "firstPassRGB": [
+              0.24122893273925783,
+              0.2502370263671875,
+              0.263077213256836
+            ]
+          },
+          {
+            "index": 25,
+            "position": [
+              1.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 1.7741695192377125,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3821044025878906,
+              0.4011087214355469,
+              0.42808503686523436
+            ],
+            "firstPassRGB": [
+              0.12409816961669923,
+              0.12721871185302736,
+              0.13168316119384765
+            ]
+          },
+          {
+            "index": 26,
+            "position": [
+              3.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.0365847595894886,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.37171611157226564,
+              0.3910605500488281,
+              0.41876843383789064
+            ],
+            "firstPassRGB": [
+              0.11525136169433595,
+              0.11881852374267579,
+              0.12385727276611329
+            ]
+          },
+          {
+            "index": 32,
+            "position": [
+              2.5,
+              0.6987500190734863,
+              2
+            ],
+            "distance": 2.113648500268433,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.6161119677734375,
+              0.6318993198242188,
+              0.6548153076171874
+            ],
+            "firstPassRGB": [
+              0.44230626318359373,
+              0.4457788059082031,
+              0.45085493579101565
+            ]
+          },
+          {
+            "index": 17,
+            "position": [
+              1.7708333730697632,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 2.284044976094165,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.678820357421875,
+              0.7213011284179688,
+              0.781771259765625
+            ],
+            "firstPassRGB": [
+              0.5460452480468749,
+              0.5794098256835938,
+              0.6268625664062499
+            ]
+          },
+          {
+            "index": 5,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 2.2896528083285896,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5866809897460937,
+              0.6030259877929687,
+              0.6264371625976562
+            ],
+            "firstPassRGB": [
+              0.4109590739746094,
+              0.4147394267578125,
+              0.4197820847167969
+            ]
+          },
+          {
+            "index": 20,
+            "position": [
+              0.3125,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.360155446785693,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.38249635546875,
+              0.402516712890625,
+              0.431337728515625
+            ],
+            "firstPassRGB": [
+              0.12423484503173829,
+              0.12878297418212892,
+              0.13521816290283203
+            ]
+          },
+          {
+            "index": 23,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.360155446785693,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.38603965820312497,
+              0.40646151416015625,
+              0.43570745043945314
+            ],
+            "firstPassRGB": [
+              0.12422647705078124,
+              0.12877460620117187,
+              0.13520979492187502
+            ]
+          },
+          {
+            "index": 18,
+            "position": [
+              3.6458332538604736,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 2.4491041890137413,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.6394261630859376,
+              0.6792369770507812,
+              0.7363590722656249
+            ],
+            "firstPassRGB": [
+              0.4880655969238281,
+              0.51793936328125,
+              0.5611897416992188
+            ]
+          },
+          {
+            "index": 6,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 2.4985015474653998,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5024307729492188,
+              0.5180129731445312,
+              0.5407595234374999
+            ],
+            "firstPassRGB": [
+              0.32445273205566405,
+              0.3275517243652344,
+              0.3321506066894531
+            ]
+          },
+          {
+            "index": 9,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.6537727827918873,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.32263456201171875,
+              0.33931220141601565,
+              0.36298699584960936
+            ],
+            "firstPassRGB": [
+              0.10346258331298827,
+              0.10596682141113281,
+              0.10958182550048828
+            ]
+          },
+          {
+            "index": 24,
+            "position": [
+              0.3125,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.714835857467662,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.33622834509277344,
+              0.3546287548828125,
+              0.3807167733154297
+            ],
+            "firstPassRGB": [
+              0.07008479791259765,
+              0.07252195584106445,
+              0.0759670440979004
+            ]
+          },
+          {
+            "index": 27,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.714835857467662,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.33720144311523437,
+              0.3555667197265625,
+              0.3820406219482422
+            ],
+            "firstPassRGB": [
+              0.07010041265869141,
+              0.07252195584106445,
+              0.07598265884399413
+            ]
+          },
+          {
+            "index": 10,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.835931942534411,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3005963330078125,
+              0.31671856884765626,
+              0.3401167827148437
+            ],
+            "firstPassRGB": [
+              0.0849524794921875,
+              0.08730393377685547,
+              0.09073214208984375
+            ]
+          },
+          {
+            "index": 1,
+            "position": [
+              1.7708333730697632,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 3.01855825726717,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.2012394794921875,
+              0.20665316796875,
+              0.2141849897460938
+            ],
+            "firstPassRGB": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "index": 4,
+            "position": [
+              0.3125,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 3.0765510287799547,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.2994334562988281,
+              0.3157608439941406,
+              0.33901844287109373
+            ],
+            "firstPassRGB": [
+              0.08345999072265625,
+              0.08576842218017579,
+              0.08902308361816405
+            ]
+          },
+          {
+            "index": 7,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 3.0765510287799547,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3023108898925781,
+              0.31897731713867183,
+              0.34245128002929687
+            ],
+            "firstPassRGB": [
+              0.08345803887939453,
+              0.08576451849365234,
+              0.08901527624511718
+            ]
+          },
+          {
+            "index": 16,
+            "position": [
+              0.3125,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.077390734533425,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.35300598364257807,
+              0.37156087963867185,
+              0.39813685888671874
+            ],
+            "firstPassRGB": [
+              0.08577600286865233,
+              0.08904380511474609,
+              0.09371296911621094
+            ]
+          },
+          {
+            "index": 19,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.077390734533425,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.35671988623046874,
+              0.3756840881347656,
+              0.40270450646972655
+            ],
+            "firstPassRGB": [
+              0.08579161761474609,
+              0.08904380511474609,
+              0.09365887811279297
+            ]
+          },
+          {
+            "index": 2,
+            "position": [
+              3.6458332538604736,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 3.145305045355613,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.20273149999999995,
+              0.2091804111328125,
+              0.21801523095703124
+            ],
+            "firstPassRGB": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "index": 8,
+            "position": [
+              0.3125,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 3.3563620532783704,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.27542219384765626,
+              0.29170954687499995,
+              0.31484463476562496
+            ],
+            "firstPassRGB": [
+              0.042981522949218746,
+              0.04491728604125977,
+              0.04771958526611328
+            ]
+          },
+          {
+            "index": 11,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 3.3563620532783704,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.27529951831054683,
+              0.2915556418457031,
+              0.3150922282714844
+            ],
+            "firstPassRGB": [
+              0.04289759368896484,
+              0.04483140493774414,
+              0.04760665866088867
+            ]
+          },
+          {
+            "index": 0,
+            "position": [
+              0.3125,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 3.6558400173813674,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.26629470605468747,
+              0.28116344189453124,
+              0.3023245090332031
+            ],
+            "firstPassRGB": [
+              0.023572532287597654,
+              0.02381918203735351,
+              0.024184842803955074
+            ]
+          },
+          {
+            "index": 3,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 3.6558400173813674,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.26951117919921874,
+              0.2847814135742187,
+              0.3065603432617187
+            ],
+            "firstPassRGB": [
+              0.02375098065185547,
+              0.023997630401611326,
+              0.02436329116821289
+            ]
+          }
+        ],
+        "lamps": [],
+        "note": "RGB values are linear diffuse irradiance using the surface geometry normal, before material normal maps, colour, ambient fill and tone mapping. Exact blends use geometry visibility and the same baked probe coefficients; they are not fresh environment captures. Floor blends preserve weak probe support through confidence attenuation; unboundedRGB shows the blend before this attenuation."
+      },
+      "reference": {
+        "first": {
+          "name": "ceiling above sunlit floor",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.048766988489845536,
+            0.051721154257506535,
+            0.05594139106844273
+          ],
+          "reflected": [
+            0.18799799965580086,
+            0.19339176616770998,
+            0.20109714689900865
+          ],
+          "skyStandardError": [
+            0.0010733341420055952,
+            0.0011383536783304729,
+            0.0012312387302231568
+          ],
+          "reflectedStandardError": [
+            0.00212041117576218,
+            0.002218480683867084,
+            0.0023650865547682454
+          ],
+          "samples": 32768,
+          "depth": 1,
+          "maxEncounters": 2,
+          "rays": 63594,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "final": {
+          "name": "ceiling above sunlit floor",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.04954545226079568,
+            0.05254677515451108,
+            0.05683437928838183
+          ],
+          "reflected": [
+            0.31092049529385407,
+            0.32136584259203027,
+            0.3362877673037016
+          ],
+          "skyStandardError": [
+            0.0010813228769090914,
+            0.0011468263481233204,
+            0.0012404027355722195
+          ],
+          "reflectedStandardError": [
+            0.002237698841253201,
+            0.002344807709511286,
+            0.002506130427555317
+          ],
+          "samples": 32768,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 170301,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        }
+      },
+      "diffuseRadiance": [
+        0.11484875485188875,
+        0.1201058094877441,
+        0.12764576727116117
+      ]
+    },
+    {
+      "name": "upper-right ceiling corner",
+      "position": [
+        4.7,
+        2.795,
+        3.7
+      ],
+      "normal": [
+        0,
+        -1,
+        0
+      ],
+      "albedo": 0.8,
+      "inspection": {
+        "floorId": "room",
+        "point": [
+          4.7,
+          2.795,
+          3.7
+        ],
+        "normal": [
+          0,
+          -1,
+          0
+        ],
+        "shiftedPoint": [
+          4.7,
+          2.5154545454545456,
+          3.7
+        ],
+        "bias": 0.27954545454545454,
+        "gridStep": [
+          0.15714285714285714,
+          0.2595454545454545,
+          0.15714285714285714
+        ],
+        "floorLayer": false,
+        "floorGridStep": null,
+        "displayed": {
+          "rgb": [
+            0.35651226469560826,
+            0.37504679643631644,
+            0.40175848970457106
+          ],
+          "coverage": 1
+        },
+        "exactAtSurface": {
+          "rgb": [
+            0.35761666393629865,
+            0.3763591015730469,
+            0.4032728425725428
+          ],
+          "support": 3.5484186068871,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.35761666393629865,
+            0.3763591015730469,
+            0.4032728425725428
+          ]
+        },
+        "exactAtShiftedSample": {
+          "rgb": [
+            0.356608934556144,
+            0.37517722881853555,
+            0.4018467883376521
+          ],
+          "support": 4.09345122094204,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.356608934556144,
+            0.37517722881853555,
+            0.4018467883376521
+          ]
+        },
+        "bounces": {
+          "firstRGB": [
+            0.11206875281543152,
+            0.11568878511091749,
+            0.12083914545190237
+          ],
+          "additionalRGB": [
+            0.24554791112086713,
+            0.26067031646212946,
+            0.2824336971206404
+          ],
+          "finalRGB": [
+            0.35761666393629865,
+            0.3763591015730469,
+            0.4032728425725428
+          ],
+          "firstBrightness": 0.11529102226151629,
+          "additionalBrightness": 0.2590266091701216,
+          "finalBrightness": 0.3743176314316379,
+          "gain": 3.246719684578456,
+          "additionalPercent": 69.19968161249385
+        },
+        "probes": [
+          {
+            "index": 27,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 0.6966589789790808,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.33720144311523437,
+              0.3555667197265625,
+              0.3820406219482422
+            ],
+            "firstPassRGB": [
+              0.07010041265869141,
+              0.07252195584106445,
+              0.07598265884399413
+            ]
+          },
+          {
+            "index": 26,
+            "position": [
+              3.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 1.1779972338643991,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.37171611157226564,
+              0.3910605500488281,
+              0.41876843383789064
+            ],
+            "firstPassRGB": [
+              0.11525136169433595,
+              0.11881852374267579,
+              0.12385727276611329
+            ]
+          },
+          {
+            "index": 23,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.0701047637721564,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.38603965820312497,
+              0.40646151416015625,
+              0.43570745043945314
+            ],
+            "firstPassRGB": [
+              0.12422647705078124,
+              0.12877460620117187,
+              0.13520979492187502
+            ]
+          },
+          {
+            "index": 11,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.092884667793951,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.27529951831054683,
+              0.2915556418457031,
+              0.3150922282714844
+            ],
+            "firstPassRGB": [
+              0.04289759368896484,
+              0.04483140493774414,
+              0.04760665866088867
+            ]
+          },
+          {
+            "index": 22,
+            "position": [
+              3.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.277647357031412,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.45776967749023434,
+              0.48061497705078127,
+              0.513145328125
+            ],
+            "firstPassRGB": [
+              0.24122893273925783,
+              0.2502370263671875,
+              0.263077213256836
+            ]
+          },
+          {
+            "index": 10,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.2983711586005855,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3005963330078125,
+              0.31671856884765626,
+              0.3401167827148437
+            ],
+            "firstPassRGB": [
+              0.0849524794921875,
+              0.08730393377685547,
+              0.09073214208984375
+            ]
+          },
+          {
+            "index": 7,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 2.86009899001538,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3023108898925781,
+              0.31897731713867183,
+              0.34245128002929687
+            ],
+            "firstPassRGB": [
+              0.08345803887939453,
+              0.08576451849365234,
+              0.08901527624511718
+            ]
+          },
+          {
+            "index": 33,
+            "position": [
+              2.5,
+              2.096250057220459,
+              2
+            ],
+            "distance": 2.865776942295436,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4470843562011719,
+              0.46674000952148437,
+              0.49470894140625
+            ],
+            "firstPassRGB": [
+              0.23746247656250002,
+              0.24367129260253906,
+              0.25226459765625
+            ]
+          },
+          {
+            "index": 6,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 3.013720289391004,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5024307729492188,
+              0.5180129731445312,
+              0.5407595234374999
+            ],
+            "firstPassRGB": [
+              0.32445273205566405,
+              0.3275517243652344,
+              0.3321506066894531
+            ]
+          },
+          {
+            "index": 25,
+            "position": [
+              1.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 3.031118190205089,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3821044025878906,
+              0.4011087214355469,
+              0.42808503686523436
+            ],
+            "firstPassRGB": [
+              0.12409816961669923,
+              0.12721871185302736,
+              0.13168316119384765
+            ]
+          },
+          {
+            "index": 32,
+            "position": [
+              2.5,
+              0.6987500190734863,
+              2
+            ],
+            "distance": 3.479584742851796,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.6161119677734375,
+              0.6318993198242188,
+              0.6548153076171874
+            ],
+            "firstPassRGB": [
+              0.44230626318359373,
+              0.4457788059082031,
+              0.45085493579101565
+            ]
+          },
+          {
+            "index": 19,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.519280286222195,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.35671988623046874,
+              0.3756840881347656,
+              0.40270450646972655
+            ],
+            "firstPassRGB": [
+              0.08579161761474609,
+              0.08904380511474609,
+              0.09365887811279297
+            ]
+          },
+          {
+            "index": 21,
+            "position": [
+              1.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 3.6038420446784536,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.484265330078125,
+              0.5070437680664062,
+              0.5397437211914062
+            ],
+            "firstPassRGB": [
+              0.2792718134765625,
+              0.28895918969726564,
+              0.30294934399414064
+            ]
+          },
+          {
+            "index": 9,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 3.61697525325886,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.32263456201171875,
+              0.33931220141601565,
+              0.36298699584960936
+            ],
+            "firstPassRGB": [
+              0.10346258331298827,
+              0.10596682141113281,
+              0.10958182550048828
+            ]
+          },
+          {
+            "index": 18,
+            "position": [
+              3.6458332538604736,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.6737508096846434,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.6394261630859376,
+              0.6792369770507812,
+              0.7363590722656249
+            ],
+            "firstPassRGB": [
+              0.4880655969238281,
+              0.51793936328125,
+              0.5611897416992188
+            ]
+          }
+        ],
+        "lamps": [],
+        "note": "RGB values are linear diffuse irradiance using the surface geometry normal, before material normal maps, colour, ambient fill and tone mapping. Exact blends use geometry visibility and the same baked probe coefficients; they are not fresh environment captures. Floor blends preserve weak probe support through confidence attenuation; unboundedRGB shows the blend before this attenuation."
+      },
+      "reference": {
+        "first": {
+          "name": "upper-right ceiling corner",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.012329861662469209,
+            0.013076769691263852,
+            0.014143781160970714
+          ],
+          "reflected": [
+            0.08300642441938891,
+            0.08589042926822071,
+            0.09001043619512253
+          ],
+          "skyStandardError": [
+            0.0005522542560638406,
+            0.0005857082516626518,
+            0.0006334996739466606
+          ],
+          "reflectedStandardError": [
+            0.00137428020565108,
+            0.0014366235150589089,
+            0.0015295024354565528
+          ],
+          "samples": 32768,
+          "depth": 1,
+          "maxEncounters": 2,
+          "rays": 65045,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "final": {
+          "name": "upper-right ceiling corner",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.012204302989735306,
+            0.012943605030456684,
+            0.01399975080291602
+          ],
+          "reflected": [
+            0.2267390864236302,
+            0.23522369413824412,
+            0.24734456230198124
+          ],
+          "skyStandardError": [
+            0.0005494777301974893,
+            0.0005827635317387752,
+            0.0006303146767977483
+          ],
+          "reflectedStandardError": [
+            0.0017922882326852488,
+            0.0018802689795203646,
+            0.0020120003671280427
+          ],
+          "samples": 32768,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 180051,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        }
+      },
+      "diffuseRadiance": [
+        0.09078510271870763,
+        0.09550488246979137,
+        0.10230695930498694
+      ]
+    },
+    {
+      "name": "upper-right wall",
+      "position": [
+        4.995,
+        2.5,
+        3.7
+      ],
+      "normal": [
+        -1,
+        0,
+        0
+      ],
+      "albedo": 0.8,
+      "inspection": {
+        "floorId": "room",
+        "point": [
+          4.995,
+          2.5,
+          3.7
+        ],
+        "normal": [
+          -1,
+          0,
+          0
+        ],
+        "shiftedPoint": [
+          4.817857142857143,
+          2.5,
+          3.7
+        ],
+        "bias": 0.17714285714285713,
+        "gridStep": [
+          0.15714285714285714,
+          0.2595454545454545,
+          0.15714285714285714
+        ],
+        "floorLayer": false,
+        "floorGridStep": null,
+        "displayed": {
+          "rgb": [
+            0.3932262198515334,
+            0.4151782519733858,
+            0.4466971130607421
+          ],
+          "coverage": 1
+        },
+        "exactAtSurface": {
+          "rgb": [
+            0.3919937554661691,
+            0.4139212934464648,
+            0.44540536333053793
+          ],
+          "support": 3.689784943032814,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.3919937554661691,
+            0.4139212934464648,
+            0.44540536333053793
+          ]
+        },
+        "exactAtShiftedSample": {
+          "rgb": [
+            0.3933992056676574,
+            0.41536283308993405,
+            0.4468945591929329
+          ],
+          "support": 3.952422922601641,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.3933992056676574,
+            0.41536283308993405,
+            0.4468945591929329
+          ]
+        },
+        "bounces": {
+          "firstRGB": [
+            0.13266423080898068,
+            0.13988034470034882,
+            0.15018845661158198
+          ],
+          "additionalRGB": [
+            0.2593295246571884,
+            0.27404094874611595,
+            0.29521690671895595
+          ],
+          "finalRGB": [
+            0.3919937554661691,
+            0.4139212934464648,
+            0.44540536333053793
+          ],
+          "firstBrightness": 0.13909044456703498,
+          "additionalBrightness": 0.27244220415044895,
+          "finalBrightness": 0.41153264871748396,
+          "gain": 2.958741342717794,
+          "additionalPercent": 66.20184449508399
+        },
+        "probes": [
+          {
+            "index": 27,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 0.5075689768834212,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.35714928124999995,
+              0.37688084814453127,
+              0.4052870751953125
+            ],
+            "firstPassRGB": [
+              0.0875264692993164,
+              0.09194669998168946,
+              0.0982336720275879
+            ]
+          },
+          {
+            "index": 26,
+            "position": [
+              3.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 1.3059843093599877,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3904069626464844,
+              0.41200773193359375,
+              0.44291663867187503
+            ],
+            "firstPassRGB": [
+              0.11946734313964844,
+              0.12575147100830078,
+              0.13467829180908203
+            ]
+          },
+          {
+            "index": 11,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 1.8273242032512365,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3444572287597656,
+              0.36564761206054686,
+              0.3962264489746094
+            ],
+            "firstPassRGB": [
+              0.08980233911132812,
+              0.09595408364868163,
+              0.10478005148315431
+            ]
+          },
+          {
+            "index": 23,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.0143550497105727,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4212274885253906,
+              0.44328108544921874,
+              0.47495511474609375
+            ],
+            "firstPassRGB": [
+              0.16935309326171877,
+              0.17783613842773438,
+              0.18998632421875
+            ]
+          },
+          {
+            "index": 10,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.187940239994632,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.37845145703125,
+              0.4003511489257812,
+              0.4319939487304687
+            ],
+            "firstPassRGB": [
+              0.11450338647460936,
+              0.12091467474365235,
+              0.13017889440917968
+            ]
+          },
+          {
+            "index": 22,
+            "position": [
+              3.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.3464004381806793,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4952294533691406,
+              0.5222438901367188,
+              0.560801533203125
+            ],
+            "firstPassRGB": [
+              0.2537831885986328,
+              0.2677880009765625,
+              0.28774851208496094
+            ]
+          },
+          {
+            "index": 7,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 2.6719120015052455,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4188905842285156,
+              0.4446447937011719,
+              0.48111022534179687
+            ],
+            "firstPassRGB": [
+              0.19926285144042968,
+              0.21209171807861327,
+              0.23040680212402342
+            ]
+          },
+          {
+            "index": 6,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 2.9303724155451247,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5735403266601562,
+              0.6028947329101563,
+              0.6453158632812499
+            ],
+            "firstPassRGB": [
+              0.354308126586914,
+              0.37089825952148436,
+              0.39479696801757813
+            ]
+          },
+          {
+            "index": 33,
+            "position": [
+              2.5,
+              2.096250057220459,
+              2
+            ],
+            "distance": 3.042711786596701,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.39688099566650387,
+              0.41664302444458007,
+              0.44478371853637694
+            ],
+            "firstPassRGB": [
+              0.12114890385627747,
+              0.12623345817756654,
+              0.13326528862190248
+            ]
+          },
+          {
+            "index": 25,
+            "position": [
+              1.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 3.2664346030947082,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3425834802246094,
+              0.36138480737304685,
+              0.3881581311035156
+            ],
+            "firstPassRGB": [
+              0.049287921081542965,
+              0.051674570251464845,
+              0.055124061096191404
+            ]
+          },
+          {
+            "index": 19,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.486778780808224,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.37558249951171874,
+              0.3945779309082031,
+              0.4216412897949219
+            ],
+            "firstPassRGB": [
+              0.1249846303100586,
+              0.1311411605834961,
+              0.13994098553466797
+            ]
+          },
+          {
+            "index": 32,
+            "position": [
+              2.5,
+              0.6987500190734863,
+              2
+            ],
+            "distance": 3.512774187702331,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5158652978515624,
+              0.5412669418487549,
+              0.5778609592590331
+            ],
+            "firstPassRGB": [
+              0.2739269664955139,
+              0.2853942592201233,
+              0.3018379242591858
+            ]
+          },
+          {
+            "index": 9,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 3.7082452041077016,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3350795146484375,
+              0.3548176442871094,
+              0.38291141186523436
+            ],
+            "firstPassRGB": [
+              0.05716486114501953,
+              0.060543525024414055,
+              0.06543113092041015
+            ]
+          },
+          {
+            "index": 18,
+            "position": [
+              3.6458332538604736,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.724914440791102,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.709536373046875,
+              0.7586223461914062,
+              0.8289389018554687
+            ],
+            "firstPassRGB": [
+              0.5383450793457031,
+              0.5776501523437501,
+              0.6343292124023437
+            ]
+          },
+          {
+            "index": 21,
+            "position": [
+              1.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 3.803892087887679,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3883907890625,
+              0.40870209716796874,
+              0.4378731176757813
+            ],
+            "firstPassRGB": [
+              0.10332485449218749,
+              0.10839026586914062,
+              0.11563484985351562
+            ]
+          }
+        ],
+        "lamps": [],
+        "note": "RGB values are linear diffuse irradiance using the surface geometry normal, before material normal maps, colour, ambient fill and tone mapping. Exact blends use geometry visibility and the same baked probe coefficients; they are not fresh environment captures. Floor blends preserve weak probe support through confidence attenuation; unboundedRGB shows the blend before this attenuation."
+      },
+      "reference": {
+        "first": {
+          "name": "upper-right wall",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.023379024863052128,
+            0.024795259842294595,
+            0.02681845266978373
+          ],
+          "reflected": [
+            0.0634139930675223,
+            0.06590484346277478,
+            0.06946320117027993
+          ],
+          "skyStandardError": [
+            0.0007552533382811497,
+            0.0008010044421928273,
+            0.000866363162066649
+          ],
+          "reflectedStandardError": [
+            0.0012286979791721637,
+            0.0012899245066751075,
+            0.001380666057411162
+          ],
+          "samples": 32768,
+          "depth": 1,
+          "maxEncounters": 2,
+          "rays": 64605,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "final": {
+          "name": "upper-right wall",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.023429248332145686,
+            0.024848525706617462,
+            0.02687606481300561
+          ],
+          "reflected": [
+            0.22063523357031198,
+            0.22914126657259826,
+            0.24129274229015255
+          ],
+          "skyStandardError": [
+            0.0007560403828050237,
+            0.0008018391636404165,
+            0.0008672659934052598
+          ],
+          "reflectedStandardError": [
+            0.0017568631797508845,
+            0.0018476296496215843,
+            0.0019831884394453376
+          ],
+          "samples": 32768,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 178099,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        }
+      },
+      "diffuseRadiance": [
+        0.10013423462833909,
+        0.10572427370530689,
+        0.11375048577359417
+      ]
+    },
+    {
+      "name": "lower wall near sunlit floor",
+      "position": [
+        4.995,
+        0.35,
+        2.3
+      ],
+      "normal": [
+        -1,
+        0,
+        0
+      ],
+      "albedo": 0.8,
+      "inspection": {
+        "floorId": "room",
+        "point": [
+          4.995,
+          0.35,
+          2.3
+        ],
+        "normal": [
+          -1,
+          0,
+          0
+        ],
+        "shiftedPoint": [
+          4.817857142857143,
+          0.35,
+          2.3
+        ],
+        "bias": 0.17714285714285713,
+        "gridStep": [
+          0.15714285714285714,
+          0.2595454545454545,
+          0.15714285714285714
+        ],
+        "floorLayer": false,
+        "floorGridStep": null,
+        "displayed": {
+          "rgb": [
+            0.4379151907116434,
+            0.4632136706834588,
+            0.4992597453199708
+          ],
+          "coverage": 1
+        },
+        "exactAtSurface": {
+          "rgb": [
+            0.4347784391734008,
+            0.45988097662450245,
+            0.495839979327128
+          ],
+          "support": 5.351502272187892,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.4347784391734008,
+            0.45988097662450245,
+            0.495839979327128
+          ]
+        },
+        "exactAtShiftedSample": {
+          "rgb": [
+            0.43809724925030763,
+            0.4633722572897923,
+            0.49957937343780223
+          ],
+          "support": 5.767599276996999,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.43809724925030763,
+            0.4633722572897923,
+            0.49957937343780223
+          ]
+        },
+        "bounces": {
+          "firstRGB": [
+            0.19434804745857776,
+            0.20579967640438201,
+            0.22221001021197007
+          ],
+          "additionalRGB": [
+            0.24043039171482306,
+            0.25408130022012043,
+            0.2736299691151579
+          ],
+          "finalRGB": [
+            0.4347784391734008,
+            0.45988097662450245,
+            0.495839979327128
+          ],
+          "firstBrightness": 0.20454988619141187,
+          "additionalBrightness": 0.25259053096611594,
+          "finalBrightness": 0.4571404171575278,
+          "gain": 2.2348602860123274,
+          "additionalPercent": 55.2544735678173
+        },
+        "probes": [
+          {
+            "index": 7,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 0.7184976171176611,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4188905842285156,
+              0.4446447937011719,
+              0.48111022534179687
+            ],
+            "firstPassRGB": [
+              0.19926285144042968,
+              0.21209171807861327,
+              0.23040680212402342
+            ]
+          },
+          {
+            "index": 6,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 1.401501900035729,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5735403266601562,
+              0.6028947329101563,
+              0.6453158632812499
+            ],
+            "firstPassRGB": [
+              0.354308126586914,
+              0.37089825952148436,
+              0.39479696801757813
+            ]
+          },
+          {
+            "index": 11,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 1.5219194544402663,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3444572287597656,
+              0.36564761206054686,
+              0.3962264489746094
+            ],
+            "firstPassRGB": [
+              0.08980233911132812,
+              0.09595408364868163,
+              0.10478005148315431
+            ]
+          },
+          {
+            "index": 23,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 1.8558021210092568,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4212274885253906,
+              0.44328108544921874,
+              0.47495511474609375
+            ],
+            "firstPassRGB": [
+              0.16935309326171877,
+              0.17783613842773438,
+              0.18998632421875
+            ]
+          },
+          {
+            "index": 10,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 1.9401565853826745,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.37845145703125,
+              0.4003511489257812,
+              0.4319939487304687
+            ],
+            "firstPassRGB": [
+              0.11450338647460936,
+              0.12091467474365235,
+              0.13017889440917968
+            ]
+          },
+          {
+            "index": 3,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 2.101484909725444,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.31901968353271487,
+              0.33740896343994137,
+              0.3637064102783203
+            ],
+            "firstPassRGB": [
+              0.08258734393310546,
+              0.0884631096496582,
+              0.0969094015197754
+            ]
+          },
+          {
+            "index": 22,
+            "position": [
+              3.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.211779885599482,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4952294533691406,
+              0.5222438901367188,
+              0.560801533203125
+            ],
+            "firstPassRGB": [
+              0.2537831885986328,
+              0.2677880009765625,
+              0.28774851208496094
+            ]
+          },
+          {
+            "index": 27,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.2899784960436764,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.35714928124999995,
+              0.37688084814453127,
+              0.4052870751953125
+            ],
+            "firstPassRGB": [
+              0.0875264692993164,
+              0.09194669998168946,
+              0.0982336720275879
+            ]
+          },
+          {
+            "index": 2,
+            "position": [
+              3.6458332538604736,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 2.476610617501944,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.6149607968749999,
+              0.6651309970703125,
+              0.7362998833007812
+            ],
+            "firstPassRGB": [
+              0.40061199047851564,
+              0.4387082475585938,
+              0.49326403125
+            ]
+          },
+          {
+            "index": 32,
+            "position": [
+              2.5,
+              0.6987500190734863,
+              2
+            ],
+            "distance": 2.5331221004530673,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5158652978515624,
+              0.5412669418487549,
+              0.5778609592590331
+            ],
+            "firstPassRGB": [
+              0.2739269664955139,
+              0.2853942592201233,
+              0.3018379242591858
+            ]
+          },
+          {
+            "index": 26,
+            "position": [
+              3.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.5868842769521905,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3904069626464844,
+              0.41200773193359375,
+              0.44291663867187503
+            ],
+            "firstPassRGB": [
+              0.11946734313964844,
+              0.12575147100830078,
+              0.13467829180908203
+            ]
+          },
+          {
+            "index": 19,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 2.7099818287845503,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.37558249951171874,
+              0.3945779309082031,
+              0.4216412897949219
+            ],
+            "firstPassRGB": [
+              0.1249846303100586,
+              0.1311411605834961,
+              0.13994098553466797
+            ]
+          },
+          {
+            "index": 18,
+            "position": [
+              3.6458332538604736,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.0102097663222835,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.709536373046875,
+              0.7586223461914062,
+              0.8289389018554687
+            ],
+            "firstPassRGB": [
+              0.5383450793457031,
+              0.5776501523437501,
+              0.6343292124023437
+            ]
+          },
+          {
+            "index": 33,
+            "position": [
+              2.5,
+              2.096250057220459,
+              2
+            ],
+            "distance": 3.05687262775904,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.39688099566650387,
+              0.41664302444458007,
+              0.44478371853637694
+            ],
+            "firstPassRGB": [
+              0.12114890385627747,
+              0.12623345817756654,
+              0.13326528862190248
+            ]
+          },
+          {
+            "index": 5,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 3.3057839578235844,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4289720541992187,
+              0.45068852490234373,
+              0.4817821547851562
+            ],
+            "firstPassRGB": [
+              0.17542624389648437,
+              0.1824544638671875,
+              0.1921190866699219
+            ]
+          },
+          {
+            "index": 9,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 3.567661359462773,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3350795146484375,
+              0.3548176442871094,
+              0.38291141186523436
+            ],
+            "firstPassRGB": [
+              0.05716486114501953,
+              0.060543525024414055,
+              0.06543113092041015
+            ]
+          },
+          {
+            "index": 21,
+            "position": [
+              1.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 3.7223608452623798,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3883907890625,
+              0.40870209716796874,
+              0.4378731176757813
+            ],
+            "firstPassRGB": [
+              0.10332485449218749,
+              0.10839026586914062,
+              0.11563484985351562
+            ]
+          },
+          {
+            "index": 1,
+            "position": [
+              1.7708333730697632,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 3.83322314521331,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5089124365234375,
+              0.548803484375,
+              0.6054592973632813
+            ],
+            "firstPassRGB": [
+              0.2752924619140625,
+              0.3023221020507812,
+              0.34076762353515627
+            ]
+          }
+        ],
+        "lamps": [],
+        "note": "RGB values are linear diffuse irradiance using the surface geometry normal, before material normal maps, colour, ambient fill and tone mapping. Exact blends use geometry visibility and the same baked probe coefficients; they are not fresh environment captures. Floor blends preserve weak probe support through confidence attenuation; unboundedRGB shows the blend before this attenuation."
+      },
+      "reference": {
+        "first": {
+          "name": "lower wall near sunlit floor",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.07795014893911177,
+            0.08634478036332387,
+            0.0983371109693408
+          ],
+          "reflected": [
+            0.08796070929164215,
+            0.09171574406031041,
+            0.09708007944412082
+          ],
+          "skyStandardError": [
+            0.002014993592596359,
+            0.002231992902568273,
+            0.002541991916813866
+          ],
+          "reflectedStandardError": [
+            0.0013915101242775217,
+            0.0014690452399927847,
+            0.001584686805177694
+          ],
+          "samples": 32768,
+          "depth": 1,
+          "maxEncounters": 2,
+          "rays": 64088,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "final": {
+          "name": "lower wall near sunlit floor",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.07737774398871834,
+            0.08571073180288796,
+            0.09761500010884477
+          ],
+          "reflected": [
+            0.2158440807833677,
+            0.22499084468744515,
+            0.23805765026469577
+          ],
+          "skyStandardError": [
+            0.0020100403287434685,
+            0.0022265062103004555,
+            0.002535743183953298
+          ],
+          "reflectedStandardError": [
+            0.001766791496694458,
+            0.0018666248724621254,
+            0.0020161375758470765
+          ],
+          "samples": 32768,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 173777,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        }
+      },
+      "diffuseRadiance": [
+        0.11151418761086097,
+        0.11795639263522216,
+        0.1271354501671586
+      ]
+    },
+    {
+      "name": "sunlit floor",
+      "position": [
+        3,
+        0.005,
+        2.3
+      ],
+      "normal": [
+        0,
+        1,
+        0
+      ],
+      "albedo": 0.35,
+      "inspection": {
+        "floorId": "room",
+        "point": [
+          3,
+          0.005,
+          2.3
+        ],
+        "normal": [
+          0,
+          1,
+          0
+        ],
+        "shiftedPoint": [
+          3,
+          0.009000000000000001,
+          2.3
+        ],
+        "bias": 0.004,
+        "gridStep": [
+          0.15714285714285714,
+          0.2595454545454545,
+          0.15714285714285714
+        ],
+        "floorLayer": true,
+        "floorGridStep": 0.03985507246376811,
+        "displayed": {
+          "rgb": [
+            0.44284053002889334,
+            0.4754349547980695,
+            0.5222029409349174
+          ],
+          "coverage": 1
+        },
+        "exactAtSurface": {
+          "rgb": [
+            0.4429400122780323,
+            0.47569738821829566,
+            0.5225466444186451
+          ],
+          "support": 6.580787283131559,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.4429400122780323,
+            0.47569738821829566,
+            0.5225466444186451
+          ]
+        },
+        "exactAtShiftedSample": {
+          "rgb": [
+            0.4429400122780323,
+            0.47569738821829566,
+            0.5225466444186451
+          ],
+          "support": 6.580787283131559,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.4429400122780323,
+            0.47569738821829566,
+            0.5225466444186451
+          ]
+        },
+        "bounces": {
+          "firstRGB": [
+            0.1312222988324746,
+            0.14775301832806287,
+            0.17135582380951433
+          ],
+          "additionalRGB": [
+            0.3117177134455577,
+            0.3279443698902328,
+            0.35119082060913076
+          ],
+          "finalRGB": [
+            0.4429400122780323,
+            0.47569738821829566,
+            0.5225466444186451
+          ],
+          "firstBrightness": 0.14594270991906158,
+          "additionalBrightness": 0.3261729764719993,
+          "finalBrightness": 0.4721156863910609,
+          "gain": 3.2349384676555046,
+          "additionalPercent": 69.08751093727165
+        },
+        "probes": [
+          {
+            "index": 32,
+            "position": [
+              2.5,
+              0.6987500190734863,
+              2
+            ],
+            "distance": 0.9031916124565564,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4172425615234374,
+              0.45251711669921874,
+              0.5031648935546875
+            ],
+            "firstPassRGB": [
+              0.10552741943359373,
+              0.12498946215820311,
+              0.15280066235351564
+            ]
+          },
+          {
+            "index": 6,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 1.1579097930373827,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4175490131835938,
+              0.45043235205078125,
+              0.49778774218749994
+            ],
+            "firstPassRGB": [
+              0.10459710705566405,
+              0.12118723999023437,
+              0.14514840747070312
+            ]
+          },
+          {
+            "index": 5,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 1.5299526426696595,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4250371381835937,
+              0.4606195034179687,
+              0.5116375493164061
+            ],
+            "firstPassRGB": [
+              0.11740184741210938,
+              0.1374215361328125,
+              0.16569893627929688
+            ]
+          },
+          {
+            "index": 10,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 1.7722175624939154,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3900375986328125,
+              0.4145917973632812,
+              0.45004459521484375
+            ],
+            "firstPassRGB": [
+              0.06260777783203124,
+              0.06901906610107422,
+              0.07824815258789063
+            ]
+          },
+          {
+            "index": 7,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 1.904182590722821,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4190467316894531,
+              0.4465185632324219,
+              0.4853574362792969
+            ],
+            "firstPassRGB": [
+              0.09071499212646485,
+              0.10020035125732422,
+              0.11371780456542968
+            ]
+          },
+          {
+            "index": 9,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.0348845394301556,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.40002124365234376,
+              0.4253182229003906,
+              0.4613598962402343
+            ],
+            "firstPassRGB": [
+              0.06692407745361328,
+              0.0738316739501953,
+              0.08373942071533202
+            ]
+          },
+          {
+            "index": 33,
+            "position": [
+              2.5,
+              2.096250057220459,
+              2
+            ],
+            "distance": 2.1671669989566587,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.34783703002929683,
+              0.3679923552246093,
+              0.396710794921875
+            ],
+            "firstPassRGB": [
+              0.004865218749999997,
+              0.008825511352539062,
+              0.014295867187500005
+            ]
+          },
+          {
+            "index": 2,
+            "position": [
+              3.6458332538604736,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 2.257289454324341,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.8358157656249999,
+              0.9107197236328125,
+              1.0169905590820312
+            ],
+            "firstPassRGB": [
+              0.5975451682128907,
+              0.6600004291992188,
+              0.74909603125
+            ]
+          },
+          {
+            "index": 22,
+            "position": [
+              3.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.2850848564915065,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.40552273706054687,
+              0.43071024853515627,
+              0.46655092578125
+            ],
+            "firstPassRGB": [
+              0.0848316358642578,
+              0.09421448339843749,
+              0.10755434216308593
+            ]
+          },
+          {
+            "index": 11,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.329358568106653,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.36730160229492187,
+              0.3899910012207031,
+              0.42270905834960937
+            ],
+            "firstPassRGB": [
+              0.05013893218994141,
+              0.05507467837524414,
+              0.06214398727416992
+            ]
+          },
+          {
+            "index": 1,
+            "position": [
+              1.7708333730697632,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 2.4877913267737974,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.9082751826171875,
+              0.99113801171875,
+              1.1090973178710937
+            ],
+            "firstPassRGB": [
+              0.6820253681640625,
+              0.7535882641601562,
+              0.8558044086914063
+            ]
+          },
+          {
+            "index": 21,
+            "position": [
+              1.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.4943160989270807,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.391576197265625,
+              0.4146669301757812,
+              0.44774163720703125
+            ],
+            "firstPassRGB": [
+              0.0547942236328125,
+              0.061983240478515625,
+              0.07222585571289061
+            ]
+          },
+          {
+            "index": 26,
+            "position": [
+              3.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.649832598744081,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.35310333422851564,
+              0.37486805834960935,
+              0.4060111862792969
+            ],
+            "firstPassRGB": [
+              0.04767074060058594,
+              0.05329904913330078,
+              0.061242140930175784
+            ]
+          },
+          {
+            "index": 23,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.739848362841785,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.36647438134765625,
+              0.38716168798828127,
+              0.41676676342773433
+            ],
+            "firstPassRGB": [
+              0.039344717285156254,
+              0.04301842065429687,
+              0.048266888671874994
+            ]
+          },
+          {
+            "index": 3,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 2.743339450161404,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3631371967773438,
+              0.38421611669921873,
+              0.41436455029296876
+            ],
+            "firstPassRGB": [
+              0.04386277362060547,
+              0.04799749514770508,
+              0.05390639077758789
+            ]
+          },
+          {
+            "index": 4,
+            "position": [
+              0.3125,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 2.8285882236217903,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4167314289550781,
+              0.44367684399414065,
+              0.4822993530273437
+            ],
+            "firstPassRGB": [
+              0.09071304028320312,
+              0.10019644757080078,
+              0.11370999719238281
+            ]
+          },
+          {
+            "index": 25,
+            "position": [
+              1.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.8322451873675787,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3418495871582031,
+              0.36179079077148435,
+              0.39020366284179686
+            ],
+            "firstPassRGB": [
+              0.020541173522949215,
+              0.02391155169677734,
+              0.028750754943847656
+            ]
+          },
+          {
+            "index": 18,
+            "position": [
+              3.6458332538604736,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 2.9960329426024033,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5895214345703125,
+              0.6353907700195313,
+              0.7011634345703125
+            ],
+            "firstPassRGB": [
+              0.3354158391113281,
+              0.36828763671875,
+              0.4159101440429688
+            ]
+          },
+          {
+            "index": 27,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 3.0506997642125997,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3240069826660156,
+              0.34285631640625003,
+              0.3700406895751953
+            ],
+            "firstPassRGB": [
+              0.023693387268066402,
+              0.026302307403564453,
+              0.029981616851806638
+            ]
+          },
+          {
+            "index": 8,
+            "position": [
+              0.3125,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 3.1306407233682814,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3676116547851563,
+              0.39026982421875,
+              0.422523923828125
+            ],
+            "firstPassRGB": [
+              0.0500550029296875,
+              0.054988797271728514,
+              0.06208515167236328
+            ]
+          },
+          {
+            "index": 17,
+            "position": [
+              1.7708333730697632,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.1733205634045016,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.6167673564453124,
+              0.6660249272460937,
+              0.7362386601562501
+            ],
+            "firstPassRGB": [
+              0.364414521484375,
+              0.4011518842773437,
+              0.45322658984374997
+            ]
+          },
+          {
+            "index": 19,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.3773908644642847,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.34516497412109376,
+              0.3638481105957031,
+              0.3904859676513672
+            ],
+            "firstPassRGB": [
+              0.02639312347412109,
+              0.028333672302246093,
+              0.031074975769042966
+            ]
+          },
+          {
+            "index": 20,
+            "position": [
+              0.3125,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 3.4469942052992795,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.36525767578124996,
+              0.38548102490234376,
+              0.41464556494140625
+            ],
+            "firstPassRGB": [
+              0.03922816729736328,
+              0.0429018706665039,
+              0.04815033868408203
+            ]
+          },
+          {
+            "index": 0,
+            "position": [
+              0.3125,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 3.4497697515648595,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3602954775390625,
+              0.3809104399414063,
+              0.4103785520019531
+            ],
+            "firstPassRGB": [
+              0.04382485797119141,
+              0.047959579498291015,
+              0.053868475128173825
+            ]
+          },
+          {
+            "index": 24,
+            "position": [
+              0.3125,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 3.6988875424060694,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3236818966064453,
+              0.34249609716796875,
+              0.36920089807128903
+            ],
+            "firstPassRGB": [
+              0.023709002014160152,
+              0.026302307403564453,
+              0.029997231597900388
+            ]
+          }
+        ],
+        "lamps": [],
+        "note": "RGB values are linear diffuse irradiance using the surface geometry normal, before material normal maps, colour, ambient fill and tone mapping. Exact blends use geometry visibility and the same baked probe coefficients; they are not fresh environment captures. Floor blends preserve weak probe support through confidence attenuation; unboundedRGB shows the blend before this attenuation."
+      },
+      "reference": {
+        "first": {
+          "name": "sunlit floor",
+          "direct": [
+            1.8000000000000003,
+            1.8000000000000003,
+            1.8000000000000003
+          ],
+          "sky": [
+            0.12797317820412812,
+            0.14175490508764924,
+            0.1614430863498228
+          ],
+          "reflected": [
+            0.048445187482203014,
+            0.05227571788894004,
+            0.05774790418428234
+          ],
+          "skyStandardError": [
+            0.0027702908419785207,
+            0.003068629855730058,
+            0.003494828446803677
+          ],
+          "reflectedStandardError": [
+            0.0011099122542894866,
+            0.0012064856875113744,
+            0.0013452941093633599
+          ],
+          "samples": 32768,
+          "depth": 1,
+          "maxEncounters": 2,
+          "rays": 63518,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "final": {
+          "name": "sunlit floor",
+          "direct": [
+            1.8000000000000003,
+            1.8000000000000003,
+            1.8000000000000003
+          ],
+          "sky": [
+            0.12408327052467692,
+            0.13744608427348812,
+            0.1565358182003621
+          ],
+          "reflected": [
+            0.23784530132886547,
+            0.24856022002365738,
+            0.2638672467305169
+          ],
+          "skyStandardError": [
+            0.002728207477541044,
+            0.003022014436660848,
+            0.0034417386639748523
+          ],
+          "reflectedStandardError": [
+            0.0018597191492631473,
+            0.0019750337452913037,
+            0.0021460479922895377
+          ],
+          "samples": 32768,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 169974,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        }
+      },
+      "diffuseRadiance": [
+        0.0493361815488733,
+        0.05296747622234921,
+        0.058177825542842
+      ]
+    },
+    {
+      "name": "shadowed floor",
+      "position": [
+        4,
+        0.005,
+        2.3
+      ],
+      "normal": [
+        0,
+        1,
+        0
+      ],
+      "albedo": 0.35,
+      "inspection": {
+        "floorId": "room",
+        "point": [
+          4,
+          0.005,
+          2.3
+        ],
+        "normal": [
+          0,
+          1,
+          0
+        ],
+        "shiftedPoint": [
+          4,
+          0.009000000000000001,
+          2.3
+        ],
+        "bias": 0.004,
+        "gridStep": [
+          0.15714285714285714,
+          0.2595454545454545,
+          0.15714285714285714
+        ],
+        "floorLayer": true,
+        "floorGridStep": 0.03985507246376811,
+        "displayed": {
+          "rgb": [
+            0.42616158194166454,
+            0.4566183281536512,
+            0.4999715767481276
+          ],
+          "coverage": 1
+        },
+        "exactAtSurface": {
+          "rgb": [
+            0.42636299991887305,
+            0.4567388449224925,
+            0.5001887985181034
+          ],
+          "support": 6.139673783067879,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.42636299991887305,
+            0.4567388449224925,
+            0.5001887985181034
+          ]
+        },
+        "exactAtShiftedSample": {
+          "rgb": [
+            0.42636299991887305,
+            0.4567388449224925,
+            0.5001887985181034
+          ],
+          "support": 6.139673783067879,
+          "confidence": 1,
+          "unboundedRGB": [
+            0.42636299991887305,
+            0.4567388449224925,
+            0.5001887985181034
+          ]
+        },
+        "bounces": {
+          "firstRGB": [
+            0.11320332700102301,
+            0.1270511488625321,
+            0.14684822913973575
+          ],
+          "additionalRGB": [
+            0.3131596729178501,
+            0.3296876960599604,
+            0.35334056937836766
+          ],
+          "finalRGB": [
+            0.42636299991887305,
+            0.4567388449224925,
+            0.5001887985181034
+          ],
+          "firstBrightness": 0.12553645113078937,
+          "additionalBrightness": 0.3278815757935367,
+          "finalBrightness": 0.4534180269243261,
+          "gain": 3.611843594749507,
+          "additionalPercent": 72.31330832116629
+        },
+        "probes": [
+          {
+            "index": 6,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 0.9169269811778222,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4175490131835938,
+              0.45043235205078125,
+              0.49778774218749994
+            ],
+            "firstPassRGB": [
+              0.10459710705566405,
+              0.12118723999023437,
+              0.14514840747070312
+            ]
+          },
+          {
+            "index": 7,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 1.1184414775981237,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4190467316894531,
+              0.4465185632324219,
+              0.4853574362792969
+            ],
+            "firstPassRGB": [
+              0.09071499212646485,
+              0.10020035125732422,
+              0.11371780456542968
+            ]
+          },
+          {
+            "index": 10,
+            "position": [
+              3.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 1.6250400268337624,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3900375986328125,
+              0.4145917973632812,
+              0.45004459521484375
+            ],
+            "firstPassRGB": [
+              0.06260777783203124,
+              0.06901906610107422,
+              0.07824815258789063
+            ]
+          },
+          {
+            "index": 32,
+            "position": [
+              2.5,
+              0.6987500190734863,
+              2
+            ],
+            "distance": 1.6780211824681697,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4172425615234374,
+              0.45251711669921874,
+              0.5031648935546875
+            ],
+            "firstPassRGB": [
+              0.10552741943359373,
+              0.12498946215820311,
+              0.15280066235351564
+            ]
+          },
+          {
+            "index": 11,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 1.7466858157126814,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.36730160229492187,
+              0.3899910012207031,
+              0.42270905834960937
+            ],
+            "firstPassRGB": [
+              0.05013893218994141,
+              0.05507467837524414,
+              0.06214398727416992
+            ]
+          },
+          {
+            "index": 22,
+            "position": [
+              3.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.1729272425386936,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.40552273706054687,
+              0.43071024853515627,
+              0.46655092578125
+            ],
+            "firstPassRGB": [
+              0.0848316358642578,
+              0.09421448339843749,
+              0.10755434216308593
+            ]
+          },
+          {
+            "index": 2,
+            "position": [
+              3.6458332538604736,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 2.1917320029791356,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.8358157656249999,
+              0.9107197236328125,
+              1.0169905590820312
+            ],
+            "firstPassRGB": [
+              0.5975451682128907,
+              0.6600004291992188,
+              0.74909603125
+            ]
+          },
+          {
+            "index": 23,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 2.2653408245486615,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.36647438134765625,
+              0.38716168798828127,
+              0.41676676342773433
+            ],
+            "firstPassRGB": [
+              0.039344717285156254,
+              0.04301842065429687,
+              0.048266888671874994
+            ]
+          },
+          {
+            "index": 3,
+            "position": [
+              4.6875,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 2.2695619266307485,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3631371967773438,
+              0.38421611669921873,
+              0.41436455029296876
+            ],
+            "firstPassRGB": [
+              0.04386277362060547,
+              0.04799749514770508,
+              0.05390639077758789
+            ]
+          },
+          {
+            "index": 5,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 2.4167654186560754,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4250371381835937,
+              0.4606195034179687,
+              0.5116375493164061
+            ],
+            "firstPassRGB": [
+              0.11740184741210938,
+              0.1374215361328125,
+              0.16569893627929688
+            ]
+          },
+          {
+            "index": 26,
+            "position": [
+              3.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.553744858314317,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.35310333422851564,
+              0.37486805834960935,
+              0.4060111862792969
+            ],
+            "firstPassRGB": [
+              0.04767074060058594,
+              0.05329904913330078,
+              0.061242140930175784
+            ]
+          },
+          {
+            "index": 33,
+            "position": [
+              2.5,
+              2.096250057220459,
+              2
+            ],
+            "distance": 2.5877814438949067,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.34783703002929683,
+              0.3679923552246093,
+              0.396710794921875
+            ],
+            "firstPassRGB": [
+              0.004865218749999997,
+              0.008825511352539062,
+              0.014295867187500005
+            ]
+          },
+          {
+            "index": 27,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 2.6328252982996823,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3240069826660156,
+              0.34285631640625003,
+              0.3700406895751953
+            ],
+            "firstPassRGB": [
+              0.023693387268066402,
+              0.026302307403564453,
+              0.029981616851806638
+            ]
+          },
+          {
+            "index": 9,
+            "position": [
+              1.75,
+              0.6987500190734863,
+              3.75
+            ],
+            "distance": 2.764191579614531,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.40002124365234376,
+              0.4253182229003906,
+              0.4613598962402343
+            ],
+            "firstPassRGB": [
+              0.06692407745361328,
+              0.0738316739501953,
+              0.08373942071533202
+            ]
+          },
+          {
+            "index": 18,
+            "position": [
+              3.6458332538604736,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 2.9469555282423023,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.5895214345703125,
+              0.6353907700195313,
+              0.7011634345703125
+            ],
+            "firstPassRGB": [
+              0.3354158391113281,
+              0.36828763671875,
+              0.4159101440429688
+            ]
+          },
+          {
+            "index": 19,
+            "position": [
+              4.6875,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.0052901775646905,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.34516497412109376,
+              0.3638481105957031,
+              0.3904859676513672
+            ],
+            "firstPassRGB": [
+              0.02639312347412109,
+              0.028333672302246093,
+              0.031074975769042966
+            ]
+          },
+          {
+            "index": 1,
+            "position": [
+              1.7708333730697632,
+              0.6987500190734863,
+              0.25
+            ],
+            "distance": 3.1060326687643522,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.9082751826171875,
+              0.99113801171875,
+              1.1090973178710937
+            ],
+            "firstPassRGB": [
+              0.6820253681640625,
+              0.7535882641601562,
+              0.8558044086914063
+            ]
+          },
+          {
+            "index": 21,
+            "position": [
+              1.75,
+              2.096250057220459,
+              1.75
+            ],
+            "distance": 3.1179500960353437,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.391576197265625,
+              0.4146669301757812,
+              0.44774163720703125
+            ],
+            "firstPassRGB": [
+              0.0547942236328125,
+              0.061983240478515625,
+              0.07222585571289061
+            ]
+          },
+          {
+            "index": 25,
+            "position": [
+              1.75,
+              2.096250057220459,
+              3.75
+            ],
+            "distance": 3.3943501294602494,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.3418495871582031,
+              0.36179079077148435,
+              0.39020366284179686
+            ],
+            "firstPassRGB": [
+              0.020541173522949215,
+              0.02391155169677734,
+              0.028750754943847656
+            ]
+          },
+          {
+            "index": 17,
+            "position": [
+              1.7708333730697632,
+              2.096250057220459,
+              0.25
+            ],
+            "distance": 3.6780832850801977,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.6167673564453124,
+              0.6660249272460937,
+              0.7362386601562501
+            ],
+            "firstPassRGB": [
+              0.364414521484375,
+              0.4011518842773437,
+              0.45322658984374997
+            ]
+          },
+          {
+            "index": 4,
+            "position": [
+              0.3125,
+              0.6987500190734863,
+              1.75
+            ],
+            "distance": 3.7915579039244376,
+            "visibleAtSurface": true,
+            "visibleAtShiftedSample": true,
+            "finalRGB": [
+              0.4167314289550781,
+              0.44367684399414065,
+              0.4822993530273437
+            ],
+            "firstPassRGB": [
+              0.09071304028320312,
+              0.10019644757080078,
+              0.11370999719238281
+            ]
+          }
+        ],
+        "lamps": [],
+        "note": "RGB values are linear diffuse irradiance using the surface geometry normal, before material normal maps, colour, ambient fill and tone mapping. Exact blends use geometry visibility and the same baked probe coefficients; they are not fresh environment captures. Floor blends preserve weak probe support through confidence attenuation; unboundedRGB shows the blend before this attenuation."
+      },
+      "reference": {
+        "first": {
+          "name": "shadowed floor",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.09923434568278573,
+            0.10992112137170111,
+            0.12518794378443737
+          ],
+          "reflected": [
+            0.04576143830429637,
+            0.049586903895720374,
+            0.05505185474061465
+          ],
+          "skyStandardError": [
+            0.00243344895936583,
+            0.002695512693451383,
+            0.003069889456430742
+          ],
+          "reflectedStandardError": [
+            0.0011313940094406533,
+            0.0012352909586254392,
+            0.0013844897217964627
+          ],
+          "samples": 32768,
+          "depth": 1,
+          "maxEncounters": 2,
+          "rays": 63941,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "final": {
+          "name": "shadowed floor",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.10004105323410568,
+            0.11081470512085564,
+            0.1262056363876409
+          ],
+          "reflected": [
+            0.23411455176227755,
+            0.2451855942417269,
+            0.26100136921237876
+          ],
+          "skyStandardError": [
+            0.0024406928592313947,
+            0.0027035367056101605,
+            0.0030790279147226815
+          ],
+          "reflectedStandardError": [
+            0.0018630115443753858,
+            0.001986858927472519,
+            0.002170193093811857
+          ],
+          "samples": 32768,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 172256,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        }
+      },
+      "diffuseRadiance": [
+        0.047478005625314394,
+        0.050871144822407524,
+        0.055701063491439405
+      ]
+    }
+  ],
+  "probes": [
+    {
+      "index": 0,
+      "position": [
+        0.3125,
+        0.69875,
+        0.25
+      ]
+    },
+    {
+      "index": 16,
+      "position": [
+        0.3125,
+        2.09625,
+        0.25
+      ]
+    },
+    {
+      "index": 1,
+      "position": [
+        1.7708333333333335,
+        0.69875,
+        0.25
+      ]
+    },
+    {
+      "index": 17,
+      "position": [
+        1.7708333333333335,
+        2.09625,
+        0.25
+      ]
+    },
+    {
+      "index": 2,
+      "position": [
+        3.645833333333333,
+        0.69875,
+        0.25
+      ]
+    },
+    {
+      "index": 18,
+      "position": [
+        3.645833333333333,
+        2.09625,
+        0.25
+      ]
+    },
+    {
+      "index": 3,
+      "position": [
+        4.6875,
+        0.69875,
+        0.25
+      ]
+    },
+    {
+      "index": 19,
+      "position": [
+        4.6875,
+        2.09625,
+        0.25
+      ]
+    },
+    {
+      "index": 4,
+      "position": [
+        0.3125,
+        0.69875,
+        1.75
+      ]
+    },
+    {
+      "index": 20,
+      "position": [
+        0.3125,
+        2.09625,
+        1.75
+      ]
+    },
+    {
+      "index": 5,
+      "position": [
+        1.75,
+        0.69875,
+        1.75
+      ]
+    },
+    {
+      "index": 21,
+      "position": [
+        1.75,
+        2.09625,
+        1.75
+      ]
+    },
+    {
+      "index": 6,
+      "position": [
+        3.75,
+        0.69875,
+        1.75
+      ]
+    },
+    {
+      "index": 22,
+      "position": [
+        3.75,
+        2.09625,
+        1.75
+      ]
+    },
+    {
+      "index": 7,
+      "position": [
+        4.6875,
+        0.69875,
+        1.75
+      ]
+    },
+    {
+      "index": 23,
+      "position": [
+        4.6875,
+        2.09625,
+        1.75
+      ]
+    },
+    {
+      "index": 8,
+      "position": [
+        0.3125,
+        0.69875,
+        3.75
+      ]
+    },
+    {
+      "index": 24,
+      "position": [
+        0.3125,
+        2.09625,
+        3.75
+      ]
+    },
+    {
+      "index": 9,
+      "position": [
+        1.75,
+        0.69875,
+        3.75
+      ]
+    },
+    {
+      "index": 25,
+      "position": [
+        1.75,
+        2.09625,
+        3.75
+      ]
+    },
+    {
+      "index": 10,
+      "position": [
+        3.75,
+        0.69875,
+        3.75
+      ]
+    },
+    {
+      "index": 26,
+      "position": [
+        3.75,
+        2.09625,
+        3.75
+      ]
+    },
+    {
+      "index": 11,
+      "position": [
+        4.6875,
+        0.69875,
+        3.75
+      ]
+    },
+    {
+      "index": 27,
+      "position": [
+        4.6875,
+        2.09625,
+        3.75
+      ]
+    },
+    {
+      "index": 32,
+      "position": [
+        2.5,
+        0.69875,
+        2
+      ]
+    },
+    {
+      "index": 33,
+      "position": [
+        2.5,
+        2.09625,
+        2
+      ]
+    }
+  ],
+  "spacing": 2,
+  "status": {
+    "generation": 2,
+    "completed": 156,
+    "total": 156,
+    "rooms": 1,
+    "probes": 26,
+    "floorProbes": 0,
+    "state": "ready",
+    "multiviewViews": 0,
+    "multiviewBatches": 0,
+    "multiviewProbes": 0,
+    "firstProbes": 26,
+    "secondProbes": 26,
+    "reusedProbes": 0,
+    "zones": 1,
+    "partial": false,
+    "capturedFaces": 156,
+    "captureMs": 56.60000002384186,
+    "maxFaceMs": 3,
+    "maxInFlight": 1,
+    "previewUpdates": 1,
+    "firstPreviewMs": 144.5,
+    "bakeStartedAt": 8887.199999988079,
+    "roomMean": {
+      "1": [
+        0.03369869512939453,
+        0.03588938076782226,
+        0.03902665896606445
+      ]
+    },
+    "worker": true,
+    "geometryBuilds": 2,
+    "captureSceneMs": 27.899999976158142,
+    "captureSceneMeshes": 10,
+    "captureMergedMeshes": 5,
+    "captureMaterials": 3,
+    "captureDrawCalls": 554,
+    "captureTriangles": 15144,
+    "surfaceCacheBytes": 3354624,
+    "surfaceCachedProbes": 26,
+    "surfaceReplayedProbes": 130,
+    "surfaceReusedFaces": 780,
+    "surfaceDataFaces": 156,
+    "surfaceRelitProbes": 0,
+    "surfaceRelighting": true,
+    "prepareMs": 81.69999998807907,
+    "prepareTimings": {
+      "layout": 41.39999997615814,
+      "geometry": 1.800000011920929,
+      "structure": 0.10000002384185791,
+      "probes": 0.2999999523162842,
+      "ceilings": 5.300000011920929,
+      "lamps": 0,
+      "tables": 0.800000011920929,
+      "zones": 0
+    },
+    "geometryRefitted": false,
+    "blocked": false,
+    "enabled": true,
+    "diffuseEnabled": true,
+    "bakeOnDemand": false,
+    "preparing": false,
+    "warming": false,
+    "reading": false,
+    "inFlight": 0,
+    "volumePending": false,
+    "previewPending": false,
+    "pendingUpdate": false,
+    "floorPreparing": false,
+    "floorLayerReady": true,
+    "volumeSamplingVersion": 1,
+    "displayed": true,
+    "xr": false,
+    "capturedProbes": 26,
+    "reflection": false,
+    "face": 0,
+    "saving": false,
+    "saved": false,
+    "source": "baked",
+    "exportable": false,
+    "continuous": true,
+    "lightingRevision": 1,
+    "pendingLighting": false,
+    "moving": false,
+    "paused": false,
+    "lastCapture": {
+      "position": [
+        0.3125,
+        0.6987500190734863,
+        0.25
+      ],
+      "calls": 4,
+      "pass": 1,
+      "face": 5,
+      "faces": 3
+    },
+    "lastPreviewCompleted": 4,
+    "interpolationProfile": {
+      "warmVolumeRows": 432,
+      "warmFloorRows": 139,
+      "warmVolumeCpuMs": 131.60000002384186,
+      "warmFloorCpuMs": 101.3999999165535,
+      "evaluations": [
+        {
+          "copyMs": 0.19999998807907104,
+          "decodeMs": 0.40000003576278687,
+          "volumeMs": 19.599999964237213,
+          "floorMs": 18.80000001192093,
+          "outputCopyMs": 0.40000003576278687,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0,
+          "decodeMs": 0.5,
+          "volumeMs": 23.30000001192093,
+          "floorMs": 18.299999952316284,
+          "outputCopyMs": 0.30000001192092896,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.10000002384185791,
+          "decodeMs": 0.30000001192092896,
+          "volumeMs": 17,
+          "floorMs": 17.599999964237213,
+          "outputCopyMs": 0.10000002384185791,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0,
+          "decodeMs": 0.5,
+          "volumeMs": 17.700000047683716,
+          "floorMs": 18.099999964237213,
+          "outputCopyMs": 0.30000001192092896,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.10000002384185791,
+          "decodeMs": 0.3999999761581421,
+          "volumeMs": 23.30000001192093,
+          "floorMs": 17.899999976158142,
+          "outputCopyMs": 0.10000002384185791,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.09999996423721313,
+          "decodeMs": 0.40000003576278687,
+          "volumeMs": 25.099999964237213,
+          "floorMs": 19.80000001192093,
+          "outputCopyMs": 0.10000002384185791,
+          "visibilityTests": 0
+        }
+      ],
+      "volume": {
+        "samples": 108864,
+        "newCells": 15552,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 399168,
+        "links": 246693,
+        "visibilityTests": 246693,
+        "visibleLinks": 186973,
+        "blockedLinks": 59720,
+        "blendedLinks": 1121838,
+        "decodedValues": 294912,
+        "growthBytes": 2752512,
+        "reuseAccepted": false,
+        "cellCapacity": 15552,
+        "linkCapacity": 262144,
+        "localFloorCells": 0,
+        "capacityBytes": 2124928,
+        "averageLinksPerPreparedCell": 15.862461419753087,
+        "coefficientProducts": 13462056
+      },
+      "floor": {
+        "samples": 87500,
+        "newCells": 12500,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 325000,
+        "links": 215468,
+        "visibilityTests": 215468,
+        "visibleLinks": 215468,
+        "blockedLinks": 0,
+        "blendedLinks": 1292808,
+        "decodedValues": 294912,
+        "growthBytes": 2752512,
+        "reuseAccepted": false,
+        "cellCapacity": 19321,
+        "linkCapacity": 262144,
+        "localFloorCells": 0,
+        "capacityBytes": 2147542,
+        "averageLinksPerPreparedCell": 17.23744,
+        "coefficientProducts": 15513696
+      },
+      "preview": {
+        "samples": 1200,
+        "newCells": 1200,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 30480,
+        "links": 17979,
+        "visibilityTests": 2699,
+        "visibleLinks": 1398,
+        "blockedLinks": 1301,
+        "blendedLinks": 1398,
+        "decodedValues": 49152,
+        "growthBytes": 0,
+        "reuseAccepted": false,
+        "cellCapacity": 1200,
+        "linkCapacity": 65536,
+        "localFloorCells": 0,
+        "capacityBytes": 662560,
+        "averageLinksPerPreparedCell": 14.9825,
+        "coefficientProducts": 16776
+      },
+      "previewFloor": {
+        "samples": 832,
+        "newCells": 832,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 21632,
+        "links": 14238,
+        "visibilityTests": 1856,
+        "visibleLinks": 1856,
+        "blockedLinks": 0,
+        "blendedLinks": 1856,
+        "decodedValues": 49152,
+        "growthBytes": 0,
+        "reuseAccepted": false,
+        "cellCapacity": 1296,
+        "linkCapacity": 65536,
+        "localFloorCells": 0,
+        "capacityBytes": 663136,
+        "averageLinksPerPreparedCell": 17.11298076923077,
+        "coefficientProducts": 22272
+      },
+      "dimensions": {
+        "volumeCells": 15552,
+        "floorCells": 19321,
+        "volumeN": 36,
+        "floorN": 139,
+        "probes": 26
+      }
+    },
+    "fullPassPublications": 6,
+    "batchedPasses": 5,
+    "batchedProbeReadbacks": 5
+  },
+  "performance": {
+    "label": "World-space probe GI",
+    "version": 2,
+    "complete": true,
+    "totalMs": 1366.6000000238419,
+    "wallPhases": [
+      {
+        "name": "diffuse pass 1",
+        "ms": 633,
+        "percent": 46.3193326495651
+      },
+      {
+        "name": "cached atlas diffuse relighting",
+        "ms": 249.10000002384186,
+        "percent": 18.227718426715647
+      },
+      {
+        "name": "irradiance volume",
+        "ms": 233.80000001192093,
+        "percent": 17.10815161772589
+      },
+      {
+        "name": "batched SH integration",
+        "ms": 83.50000005960464,
+        "percent": 6.110054153237809
+      },
+      {
+        "name": "GPU readback wait",
+        "ms": 82.99999994039536,
+        "percent": 6.073466993922678
+      },
+      {
+        "name": "geometry and visibility",
+        "ms": 66.59999996423721,
+        "percent": 4.873408456247278
+      },
+      {
+        "name": "preparation",
+        "ms": 16.600000023841858,
+        "percent": 1.2146934014014528
+      },
+      {
+        "name": "diffuse pass 2",
+        "ms": 0.5999999642372131,
+        "percent": 0.0439045780935713
+      },
+      {
+        "name": "diffuse pass 3",
+        "ms": 0.10000002384185791,
+        "percent": 0.007317431863025998
+      },
+      {
+        "name": "diffuse pass 4",
+        "ms": 0.10000002384185791,
+        "percent": 0.007317431863025998
+      },
+      {
+        "name": "diffuse pass 5",
+        "ms": 0.10000002384185791,
+        "percent": 0.007317431863025998
+      },
+      {
+        "name": "diffuse pass 6",
+        "ms": 0.09999996423721313,
+        "percent": 0.00731742750149777
+      },
+      {
+        "name": "idle",
+        "ms": 0,
+        "percent": 0
+      }
+    ],
+    "stages": [
+      {
+        "name": "geometry snapshot",
+        "count": 1,
+        "cpuMs": 0.09999996423721313,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0.09999996423721313
+      },
+      {
+        "name": "worker preparation round trip",
+        "count": 1,
+        "cpuMs": 0,
+        "wallMs": 81.69999998807907,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "worker: layout",
+        "count": 1,
+        "cpuMs": 41.39999997615814,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 41.39999997615814
+      },
+      {
+        "name": "worker: geometry",
+        "count": 1,
+        "cpuMs": 1.800000011920929,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 1.800000011920929
+      },
+      {
+        "name": "worker: structure",
+        "count": 1,
+        "cpuMs": 0.10000002384185791,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0.10000002384185791
+      },
+      {
+        "name": "worker: probes",
+        "count": 1,
+        "cpuMs": 0.2999999523162842,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0.2999999523162842
+      },
+      {
+        "name": "worker: ceilings",
+        "count": 1,
+        "cpuMs": 5.300000011920929,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 5.300000011920929
+      },
+      {
+        "name": "worker: lamps",
+        "count": 1,
+        "cpuMs": 0,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "worker: tables",
+        "count": 1,
+        "cpuMs": 0.800000011920929,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0.800000011920929
+      },
+      {
+        "name": "worker: zones",
+        "count": 1,
+        "cpuMs": 0,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "direct + depth + normal + albedo face",
+        "count": 156,
+        "cpuMs": 15.000000298023224,
+        "wallMs": 0,
+        "gpuMs": 0.61496,
+        "gpuSamples": 15,
+        "maxCpuMs": 0.7000000476837158
+      },
+      {
+        "name": "direct illumination evaluation",
+        "count": 26,
+        "cpuMs": 27.59999990463257,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 1.800000011920929
+      },
+      {
+        "name": "first-pass SH integration",
+        "count": 26,
+        "cpuMs": 0,
+        "wallMs": 0,
+        "gpuMs": 0.00852,
+        "gpuSamples": 7,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "probe reduction + asynchronous readback",
+        "count": 26,
+        "cpuMs": 0,
+        "wallMs": 203.80000007152557,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "irradiance volume worker",
+        "count": 6,
+        "cpuMs": 0,
+        "wallMs": 245.00000005960464,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "GPU volume upload",
+        "count": 6,
+        "cpuMs": 0,
+        "wallMs": 5.600000023841858,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "cached atlas diffuse relighting",
+        "count": 15,
+        "cpuMs": 6,
+        "wallMs": 0,
+        "gpuMs": 0.0061200000000000004,
+        "gpuSamples": 2,
+        "maxCpuMs": 5.400000035762787
+      },
+      {
+        "name": "batched SH integration",
+        "count": 5,
+        "cpuMs": 1.6999999284744263,
+        "wallMs": 0,
+        "gpuMs": 1.0664,
+        "gpuSamples": 1,
+        "maxCpuMs": 1.5999999642372131
+      },
+      {
+        "name": "batched probe readback submission",
+        "count": 5,
+        "cpuMs": 3.3999999165534973,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0.7999999523162842
+      },
+      {
+        "name": "batched probe readback wall wait",
+        "count": 5,
+        "cpuMs": 0,
+        "wallMs": 45.99999988079071,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "batched diffuse pass wall time",
+        "count": 5,
+        "cpuMs": 0,
+        "wallMs": 373.00000005960464,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      }
+    ],
+    "draws": 912,
+    "triangles": 15860,
+    "lines": 0,
+    "points": 0,
+    "textures": 31,
+    "geometries": 15,
+    "programs": 12,
+    "ownedTextureBytes": 11511520,
+    "gpuTimerSupported": true,
+    "gpuTimingEnabled": true,
+    "gpuSamplingStride": 8,
+    "pendingGpuQueries": 0,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "maxLongTaskMs": 0,
+    "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+  },
+  "controls": {
+    "exposure": 1,
+    "toneMapping": 4,
+    "fill": 0
+  },
+  "glError": 0
+}

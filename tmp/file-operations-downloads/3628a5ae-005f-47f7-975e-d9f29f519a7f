@@ -1,0 +1,57 @@
+{
+  "activeFloorId": "97c79d81-a0aa-44c7-8a19-11db0319a2a8",
+  "floors": [
+    {
+      "id": "97c79d81-a0aa-44c7-8a19-11db0319a2a8",
+      "name": "Floor 0",
+      "elevation": 0,
+      "models": [],
+      "roofs": [],
+      "rooms": [],
+      "roomHeight": 2.4,
+      "slabThickness": 0.3,
+      "walls": [],
+      "ceilingMode": "open"
+    }
+  ],
+  "modelDefinitions": [],
+  "materialDefinitions": [],
+  "sunPosition": {
+    "azimuth": 0.982793723247329,
+    "elevation": 0.78
+  },
+  "surfaceAssignments": [],
+  "threeDView": {
+    "camera": {
+      "position": {
+        "x": 6,
+        "y": 5,
+        "z": 8
+      },
+      "quaternion": {
+        "w": 0.888450709334306,
+        "x": -0.397327236145883,
+        "y": 0.20973476206080316,
+        "z": 0.09379623704253993
+      }
+    },
+    "floorViewId": "97c79d81-a0aa-44c7-8a19-11db0319a2a8",
+    "diffuseProbeResolution": 16,
+    "exposureStops": 0,
+    "ambientLighting": {
+      "daylight": true,
+      "ambientTerm": 0.3,
+      "nightAmbientTerm": 0.03
+    }
+  },
+  "twoDView": {
+    "viewportsByFloorId": {
+      "97c79d81-a0aa-44c7-8a19-11db0319a2a8": {
+        "scale": 1,
+        "x": 0,
+        "y": 0
+      }
+    }
+  },
+  "wallKind": "external"
+}

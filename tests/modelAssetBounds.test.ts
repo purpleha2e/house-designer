@@ -4,6 +4,46 @@ import { Box3, DefaultLoadingManager, Vector3 } from 'three'
 import { clearModelAssetBounds, getModelAssetBounds, rememberModelAssetBounds } from '../src/modelAssetBounds.ts'
 import { createFloorplanGltfLoader, createFloorplanKtx2Loader } from '../src/floorplanAssetLoading.ts'
 
+test('plan geometry bypasses PBR images and required KTX2 textures entirely', async () => {
+  const loader = createFloorplanGltfLoader()
+  let textureLoads = 0
+  loader.register(() => ({ name: 'TEST_REJECT_PLAN_TEXTURES', loadTexture: () => {
+    textureLoads++
+    return Promise.reject(new Error('The floor plan must not load a texture'))
+  } }))
+  const positions = new Float32Array([0,0,0, 2,0,0, 0,0,3])
+  const data = {
+    asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }],
+    buffers: [{ byteLength: positions.byteLength }],
+    bufferViews: [{ buffer: 0, byteLength: positions.byteLength }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3', min: [0,0,0], max: [2,0,3] }],
+    meshes: [{ primitives: [{ attributes: { POSITION: 0 }, material: 0 }] }],
+    materials: [{ pbrMetallicRoughness: { baseColorTexture: { index: 0 }, metallicRoughnessTexture: { index: 1 } }, normalTexture: { index: 1 } }],
+    extensionsUsed: ['KHR_texture_basisu'], extensionsRequired: ['KHR_texture_basisu'],
+    textures: [{ extensions: { KHR_texture_basisu: { source: 0 } } }, { source: 1 }],
+    images: [{ uri: 'must-not-load.ktx2' }, { uri: 'must-not-load.png' }],
+  }
+  const json = Buffer.from(JSON.stringify(data)), jsonLength = Math.ceil(json.length / 4) * 4
+  const binary = Buffer.alloc(12 + 8 + jsonLength + 8 + positions.byteLength)
+  binary.writeUInt32LE(0x46546c67, 0); binary.writeUInt32LE(2, 4); binary.writeUInt32LE(binary.length, 8)
+  binary.writeUInt32LE(jsonLength, 12); binary.writeUInt32LE(0x4e4f534a, 16)
+  binary.fill(32, 20, 20 + jsonLength); json.copy(binary, 20)
+  binary.writeUInt32LE(positions.byteLength, 20 + jsonLength); binary.writeUInt32LE(0x004e4942, 24 + jsonLength)
+  Buffer.from(positions.buffer).copy(binary, 28 + jsonLength)
+  const gltf = await loader.parseAsync(binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength), '')
+  assert.equal(textureLoads, 0)
+  const bounds = new Box3().setFromObject(gltf.scene)
+  assert.deepEqual(bounds.min.toArray(), [0,0,0])
+  assert.deepEqual(bounds.max.toArray(), [2,0,3])
+  gltf.scene.traverse(object => {
+    if ('isMesh' in object && object.isMesh) {
+      const mesh = object as import('three').Mesh
+      assert.equal((mesh.material as import('three').MeshBasicMaterial).map, null)
+      mesh.geometry.dispose(); (mesh.material as import('three').Material).dispose()
+    }
+  })
+})
+
 test('loaded 3D bounds are reusable plan metadata keyed by the complete asset revision',()=>{
   clearModelAssetBounds()
   const box=new Box3(new Vector3(-1,0,-2),new Vector3(3,2,4))

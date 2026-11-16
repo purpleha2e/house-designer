@@ -1,0 +1,60 @@
+{
+  "samples": [
+    {
+      "name": "ceiling above sunlit carpet",
+      "rgb": [
+        0.26416015625,
+        0.257080078125,
+        0.2247314453125
+      ]
+    },
+    {
+      "name": "upper-right ceiling corner",
+      "rgb": [
+        0.373046875,
+        0.365234375,
+        0.3271484375
+      ]
+    },
+    {
+      "name": "upper-right wall",
+      "rgb": [
+        0.2071533203125,
+        0.1883544921875,
+        0.1513671875
+      ]
+    },
+    {
+      "name": "lower wall near carpet",
+      "rgb": [
+        0.3681640625,
+        0.343505859375,
+        0.308837890625
+      ]
+    },
+    {
+      "name": "sunlit carpet",
+      "rgb": [
+        0.2420654296875,
+        0.2147216796875,
+        0.1790771484375
+      ]
+    },
+    {
+      "name": "shadowed carpet",
+      "rgb": [
+        0.187255859375,
+        0.1668701171875,
+        0.15380859375
+      ]
+    }
+  ],
+  "generation": 3,
+  "faces": 2118,
+  "programs": 98,
+  "exposure": 1,
+  "toneMapping": 0,
+  "mode": "Direct lighting only",
+  "strength": 1,
+  "fill": 0.32
+}

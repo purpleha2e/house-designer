@@ -1,0 +1,1024 @@
+{
+  "current": {
+    "generation": 3,
+    "completed": 2118,
+    "total": 2118,
+    "rooms": 17,
+    "probes": 353,
+    "floorProbes": 128,
+    "state": "ready",
+    "multiviewViews": 0,
+    "multiviewBatches": 0,
+    "multiviewProbes": 0,
+    "firstProbes": 353,
+    "secondProbes": 353,
+    "reusedProbes": 0,
+    "zones": 17,
+    "partial": false,
+    "capturedFaces": 2118,
+    "captureMs": 34421.60000145435,
+    "maxFaceMs": 19588.399999976158,
+    "maxInFlight": 4,
+    "previewUpdates": 18,
+    "firstPreviewMs": 100236.30000001192,
+    "bakeStartedAt": 232954.09999996424,
+    "roomMean": {
+      "1": [
+        0.07653876983642578,
+        0.08519333038330078,
+        0.09763426116943359
+      ],
+      "2": [
+        0,
+        0,
+        0
+      ],
+      "3": [
+        0.0024915668449401857,
+        0.00234112624168396,
+        0.0022194214839935302
+      ],
+      "4": [
+        0.12451748986816406,
+        0.13804024072265625,
+        0.1604339161376953
+      ],
+      "5": [
+        0.006409783905029297,
+        0.006998023567199707,
+        0.007964900253295899
+      ],
+      "6": [
+        0.06063601483154297,
+        0.06615329718017578,
+        0.03905370446777344
+      ],
+      "7": [
+        0.004303615459442138,
+        0.00397230806350708,
+        0.0034415400924682617
+      ],
+      "8": [
+        0.00020791229438781738,
+        0.00018160631811618805,
+        0.000155194695353508
+      ],
+      "9": [
+        0.0004973836798667908,
+        0.000333420325756073,
+        0.0002717227749824524
+      ],
+      "10": [
+        0,
+        0,
+        0
+      ],
+      "11": [
+        0.2068439970703125,
+        0.2230712980957031,
+        0.24578951953125
+      ],
+      "12": [
+        0.01744434860229492,
+        0.016335483032226563,
+        0.015348322219848633
+      ],
+      "13": [
+        0.02626118215942383,
+        0.02461140655517578,
+        0.022109697647094726
+      ],
+      "14": [
+        0.01045308641052246,
+        0.010236722396850586,
+        0.009878369499206542
+      ],
+      "15": [
+        0.9701762373046875,
+        1.0671073154296875,
+        1.2107730205078124
+      ],
+      "16": [
+        0.043867803771972656,
+        0.04567985238647461,
+        0.05179213577270508
+      ],
+      "17": [
+        0,
+        0,
+        0
+      ]
+    },
+    "worker": true,
+    "geometryBuilds": 1,
+    "captureSceneMs": 4793,
+    "captureSceneMeshes": 476,
+    "captureMergedMeshes": 163,
+    "captureMaterials": 280,
+    "captureDrawCalls": 230711,
+    "captureTriangles": 280433506,
+    "surfaceCacheBytes": 46491648,
+    "surfaceCachedProbes": 353,
+    "surfaceReplayedProbes": 1765,
+    "surfaceReusedFaces": 10590,
+    "surfaceDataFaces": 2118,
+    "surfaceRelitProbes": 0,
+    "surfaceRelighting": true,
+    "prepareMs": 28187.600000023842,
+    "prepareTimings": {
+      "layout": 1328.300000011921,
+      "geometry": 7206.199999988079,
+      "structure": 46.69999998807907,
+      "probes": 227.30000001192093,
+      "ceilings": 4051.300000011921,
+      "lamps": 9018.399999976158,
+      "tables": 162.60000002384186,
+      "zones": 0.19999998807907104
+    },
+    "geometryRefitted": false,
+    "blocked": false,
+    "enabled": true,
+    "diffuseEnabled": true,
+    "bakeOnDemand": false,
+    "preparing": false,
+    "warming": false,
+    "reading": false,
+    "inFlight": 0,
+    "volumePending": false,
+    "previewPending": false,
+    "pendingUpdate": false,
+    "floorPreparing": false,
+    "floorLayerReady": true,
+    "volumeSamplingVersion": 1,
+    "displayed": true,
+    "xr": false,
+    "capturedProbes": 353,
+    "reflection": false,
+    "face": 0,
+    "saving": false,
+    "saved": true,
+    "source": "baked",
+    "exportable": true,
+    "continuous": true,
+    "lightingRevision": 1,
+    "pendingLighting": false,
+    "moving": false,
+    "paused": false,
+    "lastCapture": {
+      "position": [
+        3.1531691551208496,
+        0.6000000238418579,
+        2.081115961074829
+      ],
+      "calls": 36,
+      "pass": 1,
+      "face": 5,
+      "faces": 1
+    },
+    "lastPreviewCompleted": 339,
+    "interpolationProfile": {
+      "warmVolumeRows": 2808,
+      "warmFloorRows": 918,
+      "warmVolumeCpuMs": 47587.00000119209,
+      "warmFloorCpuMs": 42473.2999997139,
+      "evaluations": [
+        {
+          "copyMs": 0.3999999761581421,
+          "decodeMs": 2.700000047683716,
+          "volumeMs": 1004,
+          "floorMs": 1117.0999999642372,
+          "outputCopyMs": 17.900000035762787,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.20000004768371582,
+          "decodeMs": 1.899999976158142,
+          "volumeMs": 963.3999999761581,
+          "floorMs": 1103.300000011921,
+          "outputCopyMs": 18.900000035762787,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.19999998807907104,
+          "decodeMs": 1.800000011920929,
+          "volumeMs": 964.8000000119209,
+          "floorMs": 1017.6999999880791,
+          "outputCopyMs": 17.5,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.10000002384185791,
+          "decodeMs": 1.899999976158142,
+          "volumeMs": 914.6000000238419,
+          "floorMs": 1007.5999999642372,
+          "outputCopyMs": 16.700000047683716,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.10000002384185791,
+          "decodeMs": 1.7999999523162842,
+          "volumeMs": 922,
+          "floorMs": 1001.6000000238419,
+          "outputCopyMs": 16.69999998807907,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.10000002384185791,
+          "decodeMs": 1.7999999523162842,
+          "volumeMs": 886.1000000238419,
+          "floorMs": 1018.8999999761581,
+          "outputCopyMs": 16.900000035762787,
+          "visibilityTests": 0
+        }
+      ],
+      "volume": {
+        "samples": 1533168,
+        "newCells": 219024,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 30481020,
+        "links": 7903234,
+        "visibilityTests": 7903223,
+        "visibleLinks": 1407167,
+        "blockedLinks": 6496067,
+        "blendedLinks": 8443002,
+        "decodedValues": 663552,
+        "growthBytes": 116523008,
+        "reuseAccepted": false,
+        "cellCapacity": 219024,
+        "linkCapacity": 8388608,
+        "localFloorCells": 0,
+        "capacityBytes": 60476768,
+        "averageLinksPerPreparedCell": 36.08387208707722,
+        "coefficientProducts": 227961054
+      },
+      "floor": {
+        "samples": 1271998,
+        "newCells": 181714,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 29901286,
+        "links": 8239119,
+        "visibilityTests": 8239119,
+        "visibleLinks": 1802350,
+        "blockedLinks": 6436769,
+        "blendedLinks": 10814100,
+        "decodedValues": 663552,
+        "growthBytes": 116523008,
+        "reuseAccepted": false,
+        "cellCapacity": 280908,
+        "linkCapacity": 8388608,
+        "localFloorCells": 0,
+        "capacityBytes": 60848072,
+        "averageLinksPerPreparedCell": 45.341134970338004,
+        "coefficientProducts": 291980700
+      },
+      "preview": {
+        "samples": 285768,
+        "newCells": 15876,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 2171952,
+        "links": 555188,
+        "visibilityTests": 539212,
+        "visibleLinks": 91331,
+        "blockedLinks": 447883,
+        "blendedLinks": 848608,
+        "decodedValues": 1990656,
+        "growthBytes": 13762560,
+        "reuseAccepted": false,
+        "cellCapacity": 15876,
+        "linkCapacity": 1048576,
+        "localFloorCells": 0,
+        "capacityBytes": 7877656,
+        "averageLinksPerPreparedCell": 34.970269589317205,
+        "coefficientProducts": 22912416
+      },
+      "previewFloor": {
+        "samples": 209898,
+        "newCells": 11661,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 1902077,
+        "links": 528261,
+        "visibilityTests": 518847,
+        "visibleLinks": 110038,
+        "blockedLinks": 408809,
+        "blendedLinks": 1015457,
+        "decodedValues": 1990656,
+        "growthBytes": 13762560,
+        "reuseAccepted": false,
+        "cellCapacity": 18252,
+        "linkCapacity": 1048576,
+        "localFloorCells": 0,
+        "capacityBytes": 7891912,
+        "averageLinksPerPreparedCell": 45.301517880113195,
+        "coefficientProducts": 27417339
+      },
+      "dimensions": {
+        "volumeCells": 219024,
+        "floorCells": 280908,
+        "volumeN": 78,
+        "floorN": 306,
+        "probes": 353
+      }
+    },
+    "fullPassPublications": 6,
+    "batchedPasses": 5,
+    "batchedProbeReadbacks": 5
+  },
+  "unshadowed": {
+    "gi": {
+      "generation": 3,
+      "completed": 2118,
+      "total": 2118,
+      "rooms": 17,
+      "probes": 353,
+      "floorProbes": 128,
+      "state": "ready",
+      "multiviewViews": 0,
+      "multiviewBatches": 0,
+      "multiviewProbes": 0,
+      "firstProbes": 353,
+      "secondProbes": 353,
+      "reusedProbes": 0,
+      "zones": 17,
+      "partial": false,
+      "capturedFaces": 2118,
+      "captureMs": 34421.60000145435,
+      "maxFaceMs": 19588.399999976158,
+      "maxInFlight": 4,
+      "previewUpdates": 18,
+      "firstPreviewMs": 100236.30000001192,
+      "bakeStartedAt": 232954.09999996424,
+      "roomMean": {
+        "1": [
+          0.07653876983642578,
+          0.08519333038330078,
+          0.09763426116943359
+        ],
+        "2": [
+          0,
+          0,
+          0
+        ],
+        "3": [
+          0.0024915668449401857,
+          0.00234112624168396,
+          0.0022194214839935302
+        ],
+        "4": [
+          0.12451748986816406,
+          0.13804024072265625,
+          0.1604339161376953
+        ],
+        "5": [
+          0.006409783905029297,
+          0.006998023567199707,
+          0.007964900253295899
+        ],
+        "6": [
+          0.06063601483154297,
+          0.06615329718017578,
+          0.03905370446777344
+        ],
+        "7": [
+          0.004303615459442138,
+          0.00397230806350708,
+          0.0034415400924682617
+        ],
+        "8": [
+          0.00020791229438781738,
+          0.00018160631811618805,
+          0.000155194695353508
+        ],
+        "9": [
+          0.0004973836798667908,
+          0.000333420325756073,
+          0.0002717227749824524
+        ],
+        "10": [
+          0,
+          0,
+          0
+        ],
+        "11": [
+          0.2068439970703125,
+          0.2230712980957031,
+          0.24578951953125
+        ],
+        "12": [
+          0.01744434860229492,
+          0.016335483032226563,
+          0.015348322219848633
+        ],
+        "13": [
+          0.02626118215942383,
+          0.02461140655517578,
+          0.022109697647094726
+        ],
+        "14": [
+          0.01045308641052246,
+          0.010236722396850586,
+          0.009878369499206542
+        ],
+        "15": [
+          0.9701762373046875,
+          1.0671073154296875,
+          1.2107730205078124
+        ],
+        "16": [
+          0.043867803771972656,
+          0.04567985238647461,
+          0.05179213577270508
+        ],
+        "17": [
+          0,
+          0,
+          0
+        ]
+      },
+      "worker": true,
+      "geometryBuilds": 1,
+      "captureSceneMs": 4793,
+      "captureSceneMeshes": 476,
+      "captureMergedMeshes": 163,
+      "captureMaterials": 280,
+      "captureDrawCalls": 230711,
+      "captureTriangles": 280433506,
+      "surfaceCacheBytes": 46491648,
+      "surfaceCachedProbes": 353,
+      "surfaceReplayedProbes": 1765,
+      "surfaceReusedFaces": 10590,
+      "surfaceDataFaces": 2118,
+      "surfaceRelitProbes": 0,
+      "surfaceRelighting": true,
+      "prepareMs": 28187.600000023842,
+      "prepareTimings": {
+        "layout": 1328.300000011921,
+        "geometry": 7206.199999988079,
+        "structure": 46.69999998807907,
+        "probes": 227.30000001192093,
+        "ceilings": 4051.300000011921,
+        "lamps": 9018.399999976158,
+        "tables": 162.60000002384186,
+        "zones": 0.19999998807907104
+      },
+      "geometryRefitted": false,
+      "blocked": false,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "bakeOnDemand": false,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": true,
+      "volumeSamplingVersion": 1,
+      "displayed": true,
+      "xr": false,
+      "capturedProbes": 353,
+      "reflection": false,
+      "face": 0,
+      "saving": true,
+      "saved": false,
+      "source": "baked",
+      "exportable": true,
+      "continuous": true,
+      "lightingRevision": 1,
+      "pendingLighting": false,
+      "moving": false,
+      "paused": false,
+      "lastCapture": {
+        "position": [
+          3.1531691551208496,
+          0.6000000238418579,
+          2.081115961074829
+        ],
+        "calls": 36,
+        "pass": 1,
+        "face": 5,
+        "faces": 1
+      },
+      "lastPreviewCompleted": 339,
+      "interpolationProfile": {
+        "warmVolumeRows": 2808,
+        "warmFloorRows": 918,
+        "warmVolumeCpuMs": 47587.00000119209,
+        "warmFloorCpuMs": 42473.2999997139,
+        "evaluations": [
+          {
+            "copyMs": 0.3999999761581421,
+            "decodeMs": 2.700000047683716,
+            "volumeMs": 1004,
+            "floorMs": 1117.0999999642372,
+            "outputCopyMs": 17.900000035762787,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.20000004768371582,
+            "decodeMs": 1.899999976158142,
+            "volumeMs": 963.3999999761581,
+            "floorMs": 1103.300000011921,
+            "outputCopyMs": 18.900000035762787,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.19999998807907104,
+            "decodeMs": 1.800000011920929,
+            "volumeMs": 964.8000000119209,
+            "floorMs": 1017.6999999880791,
+            "outputCopyMs": 17.5,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.10000002384185791,
+            "decodeMs": 1.899999976158142,
+            "volumeMs": 914.6000000238419,
+            "floorMs": 1007.5999999642372,
+            "outputCopyMs": 16.700000047683716,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.10000002384185791,
+            "decodeMs": 1.7999999523162842,
+            "volumeMs": 922,
+            "floorMs": 1001.6000000238419,
+            "outputCopyMs": 16.69999998807907,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.10000002384185791,
+            "decodeMs": 1.7999999523162842,
+            "volumeMs": 886.1000000238419,
+            "floorMs": 1018.8999999761581,
+            "outputCopyMs": 16.900000035762787,
+            "visibilityTests": 0
+          }
+        ],
+        "volume": {
+          "samples": 1533168,
+          "newCells": 219024,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 30481020,
+          "links": 7903234,
+          "visibilityTests": 7903223,
+          "visibleLinks": 1407167,
+          "blockedLinks": 6496067,
+          "blendedLinks": 8443002,
+          "decodedValues": 663552,
+          "growthBytes": 116523008,
+          "reuseAccepted": false,
+          "cellCapacity": 219024,
+          "linkCapacity": 8388608,
+          "localFloorCells": 0,
+          "capacityBytes": 60476768,
+          "averageLinksPerPreparedCell": 36.08387208707722,
+          "coefficientProducts": 227961054
+        },
+        "floor": {
+          "samples": 1271998,
+          "newCells": 181714,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 29901286,
+          "links": 8239119,
+          "visibilityTests": 8239119,
+          "visibleLinks": 1802350,
+          "blockedLinks": 6436769,
+          "blendedLinks": 10814100,
+          "decodedValues": 663552,
+          "growthBytes": 116523008,
+          "reuseAccepted": false,
+          "cellCapacity": 280908,
+          "linkCapacity": 8388608,
+          "localFloorCells": 0,
+          "capacityBytes": 60848072,
+          "averageLinksPerPreparedCell": 45.341134970338004,
+          "coefficientProducts": 291980700
+        },
+        "preview": {
+          "samples": 285768,
+          "newCells": 15876,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 2171952,
+          "links": 555188,
+          "visibilityTests": 539212,
+          "visibleLinks": 91331,
+          "blockedLinks": 447883,
+          "blendedLinks": 848608,
+          "decodedValues": 1990656,
+          "growthBytes": 13762560,
+          "reuseAccepted": false,
+          "cellCapacity": 15876,
+          "linkCapacity": 1048576,
+          "localFloorCells": 0,
+          "capacityBytes": 7877656,
+          "averageLinksPerPreparedCell": 34.970269589317205,
+          "coefficientProducts": 22912416
+        },
+        "previewFloor": {
+          "samples": 209898,
+          "newCells": 11661,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 1902077,
+          "links": 528261,
+          "visibilityTests": 518847,
+          "visibleLinks": 110038,
+          "blockedLinks": 408809,
+          "blendedLinks": 1015457,
+          "decodedValues": 1990656,
+          "growthBytes": 13762560,
+          "reuseAccepted": false,
+          "cellCapacity": 18252,
+          "linkCapacity": 1048576,
+          "localFloorCells": 0,
+          "capacityBytes": 7891912,
+          "averageLinksPerPreparedCell": 45.301517880113195,
+          "coefficientProducts": 27417339
+        },
+        "dimensions": {
+          "volumeCells": 219024,
+          "floorCells": 280908,
+          "volumeN": 78,
+          "floorN": 306,
+          "probes": 353
+        }
+      },
+      "fullPassPublications": 6,
+      "batchedPasses": 5,
+      "batchedProbeReadbacks": 5
+    },
+    "fill": 0,
+    "exposure": 1
+  },
+  "shadowed": {
+    "gi": {
+      "generation": 3,
+      "completed": 2118,
+      "total": 2118,
+      "rooms": 17,
+      "probes": 353,
+      "floorProbes": 128,
+      "state": "ready",
+      "multiviewViews": 0,
+      "multiviewBatches": 0,
+      "multiviewProbes": 0,
+      "firstProbes": 353,
+      "secondProbes": 353,
+      "reusedProbes": 0,
+      "zones": 17,
+      "partial": false,
+      "capturedFaces": 2118,
+      "captureMs": 34421.60000145435,
+      "maxFaceMs": 19588.399999976158,
+      "maxInFlight": 4,
+      "previewUpdates": 18,
+      "firstPreviewMs": 100236.30000001192,
+      "bakeStartedAt": 232954.09999996424,
+      "roomMean": {
+        "1": [
+          0.07653876983642578,
+          0.08519333038330078,
+          0.09763426116943359
+        ],
+        "2": [
+          0,
+          0,
+          0
+        ],
+        "3": [
+          0.0024915668449401857,
+          0.00234112624168396,
+          0.0022194214839935302
+        ],
+        "4": [
+          0.12451748986816406,
+          0.13804024072265625,
+          0.1604339161376953
+        ],
+        "5": [
+          0.006409783905029297,
+          0.006998023567199707,
+          0.007964900253295899
+        ],
+        "6": [
+          0.06063601483154297,
+          0.06615329718017578,
+          0.03905370446777344
+        ],
+        "7": [
+          0.004303615459442138,
+          0.00397230806350708,
+          0.0034415400924682617
+        ],
+        "8": [
+          0.00020791229438781738,
+          0.00018160631811618805,
+          0.000155194695353508
+        ],
+        "9": [
+          0.0004973836798667908,
+          0.000333420325756073,
+          0.0002717227749824524
+        ],
+        "10": [
+          0,
+          0,
+          0
+        ],
+        "11": [
+          0.2068439970703125,
+          0.2230712980957031,
+          0.24578951953125
+        ],
+        "12": [
+          0.01744434860229492,
+          0.016335483032226563,
+          0.015348322219848633
+        ],
+        "13": [
+          0.02626118215942383,
+          0.02461140655517578,
+          0.022109697647094726
+        ],
+        "14": [
+          0.01045308641052246,
+          0.010236722396850586,
+          0.009878369499206542
+        ],
+        "15": [
+          0.9701762373046875,
+          1.0671073154296875,
+          1.2107730205078124
+        ],
+        "16": [
+          0.043867803771972656,
+          0.04567985238647461,
+          0.05179213577270508
+        ],
+        "17": [
+          0,
+          0,
+          0
+        ]
+      },
+      "worker": true,
+      "geometryBuilds": 1,
+      "captureSceneMs": 4793,
+      "captureSceneMeshes": 476,
+      "captureMergedMeshes": 163,
+      "captureMaterials": 280,
+      "captureDrawCalls": 230711,
+      "captureTriangles": 280433506,
+      "surfaceCacheBytes": 46491648,
+      "surfaceCachedProbes": 353,
+      "surfaceReplayedProbes": 1765,
+      "surfaceReusedFaces": 10590,
+      "surfaceDataFaces": 2118,
+      "surfaceRelitProbes": 0,
+      "surfaceRelighting": true,
+      "prepareMs": 28187.600000023842,
+      "prepareTimings": {
+        "layout": 1328.300000011921,
+        "geometry": 7206.199999988079,
+        "structure": 46.69999998807907,
+        "probes": 227.30000001192093,
+        "ceilings": 4051.300000011921,
+        "lamps": 9018.399999976158,
+        "tables": 162.60000002384186,
+        "zones": 0.19999998807907104
+      },
+      "geometryRefitted": false,
+      "blocked": false,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "bakeOnDemand": false,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": true,
+      "volumeSamplingVersion": 1,
+      "displayed": true,
+      "xr": false,
+      "capturedProbes": 353,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "saved": true,
+      "source": "baked",
+      "exportable": true,
+      "continuous": true,
+      "lightingRevision": 1,
+      "pendingLighting": false,
+      "moving": false,
+      "paused": false,
+      "lastCapture": {
+        "position": [
+          3.1531691551208496,
+          0.6000000238418579,
+          2.081115961074829
+        ],
+        "calls": 36,
+        "pass": 1,
+        "face": 5,
+        "faces": 1
+      },
+      "lastPreviewCompleted": 339,
+      "interpolationProfile": {
+        "warmVolumeRows": 2808,
+        "warmFloorRows": 918,
+        "warmVolumeCpuMs": 47587.00000119209,
+        "warmFloorCpuMs": 42473.2999997139,
+        "evaluations": [
+          {
+            "copyMs": 0.3999999761581421,
+            "decodeMs": 2.700000047683716,
+            "volumeMs": 1004,
+            "floorMs": 1117.0999999642372,
+            "outputCopyMs": 17.900000035762787,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.20000004768371582,
+            "decodeMs": 1.899999976158142,
+            "volumeMs": 963.3999999761581,
+            "floorMs": 1103.300000011921,
+            "outputCopyMs": 18.900000035762787,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.19999998807907104,
+            "decodeMs": 1.800000011920929,
+            "volumeMs": 964.8000000119209,
+            "floorMs": 1017.6999999880791,
+            "outputCopyMs": 17.5,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.10000002384185791,
+            "decodeMs": 1.899999976158142,
+            "volumeMs": 914.6000000238419,
+            "floorMs": 1007.5999999642372,
+            "outputCopyMs": 16.700000047683716,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.10000002384185791,
+            "decodeMs": 1.7999999523162842,
+            "volumeMs": 922,
+            "floorMs": 1001.6000000238419,
+            "outputCopyMs": 16.69999998807907,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.10000002384185791,
+            "decodeMs": 1.7999999523162842,
+            "volumeMs": 886.1000000238419,
+            "floorMs": 1018.8999999761581,
+            "outputCopyMs": 16.900000035762787,
+            "visibilityTests": 0
+          }
+        ],
+        "volume": {
+          "samples": 1533168,
+          "newCells": 219024,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 30481020,
+          "links": 7903234,
+          "visibilityTests": 7903223,
+          "visibleLinks": 1407167,
+          "blockedLinks": 6496067,
+          "blendedLinks": 8443002,
+          "decodedValues": 663552,
+          "growthBytes": 116523008,
+          "reuseAccepted": false,
+          "cellCapacity": 219024,
+          "linkCapacity": 8388608,
+          "localFloorCells": 0,
+          "capacityBytes": 60476768,
+          "averageLinksPerPreparedCell": 36.08387208707722,
+          "coefficientProducts": 227961054
+        },
+        "floor": {
+          "samples": 1271998,
+          "newCells": 181714,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 29901286,
+          "links": 8239119,
+          "visibilityTests": 8239119,
+          "visibleLinks": 1802350,
+          "blockedLinks": 6436769,
+          "blendedLinks": 10814100,
+          "decodedValues": 663552,
+          "growthBytes": 116523008,
+          "reuseAccepted": false,
+          "cellCapacity": 280908,
+          "linkCapacity": 8388608,
+          "localFloorCells": 0,
+          "capacityBytes": 60848072,
+          "averageLinksPerPreparedCell": 45.341134970338004,
+          "coefficientProducts": 291980700
+        },
+        "preview": {
+          "samples": 285768,
+          "newCells": 15876,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 2171952,
+          "links": 555188,
+          "visibilityTests": 539212,
+          "visibleLinks": 91331,
+          "blockedLinks": 447883,
+          "blendedLinks": 848608,
+          "decodedValues": 1990656,
+          "growthBytes": 13762560,
+          "reuseAccepted": false,
+          "cellCapacity": 15876,
+          "linkCapacity": 1048576,
+          "localFloorCells": 0,
+          "capacityBytes": 7877656,
+          "averageLinksPerPreparedCell": 34.970269589317205,
+          "coefficientProducts": 22912416
+        },
+        "previewFloor": {
+          "samples": 209898,
+          "newCells": 11661,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 1902077,
+          "links": 528261,
+          "visibilityTests": 518847,
+          "visibleLinks": 110038,
+          "blockedLinks": 408809,
+          "blendedLinks": 1015457,
+          "decodedValues": 1990656,
+          "growthBytes": 13762560,
+          "reuseAccepted": false,
+          "cellCapacity": 18252,
+          "linkCapacity": 1048576,
+          "localFloorCells": 0,
+          "capacityBytes": 7891912,
+          "averageLinksPerPreparedCell": 45.301517880113195,
+          "coefficientProducts": 27417339
+        },
+        "dimensions": {
+          "volumeCells": 219024,
+          "floorCells": 280908,
+          "volumeN": 78,
+          "floorN": 306,
+          "probes": 353
+        }
+      },
+      "fullPassPublications": 6,
+      "batchedPasses": 5,
+      "batchedProbeReadbacks": 5
+    },
+    "atlas": {
+      "ready": true,
+      "lights": 18,
+      "faces": 108,
+      "completed": 108,
+      "texture": "a532e894-6fc3-47aa-95cf-4a6637d67403",
+      "width": 5654,
+      "height": 5140,
+      "tile": 512,
+      "builds": 1
+    },
+    "fill": 0,
+    "exposure": 1
+  },
+  "stage": "passed",
+  "errors": [
+    "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+    "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute.",
+    "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+    "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute."
+  ]
+}

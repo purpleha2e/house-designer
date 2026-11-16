@@ -22,7 +22,7 @@ export function sampleSunTexture(texture:SunTexture,uv:readonly number[],materia
 
 /** Maps the existing BVH's original vertex index back to diagnostic metadata.
  * Its reordered faceIndex is never used as a material index. */
-export function createSunHitMaterials(data:SunMetadata){
+export function createSunHitMaterials(data:SunMetadata,visibilityOnly=false){
   const triangle=new Triangle(),bary=new Vector3(),uv=new Vector2()
   const timings={resolved:0,identificationMs:0,barycentricUVms:0,textureMs:0,responseMs:0}
   const resolve=(hit:Hit,direction:Vector3):SunHit=>{
@@ -32,6 +32,14 @@ export function createSunHitMaterials(data:SunMetadata){
     if(!material||source<0||source>=data.materialIndices.length||data.owners[primitive]===undefined)return{...result,reason:'missing-hit-metadata'}
     if(material.unsupported||material.transmission||material.vertexColors)return{...result,reason:material.unsupported??'unsupported-material-feature'}
     if(!data.legacyOpaqueDoubleSide&&(material.side===undefined||material.opacity===undefined))return{...result,reason:'missing-side-or-opacity'}
+    const ignoresAlpha=data.legacyOpaqueDoubleSide||(material.opaquePipeline&&!material.alphaTest)
+    // Opaque shadow blockers need sidedness, not UV interpolation or RGB /
+    // metalness texture reads. Alpha-tested surfaces retain the full resolver.
+    if(visibilityOnly&&ignoresAlpha){
+      const mode=material.side??2
+      if((mode===0&&side<0)||(mode===1&&side>0))return{...result,reason:'discarded-side-or-alpha'}
+      if(side<0)normal.negate();result.valid=true;return result
+    }
     timings.identificationMs+=performance.now()-identificationAt
     const uvAt=performance.now()
     triangle.a.fromArray(data.positions,source*9);triangle.b.fromArray(data.positions,source*9+3);triangle.c.fromArray(data.positions,source*9+6)
@@ -43,7 +51,6 @@ export function createSunHitMaterials(data:SunMetadata){
     const map=material.map>=0?data.textures[material.map]:undefined
     if(material.map>=0&&!map)return{...result,reason:'missing-base-colour-texture'}
     const textureAt=performance.now(),texel=map?sampleSunTexture(map,result.uv,material):[1,1,1,1]
-    const ignoresAlpha=data.legacyOpaqueDoubleSide||(material.opaquePipeline&&!material.alphaTest)
     let alpha=ignoresAlpha?1:(material.opacity??1)*texel[3],metalness=material.metalness
     if(!ignoresAlpha&&material.alphaMap!==undefined&&material.alphaMap>=0){const texture=data.textures[material.alphaMap];if(!texture)return{...result,reason:'missing-alpha-map'};alpha*=sampleSunTexture(texture,result.uv,material.alphaSampling??material,false)[1]}
     if(material.metalnessMap!==undefined&&material.metalnessMap>=0){const texture=data.textures[material.metalnessMap];if(!texture)return{...result,reason:'missing-metalness-map'};metalness*=sampleSunTexture(texture,result.uv,material.metalnessSampling??material,false)[2]}

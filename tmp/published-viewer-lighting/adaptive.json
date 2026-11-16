@@ -1,0 +1,70 @@
+{
+  "dpr": 0.85,
+  "gi": {
+    "generation": 2,
+    "state": "ready",
+    "enabled": true,
+    "displayed": true,
+    "diffuseReady": true,
+    "probes": 353,
+    "floorProbes": 128,
+    "rooms": 17,
+    "reflections": 0,
+    "completed": 706,
+    "total": 706,
+    "capturedFaces": 0,
+    "captureMs": 0,
+    "worker": false,
+    "geometryBuilds": 0,
+    "source": "saved",
+    "saved": true,
+    "blocked": false,
+    "diffuseEnabled": true,
+    "bakeOnDemand": false,
+    "preparing": false,
+    "warming": false,
+    "reading": false,
+    "inFlight": 0,
+    "volumePending": false,
+    "previewPending": false,
+    "pendingUpdate": false,
+    "floorPreparing": false,
+    "floorLayerReady": true,
+    "volumeSamplingVersion": 1,
+    "xr": false,
+    "capturedProbes": 353,
+    "reflection": false,
+    "face": 0,
+    "saving": false,
+    "exportable": true,
+    "continuous": false,
+    "lightingRevision": 1,
+    "pendingLighting": false,
+    "moving": true,
+    "paused": false
+  },
+  "exterior": {
+    "state": "ready",
+    "bakes": 1,
+    "ms": 1825.3999999761581,
+    "rays": 3269376,
+    "cell": 0.385,
+    "dimensions": [
+      43,
+      24,
+      66
+    ],
+    "eaveLayers": 3,
+    "eaveDimensions": [
+      167,
+      158
+    ],
+    "bytes": 907816,
+    "enabled": true,
+    "strength": 0.75
+  },
+  "pixels": [
+    716,
+    331
+  ]
+}

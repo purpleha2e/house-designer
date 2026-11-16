@@ -31,6 +31,7 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
   const [activeFloorId, setActiveFloorId] = useState(initialFloor.id)
   const [mode, setMode] = useState<ViewerNavigationMode>('walk')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [renderQuality, setRenderQuality] = useState<'auto' | 'full'>('auto')
   const [touchInput] = useState(createViewerTouchInput)
   // An editor camera can be inside a wall once snapped to head height. Start
   // outside the house unless its owner has provided an explicit tour viewpoint.
@@ -62,6 +63,7 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
     <ViewerTouchContext.Provider value={touchInput}>
     <main ref={viewerRef} className="house-viewer" aria-label="Read-only house viewer">
       <ThreeDView readOnly viewerTouchDevice={touchDevice} viewerMode={mode} onViewerStairs={navigate}
+        viewerRenderQuality={renderQuality}
         savedIndirectLighting={house.project.indirectLighting}
         ambientLighting={house.project.threeDView?.ambientLighting}
         diffuseProbeResolution={house.project.threeDView?.diffuseProbeResolution}
@@ -95,6 +97,14 @@ export function HouseViewer({ house }: { house: PublishedHouse }) {
             <button type="button" onClick={event => { reset(); event.currentTarget.blur() }}>Reset view</button>
             {aspectControls}
             <ViewerFullscreenButton target={viewerRef} />
+            {touchDevice && <label className="viewer-quality">Render quality
+              <select aria-label="Render quality" value={renderQuality}
+                onChange={event => setRenderQuality(event.target.value as 'auto' | 'full')}>
+                <option value="auto">Auto — smoother movement</option>
+                <option value="full">Full resolution</option>
+              </select>
+              <small>Auto adjusts sharpness when movement slows. Lighting stays enabled.</small>
+            </label>}
             <aside className="viewer-help" aria-label="Navigation instructions">
               <strong>{mode === 'walk' ? 'Walk at head height' : 'Fly freely'}</strong>
               <span>Touch: left joystick moves; drag the right side to look.</span>

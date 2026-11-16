@@ -1,0 +1,28 @@
+{
+  "stats": {
+    "bounds": [
+      -1.2000000476837158,
+      4.76837147544984e-9,
+      -0.5249999761581421,
+      1.2000000476837158,
+      1.4227676391601562,
+      0.5249999761581421
+    ],
+    "meshes": 5,
+    "triangles": 8612,
+    "textures": [
+      {
+        "width": 1024,
+        "height": 1024,
+        "compressed": true
+      }
+    ]
+  },
+  "check": {
+    "name": "Ivory Waterfall Shaker Island",
+    "source": "/src/models/assets/waterfall_shaker_island.glb",
+    "width": 2.4,
+    "firstSinkHitY": 0.7110380381857218,
+    "thumbnailStatus": 200
+  }
+}

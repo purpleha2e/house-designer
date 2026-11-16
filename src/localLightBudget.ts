@@ -17,11 +17,22 @@ export function prioritizeVisibleLights<T extends { id: string; power: number; p
     a.priority - b.priority || score(a) - score(b) || a.id.localeCompare(b.id))
 }
 
+/** All-light mode follows authored order, never camera position. Keep off lamps
+ * in spare slots so toggles do not change shader light counts. */
+export function selectLocalLightIds<T extends { id: string; power: number; priority: number; distanceSquared: number }>(
+  lights: readonly T[], cameraBudget: boolean, previous: readonly string[], limit: number, shadowLimit: number,
+) {
+  const ordered = cameraBudget ? prioritizeVisibleLights(lights, previous, shadowLimit) : prioritizeEmittingLights(lights)
+  return new Set(ordered.slice(0, limit).map(light => light.id))
+}
+
 /** Keep spare uniforms so adding a lamp does not recompile every house material. */
 export function localLightPoolCapacities(point: number, spot: number, limit: number, shadowLimit: number) {
   const capacity = (count: number, reserve: number) => Math.min(limit, Math.max(reserve, Math.ceil(count / 4) * 4))
   const shadowPoint = Math.min(point, shadowLimit), shadowSpot = Math.min(spot, shadowLimit - shadowPoint)
-  return { point: capacity(point, point || !spot ? 8 : 0), spot: spot ? capacity(spot, 4) : 0, shadowPoint, shadowSpot }
+  // Keep both types present from startup. Replacing the empty point pool with
+  // a spot-only pool recompiled every building material on the first spotlight.
+  return { point: capacity(point, 8), spot: capacity(spot, 4), shadowPoint, shadowSpot }
 }
 
 /** Uniforms limit direct lights; only shadow maps consume a texture per lamp. */

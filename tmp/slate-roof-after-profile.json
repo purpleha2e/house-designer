@@ -1,0 +1,682 @@
+{
+  "body": "2D floor\nFloor 0\n100%\nRoof 1 · Gable\n\nFloor 0 · 35° pitch\n\nShape\nHeight & joins\nAdvanced\nPitch (°)\nUnequal eave heights\nOverhangs (m)\nDistance the roof extends beyond the walls.\nEnds (m)\nSide 1 (m)\nSide 2 (m)\nChamfered ends\nFloor 0 internal area: 53m2\nContext\n\nFloor 0 - Roof\n\nSurface\nRoof\nMaterial\nMy materials - Local library - Slate tiles\nManufacturer\nMy materials\nFinish\nwall-covering\nScale\n1.00x\nOrientation\n0 deg\nTexture size\n1.00 x 1.00 m\n3D floors\nAll floors\nFloor 0\nScene resources ready\n60 FPS\n0/0 lights\n82 shaders\nGI building 0%\n0 calls\n38 geo / 54 tex\n0 tris\nVR NOT SUPPORTED",
+  "assignments": [
+    {
+      "coverageHeight": 2.4,
+      "id": "6fc1e862-f504-4a0b-98f5-a602152d4d1c",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:191cb63a-dd71-40e0-b323-4659f93a1b58:1:side:1.35:1.5:0:2.4:0:0.15",
+        "side": 1,
+        "wallId": "191cb63a-dd71-40e0-b323-4659f93a1b58"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "64b34607-3b2e-4cae-84c5-8d85a2e1c85f",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:191cb63a-dd71-40e0-b323-4659f93a1b58:1:side:1.5:8.85:0:2.4:0.15:7.5",
+        "side": 1,
+        "wallId": "191cb63a-dd71-40e0-b323-4659f93a1b58"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "cc2c3e4c-940a-4866-8281-4725466d2bf2",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:191cb63a-dd71-40e0-b323-4659f93a1b58:1:side:8.85:9:0:2.4:7.5:7.65",
+        "side": 1,
+        "wallId": "191cb63a-dd71-40e0-b323-4659f93a1b58"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "55e82ed0-1cf8-40c2-96c5-f1cdc9fb3939",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:8af9e95c-0d34-45c3-8fc9-d1f016293843:-1:side:1.35:1.5:0:2.4:0:0.15",
+        "side": -1,
+        "wallId": "8af9e95c-0d34-45c3-8fc9-d1f016293843"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "c473bea0-d180-44bd-8522-ec4267d318ea",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:8af9e95c-0d34-45c3-8fc9-d1f016293843:-1:side:1.5:9.25:0:2.4:0.15:7.9",
+        "side": -1,
+        "wallId": "8af9e95c-0d34-45c3-8fc9-d1f016293843"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "a7809d2d-aee4-4e8b-aea3-d9584f9304ac",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:8af9e95c-0d34-45c3-8fc9-d1f016293843:-1:side:9.25:9.4:0:2.4:7.9:8.05",
+        "side": -1,
+        "wallId": "8af9e95c-0d34-45c3-8fc9-d1f016293843"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "3fa83a4d-5041-4aa7-9412-017b15c3f4c9",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:c67f5a2e-5e43-4001-8679-61d9db4ca6de:-1:side:1.35:1.5:0:2.4:7.9:8.05",
+        "side": -1,
+        "wallId": "c67f5a2e-5e43-4001-8679-61d9db4ca6de"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "a17a6ee6-7e20-470f-9bb3-2af021071dd4",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:c67f5a2e-5e43-4001-8679-61d9db4ca6de:-1:side:1.5:9.25:0:2.4:0.15:7.9",
+        "side": -1,
+        "wallId": "c67f5a2e-5e43-4001-8679-61d9db4ca6de"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "d9af9bf4-5214-4f74-b2db-d97dd66daec2",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:c67f5a2e-5e43-4001-8679-61d9db4ca6de:-1:side:9.25:9.4:0:2.4:0:0.15",
+        "side": -1,
+        "wallId": "c67f5a2e-5e43-4001-8679-61d9db4ca6de"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "8359433c-76a1-45b1-9625-01e28a088c93",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:fb4cb666-a3dd-488a-a761-6627e44140cb:-1:side:1.35:1.5:0:2.4:7.5:7.65",
+        "side": -1,
+        "wallId": "fb4cb666-a3dd-488a-a761-6627e44140cb"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "cc16a7fb-ab3c-405e-a58c-8962b8e9ceca",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:fb4cb666-a3dd-488a-a761-6627e44140cb:-1:side:1.5:8.85:0:2.4:0.15:7.5",
+        "side": -1,
+        "wallId": "fb4cb666-a3dd-488a-a761-6627e44140cb"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "coverageHeight": 2.4,
+      "id": "01a94e84-a204-48fd-be5e-ecd0a3a8e035",
+      "materialId": "portal-material-0b2dc7ea2ce7b4eef9b3d5ce6c29e9b4",
+      "target": {
+        "type": "wall-surface-fragment",
+        "fragmentId": "perimeter-wall:fb4cb666-a3dd-488a-a761-6627e44140cb:-1:side:8.85:9:0:2.4:0:0.15",
+        "side": -1,
+        "wallId": "fb4cb666-a3dd-488a-a761-6627e44140cb"
+      },
+      "textureRotation": 0,
+      "textureScale": 2
+    },
+    {
+      "id": "30968426-4507-4e7e-95ea-a4eee14f1399",
+      "materialId": "local-material-659808c0-3ee3-40fd-b1a4-9e1317558152",
+      "customColor": "#fffffc",
+      "textureRotation": 0,
+      "textureScale": 1,
+      "target": {
+        "type": "roof",
+        "floorId": "5af889f7-1a8e-4bf9-9b9e-1c28acb4f09c",
+        "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440"
+      }
+    }
+  ],
+  "before": [
+    "18,19,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile(){}",
+    "16,17,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile(){}",
+    "14,15,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,4,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "depth,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520710,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "depth,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}",
+    "0,1,onBeforeCompile(){}",
+    "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}"
+  ],
+  "after": [
+    "18,19,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile(){}",
+    "16,17,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile(){}",
+    "14,15,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,4,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8520706,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8524802,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "depth,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520710,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388624,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,uv,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,306,256,uv,false,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388688,8522754,srgb,onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "physical,STANDARD,,highp,srgb-linear,false,,uv,false,false,false,false,uv,false,false,false,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388672,8520706,srgb,onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+    "depth,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile(){}",
+    "distance,highp,srgb-linear,false,,uv,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}",
+    "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile(){}",
+    "0,1,onBeforeCompile(){}",
+    "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile(){}",
+    "20,21,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,8388608,8519680,srgb,onBeforeCompile(){}",
+    "20,22,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,8388608,8519680,srgb,onBeforeCompile(){}",
+    "20,23,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,8388608,8519680,srgb,onBeforeCompile(){}",
+    "20,24,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,8388608,8519680,srgb,onBeforeCompile(){}",
+    "20,25,STANDARD,1,HD_GI_CAPTURE_VISIBILITY,1,USE_SHADOWMAP,1,SHADOWMAP_TYPE_PCF,1,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,8388608,8519680,srgb,onBeforeCompile(){}",
+    "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile(){}:surface-radiance-v4-relight",
+    "physical,STANDARD,,HD_GI_CAPTURE_VISIBILITY,1,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display:surface-radiance-v4-relight"
+  ],
+  "calls": [],
+  "profiles": [
+    {
+      "startedAt": 13944.90000000596,
+      "programsReused": false,
+      "stages": {
+        "delayAndSceneScan": 352.90000000596046,
+        "snapshot": 61.599999994039536,
+        "compile": 81689,
+        "resources": 18.400000005960464,
+        "postprocessing": 624.0999999940395
+      },
+      "batches": [
+        {
+          "submittedMs": 18.5,
+          "readyMs": 18070.30000001192,
+          "objects": 4,
+          "programs": 12
+        },
+        {
+          "submittedMs": 23,
+          "readyMs": 19158.69999998808,
+          "objects": 4,
+          "programs": 16
+        },
+        {
+          "submittedMs": 23.69999998807907,
+          "readyMs": 19597.40000000596,
+          "objects": 4,
+          "programs": 20
+        },
+        {
+          "submittedMs": 3.0999999940395355,
+          "readyMs": 19482.59999999404,
+          "objects": 4,
+          "programs": 22
+        },
+        {
+          "submittedMs": 23.69999998807907,
+          "readyMs": 21258,
+          "objects": 4,
+          "programs": 26
+        },
+        {
+          "submittedMs": 30.600000023841858,
+          "readyMs": 23557.30000001192,
+          "objects": 4,
+          "programs": 30
+        },
+        {
+          "submittedMs": 29.30000001192093,
+          "readyMs": 23727.70000001788,
+          "objects": 4,
+          "programs": 34
+        },
+        {
+          "submittedMs": 32.400000005960464,
+          "readyMs": 23990,
+          "objects": 4,
+          "programs": 38
+        },
+        {
+          "submittedMs": 40.5,
+          "readyMs": 18918.5,
+          "objects": 4,
+          "programs": 42
+        },
+        {
+          "submittedMs": 42.400000005960464,
+          "readyMs": 17537.20000001788,
+          "objects": 4,
+          "programs": 46
+        },
+        {
+          "submittedMs": 4.0999999940395355,
+          "readyMs": 16835.90000000596,
+          "objects": 4,
+          "programs": 48
+        },
+        {
+          "submittedMs": 9.600000023841858,
+          "readyMs": 16493.100000023842,
+          "objects": 4,
+          "programs": 49
+        },
+        {
+          "submittedMs": 2.5999999940395355,
+          "readyMs": 1878.2999999821186,
+          "objects": 4,
+          "programs": 49
+        },
+        {
+          "submittedMs": 3.7999999821186066,
+          "readyMs": 3.899999976158142,
+          "objects": 4,
+          "programs": 49
+        },
+        {
+          "submittedMs": 21.899999976158142,
+          "readyMs": 20003.19999998808,
+          "objects": 4,
+          "programs": 52
+        },
+        {
+          "submittedMs": 31.299999982118607,
+          "readyMs": 20806.09999999404,
+          "objects": 4,
+          "programs": 56
+        },
+        {
+          "submittedMs": 33,
+          "readyMs": 20920.5,
+          "objects": 4,
+          "programs": 60
+        },
+        {
+          "submittedMs": 13.099999994039536,
+          "readyMs": 20806.90000000596,
+          "objects": 4,
+          "programs": 64
+        },
+        {
+          "submittedMs": 11.200000017881393,
+          "readyMs": 968.7000000178814,
+          "objects": 4,
+          "programs": 69
+        },
+        {
+          "submittedMs": 3.5999999940395355,
+          "readyMs": 553.1999999880791,
+          "objects": 4,
+          "programs": 70
+        },
+        {
+          "submittedMs": 5.300000011920929,
+          "readyMs": 542.0999999940395,
+          "objects": 4,
+          "programs": 71
+        },
+        {
+          "submittedMs": 1.0999999940395355,
+          "readyMs": 489.69999998807907,
+          "objects": 4,
+          "programs": 72
+        }
+      ],
+      "cancelled": false
+    },
+    {
+      "startedAt": 97941.59999999404,
+      "programsReused": false,
+      "stages": {
+        "delayAndSceneScan": 0.30000001192092896,
+        "snapshot": 45.599999994039536,
+        "compile": 313.40000000596046,
+        "resources": 661.6999999880791,
+        "postprocessing": 0
+      },
+      "batches": [
+        {
+          "submittedMs": 0.5,
+          "readyMs": 6.199999988079071,
+          "objects": 4,
+          "programs": 77
+        },
+        {
+          "submittedMs": 0.30000001192092896,
+          "readyMs": 4.700000017881393,
+          "objects": 3,
+          "programs": 77
+        }
+      ],
+      "cancelled": false
+    },
+    {
+      "startedAt": 99753.90000000596,
+      "programsReused": false,
+      "stages": {
+        "delayAndSceneScan": 0.19999998807907104,
+        "snapshot": 32.70000001788139,
+        "compile": 305.5,
+        "resources": 34.69999998807907,
+        "postprocessing": 0
+      },
+      "batches": [
+        {
+          "submittedMs": 1.5,
+          "readyMs": 1.5,
+          "objects": 4,
+          "programs": 78
+        }
+      ],
+      "cancelled": false
+    },
+    {
+      "startedAt": 100574.09999999404,
+      "programsReused": true,
+      "stages": {
+        "delayAndSceneScan": 1.7000000178813934,
+        "resources": 1052.0999999940395
+      },
+      "batches": [],
+      "cancelled": false
+    }
+  ],
+  "watch": {
+    "id": "local-material-659808c0-3ee3-40fd-b1a4-9e1317558152",
+    "color": "fffffc",
+    "textured": true,
+    "at": 100269.40000000596,
+    "ms": 1379
+  },
+  "meshes": [
+    {
+      "role": "roof-top",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "fffffc",
+          "key": "onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 0,
+          "map": true,
+          "normalMap": true
+        }
+      ]
+    },
+    {
+      "role": "roof-shell",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "fffffc",
+          "key": "onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 0,
+          "map": true,
+          "normalMap": true
+        }
+      ]
+    },
+    {
+      "role": "roof-eaves",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "ffffff",
+          "key": "onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 2,
+          "map": false,
+          "normalMap": false
+        }
+      ]
+    },
+    {
+      "role": "roof-soffit",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "ffffff",
+          "key": "onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 0,
+          "map": false,
+          "normalMap": false
+        }
+      ]
+    },
+    {
+      "role": "roof-underside",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "fffffc",
+          "key": "onBeforeCompile(){}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 0,
+          "map": true,
+          "normalMap": true
+        }
+      ]
+    },
+    {
+      "role": "roof-exterior-highlight",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "3b82f6",
+          "key": "onBeforeCompile(){}",
+          "side": 0,
+          "map": false,
+          "normalMap": false
+        }
+      ]
+    },
+    {
+      "role": "roof-exterior-highlight",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "3b82f6",
+          "key": "onBeforeCompile(){}",
+          "side": 0,
+          "map": false,
+          "normalMap": false
+        }
+      ]
+    },
+    {
+      "role": "roof-infill",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "94a3b8",
+          "key": "onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 0,
+          "map": false,
+          "normalMap": false
+        }
+      ]
+    },
+    {
+      "role": "roof-infill",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "cbd5e1",
+          "key": "onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 0,
+          "map": false,
+          "normalMap": false
+        }
+      ]
+    },
+    {
+      "role": "roof-infill",
+      "roofId": "362e6b1d-3ad4-4d9f-9659-88c296d49440",
+      "materials": [
+        {
+          "color": "ffffff",
+          "key": "onBeforeCompile(){}:surface-finish:standard-wall-shadow-receiver-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5",
+          "side": 0,
+          "map": true,
+          "normalMap": true
+        }
+      ]
+    }
+  ]
+}

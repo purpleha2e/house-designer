@@ -1,5 +1,5 @@
 import { Matrix4, Vector2, Vector3, Vector4, type Material, type Texture } from 'three'
-import { cacheShaderKeyTransform } from './shaderKeyTransform.ts'
+import { captureMaterialShaderKey, composedMaterialShaderKey } from './shaderKeyTransform.ts'
 import { INDIRECT_ATLAS_SIZE, INDIRECT_MASK_SIZE, INDIRECT_MAX_FLOORS, INDIRECT_MAX_LOCAL_LIGHTS,writeIndirectContactTexture, type IndirectField } from './indirectLighting.ts'
 import { INDIRECT_VOLUME_HEIGHT, INDIRECT_VOLUME_STRIDE } from './indirectVolume.ts'
 import { createFastGIUniforms, fastGIShader } from './fastGIShader.ts'
@@ -20,6 +20,7 @@ export function createIndirectUniforms(field: IndirectField) {
     hdExteriorSkyField: { value: field.volume.maps[0] as Texture },
     hdExteriorEaveMin: { value: new Vector2() }, hdExteriorEaveSize: { value: new Vector2(1, 1) },
     hdExteriorEaveDimensions: { value: new Vector2(1, 1) }, hdExteriorEaveLayers: { value: 0 },
+    hdExteriorEaveFilterWidth: { value: 6 },
     hdExteriorEaveHeight: { value: new Vector2(0, 1) },
     hdExteriorSkyMin: { value: new Vector3() }, hdExteriorSkySize: { value: new Vector3(1, 1, 1) }, hdExteriorSkyDimensions: { value: new Vector3(1, 1, 1) },
     hdGIReceiverSafetyReady: { value: 0 },
@@ -30,6 +31,7 @@ export function createIndirectUniforms(field: IndirectField) {
     hdDiagnosticSkyVolume: { value: field.volume.maps[0] as Texture }, hdDiagnosticSkyFloor: { value: field.floorLayer.texture as Texture },
     hdSkyMode: { value: 1 }, hdSkyRadianceBase: { value: new Vector3() }, hdSkySunIrradiance: { value: new Vector3() },
     hdSkyDisplayRadianceBase: { value: new Vector3() }, hdSkyDisplaySunIrradiance: { value: new Vector3() },
+    hdExteriorAmbientTint: { value: new Vector3(1,1,1) },
     hdGIDisplayStrength: { value: 1 },
     hdSunBounceStrength: { value: 1 }, hdSunBounceReady: { value: 0 },
     hdSunBounceFeature: { value: 0 }, hdSunBouncePacked: { value: 0 }, hdSunOffVolume: { value: field.volume.maps[0] as Texture }, hdSunOffFloor: { value: field.floorLayer.texture as Texture },
@@ -59,7 +61,7 @@ export type IndirectUniforms = ReturnType<typeof createIndirectUniforms>
 /** React preserves the lighting state across hot updates. Upgrade it in place
  * before a newly compiled exterior shader or cached roof field uses it. */
 export function ensureExteriorSkyUniforms(uniforms: IndirectUniforms) {
-  const upgraded = !uniforms.hdExteriorEaveLayers || !uniforms.hdExteriorSkyFeature
+  const upgraded = !uniforms.hdExteriorEaveLayers || !uniforms.hdExteriorSkyFeature || !uniforms.hdExteriorEaveFilterWidth
   uniforms.hdExteriorSkyFeature ??= { value: 0 }
   uniforms.hdExteriorSkyStrength ??= { value: 0 }
   uniforms.hdExteriorSkyCell ??= { value: .35 }
@@ -72,6 +74,7 @@ export function ensureExteriorSkyUniforms(uniforms: IndirectUniforms) {
   uniforms.hdExteriorEaveSize ??= { value: new Vector2(1, 1) }
   uniforms.hdExteriorEaveDimensions ??= { value: new Vector2(1, 1) }
   uniforms.hdExteriorEaveLayers ??= { value: 0 }
+  uniforms.hdExteriorEaveFilterWidth ??= { value: 6 }
   uniforms.hdExteriorEaveHeight ??= { value: new Vector2(0, 1) }
   return upgraded
 }
@@ -113,6 +116,7 @@ export function updateIndirectUniforms(uniforms: IndirectUniforms, field: Indire
   uniforms.hdDiagnosticSkyVolume??={value:field.volume.maps[0]};uniforms.hdDiagnosticSkyFloor??={value:field.floorLayer.texture}
   uniforms.hdSkyMode??={value:1};uniforms.hdSkyRadianceBase??={value:new Vector3()};uniforms.hdSkySunIrradiance??={value:new Vector3()}
   uniforms.hdSkyDisplayRadianceBase??={value:new Vector3()};uniforms.hdSkyDisplaySunIrradiance??={value:new Vector3()}
+  uniforms.hdExteriorAmbientTint??={value:new Vector3(1,1,1)}
   for (const uniform of [uniforms.hdGIPointIndices, uniforms.hdGISpotIndices]) {
     if (uniform.value.length < INDIRECT_MAX_LOCAL_LIGHTS) {
       const indices = new Float32Array(INDIRECT_MAX_LOCAL_LIGHTS).fill(-1)
@@ -159,6 +163,7 @@ vec3 hdGIContactIrradiance(float link,vec3 n,out vec3 meanLight){
 export const indirectReceiverShaderDeclarations = /* glsl */ `
 varying vec3 hdGIWorldPosition;
 varying vec3 hdGIReceiverWorldOffset;
+varying float hdGIExteriorSurface;
 varying vec4 hdGICornerPlane0;
 varying vec4 hdGICornerPlane1;
 varying vec4 hdGIWallMountPlane0;
@@ -186,8 +191,7 @@ uniform vec4 hdGIMaskSize;
 float hdGIFloor(vec3 p, vec3 surfaceNormal) {
   vec2 uv = (p.xz - hdGIBounds.xy) / hdGIBounds.z;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0)))) return -1.0;
-  for (int floorIndex = 0; floorIndex < ${INDIRECT_MAX_FLOORS}; floorIndex++) {
-    if (floorIndex >= hdGIFloorCount) break;
+  for (int floorIndex = 0; floorIndex < hdGIFloorCount; floorIndex++) {
     vec2 range = hdGIFloorRanges[floorIndex];
     if (p.y >= range.x && p.y < range.y) {
       // Occupancy distinguishes inside from outside, never one room from another.
@@ -268,6 +272,13 @@ vec3 hdGIWallMountOffset(vec3 p, vec3 surfaceNormal) {
 
 float hdGIReceiver(vec3 worldPosition, vec3 offset, vec3 surfaceNormal, float floorLayerReady,
     out vec3 samplePosition, out float floorReceiver) {
+  // Explicit exterior roof skins must not inherit indoor GI from a loft mask.
+  // Its upward headroom ray can start above the low roof, recording open
+  // headroom outside the building. Reverse-facing skins still use the mask.
+  if (hdGIExteriorSurface > .5 && surfaceNormal.y > .01) {
+    samplePosition = worldPosition + offset; floorReceiver = 0.0;
+    return -1.0;
+  }
   offset += hdGIWallMountOffset(worldPosition, surfaceNormal);
   float classificationBias=.08;
   #ifdef HD_GI_SURFACE_DATA
@@ -280,14 +291,13 @@ float hdGIReceiver(vec3 worldPosition, vec3 offset, vec3 surfaceNormal, float fl
   // Sampling inside the wall lets interpolation borrow the bright room behind
   // a jamb even though its owning room was classified correctly.
   samplePosition = worldPosition + offset; floorReceiver = 0.0;
-  #ifdef HD_GI_CONTACT_RECEIVERS
   if(id<0.){
     // An interior face does not become exterior sky merely because its
-    // classification offset crossed a wall at a furniture contact.
+    // classification offset crossed the adjoining wall at an inside corner
+    // or furniture contact. This also applies without contact refinement.
     float ownSide=hdGIFloor(samplePosition+surfaceNormal*.002,surfaceNormal);
     if(ownSide>=0.){samplePosition+=surfaceNormal*.002;return ownSide;}
   }
-  #endif
   if (id < 0.0) return id;
   vec2 range = hdGIFloorRanges[int(id)];
   vec3 stepSize = vec3(hdGIBounds.z / (hdGIVolumeSize.x - 1.0),
@@ -477,8 +487,7 @@ vec3 hdGIVolumeIrradiance(float floorIndex, vec3 p, vec3 n, float floorReceiver,
   // Independent storey volumes meet in open air above a stairwell. Blend that
   // join, using the cached ceiling occupancy to exclude solid slabs and walls.
   vec2 plan = (p.xz - hdGIBounds.xy) / hdGIBounds.z;
-  for (int lower = 0; lower < ${INDIRECT_MAX_FLOORS - 1}; lower++) {
-    if (lower + 1 >= hdGIFloorCount) break;
+  for (int lower = 0; lower + 1 < hdGIFloorCount; lower++) {
     if (abs(floorIndex - float(lower)) > .1 && abs(floorIndex - float(lower + 1)) > .1) continue;
     float boundary = hdGIFloorRanges[lower + 1].x + .06;
     float width = min(.3, (hdGIFloorRanges[lower].y - hdGIFloorRanges[lower].x) / ${INDIRECT_VOLUME_HEIGHT - 1}.0);
@@ -546,6 +555,7 @@ uniform float hdGIEnabled;
 uniform float hdGIDiffuseCapture;
 uniform vec3 hdSkyRadianceBase;
 uniform vec3 hdSkyDisplayRadianceBase,hdSkyDisplaySunIrradiance;
+uniform vec3 hdExteriorAmbientTint;
 uniform float hdExteriorSkyFill;
 ${daylightSkyGLSL}
 ${daylightSkyIrradianceGLSL}
@@ -554,8 +564,7 @@ bool hdGIExteriorFootprint(vec3 p){
   if(hdGIFloorCount<1)return false;
   vec2 plan=(p.xz-hdGIBounds.xy)/hdGIBounds.z;
   if(any(lessThan(plan,vec2(0.0)))||any(greaterThan(plan,vec2(1.0))))return true;
-  for(int i=0;i<${INDIRECT_MAX_FLOORS};i++){
-    if(i>=hdGIFloorCount)break;
+  for(int i=0;i<hdGIFloorCount;i++){
     if(texture2D(hdGIMask,vec2(plan.x,(plan.y+float(i))/hdGIMaskSize.y)).r>.5)return false;
   }
   return true;
@@ -627,10 +636,11 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
   const receiverRefinement=requestedIndirectContacts()
   materialUniforms.set(material, uniforms)
   const compile = material.onBeforeCompile, cacheKey = material.customProgramCacheKey
+  const upstreamKey = captureMaterialShaderKey(material)
   // Non-wall geometry shares these programs and has no receiver attribute.
   // Explicit defaults also keep those draws independent of previous VAOs.
   const attributes = material as Material & { defaultAttributeValues?: Record<string, number[]> }
-  attributes.defaultAttributeValues = { ...attributes.defaultAttributeValues, hdGIReceiverOffset: [0, 0, 0], hdGIReceiverMaxBias:[1e6,1e6],
+  attributes.defaultAttributeValues = { ...attributes.defaultAttributeValues, hdGIExteriorReceiver: [0], hdGIReceiverOffset: [0, 0, 0], hdGIReceiverMaxBias:[1e6,1e6],
     hdGIContactLink:[0,0],
     hdGIReceiverLinearNormal:[0],
     hdGICorner0: [0, 0, 0], hdGICorner1: [0, 0, 0], hdGIWallMount0: [0, 0, 0, 0], hdGIWallMount1: [0, 0, 0, 0] }
@@ -648,6 +658,8 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', `#include <common>
         varying vec3 hdGIWorldPosition;
+        attribute float hdGIExteriorReceiver;
+        varying float hdGIExteriorSurface;
         ${receiverRefinement?'attribute float hdGIReceiverLinearNormal;':''}
         #ifndef HD_RECEIVER_ATTRIBUTE
         #define HD_RECEIVER_ATTRIBUTE
@@ -697,6 +709,7 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
           hdGITransform = hdGITransform * instanceMatrix;
         #endif
         hdGIWorldPosition = (modelMatrix * hdGIWorld).xyz;
+        hdGIExteriorSurface = hdGIExteriorReceiver;
         hdGIReceiverWorldOffset = (modelMatrix * hdGIReceiver).xyz;
         hdGIReceiverBiasLimit=hdGIReceiverMaxBias;
         #ifdef HD_GI_CONTACT_RECEIVERS
@@ -778,7 +791,7 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
             #ifdef HD_LOCAL_SUN_PREVIEW
             if(hdGICapture<.5&&hdLocalSunReady>.5){
               if(hdLocalSunValue.a>.5){
-                if(hdLocalSunCombined<.5)hdGILight=hdLocalSunValue.rgb;
+                if(hdLocalSunCombined<.5)hdGILight=hdLocalSunValue.rgb*hdGIProbeStrength*hdGIDisplayStrength;
                 #ifdef HD_SUN_BOUNCE
                 else if(hdSunBounceReady>.5&&hdSunBouncePacked>.5&&hdGIId>=0.){
                   vec3 nonSolarMean;
@@ -788,6 +801,9 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
                 #endif
               }
             }
+            #endif
+            #ifdef HD_LIGHTING_DIAGNOSTICS
+              hdDiagnosticProbeIrradiance=hdGILight;
             #endif
             irradiance = hdGICapture > .5 && hdGICapture < 1.5 ? vec3(0.0)
               : hdGILight + vec3(hdGICapture > .5 ? 0.0 : hdGIIndoorFill);
@@ -808,7 +824,7 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
             // Indoor receivers and roof undersides retain their existing paths.
             vec3 sky=hdGICapture>.5?hdSkyDiffuseIrradiance(hdGINormal,hdSkyRadianceBase):
               hdSkyDiffuseIrradiance(hdGINormal,hdSkyDisplayRadianceBase,hdSkyDisplaySunIrradiance) * hdExteriorSkyFill;
-            irradiance=hdGICapture>.5?sky:irradiance+sky;
+            irradiance=hdGICapture>.5?sky:irradiance*hdExteriorAmbientTint+sky;
             #ifdef HD_EXTERIOR_SKY_OCCLUSION
             // Display-only experiment: do not bake this attenuation back into
             // probe transport or darken direct sunlight / interior GI.
@@ -834,6 +850,13 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
           if (hdGIDiffuseCapture > .5) { radiance = vec3(0.0); clearcoatRadiance = vec3(0.0); }
         }
         #endif
+        #ifdef HD_LIGHTING_DIAGNOSTICS
+          // Reuse Three's actual diffuse material/AO path, with only probe E.
+          // The uniform switch cannot affect captures or invalidate the bake.
+          if(hdGICapture<.5&&hdLightingDiagnostic>8.5&&hdLightingDiagnostic<10.5){
+            irradiance=hdDiagnosticProbeIrradiance;iblIrradiance=vec3(0.0);
+          }
+        #endif
         #include <lights_fragment_end>`)
       .replace('#include <opaque_fragment>',`if(hdGIDiffuseCapture>.5)outgoingLight=totalDiffuse+totalEmissiveRadiance;\n${lightingDiagnosticsEnabled?lightingDiagnosticOutput:''}\n#include <opaque_fragment>`)
     if(lightingDiagnosticsEnabled){
@@ -841,14 +864,12 @@ export function applyIndirectLightingShader(material: Material, uniforms: Indire
         .replace('#include <colorspace_fragment>',`if(!(hdGICapture<.5&&hdLightingDiagnostic>3.5&&hdLightingDiagnostic<4.5)){\n#include <colorspace_fragment>\n}`)
     }
   }
-  const marker = /:house-designer-indirect-grid-l1-v\d+-(capture|display)(-fast)?(-diagnostics)?(-contacts)?(-sunbounce)?(-local-sun)?(-exterior-sky(?:-eaves\d+)?)?/g
-  const transformKey = cacheShaderKeyTransform((original, suffix) =>
-    original.match(marker) ? original.replace(marker, suffix) : original + suffix)
+  const transformKey = composedMaterialShaderKey()
   const key = () => {
-    const original = cacheKey.call(material)
+    const original = upstreamKey()
     // Clones inherit this hook even when another controller follows it.
     // Preserve its position in the key so both materials reuse one program.
-    const suffix = ':house-designer-indirect-grid-l' + uniforms.hdGISHOrder.value + '-v44-display' + (fastEnabled() ? '-fast' : '') + (lightingDiagnosticsEnabled?'-diagnostics':'')+(uniforms.hdGIContactMode.value>.5?'-contacts':'')+(uniforms.hdSunBounceFeature.value>.5?'-sunbounce':'')+(uniforms.hdLocalSunFeature.value>.5?'-local-sun':'')+(uniforms.hdExteriorSkyFeature.value>.5&&exteriorSkyMaterials.has(material)?'-exterior-sky-eaves2':'')
+    const suffix = ':house-designer-indirect-grid-l' + uniforms.hdGISHOrder.value + '-v48-exterior-tint' + (fastEnabled() ? '-fast' : '') + (lightingDiagnosticsEnabled?'-diagnostics':'')+(uniforms.hdGIContactMode.value>.5?'-contacts':'')+(uniforms.hdSunBounceFeature.value>.5?'-sunbounce':'')+(uniforms.hdLocalSunFeature.value>.5?'-local-sun':'')+(uniforms.hdExteriorSkyFeature.value>.5&&exteriorSkyMaterials.has(material)?'-exterior-sky-eaves6':'')
     return transformKey(original, suffix)
   }
   material.onBeforeCompile = hook; material.customProgramCacheKey = key; material.needsUpdate = true

@@ -1,0 +1,1821 @@
+[
+  {
+    "initialKeys": [
+      {
+        "id": 31,
+        "key": "16,17,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 30,
+        "key": "14,15,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 3,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 4,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display"
+      },
+      {
+        "id": 5,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 6,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 7,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 8,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 9,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 10,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 11,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 12,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 13,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 14,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 15,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 16,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 17,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 18,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 19,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 20,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 21,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 22,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 23,
+        "key": "0,1,onBeforeCompile() {}"
+      },
+      {
+        "id": 24,
+        "key": "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 25,
+        "key": "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 26,
+        "key": "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 27,
+        "key": "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 28,
+        "key": "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 29,
+        "key": "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      }
+    ]
+  },
+  {
+    "id": "dulux-blush-matt",
+    "samples": [
+      {
+        "ms": 46.8999999910593,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 29,
+        "profile": {
+          "startedAt": 9370.70000000298,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 352.79999999701977,
+            "snapshot": 65.80000001192093,
+            "compile": 18077,
+            "resources": 2.699999988079071,
+            "postprocessing": 554.8000000119209
+          },
+          "batches": [
+            {
+              "submittedMs": 15,
+              "readyMs": 10784.70000000298,
+              "objects": 4,
+              "programs": 6
+            },
+            {
+              "submittedMs": 5.5,
+              "readyMs": 10773.60000000894,
+              "objects": 4,
+              "programs": 11
+            },
+            {
+              "submittedMs": 8.5,
+              "readyMs": 10799.10000000894,
+              "objects": 4,
+              "programs": 16
+            },
+            {
+              "submittedMs": 8,
+              "readyMs": 10791.59999999404,
+              "objects": 4,
+              "programs": 17
+            },
+            {
+              "submittedMs": 4.299999997019768,
+              "readyMs": 461,
+              "objects": 4,
+              "programs": 19
+            },
+            {
+              "submittedMs": 10.299999997019768,
+              "readyMs": 7238.0999999940395,
+              "objects": 4,
+              "programs": 22
+            },
+            {
+              "submittedMs": 0.5999999940395355,
+              "readyMs": 7154.0999999940395,
+              "objects": 4,
+              "programs": 22
+            },
+            {
+              "submittedMs": 0.7000000029802322,
+              "readyMs": 7152.100000008941,
+              "objects": 3,
+              "programs": 23
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "preparing"
+      },
+      {
+        "ms": 271.09999999403954,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 9370.70000000298,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 352.79999999701977,
+            "snapshot": 65.80000001192093,
+            "compile": 18077,
+            "resources": 2.699999988079071,
+            "postprocessing": 554.8000000119209
+          },
+          "batches": [
+            {
+              "submittedMs": 15,
+              "readyMs": 10784.70000000298,
+              "objects": 4,
+              "programs": 6
+            },
+            {
+              "submittedMs": 5.5,
+              "readyMs": 10773.60000000894,
+              "objects": 4,
+              "programs": 11
+            },
+            {
+              "submittedMs": 8.5,
+              "readyMs": 10799.10000000894,
+              "objects": 4,
+              "programs": 16
+            },
+            {
+              "submittedMs": 8,
+              "readyMs": 10791.59999999404,
+              "objects": 4,
+              "programs": 17
+            },
+            {
+              "submittedMs": 4.299999997019768,
+              "readyMs": 461,
+              "objects": 4,
+              "programs": 19
+            },
+            {
+              "submittedMs": 10.299999997019768,
+              "readyMs": 7238.0999999940395,
+              "objects": 4,
+              "programs": 22
+            },
+            {
+              "submittedMs": 0.5999999940395355,
+              "readyMs": 7154.0999999940395,
+              "objects": 4,
+              "programs": 22
+            },
+            {
+              "submittedMs": 0.7000000029802322,
+              "readyMs": 7152.100000008941,
+              "objects": 3,
+              "programs": 23
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "preparing"
+      },
+      {
+        "ms": 503,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Uploading updated scene...",
+          "startedAt": 29172.20000000298
+        },
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 719.8999999910593,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768,
+            "resources": 36.5
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 929,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768,
+            "resources": 36.5
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1204.3999999910593,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768,
+            "resources": 36.5
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1416.7000000029802,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768,
+            "resources": 36.5
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1631.0999999940395,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768,
+            "resources": 36.5
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      }
+    ],
+    "keys": [
+      {
+        "id": 31,
+        "key": "16,17,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 30,
+        "key": "14,15,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 3,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 4,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display"
+      },
+      {
+        "id": 5,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 6,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 7,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 8,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 9,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 10,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 11,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 12,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 13,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 14,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 15,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 16,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 17,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 18,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 19,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 20,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 21,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 22,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 23,
+        "key": "0,1,onBeforeCompile() {}"
+      },
+      {
+        "id": 24,
+        "key": "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 25,
+        "key": "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 26,
+        "key": "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 27,
+        "key": "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 28,
+        "key": "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 29,
+        "key": "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 32,
+        "key": "18,19,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      }
+    ]
+  },
+  {
+    "id": "dulux-timeless-matt",
+    "samples": [
+      {
+        "ms": 37.5,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768,
+            "resources": 36.5
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 257.90000000596046,
+        "pending": true,
+        "scan": true,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 29172.20000000298,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 5.799999997019768,
+            "resources": 36.5
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 486.1000000089407,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 709.9000000059605,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 930.4000000059605,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1144.6000000089407,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1375.1000000089407,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      }
+    ],
+    "keys": [
+      {
+        "id": 31,
+        "key": "16,17,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 30,
+        "key": "14,15,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 3,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 4,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display"
+      },
+      {
+        "id": 5,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 6,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 7,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 8,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 9,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 10,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 11,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 12,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 13,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 14,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 15,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 16,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 17,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 18,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 19,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 20,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 21,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 22,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 23,
+        "key": "0,1,onBeforeCompile() {}"
+      },
+      {
+        "id": 24,
+        "key": "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 25,
+        "key": "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 26,
+        "key": "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 27,
+        "key": "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 28,
+        "key": "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 29,
+        "key": "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 32,
+        "key": "18,19,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      }
+    ]
+  },
+  {
+    "id": "dulux-green-matt",
+    "samples": [
+      {
+        "ms": 39.29999999701977,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 256.09999999403954,
+        "pending": false,
+        "scan": true,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 468.29999999701977,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 30760.60000000894,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 20.399999991059303,
+            "resources": 2.300000011920929
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 673.7999999970198,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 32257.5,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 18.900000005960464,
+            "resources": 27.299999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 894.0999999940395,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 32257.5,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 18.900000005960464,
+            "resources": 27.299999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1110.2999999970198,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 32257.5,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 18.900000005960464,
+            "resources": 27.299999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1325.7000000029802,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 32257.5,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 18.900000005960464,
+            "resources": 27.299999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1560.2000000029802,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 32257.5,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 18.900000005960464,
+            "resources": 27.299999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      }
+    ],
+    "keys": [
+      {
+        "id": 31,
+        "key": "16,17,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 30,
+        "key": "14,15,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 3,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 4,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display"
+      },
+      {
+        "id": 5,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 6,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 7,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 8,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 9,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 10,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 11,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 12,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 13,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 14,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 15,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 16,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 17,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 18,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 19,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 20,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 21,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 22,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 23,
+        "key": "0,1,onBeforeCompile() {}"
+      },
+      {
+        "id": 24,
+        "key": "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 25,
+        "key": "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 26,
+        "key": "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 27,
+        "key": "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 28,
+        "key": "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 29,
+        "key": "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 32,
+        "key": "18,19,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      }
+    ]
+  },
+  {
+    "id": "dulux-blush-matt",
+    "samples": [
+      {
+        "ms": 38.70000000298023,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 32257.5,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 18.900000005960464,
+            "resources": 27.299999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 246.8999999910593,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 32257.5,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 18.900000005960464,
+            "resources": 27.299999997019768
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 471.8999999910593,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 33774.80000001192,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 19,
+            "resources": 2.5999999940395355
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 677.5999999940395,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 33774.80000001192,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 19,
+            "resources": 2.5999999940395355
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 888.7999999970198,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 33774.80000001192,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 19,
+            "resources": 2.5999999940395355
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1102.8999999910593,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 33774.80000001192,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 19,
+            "resources": 2.5999999940395355
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1309.7000000029802,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 33774.80000001192,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 19,
+            "resources": 2.5999999940395355
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      }
+    ],
+    "keys": [
+      {
+        "id": 31,
+        "key": "16,17,highp,srgb-linear,301,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,16,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 30,
+        "key": "14,15,THREE_REVISION,185,DEPTH_PACKING,3200,ENCODE_OUTPUT,1,PERSPECTIVE_CAMERA,1,e0TONE_MAPPING_MODE,6,e0ToneMapping(texel),ACESFilmicToneMapping(texel),UV,vUv,FRAMEBUFFER_PRECISION_HIGH,1,highp,srgb,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,3200,0,8396800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 3,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8530944,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 4,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,house-designer-ground-shadow-v2:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display"
+      },
+      {
+        "id": 5,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:surface-finish:standard-wall-shadow-receiver-v1:opening-preview-v1:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 6,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522752,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 7,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 8,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 9,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 10,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 11,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 12,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8393728,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 13,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,0,8389632,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 14,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8393730,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 15,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8389634,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 16,
+        "key": "basic,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,0,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 17,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 18,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8520706,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 19,
+        "key": "depth,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,3200,8388608,8532992,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 20,
+        "key": "distance,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8524800,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 21,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}:house-designer-room-light-v29-single-2048-capacity11-house-designer-specular-ibl-v1:house-designer-indirect-grid-l1-v46-display-exterior-sky-eaves5"
+      },
+      {
+        "id": 22,
+        "key": "physical,STANDARD,,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,1,8,0,0,1,0,1,0,0,0,0,1,0,0,0,0,8388608,8522754,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 23,
+        "key": "0,1,onBeforeCompile() {}"
+      },
+      {
+        "id": 24,
+        "key": "2,3,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 25,
+        "key": "4,5,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 26,
+        "key": "6,7,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 27,
+        "key": "8,9,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 28,
+        "key": "10,11,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8388608,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 29,
+        "key": "12,13,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      },
+      {
+        "id": 32,
+        "key": "18,19,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,8519680,srgb,onBeforeCompile() {}"
+      }
+    ]
+  },
+  {
+    "errors": [],
+    "log": [
+      {
+        "detail": "Use window.houseDesignerEngineLog.table() or window.houseDesignerWallRenderDebug.table()",
+        "index": 1,
+        "timeMs": 4025,
+        "type": "engine-log-ready"
+      },
+      {
+        "detail": "Constructing geometry...",
+        "index": 2,
+        "snapshot": "lights 0/0 | all lights | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 4063,
+        "type": "status"
+      },
+      {
+        "detail": "0.5s after Constructing geometry",
+        "index": 3,
+        "snapshot": "lights 0/0 | all lights | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 4618,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "1/1 changed floors on workers",
+        "index": 4,
+        "timeMs": 4622,
+        "type": "level-preparation-start"
+      },
+      {
+        "detail": "Preparing 1 floor on workers...",
+        "index": 5,
+        "timeMs": 4622,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing 1 floor on workers...",
+        "index": 6,
+        "snapshot": "lights 0/0 | all lights | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 4622,
+        "type": "status"
+      },
+      {
+        "detail": "500ms",
+        "index": 7,
+        "snapshot": "lights 0/0 | all lights | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 4657,
+        "type": "browser-long-task"
+      },
+      {
+        "detail": "activeFloor=5af889f7-1a8e-4bf9-9b9e-1c28acb4f09c previousFloor=none nextFloor=none count=0",
+        "index": 8,
+        "timeMs": 4674,
+        "type": "xr-stairs-buttons"
+      },
+      {
+        "detail": "1/1 changed floors in 112ms",
+        "index": 9,
+        "timeMs": 4734,
+        "type": "level-preparation-complete"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 10,
+        "timeMs": 4831,
+        "type": "activity"
+      },
+      {
+        "detail": "Updating wall / roof geometry in background...",
+        "index": 11,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 4831,
+        "type": "status"
+      },
+      {
+        "detail": "5af889f7-1a8e-4bf9-9b9e-1c28acb4f09c: 65ms in worker",
+        "index": 12,
+        "timeMs": 4896,
+        "type": "wall-roof-clipping-complete"
+      },
+      {
+        "detail": "1 shaders, 0 calls, 0 geo, 0 tex, 0 tris",
+        "index": 13,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 5018,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 shaders, 1 calls, 2 geo, 1 tex, 10 tris",
+        "index": 14,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 5361,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 2",
+        "index": 15,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 5361,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 16,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 5361,
+        "type": "status"
+      },
+      {
+        "detail": "1 shaders, 1 calls, 2 geo, 1 tex, 9 tris",
+        "index": 17,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 5711,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 shaders, 0 calls, 2 geo, 1 tex, 3 tris",
+        "index": 18,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 6061,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 2",
+        "index": 19,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 6061,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 20,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 6061,
+        "type": "status"
+      },
+      {
+        "detail": "3 shaders, 0 calls, 2 geo, 7 tex, 4 tris",
+        "index": 21,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 8183,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 3",
+        "index": 22,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 8183,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 23,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 8183,
+        "type": "status"
+      },
+      {
+        "detail": "3 shaders, 0 calls, 2 geo, 9 tex, 3 tris",
+        "index": 24,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 8546,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 25,
+        "timeMs": 9723,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 26,
+        "timeMs": 9723,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 27,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9723,
+        "type": "status"
+      },
+      {
+        "detail": "17 shaders, 0 calls, 2 geo, 10 tex, 3 tris",
+        "index": 28,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9977,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "14 added; total 17",
+        "index": 29,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9977,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 14 shaders...",
+        "index": 30,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 9977,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 31,
+        "timeMs": 19739,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 32,
+        "timeMs": 19739,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 33,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 19739,
+        "type": "status"
+      },
+      {
+        "detail": "23 shaders, 0 calls, 2 geo, 10 tex, 3 tris",
+        "index": 34,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 20694,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "6 added; total 23",
+        "index": 35,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 20694,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 6 shaders...",
+        "index": 36,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 20694,
+        "type": "status"
+      },
+      {
+        "detail": "25 shaders, 0 calls, 3 geo, 10 tex, 3 tris",
+        "index": 37,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28161,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 25",
+        "index": 38,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28161,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 39,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28161,
+        "type": "status"
+      },
+      {
+        "index": 40,
+        "timeMs": 28446,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 41,
+        "timeMs": 28461,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 42,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28461,
+        "type": "status"
+      },
+      {
+        "detail": "30 shaders, 0 calls, 3 geo, 9 tex, 3 tris",
+        "index": 43,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28512,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "5 added; total 30",
+        "index": 44,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28512,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 5 shaders...",
+        "index": 45,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28512,
+        "type": "status"
+      },
+      {
+        "detail": "30 shaders, 7 calls, 7 geo, 30 tex, 28 tris",
+        "index": 46,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 28897,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "Scene resources changed; reusing shaders",
+        "index": 47,
+        "timeMs": 29172,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 48,
+        "timeMs": 29178,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 49,
+        "timeMs": 29178,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 50,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29178,
+        "type": "status"
+      },
+      {
+        "detail": "Reused prepared shaders",
+        "index": 51,
+        "timeMs": 29215,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 52,
+        "timeMs": 29228,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 53,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29228,
+        "type": "status"
+      },
+      {
+        "detail": "30 shaders, 4 calls, 8 geo, 40 tex, 18 tris",
+        "index": 54,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29259,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "Scene resources changed; reusing shaders",
+        "index": 55,
+        "timeMs": 30761,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 56,
+        "timeMs": 30781,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 57,
+        "timeMs": 30781,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 58,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 30781,
+        "type": "status"
+      },
+      {
+        "detail": "Reused prepared shaders",
+        "index": 59,
+        "timeMs": 30783,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 60,
+        "timeMs": 30801,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 61,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 30801,
+        "type": "status"
+      },
+      {
+        "detail": "Scene resources changed; reusing shaders",
+        "index": 62,
+        "timeMs": 32258,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 63,
+        "timeMs": 32276,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 64,
+        "timeMs": 32276,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 65,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32276,
+        "type": "status"
+      },
+      {
+        "detail": "Reused prepared shaders",
+        "index": 66,
+        "timeMs": 32304,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 67,
+        "timeMs": 32304,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 68,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32304,
+        "type": "status"
+      },
+      {
+        "detail": "Scene resources changed; reusing shaders",
+        "index": 69,
+        "timeMs": 33775,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 70,
+        "timeMs": 33794,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 71,
+        "timeMs": 33794,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 72,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33794,
+        "type": "status"
+      },
+      {
+        "detail": "Reused prepared shaders",
+        "index": 73,
+        "timeMs": 33796,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 74,
+        "timeMs": 33797,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 75,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33797,
+        "type": "status"
+      }
+    ],
+    "tasks": [
+      {
+        "at": 29832.80000001192,
+        "ms": 68
+      },
+      {
+        "at": 31812.80000001192,
+        "ms": 92
+      }
+    ],
+    "glCalls": [
+      {
+        "name": "getProgramParameter",
+        "at": 28771.80000001192,
+        "ms": 13.699999988079071,
+        "param": 35718
+      }
+    ]
+  }
+]

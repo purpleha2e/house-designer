@@ -1,0 +1,53 @@
+{
+  "id": "hd-test",
+  "manufacturer": {
+    "slug": "test"
+  },
+  "files": [
+    {
+      "fieldName": "model",
+      "url": "/model.glb",
+      "originalName": "bed.glb"
+    }
+  ],
+  "conversion": {
+    "startedAt": "2026-11-15T19:41:06.393Z",
+    "status": "complete",
+    "completedAt": "2026-11-15T19:41:06.437Z",
+    "errors": []
+  },
+  "inferredDimensions": {
+    "maxX": 0.9549999833106995,
+    "maxY": 1.1399999856948853,
+    "maxZ": 0.7179667949676514,
+    "minX": -0.9549999833106995,
+    "minY": 7.1525572131747595e-9,
+    "minZ": -0.42500001192092896,
+    "depth": 1.1429668068885803,
+    "height": 1.139999978542328,
+    "width": 1.909999966621399
+  },
+  "materialNames": [
+    "hd_frame",
+    "hd_ladder",
+    "hd_drawer_fronts",
+    "hd_mattress",
+    "hd_pillow",
+    "hd_quilt"
+  ],
+  "processedFiles": [
+    {
+      "contentType": "model/gltf-binary",
+      "fieldName": "model",
+      "originalName": "bed.glb",
+      "processing": {
+        "convertedTextureCount": 0,
+        "textureResults": []
+      },
+      "size": 1498396,
+      "sourceUrl": "/model.glb",
+      "url": "/manufacturer-assets/test/models/hd-test/processed/model.glb"
+    }
+  ],
+  "updatedAt": "2026-11-15T19:41:06.437Z"
+}

@@ -286,6 +286,10 @@ function renderAssemblyFaces(input: RoofAssemblyInput, faces: SolidFace[], share
     geometry.setAttribute('position', new Float32BufferAttribute(data.positions, 3))
     geometry.setAttribute('normal', new Float32BufferAttribute(data.normals, 3))
     geometry.setAttribute('uv', new Float32BufferAttribute(data.uvs, 2))
+    // Tile tops belong to the exterior even where a loft occupancy mask
+    // extends beyond the sloping enclosure at the floor's elevation.
+    if (part === 'top') geometry.setAttribute('hdGIExteriorReceiver',
+      new Float32BufferAttribute(new Float32Array(data.positions.length / 3).fill(1), 1))
     geometry.computeBoundingBox(); geometry.computeBoundingSphere()
     // Removing a boxed eave can expose the overhang's original soffit or tile
     // edge behind it. Trim these exterior faces too, while retaining the actual

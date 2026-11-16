@@ -1,0 +1,10 @@
+{
+  "current": {
+    "message": "Compiling scene shaders...",
+    "startedAt": 131779.89999997616,
+    "completed": 8,
+    "total": 9
+  },
+  "stage": "measured",
+  "errors": []
+}

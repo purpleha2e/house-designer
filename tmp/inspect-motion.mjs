@@ -1,0 +1,7 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+const [port,path]=readFileSync('node_modules/.cache/browser-test-profiles/lighting-audit-sJKO5f/DevToolsActivePort','utf8').trim().split(/\r?\n/);
+const ws=new WebSocket(`ws://127.0.0.1:${port}${path}`);await new Promise(r=>ws.addEventListener('open',r,{once:true}));let id=0;const pending=new Map();ws.addEventListener('message',e=>{const m=JSON.parse(e.data);if(pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id)}});
+const call=(method,params={},sessionId)=>new Promise(r=>{const i=++id;pending.set(i,r);ws.send(JSON.stringify({id:i,method,params,sessionId}))});
+const targets=await call('Target.getTargets');const target=targets.result.targetInfos.find(t=>t.url.startsWith('http://localhost:4173'));
+const session=(await call('Target.attachToTarget',{targetId:target.targetId,flatten:true})).result.sessionId;
+const result=await call('Runtime.evaluate',{expression:`(()=>{const a=[];const walk=f=>{if(!f)return;const p=f.memoizedProps;if(p?.cacheProjectKey)a.push({cacheProjectKey:p.cacheProjectKey,cacheAssetKey:p.cacheAssetKey,cacheSettings:p.cacheSettings,requestedCacheSettings:p.requestedCacheSettings,savedProjectKey:p.savedCache?.projectKey,savedAssetKey:p.savedCache?.assetKey});walk(f.child);walk(f.sibling)};for(const[root]of loopPreload.hook.roots)walk(root.current);return {a,data:loopFind().state.scene.userData.indirectLighting}})()`,returnByValue:true},session);writeFileSync('tmp/motion-cache-inspect.json',JSON.stringify(result,null,2));console.log(JSON.stringify(result));ws.close();

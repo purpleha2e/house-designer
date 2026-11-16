@@ -52,6 +52,7 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
     const bin = bins.get(key) ?? []; bin.push(probe); bins.set(key, bin)
   }
   const contacts=new Set(field.probes.filter(p=>p.kind==='contact').map(p=>p.index))
+  const distanceLocal=field.spatialInterpolation==='distance-local'
   const layout=JSON.stringify([field.spatialInterpolation,field.bounds,field.spacing,field.volume.n,field.floorLayer.n,field.ranges,field.floors.map(f=>[f.id,f.elevation]),voxels,field.probes.map(p=>[p.index,p.kind,...field.positionData.subarray(p.index*4,p.index*4+3)])])
   const mask=field.mask.image.data as Uint8Array,old=reuse?.previous
   const compatible=!!old&&!!reuse?.changes.length&&reuse.changes.every(b=>b.min.length===3&&b.max.length===3&&b.min.every((v,i)=>Number.isFinite(v)&&Number.isFinite(b.max[i])&&v<=b.max[i]))&&old.layout===layout&&old.mask.length===mask.length&&mask.every((v,i)=>v===old.mask[i])
@@ -121,7 +122,7 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
     }
     result.fill(0)
     if(localFloorCells&&!localFloorCells[voxel])localFloorCells[voxel]=indirectLocalFloorReceiver(field,visibility,_floor,x,y,z)?2:1
-    const local=localFloorCells?.[voxel]===2
+    const local=distanceLocal||localFloorCells?.[voxel]===2
     let total = 0, support=0
     const start = offsets[voxel], end = start + counts[voxel]
     for (let i = start; i < end; i++) {
@@ -155,12 +156,12 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
     sample(floor, x, y, z, voxel, warmResult, true)
   }, reuseData():IndirectInterpolationReuseData{return{layout,mask:mask.slice(),offsets,counts,indices,weights,states,localFloorCells,used,cells:counters.newCells+counters.reusedCells,readyStates:counters.retainedStates+counters.visibleLinks+counters.blockedLinks,pendingChanges:uncheckedCells>0?changes:[]}},statistics(){return{...counters,reuseAccepted:compatible,cellCapacity:voxels,linkCapacity:indices.length,localFloorCells:localFloorCells?.filter(v=>v===2).length??0,capacityBytes:offsets.byteLength+counts.byteLength+indices.byteLength+weights.byteLength+states.byteLength+(localFloorCells?.byteLength??0)+(checked?.byteLength??0)+(decoded?.reduce((sum,a)=>sum+a.byteLength,0)??0),averageLinksPerPreparedCell:counters.links/Math.max(1,counters.newCells+counters.reusedCells),coefficientProducts:counters.blendedLinks*field.coefficientCount*3}}, graph(): IndirectInterpolationGraph {
     const starts = new Uint32Array(voxels), lengths = new Uint16Array(voxels)
-    const visibleIndices: number[] = [], visibleWeights: number[] = [],visibleSupports:number[]|undefined=localFloorCells?[]:undefined,overrideIndices:number[]=[],overrideWeights:number[]=[]
+    const visibleIndices: number[] = [], visibleWeights: number[] = [],visibleSupports:number[]|undefined=localFloorCells||distanceLocal?[]:undefined,overrideIndices:number[]=[],overrideWeights:number[]=[]
     for (let voxel = 0; voxel < voxels; voxel++) {
       starts[voxel] = visibleIndices.length
       if (offsets[voxel] === 0xffffffff) continue // Masked floor cells have no links.
       const end = offsets[voxel] + counts[voxel]
-      const local=localFloorCells?.[voxel]===2
+      const local=distanceLocal||localFloorCells?.[voxel]===2
       const needPosition=local||contacts.size>0,n=floorLookup?field.floorLayer.n:field.volume.n,row=Math.floor(voxel/n),floor=floorLookup?Math.floor(row/n):Math.floor(row/(n*INDIRECT_VOLUME_HEIGHT)),ix=voxel%n,iz=floorLookup?row%n:Math.floor(row/INDIRECT_VOLUME_HEIGHT)%n,iy=row%INDIRECT_VOLUME_HEIGHT
       const x=needPosition?field.bounds.minX+ix/(n-1)*field.bounds.size:0,z=needPosition?field.bounds.minZ+iz/(n-1)*field.bounds.size:0
       let y=needPosition?field.floors[floor].elevation+.016:0
@@ -204,7 +205,7 @@ export function sampleIndirectCoefficients(field: IndirectField, _floor: number,
     if (max > near && visibility.occluded(origin, direction.multiplyScalar(1 / distance), max,near)) continue
     // A compact, smooth kernel uses the actual relocated position, avoiding
     // grid-cell diagonals and abrupt changes when a nominal corner disappears.
-    const baseWeight = contact?indirectContactKernel(distanceSquared):(1 - distanceSquared / radiusSquared) ** 2,weight=baseWeight*(contact?indirectContactWeight(distanceSquared):localFloor?indirectLocalWeight(distanceSquared):1)
+    const baseWeight = contact?indirectContactKernel(distanceSquared):(1 - distanceSquared / radiusSquared) ** 2,weight=baseWeight*(contact?indirectContactWeight(distanceSquared):localFloor||field.spatialInterpolation==='distance-local'?indirectLocalWeight(distanceSquared):1)
     support+=baseWeight
     total += weight
     for (let colour = 0; colour < 3; colour++) for (let coefficient = 0; coefficient < field.coefficientCount; coefficient++) {

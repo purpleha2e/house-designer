@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { SphericalHarmonics3, Vector3 } from 'three'
-import { evaluateIndirectSHOrder, indirectSHIrradianceBasis, indirectSHRadianceBasis, supportedIndirectSHOrder } from '../src/indirectSH.ts'
+import { evaluateIndirectSHOrder, indirectSHIrradianceBasis, indirectSHRadianceBasis, requestedIndirectSHOrder, supportedIndirectSHOrder } from '../src/indirectSH.ts'
+
+test('tours use the saved GI format without needing editor URL flags', () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'location')
+  try {
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: { search: '' } })
+    assert.equal(requestedIndirectSHOrder(), 1)
+    assert.equal(requestedIndirectSHOrder(2), 2)
+    Object.defineProperty(globalThis, 'location', { configurable: true, value: { search: '?giSH=2' } })
+    assert.equal(requestedIndirectSHOrder(), 2)
+    assert.equal(requestedIndirectSHOrder(1), 1)
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'location', previous)
+    else Reflect.deleteProperty(globalThis, 'location')
+  }
+})
 
 test('experimental L2 falls back without resizing or extra display samplers', () => {
   assert.equal(supportedIndirectSHOrder(1, 2, 2048, true), 1)
@@ -22,6 +37,18 @@ test('L1 remains bit-identical when the experimental second band is absent', () 
   assert.deepEqual(evaluateIndirectSHOrder(sh, normal, 1), expected)
   sh.coefficients.slice(4).forEach(c => c.set(0, 0, 0))
   assert.deepEqual(evaluateIndirectSHOrder(sh, normal, 2), expected)
+})
+
+test('incoming floor radiance lights a downward ceiling and retains direction',()=>{
+  for(const order of [1,2] as const){
+    const direction=new Vector3(0,-1,0),sh=new SphericalHarmonics3()
+    indirectSHRadianceBasis(direction,order).forEach((value,i)=>sh.coefficients[i].setScalar(value))
+    const down=evaluateIndirectSHOrder(sh,direction,order).x
+    const up=evaluateIndirectSHOrder(sh,new Vector3(0,1,0),order).x
+    const side=evaluateIndirectSHOrder(sh,new Vector3(1,0,0),order).x
+    assert.ok(down>side*2&&side>up,'world-space direction is not flipped or averaged RGB')
+    assert.ok(down>.74&&down<1.07,'unit directional radiance retains the expected SH cosine response')
+  }
 })
 
 test('second-order radiance basis is orthonormal and cosine convolution matches Three', () => {

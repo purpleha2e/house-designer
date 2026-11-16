@@ -1,3 +1,5 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Vite running: node tests/browser/ambientLightingRegression.mjs [port]
 import assert from 'node:assert/strict'
 import { createBrowserTestProfile, spawnBrowserTest } from './browserTestProcess.mjs'
@@ -58,8 +60,8 @@ try {
   await call('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.ambientTest={writes:0,alerts:[]};window.alert=m=>ambientTest.alerts.push(m);
     window.confirm=m=>!m.startsWith('Save changes before');
-    window.showSaveFilePicker=async()=>({name:'ambient.json',createWritable:async()=>({write:async data=>{ambientTest.contents=data;ambientTest.writes++},close:async()=>{}})});
-    window.showOpenFilePicker=async()=>[{name:'ambient.json',getFile:async()=>new File([ambientTest.contents],'ambient.json')}];
+    ${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({name:'ambient.json',createWritable:async()=>({write:async data=>{ambientTest.contents=data;ambientTest.writes++},close:async()=>{}})});
+    ${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{name:'ambient.json',getFile:async()=>new File([ambientTest.contents],'ambient.json')}];
     const original=fetch;window.fetch=async(url,options)=>{
       const path=String(url);if(path.startsWith('/api/workspace/'))return new Response(JSON.stringify({user:null,workspace:null,mode:'local-development',maxUploadBytes:100000000}),{headers:{'content-type':'application/json'}});
       if(path.startsWith('/api/portal/'))return new Response(JSON.stringify({manufacturers:[]}),{headers:{'content-type':'application/json'}});

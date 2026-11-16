@@ -1,3 +1,5 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // With Vite running: node --experimental-strip-types tests/browser/indirectLightingZonesRegression.mjs [port]
 // Checks local window edits against full rebakes and persistence in the actual editor.
 import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
@@ -73,8 +75,8 @@ try {
     window.probeCubeSizes=[];window.testAlerts=[];
     const upload=WebGL2RenderingContext.prototype.texImage2D;
     WebGL2RenderingContext.prototype.texImage2D=function(...a){if(a.length===9&&a[0]>=34069&&a[0]<=34074)window.probeCubeSizes.push(a[3]);return upload.apply(this,a)};
-    window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async contents=>{window.savedProjectText=contents},close:async()=>{}})});
-    window.showOpenFilePicker=async()=>[{getFile:async()=>new File([window.savedProjectText],'probe-quality.house.json',{type:'application/json'})}];
+    ${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async contents=>{window.savedProjectText=contents},close:async()=>{}})});
+    ${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([window.savedProjectText],'probe-quality.house.json',{type:'application/json'})}];
     window.alert=message=>window.testAlerts.push(message);
   ` })
   await call('Page.navigate', { url: 'http://127.0.0.1:' + (process.argv[2] ?? '5184') + '/' })

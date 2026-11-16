@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Production preview + Vite for the saved project fixture:
 // node tests/browser/springfieldSunUpdateRegression.mjs [preview-port] [fixture-port]
 import assert from 'node:assert/strict'
@@ -37,7 +38,7 @@ try{
     window.fetch=(input,init)=>{const url=typeof input==='string'?input:input.url??String(input);
       return nativeFetch(url.includes('/bb35ad04a6c60479b06147e9ddd58e7e/processed/model.glb')?'/assets/${door}':input,init)};
     window.confirm=()=>false;
-    window.showOpenFilePicker=async()=>[{name:'springfield_14.json',getFile:async()=>new File([await(await fetch('http://127.0.0.1:${fixtures}/springfield_14.json')).text()],'springfield_14.json')}];
+    ${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{name:'springfield_14.json',getFile:async()=>new File([await(await fetch('http://127.0.0.1:${fixtures}/springfield_14.json')).text()],'springfield_14.json')}];
   `})
   const navigation=await b.call('Page.navigate',{url:`http://127.0.0.1:${port}/`})
   assert.equal(navigation.errorText,undefined,'production preview must be reachable')

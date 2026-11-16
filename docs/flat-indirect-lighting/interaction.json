@@ -1,0 +1,17 @@
+{
+  "before": {
+    "generation": 3,
+    "faces": 2118,
+    "programs": 98
+  },
+  "after": {
+    "generation": 3,
+    "faces": 2118,
+    "programs": 98
+  },
+  "frames": 85,
+  "durationMs": 6003.5,
+  "fps": 14.158407595569251,
+  "medianFrameMs": 44.39999997615814,
+  "p95FrameMs": 136.0999999642372
+}

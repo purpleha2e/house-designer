@@ -2,7 +2,7 @@
 import {useEffect,useState} from 'react'
 import {useFrame,useThree} from '@react-three/fiber'
 import {CubeUVReflectionMapping,DataTexture,DirectionalLight,HalfFloatType,LinearFilter,LinearSRGBColorSpace,RGBAFormat,Vector3,type Texture} from 'three'
-import {createDaylightSky,type DaylightSkyMode} from '../daylightSky'
+import {createDaylightSky,daylightSkyBasisScale,daylightSunElevation,type DaylightSkyMode} from '../daylightSky'
 import {waitForViewportIdle} from '../viewportScheduling'
 import {prepareTextureReplacement} from '../textureUpload'
 import {daylightEnvironmentPixels} from '../daylightEnvironmentPixels'
@@ -35,12 +35,13 @@ export function DaylightEnvironment({mode,strength=1,onLoaded,background,enabled
     if(!sun||sun.userData.indirectPreview)return
     resources.direction.subVectors(sun.position,sun.target.position).normalize()
     resources.irradiance.set(sun.color.r,sun.color.g,sun.color.b).multiplyScalar(sun.intensity*Math.max(0,resources.direction.y))
-    const key=JSON.stringify([mode,strength,...resources.irradiance]);if(key===resources.key)return;resources.key=key
-    const skyStarted=performance.now();resources.sky.update(mode,strength,resources.irradiance);const skyCpuMs=performance.now()-skyStarted;invalidate()
+    const elevation=daylightSunElevation(sun)
+    const key=JSON.stringify([mode,strength,...resources.irradiance,elevation]);if(key===resources.key)return;resources.key=key
+    const skyStarted=performance.now();resources.sky.update(mode,strength,resources.irradiance,elevation);const skyCpuMs=performance.now()-skyStarted;invalidate()
     const version=++resources.version,cancelled=()=>resources.disposed||resources.version!==version,irradiance=resources.irradiance.clone()
     void waitForViewportIdle(cancelled).then(async ready=>{
       if(!ready)return
-      const started=performance.now(),pixels=daylightEnvironmentPixels(sources[mode],sources.ground,irradiance,strength),basisCpuMs=performance.now()-started
+      const started=performance.now(),pixels=daylightEnvironmentPixels(sources[mode],sources.ground,irradiance,strength,daylightSkyBasisScale(mode,elevation)),basisCpuMs=performance.now()-started
       const texture=await prepareTextureReplacement(gl,resources.template,cancelled,pixels);if(!texture)return
       scene.userData.daylightEnvironment={updates:(scene.userData.daylightEnvironment?.updates??0)+1,skyCpuMs,basisCpuMs,pmremCpuSubmissionMs:0,width:336,height:256,sourceSize:32}
       const previous=resources.texture;resources.texture=texture;onLoaded(texture);invalidate()

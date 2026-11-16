@@ -54,7 +54,6 @@ type LeftToolRailProps = {
   isRoofMode: boolean
   materials: SurfaceMaterialProduct[]
   selectedSurface: SelectableSurface | null
-  selectedFloorViewId: string
   selectedModelCount: number
   selectedWallHeight: number | null
   wallCount: number
@@ -277,7 +276,6 @@ export function LeftToolRail({
   isRoofMode,
   materials,
   selectedSurface,
-  selectedFloorViewId,
   selectedModelCount,
   selectedWallHeight,
   wallHeight,
@@ -602,12 +600,11 @@ export function LeftToolRail({
                 <p>{activeFloor ? `Editing ${activeFloor.name}` : 'No active floor'}</p>
               </header>
               <label className="flyout-select">
-                <span>View / edit</span>
+                <span>Editing floor (2D)</span>
                 <select
-                  value={selectedFloorViewId}
+                  value={activeFloorId}
                   onChange={(event) => onSelectFloor(event.target.value)}
                 >
-                  <option value="all">All floors</option>
                   {floors.map((floor) => (
                     <option key={floor.id} value={floor.id}>
                       {floor.id === activeFloorId
@@ -617,12 +614,9 @@ export function LeftToolRail({
                   ))}
                 </select>
               </label>
-              {selectedFloorViewId === 'all' && activeFloor ? (
-                <small className="flyout-field-help">
-                  All floors are visible in 3D. The 2D plan edits {activeFloor.name}.
-                  {' '}Choose a floor above to edit a different level.
-                </small>
-              ) : null}
+              <small className="flyout-field-help">
+                Choose which floor to edit in 2D. Use the 3D toolbar to control which floors are visible there.
+              </small>
               <label className="flyout-field">
                 <span>Ceiling / floor depth</span>
                 <div>

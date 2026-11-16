@@ -1,0 +1,44 @@
+{
+  "build": {
+    "exposure": 1.4142135623730951,
+    "fill": 0.16,
+    "generation": 3,
+    "faces": 0,
+    "refinement": false,
+    "dpr": 1
+  },
+  "lighting": {
+    "exposure": 2,
+    "fill": 0,
+    "generation": 3,
+    "faces": 0,
+    "refinement": false,
+    "dpr": 1
+  },
+  "faster": {
+    "exposure": 1.4142135623730951,
+    "fill": 0.16,
+    "generation": 3,
+    "faces": 0,
+    "refinement": false,
+    "dpr": 0.7
+  },
+  "custom": {
+    "exposure": 4,
+    "fill": 0.32,
+    "generation": 3,
+    "faces": 0,
+    "refinement": false,
+    "dpr": 1
+  },
+  "reset": {
+    "exposure": 1.4142135623730951,
+    "fill": 0.16,
+    "generation": 3,
+    "faces": 0,
+    "refinement": false,
+    "dpr": 1
+  },
+  "stage": "passed",
+  "errors": []
+}

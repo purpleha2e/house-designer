@@ -1,5 +1,5 @@
-import { Box3, BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, InstancedMesh, Matrix4, Mesh,
-  MeshStandardMaterial, NearestFilter, Ray, RGBAFormat, Vector3, type Object3D, type TypedArray } from 'three'
+import { BackSide, Box3, BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, FrontSide, InstancedMesh, Matrix4, Mesh,
+  MeshStandardMaterial, NearestFilter, Ray, RGBAFormat, Vector3, type Object3D, type Side, type TypedArray } from 'three'
 import { getBVHExtremes, MeshBVH, SAH, type SerializedBVH } from 'three-mesh-bvh'
 import type { IndirectField } from './indirectLighting.ts'
 import { createIndirectSegmentQuery } from './indirectSegmentQuery.ts'
@@ -10,20 +10,24 @@ import { hasViewportSurfaceVisibility } from './viewportSurfaceVisibility.ts'
 
 export type IndirectGeometrySnapshot = {
   position: TypedArray; stride: number; offset: number; normalized: boolean; index: Uint32Array | Uint16Array | null
-  ranges: { start: number; count: number }[]; matrices: number[][]; structural: boolean
+  ranges: { start: number; count: number; shadowSide?: Side }[]; matrices: number[][]; structural: boolean
 }[]
 
 /** Shared by cache identity and worker snapshots. Changing a finish to glass
  * changes visibility; changing the order of opaque material groups does not.
  * Registered navigation hiding never removes a physical floor/ceiling. */
-export function indirectGeometryRanges(object: Mesh) {
+export function indirectGeometryRanges(object: Mesh, shadowSides = false) {
   const geometry = object.geometry, materials = Array.isArray(object.material) ? object.material : [object.material]
   const count = geometry.index?.count ?? geometry.attributes.position?.count ?? 0
   const groups = geometry.groups.length ? geometry.groups : [{ start: 0, count, materialIndex: 0 }]
   return groups.filter(group => {
     const material = materials[Array.isArray(object.material) ? group.materialIndex ?? 0 : 0]
     return material instanceof MeshStandardMaterial && (material.visible || hasViewportSurfaceVisibility(material)) && !isLightingGlazing(material) && (material.opacity > 0 || material.transparent)
-  }).map(group => ({ start: group.start, count: Math.min(group.count, count - group.start) }))
+  }).map(group => {
+    const material = materials[Array.isArray(object.material) ? group.materialIndex ?? 0 : 0]
+    return { start: group.start, count: Math.min(group.count, count - group.start),
+      ...(shadowSides ? { shadowSide: material.shadowSide ?? (material.side === DoubleSide ? DoubleSide : material.side === BackSide ? FrontSide : BackSide) } : {}) }
+  })
 }
 
 /** Copy only descriptors on the UI thread. postMessage clones the source buffers;
@@ -37,7 +41,7 @@ export function snapshotIndirectGeometry(scene: Object3D, include?: (mesh: Mesh)
 
 /** Descriptor collection can yield between meshes; triangle expansion and BVH
  * construction remain in the worker. The caller fences the scene revision. */
-export function* snapshotIndirectGeometrySteps(scene: Object3D, include?: (mesh: Mesh) => boolean): Generator<void, IndirectGeometrySnapshot> {
+export function* snapshotIndirectGeometrySteps(scene: Object3D, include?: (mesh: Mesh) => boolean, shadowSides = false): Generator<void, IndirectGeometrySnapshot> {
   const parts: IndirectGeometrySnapshot = []
   scene.updateMatrixWorld(true)
   const objects: Object3D[] = []
@@ -62,7 +66,7 @@ export function* snapshotIndirectGeometrySteps(scene: Object3D, include?: (mesh:
     const position = interleaved ? attribute.data.array : attribute.array
     const stride = interleaved ? attribute.data.stride : attribute.itemSize
     const attributeOffset = interleaved ? attribute.offset : 0
-    const ranges = indirectGeometryRanges(object)
+    const ranges = indirectGeometryRanges(object, shadowSides)
     if (!ranges.length) continue
     const matrices: number[][] = []
     for (let instance = 0; instance < (object instanceof InstancedMesh ? object.count : 1); instance++) {

@@ -19,7 +19,8 @@ import {getIndirectReceiverSeeds} from '../indirectReceiverSafety'
 import {snapshotIndirectContactReceivers} from '../indirectContactReceivers'
 import { indirectGeometryRanges, snapshotIndirectGeometry } from '../indirectVisibility'
 import { IndirectLightingClient } from '../indirectLightingClient'
-import { applyIndirectLightingShader, createIndirectUniforms, setIndirectLocalReflection, updateIndirectUniforms } from '../indirectLightingShader'
+import { applyIndirectLightingShader, createIndirectUniforms, enableExteriorSkyMaterial, setIndirectLocalReflection, updateIndirectUniforms } from '../indirectLightingShader'
+import { isExteriorSkyReceiver } from '../exteriorSkyReceivers'
 import { furnitureLightingSources } from '../furnitureLightingMaterials'
 import { applySpecularOnlyImageBasedLighting } from '../materials/imageBasedLighting'
 import { pointIsInsideRoomPolygon } from '../roomLightMask'
@@ -36,7 +37,7 @@ import { INDIRECT_FURNITURE_PROBE_VERSION } from '../indirectFurnitureProbes'
 import { prepareIndirectCaptureScene } from '../indirectCaptureScene'
 import { isViewportInteracting, markViewportNavigation, runViewportTask, yieldToViewport } from '../viewportScheduling'
 import { IndirectReflectionClient } from '../indirectReflectionClient'
-import { setViewportEnvironmentMap, shaderWarmupGeneration, subscribeShaderWarmup } from '../shaderWarmupState'
+import { requestShaderWarmup, setViewportEnvironmentMap, shaderWarmupGeneration, subscribeShaderWarmup } from '../shaderWarmupState'
 import { createViewportScanScheduler } from '../viewportScan'
 import { prepareTextureReplacement, prepareTextureUpload } from '../textureUpload'
 import { createIndirectMultiview } from '../indirectMultiview'
@@ -46,7 +47,7 @@ import { sameIndirectLightLayout, type IndirectLiveInput } from '../indirectLive
 import { createIndirectGpuPreview } from '../indirectGpuPreview'
 import { createIndirectBakePolicy } from '../indirectBakePolicy'
 import { applyWallOpeningPreviewShader } from '../wallOpeningPreview'
-import { createDaylightSky } from '../daylightSky'
+import { createDaylightSky, daylightSkyBase, daylightSunElevation, daylightTransportSkyBase } from '../daylightSky'
 import { createLightingPerformance } from '../lightingPerformance'
 import { isLightingGlazing } from '../lightingVisibility'
 import { LightingDiagnostics } from './LightingDiagnostics'
@@ -90,15 +91,16 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
 }) {
   const { camera, gl, invalidate, scene } = useThree()
   const max3DTextureSize = useMemo(() => { const context = gl.getContext() as WebGL2RenderingContext; return context.getParameter(context.MAX_3D_TEXTURE_SIZE) as number }, [gl])
-  const shOrder = supportedIndirectSHOrder(requestedIndirectSHOrder(), floors.length, max3DTextureSize, lightingDiagnosticsEnabled)
-  const spatialInterpolation=requestedIndirectSpatialInterpolation()
+  const requestedSHOrder = requestedIndirectSHOrder(requireSavedCache ? savedCache?.settings.shOrder ?? 1 : undefined)
+  const shOrder = supportedIndirectSHOrder(requestedSHOrder, floors.length, max3DTextureSize, lightingDiagnosticsEnabled)
+  const spatialInterpolation=requestedIndirectSpatialInterpolation(requireSavedCache?savedCache?.settings.spatialInterpolation??'legacy':undefined)
   const contactLighting=requestedIndirectContacts()&&shOrder===1&&gl.capabilities.maxFragmentUniforms>=512
-  const cacheSettings = useMemo(() => requestedCacheSettings && ({ ...requestedCacheSettings, contactLighting:contactLighting?true:undefined,contactLightingVersion:contactLighting?1:undefined, spatialInterpolation:spatialInterpolation==='occluder-local'?'occluder-local' as const:undefined, shOrder: shOrder === 2 ? 2 as const : undefined }), [requestedCacheSettings, shOrder,spatialInterpolation,contactLighting])
+  const cacheSettings = useMemo(() => requestedCacheSettings && ({ ...requestedCacheSettings, contactLighting:contactLighting?true:undefined,contactLightingVersion:contactLighting?1:undefined, spatialInterpolation:spatialInterpolation==='legacy'?undefined:spatialInterpolation, shOrder: shOrder === 2 ? 2 as const : undefined }), [requestedCacheSettings, shOrder,spatialInterpolation,contactLighting])
   useEffect(() => {
-    scene.userData.indirectSHExperiment = { requested: requestedIndirectSHOrder(), selected: shOrder, coefficientCount: shOrder === 2 ? 9 : 4, reason: requestedIndirectSHOrder() !== shOrder ? 'Experimental volumes exceed the device 3D texture limit; using L1.' : undefined }
-  }, [scene, shOrder])
+    scene.userData.indirectSHExperiment = { requested: requestedSHOrder, selected: shOrder, coefficientCount: shOrder === 2 ? 9 : 4, reason: requestedSHOrder !== shOrder ? 'Lighting volumes exceed the device 3D texture limit; using L1.' : undefined }
+  }, [scene, shOrder, requestedSHOrder])
   const [performanceProfile]=useState(()=>createLightingPerformance(gl))
-  const [skyEnvironment]=useState(()=>createDaylightSky())
+  const [skyEnvironment]=useState(()=>createDaylightSky(16, 'transport'))
   const bounceCount=Math.max(2,Math.min(8,Math.floor(diffuseBounces)))
   const effectsAllowed = useRef(effectsEnabled)
   useEffect(() => { effectsAllowed.current = effectsEnabled }, [effectsEnabled])
@@ -247,12 +249,22 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
       if (light instanceof SpotLight) { light.angle = slot.angle; light.penumbra = slot.penumbra; light.target.position.set(...slot.target) }
       return light
     }), [localLights])
+  useEffect(()=>{
+    // Refinement traces the authored sources, independent of the camera's
+    // bounded realtime light pool. Each helper call handles at most eight lamps.
+    scene.userData.getRefinementLights=()=>captureLights.flatMap(light=>indirectSurfaceLights([light],localLights))
+    scene.userData.getRefinementDaylightGain=()=>daylight?daylightBounceStrength:0
+    return()=>{delete scene.userData.getRefinementLights;delete scene.userData.getRefinementDaylightGain}
+  },[scene,captureLights,localLights,daylight,daylightBounceStrength])
   useLayoutEffect(()=>{
     uniforms.hdSkyDisplayRadianceBase??={value:new Vector3()}
     uniforms.hdSkyDisplaySunIrradiance??={value:new Vector3()}
+    uniforms.hdExteriorAmbientTint??={value:new Vector3(1,1,1)}
     uniforms.hdSkyMode.value=cacheSettings?.skyMode==='overcast'?2:1
-    uniforms.hdSkyRadianceBase.value.set(.65,.72,.82).multiplyScalar(daylight?daylightBounceStrength*(cacheSettings?.skyStrength??1):0)
-    uniforms.hdSkyDisplayRadianceBase.value.set(.65,.72,.82).multiplyScalar(daylight?(cacheSettings?.skyStrength??1):0)
+    const sky = daylightSkyBase(cacheSettings?.skyMode,daylightSunElevation(sourceSun.current))
+    daylightTransportSkyBase(uniforms.hdSkyRadianceBase.value).multiplyScalar(daylight?daylightBounceStrength*(cacheSettings?.skyStrength??1):0)
+    uniforms.hdSkyDisplayRadianceBase.value.copy(sky).multiplyScalar(daylight?(cacheSettings?.skyStrength??1):0)
+    uniforms.hdExteriorAmbientTint.value.copy(daylight ? sky.clone().divideScalar(.72) : new Vector3(1,1,1))
     if(!daylight)uniforms.hdSkySunIrradiance.value.set(0,0,0)
   },[uniforms,daylight,daylightBounceStrength,cacheSettings?.skyMode,cacheSettings?.skyStrength])
 
@@ -331,28 +343,50 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
     invalidate()
   }, [enabled, diffuseEnabled, daylight, localLights, indoorFill, invalidate, uniforms, markDisplayedLighting])
 
+  // Shadow slots can move between lamps without changing the authored lighting
+  // or GI bake. Remap cached visibility before that frame is drawn, rather than
+  // waiting for the asynchronous geometry scan (which can span several frames).
+  const displayLightMapping = useRef<{ revision: number; sources: typeof localLights } | null>(null)
+  useFrame(() => {
+    const revision = scene.userData.localLightSlotsRevision ?? 0
+    const previous = displayLightMapping.current
+    if (previous && previous.revision === revision && previous.sources === localLights) return
+    displayLightMapping.current = { revision, sources: localLights }
+    let pointIndex = 0, spotIndex = 0
+    uniforms.hdGIPointIndices.value.fill(-1); uniforms.hdGISpotIndices.value.fill(-1)
+    scene.traverse(object => {
+      if (!(object instanceof PointLight || object instanceof SpotLight)) return
+      const lightIndex = localLights.findIndex(light =>
+        (light.position[0] - object.position.x) ** 2 + (light.position[1] - object.position.y) ** 2 + (light.position[2] - object.position.z) ** 2 < .00001)
+      const indices = object instanceof SpotLight ? uniforms.hdGISpotIndices.value : uniforms.hdGIPointIndices.value
+      const index = object instanceof SpotLight ? spotIndex++ : pointIndex++
+      if (index < indices.length && lightIndex >= 0 && lightIndex < INDIRECT_MAX_LOCAL_LIGHTS) {
+        indices[index] = INDIRECT_ATLAS_SIZE ** 2 - INDIRECT_MAX_LOCAL_LIGHTS + lightIndex
+      }
+    })
+  }, -.5)
+
   const scan = useCallback(function* () {
+    // Replacement finishes need their complete display shader before warmup.
+    // Do not let the independent room/sky scans add features after compilation.
+    scene.userData.prepareRoomLightMaterials?.()
+    let shadersChanged = false
+    if (scene.userData.exteriorSkyFeatureRequested && !uniforms.hdExteriorSkyFeature.value) {
+      uniforms.hdExteriorSkyFeature.value = 1
+      shadersChanged = true
+    }
     const geometry: string[] = []
     const liveMaterials = new Set<Material>()
     const furniture: typeof obstacles.current = []
     const boundsByModel = new Map<string, { min: number[]; max: number[] }>()
     const finishes = new Set<string>()
     scene.updateMatrixWorld(true)
-    let pointIndex = 0, spotIndex = 0
-    uniforms.hdGIPointIndices.value.fill(-1); uniforms.hdGISpotIndices.value.fill(-1)
+    scene.userData.localLightSlotsRevision = (scene.userData.localLightSlotsRevision ?? 0) + 1
     const objects: typeof scene.children = []
     scene.traverse(object => objects.push(object))
     for (const object of objects) {
       yield
       if (isSelectionDecoration(object)) continue
-      if (object instanceof PointLight || object instanceof SpotLight) {
-        const lightIndex = localLights.findIndex(light => object.position.distanceToSquared(new Vector3(...light.position)) < .00001)
-        const indices = object instanceof SpotLight ? uniforms.hdGISpotIndices.value : uniforms.hdGIPointIndices.value
-        const index = object instanceof SpotLight ? spotIndex++ : pointIndex++
-        if (index < indices.length && lightIndex >= 0 && lightIndex < INDIRECT_MAX_LOCAL_LIGHTS) {
-          indices[index] = INDIRECT_ATLAS_SIZE ** 2 - INDIRECT_MAX_LOCAL_LIGHTS + lightIndex
-        }
-      }
       if (object.name.startsWith('model-transform-')) {
         // Editor lamp markers are not furniture. Keep the same point bounds
         // whether selected or hidden so selecting a lamp preserves probe layout.
@@ -388,10 +422,13 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
         }
         if (material instanceof MeshStandardMaterial) {
           finishes.add(`${material.color.getHexString()}:${material.emissive.getHexString()}:${material.roughness}:${material.metalness}:${material.map?.source.uuid}:${material.map?.source.version}`)
+          if (uniforms.hdExteriorSkyFeature.value > .5 && isExteriorSkyReceiver(object, material))
+            shadersChanged = enableExteriorSkyMaterial(material) || shadersChanged
         }
         if (!(material instanceof MeshStandardMaterial) || restorers.current.has(material)) continue
         applySpecularOnlyImageBasedLighting(material)
         restorers.current.set(material, applyIndirectLightingShader(material, uniforms))
+        shadersChanged = true
       }
       // Sources remain authoritative when render batching hides them. Fading,
       // camera movement, and helper objects must never invalidate lighting.
@@ -410,6 +447,7 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
     })
     if (reflections.current.size) assignReflections()
     geometrySignature.current = geometry.sort().join('|')
+    if (shadersChanged) requestShaderWarmup(scene)
     return geometrySignature.current + '::' + [...finishes].sort().join('|')
   }, [assignReflections, localLights, scene, uniforms])
 
@@ -812,6 +850,10 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
     const moving = isViewportInteracting() || performance.now() < Math.max(navigationUntil.current, interactionUntil.current)
     if (!sourceSun.current?.parent) sourceSun.current = indirectSurfaceSun(scene)
     const sun = sourceSun.current
+    daylightSkyBase(cacheSettings?.skyMode,daylightSunElevation(sun),uniforms.hdSkyDisplayRadianceBase.value)
+    if(daylight)uniforms.hdExteriorAmbientTint.value.copy(uniforms.hdSkyDisplayRadianceBase.value).divideScalar(.72)
+    else uniforms.hdExteriorAmbientTint.value.setScalar(1)
+    uniforms.hdSkyDisplayRadianceBase.value.multiplyScalar(daylight?(cacheSettings?.skyStrength??1):0)
     const sunHeight=sun?Math.max(0,(sun.position.y-sun.target.position.y)/Math.max(.001,sun.position.distanceTo(sun.target.position))):0
     uniforms.hdSkyDisplaySunIrradiance.value.set(sun?.color.r??0,sun?.color.g??0,sun?.color.b??0).multiplyScalar(daylight&&sun?sun.intensity*sunHeight:0)
     const sunKey = sun ? JSON.stringify([sun.position.toArray(), sun.color.toArray(), sun.intensity, sun.castShadow, sun.userData.indirectPreview]) : ''
@@ -1071,7 +1113,8 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
       if (requireSavedCache) {
         liveUpdates.current.fail(); liveSweep.current = false
         scene.userData.indirectLighting.state = 'fallback'
-        scene.userData.indirectLighting.cacheReason ??= savedCache?.projectKey !== cacheProjectKey ? 'Saved lighting does not match the house.'
+        scene.userData.indirectLighting.cacheReason ??= requestedSHOrder !== shOrder ? 'This device cannot display the saved lighting volume.'
+          : savedCache?.projectKey !== cacheProjectKey ? 'Saved lighting does not match the house.'
           : savedCache?.assetKey !== cacheAssetKey ? 'Saved lighting does not match the materials or models.'
           : 'Saved lighting does not match the lighting settings.'
         scene.userData.indirectLighting.cacheKeys = { project: cacheProjectKey, assets: cacheAssetKey, geometry: indirectContentKey(geometrySignature.current) }
@@ -1399,8 +1442,9 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
           bakeScene.add(light); light.updateMatrixWorld(true)
           if (light instanceof SpotLight) { bakeScene.add(light.target); light.target.updateMatrixWorld(true) }
         }
-        const sky = daylight ? resources.sky.setRGB(.65, .72, .82).multiplyScalar(daylightStrength*(cacheSettings?.skyStrength??1)) : resources.sky.setRGB(0, 0, 0)
         const skyMode=cacheSettings?.skyMode??'clear'
+        const base=daylightTransportSkyBase()
+        const sky = resources.sky.setRGB(base.x,base.y,base.z).multiplyScalar(daylight?daylightStrength*(cacheSettings?.skyStrength??1):0)
         uniforms.hdSkyMode.value=skyMode==='overcast'?2:1
         const sunDirection=sun?new Vector3().subVectors(sun.position,sun.target.position).normalize():new Vector3()
         uniforms.hdSkyRadianceBase.value.set(sky.r,sky.g,sky.b)
@@ -1472,7 +1516,7 @@ export function IndirectLighting({ liveInput, floors, revision, blocked, enabled
               queue.current = []; face.current = 0
               liveSweep.current = false; liveUpdates.current.reset()
               scene.userData.indirectLighting.state = 'fallback'
-              scene.userData.indirectLighting.shaderError = error instanceof Error ? error.message : String(error)
+              scene.userData.indirectLighting.failureReason = scene.userData.indirectLighting.shaderError = error instanceof Error ? error.message : String(error)
             }
             console.warn('GI shader preparation unavailable:', error)
           })

@@ -1,0 +1,172 @@
+{
+  "visibleMs": 385.40000000596046,
+  "readyMs": 4528.5,
+  "state": {
+    "body": "2D floor\nFloor 0\n100%\nFloor 0 internal area: 0.0m2\nContext\n\nFloor 0 - wall 46c43c44\n\nFloor elev.\n0.00 m\nRoom height\n2.40 m\nCeiling / floor depth\n0.30 m\nType\nexternal\nLength\n5.00 m\nThickness\nm\nHeight\nm\nAllow roofs to clip height\n3D floors\nAll floors\nFloor 0\nScene shaders ready\n56 FPS\n0/0 lights\n23 shaders\nGI preparing\n1 calls\n4 geo / 4 tex\n8 tris\nVR NOT SUPPORTED",
+    "data": {
+      "exteriorSkyFeatureRequested": true,
+      "shaderWarmupGeneration": 7,
+      "shaderWarmupPending": false,
+      "projectGeneration": 0,
+      "progressiveStartup": {
+        "startedAtMs": 2345.699999988079,
+        "phase": "full",
+        "frames": 206,
+        "geometryReadyMs": 65.90000000596046,
+        "opaqueReadyMs": 887.5999999940395,
+        "lightingReadyMs": 4602,
+        "programsAtLighting": 29,
+        "fullReadyMs": 4606.699999988079
+      },
+      "liveLightRevision": 3,
+      "localLightSlotsRevision": 11,
+      "roomLightOcclusion": {
+        "ready": false,
+        "lights": 0,
+        "records": 0
+      },
+      "displayEffectRevision": 3,
+      "indirectReflectionPending": false,
+      "indirectLighting": {
+        "generation": 2,
+        "completed": 0,
+        "state": "preparing",
+        "previewUpdates": 0,
+        "blocked": false,
+        "enabled": true,
+        "diffuseEnabled": true,
+        "bakeOnDemand": false,
+        "preparing": true,
+        "warming": false,
+        "reading": false,
+        "inFlight": 0,
+        "volumePending": false,
+        "previewPending": false,
+        "pendingUpdate": false,
+        "floorPreparing": false,
+        "floorLayerReady": false,
+        "volumeSamplingVersion": 1,
+        "displayed": false,
+        "xr": false,
+        "capturedProbes": 0,
+        "reflection": false,
+        "face": 0,
+        "saving": false,
+        "saved": false,
+        "source": "baked",
+        "exportable": true,
+        "continuous": false,
+        "lightingRevision": 1,
+        "pendingLighting": true,
+        "moving": false,
+        "paused": false,
+        "prepareTimings": {}
+      },
+      "bindSoftFloorGI": {},
+      "fastGI": {
+        "configure": {},
+        "refresh": {},
+        "options": {
+          "enabled": false,
+          "hybrid": true,
+          "mode": "combined",
+          "viewsPerFrame": 3
+        },
+        "stats": {
+          "state": "disabled"
+        },
+        "engine": null,
+        "weight": 0,
+        "inspect": {}
+      },
+      "indirectSHExperiment": {
+        "requested": 1,
+        "selected": 1,
+        "coefficientCount": 4
+      },
+      "getIndirectUniforms": {},
+      "getBakedIndirectLighting": {},
+      "getIndirectCaptureScene": {},
+      "getIndirectMultiview": {},
+      "getIndirectSurfaceCache": {},
+      "getIndirectSurfaceCaptureScene": {},
+      "getLightingPerformance": {},
+      "measureLightingApplication": {},
+      "getLightingField": {},
+      "indirectScanPending": false,
+      "fastGIRevision": 1,
+      "ambientFillBudget": {
+        "requested": 0.3,
+        "applied": 0.75,
+        "exteriorSkyReady": false
+      },
+      "prepareRoomLightMaterials": {},
+      "daylightEnvironment": {
+        "updates": 1,
+        "skyCpuMs": 1.7999999821186066,
+        "basisCpuMs": 10.399999976158142,
+        "pmremCpuSubmissionMs": 0,
+        "width": 336,
+        "height": 256,
+        "sourceSize": 32
+      },
+      "shaderWarmupProfile": [
+        {
+          "startedAt": 3535.899999976158,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 356.40000000596046,
+            "snapshot": 27.900000005960464,
+            "compile": 2449.5,
+            "resources": 2.5999999940395355,
+            "postprocessing": 509.59999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 9.800000011920929,
+              "readyMs": 2442.800000011921,
+              "objects": 4,
+              "programs": 9
+            },
+            {
+              "submittedMs": 2.5,
+              "readyMs": 39.400000005960464,
+              "objects": 4,
+              "programs": 14
+            },
+            {
+              "submittedMs": 2.7000000178813934,
+              "readyMs": 48.099999994039536,
+              "objects": 4,
+              "programs": 19
+            },
+            {
+              "submittedMs": 0.5999999940395355,
+              "readyMs": 30.099999994039536,
+              "objects": 4,
+              "programs": 19
+            },
+            {
+              "submittedMs": 0.699999988079071,
+              "readyMs": 15.099999994039536,
+              "objects": 4,
+              "programs": 20
+            },
+            {
+              "submittedMs": 0.09999999403953552,
+              "readyMs": 15.900000005960464,
+              "objects": 1,
+              "programs": 20
+            }
+          ],
+          "cancelled": false
+        }
+      ],
+      "exteriorSkyOcclusion": {
+        "state": "preparing",
+        "bakes": 0
+      }
+    }
+  },
+  "errors": []
+}

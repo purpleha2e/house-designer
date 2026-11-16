@@ -1,0 +1,2738 @@
+[
+  {
+    "data": {
+      "shaderWarmupGeneration": 5,
+      "shaderWarmupPending": false,
+      "indirectScanPending": false,
+      "shaderWarmupProfile": [
+        {
+          "startedAt": 21837.90000000596,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 355.5,
+            "snapshot": 85.20000000298023,
+            "compile": 19980.20000000298,
+            "resources": 11.699999988079071,
+            "postprocessing": 904.0999999940395
+          },
+          "batches": [
+            {
+              "submittedMs": 3.4000000059604645,
+              "readyMs": 66.09999999403954,
+              "objects": 4,
+              "programs": 9
+            },
+            {
+              "submittedMs": 17.5,
+              "readyMs": 10033,
+              "objects": 4,
+              "programs": 13
+            },
+            {
+              "submittedMs": 10.099999994039536,
+              "readyMs": 11128.39999999106,
+              "objects": 4,
+              "programs": 15
+            },
+            {
+              "submittedMs": 11.799999997019768,
+              "readyMs": 11077,
+              "objects": 4,
+              "programs": 20
+            },
+            {
+              "submittedMs": 6.100000008940697,
+              "readyMs": 11078.300000011921,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 5.200000002980232,
+              "readyMs": 1112.7999999970198,
+              "objects": 4,
+              "programs": 24
+            },
+            {
+              "submittedMs": 13.700000002980232,
+              "readyMs": 8816.5,
+              "objects": 4,
+              "programs": 26
+            },
+            {
+              "submittedMs": 1.5,
+              "readyMs": 8771.70000000298,
+              "objects": 4,
+              "programs": 27
+            },
+            {
+              "submittedMs": 0.4000000059604645,
+              "readyMs": 8761.90000000596,
+              "objects": 2,
+              "programs": 27
+            }
+          ],
+          "cancelled": false
+        },
+        {
+          "startedAt": 44072.10000000894,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.29999999701976776,
+            "snapshot": 69.79999999701977,
+            "compile": 16089.40000000596,
+            "resources": 1.8999999910593033,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 40.80000001192093,
+              "readyMs": 15908.40000000596,
+              "objects": 4,
+              "programs": 37
+            },
+            {
+              "submittedMs": 14,
+              "readyMs": 15843.89999999106,
+              "objects": 1,
+              "programs": 38
+            }
+          ],
+          "cancelled": false
+        }
+      ]
+    },
+    "logs": [
+      {
+        "detail": "1 added; total 6",
+        "index": 24,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 25,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "status"
+      },
+      {
+        "detail": "7 shaders, 1 calls, 7 geo, 12 tex, 27 tris",
+        "index": 26,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 7",
+        "index": 27,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 28,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "status"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 29,
+        "timeMs": 22193,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 30,
+        "timeMs": 22193,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 31,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22193,
+        "type": "status"
+      },
+      {
+        "detail": "23 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 32,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "16 added; total 23",
+        "index": 33,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 16 shaders...",
+        "index": 34,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 35,
+        "timeMs": 32208,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 36,
+        "timeMs": 32208,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 37,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32208,
+        "type": "status"
+      },
+      {
+        "detail": "24 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 38,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 24",
+        "index": 39,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 40,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "status"
+      },
+      {
+        "detail": "27 shaders, 1 calls, 7 geo, 13 tex, 23 tris",
+        "index": 41,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 added; total 27",
+        "index": 42,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 3 shaders...",
+        "index": 43,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "status"
+      },
+      {
+        "detail": "28 shaders, 1 calls, 11 geo, 13 tex, 17 tris",
+        "index": 44,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 28",
+        "index": 45,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 46,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "status"
+      },
+      {
+        "detail": "29 shaders, 1 calls, 11 geo, 13 tex, 22 tris",
+        "index": 47,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 29",
+        "index": 48,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 49,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "status"
+      },
+      {
+        "detail": "34 shaders, 1 calls, 11 geo, 13 tex, 16 tris",
+        "index": 50,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "5 added; total 34",
+        "index": 51,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 5 shaders...",
+        "index": 52,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "status"
+      },
+      {
+        "index": 53,
+        "timeMs": 43207,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 54,
+        "timeMs": 43209,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 55,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43209,
+        "type": "status"
+      },
+      {
+        "detail": "33 shaders, 4 calls, 14 geo, 29 tex, 53 tris",
+        "index": 56,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43600,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "33 shaders, 0 calls, 14 geo, 38 tex, 0 tris",
+        "index": 57,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43962,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 new material variants",
+        "index": 58,
+        "timeMs": 44072,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 59,
+        "timeMs": 44072,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 60,
+        "timeMs": 44072,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 61,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44072,
+        "type": "status"
+      },
+      {
+        "detail": "37 shaders, 2 calls, 14 geo, 41 tex, 24 tris",
+        "index": 62,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 37",
+        "index": 63,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 64,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "status"
+      },
+      {
+        "detail": "38 shaders, 0 calls, 14 geo, 41 tex, 0 tris",
+        "index": 65,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 38",
+        "index": 66,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 67,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 68,
+        "timeMs": 54087,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 69,
+        "timeMs": 54087,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 70,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 54087,
+        "type": "status"
+      },
+      {
+        "index": 71,
+        "timeMs": 60268,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 72,
+        "timeMs": 60275,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 73,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60275,
+        "type": "status"
+      },
+      {
+        "detail": "42 shaders, 2 calls, 14 geo, 44 tex, 23 tris",
+        "index": 74,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 42",
+        "index": 75,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 76,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "status"
+      },
+      {
+        "detail": "43 shaders, 1 calls, 14 geo, 50 tex, 10 tris",
+        "index": 77,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 43",
+        "index": 78,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 79,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "status"
+      },
+      {
+        "detail": "44 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 80,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 44",
+        "index": 81,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 82,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "status"
+      },
+      {
+        "detail": "46 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 83,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 46",
+        "index": 84,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 85,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "status"
+      },
+      {
+        "detail": "47 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 86,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 47",
+        "index": 87,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 88,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "status"
+      },
+      {
+        "detail": "49 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 89,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 49",
+        "index": 90,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 91,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "status"
+      },
+      {
+        "detail": "5.2s after Compiling 2 shaders",
+        "index": 92,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84660,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "Main thread stalled for 5.2s after Compiling 2 shaders",
+        "index": 93,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84661,
+        "type": "status"
+      }
+    ],
+    "geometry": [
+      {
+        "role": "ground-plane",
+        "uuid": "9d978275-5e75-429e-acba-491bdbeb61ac",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "ceiling-shadow-blocker",
+        "uuid": "502a1afb-4d26-4bdb-9c11-ca297e087af9",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-floor-base",
+        "uuid": "e38b925d-9013-4791-b208-c8657b02c49b",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-sloping-ceiling-finish",
+        "uuid": "53f4165e-8bda-468d-8c80-0005b9739739",
+        "attributes": {
+          "position": 0,
+          "uv": 0,
+          "normal": 1
+        }
+      },
+      {
+        "role": "room-ceiling-shadow-blocker",
+        "uuid": "56e941df-9c8b-40d5-bc93-449fc696b7bb",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-ceiling-finish",
+        "uuid": "cc3f078b-bf0a-4902-b9e3-de8b6bcb3b29",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "fa0d0499-750a-4a81-a559-02e3fe9d5e78",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "2b57fb49-0172-412d-8272-733dbaf30711",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "wall-engine-render",
+        "uuid": "7429a1d8-2e84-4818-b8b4-3ff72d4e61ad",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "wall-engine-pick",
+        "uuid": "6de0e001-f0c6-463d-8068-1ff5e9c1083f",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "skirting",
+        "uuid": "f80b314e-0925-4f5e-892c-1f0d68ebb023",
+        "attributes": {
+          "position": 0,
+          "normal": 0
+        }
+      }
+    ]
+  },
+  {
+    "data": {
+      "shaderWarmupGeneration": 5,
+      "shaderWarmupPending": false,
+      "indirectScanPending": false,
+      "shaderWarmupProfile": [
+        {
+          "startedAt": 21837.90000000596,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 355.5,
+            "snapshot": 85.20000000298023,
+            "compile": 19980.20000000298,
+            "resources": 11.699999988079071,
+            "postprocessing": 904.0999999940395
+          },
+          "batches": [
+            {
+              "submittedMs": 3.4000000059604645,
+              "readyMs": 66.09999999403954,
+              "objects": 4,
+              "programs": 9
+            },
+            {
+              "submittedMs": 17.5,
+              "readyMs": 10033,
+              "objects": 4,
+              "programs": 13
+            },
+            {
+              "submittedMs": 10.099999994039536,
+              "readyMs": 11128.39999999106,
+              "objects": 4,
+              "programs": 15
+            },
+            {
+              "submittedMs": 11.799999997019768,
+              "readyMs": 11077,
+              "objects": 4,
+              "programs": 20
+            },
+            {
+              "submittedMs": 6.100000008940697,
+              "readyMs": 11078.300000011921,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 5.200000002980232,
+              "readyMs": 1112.7999999970198,
+              "objects": 4,
+              "programs": 24
+            },
+            {
+              "submittedMs": 13.700000002980232,
+              "readyMs": 8816.5,
+              "objects": 4,
+              "programs": 26
+            },
+            {
+              "submittedMs": 1.5,
+              "readyMs": 8771.70000000298,
+              "objects": 4,
+              "programs": 27
+            },
+            {
+              "submittedMs": 0.4000000059604645,
+              "readyMs": 8761.90000000596,
+              "objects": 2,
+              "programs": 27
+            }
+          ],
+          "cancelled": false
+        },
+        {
+          "startedAt": 44072.10000000894,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.29999999701976776,
+            "snapshot": 69.79999999701977,
+            "compile": 16089.40000000596,
+            "resources": 1.8999999910593033,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 40.80000001192093,
+              "readyMs": 15908.40000000596,
+              "objects": 4,
+              "programs": 37
+            },
+            {
+              "submittedMs": 14,
+              "readyMs": 15843.89999999106,
+              "objects": 1,
+              "programs": 38
+            }
+          ],
+          "cancelled": false
+        }
+      ]
+    },
+    "logs": [
+      {
+        "detail": "1 added; total 6",
+        "index": 24,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 25,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "status"
+      },
+      {
+        "detail": "7 shaders, 1 calls, 7 geo, 12 tex, 27 tris",
+        "index": 26,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 7",
+        "index": 27,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 28,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "status"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 29,
+        "timeMs": 22193,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 30,
+        "timeMs": 22193,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 31,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22193,
+        "type": "status"
+      },
+      {
+        "detail": "23 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 32,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "16 added; total 23",
+        "index": 33,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 16 shaders...",
+        "index": 34,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 35,
+        "timeMs": 32208,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 36,
+        "timeMs": 32208,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 37,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32208,
+        "type": "status"
+      },
+      {
+        "detail": "24 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 38,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 24",
+        "index": 39,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 40,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "status"
+      },
+      {
+        "detail": "27 shaders, 1 calls, 7 geo, 13 tex, 23 tris",
+        "index": 41,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 added; total 27",
+        "index": 42,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 3 shaders...",
+        "index": 43,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "status"
+      },
+      {
+        "detail": "28 shaders, 1 calls, 11 geo, 13 tex, 17 tris",
+        "index": 44,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 28",
+        "index": 45,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 46,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "status"
+      },
+      {
+        "detail": "29 shaders, 1 calls, 11 geo, 13 tex, 22 tris",
+        "index": 47,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 29",
+        "index": 48,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 49,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "status"
+      },
+      {
+        "detail": "34 shaders, 1 calls, 11 geo, 13 tex, 16 tris",
+        "index": 50,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "5 added; total 34",
+        "index": 51,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 5 shaders...",
+        "index": 52,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "status"
+      },
+      {
+        "index": 53,
+        "timeMs": 43207,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 54,
+        "timeMs": 43209,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 55,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43209,
+        "type": "status"
+      },
+      {
+        "detail": "33 shaders, 4 calls, 14 geo, 29 tex, 53 tris",
+        "index": 56,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43600,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "33 shaders, 0 calls, 14 geo, 38 tex, 0 tris",
+        "index": 57,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43962,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 new material variants",
+        "index": 58,
+        "timeMs": 44072,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 59,
+        "timeMs": 44072,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 60,
+        "timeMs": 44072,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 61,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44072,
+        "type": "status"
+      },
+      {
+        "detail": "37 shaders, 2 calls, 14 geo, 41 tex, 24 tris",
+        "index": 62,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 37",
+        "index": 63,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 64,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "status"
+      },
+      {
+        "detail": "38 shaders, 0 calls, 14 geo, 41 tex, 0 tris",
+        "index": 65,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 38",
+        "index": 66,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 67,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 68,
+        "timeMs": 54087,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 69,
+        "timeMs": 54087,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 70,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 54087,
+        "type": "status"
+      },
+      {
+        "index": 71,
+        "timeMs": 60268,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 72,
+        "timeMs": 60275,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 73,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60275,
+        "type": "status"
+      },
+      {
+        "detail": "42 shaders, 2 calls, 14 geo, 44 tex, 23 tris",
+        "index": 74,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 42",
+        "index": 75,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 76,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "status"
+      },
+      {
+        "detail": "43 shaders, 1 calls, 14 geo, 50 tex, 10 tris",
+        "index": 77,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 43",
+        "index": 78,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 79,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "status"
+      },
+      {
+        "detail": "44 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 80,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 44",
+        "index": 81,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 82,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "status"
+      },
+      {
+        "detail": "46 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 83,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 46",
+        "index": 84,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 85,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "status"
+      },
+      {
+        "detail": "47 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 86,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 47",
+        "index": 87,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 88,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "status"
+      },
+      {
+        "detail": "49 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 89,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 49",
+        "index": 90,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 91,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "status"
+      },
+      {
+        "detail": "5.2s after Compiling 2 shaders",
+        "index": 92,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84660,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "Main thread stalled for 5.2s after Compiling 2 shaders",
+        "index": 93,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84661,
+        "type": "status"
+      }
+    ],
+    "geometry": [
+      {
+        "role": "ground-plane",
+        "uuid": "9d978275-5e75-429e-acba-491bdbeb61ac",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "ceiling-shadow-blocker",
+        "uuid": "502a1afb-4d26-4bdb-9c11-ca297e087af9",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-floor-base",
+        "uuid": "e38b925d-9013-4791-b208-c8657b02c49b",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-sloping-ceiling-finish",
+        "uuid": "53f4165e-8bda-468d-8c80-0005b9739739",
+        "attributes": {
+          "position": 0,
+          "uv": 0,
+          "normal": 1
+        }
+      },
+      {
+        "role": "room-ceiling-shadow-blocker",
+        "uuid": "56e941df-9c8b-40d5-bc93-449fc696b7bb",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-ceiling-finish",
+        "uuid": "cc3f078b-bf0a-4902-b9e3-de8b6bcb3b29",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "fa0d0499-750a-4a81-a559-02e3fe9d5e78",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "2b57fb49-0172-412d-8272-733dbaf30711",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "wall-engine-render",
+        "uuid": "7429a1d8-2e84-4818-b8b4-3ff72d4e61ad",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "wall-engine-pick",
+        "uuid": "6de0e001-f0c6-463d-8068-1ff5e9c1083f",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "skirting",
+        "uuid": "f80b314e-0925-4f5e-892c-1f0d68ebb023",
+        "attributes": {
+          "position": 0,
+          "normal": 0
+        }
+      }
+    ]
+  },
+  {
+    "data": {
+      "shaderWarmupGeneration": 5,
+      "shaderWarmupPending": false,
+      "indirectScanPending": false,
+      "shaderWarmupProfile": [
+        {
+          "startedAt": 21837.90000000596,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 355.5,
+            "snapshot": 85.20000000298023,
+            "compile": 19980.20000000298,
+            "resources": 11.699999988079071,
+            "postprocessing": 904.0999999940395
+          },
+          "batches": [
+            {
+              "submittedMs": 3.4000000059604645,
+              "readyMs": 66.09999999403954,
+              "objects": 4,
+              "programs": 9
+            },
+            {
+              "submittedMs": 17.5,
+              "readyMs": 10033,
+              "objects": 4,
+              "programs": 13
+            },
+            {
+              "submittedMs": 10.099999994039536,
+              "readyMs": 11128.39999999106,
+              "objects": 4,
+              "programs": 15
+            },
+            {
+              "submittedMs": 11.799999997019768,
+              "readyMs": 11077,
+              "objects": 4,
+              "programs": 20
+            },
+            {
+              "submittedMs": 6.100000008940697,
+              "readyMs": 11078.300000011921,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 5.200000002980232,
+              "readyMs": 1112.7999999970198,
+              "objects": 4,
+              "programs": 24
+            },
+            {
+              "submittedMs": 13.700000002980232,
+              "readyMs": 8816.5,
+              "objects": 4,
+              "programs": 26
+            },
+            {
+              "submittedMs": 1.5,
+              "readyMs": 8771.70000000298,
+              "objects": 4,
+              "programs": 27
+            },
+            {
+              "submittedMs": 0.4000000059604645,
+              "readyMs": 8761.90000000596,
+              "objects": 2,
+              "programs": 27
+            }
+          ],
+          "cancelled": false
+        },
+        {
+          "startedAt": 44072.10000000894,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.29999999701976776,
+            "snapshot": 69.79999999701977,
+            "compile": 16089.40000000596,
+            "resources": 1.8999999910593033,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 40.80000001192093,
+              "readyMs": 15908.40000000596,
+              "objects": 4,
+              "programs": 37
+            },
+            {
+              "submittedMs": 14,
+              "readyMs": 15843.89999999106,
+              "objects": 1,
+              "programs": 38
+            }
+          ],
+          "cancelled": false
+        }
+      ]
+    },
+    "logs": [
+      {
+        "detail": "1 added; total 6",
+        "index": 24,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 25,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "status"
+      },
+      {
+        "detail": "7 shaders, 1 calls, 7 geo, 12 tex, 27 tris",
+        "index": 26,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 7",
+        "index": 27,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 28,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "status"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 29,
+        "timeMs": 22193,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 30,
+        "timeMs": 22193,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 31,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22193,
+        "type": "status"
+      },
+      {
+        "detail": "23 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 32,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "16 added; total 23",
+        "index": 33,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 16 shaders...",
+        "index": 34,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 35,
+        "timeMs": 32208,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 36,
+        "timeMs": 32208,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 37,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32208,
+        "type": "status"
+      },
+      {
+        "detail": "24 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 38,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 24",
+        "index": 39,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 40,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "status"
+      },
+      {
+        "detail": "27 shaders, 1 calls, 7 geo, 13 tex, 23 tris",
+        "index": 41,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 added; total 27",
+        "index": 42,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 3 shaders...",
+        "index": 43,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "status"
+      },
+      {
+        "detail": "28 shaders, 1 calls, 11 geo, 13 tex, 17 tris",
+        "index": 44,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 28",
+        "index": 45,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 46,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "status"
+      },
+      {
+        "detail": "29 shaders, 1 calls, 11 geo, 13 tex, 22 tris",
+        "index": 47,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 29",
+        "index": 48,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 49,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "status"
+      },
+      {
+        "detail": "34 shaders, 1 calls, 11 geo, 13 tex, 16 tris",
+        "index": 50,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "5 added; total 34",
+        "index": 51,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 5 shaders...",
+        "index": 52,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "status"
+      },
+      {
+        "index": 53,
+        "timeMs": 43207,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 54,
+        "timeMs": 43209,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 55,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43209,
+        "type": "status"
+      },
+      {
+        "detail": "33 shaders, 4 calls, 14 geo, 29 tex, 53 tris",
+        "index": 56,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43600,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "33 shaders, 0 calls, 14 geo, 38 tex, 0 tris",
+        "index": 57,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43962,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 new material variants",
+        "index": 58,
+        "timeMs": 44072,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 59,
+        "timeMs": 44072,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 60,
+        "timeMs": 44072,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 61,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44072,
+        "type": "status"
+      },
+      {
+        "detail": "37 shaders, 2 calls, 14 geo, 41 tex, 24 tris",
+        "index": 62,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 37",
+        "index": 63,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 64,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "status"
+      },
+      {
+        "detail": "38 shaders, 0 calls, 14 geo, 41 tex, 0 tris",
+        "index": 65,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 38",
+        "index": 66,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 67,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 68,
+        "timeMs": 54087,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 69,
+        "timeMs": 54087,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 70,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 54087,
+        "type": "status"
+      },
+      {
+        "index": 71,
+        "timeMs": 60268,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 72,
+        "timeMs": 60275,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 73,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60275,
+        "type": "status"
+      },
+      {
+        "detail": "42 shaders, 2 calls, 14 geo, 44 tex, 23 tris",
+        "index": 74,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 42",
+        "index": 75,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 76,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "status"
+      },
+      {
+        "detail": "43 shaders, 1 calls, 14 geo, 50 tex, 10 tris",
+        "index": 77,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 43",
+        "index": 78,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 79,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "status"
+      },
+      {
+        "detail": "44 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 80,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 44",
+        "index": 81,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 82,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "status"
+      },
+      {
+        "detail": "46 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 83,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 46",
+        "index": 84,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 85,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "status"
+      },
+      {
+        "detail": "47 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 86,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 47",
+        "index": 87,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 88,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "status"
+      },
+      {
+        "detail": "49 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 89,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 49",
+        "index": 90,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 91,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "status"
+      },
+      {
+        "detail": "5.2s after Compiling 2 shaders",
+        "index": 92,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84660,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "Main thread stalled for 5.2s after Compiling 2 shaders",
+        "index": 93,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84661,
+        "type": "status"
+      }
+    ],
+    "geometry": [
+      {
+        "role": "ground-plane",
+        "uuid": "9d978275-5e75-429e-acba-491bdbeb61ac",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "ceiling-shadow-blocker",
+        "uuid": "502a1afb-4d26-4bdb-9c11-ca297e087af9",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-floor-base",
+        "uuid": "e38b925d-9013-4791-b208-c8657b02c49b",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-sloping-ceiling-finish",
+        "uuid": "53f4165e-8bda-468d-8c80-0005b9739739",
+        "attributes": {
+          "position": 0,
+          "uv": 0,
+          "normal": 1
+        }
+      },
+      {
+        "role": "room-ceiling-shadow-blocker",
+        "uuid": "56e941df-9c8b-40d5-bc93-449fc696b7bb",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-ceiling-finish",
+        "uuid": "cc3f078b-bf0a-4902-b9e3-de8b6bcb3b29",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "fa0d0499-750a-4a81-a559-02e3fe9d5e78",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "2b57fb49-0172-412d-8272-733dbaf30711",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "wall-engine-render",
+        "uuid": "7429a1d8-2e84-4818-b8b4-3ff72d4e61ad",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "wall-engine-pick",
+        "uuid": "6de0e001-f0c6-463d-8068-1ff5e9c1083f",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "skirting",
+        "uuid": "f80b314e-0925-4f5e-892c-1f0d68ebb023",
+        "attributes": {
+          "position": 0,
+          "normal": 0
+        }
+      }
+    ]
+  },
+  {
+    "data": {
+      "shaderWarmupGeneration": 5,
+      "shaderWarmupPending": false,
+      "indirectScanPending": false,
+      "shaderWarmupProfile": [
+        {
+          "startedAt": 21837.90000000596,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 355.5,
+            "snapshot": 85.20000000298023,
+            "compile": 19980.20000000298,
+            "resources": 11.699999988079071,
+            "postprocessing": 904.0999999940395
+          },
+          "batches": [
+            {
+              "submittedMs": 3.4000000059604645,
+              "readyMs": 66.09999999403954,
+              "objects": 4,
+              "programs": 9
+            },
+            {
+              "submittedMs": 17.5,
+              "readyMs": 10033,
+              "objects": 4,
+              "programs": 13
+            },
+            {
+              "submittedMs": 10.099999994039536,
+              "readyMs": 11128.39999999106,
+              "objects": 4,
+              "programs": 15
+            },
+            {
+              "submittedMs": 11.799999997019768,
+              "readyMs": 11077,
+              "objects": 4,
+              "programs": 20
+            },
+            {
+              "submittedMs": 6.100000008940697,
+              "readyMs": 11078.300000011921,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 5.200000002980232,
+              "readyMs": 1112.7999999970198,
+              "objects": 4,
+              "programs": 24
+            },
+            {
+              "submittedMs": 13.700000002980232,
+              "readyMs": 8816.5,
+              "objects": 4,
+              "programs": 26
+            },
+            {
+              "submittedMs": 1.5,
+              "readyMs": 8771.70000000298,
+              "objects": 4,
+              "programs": 27
+            },
+            {
+              "submittedMs": 0.4000000059604645,
+              "readyMs": 8761.90000000596,
+              "objects": 2,
+              "programs": 27
+            }
+          ],
+          "cancelled": false
+        },
+        {
+          "startedAt": 44072.10000000894,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.29999999701976776,
+            "snapshot": 69.79999999701977,
+            "compile": 16089.40000000596,
+            "resources": 1.8999999910593033,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 40.80000001192093,
+              "readyMs": 15908.40000000596,
+              "objects": 4,
+              "programs": 37
+            },
+            {
+              "submittedMs": 14,
+              "readyMs": 15843.89999999106,
+              "objects": 1,
+              "programs": 38
+            }
+          ],
+          "cancelled": false
+        }
+      ]
+    },
+    "logs": [
+      {
+        "detail": "1 added; total 6",
+        "index": 24,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 25,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 14442,
+        "type": "status"
+      },
+      {
+        "detail": "7 shaders, 1 calls, 7 geo, 12 tex, 27 tris",
+        "index": 26,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 7",
+        "index": 27,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 28,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 21925,
+        "type": "status"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 29,
+        "timeMs": 22193,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 30,
+        "timeMs": 22193,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 31,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22193,
+        "type": "status"
+      },
+      {
+        "detail": "23 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 32,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "16 added; total 23",
+        "index": 33,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 16 shaders...",
+        "index": 34,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 22643,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 35,
+        "timeMs": 32208,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 36,
+        "timeMs": 32208,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 37,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32208,
+        "type": "status"
+      },
+      {
+        "detail": "24 shaders, 1 calls, 7 geo, 13 tex, 17 tris",
+        "index": 38,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 24",
+        "index": 39,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 40,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 32675,
+        "type": "status"
+      },
+      {
+        "detail": "27 shaders, 1 calls, 7 geo, 13 tex, 23 tris",
+        "index": 41,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 added; total 27",
+        "index": 42,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 3 shaders...",
+        "index": 43,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 33742,
+        "type": "status"
+      },
+      {
+        "detail": "28 shaders, 1 calls, 11 geo, 13 tex, 17 tris",
+        "index": 44,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 28",
+        "index": 45,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 46,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42309,
+        "type": "status"
+      },
+      {
+        "detail": "29 shaders, 1 calls, 11 geo, 13 tex, 22 tris",
+        "index": 47,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 29",
+        "index": 48,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 49,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 42675,
+        "type": "status"
+      },
+      {
+        "detail": "34 shaders, 1 calls, 11 geo, 13 tex, 16 tris",
+        "index": 50,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "5 added; total 34",
+        "index": 51,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 5 shaders...",
+        "index": 52,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43042,
+        "type": "status"
+      },
+      {
+        "index": 53,
+        "timeMs": 43207,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 54,
+        "timeMs": 43209,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 55,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43209,
+        "type": "status"
+      },
+      {
+        "detail": "33 shaders, 4 calls, 14 geo, 29 tex, 53 tris",
+        "index": 56,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43600,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "33 shaders, 0 calls, 14 geo, 38 tex, 0 tris",
+        "index": 57,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 43962,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 new material variants",
+        "index": 58,
+        "timeMs": 44072,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 59,
+        "timeMs": 44072,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 60,
+        "timeMs": 44072,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 61,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44072,
+        "type": "status"
+      },
+      {
+        "detail": "37 shaders, 2 calls, 14 geo, 41 tex, 24 tris",
+        "index": 62,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 37",
+        "index": 63,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 64,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44365,
+        "type": "status"
+      },
+      {
+        "detail": "38 shaders, 0 calls, 14 geo, 41 tex, 0 tris",
+        "index": 65,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 38",
+        "index": 66,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 67,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 44725,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 68,
+        "timeMs": 54087,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 69,
+        "timeMs": 54087,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 70,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 54087,
+        "type": "status"
+      },
+      {
+        "index": 71,
+        "timeMs": 60268,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 72,
+        "timeMs": 60275,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 73,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60275,
+        "type": "status"
+      },
+      {
+        "detail": "42 shaders, 2 calls, 14 geo, 44 tex, 23 tris",
+        "index": 74,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 42",
+        "index": 75,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 76,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 60425,
+        "type": "status"
+      },
+      {
+        "detail": "43 shaders, 1 calls, 14 geo, 50 tex, 10 tris",
+        "index": 77,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 43",
+        "index": 78,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 79,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 62559,
+        "type": "status"
+      },
+      {
+        "detail": "44 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 80,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 44",
+        "index": 81,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 82,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66208,
+        "type": "status"
+      },
+      {
+        "detail": "46 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 83,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 46",
+        "index": 84,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 85,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 70842,
+        "type": "status"
+      },
+      {
+        "detail": "47 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 86,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 47",
+        "index": 87,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 88,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71208,
+        "type": "status"
+      },
+      {
+        "detail": "49 shaders, 0 calls, 14 geo, 50 tex, 0 tris",
+        "index": 89,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "2 added; total 49",
+        "index": 90,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 2 shaders...",
+        "index": 91,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 75858,
+        "type": "status"
+      },
+      {
+        "detail": "5.2s after Compiling 2 shaders",
+        "index": 92,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84660,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "Main thread stalled for 5.2s after Compiling 2 shaders",
+        "index": 93,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 84661,
+        "type": "status"
+      }
+    ],
+    "geometry": [
+      {
+        "role": "ground-plane",
+        "uuid": "9d978275-5e75-429e-acba-491bdbeb61ac",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "ceiling-shadow-blocker",
+        "uuid": "502a1afb-4d26-4bdb-9c11-ca297e087af9",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-floor-base",
+        "uuid": "e38b925d-9013-4791-b208-c8657b02c49b",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-sloping-ceiling-finish",
+        "uuid": "53f4165e-8bda-468d-8c80-0005b9739739",
+        "attributes": {
+          "position": 0,
+          "uv": 0,
+          "normal": 1
+        }
+      },
+      {
+        "role": "room-ceiling-shadow-blocker",
+        "uuid": "56e941df-9c8b-40d5-bc93-449fc696b7bb",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "room-ceiling-finish",
+        "uuid": "cc3f078b-bf0a-4902-b9e3-de8b6bcb3b29",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "fa0d0499-750a-4a81-a559-02e3fe9d5e78",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "uuid": "2b57fb49-0172-412d-8272-733dbaf30711",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0
+        }
+      },
+      {
+        "role": "wall-engine-render",
+        "uuid": "7429a1d8-2e84-4818-b8b4-3ff72d4e61ad",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "wall-engine-pick",
+        "uuid": "6de0e001-f0c6-463d-8068-1ff5e9c1083f",
+        "attributes": {
+          "position": 0,
+          "normal": 0,
+          "uv": 0,
+          "hdGIReceiverOffset": 0,
+          "hdGICorner0": 0,
+          "hdGICorner1": 0
+        }
+      },
+      {
+        "role": "skirting",
+        "uuid": "f80b314e-0925-4f5e-892c-1f0d68ebb023",
+        "attributes": {
+          "position": 0,
+          "normal": 0
+        }
+      }
+    ]
+  }
+]

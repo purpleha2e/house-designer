@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {Data3DTexture,DataUtils,FloatType,HalfFloatType,Matrix4,Vector3} from 'three'
+import {Data3DTexture,DataUtils,FloatType,HalfFloatType,Matrix4,PerspectiveCamera,Vector3} from 'three'
 import {packLocalSunPreview,traceLocalSunPrimary} from '../src/localSunPreview.ts'
 import {createIndirectVisibilityFromSnapshot} from '../src/indirectVisibility.ts'
 
@@ -35,4 +35,14 @@ test('camera-hidden surfaces are skipped only by primary rays and visibility upd
   assert.equal(query.hit(new Vector3(.9,0,0),new Vector3(-1,0,0))!.point.x,.5,'the hidden surface still blocks reflected sunlight')
   assert.equal(traceLocalSunPrimary(query,origin,direction,new Uint8Array([1,0]))!.point.x,.5)
  }finally{query.dispose()}
+})
+
+test('plane reconstruction retains an oblique ceiling and rejects a nearby parallel surface',()=>{
+ const camera=new PerspectiveCamera(70,4/3,.1,100);camera.setViewOffset(1200,900,100,50,800,600)
+ const sample=new Vector3(.3,1,-4),receiver=new Vector3(.5,1,-6),ndc=sample.clone().project(camera),p=camera.projectionMatrix.elements,depth=4
+ const reconstructed=new Vector3((ndc.x+p[8])*depth/p[0],(ndc.y+p[9])*depth/p[5],-depth)
+ assert.ok(reconstructed.distanceTo(sample)<1e-12)
+ assert.ok(Math.abs(receiver.z-sample.z)>1,'raw camera depth would reject the same ceiling')
+ assert.ok(Math.abs(receiver.y-reconstructed.y)<.015)
+ assert.ok(Math.abs(receiver.y+.04-reconstructed.y)>.015,'a separate nearby plane must not receive the sample')
 })

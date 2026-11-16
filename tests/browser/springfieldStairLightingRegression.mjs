@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Vite and the asset portal running: node tests/browser/springfieldStairLightingRegression.mjs [port]
 import assert from 'node:assert/strict'
 import {mkdirSync, writeFileSync} from 'node:fs'
@@ -17,7 +18,7 @@ try {
         ? '/src/models/assets/interior_door_closed.glb' : input, init);
     };
     window.confirm = () => false;
-    window.showOpenFilePicker = async () => [{name:'springfield_14.json', getFile:async()=>
+    ${projectFileInputFixtureSource}window.projectFileFixture = async () => [{name:'springfield_14.json', getFile:async()=>
       new File([await (await fetch('/springfield_14.json')).text()], 'springfield_14.json')}];
   `})
   await b.call('Page.navigate', {url:`http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/editorRegression.html?lightingDiagnostics`})

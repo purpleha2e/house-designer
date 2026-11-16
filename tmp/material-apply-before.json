@@ -1,0 +1,6911 @@
+[
+  {
+    "id": "dulux-blush-matt",
+    "samples": [
+      {
+        "ms": 74.40000000596046,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 29,
+        "profile": {
+          "startedAt": 16183.39999999106,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 383.5,
+            "snapshot": 300.69999998807907,
+            "compile": 20214.30000001192,
+            "resources": 5.299999997019768,
+            "postprocessing": 804.7000000029802
+          },
+          "batches": [
+            {
+              "submittedMs": 17.700000002980232,
+              "readyMs": 11470.59999999404,
+              "objects": 4,
+              "programs": 7
+            },
+            {
+              "submittedMs": 13.5,
+              "readyMs": 11478.199999988079,
+              "objects": 4,
+              "programs": 12
+            },
+            {
+              "submittedMs": 9.800000011920929,
+              "readyMs": 11689,
+              "objects": 4,
+              "programs": 17
+            },
+            {
+              "submittedMs": 10.299999997019768,
+              "readyMs": 11688.199999988079,
+              "objects": 4,
+              "programs": 18
+            },
+            {
+              "submittedMs": 5.9000000059604645,
+              "readyMs": 1212.2000000029802,
+              "objects": 4,
+              "programs": 20
+            },
+            {
+              "submittedMs": 15.599999994039536,
+              "readyMs": 8326.29999999702,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 0.6000000089406967,
+              "readyMs": 7954.9000000059605,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 1,
+              "readyMs": 7906,
+              "objects": 3,
+              "programs": 24
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "preparing"
+      },
+      {
+        "ms": 337.20000000298023,
+        "pending": true,
+        "scan": true,
+        "reflection": false,
+        "phase": "full",
+        "programs": 29,
+        "profile": {
+          "startedAt": 16183.39999999106,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 383.5,
+            "snapshot": 300.69999998807907,
+            "compile": 20214.30000001192,
+            "resources": 5.299999997019768,
+            "postprocessing": 804.7000000029802
+          },
+          "batches": [
+            {
+              "submittedMs": 17.700000002980232,
+              "readyMs": 11470.59999999404,
+              "objects": 4,
+              "programs": 7
+            },
+            {
+              "submittedMs": 13.5,
+              "readyMs": 11478.199999988079,
+              "objects": 4,
+              "programs": 12
+            },
+            {
+              "submittedMs": 9.800000011920929,
+              "readyMs": 11689,
+              "objects": 4,
+              "programs": 17
+            },
+            {
+              "submittedMs": 10.299999997019768,
+              "readyMs": 11688.199999988079,
+              "objects": 4,
+              "programs": 18
+            },
+            {
+              "submittedMs": 5.9000000059604645,
+              "readyMs": 1212.2000000029802,
+              "objects": 4,
+              "programs": 20
+            },
+            {
+              "submittedMs": 15.599999994039536,
+              "readyMs": 8326.29999999702,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 0.6000000089406967,
+              "readyMs": 7954.9000000059605,
+              "objects": 4,
+              "programs": 23
+            },
+            {
+              "submittedMs": 1,
+              "readyMs": 7906,
+              "objects": 3,
+              "programs": 24
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "preparing"
+      },
+      {
+        "ms": 611.2999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 38710.19999998808
+        },
+        "programs": 30,
+        "profile": {
+          "startedAt": 38710.19999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 5.4000000059604645
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "preparing"
+      },
+      {
+        "ms": 836.1000000089407,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 38710.19999998808
+        },
+        "programs": 30,
+        "profile": {
+          "startedAt": 38710.19999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 5.4000000059604645,
+            "snapshot": 254.40000000596046
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1052.4000000059605,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 39096.69999998808,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 34.30000001192093,
+            "resources": 80.8999999910593
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1265.9000000059605,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 39096.69999998808,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 34.30000001192093,
+            "resources": 80.8999999910593
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1483.2000000029802,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 30,
+        "profile": {
+          "startedAt": 39096.69999998808,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 34.30000001192093,
+            "resources": 80.8999999910593
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1691.9000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 39747.79999999702
+        },
+        "programs": 30,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1909.1000000089407,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2113.7000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2321.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2523.2999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2728.2999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2935.2999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3139.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3343.7999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3553.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3764,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3970.1000000089407,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4177.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4382.29999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4590.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4795.29999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5001.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5211.600000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5414.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5627.100000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5833.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6036.100000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6244.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6460.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6663.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6869.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7076.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7283.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7490.100000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7694.9000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7896.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8107,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8313.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8524.60000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8730.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8937.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9143.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9349.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9576.90000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9788.40000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9992.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10221.90000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10430.29999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10639.29999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10841.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11056.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11261.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11470.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11677.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11883.29999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 12092.90000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 12298.40000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 12503.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 12710.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 12916.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 13129.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 13335.60000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 13538.60000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 13755.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 13962.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 14164.60000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 14371.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 14576.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 14785.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 14991.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 15197.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 15406.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 15610.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 15814.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 16019.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 16226.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 39747.79999999702,
+          "completed": 0,
+          "total": 2
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 0,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 0,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 16442.60000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene effects...",
+          "startedAt": 39747.79999999702
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 16646.5,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 16849.20000000298,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 17062.10000000894,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 17274.79999999702,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 17490,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      }
+    ]
+  },
+  {
+    "id": "dulux-timeless-matt",
+    "samples": [
+      {
+        "ms": 24.5,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 257.80000001192093,
+        "pending": true,
+        "scan": true,
+        "reflection": false,
+        "phase": "full",
+        "programs": 33,
+        "profile": {
+          "startedAt": 39747.79999999702,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 0.20000000298023224,
+            "snapshot": 71.09999999403954,
+            "compile": 14781.70000000298,
+            "resources": 1.199999988079071,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 28.5,
+              "readyMs": 14615.5,
+              "objects": 4,
+              "programs": 33
+            },
+            {
+              "submittedMs": 0.30000001192092896,
+              "readyMs": 14578.40000000596,
+              "objects": 3,
+              "programs": 33
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 534.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 56086
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 750.2000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 56086
+        },
+        "programs": 33,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 967.3000000119209,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1182.9000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1399.300000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1604.1000000089407,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 1811.2000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2016.7000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2224.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2432.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2635.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2846.7000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3052.800000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3256.7000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3465.7000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3672.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 3880,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4084.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4296.800000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4514.100000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4730.800000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 4935.800000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5140.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5347.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5551.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5761.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 5967.600000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6176,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6382.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6587.300000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 6797.300000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7002.100000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7208.9000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7415.600000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7620.9000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 7831.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8037.100000008941,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8241.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8449.800000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8656.40000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 8866.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9072.300000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9280.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9497.40000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9703.10000000894,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 9916.90000000596,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10123.800000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10329,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10533.300000011921,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 56086,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10771.60000000894,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168,
+            "compile": 10068.70000000298,
+            "resources": 8.400000005960464,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 9843.90000000596,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 10981,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168,
+            "compile": 10068.70000000298,
+            "resources": 8.400000005960464,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 9843.90000000596,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11197.800000011921,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168,
+            "compile": 10068.70000000298,
+            "resources": 8.400000005960464,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 9843.90000000596,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11414.800000011921,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168,
+            "compile": 10068.70000000298,
+            "resources": 8.400000005960464,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 9843.90000000596,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 11629.40000000596,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168,
+            "compile": 10068.70000000298,
+            "resources": 8.400000005960464,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 9843.90000000596,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      }
+    ]
+  },
+  {
+    "id": "dulux-green-matt",
+    "samples": [
+      {
+        "ms": 21.600000008940697,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 34,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168,
+            "compile": 10068.70000000298,
+            "resources": 8.400000005960464,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 9843.90000000596,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "ready"
+      },
+      {
+        "ms": 2340.9000000059605,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 56086,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 45.8999999910593,
+            "snapshot": 168,
+            "compile": 10068.70000000298,
+            "resources": 8.400000005960464,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 10.400000005960464,
+              "readyMs": 9843.90000000596,
+              "objects": 1,
+              "programs": 34
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2549.4000000059605,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2772.6000000089407,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2993.1000000089407,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 3220.7000000029802,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 3442.5,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 3657.6000000089407,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      }
+    ]
+  },
+  {
+    "id": "dulux-blush-matt",
+    "samples": [
+      {
+        "ms": 40,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 247.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 35,
+        "profile": {
+          "startedAt": 69736,
+          "programsReused": true,
+          "stages": {
+            "delayAndSceneScan": 0.19999998807907104,
+            "resources": 29.700000002980232
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 473.59999999403954,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 71287.69999998808
+        },
+        "programs": 35,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 698.2000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 71287.69999998808
+        },
+        "programs": 35,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 919,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene materials...",
+          "startedAt": 71287.69999998808
+        },
+        "programs": 35,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1139,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1362.8999999910593,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1572,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 1790.5999999940395,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2011.2999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2235.5,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2456.2999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2674.2000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 2908.0999999940395,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 3122.7000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 3344.7000000029802,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 3559.8999999910593,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 3775.2999999970198,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 4007.3999999910593,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 4221.29999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 4447.5999999940395,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 4660.70000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 4874.0999999940395,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 5105.79999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 5323.5999999940395,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 5544,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 5776.0999999940395,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 5994.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 6213,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 6432.20000000298,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 6665.29999999702,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 6880,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Compiling scene shaders...",
+          "startedAt": 71287.69999998808,
+          "completed": 0,
+          "total": 1
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 0,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 7118.399999991059,
+        "pending": true,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "activity": {
+          "message": "Preparing scene effects...",
+          "startedAt": 71287.69999998808
+        },
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954,
+            "compile": 6638.20000000298,
+            "resources": 2.5,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 5994.20000000298,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 7349.5999999940395,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954,
+            "compile": 6638.20000000298,
+            "resources": 2.5,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 5994.20000000298,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 7575.20000000298,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954,
+            "compile": 6638.20000000298,
+            "resources": 2.5,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 5994.20000000298,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 7794.0999999940395,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954,
+            "compile": 6638.20000000298,
+            "resources": 2.5,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 5994.20000000298,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 8006.70000000298,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954,
+            "compile": 6638.20000000298,
+            "resources": 2.5,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 5994.20000000298,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      },
+      {
+        "ms": 8222.29999999702,
+        "pending": false,
+        "scan": false,
+        "reflection": false,
+        "phase": "full",
+        "programs": 36,
+        "profile": {
+          "startedAt": 71287.69999998808,
+          "programsReused": false,
+          "stages": {
+            "delayAndSceneScan": 20.400000005960464,
+            "snapshot": 110.09999999403954,
+            "compile": 6638.20000000298,
+            "resources": 2.5,
+            "postprocessing": 0
+          },
+          "batches": [
+            {
+              "submittedMs": 7.9000000059604645,
+              "readyMs": 5994.20000000298,
+              "objects": 1,
+              "programs": 36
+            }
+          ],
+          "cancelled": false
+        },
+        "gi": "updating"
+      }
+    ]
+  },
+  {
+    "errors": [],
+    "log": [
+      {
+        "detail": "4 shaders, 1 calls, 2 geo, 11 tex, 6 tris",
+        "index": 21,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 15838,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 4",
+        "index": 22,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 15838,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 23,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 15838,
+        "type": "status"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 24,
+        "timeMs": 16567,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 25,
+        "timeMs": 16567,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 26,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 16567,
+        "type": "status"
+      },
+      {
+        "detail": "17 shaders, 1 calls, 2 geo, 13 tex, 5 tris",
+        "index": 27,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 17337,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "13 added; total 17",
+        "index": 28,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 17337,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 13 shaders...",
+        "index": 29,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 17337,
+        "type": "status"
+      },
+      {
+        "detail": "18 shaders, 1 calls, 2 geo, 13 tex, 5 tris",
+        "index": 30,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 17710,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 18",
+        "index": 31,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 17710,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 32,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 17710,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 33,
+        "timeMs": 26645,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 34,
+        "timeMs": 26645,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 35,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 26645,
+        "type": "status"
+      },
+      {
+        "detail": "23 shaders, 1 calls, 2 geo, 13 tex, 5 tris",
+        "index": 36,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29015,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "5 added; total 23",
+        "index": 37,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29015,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 5 shaders...",
+        "index": 38,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29015,
+        "type": "status"
+      },
+      {
+        "detail": "24 shaders, 0 calls, 2 geo, 13 tex, 4 tris",
+        "index": 39,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29403,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 24",
+        "index": 40,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29403,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 41,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 29403,
+        "type": "status"
+      },
+      {
+        "detail": "25 shaders, 0 calls, 3 geo, 13 tex, 3 tris",
+        "index": 42,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 37394,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 25",
+        "index": 43,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 37394,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 44,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 37394,
+        "type": "status"
+      },
+      {
+        "detail": "29 shaders, 0 calls, 3 geo, 13 tex, 3 tris",
+        "index": 45,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 37744,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "4 added; total 29",
+        "index": 46,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 37744,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 4 shaders...",
+        "index": 47,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 37744,
+        "type": "status"
+      },
+      {
+        "index": 48,
+        "timeMs": 37923,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 49,
+        "timeMs": 37928,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 50,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 37928,
+        "type": "status"
+      },
+      {
+        "detail": "29 shaders, 2 calls, 6 geo, 26 tex, 7 tris",
+        "index": 51,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 38343,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "30 shaders, 3 calls, 7 geo, 31 tex, 11 tris",
+        "index": 52,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 38706,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 30",
+        "index": 53,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 38706,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 54,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 38706,
+        "type": "status"
+      },
+      {
+        "detail": "1 new material variants",
+        "index": 55,
+        "timeMs": 38710,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 56,
+        "timeMs": 38715,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 57,
+        "timeMs": 38715,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 58,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 38716,
+        "type": "status"
+      },
+      {
+        "detail": "30 shaders, 4 calls, 7 geo, 40 tex, 18 tris",
+        "index": 59,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 39060,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "Scene resources changed; reusing shaders",
+        "index": 60,
+        "timeMs": 39097,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 61,
+        "timeMs": 39131,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 62,
+        "timeMs": 39131,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 63,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 39131,
+        "type": "status"
+      },
+      {
+        "detail": "Reused prepared shaders",
+        "index": 64,
+        "timeMs": 39212,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 65,
+        "timeMs": 39214,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 66,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 39214,
+        "type": "status"
+      },
+      {
+        "detail": "1 new material variants",
+        "index": 67,
+        "timeMs": 39748,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 68,
+        "timeMs": 39748,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 69,
+        "timeMs": 39748,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 70,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 39748,
+        "type": "status"
+      },
+      {
+        "detail": "30 shaders, 15 calls, 7 geo, 41 tex, 68 tris",
+        "index": 71,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 39789,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "33 shaders, 0 calls, 7 geo, 42 tex, 0 tris",
+        "index": 72,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 40144,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "3 added; total 33",
+        "index": 73,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 40144,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 3 shaders...",
+        "index": 74,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 40144,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 75,
+        "timeMs": 49763,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 76,
+        "timeMs": 49763,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 77,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 49763,
+        "type": "status"
+      },
+      {
+        "index": 78,
+        "timeMs": 54627,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 79,
+        "timeMs": 54628,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 80,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 54628,
+        "type": "status"
+      },
+      {
+        "detail": "33 shaders, 18 calls, 7 geo, 41 tex, 80 tris",
+        "index": 81,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 55194,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 new material variants",
+        "index": 82,
+        "timeMs": 56086,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 83,
+        "timeMs": 56132,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 84,
+        "timeMs": 56132,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 85,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 56132,
+        "type": "status"
+      },
+      {
+        "detail": "33 shaders, 5 calls, 7 geo, 41 tex, 20 tris",
+        "index": 86,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 56292,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "34 shaders, 0 calls, 7 geo, 42 tex, 0 tris",
+        "index": 87,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 56644,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 34",
+        "index": 88,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 56644,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 89,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 56644,
+        "type": "status"
+      },
+      {
+        "detail": "10000ms",
+        "index": 90,
+        "timeMs": 66146,
+        "type": "shader-warmup-timeout"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 91,
+        "timeMs": 66146,
+        "type": "activity"
+      },
+      {
+        "detail": "Shader preparation continuing in background...",
+        "index": 92,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66146,
+        "type": "status"
+      },
+      {
+        "index": 93,
+        "timeMs": 66401,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 94,
+        "timeMs": 66410,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 95,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 66410,
+        "type": "status"
+      },
+      {
+        "detail": "0.8s after Scene shaders ready",
+        "index": 96,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 67376,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "Main thread stalled for 0.8s after Scene shaders ready",
+        "index": 97,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 67376,
+        "type": "status"
+      },
+      {
+        "detail": "2.1s after Scene shaders ready",
+        "index": 98,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69638,
+        "type": "main-thread-stall"
+      },
+      {
+        "detail": "35 shaders, 18 calls, 7 geo, 41 tex, 82 tris",
+        "index": 99,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69639,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 35",
+        "index": 100,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69639,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 101,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69639,
+        "type": "status"
+      },
+      {
+        "detail": "2112ms",
+        "index": 102,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69645,
+        "type": "browser-long-task"
+      },
+      {
+        "detail": "Scene resources changed; reusing shaders",
+        "index": 103,
+        "timeMs": 69736,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 104,
+        "timeMs": 69736,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 105,
+        "timeMs": 69736,
+        "type": "activity"
+      },
+      {
+        "detail": "Preparing updated scene resources...",
+        "index": 106,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69736,
+        "type": "status"
+      },
+      {
+        "detail": "Reused prepared shaders",
+        "index": 107,
+        "timeMs": 69766,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 108,
+        "timeMs": 69871,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene resources ready",
+        "index": 109,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69871,
+        "type": "status"
+      },
+      {
+        "detail": "35 shaders, 4 calls, 8 geo, 41 tex, 18 tris",
+        "index": 110,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 69999,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 new material variants",
+        "index": 111,
+        "timeMs": 71288,
+        "type": "shader-warmup-reason"
+      },
+      {
+        "detail": "key 96 chars",
+        "index": 112,
+        "timeMs": 71308,
+        "type": "shader-warmup-start"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 113,
+        "timeMs": 71308,
+        "type": "activity"
+      },
+      {
+        "detail": "Compiling scene shaders...",
+        "index": 114,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 71308,
+        "type": "status"
+      },
+      {
+        "detail": "36 shaders, 0 calls, 7 geo, 42 tex, 0 tris",
+        "index": 115,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 72153,
+        "type": "renderer-stats"
+      },
+      {
+        "detail": "1 added; total 36",
+        "index": 116,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 72153,
+        "type": "shader-programs-added"
+      },
+      {
+        "detail": "Compiling 1 shader...",
+        "index": 117,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 72153,
+        "type": "status"
+      },
+      {
+        "index": 118,
+        "timeMs": 78222,
+        "type": "shader-warmup-complete"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 119,
+        "timeMs": 78223,
+        "type": "activity"
+      },
+      {
+        "detail": "Scene shaders ready",
+        "index": 120,
+        "snapshot": "lights 0/0 | all lights | floors 1 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+        "timeMs": 78223,
+        "type": "status"
+      }
+    ]
+  }
+]

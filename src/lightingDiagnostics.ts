@@ -4,11 +4,14 @@ import { INDIRECT_VOLUME_HEIGHT, INDIRECT_VOLUME_STRIDE } from './indirectVolume
 /** Developer opt-in is fixed for the material family, while all view switches
  * are uniforms. Captures always bypass diagnostics. */
 export const lightingDiagnosticsEnabled=typeof location!=='undefined'&&new URLSearchParams(location.search).has('lightingDiagnostics')
-export const lightingDiagnosticModes=['Final composite','Direct lighting only','Sky lighting only','Indirect reflected only','World normals','Albedo','Matte white','Probe irradiance','Probe visibility'] as const
+export const lightingDiagnosticModes=['Final composite','Direct lighting only','Sky lighting only','Indirect reflected only','World normals','Albedo','Matte white','Probe irradiance','Probe visibility','Probe indirect only','Indirect irradiance false colour'] as const
 export type LightingDiagnosticMode=typeof lightingDiagnosticModes[number]
+export const lightingDiagnosticValue=(mode:LightingDiagnosticMode)=>mode==='Probe irradiance'||mode==='Probe visibility'?0:lightingDiagnosticModes.indexOf(mode)
 export const lightingDiagnosticGLSL=/* glsl */`
 #ifdef HD_LIGHTING_DIAGNOSTICS
 uniform float hdLightingDiagnostic,hdDiagnosticSkyReady;
+// Set by the production receiver path, including display controls and previews.
+vec3 hdDiagnosticProbeIrradiance=vec3(0.0);
 vec3 hdDiagnosticSkySample(float floorIndex,vec3 p,vec3 normal,float floorReceiver,out float support){
   support=0.0;
   if(hdDiagnosticSkyReady<.5||floorIndex<0.0)return vec3(0.0);
@@ -69,6 +72,14 @@ vec3 hdDiagnosticSky(float floorIndex,vec3 p,vec3 normal,float floorReceiver){
 `
 export const lightingDiagnosticOutput=/* glsl */`
 #if defined(HD_LIGHTING_DIAGNOSTICS) && !defined(HD_GI_DIRECT_CAPTURE)
+if(hdGICapture<.5&&hdLightingDiagnostic>8.5&&hdLightingDiagnostic<10.5){
+  if(hdLightingDiagnostic<9.5)outgoingLight=reflectedLight.indirectDiffuse;
+  else{
+    float e=dot(hdDiagnosticProbeIrradiance,vec3(.2126,.7152,.0722));
+    float t=clamp(log2(1.0+16.0*e)/log2(17.0),0.0,1.0);
+    outgoingLight=clamp(vec3(1.5)-abs(4.0*t-vec3(3.0,2.0,1.0)),0.0,1.0);
+  }
+}
 if(hdGICapture<.5&&hdLightingDiagnostic>.5&&hdLightingDiagnostic<5.5){
   vec3 n=normalize(transformNormalByInverseViewMatrix(geometryNormal,viewMatrix));
   vec3 geometric=normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal,viewMatrix));

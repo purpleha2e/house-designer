@@ -3,8 +3,9 @@ import { Vector3, type SphericalHarmonics3 } from 'three'
 export type IndirectSHOrder = 1 | 2
 export const indirectSHCoefficientCount = (order: IndirectSHOrder = 1) => order === 2 ? 9 : 4
 
-/** Experimental opt-in. Workers receive the order in their field/request data. */
-export function requestedIndirectSHOrder(): IndirectSHOrder {
+/** Tours use their saved representation; editor experiments remain opt-in. */
+export function requestedIndirectSHOrder(savedOrder?: IndirectSHOrder): IndirectSHOrder {
+  if (savedOrder !== undefined) return savedOrder
   return typeof location !== 'undefined' && new URLSearchParams(location.search).get('giSH') === '2' ? 2 : 1
 }
 

@@ -10,7 +10,9 @@ import '../../src/App.css'
 
 const project=await (await fetch('/springfield_14.json')).json()
 const loft=new URLSearchParams(location.search).has('loft')
-registerRuntimeSurfaceMaterials(project.materialDefinitions)
+const portalMaterials=new URLSearchParams(location.search).has('materials')
+ ?(await (await import('../../src/portalCatalog')).loadPortalCatalog()).materials:[]
+registerRuntimeSurfaceMaterials([...portalMaterials,...project.materialDefinitions])
 const floors:FloorLevel[]=project.floors.map((floor:FloorLevel,index:number)=>({...floor,models:loft&&index===2?floor.models:[]}))
 const assignments:SurfaceMaterialAssignment[]=project.surfaceAssignments.filter((a:SurfaceMaterialAssignment)=>loft||a.target.type==='wall-face'||a.target.type==='wall-surface-fragment')
 const camera=new PerspectiveCamera();camera.position.set(7.2,1.5,8.9);camera.lookAt(5.6,1.3,8.3)

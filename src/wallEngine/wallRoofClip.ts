@@ -146,12 +146,14 @@ export function clipWallFacesToRoofUndersides(
   },
 ): WallMeshFace[] {
   const clippedFaces = faces.flatMap((face) => {
-    if (face.kind === 'bottom') return [face]
+    // A roof can pass below a storey's base. Its bottom caps must be cut
+    // with the walls or they remain as floating strips above the roof.
+    const horizontalCap = face.kind === 'top' || face.kind === 'bottom'
     const applicable = volumes.filter((volume) =>
       (!volume.onlyTopFaces || face.kind === 'top') &&
       !volume.skipWallIds?.has(face.wallId) &&
       (!volume.onlySelectedWalls || volume.clipHeightWallIds?.has(face.wallId)) &&
-      (face.kind === 'top' ||
+      (horizontalCap ||
         clipsWallSides(volume, face.wallId) ||
         (face.storeyBoundary && !volume.excludedWallIds.has(face.wallId))))
     if (!applicable.length) return [face]
@@ -173,7 +175,7 @@ export function clipWallFacesToRoofUndersides(
             return protectedPart.outside
           })
         }
-        if (face.kind === 'top') {
+        if (horizontalCap) {
           for (const footprint of volume.protectedFootprints) {
             removed = removed.flatMap((part) => {
               const protectedPart = partition(part, footprint)

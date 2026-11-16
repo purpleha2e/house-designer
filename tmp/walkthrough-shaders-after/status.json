@@ -1,0 +1,5 @@
+{
+  "stage": "manual-cancellation",
+  "error": "Error: {\"exceptionId\":1,\"text\":\"Uncaught\",\"lineNumber\":0,\"columnNumber\":119,\"scriptId\":\"438\",\"stackTrace\":{\"callFrames\":[{\"functionName\":\"\",\"scriptId\":\"438\",\"url\":\"\",\"lineNumber\":0,\"columnNumber\":119}]},\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"TypeError\",\"description\":\"TypeError: Cannot read properties of null (reading 'click')\\n    at <anonymous>:1:120\",\"objectId\":\"1775332924987587953.2.2\"}}",
+  "errors": []
+}

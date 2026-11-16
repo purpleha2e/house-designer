@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { WebGLRenderer } from 'three'
+import { BoxGeometry, Mesh, MeshBasicMaterial, PerspectiveCamera, type WebGLRenderer } from 'three'
 import { installNonBlockingShaderDiagnostics } from '../src/shaderDiagnostics.ts'
 
 function fixture(linked = true, setupThrows = false) {
@@ -47,6 +47,20 @@ test('prepared shaders skip successful diagnostic logs and yield while waiting f
   assert.equal(renderer.debug.checkShaderErrors, true, 'unprepared paths retain normal error reporting')
   await renderer.compileAsync(...([] as unknown as Parameters<WebGLRenderer['compileAsync']>))
   assert.equal(counts().initialisations, 1, 'cached programs are not set up repeatedly')
+})
+
+test('a preview prepares its own programs without waiting for or failing on unrelated shaders', async () => {
+  const {renderer}=fixture()
+  const geometry=new BoxGeometry(),material=new MeshBasicMaterial(),mesh=new Mesh(geometry,material)
+  const bad={program:{},id:99},good={program:{},id:100,getUniforms:()=>({seq:[]}),getAttributes:()=>({})}
+  const gl=renderer.getContext(),checks:unknown[]=[]
+  gl.getProgramParameter=(handle,parameter)=>{checks.push(handle);return handle===good.program&&parameter!==0}
+  Object.assign(renderer,{properties:{get:()=>({programs:new Map([['preview',good]])})},info:{programs:[bad,good]},compileAsync:()=>Promise.resolve(mesh)})
+  installNonBlockingShaderDiagnostics(renderer)
+  await renderer.compileAsync(mesh,new PerspectiveCamera())
+  assert.ok(checks.length>0)
+  assert.ok(checks.every(handle=>handle===good.program),'an unrelated failed/pending shader cannot poison this job')
+  geometry.dispose();material.dispose()
 })
 
 test('a program first seen during rendering skips successful logs and checks its link after yielding', async () => {

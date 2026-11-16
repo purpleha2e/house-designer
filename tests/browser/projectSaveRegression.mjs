@@ -1,3 +1,5 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
 // With Vite running: node tests/browser/doorPlanRegression.mjs [port]
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
@@ -55,14 +57,15 @@ try {
   await call('Page.addScriptToEvaluateOnNewDocument',{source:`
     window.saveTest={pickers:0,writes:0,loadedWrites:0,uploads:0,updates:[],alerts:[],signedIn:false};
     window.alert=message=>saveTest.alerts.push(message);window.confirm=()=>true;window.prompt=()=> 'cloud.house.json';
-    window.showSaveFilePicker=async()=>{
-      saveTest.pickers++;if(saveTest.cancelPicker)throw new DOMException('Cancelled','AbortError');
+    ${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>{
+      saveTest.pickers++;
       return{name:'device.house.json',getFile:async()=>new File([saveTest.contents??''],'device.house.json'),
         createWritable:async()=>({write:async data=>{saveTest.writes++;saveTest.contents=data},close:async()=>{}})};
     };
-    window.showOpenFilePicker=async()=>[{name:'loaded.house.json',getFile:async()=>new File([saveTest.contents],'loaded.house.json'),
+    ${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{name:'loaded.house.json',getFile:async()=>new File([saveTest.contents],'loaded.house.json'),
       createWritable:async()=>({write:async()=>{saveTest.loadedWrites++},close:async()=>{}})}];
     const original=fetch;window.fetch=async(url,options={})=>{
+      if(String(url).includes('/colin_house_v2.json'))return new Response(JSON.stringify({activeFloorId:'initial',wallKind:'external',floors:[{id:'initial',name:'Initial',elevation:0,roomHeight:2.4,slabThickness:.2,walls:[],models:[],rooms:[],roofs:[]}]}),{headers:{'content-type':'application/json'}});
       const path=String(url);if(!path.startsWith('/api/workspace/'))return original(url,options);
       if(path.includes('/auth/'))saveTest.signedIn=true;
       let value={user:saveTest.signedIn?{id:'save-user',name:'Test User',email:'save@example.test'}:null,
@@ -95,7 +98,7 @@ try {
   await waitFor('saveTest.writes===1')
   await click('Save')
   await waitFor('saveTest.writes===2')
-  assert.equal(await evaluate('saveTest.pickers'),1,'Save reuses the chosen device handle')
+  assert.equal(await evaluate('saveTest.pickers'),1,'Save reuses the chosen file without reopening Save As')
   await click('Save to cloud')
   await waitFor(`!!document.querySelector('dialog.account-dialog[open] input[name="email"]')`)
   for(const [name,text] of [['email','save@example.test'],['password','correct horse battery staple']]){
@@ -107,9 +110,8 @@ try {
   await click('Save')
   await waitFor('saveTest.updates.length===1')
   assert.deepEqual(await evaluate('saveTest.updates'),['/api/workspace/assets/cloud-design-1'])
-  await evaluate('saveTest.cancelPicker=true')
-  await click('Save to device')
-  await pause(200)
+  await click('Download copy')
+  await waitFor('saveTest.writes===3')
   await click('Save')
   await waitFor('saveTest.updates.length===2')
   assert.equal(await evaluate('saveTest.uploads'),1,'Save overwrites without making another cloud copy')
@@ -119,9 +121,14 @@ try {
   assert.equal(await evaluate(`[...document.querySelectorAll('.project-menu-dropdown button')].find(b=>b.textContent.trim()==='Save').disabled`),true,'New clears the previous save destination')
   await click('Load')
   await waitFor(`document.querySelector('.viewport-caption')?.textContent.includes('loaded')`)
+  await menu()
+  assert.equal(await evaluate(`[...document.querySelectorAll('.project-menu-dropdown button')].find(b=>b.textContent.trim()==='Save').disabled`),false,'Imported files can immediately Save a download')
+  await click('Save to device')
+  await waitFor('saveTest.writes===4')
   await click('Save')
-  await waitFor('saveTest.loadedWrites===1')
+  await waitFor('saveTest.writes===5')
+  assert.equal(await evaluate('saveTest.loadedWrites'),0,'Import must not retain a writable handle')
   assert.deepEqual(await evaluate('saveTest.alerts'),[])
   assert.deepEqual(errors,[])
-  console.log('PASS: Save disabled initially; device overwrite; cloud sign-in/create/overwrite; cancellation keeps destination; New resets; Load preserves its handle')
+  console.log('PASS: device Save As and overwrite; cloud sign-in/create/overwrite; Download copy keeps cloud destination; New resets; imported files can Save')
 }finally{ws?.close();child.kill()}

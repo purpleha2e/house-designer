@@ -1,5 +1,5 @@
 import type { Material } from 'three'
-import { cacheShaderKeyTransform } from '../shaderKeyTransform.ts'
+import { captureMaterialShaderKey, composedMaterialShaderKey } from '../shaderKeyTransform.ts'
 
 type ShaderOverrides = Partial<
   Pick<Material, 'customProgramCacheKey' | 'onBeforeCompile'>
@@ -16,7 +16,7 @@ export function withSpecularOnlyImageBasedLighting(
 ): ShaderOverrides {
   const baseCompile = overrides.onBeforeCompile
   const baseCacheKey = overrides.customProgramCacheKey
-  const transformKey = cacheShaderKeyTransform((key, suffix) => key.includes(suffix) ? key : key + suffix)
+  const transformKey = composedMaterialShaderKey()
 
   return {
     ...overrides,
@@ -44,7 +44,7 @@ export function applySpecularOnlyImageBasedLighting(material: Material) {
   if (reflectionOnlyMaterials.has(material)) return false
   const overrides = withSpecularOnlyImageBasedLighting({
     onBeforeCompile: material.onBeforeCompile.bind(material),
-    customProgramCacheKey: material.customProgramCacheKey.bind(material),
+    customProgramCacheKey: captureMaterialShaderKey(material),
   })
   material.onBeforeCompile = overrides.onBeforeCompile!
   material.customProgramCacheKey = overrides.customProgramCacheKey!

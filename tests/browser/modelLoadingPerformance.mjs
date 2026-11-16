@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Run Vite and the asset portal, then: node tests/browser/modelLoadingPerformance.mjs [port]
 // Uses the editor's real Load action, including the embedded model definitions.
 import assert from 'node:assert/strict'
@@ -78,7 +79,7 @@ try {
   assert.equal(initial.shadows, 1, 'warmup and rendering use PCF shadows consistently')
   // Fetch before the timer; file selection itself is not part of scene loading.
   await evaluate(`(async()=>{const contents=await(await fetch('/springfield_14.json')).text();
-    window.showOpenFilePicker=async()=>[{getFile:async()=>new File([contents],'springfield_14.json',{type:'application/json'})}];
+    ${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([contents],'springfield_14.json',{type:'application/json'})}];
     window.houseDesignerEngineLog.clear();document.querySelector('[aria-label="Project menu"]').click()})()`)
   await pause(100)
   const started = Date.now()

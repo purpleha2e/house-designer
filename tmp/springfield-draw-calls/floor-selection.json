@@ -1,0 +1,16 @@
+{
+  "result": {
+    "passed": true,
+    "extensions": 24,
+    "samples": 48,
+    "roomFloorPicking": true,
+    "continuousUvs": true,
+    "previewPoint": [
+      11.56462796529134,
+      0.011999999999997565,
+      10.962125460306803
+    ],
+    "floorId": "e85e2210-2517-4c3d-84a8-5c25883e8043"
+  },
+  "errors": []
+}

@@ -2,6 +2,15 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { shouldRenderSceneFrame } from '../src/sceneRenderSchedule.ts'
 
+test('shader preparation gets idle GPU time even when GI is ready or disabled', () => {
+  for (const lighting of [undefined, { state: 'ready' as const }, { enabled: false }]) {
+    assert.equal(shouldRenderSceneFrame(100, 0, false, false, lighting, false, false, true), false)
+    assert.equal(shouldRenderSceneFrame(1000, 0, false, false, lighting, false, false, true), true)
+    assert.equal(shouldRenderSceneFrame(10, 0, true, false, lighting, false, false, true), true)
+    assert.equal(shouldRenderSceneFrame(10, 0, false, true, lighting, false, false, true), true)
+  }
+})
+
 test('static GI work shares the GPU without redrawing the same display each capture frame', () => {
   for (const status of [{ state: 'refining' }, { preparing: true }, { warming: true }, { reading: true }, { volumePending: true }]) {
     assert.equal(shouldRenderSceneFrame(50, 0, false, false, status), false)

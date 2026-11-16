@@ -1,4 +1,4 @@
-export type ToolbarIconName = 'menu' | 'move' | 'rotate' | 'scale' | 'minus' | 'plus' | 'normal' | 'wide' | 'super-wide'
+export type ToolbarIconName = 'menu' | 'move' | 'rotate' | 'scale' | 'ruler' | 'minus' | 'plus' | 'normal' | 'wide' | 'super-wide'
 
 export function ToolbarIcon({ name }: { name: ToolbarIconName }) {
   const paths: Partial<Record<ToolbarIconName, string>> = {
@@ -6,6 +6,7 @@ export function ToolbarIcon({ name }: { name: ToolbarIconName }) {
     move: 'M12 3v18M3 12h18m-12-6 3-3 3 3m-6 12 3 3 3-3M6 9l-3 3 3 3m12-6 3 3-3 3',
     rotate: 'M4 10a8 8 0 1 1 1 7M4 4v6h6',
     scale: 'M4 14v6h6M14 4h6v6M4 20l6-6m4-4 6-6',
+    ruler: 'M3 16 16 3l5 5L8 21ZM7 12l2 2m1-5 3 3m0-6 2 2',
     minus: 'M5 12h14',
     plus: 'M5 12h14M12 5v14',
   }

@@ -91,6 +91,13 @@ const lightingStartupFloors: FloorLevel[] = [{ id: 'lighting-startup', name: 'Li
 if (lightingStartup && searchParams.has('bed-gi')) {
   lightingStartupFloors[0].models.push({ id: 'gi-bed', modelId: 'king-bed', position: { x: 4, y: 2 }, rotation: 0, scale: 1 })
 }
+if (lightingStartup && searchParams.has('many-lights')) {
+  lightingStartupFloors[0].models = Array.from({ length: 26 }, (_, i) => ({
+    id: `many-light-${i}`, modelId: i < 20 ? 'point-light' : 'spotlight',
+    position: { x: (i % 2 ? 5 : 1) + (i % 3) * .7, y: .6 + (i % 5) * .65 },
+    height: 1.8, rotation: 0, scale: 1, lightPower: 30, lightEnabled: true,
+  }))
+}
 if (lightingStartup && searchParams.has('live-gi')) {
   lightingStartupFloors[0].walls.push({ id: 'sealed-partition', start: { x: 4, y: 0 }, end: { x: 4, y: 4 },
     height: 2.4, thickness: .2, kind: 'internal', openings: [] })

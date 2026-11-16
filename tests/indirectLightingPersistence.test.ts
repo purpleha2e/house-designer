@@ -23,6 +23,18 @@ test('camera-dependent captures stay display-compatible but require a fresh dire
   try{assert.deepEqual(restored.field.coefficients,field.coefficients);assert.deepEqual(restored.field.volume.data,field.volume.data)}finally{field.dispose();restored.field.dispose()}
 })
 
+test('bakes containing exterior sunset dimming are displayed while indoor transport is refreshed',async()=>{
+  const field=createIndirectField(floors),saved=await saveIndirectLighting(field,'project','assets','geometry',settings,[])
+  const previous={...saved,captureVisibilityVersion:2}
+  try {
+    assert.equal(savedIndirectLightingMatches(saved,'project','assets',settings),true)
+    assert.equal(savedIndirectLightingMatches(previous,'project','assets',settings),false)
+    assert.equal(legacyIndirectLightingMatches(previous,'project','assets',settings),true)
+    const restored=await loadIndirectLighting(previous,{allowLegacy:true})
+    try { assert.deepEqual(restored.field.coefficients,field.coefficients) } finally { restored.field.dispose() }
+  } finally { field.dispose() }
+})
+
 test('bakes missing exterior roof sky require recapture while their display remains loadable',async()=>{
   const field=createIndirectField(floors),saved=await saveIndirectLighting(field,'project','assets','geometry',settings,[])
   const previous={...saved,captureVisibilityVersion:1}
@@ -170,8 +182,8 @@ test('saved GI rejects design, asset and lighting changes while remaining portab
     'display shadow maps do not invalidate independent captured lighting')
   assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, nightAmbientTerm: settings.ambientTerm }), true,
     'legacy enabled Night fill uses the saved ambient level')
-  assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, nightAmbientTerm: .03 }), false,
-    'a changed night level prepares the corresponding lighting')
+  assert.equal(savedIndirectLightingMatches(cache, key, 'assets', { ...settings, nightAmbientTerm: .03, ambientTerm: 0 }), true,
+    'display ambient fill is excluded from captures and must not invalidate saved transport')
   const current = { ...settings, nightFill: undefined, nightAmbientTerm: .07 }
   const currentCache = { ...cache!, settings: current }
   assert.equal(savedIndirectLightingMatches(currentCache, key, 'assets', current), true,

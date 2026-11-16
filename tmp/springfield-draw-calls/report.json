@@ -1,0 +1,627 @@
+{
+  "inventory": {
+    "meshes": 716,
+    "instancedMeshes": 47,
+    "materials": 291,
+    "geometries": 397,
+    "roles": {
+      "model-batch": 47,
+      "ground-plane": 1,
+      "slab-shadow-cap": 2,
+      "ceiling-slab-solid": 2,
+      "ceiling-slab-underside": 2,
+      "ceiling-slab-edge": 10,
+      "room-floor-finish": 32,
+      "room-floor-base": 24,
+      "unlabelled": 504,
+      "room-sloping-ceiling-finish": 14,
+      "room-ceiling-shadow-blocker": 14,
+      "room-ceiling-finish": 14,
+      "wall-engine-render": 3,
+      "wall-engine-pick": 3,
+      "skirting": 3,
+      "gable-pick": 8,
+      "roof-top": 6,
+      "roof-shell": 6,
+      "roof-eaves": 6,
+      "roof-soffit": 6,
+      "roof-underside": 6,
+      "roof-infill": 3
+    },
+    "canvas": [
+      843,
+      390
+    ],
+    "dpr": 1,
+    "gi": "saved",
+    "shOrder": 2,
+    "exterior": {
+      "state": "ready",
+      "bakes": 1,
+      "ms": 1915.699999988079,
+      "rays": 3269376,
+      "cell": 0.385,
+      "dimensions": [
+        43,
+        24,
+        66
+      ],
+      "eaveLayers": 3,
+      "eaveDimensions": [
+        167,
+        158
+      ],
+      "bytes": 907816,
+      "enabled": true,
+      "strength": 0.75
+    }
+  },
+  "views": {
+    "whole-house": {
+      "frameCount": 61,
+      "first": {
+        "draws": 743,
+        "triangles": 726065,
+        "roles": {
+          "model-batch": {
+            "draws": 73,
+            "triangles": 143516
+          },
+          "slab-shadow-cap": {
+            "draws": 4,
+            "triangles": 44
+          },
+          "ceiling-slab-solid": {
+            "draws": 4,
+            "triangles": 44
+          },
+          "ceiling-slab-edge": {
+            "draws": 20,
+            "triangles": 40
+          },
+          "room-sloping-ceiling-finish": {
+            "draws": 28,
+            "triangles": 0
+          },
+          "room-ceiling-shadow-blocker": {
+            "draws": 14,
+            "triangles": 58
+          },
+          "wall-engine-render": {
+            "draws": 34,
+            "triangles": 7208
+          },
+          "unlabelled": {
+            "draws": 496,
+            "triangles": 571330
+          },
+          "roof-top": {
+            "draws": 12,
+            "triangles": 544
+          },
+          "roof-shell": {
+            "draws": 12,
+            "triangles": 418
+          },
+          "roof-soffit": {
+            "draws": 12,
+            "triangles": 242
+          },
+          "roof-underside": {
+            "draws": 12,
+            "triangles": 366
+          },
+          "roof-infill": {
+            "draws": 4,
+            "triangles": 12
+          },
+          "ground-plane": {
+            "draws": 1,
+            "triangles": 2
+          },
+          "roof-eaves": {
+            "draws": 6,
+            "triangles": 527
+          },
+          "room-floor-base": {
+            "draws": 1,
+            "triangles": 6
+          },
+          "ceiling-slab-underside": {
+            "draws": 2,
+            "triangles": 30
+          },
+          "room-floor-finish": {
+            "draws": 5,
+            "triangles": 86
+          },
+          "skirting": {
+            "draws": 3,
+            "triangles": 1592
+          }
+        },
+        "passes": {
+          "shadow": 307,
+          "opaque": 338,
+          "transparent": 98
+        },
+        "meshes": 397,
+        "materials": 188,
+        "at": 76156.89999997616,
+        "cpuMs": 15.400000035762787,
+        "gi": "ready",
+        "warming": false
+      },
+      "steady": {
+        "draws": 436,
+        "triangles": 365262,
+        "roles": {
+          "unlabelled": {
+            "draws": 299,
+            "triangles": 286212
+          },
+          "ground-plane": {
+            "draws": 1,
+            "triangles": 2
+          },
+          "room-sloping-ceiling-finish": {
+            "draws": 14,
+            "triangles": 0
+          },
+          "model-batch": {
+            "draws": 47,
+            "triangles": 72346
+          },
+          "slab-shadow-cap": {
+            "draws": 2,
+            "triangles": 22
+          },
+          "ceiling-slab-solid": {
+            "draws": 2,
+            "triangles": 22
+          },
+          "roof-top": {
+            "draws": 6,
+            "triangles": 272
+          },
+          "roof-shell": {
+            "draws": 6,
+            "triangles": 209
+          },
+          "roof-eaves": {
+            "draws": 6,
+            "triangles": 527
+          },
+          "roof-soffit": {
+            "draws": 6,
+            "triangles": 121
+          },
+          "room-floor-base": {
+            "draws": 1,
+            "triangles": 6
+          },
+          "ceiling-slab-underside": {
+            "draws": 2,
+            "triangles": 30
+          },
+          "room-floor-finish": {
+            "draws": 5,
+            "triangles": 86
+          },
+          "roof-infill": {
+            "draws": 3,
+            "triangles": 8
+          },
+          "wall-engine-render": {
+            "draws": 17,
+            "triangles": 3604
+          },
+          "roof-underside": {
+            "draws": 6,
+            "triangles": 183
+          },
+          "skirting": {
+            "draws": 3,
+            "triangles": 1592
+          },
+          "ceiling-slab-edge": {
+            "draws": 10,
+            "triangles": 20
+          }
+        },
+        "passes": {
+          "opaque": 338,
+          "transparent": 98
+        },
+        "meshes": 383,
+        "materials": 187,
+        "at": 77172.19999998808,
+        "cpuMs": 9.100000023841858,
+        "gi": "ready",
+        "warming": false
+      },
+      "minCalls": 436,
+      "maxCalls": 436,
+      "medianCalls": 436,
+      "medianTriangles": 365262,
+      "medianSubmitMs": 9.100000023841858,
+      "camera": [
+        24,
+        17,
+        29
+      ]
+    },
+    "close-exterior": {
+      "frameCount": 62,
+      "first": {
+        "draws": 662,
+        "triangles": 623118,
+        "roles": {
+          "model-batch": {
+            "draws": 73,
+            "triangles": 143516
+          },
+          "slab-shadow-cap": {
+            "draws": 4,
+            "triangles": 44
+          },
+          "ceiling-slab-solid": {
+            "draws": 2,
+            "triangles": 24
+          },
+          "ceiling-slab-edge": {
+            "draws": 20,
+            "triangles": 40
+          },
+          "room-sloping-ceiling-finish": {
+            "draws": 28,
+            "triangles": 0
+          },
+          "room-ceiling-shadow-blocker": {
+            "draws": 14,
+            "triangles": 58
+          },
+          "wall-engine-render": {
+            "draws": 34,
+            "triangles": 7208
+          },
+          "unlabelled": {
+            "draws": 419,
+            "triangles": 468405
+          },
+          "roof-top": {
+            "draws": 12,
+            "triangles": 544
+          },
+          "roof-shell": {
+            "draws": 12,
+            "triangles": 418
+          },
+          "roof-soffit": {
+            "draws": 12,
+            "triangles": 242
+          },
+          "roof-underside": {
+            "draws": 12,
+            "triangles": 366
+          },
+          "roof-infill": {
+            "draws": 4,
+            "triangles": 12
+          },
+          "ground-plane": {
+            "draws": 1,
+            "triangles": 2
+          },
+          "roof-eaves": {
+            "draws": 5,
+            "triangles": 527
+          },
+          "room-floor-base": {
+            "draws": 1,
+            "triangles": 6
+          },
+          "ceiling-slab-underside": {
+            "draws": 2,
+            "triangles": 30
+          },
+          "room-floor-finish": {
+            "draws": 4,
+            "triangles": 84
+          },
+          "skirting": {
+            "draws": 3,
+            "triangles": 1592
+          }
+        },
+        "passes": {
+          "shadow": 306,
+          "opaque": 269,
+          "transparent": 87
+        },
+        "meshes": 385,
+        "materials": 169,
+        "at": 77372.69999998808,
+        "cpuMs": 9.699999988079071,
+        "gi": "ready",
+        "warming": false
+      },
+      "steady": {
+        "draws": 356,
+        "triangles": 262325,
+        "roles": {
+          "unlabelled": {
+            "draws": 222,
+            "triangles": 183287
+          },
+          "ground-plane": {
+            "draws": 1,
+            "triangles": 2
+          },
+          "room-sloping-ceiling-finish": {
+            "draws": 14,
+            "triangles": 0
+          },
+          "model-batch": {
+            "draws": 47,
+            "triangles": 72346
+          },
+          "slab-shadow-cap": {
+            "draws": 2,
+            "triangles": 22
+          },
+          "ceiling-slab-solid": {
+            "draws": 1,
+            "triangles": 12
+          },
+          "roof-top": {
+            "draws": 6,
+            "triangles": 272
+          },
+          "roof-shell": {
+            "draws": 6,
+            "triangles": 209
+          },
+          "roof-eaves": {
+            "draws": 5,
+            "triangles": 527
+          },
+          "roof-soffit": {
+            "draws": 6,
+            "triangles": 121
+          },
+          "room-floor-base": {
+            "draws": 1,
+            "triangles": 6
+          },
+          "ceiling-slab-underside": {
+            "draws": 2,
+            "triangles": 30
+          },
+          "room-floor-finish": {
+            "draws": 4,
+            "triangles": 84
+          },
+          "roof-infill": {
+            "draws": 3,
+            "triangles": 8
+          },
+          "wall-engine-render": {
+            "draws": 17,
+            "triangles": 3604
+          },
+          "roof-underside": {
+            "draws": 6,
+            "triangles": 183
+          },
+          "skirting": {
+            "draws": 3,
+            "triangles": 1592
+          },
+          "ceiling-slab-edge": {
+            "draws": 10,
+            "triangles": 20
+          }
+        },
+        "passes": {
+          "opaque": 269,
+          "transparent": 87
+        },
+        "meshes": 306,
+        "materials": 168,
+        "at": 78405.39999997616,
+        "cpuMs": 8.199999988079071,
+        "gi": "ready",
+        "warming": false
+      },
+      "minCalls": 356,
+      "maxCalls": 356,
+      "medianCalls": 356,
+      "medianTriangles": 262325,
+      "medianSubmitMs": 8.300000011920929,
+      "camera": [
+        16,
+        5,
+        15
+      ]
+    },
+    "interior": {
+      "frameCount": 62,
+      "first": {
+        "draws": 535,
+        "triangles": 550945,
+        "roles": {
+          "model-batch": {
+            "draws": 73,
+            "triangles": 143516
+          },
+          "slab-shadow-cap": {
+            "draws": 4,
+            "triangles": 44
+          },
+          "ceiling-slab-edge": {
+            "draws": 10,
+            "triangles": 20
+          },
+          "room-sloping-ceiling-finish": {
+            "draws": 14,
+            "triangles": 0
+          },
+          "room-ceiling-shadow-blocker": {
+            "draws": 14,
+            "triangles": 58
+          },
+          "wall-engine-render": {
+            "draws": 34,
+            "triangles": 7208
+          },
+          "unlabelled": {
+            "draws": 325,
+            "triangles": 396469
+          },
+          "roof-top": {
+            "draws": 10,
+            "triangles": 490
+          },
+          "roof-shell": {
+            "draws": 10,
+            "triangles": 358
+          },
+          "roof-soffit": {
+            "draws": 10,
+            "triangles": 196
+          },
+          "roof-underside": {
+            "draws": 10,
+            "triangles": 330
+          },
+          "roof-infill": {
+            "draws": 3,
+            "triangles": 11
+          },
+          "ground-plane": {
+            "draws": 1,
+            "triangles": 2
+          },
+          "roof-eaves": {
+            "draws": 3,
+            "triangles": 527
+          },
+          "ceiling-slab-underside": {
+            "draws": 2,
+            "triangles": 30
+          },
+          "room-floor-finish": {
+            "draws": 2,
+            "triangles": 50
+          },
+          "room-ceiling-finish": {
+            "draws": 7,
+            "triangles": 44
+          },
+          "skirting": {
+            "draws": 3,
+            "triangles": 1592
+          }
+        },
+        "passes": {
+          "shadow": 305,
+          "opaque": 187,
+          "transparent": 43
+        },
+        "meshes": 362,
+        "materials": 121,
+        "at": 78838.89999997616,
+        "cpuMs": 7.199999988079071,
+        "gi": "ready",
+        "warming": false
+      },
+      "steady": {
+        "draws": 230,
+        "triangles": 190164,
+        "roles": {
+          "unlabelled": {
+            "draws": 128,
+            "triangles": 111351
+          },
+          "ground-plane": {
+            "draws": 1,
+            "triangles": 2
+          },
+          "model-batch": {
+            "draws": 47,
+            "triangles": 72346
+          },
+          "slab-shadow-cap": {
+            "draws": 2,
+            "triangles": 22
+          },
+          "roof-top": {
+            "draws": 4,
+            "triangles": 218
+          },
+          "roof-shell": {
+            "draws": 4,
+            "triangles": 149
+          },
+          "roof-soffit": {
+            "draws": 4,
+            "triangles": 75
+          },
+          "roof-eaves": {
+            "draws": 3,
+            "triangles": 527
+          },
+          "ceiling-slab-underside": {
+            "draws": 2,
+            "triangles": 30
+          },
+          "room-floor-finish": {
+            "draws": 2,
+            "triangles": 50
+          },
+          "room-ceiling-finish": {
+            "draws": 7,
+            "triangles": 44
+          },
+          "roof-infill": {
+            "draws": 2,
+            "triangles": 7
+          },
+          "wall-engine-render": {
+            "draws": 17,
+            "triangles": 3604
+          },
+          "roof-underside": {
+            "draws": 4,
+            "triangles": 147
+          },
+          "skirting": {
+            "draws": 3,
+            "triangles": 1592
+          }
+        },
+        "passes": {
+          "opaque": 187,
+          "transparent": 43
+        },
+        "meshes": 201,
+        "materials": 120,
+        "at": 79871.89999997616,
+        "cpuMs": 6.900000035762787,
+        "gi": "ready",
+        "warming": false
+      },
+      "minCalls": 230,
+      "maxCalls": 230,
+      "medianCalls": 230,
+      "medianTriangles": 190164,
+      "medianSubmitMs": 6,
+      "camera": [
+        9,
+        1.8,
+        9
+      ]
+    }
+  }
+}

@@ -2,6 +2,8 @@ type ToolbarProps = {
   onClose: () => void
   isEngineConsoleOpen: boolean
   onLoadProject: () => void
+  recentProjects: { id: string; fileName: string; handle?: unknown }[]
+  onLoadRecentProject: (id: string) => void
   onEngineConsoleOpenChange: (isOpen: boolean) => void
   onNewProject: () => void
   onOpenManufacturerPortal: () => void
@@ -9,8 +11,10 @@ type ToolbarProps = {
   onOpenAccount?: () => void
   onSaveProject: () => void
   onSaveToDevice: () => void
+  onDownloadCopy?: () => void
   onSaveToCloud: () => void
   canSave: boolean
+  saveToDevice?: boolean
   isSaving: boolean
 }
 
@@ -19,14 +23,18 @@ export function Toolbar({
   isEngineConsoleOpen,
   onEngineConsoleOpenChange,
   onLoadProject,
+  recentProjects,
+  onLoadRecentProject,
   onNewProject,
   onOpenManufacturerPortal,
   onOpenMaterialEditor,
   onOpenAccount,
   onSaveProject,
   onSaveToDevice,
+  onDownloadCopy,
   onSaveToCloud,
   canSave,
+  saveToDevice,
   isSaving,
 }: ToolbarProps) {
   return (
@@ -53,10 +61,19 @@ export function Toolbar({
       >
         Load
       </button>
+      <section className="project-menu-recent" aria-label="Recent models">
+        <h2 className="viewport-menu-heading">Recent</h2>
+        {recentProjects.length ? recentProjects.map(project => (
+          <button key={project.id} type="button" title={project.handle ? project.fileName : `${project.fileName} (stored copy)`}
+            onClick={() => { onLoadRecentProject(project.id); onClose() }}>
+            {project.fileName}
+          </button>
+        )) : <p className="viewport-menu-description">No recent models</p>}
+      </section>
       <button
         type="button"
         disabled={!canSave}
-        title={canSave ? 'Overwrite the last saved destination' : 'Choose Save to cloud or Save to device first'}
+        title={canSave ? (saveToDevice ? 'Save to the chosen local file; choose a location if needed' : 'Overwrite the last saved cloud model') : 'Choose Save to cloud or Save to device first'}
         onClick={() => {
           onSaveProject()
           onClose()
@@ -66,6 +83,7 @@ export function Toolbar({
       </button>
       <button type="button" disabled={isSaving} onClick={() => { onSaveToCloud(); onClose() }}>Save to cloud</button>
       <button type="button" disabled={isSaving} onClick={() => { onSaveToDevice(); onClose() }}>Save to device</button>
+      {onDownloadCopy && <button type="button" disabled={isSaving} onClick={() => { onDownloadCopy(); onClose() }}>Download copy</button>}
       <button
         type="button"
         onClick={() => {

@@ -13,7 +13,7 @@ import { pointIsInsideRoomPolygon } from './roomLightMask.ts'
 import { INDIRECT_ATLAS_SIZE, INDIRECT_MAX_LOCAL_LIGHTS, roomProbePoint } from './indirectLighting.ts'
 import { configureFastGIShadows } from './fastGIShadows.ts'
 import { compileShaderWarmup, prepareShaderWarmupSnapshot } from './shaderWarmup.ts'
-import type { DaylightSkyMode } from './daylightSky.ts'
+import { daylightTransportSkyBase, type DaylightSkyMode } from './daylightSky.ts'
 import { createLightingPerformance } from './lightingPerformance.ts'
 
 export type FastGIMode = 'combined' | 'fast' | 'probe'
@@ -188,7 +188,7 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
       const sun=source.children.find(object=>object instanceof DirectionalLight && object.userData.houseDesignerRole==='sun-light') as DirectionalLight|undefined
       const sunDirection=sun?new Vector3().subVectors(sun.position,sun.target.position).normalize():new Vector3()
       gatherMaterial.uniforms.hdSkySunIrradiance.value.set(sun?.color.r??0,sun?.color.g??0,sun?.color.b??0).multiplyScalar(daylight&&sun?sun.intensity*Math.max(0,sunDirection.y)*daylightBounceStrength:0)
-      gatherMaterial.uniforms.skyRadiance.value.set(.65,.72,.82).multiplyScalar(daylight?daylightBounceStrength:0)
+      daylightTransportSkyBase(gatherMaterial.uniforms.skyRadiance.value).multiplyScalar(daylight?daylightBounceStrength:0)
       Object.assign(stats,{state:stage,revision:id,views:0,captureSubmitMs:0,reconstructionSubmitMs:0,propagationSubmitMs:0,preparationMs:0,geometryMs:0,
         firstVisibleMs:undefined,publishedAt:undefined,gpuMs:undefined,gpuCaptureMs:undefined,gpuReconstructionMs:undefined,gpuPropagationMs:undefined,gpuBatches:0,bounces:0,error:undefined})
       // Geometry and render preparation are independent. Neither waits for probes.

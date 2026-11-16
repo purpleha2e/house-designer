@@ -7,6 +7,32 @@ import { applyRoomLightShader, createRoomLightMaskTexture, createRoomLightShader
 import { createRoomLightMask } from '../src/roomLightMask.ts'
 import { withSpecularOnlyImageBasedLighting } from '../src/materials/imageBasedLighting.ts'
 import { updateSurfaceMaterialShader } from '../src/materials/surfaceMaterialShader.ts'
+import { applySpecularOnlyImageBasedLighting } from '../src/materials/imageBasedLighting.ts'
+import { withWallShadowReceiver } from '../src/materials/wallShadowReceiver.ts'
+
+test('new plain-paint materials reuse the same key regardless of lighting scan order',()=>{
+  const field=createIndirectField([]),indirect=createIndirectUniforms(field)
+  const texture=createRoomLightMaskTexture(createRoomLightMask([], {minX:0,minZ:0,size:4},4)),room=createRoomLightShaderUniforms(texture)
+  const keys=[]
+  try {
+    for(const order of ['srbi','sbir','rsbi','birs']) {
+      const material=new MeshStandardMaterial({color:order==='srbi'?'red':'blue'})
+      for(const patch of order) {
+        if(patch==='s')updateSurfaceMaterialShader(material,withWallShadowReceiver())
+        if(patch==='r')applyRoomLightShader(material,room)
+        if(patch==='b')applySpecularOnlyImageBasedLighting(material)
+        if(patch==='i')applyIndirectLightingShader(material,indirect)
+      }
+      keys.push(material.customProgramCacheKey())
+      const shader={uniforms:{} as Record<string,unknown>,vertexShader:'#include <common>\n#include <project_vertex>',fragmentShader:'#include <common>\n#include <lights_fragment_begin>\n#include <lights_fragment_end>'}
+      material.onBeforeCompile(shader as never,{} as WebGLRenderer)
+      assert.ok(shader.uniforms.hdGIEnabled&&shader.uniforms.hdRoomLightEnabled)
+      material.dispose()
+    }
+    assert.equal(new Set(keys).size,1)
+    assert.ok(keys[0].length<400,'cache identity does not contain a lighting wrapper function body')
+  } finally {field.dispose();texture.dispose()}
+})
 
 for (const finishFirst of [true, false]) {
   test(`surface finish updates retain GI and room visibility (${finishFirst ? 'finish' : 'lighting'} installed first)`, () => {

@@ -8,6 +8,8 @@ import { sampleIndirectCoefficients } from '../src/indirectVolume.ts'
 import { createIndirectVisibility } from '../src/indirectVisibility.ts'
 
 test('viewport status reports outstanding shader batches and elapsed time without claiming GI is stuck', () => {
+  assert.equal(formatViewportPreparationStatus(undefined, 1000, {message:'Shader link failed'}), 'Scene preparation failed')
+  assert.equal(formatViewportPreparationStatus({message:'Compiling scene shaders...',startedAt:0}, 1000, {message:'Shader link failed'}), 'Scene preparation failed')
   assert.equal(formatViewportPreparationStatus(undefined, 1000), null)
   assert.equal(formatViewportPreparationStatus({ message: 'Compiling scene shaders...', startedAt: 1000, completed: 3, total: 12 }, 24500),
     'Compiling scene shaders... 3/12 batches (23s)')

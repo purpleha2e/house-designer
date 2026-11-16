@@ -21,6 +21,9 @@ html:has(.house-viewer), body:has(.house-viewer) { overflow: hidden; overscroll-
 .viewer-modes button[aria-pressed="true"] { color: white; background: #2563eb; border-color: #2563eb; }
 .viewer-floor-controls { flex-basis: 100%; justify-content: space-between; }
 .viewer-floor-controls span { min-width: 0; text-align: center; font-size: 12px; }
+.viewer-quality { display: flex; flex-direction: column; gap: 6px; width: 100%; font-size: 13px; }
+.viewer-quality select { min-height: 44px; max-width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 7px; background: white; color: #172033; font: inherit; }
+.viewer-quality small { color: #64748b; line-height: 1.4; }
 .viewer-stair-button { background: #2563eb; color: white; border-color: #bfdbfe; white-space: nowrap; box-shadow: 0 4px 16px #17203340; }
 .viewer-help { display: flex; flex-basis: 100%; flex-direction: column; gap: 6px; padding-top: 10px; border-top: 1px solid #d6dde8; font-size: 12px; line-height: 1.5; }
 .viewer-help strong { font-size: 13px; }

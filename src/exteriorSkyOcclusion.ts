@@ -78,47 +78,89 @@ float hdExteriorEaveCover(vec2 sampleValue, float y) {
   float gap = sampleValue.x - y;
   return sampleValue.y * smoothstep(.005, .04, gap) * (1.0 - smoothstep(.08, .65, gap));
 }
+float hdExteriorEaveWeight(float distance) {
+  float x = abs(distance) / 1.5;
+  return x < 1.0 ? (4.0 - 6.0*x*x + 3.0*x*x*x) / 6.0 : pow(max(0.0, 2.0-x), 3.0) / 6.0;
+}
+uniform int hdExteriorEaveFilterWidth;
 float hdExteriorEaveVisibility(vec3 position, vec3 normal) {
-  // Keep this lookup close to the facade: the coarse sky lookup's outward
-  // offset can step beyond shallow overhangs altogether.
+  if (hdExteriorEaveLayers < .5) return 1.0;
   vec3 p = position + normal * .015;
+  // Most facade pixels are too far below the lowest eave to receive contact
+  // shading. Keep the wider lookup out of those pixels entirely.
+  if (p.y < hdExteriorEaveHeight.x - .65 || p.y > hdExteriorEaveHeight.x + hdExteriorEaveHeight.y) return 1.0;
   vec2 unit = (p.xz - hdExteriorEaveMin) / hdExteriorEaveSize;
   if (any(lessThan(unit, vec2(0.0))) || any(greaterThan(unit, vec2(1.0)))) return 1.0;
   vec2 grid = unit * (hdExteriorEaveDimensions - 1.0), blend = fract(grid);
   ivec2 cell = ivec2(floor(grid));
+  // A cubic footprint smooths coverage in both horizontal directions. A
+  // facade-only blur leaves long grid bands on almost axis-aligned walls.
+  // Heights stay separate from coverage so the vertical contact remains crisp.
+  float wx[6], wz[6];
+  float weightX = 0.0, weightZ = 0.0;
+  // A uniform bound keeps drivers from expanding the 36-tap filter into a
+  // large straight-line program for every surface/texture shader variant.
+  for (int tap = 0; tap < hdExteriorEaveFilterWidth; tap++) {
+    wx[tap] = hdExteriorEaveWeight(float(tap-2) - blend.x);
+    wz[tap] = hdExteriorEaveWeight(float(tap-2) - blend.y);
+    weightX += wx[tap]; weightZ += wz[tap];
+  }
   float cover = 0.0;
   for (int layer = 0; layer < int(hdExteriorEaveLayers); layer++) {
-    vec2 a = hdExteriorEaveHeightAt(cell, layer), b = hdExteriorEaveHeightAt(cell + ivec2(1, 0), layer);
-    vec2 c = hdExteriorEaveHeightAt(cell + ivec2(0, 1), layer), d = hdExteriorEaveHeightAt(cell + ivec2(1, 1), layer);
-    vec4 weights = vec4((1.0-blend.x)*(1.0-blend.y), blend.x*(1.0-blend.y), (1.0-blend.x)*blend.y, blend.x*blend.y);
-    vec4 coveredWeights = weights * vec4(a.y, b.y, c.y, d.y);
-    float coverage = dot(coveredWeights, vec4(1.0));
+    float coverage = 0.0, weightedHeight = 0.0, shaded = 0.0, low = 1e6, high = -1e6;
+    for (int z = 0; z < hdExteriorEaveFilterWidth; z++) for (int x = 0; x < hdExteriorEaveFilterWidth; x++) {
+      vec2 value = hdExteriorEaveHeightAt(cell + ivec2(x-2,z-2), layer);
+      float weight = wx[x] * wz[z] / (weightX * weightZ);
+      coverage += weight * value.y;
+      weightedHeight += weight * value.y * value.x;
+      shaded += weight * hdExteriorEaveCover(value, p.y);
+      if (value.y > .001) { low = min(low, value.x); high = max(high, value.x); }
+    }
     if (coverage < .001) continue;
-    float low = min(min(a.y > .5 ? a.x : 1e6, b.y > .5 ? b.x : 1e6), min(c.y > .5 ? c.x : 1e6, d.y > .5 ? d.x : 1e6));
-    float high = max(max(a.y > .5 ? a.x : -1e6, b.y > .5 ? b.x : -1e6), max(c.y > .5 ? c.x : -1e6, d.y > .5 ? d.x : -1e6));
     if (high - low < .25) {
       // Interpolate continuous roof slopes before shading to avoid grid steps.
-      float height = dot(coveredWeights, vec4(a.x, b.x, c.x, d.x)) / coverage;
+      float height = weightedHeight / coverage;
       cover = max(cover, hdExteriorEaveCover(vec2(height, coverage), p.y));
     } else {
       // At separate roof levels, filter coverage instead of inventing a roof
       // halfway between a lower porch and the main roof.
-      cover = max(cover, dot(weights, vec4(hdExteriorEaveCover(a, p.y), hdExteriorEaveCover(b, p.y), hdExteriorEaveCover(c, p.y), hdExteriorEaveCover(d, p.y))));
+      cover = max(cover, shaded);
     }
   }
   return 1.0 - .75 * cover;
 }
-void hdExteriorSkySample(vec3 position, vec3 normal, out vec3 positive, out vec3 negative) {
+void hdExteriorSkyRead(vec3 p, out vec3 positive, out vec3 negative) {
   positive = vec3(1.0); negative = vec3(1.0);
-  if (hdExteriorSkyStrength <= 0.0) return;
-  // Sample outside the receiver's wall rather than mixing probes across it.
-  vec3 p = position + normal * hdExteriorSkyCell * .9;
   vec3 unit = (p - hdExteriorSkyMin) / hdExteriorSkySize;
   if (any(lessThan(unit, vec3(0.0))) || any(greaterThan(unit, vec3(1.0)))) return;
   vec3 atlas = vec3(textureSize(hdExteriorSkyField, 0));
   vec3 uv = (unit * (hdExteriorSkyDimensions - 1.0) + .5) / atlas;
   positive = texture(hdExteriorSkyField, uv).rgb;
   negative = texture(hdExteriorSkyField, uv + vec3(0.0, 0.0, hdExteriorSkyDimensions.z / atlas.z)).rgb;
+}
+void hdExteriorSkySample(vec3 position, vec3 normal, out vec3 positive, out vec3 negative) {
+  positive = vec3(1.0); negative = vec3(1.0);
+  if (hdExteriorSkyStrength <= 0.0) return;
+  // Keep every corner of the trilinear footprint outside the receiver plane.
+  // A fixed fraction of one cell crosses diagonal walls, blending indoor and
+  // outdoor visibility into stripes. The footprint's projected width is the
+  // cell size times the L1 norm of the surface normal.
+  float receiverOffset = hdExteriorSkyCell * dot(abs(normal), vec3(1.0)) + .015;
+  vec3 p = position + normal * receiverOffset;
+  hdExteriorSkyRead(p, positive, negative);
+  // Blur illumination along the receiving surface, keeping every sample on
+  // its exterior side. Geometry, materials and the fine roof-contact band
+  // remain sharp; a world-space kernel also stays stable as the camera moves.
+  vec3 tangent = normalize(cross(normal, abs(normal.y) < .9 ? vec3(0.,1.,0.) : vec3(1.,0.,0.)));
+  vec3 bitangent = cross(normal, tangent);
+  float radius = hdExteriorSkyCell * .75;
+  positive *= .5; negative *= .5;
+  for (int tap = 0; tap < 4; tap++) {
+    vec3 offset = (tap < 2 ? tangent : bitangent) * (tap % 2 == 0 ? radius : -radius);
+    vec3 a, b;
+    hdExteriorSkyRead(p + offset, a, b);
+    positive += a * .125; negative += b * .125;
+  }
   float eaveVisibility = hdExteriorEaveVisibility(position, normal);
   // Half-strength roof contact shading, relative to the broad sky field.
   positive = mix(positive, min(positive, vec3(eaveVisibility)), .5);

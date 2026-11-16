@@ -71,9 +71,14 @@ export async function runViewportTask<T>(steps: Generator<void,T>, cancelled: ()
 export class CameraInputTiming {
   private lastFrame: number
   private discardBefore = -Infinity
+  didStall = false
+  private static readonly stallSeconds = .5
   constructor(now = performance.now()) { this.lastFrame = now }
   frame(delta: number, now = performance.now()) {
-    if (!Number.isFinite(delta) || delta < 0 || delta > .1) {
+    // Slow GPU rendering is not a suspended input stream. At 5–10 FPS we
+    // still move by a bounded step; only a genuinely long gap resets look.
+    this.didStall = !Number.isFinite(delta) || delta < 0 || delta >= CameraInputTiming.stallSeconds
+    if (this.didStall) {
       this.discardBefore = now
       this.lastFrame = now
       return 0
@@ -82,6 +87,7 @@ export class CameraInputTiming {
     return Math.min(delta, .05)
   }
   accepts(timeStamp: number, now = performance.now()) {
-    return now - this.lastFrame <= 100 && timeStamp >= this.discardBefore && now - timeStamp <= 100
+    const maximumAge = CameraInputTiming.stallSeconds * 1000
+    return now - this.lastFrame < maximumAge && timeStamp >= this.discardBefore && now - timeStamp < maximumAge
   }
 }

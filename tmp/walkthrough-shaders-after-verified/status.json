@@ -1,0 +1,10 @@
+{
+  "stage": "manual-cancellation",
+  "cancelled": {
+    "message": "Stopped by movement; choose Refine this view to restart",
+    "active": false,
+    "busy": false
+  },
+  "error": "Error: {\"exceptionId\":1,\"text\":\"Uncaught\",\"lineNumber\":0,\"columnNumber\":27,\"scriptId\":\"444\",\"stackTrace\":{\"callFrames\":[{\"functionName\":\"\",\"scriptId\":\"444\",\"url\":\"\",\"lineNumber\":0,\"columnNumber\":27}]},\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"TypeError\",\"description\":\"TypeError: perfScene(...).scene.userData.getRendererHealth is not a function\\n    at <anonymous>:1:28\",\"objectId\":\"1273475656681577934.2.2\"}}",
+  "errors": []
+}

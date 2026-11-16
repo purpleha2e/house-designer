@@ -42,4 +42,17 @@ preview.update([added], []); preview.sync(); scene.add(preview.group); renderer.
 const wallAdd = sample(0, 2)
 const removed = structuredClone(moved); removed.walls = []
 preview.update([removed], []); preview.sync(); renderer.render(scene, camera)
-Object.assign(window, { openingPreviewResult: { before, immediate, final, wallMove, wallAdd, wallRemove: sample(1, 2), compiles, glError: context.getError() } })
+const wallRemove = sample(1, 2)
+// Exercise the final uniform-array slot as well as zero openings. A dynamic
+// loop must preserve every opening without compiling another material variant.
+const uniforms = preview.uniforms, capacity = uniforms.hdOpeningPreviewA.value.length
+uniforms.hdOpeningPreviewA.value.forEach(a => a.set(100, 0, 100, .2))
+uniforms.hdOpeningPreviewB.value.forEach(b => b.set(1, 0, 2.2, .2))
+uniforms.hdOpeningPreviewA.value[capacity - 1].set(1, 1, .1, .2)
+uniforms.hdOpeningPreviewCount.value = 0; renderer.render(scene, camera)
+const noOpenings = sample(1, 2)
+uniforms.hdOpeningPreviewCount.value = capacity - 1; renderer.render(scene, camera)
+const beforeLastOpening = sample(1, 2)
+uniforms.hdOpeningPreviewCount.value = capacity; renderer.render(scene, camera)
+const lastOpening = sample(1, 2)
+Object.assign(window, { openingPreviewResult: { before, immediate, final, wallMove, wallAdd, wallRemove, noOpenings, beforeLastOpening, lastOpening, compiles, glError: context.getError() } })

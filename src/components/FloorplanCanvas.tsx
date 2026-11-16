@@ -2,6 +2,7 @@ import { renderModelPlanPreview } from '../modelPlanPreview'
 import { traceModelPlanPreview } from '../modelPlanDrawingClient'
 import type { ModelPlanDrawing } from '../modelPlanDrawing'
 import { ToolbarIcon } from './ToolbarIcon'
+import { PlanRuler } from './PlanRuler'
 import { StairPlanSymbol } from './StairPlanSymbol'
 import { DoorPlanSymbol } from './DoorPlanSymbol'
 import { getDoorLeafCount, isPlanDoor } from '../doorPlan'
@@ -90,10 +91,9 @@ import {
 } from '../wallTopology'
 import {
   Box3,
-  WebGLRenderer,
 } from 'three'
 import type { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { createFloorplanGltfLoader, createFloorplanKtx2Loader } from '../floorplanAssetLoading'
+import { createFloorplanGltfLoader } from '../floorplanAssetLoading'
 import { clearModelAssetBounds, getModelAssetBounds, rememberModelAssetBounds, type ModelAssetBounds } from '../modelAssetBounds'
 
 const METERS_TO_PIXELS = 60
@@ -136,6 +136,7 @@ function getRoomHighlightColors(index: number) {
 }
 
 type FloorplanCanvasProps = {
+  onSelectFloor?: (floorId: string) => void
   projectMenu?: (onClose: () => void) => ReactNode
   editControls?: ReactNode
   onGroundImageChange?: (image: GroundImage | undefined) => void
@@ -167,6 +168,7 @@ type FloorplanCanvasProps = {
   onDeleteRoof: (roofId: string) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
+  onStartMeasuring?: () => void
   onViewportChange: (
     floorId: string,
     viewport: FloorplanViewportState,
@@ -410,21 +412,6 @@ const modelGltfPromiseCache = new Map<
   string,
   ReturnType<GLTFLoader['loadAsync']>
 >()
-const sharedModelKtx2Loader = createFloorplanKtx2Loader()
-let sharedModelKtx2Renderer: WebGLRenderer | null = null
-
-function configureModelGltfLoader(loader: GLTFLoader) {
-  if (!sharedModelKtx2Renderer) {
-    const canvas = document.createElement('canvas')
-    sharedModelKtx2Renderer = new WebGLRenderer({
-      canvas,
-      powerPreference: 'low-power',
-    })
-    sharedModelKtx2Loader.detectSupport(sharedModelKtx2Renderer)
-  }
-
-  loader.setKTX2Loader(sharedModelKtx2Loader)
-}
 
 export function clearFloorplanModelAssetCaches() {
   modelPreviewCache.clear()
@@ -442,7 +429,6 @@ function loadModelGltf(sourceUrl: string) {
   }
 
   const loader = createFloorplanGltfLoader()
-  configureModelGltfLoader(loader)
   const promise = loader.loadAsync(sourceUrl)
   modelGltfPromiseCache.set(sourceUrl, promise)
   promise.catch(() => modelGltfPromiseCache.delete(sourceUrl))
@@ -3178,6 +3164,7 @@ function applyAlignmentGuide(point: Point, guide: AlignmentGuide | null): Point 
 }
 
 export function FloorplanCanvas({
+  onSelectFloor,
   projectMenu,
   editControls,
   onGroundImageChange,
@@ -3208,6 +3195,7 @@ export function FloorplanCanvas({
   onDeleteRoof,
   onDeleteWall,
   onExitAddWall,
+  onStartMeasuring,
   onViewportChange,
   onSelectModel,
   onSelectRoof,
@@ -3222,6 +3210,11 @@ export function FloorplanCanvas({
   onUpdateWalls,
   viewportRestoreRevision,
 }: FloorplanCanvasProps) {
+  const [isMeasuring, setIsMeasuring] = useState(false)
+  useEffect(() => { setIsMeasuring(false) }, [activeFloor.id, viewportRestoreRevision])
+  useEffect(() => {
+    if (isAddingWall || isRoofMode || placementModel) setIsMeasuring(false)
+  }, [isAddingWall, isRoofMode, placementModel])
   const [groundImageEditing, setGroundImageEditing] = useState(false)
   useEffect(() => { setGroundImageEditing(false) }, [activeFloor.id])
   useEffect(() => { if (!showImages) setGroundImageEditing(false) }, [showImages])
@@ -3826,7 +3819,7 @@ export function FloorplanCanvas({
   }, [activeFloor.walls, draftWall, isAddingWall, onAddWall, onExitAddWall])
 
   useEffect(() => {
-    if (isAddingWall || draftWall) {
+    if (isAddingWall || draftWall || isMeasuring) {
       return
     }
 
@@ -3905,6 +3898,7 @@ export function FloorplanCanvas({
   }, [
     draftWall,
     isAddingWall,
+    isMeasuring,
     selectedWallId,
     selectedWallIds.length,
     wallMeasurementEdit,
@@ -4439,6 +4433,8 @@ export function FloorplanCanvas({
       return
     }
 
+    if (isMeasuring) return
+
     if (groundImageEditing) return
 
     if (placementModel) {
@@ -4535,6 +4531,8 @@ export function FloorplanCanvas({
       )
       return
     }
+
+    if (isMeasuring) return
 
     if (placementModel) {
       const point = getPointerPoint(event)
@@ -6460,7 +6458,7 @@ export function FloorplanCanvas({
               y: (size.height / 2 - viewport.y) / viewport.scale / METERS_TO_PIXELS }}
             onChange={onGroundImageChange} onEditingChange={editing => {
               setGroundImageEditing(editing)
-              if (editing) onShowImagesChange?.(true)
+              if (editing) { setIsMeasuring(false); onShowImagesChange?.(true) }
               if (editing) { onSelectModel(null); onSelectRoof(null); onSelectWall(null); onSelectRoom(null); onExitAddWall(); onCancelModelPlacement() }
             }} />}
             <div className="viewport-menu-heading">Render settings</div>
@@ -6520,14 +6518,30 @@ export function FloorplanCanvas({
           </div>}
         </div>
         <div className="viewport-toolbar-main">
+          {onSelectFloor && <label className="viewport-floor-selector">
+            <span>2D floor</span>
+            <select aria-label="2D editing floor" value={activeFloor.id}
+              onChange={event => onSelectFloor(event.target.value)}>
+              {floors.map(floor => <option key={floor.id} value={floor.id}>{floor.name}</option>)}
+            </select>
+          </label>}
           <span className="viewport-caption" title={`${projectFileName} / Editing ${activeFloor.name}`}>
             {projectFileName.replace(/(?:\.house)?\.json$/i, '')} / {activeFloor.name}
           </span>
           <div className="viewport-button-group" role="group" aria-label="2D transform mode">
             {([['translate', 'move', 'Move'], ['rotate', 'rotate', 'Rotate'], ['scale', 'scale', 'Scale']] as const).map(([mode, icon, label]) =>
               <button key={mode} type="button" className="viewport-icon-button" aria-label={label} title={label}
-                aria-pressed={transformMode === mode} onClick={() => setTransformMode(mode)}><ToolbarIcon name={icon} /></button>)}
+                aria-pressed={!isMeasuring && transformMode === mode} onClick={() => { setIsMeasuring(false); setTransformMode(mode) }}><ToolbarIcon name={icon} /></button>)}
           </div>
+          <button type="button" className="viewport-icon-button" aria-label="Ruler" title="Ruler: measure between two points (Ctrl: lock angle)"
+            aria-pressed={isMeasuring} onClick={() => {
+              if (!isMeasuring) {
+                onStartMeasuring?.(); onExitAddWall(); onCancelModelPlacement()
+                onSelectModel(null); onSelectWall(null); onSelectRoof(null); onSelectRoom(null)
+                setGroundImageEditing(false); closeContextMenu(); closeWallMeasurementEdit(); resetDraftWall()
+              }
+              setIsMeasuring(value => !value)
+            }}><ToolbarIcon name="ruler" /></button>
           <div className="zoom-controls" role="group" aria-label="2D zoom controls">
             <button type="button" className="viewport-icon-button" aria-label="Zoom out" title="Zoom out"
               onClick={() => zoomAtCenter(1 / ZOOM_STEP)}><ToolbarIcon name="minus" /></button>
@@ -6542,10 +6556,13 @@ export function FloorplanCanvas({
       {isAddingWall && <div className="floorplan-tool-hint" role="status">
         {draftWall ? 'Ctrl: fine movement / Shift: 45-degree direction' : 'Click to start wall'}
       </div>}
+      {isMeasuring && <div className="floorplan-tool-hint" role="status" style={{ maxWidth: 'calc(100% - 64px)' }}>
+        Ruler: click start and end · Ctrl: 45° lock · Esc: exit
+      </div>}
 
       <div
         ref={containerRef}
-        className={`canvas-host${isMiddlePanning ? ' panning' : ''}${placementModel ? ' placing-opening' : ''}`}
+        className={`canvas-host${isMiddlePanning ? ' panning' : ''}${placementModel || isMeasuring ? ' placing-opening' : ''}`}
       >
         {placementModel ? (
           <div className="model-placement-hint" role="status">
@@ -6579,6 +6596,7 @@ export function FloorplanCanvas({
             return { x: pan.stageX, y: pan.stageY }
           }}
           draggable={
+            !isMeasuring &&
             !isAddingWall &&
             !draftWall &&
             !isMiddlePanning &&
@@ -7543,6 +7561,8 @@ export function FloorplanCanvas({
           {showImages && activeFloor.groundImage && groundImageEditing && <GroundImageLayer key={`editing-ground-${activeFloor.id}`}
             image={activeFloor.groundImage} editing zoom={viewport.scale}
             onChange={image => onGroundImageChange?.(image)} />}
+          {isMeasuring && <PlanRuler perimeters={wallPlanPerimeters} viewport={viewport} size={size}
+            onExit={() => setIsMeasuring(false)} />}
         </Stage>
 
         {!isRoofMode && selectedRoof ? (

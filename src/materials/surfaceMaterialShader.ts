@@ -1,4 +1,5 @@
 import type { Material } from 'three'
+import { captureMaterialShaderKey, composedMaterialShaderKey } from '../shaderKeyTransform.ts'
 
 type ShaderOverrides = Partial<Pick<Material, 'onBeforeCompile' | 'customProgramCacheKey'>>
 const finishes = new WeakMap<Material, { overrides: ShaderOverrides }>()
@@ -13,12 +14,12 @@ export function updateSurfaceMaterialShader(material: Material, overrides: Shade
   const state = { overrides }
   finishes.set(material, state)
   const compile = material.onBeforeCompile
-  const cacheKey = material.customProgramCacheKey
+  const cacheKey = captureMaterialShaderKey(material), composeKey = composedMaterialShaderKey()
   material.onBeforeCompile = (shader, renderer) => {
     compile.call(material, shader, renderer)
     state.overrides.onBeforeCompile?.call(material, shader, renderer)
   }
-  material.customProgramCacheKey = () => `${cacheKey.call(material)}:surface-finish:${
+  material.customProgramCacheKey = () => composeKey(cacheKey(), `:surface-finish:${
     state.overrides.customProgramCacheKey?.call(material) ?? 'standard'
-  }`
+  }`)
 }

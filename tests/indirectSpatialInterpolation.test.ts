@@ -3,9 +3,9 @@ import test from 'node:test'
 import {BoxGeometry,DataUtils,Mesh,MeshStandardMaterial,Scene} from 'three'
 import {createIndirectField,restoreIndirectField,serializeIndirectField} from '../src/indirectLighting.ts'
 import {createIndirectFloorLookup} from '../src/indirectFloorLighting.ts'
-import {createIndirectVolumeLookup} from '../src/indirectVolume.ts'
+import {createIndirectVolumeLookup,sampleIndirectCoefficients,writeIndirectVolumeRow} from '../src/indirectVolume.ts'
 import {createIndirectVisibility} from '../src/indirectVisibility.ts'
-import {indirectLocalFloorReceiver} from '../src/indirectSpatialInterpolation.ts'
+import {indirectLocalFloorReceiver,requestedIndirectSpatialInterpolation} from '../src/indirectSpatialInterpolation.ts'
 import {indirectLightingSettingsKey,saveIndirectLighting,savedIndirectLightingMatches} from '../src/indirectLightingPersistence.ts'
 
 function fixture(){
@@ -98,4 +98,73 @@ test('solid geometry blocks cross-room interpolation while an open doorway retai
   const open=createIndirectVisibility(f.scene)
   try{assert.ok(f.sample(createIndirectFloorLookup(f.field,open)).values[0]>darkness+.05)}finally{open.dispose()}
  }finally{wallGeometry.dispose();partGeometry.dispose();f.dispose()}
+})
+
+test('distance-local interpolation preserves support and uniform fields while resolving local gradients',()=>{
+ const f=fixture();try{
+  f.field.spatialInterpolation='legacy'
+  const legacy=new Float64Array(12),local=new Float64Array(12)
+  const oldSupport=sampleIndirectCoefficients(f.field,0,f.x,.016,f.z,legacy,f.visibility)
+  f.field.spatialInterpolation='distance-local'
+  const support=sampleIndirectCoefficients(f.field,0,f.x,.016,f.z,local,f.visibility)
+  assert.equal(support,oldSupport)
+  assert.ok(local[0]<legacy[0]-.02,'nearby dark measurement must retain more influence')
+  const floor=f.sample(createIndirectFloorLookup(f.field,f.visibility))
+  floor.values.forEach((v,i)=>assert.ok(Math.abs(v-local[i])<1e-7,'cached float32 weights agree with exact weights'))
+  f.field.coefficients.forEach(c=>f.field.probes.forEach(p=>c[p.index*4]=DataUtils.toHalfFloat(.4)))
+  sampleIndirectCoefficients(f.field,0,f.x,.016,f.z,local,f.visibility)
+  assert.ok(Math.abs(local[0]-DataUtils.fromHalfFloat(DataUtils.toHalfFloat(.4)))<1e-12)
+  const restored=restoreIndirectField(serializeIndirectField(f.field))
+  try{assert.equal(restored.spatialInterpolation,'distance-local')}finally{restored.dispose()}
+ }finally{f.dispose()}
+})
+
+test('default transport stays legacy and tours preserve their saved interpolation',()=>{
+ assert.equal(requestedIndirectSpatialInterpolation(),'legacy')
+ assert.equal(requestedIndirectSpatialInterpolation('distance-local'),'distance-local')
+ assert.equal(requestedIndirectSpatialInterpolation('occluder-local'),'occluder-local')
+})
+
+test('distance-local GPU volume graph matches CPU at actual clamped volume coordinates',()=>{
+ const f=fixture();try{
+  f.field.spatialInterpolation='distance-local'
+  const lookup=createIndirectVolumeLookup(f.field,f.visibility),result=new Float64Array(12)
+  // Test a full row using production coordinate generation, including cells
+  // outside the room mask and the clamped top and bottom volume layers.
+  for(const iy of [0,5,11])writeIndirectVolumeRow(f.field,Math.floor(f.field.volume.n/2)*12+iy,result,f.visibility,lookup)
+  const graph=lookup.graph(),n=f.field.volume.n
+  for(const iy of [0,5,11])for(let ix=0;ix<n;ix++){
+   const row=Math.floor(n/2)*12+iy,voxel=row*n+ix,start=graph.offsets[voxel],count=graph.counts[voxel]
+   if(!count)continue
+   let sum=0,total=0,support=0
+   for(let j=start;j<start+count;j++){sum+=graph.weights[j]*DataUtils.fromHalfFloat(f.field.coefficients[0][graph.indices[j]*4]);total+=graph.weights[j];support+=graph.supports![j]}
+   const packed=((Math.floor(n/2)*f.field.volume.height*f.field.coefficientCount+iy+1)*n+ix)*4
+   const coverage=DataUtils.fromHalfFloat(f.field.volume.data[packed+3])
+   assert.ok(Math.abs(DataUtils.fromHalfFloat(f.field.volume.data[packed])-sum/total*coverage)<.001)
+   assert.ok(support>0)
+  }
+ }finally{f.dispose()}
+})
+
+test('distance-local visibility blocks walls and remains continuous across an open doorway',()=>{
+ const f=fixture(),geometry=new BoxGeometry(.1,2.8,4)
+ try{
+  f.field.spatialInterpolation='distance-local';f.scene.remove(f.table)
+  const wall=new Mesh(geometry,f.material);wall.position.set(3,1.4,2);f.scene.add(wall)
+  const closed=createIndirectVisibility(f.scene),v=new Float64Array(12)
+  try{
+   sampleIndirectCoefficients(f.field,0,2.5,.25,2,v,closed)
+   assert.ok(Math.abs(v[0]-DataUtils.fromHalfFloat(DataUtils.toHalfFloat(.1)))<1e-12)
+  }finally{closed.dispose()}
+  f.scene.remove(wall);const open=createIndirectVisibility(f.scene)
+  try{
+   let last:number|undefined
+   for(let x=2.5;x<=3.5;x+=.01){
+    sampleIndirectCoefficients(f.field,0,x,.25,2,v,open)
+    if(last!==undefined)assert.ok(Math.abs(v[0]-last)<.02,'no nearest-probe switching seam')
+    assert.ok(v[0]>=.099&&v[0]<=1)
+    last=v[0]
+   }
+  }finally{open.dispose()}
+ }finally{geometry.dispose();f.dispose()}
 })

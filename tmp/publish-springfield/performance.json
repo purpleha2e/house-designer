@@ -1,0 +1,969 @@
+[
+  {
+    "at": 6362.699999988079,
+    "fps": 430.0620417371686,
+    "p95": 17.300000000000182,
+    "compiles": 12,
+    "links": 6,
+    "long": [
+      {
+        "at": 1852.2999999523163,
+        "ms": 110
+      },
+      {
+        "at": 2810.699999988079,
+        "ms": 51
+      },
+      {
+        "at": 2952.899999976158,
+        "ms": 50
+      },
+      {
+        "at": 4511.399999976158,
+        "ms": 52
+      },
+      {
+        "at": 4782.399999976158,
+        "ms": 116
+      }
+    ],
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "geometry",
+      "frames": 0,
+      "geometryReadyMs": 2366.199999988079
+    },
+    "warm": true,
+    "programs": 6,
+    "text": "Upstairs · Floor 1\nPreparing lighting...\n-- FPS\n↕\n↔",
+    "workers": []
+  },
+  {
+    "at": 11371.099999964237,
+    "fps": 213.58291336693068,
+    "p95": 18,
+    "compiles": 50,
+    "links": 25,
+    "long": [
+      {
+        "at": 6680.799999952316,
+        "ms": 275
+      },
+      {
+        "at": 7266.799999952316,
+        "ms": 147
+      },
+      {
+        "at": 7444,
+        "ms": 149
+      },
+      {
+        "at": 7597.799999952316,
+        "ms": 66
+      },
+      {
+        "at": 7668.399999976158,
+        "ms": 128
+      },
+      {
+        "at": 7817.899999976158,
+        "ms": 50
+      }
+    ],
+    "gi": "loading",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lighting",
+      "frames": 177,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237
+    },
+    "warm": true,
+    "programs": 25,
+    "text": "Upstairs · Floor 1\nPreparing lighting shaders... 0/5 batches (2s)\n-- FPS\n↕\n↔",
+    "workers": [
+      {
+        "id": 21,
+        "url": "http://127.0.0.1:5183/assets/roomLightOcclusion.worker-DxL6g-cF.js",
+        "pending": true,
+        "outstanding": 1,
+        "request": 1,
+        "requestedAt": 8697.299999952316,
+        "generation": 0
+      },
+      {
+        "id": 22,
+        "url": "http://127.0.0.1:5183/assets/indirectBufferCodec.worker-p8u-Zlp4.js",
+        "pending": true,
+        "outstanding": 13,
+        "request": 13,
+        "messageId": 13,
+        "kind": "unpack",
+        "requestedAt": 9102.899999976158,
+        "generation": 0
+      }
+    ]
+  },
+  {
+    "at": 16388.69999998808,
+    "fps": 61.970708378997706,
+    "p95": 18.100000000000364,
+    "compiles": 50,
+    "links": 25,
+    "long": [],
+    "gi": "diffuse-ready",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lighting",
+      "frames": 488,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237
+    },
+    "warm": true,
+    "programs": 25,
+    "text": "Upstairs · Floor 1\nPreparing lighting shaders... 0/5 batches (7s)\n-- FPS\n↕\n↔",
+    "workers": []
+  },
+  {
+    "at": 21392.099999964237,
+    "fps": 64.35366536094014,
+    "p95": 18.200000000000728,
+    "compiles": 52,
+    "links": 26,
+    "long": [],
+    "gi": "diffuse-ready",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lighting",
+      "frames": 810,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237
+    },
+    "warm": true,
+    "programs": 26,
+    "text": "Upstairs · Floor 1\nPreparing lighting shaders... 5/5 batches (12s)\n-- FPS\n↕\n↔",
+    "workers": []
+  },
+  {
+    "at": 26408.299999952316,
+    "fps": 60.795726359432265,
+    "p95": 18.200000000000728,
+    "compiles": 88,
+    "links": 44,
+    "long": [
+      {
+        "at": 21686.5,
+        "ms": 110
+      }
+    ],
+    "gi": "ready",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lit",
+      "frames": 1115,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808
+    },
+    "warm": true,
+    "programs": 44,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 0/23 batches (4s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 31427.5,
+    "fps": 60.4862857827285,
+    "p95": 18.299999999999272,
+    "compiles": 88,
+    "links": 44,
+    "long": [],
+    "gi": "ready",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lit",
+      "frames": 1418,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808
+    },
+    "warm": true,
+    "programs": 44,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 0/23 batches (9s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 36437.69999998808,
+    "fps": 62.9544775376033,
+    "p95": 18.10000000000582,
+    "compiles": 116,
+    "links": 58,
+    "long": [],
+    "gi": "ready",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lit",
+      "frames": 1734,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808
+    },
+    "warm": true,
+    "programs": 58,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 4/23 batches (14s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 41446.299999952316,
+    "fps": 62.032512217014066,
+    "p95": 18.19999999999709,
+    "compiles": 136,
+    "links": 68,
+    "long": [],
+    "gi": "ready",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lit",
+      "frames": 2045,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808
+    },
+    "warm": true,
+    "programs": 68,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 8/23 batches (19s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 46463.89999997616,
+    "fps": 60.89769187764563,
+    "p95": 18.099999999998545,
+    "compiles": 136,
+    "links": 68,
+    "long": [],
+    "gi": "ready",
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lit",
+      "frames": 2350,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808
+    },
+    "warm": true,
+    "programs": 68,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 8/23 batches (24s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 51604.59999996424,
+    "fps": 64.624557331786,
+    "p95": 18.200000000004366,
+    "compiles": 180,
+    "links": 90,
+    "long": [],
+    "gi": "ready",
+    "exterior": {
+      "state": "preparing",
+      "bakes": 0
+    },
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "lit",
+      "frames": 2672,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808
+    },
+    "warm": false,
+    "programs": 90,
+    "text": "Upstairs · Floor 1\nScene ready.\n-- FPS\n↕\n↔",
+    "workers": [
+      {
+        "id": 23,
+        "url": "http://127.0.0.1:5183/assets/exteriorSkyOcclusion.worker-DzPpYAwc.js",
+        "pending": true,
+        "outstanding": 1,
+        "request": 1,
+        "requestedAt": 51426.5,
+        "generation": 0
+      }
+    ],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814,
+          "compile": 28643.899999976158,
+          "resources": 62.30000001192093,
+          "postprocessing": 0
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 56637.5,
+    "fps": 48.7277728657039,
+    "p95": 49.69999999999709,
+    "compiles": 216,
+    "links": 108,
+    "long": [
+      {
+        "at": 51461.89999997616,
+        "ms": 141
+      },
+      {
+        "at": 53305.69999998808,
+        "ms": 72
+      },
+      {
+        "at": 54534.39999997616,
+        "ms": 55
+      },
+      {
+        "at": 55506.799999952316,
+        "ms": 50
+      },
+      {
+        "at": 56066.39999997616,
+        "ms": 55
+      },
+      {
+        "at": 56368.89999997616,
+        "ms": 56
+      },
+      {
+        "at": 56538.09999996424,
+        "ms": 92
+      }
+    ],
+    "gi": "ready",
+    "exterior": {
+      "state": "ready",
+      "bakes": 1,
+      "ms": 1812.300000011921,
+      "rays": 3269376,
+      "cell": 0.385,
+      "dimensions": [
+        43,
+        24,
+        66
+      ],
+      "eaveLayers": 3,
+      "eaveDimensions": [
+        167,
+        158
+      ],
+      "bytes": 907816
+    },
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "full",
+      "frames": 2672,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808,
+      "fullReadyMs": 48802.89999997616
+    },
+    "warm": true,
+    "programs": 84,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 0/5 batches (3s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814,
+          "compile": 28643.899999976158,
+          "resources": 62.30000001192093,
+          "postprocessing": 0
+        },
+        "cancelled": false
+      },
+      {
+        "startedAt": 53430.799999952316,
+        "stages": {
+          "delayAndSceneScan": 9.200000047683716,
+          "snapshot": 163
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 72838.29999995232,
+    "fps": 17.744588824605827,
+    "p95": 90,
+    "compiles": 216,
+    "links": 108,
+    "long": [
+      {
+        "at": 57375.19999998808,
+        "ms": 50
+      },
+      {
+        "at": 57631.19999998808,
+        "ms": 50
+      },
+      {
+        "at": 57685.59999996424,
+        "ms": 69
+      },
+      {
+        "at": 57819.299999952316,
+        "ms": 50
+      },
+      {
+        "at": 57997.5,
+        "ms": 51
+      },
+      {
+        "at": 58200.799999952316,
+        "ms": 82
+      },
+      {
+        "at": 58339.799999952316,
+        "ms": 51
+      },
+      {
+        "at": 58497,
+        "ms": 50
+      },
+      {
+        "at": 58553.89999997616,
+        "ms": 79
+      },
+      {
+        "at": 58739.299999952316,
+        "ms": 58
+      },
+      {
+        "at": 59099,
+        "ms": 52
+      },
+      {
+        "at": 59458.89999997616,
+        "ms": 55
+      },
+      {
+        "at": 59515.09999996424,
+        "ms": 51
+      },
+      {
+        "at": 59569.69999998808,
+        "ms": 94
+      },
+      {
+        "at": 59701.19999998808,
+        "ms": 55
+      },
+      {
+        "at": 59761.5,
+        "ms": 51
+      },
+      {
+        "at": 59815.799999952316,
+        "ms": 50
+      },
+      {
+        "at": 59922.69999998808,
+        "ms": 54
+      },
+      {
+        "at": 60200.69999998808,
+        "ms": 50
+      },
+      {
+        "at": 60306.5,
+        "ms": 54
+      },
+      {
+        "at": 60529.39999997616,
+        "ms": 88
+      },
+      {
+        "at": 60716.19999998808,
+        "ms": 51
+      },
+      {
+        "at": 60769.39999997616,
+        "ms": 52
+      },
+      {
+        "at": 61028.09999996424,
+        "ms": 62
+      },
+      {
+        "at": 61094.89999997616,
+        "ms": 51
+      },
+      {
+        "at": 61202.39999997616,
+        "ms": 50
+      },
+      {
+        "at": 61369,
+        "ms": 51
+      },
+      {
+        "at": 61583.5,
+        "ms": 525
+      },
+      {
+        "at": 62336.19999998808,
+        "ms": 54
+      },
+      {
+        "at": 62392.59999996424,
+        "ms": 58
+      },
+      {
+        "at": 62458.5,
+        "ms": 51
+      },
+      {
+        "at": 62511.69999998808,
+        "ms": 61
+      },
+      {
+        "at": 62800.299999952316,
+        "ms": 58
+      },
+      {
+        "at": 62966.59999996424,
+        "ms": 51
+      },
+      {
+        "at": 63030.39999997616,
+        "ms": 53
+      },
+      {
+        "at": 63084,
+        "ms": 51
+      },
+      {
+        "at": 63340.5,
+        "ms": 50
+      },
+      {
+        "at": 63443.89999997616,
+        "ms": 50
+      },
+      {
+        "at": 63497.69999998808,
+        "ms": 50
+      },
+      {
+        "at": 63564.19999998808,
+        "ms": 624
+      },
+      {
+        "at": 64220.59999996424,
+        "ms": 68
+      },
+      {
+        "at": 64339.69999998808,
+        "ms": 94
+      },
+      {
+        "at": 64548.89999997616,
+        "ms": 58
+      },
+      {
+        "at": 64709.89999997616,
+        "ms": 50
+      },
+      {
+        "at": 65530.69999998808,
+        "ms": 66
+      },
+      {
+        "at": 66563.19999998808,
+        "ms": 121
+      },
+      {
+        "at": 67111.59999996424,
+        "ms": 51
+      },
+      {
+        "at": 67490.39999997616,
+        "ms": 68
+      },
+      {
+        "at": 67925.19999998808,
+        "ms": 57
+      },
+      {
+        "at": 68566.5,
+        "ms": 144
+      },
+      {
+        "at": 68716.29999995232,
+        "ms": 50
+      },
+      {
+        "at": 68782.39999997616,
+        "ms": 101
+      },
+      {
+        "at": 68887.39999997616,
+        "ms": 55
+      },
+      {
+        "at": 68952.29999995232,
+        "ms": 81
+      },
+      {
+        "at": 69538,
+        "ms": 69
+      },
+      {
+        "at": 69611.39999997616,
+        "ms": 54
+      },
+      {
+        "at": 69668.89999997616,
+        "ms": 66
+      },
+      {
+        "at": 69942.89999997616,
+        "ms": 51
+      },
+      {
+        "at": 69999.59999996424,
+        "ms": 52
+      },
+      {
+        "at": 70469.19999998808,
+        "ms": 50
+      },
+      {
+        "at": 70523.79999995232,
+        "ms": 70
+      },
+      {
+        "at": 70597.19999998808,
+        "ms": 50
+      },
+      {
+        "at": 70700.19999998808,
+        "ms": 51
+      },
+      {
+        "at": 70802.5,
+        "ms": 51
+      },
+      {
+        "at": 70961.39999997616,
+        "ms": 54
+      },
+      {
+        "at": 71021.39999997616,
+        "ms": 53
+      },
+      {
+        "at": 71077.79999995232,
+        "ms": 57
+      },
+      {
+        "at": 71196.59999996424,
+        "ms": 51
+      },
+      {
+        "at": 71398.09999996424,
+        "ms": 52
+      },
+      {
+        "at": 71555.39999997616,
+        "ms": 52
+      },
+      {
+        "at": 71618.09999996424,
+        "ms": 88
+      },
+      {
+        "at": 72428.09999996424,
+        "ms": 54
+      },
+      {
+        "at": 72485.29999995232,
+        "ms": 90
+      },
+      {
+        "at": 72609.69999998808,
+        "ms": 55
+      },
+      {
+        "at": 72734.29999995232,
+        "ms": 50
+      }
+    ],
+    "gi": "ready",
+    "exterior": {
+      "state": "ready",
+      "bakes": 1,
+      "ms": 1812.300000011921,
+      "rays": 3269376,
+      "cell": 0.385,
+      "dimensions": [
+        43,
+        24,
+        66
+      ],
+      "eaveLayers": 3,
+      "eaveDimensions": [
+        167,
+        158
+      ],
+      "bytes": 907816
+    },
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "full",
+      "frames": 2672,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808,
+      "fullReadyMs": 48802.89999997616
+    },
+    "warm": true,
+    "programs": 84,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 0/5 batches (19s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814,
+          "compile": 28643.899999976158,
+          "resources": 62.30000001192093,
+          "postprocessing": 0
+        },
+        "cancelled": false
+      },
+      {
+        "startedAt": 53430.799999952316,
+        "stages": {
+          "delayAndSceneScan": 9.200000047683716,
+          "snapshot": 163
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 77856.89999997616,
+    "fps": 80.63721141144707,
+    "p95": 36.19999999999709,
+    "compiles": 222,
+    "links": 111,
+    "long": [
+      {
+        "at": 73286.29999995232,
+        "ms": 53
+      }
+    ],
+    "gi": "ready",
+    "exterior": {
+      "state": "ready",
+      "bakes": 1,
+      "ms": 1812.300000011921,
+      "rays": 3269376,
+      "cell": 0.385,
+      "dimensions": [
+        43,
+        24,
+        66
+      ],
+      "eaveLayers": 3,
+      "eaveDimensions": [
+        167,
+        158
+      ],
+      "bytes": 907816
+    },
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "full",
+      "frames": 2672,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808,
+      "fullReadyMs": 48802.89999997616
+    },
+    "warm": true,
+    "programs": 87,
+    "text": "Upstairs · Floor 1\nCompiling scene shaders... 3/5 batches (24s)\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814,
+          "compile": 28643.899999976158,
+          "resources": 62.30000001192093,
+          "postprocessing": 0
+        },
+        "cancelled": false
+      },
+      {
+        "startedAt": 53430.799999952316,
+        "stages": {
+          "delayAndSceneScan": 9.200000047683716,
+          "snapshot": 163
+        },
+        "cancelled": false
+      }
+    ]
+  },
+  {
+    "at": 82874.69999998808,
+    "fps": 76.88017845761628,
+    "p95": 18.19999999999709,
+    "compiles": 222,
+    "links": 111,
+    "long": [],
+    "gi": "ready",
+    "exterior": {
+      "state": "ready",
+      "bakes": 1,
+      "ms": 1812.300000011921,
+      "rays": 3269376,
+      "cell": 0.385,
+      "dimensions": [
+        43,
+        24,
+        66
+      ],
+      "eaveLayers": 3,
+      "eaveDimensions": [
+        167,
+        158
+      ],
+      "bytes": 907816,
+      "enabled": true,
+      "strength": 0.75
+    },
+    "phase": {
+      "startedAtMs": 2881.699999988079,
+      "phase": "full",
+      "frames": 2672,
+      "geometryReadyMs": 2366.199999988079,
+      "opaqueReadyMs": 5676.099999964237,
+      "lightingCompileMs": 12583.800000011921,
+      "lightingReadyMs": 18928.899999976158,
+      "programsAtLighting": 28,
+      "diffuseReadyMs": 18929.19999998808,
+      "fullReadyMs": 48802.89999997616
+    },
+    "warm": false,
+    "programs": 87,
+    "text": "Upstairs · Floor 1\nScene ready.\n-- FPS\n↕\n↔",
+    "workers": [],
+    "warmups": [
+      {
+        "startedAt": 22043.69999998808,
+        "stages": {
+          "delayAndSceneScan": 351.19999998807907,
+          "snapshot": 158.39999997615814,
+          "compile": 28643.899999976158,
+          "resources": 62.30000001192093,
+          "postprocessing": 0
+        },
+        "cancelled": false
+      },
+      {
+        "startedAt": 53430.799999952316,
+        "stages": {
+          "delayAndSceneScan": 9.200000047683716,
+          "snapshot": 163,
+          "compile": 25808.899999976158,
+          "resources": 13.199999988079071,
+          "postprocessing": 0
+        },
+        "cancelled": false
+      }
+    ]
+  }
+]

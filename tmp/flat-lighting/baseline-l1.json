@@ -1,0 +1,1177 @@
+{
+  "kind": "sunlight",
+  "production": {
+    "shOrder": 1,
+    "probePositions": [
+      [
+        0.3125,
+        0.69875,
+        0.25
+      ],
+      [
+        0.3125,
+        2.09625,
+        0.25
+      ],
+      [
+        1.7708333333333335,
+        0.69875,
+        0.25
+      ],
+      [
+        1.7708333333333335,
+        2.09625,
+        0.25
+      ],
+      [
+        3.645833333333333,
+        0.69875,
+        0.25
+      ],
+      [
+        3.645833333333333,
+        2.09625,
+        0.25
+      ],
+      [
+        4.6875,
+        0.69875,
+        0.25
+      ],
+      [
+        4.6875,
+        2.09625,
+        0.25
+      ],
+      [
+        0.3125,
+        0.69875,
+        1.75
+      ],
+      [
+        0.3125,
+        2.09625,
+        1.75
+      ],
+      [
+        1.75,
+        0.69875,
+        1.75
+      ],
+      [
+        1.75,
+        2.09625,
+        1.75
+      ],
+      [
+        3.75,
+        0.69875,
+        1.75
+      ],
+      [
+        3.75,
+        2.09625,
+        1.75
+      ],
+      [
+        4.6875,
+        0.69875,
+        1.75
+      ],
+      [
+        4.6875,
+        2.09625,
+        1.75
+      ],
+      [
+        0.3125,
+        0.69875,
+        3.75
+      ],
+      [
+        0.3125,
+        2.09625,
+        3.75
+      ],
+      [
+        1.75,
+        0.69875,
+        3.75
+      ],
+      [
+        1.75,
+        2.09625,
+        3.75
+      ],
+      [
+        3.75,
+        0.69875,
+        3.75
+      ],
+      [
+        3.75,
+        2.09625,
+        3.75
+      ],
+      [
+        4.6875,
+        0.69875,
+        3.75
+      ],
+      [
+        4.6875,
+        2.09625,
+        3.75
+      ],
+      [
+        2.5,
+        0.69875,
+        2
+      ],
+      [
+        2.5,
+        2.09625,
+        2
+      ]
+    ],
+    "condition": "direct",
+    "bounces": 6,
+    "sealed": false,
+    "elapsedMs": 6683.599999964237,
+    "receivers": [
+      {
+        "name": "floor near window",
+        "p": [
+          2.5,
+          0.005,
+          1
+        ],
+        "n": [
+          0,
+          1,
+          0
+        ],
+        "irradiance": {
+          "rgb": [
+            0.523514024325284,
+            0.5650793004705256,
+            0.6245781341441762
+          ],
+          "coverage": 1
+        }
+      },
+      {
+        "name": "rear wall",
+        "p": [
+          2.5,
+          1.4,
+          3.995
+        ],
+        "n": [
+          0,
+          0,
+          -1
+        ],
+        "irradiance": {
+          "rgb": [
+            0.4477156507269063,
+            0.4744038090625769,
+            0.5125015424552424
+          ],
+          "coverage": 0.9863636363636346
+        }
+      },
+      {
+        "name": "ceiling",
+        "p": [
+          2.5,
+          2.795,
+          2
+        ],
+        "n": [
+          0,
+          -1,
+          0
+        ],
+        "irradiance": {
+          "rgb": [
+            0.462915857660467,
+            0.48457064108553793,
+            0.515663383289684
+          ],
+          "coverage": 1
+        }
+      },
+      {
+        "name": "shaded corner",
+        "p": [
+          0.05,
+          1.4,
+          3.7
+        ],
+        "n": [
+          1,
+          0,
+          0
+        ],
+        "irradiance": {
+          "rgb": [
+            0.3925972388958189,
+            0.41472204566333404,
+            0.4461754301749844
+          ],
+          "coverage": 0.9090909090909088
+        }
+      }
+    ],
+    "status": {
+      "generation": 2,
+      "completed": 156,
+      "total": 156,
+      "rooms": 1,
+      "probes": 26,
+      "floorProbes": 0,
+      "state": "ready",
+      "multiviewViews": 0,
+      "multiviewBatches": 0,
+      "multiviewProbes": 0,
+      "firstProbes": 26,
+      "secondProbes": 26,
+      "reusedProbes": 0,
+      "zones": 1,
+      "partial": false,
+      "capturedFaces": 156,
+      "captureMs": 54.50000011920929,
+      "maxFaceMs": 2.5,
+      "maxInFlight": 1,
+      "previewUpdates": 1,
+      "firstPreviewMs": 152.10000002384186,
+      "bakeStartedAt": 9627.099999964237,
+      "roomMean": {
+        "1": [
+          0.03369869512939453,
+          0.03588938076782226,
+          0.03902665896606445
+        ]
+      },
+      "worker": true,
+      "geometryBuilds": 2,
+      "captureSceneMs": 29.900000035762787,
+      "captureSceneMeshes": 10,
+      "captureMergedMeshes": 5,
+      "captureMaterials": 3,
+      "captureDrawCalls": 554,
+      "captureTriangles": 15144,
+      "surfaceCacheBytes": 3354624,
+      "surfaceCachedProbes": 26,
+      "surfaceReplayedProbes": 130,
+      "surfaceReusedFaces": 780,
+      "surfaceDataFaces": 156,
+      "surfaceRelitProbes": 0,
+      "surfaceRelighting": true,
+      "prepareMs": 87.29999995231628,
+      "prepareTimings": {
+        "layout": 44.89999997615814,
+        "geometry": 1.600000023841858,
+        "structure": 0,
+        "probes": 0.3999999761581421,
+        "ceilings": 6,
+        "lamps": 0,
+        "tables": 0.699999988079071,
+        "zones": 0
+      },
+      "geometryRefitted": false,
+      "blocked": false,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "bakeOnDemand": false,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": true,
+      "volumeSamplingVersion": 1,
+      "displayed": true,
+      "xr": false,
+      "capturedProbes": 26,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "saved": false,
+      "source": "baked",
+      "exportable": false,
+      "continuous": true,
+      "lightingRevision": 1,
+      "pendingLighting": false,
+      "moving": false,
+      "paused": false,
+      "lastCapture": {
+        "position": [
+          0.3125,
+          0.6987500190734863,
+          0.25
+        ],
+        "calls": 4,
+        "pass": 1,
+        "face": 5,
+        "faces": 3
+      },
+      "lastPreviewCompleted": 4,
+      "interpolationProfile": {
+        "warmVolumeRows": 432,
+        "warmFloorRows": 139,
+        "warmVolumeCpuMs": 106.50000011920929,
+        "warmFloorCpuMs": 86.1000000834465,
+        "evaluations": [
+          {
+            "copyMs": 0.10000002384185791,
+            "decodeMs": 0.5,
+            "volumeMs": 24.19999998807907,
+            "floorMs": 22.30000001192093,
+            "outputCopyMs": 0.2999999523162842,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0,
+            "decodeMs": 0.3999999761581421,
+            "volumeMs": 18.400000035762787,
+            "floorMs": 21.69999998807907,
+            "outputCopyMs": 0.3999999761581421,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.09999996423721313,
+            "decodeMs": 0.30000001192092896,
+            "volumeMs": 24.100000023841858,
+            "floorMs": 20.099999964237213,
+            "outputCopyMs": 0.30000001192092896,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0,
+            "decodeMs": 0.40000003576278687,
+            "volumeMs": 17,
+            "floorMs": 17.80000001192093,
+            "outputCopyMs": 0.19999998807907104,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0.09999996423721313,
+            "decodeMs": 0.19999998807907104,
+            "volumeMs": 16.200000047683716,
+            "floorMs": 17.099999964237213,
+            "outputCopyMs": 0.30000001192092896,
+            "visibilityTests": 0
+          },
+          {
+            "copyMs": 0,
+            "decodeMs": 0.2999999523162842,
+            "volumeMs": 16,
+            "floorMs": 17.700000047683716,
+            "outputCopyMs": 0.19999998807907104,
+            "visibilityTests": 0
+          }
+        ],
+        "volume": {
+          "samples": 108864,
+          "newCells": 15552,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 399168,
+          "links": 246693,
+          "visibilityTests": 246693,
+          "visibleLinks": 186973,
+          "blockedLinks": 59720,
+          "blendedLinks": 1121838,
+          "decodedValues": 294912,
+          "growthBytes": 2752512,
+          "reuseAccepted": false,
+          "cellCapacity": 15552,
+          "linkCapacity": 262144,
+          "localFloorCells": 0,
+          "capacityBytes": 2124928,
+          "averageLinksPerPreparedCell": 15.862461419753087,
+          "coefficientProducts": 13462056
+        },
+        "floor": {
+          "samples": 87500,
+          "newCells": 12500,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 325000,
+          "links": 215468,
+          "visibilityTests": 215468,
+          "visibleLinks": 215468,
+          "blockedLinks": 0,
+          "blendedLinks": 1292808,
+          "decodedValues": 294912,
+          "growthBytes": 2752512,
+          "reuseAccepted": false,
+          "cellCapacity": 19321,
+          "linkCapacity": 262144,
+          "localFloorCells": 0,
+          "capacityBytes": 2147542,
+          "averageLinksPerPreparedCell": 17.23744,
+          "coefficientProducts": 15513696
+        },
+        "preview": {
+          "samples": 1200,
+          "newCells": 1200,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 30480,
+          "links": 17979,
+          "visibilityTests": 2699,
+          "visibleLinks": 1398,
+          "blockedLinks": 1301,
+          "blendedLinks": 1398,
+          "decodedValues": 49152,
+          "growthBytes": 0,
+          "reuseAccepted": false,
+          "cellCapacity": 1200,
+          "linkCapacity": 65536,
+          "localFloorCells": 0,
+          "capacityBytes": 662560,
+          "averageLinksPerPreparedCell": 14.9825,
+          "coefficientProducts": 16776
+        },
+        "previewFloor": {
+          "samples": 832,
+          "newCells": 832,
+          "reusedCells": 0,
+          "retainedStates": 0,
+          "invalidatedStates": 0,
+          "candidateChecks": 21632,
+          "links": 14238,
+          "visibilityTests": 1856,
+          "visibleLinks": 1856,
+          "blockedLinks": 0,
+          "blendedLinks": 1856,
+          "decodedValues": 49152,
+          "growthBytes": 0,
+          "reuseAccepted": false,
+          "cellCapacity": 1296,
+          "linkCapacity": 65536,
+          "localFloorCells": 0,
+          "capacityBytes": 663136,
+          "averageLinksPerPreparedCell": 17.11298076923077,
+          "coefficientProducts": 22272
+        },
+        "dimensions": {
+          "volumeCells": 15552,
+          "floorCells": 19321,
+          "volumeN": 36,
+          "floorN": 139,
+          "probes": 26
+        }
+      },
+      "fullPassPublications": 6,
+      "batchedPasses": 5,
+      "batchedProbeReadbacks": 5
+    },
+    "performance": {
+      "label": "World-space probe GI",
+      "version": 2,
+      "complete": true,
+      "totalMs": 1383.699999988079,
+      "wallPhases": [
+        {
+          "name": "diffuse pass 1",
+          "ms": 616.5,
+          "percent": 44.554455445928404
+        },
+        {
+          "name": "irradiance volume",
+          "ms": 250.70000004768372,
+          "percent": 18.118089184783088
+        },
+        {
+          "name": "cached atlas diffuse relighting",
+          "ms": 249.30000001192093,
+          "percent": 18.016911181185858
+        },
+        {
+          "name": "batched SH integration",
+          "ms": 83.8999999165535,
+          "percent": 6.06345305465609
+        },
+        {
+          "name": "geometry and visibility",
+          "ms": 83.29999995231628,
+          "percent": 6.020091056806673
+        },
+        {
+          "name": "GPU readback wait",
+          "ms": 82.60000002384186,
+          "percent": 5.9695020614695
+        },
+        {
+          "name": "preparation",
+          "ms": 16.5,
+          "percent": 1.1924550119348234
+        },
+        {
+          "name": "diffuse pass 2",
+          "ms": 0.699999988079071,
+          "percent": 0.050588999644800306
+        },
+        {
+          "name": "diffuse pass 3",
+          "ms": 0.10000002384185791,
+          "percent": 0.0072270017953833515
+        },
+        {
+          "name": "diffuse pass 4",
+          "ms": 0.10000002384185791,
+          "percent": 0.0072270017953833515
+        },
+        {
+          "name": "diffuse pass 5",
+          "ms": 0,
+          "percent": 0
+        },
+        {
+          "name": "diffuse pass 6",
+          "ms": 0,
+          "percent": 0
+        },
+        {
+          "name": "idle",
+          "ms": 0,
+          "percent": 0
+        }
+      ],
+      "stages": [
+        {
+          "name": "geometry snapshot",
+          "count": 1,
+          "cpuMs": 0.09999996423721313,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0.09999996423721313
+        },
+        {
+          "name": "worker preparation round trip",
+          "count": 1,
+          "cpuMs": 0,
+          "wallMs": 87.19999998807907,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "worker: layout",
+          "count": 1,
+          "cpuMs": 44.89999997615814,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 44.89999997615814
+        },
+        {
+          "name": "worker: geometry",
+          "count": 1,
+          "cpuMs": 1.600000023841858,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 1.600000023841858
+        },
+        {
+          "name": "worker: structure",
+          "count": 1,
+          "cpuMs": 0,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "worker: probes",
+          "count": 1,
+          "cpuMs": 0.3999999761581421,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0.3999999761581421
+        },
+        {
+          "name": "worker: ceilings",
+          "count": 1,
+          "cpuMs": 6,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 6
+        },
+        {
+          "name": "worker: lamps",
+          "count": 1,
+          "cpuMs": 0,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "worker: tables",
+          "count": 1,
+          "cpuMs": 0.699999988079071,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0.699999988079071
+        },
+        {
+          "name": "worker: zones",
+          "count": 1,
+          "cpuMs": 0,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "direct + depth + normal + albedo face",
+          "count": 156,
+          "cpuMs": 14.700000047683716,
+          "wallMs": 0,
+          "gpuMs": 0.7852,
+          "gpuSamples": 19,
+          "maxCpuMs": 0.699999988079071
+        },
+        {
+          "name": "direct illumination evaluation",
+          "count": 26,
+          "cpuMs": 25.19999986886978,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 1.5
+        },
+        {
+          "name": "first-pass SH integration",
+          "count": 26,
+          "cpuMs": 0,
+          "wallMs": 0,
+          "gpuMs": 0.00264,
+          "gpuSamples": 3,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "probe reduction + asynchronous readback",
+          "count": 26,
+          "cpuMs": 0,
+          "wallMs": 188.50000005960464,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "irradiance volume worker",
+          "count": 6,
+          "cpuMs": 0,
+          "wallMs": 241.39999997615814,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "GPU volume upload",
+          "count": 6,
+          "cpuMs": 0,
+          "wallMs": 8.599999964237213,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "cached atlas diffuse relighting",
+          "count": 15,
+          "cpuMs": 1.5999999046325684,
+          "wallMs": 0,
+          "gpuMs": 0.0061600000000000005,
+          "gpuSamples": 2,
+          "maxCpuMs": 1
+        },
+        {
+          "name": "batched SH integration",
+          "count": 5,
+          "cpuMs": 2,
+          "wallMs": 0,
+          "gpuMs": 1.07848,
+          "gpuSamples": 1,
+          "maxCpuMs": 1.899999976158142
+        },
+        {
+          "name": "batched probe readback submission",
+          "count": 5,
+          "cpuMs": 1.5000000596046448,
+          "wallMs": 0,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0.40000003576278687
+        },
+        {
+          "name": "batched probe readback wall wait",
+          "count": 5,
+          "cpuMs": 0,
+          "wallMs": 42.300000071525574,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        },
+        {
+          "name": "batched diffuse pass wall time",
+          "count": 5,
+          "cpuMs": 0,
+          "wallMs": 374.40000009536743,
+          "gpuMs": 0,
+          "gpuSamples": 0,
+          "maxCpuMs": 0
+        }
+      ],
+      "draws": 912,
+      "triangles": 15860,
+      "lines": 0,
+      "points": 0,
+      "textures": 31,
+      "geometries": 15,
+      "programs": 12,
+      "ownedTextureBytes": 11511520,
+      "gpuTimerSupported": true,
+      "gpuTimingEnabled": true,
+      "gpuSamplingStride": 8,
+      "pendingGpuQueries": 0,
+      "longTasks": 0,
+      "longTaskMs": 0,
+      "maxLongTaskMs": 0,
+      "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+    },
+    "glError": 0
+  },
+  "reference": {
+    "ok": true,
+    "results": [
+      {
+        "name": "floor by window",
+        "position": [
+          1.5,
+          0.005,
+          1
+        ],
+        "normal": [
+          0,
+          1,
+          0
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          0
+        ],
+        "productionIrradiance": [
+          0.5060282442213326,
+          0.5454964075372869,
+          0.6014976839448283
+        ],
+        "reference": {
+          "name": "floor by window",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.24757844405369298,
+            0.2742407380287057,
+            0.3123297294215814
+          ],
+          "reflected": [
+            0.2346084524463479,
+            0.2459058572218248,
+            0.26204500690107263
+          ],
+          "skyStandardError": [
+            0.0057079766371218804,
+            0.0063226818134273135,
+            0.007200832065292222
+          ],
+          "reflectedStandardError": [
+            0.002710559458412015,
+            0.00288377844673937,
+            0.0031392975865931275
+          ],
+          "samples": 16384,
+          "depth": 6,
+          "maxEncounters": 7,
+          "rays": 92059,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 1.2499999981373546,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "ceiling",
+        "position": [
+          2.5,
+          2.795,
+          2
+        ],
+        "normal": [
+          0,
+          -1,
+          0
+        ],
+        "geometricNormal": [
+          0,
+          -1,
+          0
+        ],
+        "productionIrradiance": [
+          0.462915857660467,
+          0.48457064108553793,
+          0.515663383289684
+        ],
+        "reference": {
+          "name": "ceiling",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.0640349230942881,
+            0.06791397701165615,
+            0.07345548260789327
+          ],
+          "reflected": [
+            0.31304565401636436,
+            0.3236390511790645,
+            0.3387724756972062
+          ],
+          "skyStandardError": [
+            0.00172214490383956,
+            0.0018264675548666088,
+            0.001975499913476715
+          ],
+          "reflectedStandardError": [
+            0.0033414233363839425,
+            0.0035036400856982334,
+            0.0037461730608539328
+          ],
+          "samples": 16384,
+          "depth": 6,
+          "maxEncounters": 7,
+          "rays": 95503,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.014999920527140364,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "rear wall",
+        "position": [
+          3.8,
+          1.4,
+          3.995
+        ],
+        "normal": [
+          0,
+          0,
+          -1
+        ],
+        "geometricNormal": [
+          0,
+          0,
+          -1
+        ],
+        "productionIrradiance": [
+          0.4295522000115365,
+          0.45530260606299,
+          0.4921696459203561
+        ],
+        "reference": {
+          "name": "rear wall",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.0868917528643399,
+            0.09522472438675111,
+            0.10712896941876447
+          ],
+          "reflected": [
+            0.25661121269641823,
+            0.2661059823491819,
+            0.27966993899598824
+          ],
+          "skyStandardError": [
+            0.0025209875237941835,
+            0.0027745870248638478,
+            0.0031378904653271335
+          ],
+          "reflectedStandardError": [
+            0.0026856311464940295,
+            0.0028180640706038707,
+            0.0030173009429140386
+          ],
+          "samples": 16384,
+          "depth": 6,
+          "maxEncounters": 7,
+          "rays": 96744,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 2.3333332538604736,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "second room floor",
+        "position": [
+          3,
+          0.005,
+          2.3
+        ],
+        "normal": [
+          0,
+          1,
+          0
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          0
+        ],
+        "productionIrradiance": [
+          0.44284053002889334,
+          0.4754349547980695,
+          0.5222029409349174
+        ],
+        "reference": {
+          "name": "second room floor",
+          "direct": [
+            1.8000000000000003,
+            1.8000000000000003,
+            1.8000000000000003
+          ],
+          "sky": [
+            0.13660823312305553,
+            0.15131988899784618,
+            0.17233654024754694
+          ],
+          "reflected": [
+            0.23690033484721174,
+            0.24787242050143468,
+            0.26354682857889183
+          ],
+          "skyStandardError": [
+            0.004050496201866268,
+            0.004486703485144171,
+            0.005109856746969756
+          ],
+          "reflectedStandardError": [
+            0.00261329057114383,
+            0.002776280397010115,
+            0.0030180129701122046
+          ],
+          "samples": 16384,
+          "depth": 6,
+          "maxEncounters": 7,
+          "rays": 96288,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 1,
+        "firstOccluderDistance": null,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": true
+          },
+          {
+            "offset": 0.004,
+            "visible": true
+          },
+          {
+            "offset": 0.01,
+            "visible": true
+          }
+        ]
+      },
+      {
+        "name": "exposed floor",
+        "position": [
+          4,
+          0.005,
+          2.3
+        ],
+        "normal": [
+          0,
+          1,
+          0
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          0
+        ],
+        "productionIrradiance": [
+          0.42616158194166454,
+          0.4566183281536512,
+          0.4999715767481276
+        ],
+        "reference": {
+          "name": "exposed floor",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.09674715274728335,
+            0.10716607688929863,
+            0.12205025423503442
+          ],
+          "reflected": [
+            0.2419450227323685,
+            0.2535291602934529,
+            0.27007792823785753
+          ],
+          "skyStandardError": [
+            0.0033982326946337756,
+            0.003764196215594339,
+            0.0042870012455379965
+          ],
+          "reflectedStandardError": [
+            0.002665229074332693,
+            0.002841006944735901,
+            0.003101220834820495
+          ],
+          "samples": 16384,
+          "depth": 6,
+          "maxEncounters": 7,
+          "rays": 98031,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 2.874999998137355,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      }
+    ],
+    "elapsedMs": 1124.800000011921,
+    "samples": 16384,
+    "depth": 6
+  },
+  "shadowComparison": {
+    "changedComponents": 253842,
+    "maxAbsoluteHDRDifference": 0.23486328125,
+    "generationUnchanged": true,
+    "coefficientsUnchanged": true
+  },
+  "controls": {
+    "fill": 0,
+    "gain": 1,
+    "passes": 6,
+    "shOrder": 1,
+    "probes": 26
+  },
+  "snapshot": {
+    "triangles": 108,
+    "textures": 0
+  },
+  "glError": 0
+}

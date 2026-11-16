@@ -1,0 +1,63 @@
+{
+  "steps": [
+    {
+      "label": "Bootstrap preserves switches across both floors",
+      "enabled": 24,
+      "total": 26
+    },
+    {
+      "label": "Only the requested light switches off",
+      "enabled": 23,
+      "total": 26
+    },
+    {
+      "label": "A previously disabled light can turn on above eleven",
+      "enabled": 24,
+      "total": 26
+    },
+    {
+      "label": "Placing a new light preserves all other switches",
+      "enabled": 25,
+      "total": 27
+    },
+    {
+      "label": "Pasting a light preserves all other switches",
+      "enabled": 26,
+      "total": 28
+    },
+    {
+      "label": "Undo restores more than eleven enabled lights",
+      "enabled": 25,
+      "total": 27
+    },
+    {
+      "label": "Redo restores every switch",
+      "enabled": 26,
+      "total": 28
+    },
+    {
+      "label": "A later edit changes only one switch",
+      "enabled": 25,
+      "total": 28
+    },
+    {
+      "label": "File loading preserves saved switches exactly",
+      "enabled": 26,
+      "total": 28
+    }
+  ],
+  "pool": {
+    "limit": 11,
+    "selected": 11
+  },
+  "gi": {
+    "state": "ready",
+    "source": "baked",
+    "occlusion": {
+      "ready": true,
+      "lights": 28,
+      "records": 918400
+    },
+    "glError": 0
+  }
+}

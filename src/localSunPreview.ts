@@ -2,9 +2,10 @@ import type {SunMaterial} from './localSunTransport.ts'
 import {Data3DTexture,DataUtils,HalfFloatType,Vector4} from 'three'
 import type {Vector3} from 'three'
 import type {IndirectVisibility} from './indirectVisibility.ts'
+import type {RefinementSources,RefinementMaterial} from './surfaceRefinementTransport.ts'
 
-export type LocalSunPreviewData={positions:Float32Array;normals:Float32Array;uvs:Float32Array;materialIndices:Uint16Array;owners:Uint32Array;materials:(SunMaterial&{shadowSide?:0|1|2;flatShading?:boolean})[];textures:{width:number;height:number;pixels:Uint16Array}[];sunDirection:number[];sunIrradiance:number[];daylightGain:number}
-export type LocalSunPreviewCamera={world:number[];projectionInverse:number[];width:number;height:number;rays:number;visibleTriangles?:Uint8Array}
+export type LocalSunPreviewData={positions:Float32Array;normals:Float32Array;uvs:Float32Array;materialIndices:Uint16Array;owners:Uint32Array;materials:(SunMaterial&RefinementMaterial&{shadowSide?:0|1|2;flatShading?:boolean})[];textures:{width:number;height:number;pixels:Uint16Array}[];sunDirection:number[];sunIrradiance:number[];daylightGain:number;refinement?:RefinementSources}
+export type LocalSunPreviewCamera={world:number[];projectionInverse:number[];width:number;height:number;rays:number;bounces?:number;visibleTriangles?:Uint8Array}
 export const LOCAL_SUN_PREVIEW_BUDGET={maxDimension:96,rays:64,maxTextureSide:256,maxTextureBytes:16*1024*1024} as const
 export function localSunCameraKey(world:readonly number[],projection:readonly number[],width:number,height:number){return JSON.stringify([world,projection,width,height])}
 /** Navigation-hidden roofs/walls still block bounce rays. Only the camera ray
@@ -38,6 +39,7 @@ export const localSunPreviewGLSL=/* glsl */`
 uniform float hdLocalSunReady,hdLocalSunDisplay,hdLocalSunCombined;
 uniform vec2 hdLocalSunSize;
 uniform mat4 hdLocalSunViewProjection;
+uniform mat4 projectionMatrix;
 uniform vec4 hdLocalSunPackedSize;
 vec4 hdLocalSunTexel(float index){
   float plane=hdLocalSunPackedSize.x*hdLocalSunPackedSize.y;
@@ -49,17 +51,19 @@ vec4 hdLocalSunIrradiance(vec3 normal,vec3 position){
   vec4 clip=hdLocalSunViewProjection*vec4(position,1.);
   vec2 pixel=(clip.xy/clip.w*.5+.5)*hdLocalSunSize-.5;
   vec3 total=vec3(0.);float weights=0.;
-  float depth=-vViewPosition.z;
-  // vViewPosition is camera minus surface in Three's standard shader.
-  depth=abs(depth);
   for(int y=0;y<2;y++)for(int x=0;x<2;x++){
     vec2 cell=floor(pixel)+vec2(float(x),float(y));
     cell=clamp(cell,vec2(0.),hdLocalSunSize-1.);
     float index=hdLocalSunPackedSize.z+cell.y*hdLocalSunSize.x+cell.x;
     vec4 sampleValue=hdLocalSunTexel(index);
     vec4 sampleNormal=hdLocalSunTexel(index+hdLocalSunSize.x*hdLocalSunSize.y);
-    float tolerance=max(.015,depth*3./min(hdLocalSunSize.x,hdLocalSunSize.y));
-    if(sampleNormal.a>.5&&abs(sampleValue.a-depth)<tolerance&&dot(sampleNormal.xyz,normal)>.95){
+    // A sloping plane can change camera depth dramatically between adjacent
+    // pixels. Reconstruct the sample and compare plane distance, not raw Z.
+    vec2 ndc=(cell+.5)/hdLocalSunSize*2.-1.;
+    vec3 sampleView=vec3((ndc.x+projectionMatrix[2][0])*sampleValue.a/projectionMatrix[0][0],
+      (ndc.y+projectionMatrix[2][1])*sampleValue.a/projectionMatrix[1][1],-sampleValue.a);
+    float planeDistance=abs(dot(mat3(viewMatrix)*sampleNormal.xyz,-vViewPosition-sampleView));
+    if(sampleNormal.a>.5&&planeDistance<.015&&dot(sampleNormal.xyz,normal)>.95){
       vec2 w=mix(1.-fract(pixel),fract(pixel),vec2(float(x),float(y)));
       float weight=w.x*w.y;total+=sampleValue.rgb*weight;weights+=weight;
     }

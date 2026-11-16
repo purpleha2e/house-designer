@@ -1,0 +1,3564 @@
+{
+  "before": {
+    "generation": 3,
+    "capturedFaces": 156,
+    "textures": 32,
+    "programs": 14
+  },
+  "views": [
+    {
+      "mode": "Final composite",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 32,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Direct lighting only",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 32,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Probe indirect only",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 32,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Indirect irradiance false colour",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 32,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Sky lighting only",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 36,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Indirect reflected only",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 36,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "World normals",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 36,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Albedo",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 36,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Matte white",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 36,
+          "geometries": 15,
+          "programs": 14,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Probe irradiance",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 36,
+          "geometries": 16,
+          "programs": 15,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    },
+    {
+      "mode": "Probe visibility",
+      "generation": 3,
+      "faces": 156,
+      "same": true,
+      "glError": 0,
+      "report": {
+        "probe": {
+          "index": 0,
+          "position": [
+            0.3125,
+            0.6987500190734863,
+            0.25
+          ],
+          "valid": true,
+          "captured": true,
+          "upwardIrradiance": [
+            0.18846006066894533,
+            0.20870363281249998,
+            0.2377378956298828
+          ],
+          "upwardSky": [
+            0.034534346191406246,
+            0.038251243392944334,
+            0.043585196456909184
+          ],
+          "influenceRadius": 3.5,
+          "generation": 3
+        },
+        "performance": {
+          "label": "World-space probe GI",
+          "version": 2,
+          "complete": true,
+          "totalMs": 1950,
+          "wallPhases": [
+            {
+              "name": "GPU readback wait",
+              "ms": 1032.7000000476837,
+              "percent": 52.95897436141968
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "ms": 300.49999994039536,
+              "percent": 15.410256407199762
+            },
+            {
+              "name": "irradiance volume",
+              "ms": 276.2999999523163,
+              "percent": 14.169230766785452
+            },
+            {
+              "name": "diffuse pass 1",
+              "ms": 171.49999994039536,
+              "percent": 8.794871791815147
+            },
+            {
+              "name": "geometry and visibility",
+              "ms": 91.40000003576279,
+              "percent": 4.687179489013476
+            },
+            {
+              "name": "batched SH integration",
+              "ms": 60,
+              "percent": 3.076923076923077
+            },
+            {
+              "name": "preparation",
+              "ms": 16.5,
+              "percent": 0.8461538461538461
+            },
+            {
+              "name": "diffuse pass 2",
+              "ms": 0.6000000238418579,
+              "percent": 0.03076923199189015
+            },
+            {
+              "name": "diffuse pass 3",
+              "ms": 0.19999998807907104,
+              "percent": 0.010256409645080566
+            },
+            {
+              "name": "diffuse pass 4",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 5",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "diffuse pass 6",
+              "ms": 0.10000002384185791,
+              "percent": 0.005128206350864508
+            },
+            {
+              "name": "idle",
+              "ms": 0,
+              "percent": 0
+            }
+          ],
+          "stages": [
+            {
+              "name": "geometry snapshot",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker preparation round trip",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 89.60000002384186,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: layout",
+              "count": 1,
+              "cpuMs": 50.299999952316284,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 50.299999952316284
+            },
+            {
+              "name": "worker: geometry",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: structure",
+              "count": 1,
+              "cpuMs": 0.10000002384185791,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.10000002384185791
+            },
+            {
+              "name": "worker: probes",
+              "count": 1,
+              "cpuMs": 0.30000001192092896,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0.30000001192092896
+            },
+            {
+              "name": "worker: ceilings",
+              "count": 1,
+              "cpuMs": 5.5,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 5.5
+            },
+            {
+              "name": "worker: lamps",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "worker: tables",
+              "count": 1,
+              "cpuMs": 1,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 1
+            },
+            {
+              "name": "worker: zones",
+              "count": 1,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "direct + depth + normal + albedo face",
+              "count": 156,
+              "cpuMs": 12.099999964237213,
+              "wallMs": 0,
+              "gpuMs": 0.15250000000000002,
+              "gpuSamples": 3,
+              "maxCpuMs": 1.199999988079071
+            },
+            {
+              "name": "direct illumination evaluation",
+              "count": 26,
+              "cpuMs": 260.5000002384186,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 36.89999997615814
+            },
+            {
+              "name": "first-pass SH integration",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 0,
+              "gpuMs": 0.01711,
+              "gpuSamples": 10,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "probe reduction + asynchronous readback",
+              "count": 26,
+              "cpuMs": 0,
+              "wallMs": 1281.9000000953674,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "irradiance volume worker",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 251.30000007152557,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "GPU volume upload",
+              "count": 6,
+              "cpuMs": 0,
+              "wallMs": 5.999999940395355,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "cached atlas diffuse relighting",
+              "count": 15,
+              "cpuMs": 36.30000001192093,
+              "wallMs": 0,
+              "gpuMs": 0.00483,
+              "gpuSamples": 2,
+              "maxCpuMs": 35.69999998807907
+            },
+            {
+              "name": "batched SH integration",
+              "count": 5,
+              "cpuMs": 17.80000001192093,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 17.600000023841858
+            },
+            {
+              "name": "batched probe readback submission",
+              "count": 5,
+              "cpuMs": 59.999999940395355,
+              "wallMs": 0,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 30.69999998807907
+            },
+            {
+              "name": "batched probe readback wall wait",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 132.79999995231628,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            },
+            {
+              "name": "batched diffuse pass wall time",
+              "count": 5,
+              "cpuMs": 0,
+              "wallMs": 457.5,
+              "gpuMs": 0,
+              "gpuSamples": 0,
+              "maxCpuMs": 0
+            }
+          ],
+          "draws": 912,
+          "triangles": 15860,
+          "lines": 0,
+          "points": 0,
+          "textures": 36,
+          "geometries": 17,
+          "programs": 16,
+          "ownedTextureBytes": 11511520,
+          "gpuTimerSupported": true,
+          "gpuTimingEnabled": true,
+          "gpuSamplingStride": 8,
+          "pendingGpuQueries": 0,
+          "longTasks": 3,
+          "longTaskMs": 157,
+          "maxLongTaskMs": 54,
+          "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+        }
+      }
+    }
+  ],
+  "material": {
+    "combined": [
+      {
+        "name": "0",
+        "rgb": [
+          0.052154541015625,
+          0.0577392578125,
+          0.0657958984375
+        ]
+      },
+      {
+        "name": "1",
+        "rgb": [
+          0.062408447265625,
+          0.069091796875,
+          0.0787353515625
+        ]
+      },
+      {
+        "name": "2",
+        "rgb": [
+          0.0426025390625,
+          0.04718017578125,
+          0.053741455078125
+        ]
+      }
+    ],
+    "direct": [
+      {
+        "name": "0",
+        "rgb": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "1",
+        "rgb": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "2",
+        "rgb": [
+          0,
+          0,
+          0
+        ]
+      }
+    ],
+    "indirect": [
+      {
+        "name": "0",
+        "rgb": [
+          0.052154541015625,
+          0.0577392578125,
+          0.0657958984375
+        ]
+      },
+      {
+        "name": "1",
+        "rgb": [
+          0.062408447265625,
+          0.069091796875,
+          0.0787353515625
+        ]
+      },
+      {
+        "name": "2",
+        "rgb": [
+          0.0426025390625,
+          0.04718017578125,
+          0.053741455078125
+        ]
+      }
+    ],
+    "fill": [
+      {
+        "name": "0",
+        "rgb": [
+          0.052154541015625,
+          0.0577392578125,
+          0.0657958984375
+        ]
+      },
+      {
+        "name": "1",
+        "rgb": [
+          0.062408447265625,
+          0.069091796875,
+          0.0787353515625
+        ]
+      },
+      {
+        "name": "2",
+        "rgb": [
+          0.0426025390625,
+          0.04718017578125,
+          0.053741455078125
+        ]
+      }
+    ],
+    "off": [
+      {
+        "name": "0",
+        "rgb": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "1",
+        "rgb": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "2",
+        "rgb": [
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "errors": []
+}

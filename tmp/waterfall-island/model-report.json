@@ -1,0 +1,12 @@
+{
+  "output": "src/models/assets/waterfall_shaker_island.glb",
+  "bytes": 922496,
+  "triangles": 8612,
+  "drawCalls": 5,
+  "textures": 1,
+  "textureResolution": 1024,
+  "textureBytes": 90897,
+  "width": 2.4,
+  "depth": 1.05,
+  "worktopHeight": 0.92
+}

@@ -1,0 +1,2040 @@
+{
+  "full": {
+    "durationMs": 6005.100000023842,
+    "moving": true,
+    "detailed": false,
+    "frames": 29,
+    "fps": 4.82922848909841,
+    "intervalMs": {
+      "count": 28,
+      "mean": 212.85000000042575,
+      "median": 228.19999998807907,
+      "p95": 278.59999999403954,
+      "max": 306.59999999403954
+    },
+    "composerMs": {
+      "count": 29,
+      "mean": 38.358620684722375,
+      "median": 37.30000001192093,
+      "p95": 47.400000005960464,
+      "max": 68.09999999403954
+    },
+    "gpu": [
+      {
+        "pass": "2:EffectPass",
+        "count": 1,
+        "mean": 0.17869,
+        "median": 0.17869,
+        "p95": 0.17869,
+        "max": 0.17869
+      },
+      {
+        "pass": "1:Pass",
+        "count": 1,
+        "mean": 7.58786,
+        "median": 7.58786,
+        "p95": 7.58786,
+        "max": 7.58786
+      },
+      {
+        "pass": "0:RenderPass",
+        "count": 1,
+        "mean": 153.13762,
+        "median": 153.13762,
+        "p95": 153.13762,
+        "max": 153.13762
+      }
+    ],
+    "counts": {
+      "0:RenderPass:executions": 29,
+      "0:RenderPass:cpuMs": 778.6999998688698,
+      "1:Pass:executions": 29,
+      "1:Pass:cpuMs": 325.20000010728836,
+      "2:EffectPass:executions": 29,
+      "2:EffectPass:cpuMs": 5.299999892711639
+    },
+    "native": {
+      "1:drawElements": 6312,
+      "1:drawElementsInstanced": 1363,
+      "1:drawArrays": 1134,
+      "1:createBuffer": 1,
+      "1:bufferData": 1
+    },
+    "callbacks": [],
+    "groups": [],
+    "before": {
+      "graphics": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1311,
+        1000
+      ],
+      "camera": {
+        "position": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ],
+        "quaternion": [
+          -0.11595749164193761,
+          -0.054972109633091716,
+          -0.0064277075209356665,
+          0.9917109517750738
+        ]
+      },
+      "resources": {
+        "geometries": 405,
+        "textures": 100,
+        "programs": 66
+      },
+      "gi": {
+        "generation": 2,
+        "state": "ready",
+        "enabled": true,
+        "displayed": true,
+        "diffuseReady": true,
+        "probes": 353,
+        "floorProbes": 128,
+        "rooms": 17,
+        "reflections": 0,
+        "completed": 706,
+        "total": 706,
+        "capturedFaces": 0,
+        "captureMs": 0,
+        "worker": false,
+        "geometryBuilds": 0,
+        "source": "saved",
+        "saved": true,
+        "blocked": false,
+        "diffuseEnabled": true,
+        "bakeOnDemand": false,
+        "preparing": false,
+        "warming": false,
+        "reading": false,
+        "inFlight": 0,
+        "volumePending": false,
+        "previewPending": false,
+        "pendingUpdate": false,
+        "floorPreparing": false,
+        "floorLayerReady": true,
+        "volumeSamplingVersion": 1,
+        "xr": false,
+        "capturedProbes": 353,
+        "reflection": false,
+        "face": 0,
+        "saving": false,
+        "exportable": true,
+        "continuous": false,
+        "lightingRevision": 1,
+        "pendingLighting": false,
+        "moving": false,
+        "paused": false
+      },
+      "phase": {
+        "startedAtMs": 8048.199999988079,
+        "phase": "full",
+        "frames": 6036,
+        "geometryReadyMs": 13649.09999999404,
+        "opaqueReadyMs": 21405.09999999404,
+        "lightingReadyMs": 125941.20000001788,
+        "programsAtLighting": 82,
+        "fullReadyMs": 127903.70000001788
+      },
+      "warm": false,
+      "commits": {
+        "1": 78,
+        "2": 167
+      },
+      "workers": [
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 5,
+          "received": 5
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 3,
+          "received": 3
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 2
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 7,
+          "received": 12
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 9,
+          "received": 16
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 9,
+          "received": 8
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 7,
+          "received": 6
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 11,
+          "received": 10
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 10,
+          "received": 9
+        },
+        {
+          "url": "http://localhost:4173/assets/modelPlanDrawing.worker-DKWDKTBh.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 4,
+          "received": 7
+        },
+        {
+          "url": "http://localhost:4173/assets/roomLightMask.worker-B4ADI9_j.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/indirectBufferCodec.worker-p8u-Zlp4.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/exteriorSkyOcclusion.worker-Bv2bwoTl.js",
+          "sent": 1,
+          "received": 24
+        }
+      ],
+      "contexts": [
+        {
+          "id": 0,
+          "connected": false,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 1,
+          "connected": true,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 2,
+          "connected": false,
+          "width": 512,
+          "height": 258
+        },
+        {
+          "id": 3,
+          "connected": false,
+          "width": 198,
+          "height": 512
+        },
+        {
+          "id": 4,
+          "connected": false,
+          "width": 512,
+          "height": 511
+        },
+        {
+          "id": 5,
+          "connected": false,
+          "width": 512,
+          "height": 255
+        },
+        {
+          "id": 6,
+          "connected": false,
+          "width": 512,
+          "height": 492
+        },
+        {
+          "id": 7,
+          "connected": false,
+          "width": 512,
+          "height": 7
+        },
+        {
+          "id": 8,
+          "connected": false,
+          "width": 512,
+          "height": 444
+        },
+        {
+          "id": 9,
+          "connected": false,
+          "width": 512,
+          "height": 242
+        },
+        {
+          "id": 10,
+          "connected": false,
+          "width": 512,
+          "height": 294
+        },
+        {
+          "id": 11,
+          "connected": false,
+          "width": 298,
+          "height": 512
+        },
+        {
+          "id": 12,
+          "connected": false,
+          "width": 512,
+          "height": 435
+        },
+        {
+          "id": 13,
+          "connected": false,
+          "width": 486,
+          "height": 512
+        },
+        {
+          "id": 14,
+          "connected": false,
+          "width": 512,
+          "height": 470
+        }
+      ],
+      "subscribers": 323,
+      "lost": false
+    },
+    "after": {
+      "graphics": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1311,
+        1000
+      ],
+      "camera": {
+        "position": [
+          10.191666055337427,
+          1.5431368234618963,
+          10.933575031573916
+        ],
+        "quaternion": [
+          -0.11587157671661501,
+          -0.04301266446723283,
+          -0.007825151824107162,
+          0.9923015949818709
+        ]
+      },
+      "resources": {
+        "geometries": 405,
+        "textures": 100,
+        "programs": 66
+      },
+      "gi": {
+        "generation": 2,
+        "state": "ready",
+        "enabled": true,
+        "displayed": true,
+        "diffuseReady": true,
+        "probes": 353,
+        "floorProbes": 128,
+        "rooms": 17,
+        "reflections": 0,
+        "completed": 706,
+        "total": 706,
+        "capturedFaces": 0,
+        "captureMs": 0,
+        "worker": false,
+        "geometryBuilds": 0,
+        "source": "saved",
+        "saved": true,
+        "blocked": false,
+        "diffuseEnabled": true,
+        "bakeOnDemand": false,
+        "preparing": false,
+        "warming": false,
+        "reading": false,
+        "inFlight": 0,
+        "volumePending": false,
+        "previewPending": false,
+        "pendingUpdate": false,
+        "floorPreparing": false,
+        "floorLayerReady": true,
+        "volumeSamplingVersion": 1,
+        "xr": false,
+        "capturedProbes": 353,
+        "reflection": false,
+        "face": 0,
+        "saving": false,
+        "exportable": true,
+        "continuous": false,
+        "lightingRevision": 1,
+        "pendingLighting": false,
+        "moving": true,
+        "paused": false
+      },
+      "phase": {
+        "startedAtMs": 8048.199999988079,
+        "phase": "full",
+        "frames": 6036,
+        "geometryReadyMs": 13649.09999999404,
+        "opaqueReadyMs": 21405.09999999404,
+        "lightingReadyMs": 125941.20000001788,
+        "programsAtLighting": 82,
+        "fullReadyMs": 127903.70000001788
+      },
+      "warm": false,
+      "commits": {
+        "1": 115,
+        "2": 273
+      },
+      "workers": [
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 5,
+          "received": 5
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 3,
+          "received": 3
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 2
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 7,
+          "received": 12
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 9,
+          "received": 16
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 9,
+          "received": 8
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 7,
+          "received": 6
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 11,
+          "received": 10
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 10,
+          "received": 9
+        },
+        {
+          "url": "http://localhost:4173/assets/modelPlanDrawing.worker-DKWDKTBh.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 4,
+          "received": 7
+        },
+        {
+          "url": "http://localhost:4173/assets/roomLightMask.worker-B4ADI9_j.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/indirectBufferCodec.worker-p8u-Zlp4.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/exteriorSkyOcclusion.worker-Bv2bwoTl.js",
+          "sent": 1,
+          "received": 62
+        }
+      ],
+      "contexts": [
+        {
+          "id": 0,
+          "connected": false,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 1,
+          "connected": true,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 2,
+          "connected": false,
+          "width": 512,
+          "height": 258
+        },
+        {
+          "id": 3,
+          "connected": false,
+          "width": 198,
+          "height": 512
+        },
+        {
+          "id": 4,
+          "connected": false,
+          "width": 512,
+          "height": 511
+        },
+        {
+          "id": 5,
+          "connected": false,
+          "width": 512,
+          "height": 255
+        },
+        {
+          "id": 6,
+          "connected": false,
+          "width": 512,
+          "height": 492
+        },
+        {
+          "id": 7,
+          "connected": false,
+          "width": 512,
+          "height": 7
+        },
+        {
+          "id": 8,
+          "connected": false,
+          "width": 512,
+          "height": 444
+        },
+        {
+          "id": 9,
+          "connected": false,
+          "width": 512,
+          "height": 242
+        },
+        {
+          "id": 10,
+          "connected": false,
+          "width": 512,
+          "height": 294
+        },
+        {
+          "id": 11,
+          "connected": false,
+          "width": 298,
+          "height": 512
+        },
+        {
+          "id": 12,
+          "connected": false,
+          "width": 512,
+          "height": 435
+        },
+        {
+          "id": 13,
+          "connected": false,
+          "width": 486,
+          "height": 512
+        },
+        {
+          "id": 14,
+          "connected": false,
+          "width": 512,
+          "height": 470
+        }
+      ],
+      "subscribers": 323,
+      "lost": false
+    }
+  },
+  "warm": {
+    "durationMs": 8002.4000000059605,
+    "moving": true,
+    "detailed": false,
+    "frames": 53,
+    "fps": 6.623013096066246,
+    "intervalMs": {
+      "count": 52,
+      "mean": 152.25,
+      "median": 125.2000000178814,
+      "p95": 425,
+      "max": 662.7999999821186
+    },
+    "composerMs": {
+      "count": 53,
+      "mean": 35.92264150954642,
+      "median": 34.19999998807907,
+      "p95": 48.29999998211861,
+      "max": 49.900000005960464
+    },
+    "gpu": [
+      {
+        "pass": "2:EffectPass",
+        "count": 2,
+        "mean": 0.134955,
+        "median": 0.21011,
+        "p95": 0.21011,
+        "max": 0.21011
+      },
+      {
+        "pass": "1:Pass",
+        "count": 2,
+        "mean": 23.706455,
+        "median": 42.97175,
+        "p95": 42.97175,
+        "max": 42.97175
+      },
+      {
+        "pass": "0:RenderPass",
+        "count": 2,
+        "mean": 132.706905,
+        "median": 208.17606,
+        "p95": 208.17606,
+        "max": 208.17606
+      }
+    ],
+    "counts": {
+      "0:RenderPass:executions": 53,
+      "0:RenderPass:cpuMs": 1328.3000000417233,
+      "1:Pass:executions": 53,
+      "1:Pass:cpuMs": 560.0000000596046,
+      "2:EffectPass:executions": 53,
+      "2:EffectPass:cpuMs": 8.999999970197678
+    },
+    "native": {
+      "1:drawElements": 11913,
+      "1:drawElementsInstanced": 2491,
+      "1:drawArrays": 2035,
+      "1:createTexture": 61,
+      "1:texSubImage3D": 1,
+      "1:texImage2D": 44
+    },
+    "callbacks": [],
+    "groups": [],
+    "before": {
+      "graphics": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        1311,
+        1000
+      ],
+      "camera": {
+        "position": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ],
+        "quaternion": [
+          -0.11595749164193761,
+          -0.054972109633091716,
+          -0.0064277075209356665,
+          0.9917109517750738
+        ]
+      },
+      "resources": {
+        "geometries": 405,
+        "textures": 100,
+        "programs": 66
+      },
+      "gi": {
+        "generation": 2,
+        "state": "ready",
+        "enabled": true,
+        "displayed": true,
+        "diffuseReady": true,
+        "probes": 353,
+        "floorProbes": 128,
+        "rooms": 17,
+        "reflections": 0,
+        "completed": 706,
+        "total": 706,
+        "capturedFaces": 0,
+        "captureMs": 0,
+        "worker": false,
+        "geometryBuilds": 0,
+        "source": "saved",
+        "saved": true,
+        "blocked": false,
+        "diffuseEnabled": true,
+        "bakeOnDemand": false,
+        "preparing": false,
+        "warming": false,
+        "reading": false,
+        "inFlight": 0,
+        "volumePending": false,
+        "previewPending": false,
+        "pendingUpdate": false,
+        "floorPreparing": false,
+        "floorLayerReady": true,
+        "volumeSamplingVersion": 1,
+        "xr": false,
+        "capturedProbes": 353,
+        "reflection": false,
+        "face": 0,
+        "saving": false,
+        "exportable": true,
+        "continuous": false,
+        "lightingRevision": 1,
+        "pendingLighting": false,
+        "moving": true,
+        "paused": false
+      },
+      "phase": {
+        "startedAtMs": 8048.199999988079,
+        "phase": "full",
+        "frames": 6036,
+        "geometryReadyMs": 13649.09999999404,
+        "opaqueReadyMs": 21405.09999999404,
+        "lightingReadyMs": 125941.20000001788,
+        "programsAtLighting": 82,
+        "fullReadyMs": 127903.70000001788
+      },
+      "warm": false,
+      "commits": {
+        "1": 115,
+        "2": 273
+      },
+      "workers": [
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 5,
+          "received": 5
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 3,
+          "received": 3
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 2
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 7,
+          "received": 12
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 9,
+          "received": 16
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 9,
+          "received": 8
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 7,
+          "received": 6
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 11,
+          "received": 10
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 10,
+          "received": 9
+        },
+        {
+          "url": "http://localhost:4173/assets/modelPlanDrawing.worker-DKWDKTBh.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 4,
+          "received": 7
+        },
+        {
+          "url": "http://localhost:4173/assets/roomLightMask.worker-B4ADI9_j.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/indirectBufferCodec.worker-p8u-Zlp4.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/exteriorSkyOcclusion.worker-Bv2bwoTl.js",
+          "sent": 1,
+          "received": 62
+        }
+      ],
+      "contexts": [
+        {
+          "id": 0,
+          "connected": false,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 1,
+          "connected": true,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 2,
+          "connected": false,
+          "width": 512,
+          "height": 258
+        },
+        {
+          "id": 3,
+          "connected": false,
+          "width": 198,
+          "height": 512
+        },
+        {
+          "id": 4,
+          "connected": false,
+          "width": 512,
+          "height": 511
+        },
+        {
+          "id": 5,
+          "connected": false,
+          "width": 512,
+          "height": 255
+        },
+        {
+          "id": 6,
+          "connected": false,
+          "width": 512,
+          "height": 492
+        },
+        {
+          "id": 7,
+          "connected": false,
+          "width": 512,
+          "height": 7
+        },
+        {
+          "id": 8,
+          "connected": false,
+          "width": 512,
+          "height": 444
+        },
+        {
+          "id": 9,
+          "connected": false,
+          "width": 512,
+          "height": 242
+        },
+        {
+          "id": 10,
+          "connected": false,
+          "width": 512,
+          "height": 294
+        },
+        {
+          "id": 11,
+          "connected": false,
+          "width": 298,
+          "height": 512
+        },
+        {
+          "id": 12,
+          "connected": false,
+          "width": 512,
+          "height": 435
+        },
+        {
+          "id": 13,
+          "connected": false,
+          "width": 486,
+          "height": 512
+        },
+        {
+          "id": 14,
+          "connected": false,
+          "width": 512,
+          "height": 470
+        }
+      ],
+      "subscribers": 323,
+      "lost": false
+    },
+    "after": {
+      "graphics": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        655,
+        500
+      ],
+      "camera": {
+        "position": [
+          10.45393449792143,
+          1.5431368234618963,
+          11.169298865961373
+        ],
+        "quaternion": [
+          -0.11613547638242437,
+          -0.10909475513126561,
+          -0.00008010800256638782,
+          0.9872238242217337
+        ]
+      },
+      "resources": {
+        "geometries": 405,
+        "textures": 101,
+        "programs": 66
+      },
+      "gi": {
+        "generation": 2,
+        "state": "ready",
+        "enabled": true,
+        "displayed": true,
+        "diffuseReady": true,
+        "probes": 353,
+        "floorProbes": 128,
+        "rooms": 17,
+        "reflections": 0,
+        "completed": 706,
+        "total": 706,
+        "capturedFaces": 0,
+        "captureMs": 0,
+        "worker": false,
+        "geometryBuilds": 0,
+        "source": "saved",
+        "saved": true,
+        "blocked": false,
+        "diffuseEnabled": true,
+        "bakeOnDemand": false,
+        "preparing": false,
+        "warming": false,
+        "reading": false,
+        "inFlight": 0,
+        "volumePending": false,
+        "previewPending": false,
+        "pendingUpdate": false,
+        "floorPreparing": false,
+        "floorLayerReady": true,
+        "volumeSamplingVersion": 1,
+        "xr": false,
+        "capturedProbes": 353,
+        "reflection": false,
+        "face": 0,
+        "saving": false,
+        "exportable": true,
+        "continuous": false,
+        "lightingRevision": 1,
+        "pendingLighting": false,
+        "moving": true,
+        "paused": false
+      },
+      "phase": {
+        "startedAtMs": 8048.199999988079,
+        "phase": "full",
+        "frames": 6036,
+        "geometryReadyMs": 13649.09999999404,
+        "opaqueReadyMs": 21405.09999999404,
+        "lightingReadyMs": 125941.20000001788,
+        "programsAtLighting": 82,
+        "fullReadyMs": 127903.70000001788
+      },
+      "warm": false,
+      "commits": {
+        "1": 125,
+        "2": 292
+      },
+      "workers": [
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 5,
+          "received": 5
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 3,
+          "received": 3
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 2
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 7,
+          "received": 12
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 9,
+          "received": 16
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 9,
+          "received": 8
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 7,
+          "received": 6
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 11,
+          "received": 10
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 10,
+          "received": 9
+        },
+        {
+          "url": "http://localhost:4173/assets/modelPlanDrawing.worker-DKWDKTBh.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 4,
+          "received": 7
+        },
+        {
+          "url": "http://localhost:4173/assets/roomLightMask.worker-B4ADI9_j.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/indirectBufferCodec.worker-p8u-Zlp4.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/exteriorSkyOcclusion.worker-Bv2bwoTl.js",
+          "sent": 1,
+          "received": 67
+        }
+      ],
+      "contexts": [
+        {
+          "id": 0,
+          "connected": false,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 1,
+          "connected": true,
+          "width": 655,
+          "height": 500
+        },
+        {
+          "id": 2,
+          "connected": false,
+          "width": 512,
+          "height": 258
+        },
+        {
+          "id": 3,
+          "connected": false,
+          "width": 198,
+          "height": 512
+        },
+        {
+          "id": 4,
+          "connected": false,
+          "width": 512,
+          "height": 511
+        },
+        {
+          "id": 5,
+          "connected": false,
+          "width": 512,
+          "height": 255
+        },
+        {
+          "id": 6,
+          "connected": false,
+          "width": 512,
+          "height": 492
+        },
+        {
+          "id": 7,
+          "connected": false,
+          "width": 512,
+          "height": 7
+        },
+        {
+          "id": 8,
+          "connected": false,
+          "width": 512,
+          "height": 444
+        },
+        {
+          "id": 9,
+          "connected": false,
+          "width": 512,
+          "height": 242
+        },
+        {
+          "id": 10,
+          "connected": false,
+          "width": 512,
+          "height": 294
+        },
+        {
+          "id": 11,
+          "connected": false,
+          "width": 298,
+          "height": 512
+        },
+        {
+          "id": 12,
+          "connected": false,
+          "width": 512,
+          "height": 435
+        },
+        {
+          "id": 13,
+          "connected": false,
+          "width": 486,
+          "height": 512
+        },
+        {
+          "id": 14,
+          "connected": false,
+          "width": 512,
+          "height": 470
+        }
+      ],
+      "subscribers": 323,
+      "lost": false
+    }
+  },
+  "adaptive": {
+    "durationMs": 6036.199999988079,
+    "moving": true,
+    "detailed": false,
+    "frames": 62,
+    "fps": 10.271362777926916,
+    "intervalMs": {
+      "count": 61,
+      "mean": 98.32786885245902,
+      "median": 87.69999998807907,
+      "p95": 171.90000000596046,
+      "max": 182.59999999403954
+    },
+    "composerMs": {
+      "count": 62,
+      "mean": 32.45806451766722,
+      "median": 31.700000017881393,
+      "p95": 36.20000001788139,
+      "max": 40.5
+    },
+    "gpu": [
+      {
+        "pass": "2:EffectPass",
+        "count": 2,
+        "mean": 0.061865,
+        "median": 0.0636,
+        "p95": 0.0636,
+        "max": 0.0636
+      },
+      {
+        "pass": "1:Pass",
+        "count": 2,
+        "mean": 4.207955,
+        "median": 4.28358,
+        "p95": 4.28358,
+        "max": 4.28358
+      },
+      {
+        "pass": "0:RenderPass",
+        "count": 2,
+        "mean": 83.20419000000001,
+        "median": 143.87655,
+        "p95": 143.87655,
+        "max": 143.87655
+      }
+    ],
+    "counts": {
+      "0:RenderPass:executions": 62,
+      "0:RenderPass:cpuMs": 1388.5999999642372,
+      "1:Pass:executions": 62,
+      "1:Pass:cpuMs": 608.6999999582767,
+      "2:EffectPass:executions": 62,
+      "2:EffectPass:cpuMs": 8.600000083446503
+    },
+    "native": {
+      "1:drawElements": 13465,
+      "1:drawElementsInstanced": 2914,
+      "1:drawArrays": 2423
+    },
+    "callbacks": [],
+    "groups": [],
+    "before": {
+      "graphics": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        655,
+        500
+      ],
+      "camera": {
+        "position": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ],
+        "quaternion": [
+          -0.11595749164193761,
+          -0.054972109633091716,
+          -0.0064277075209356665,
+          0.9917109517750738
+        ]
+      },
+      "resources": {
+        "geometries": 405,
+        "textures": 101,
+        "programs": 66
+      },
+      "gi": {
+        "generation": 2,
+        "state": "ready",
+        "enabled": true,
+        "displayed": true,
+        "diffuseReady": true,
+        "probes": 353,
+        "floorProbes": 128,
+        "rooms": 17,
+        "reflections": 0,
+        "completed": 706,
+        "total": 706,
+        "capturedFaces": 0,
+        "captureMs": 0,
+        "worker": false,
+        "geometryBuilds": 0,
+        "source": "saved",
+        "saved": true,
+        "blocked": false,
+        "diffuseEnabled": true,
+        "bakeOnDemand": false,
+        "preparing": false,
+        "warming": false,
+        "reading": false,
+        "inFlight": 0,
+        "volumePending": false,
+        "previewPending": false,
+        "pendingUpdate": false,
+        "floorPreparing": false,
+        "floorLayerReady": true,
+        "volumeSamplingVersion": 1,
+        "xr": false,
+        "capturedProbes": 353,
+        "reflection": false,
+        "face": 0,
+        "saving": false,
+        "exportable": true,
+        "continuous": false,
+        "lightingRevision": 1,
+        "pendingLighting": false,
+        "moving": true,
+        "paused": false
+      },
+      "phase": {
+        "startedAtMs": 8048.199999988079,
+        "phase": "full",
+        "frames": 6036,
+        "geometryReadyMs": 13649.09999999404,
+        "opaqueReadyMs": 21405.09999999404,
+        "lightingReadyMs": 125941.20000001788,
+        "programsAtLighting": 82,
+        "fullReadyMs": 127903.70000001788
+      },
+      "warm": false,
+      "commits": {
+        "1": 125,
+        "2": 292
+      },
+      "workers": [
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 5,
+          "received": 5
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 3,
+          "received": 3
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 2
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 7,
+          "received": 12
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 9,
+          "received": 16
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 9,
+          "received": 8
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 7,
+          "received": 6
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 11,
+          "received": 10
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 10,
+          "received": 9
+        },
+        {
+          "url": "http://localhost:4173/assets/modelPlanDrawing.worker-DKWDKTBh.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 4,
+          "received": 7
+        },
+        {
+          "url": "http://localhost:4173/assets/roomLightMask.worker-B4ADI9_j.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/indirectBufferCodec.worker-p8u-Zlp4.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/exteriorSkyOcclusion.worker-Bv2bwoTl.js",
+          "sent": 1,
+          "received": 67
+        }
+      ],
+      "contexts": [
+        {
+          "id": 0,
+          "connected": false,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 1,
+          "connected": true,
+          "width": 655,
+          "height": 500
+        },
+        {
+          "id": 2,
+          "connected": false,
+          "width": 512,
+          "height": 258
+        },
+        {
+          "id": 3,
+          "connected": false,
+          "width": 198,
+          "height": 512
+        },
+        {
+          "id": 4,
+          "connected": false,
+          "width": 512,
+          "height": 511
+        },
+        {
+          "id": 5,
+          "connected": false,
+          "width": 512,
+          "height": 255
+        },
+        {
+          "id": 6,
+          "connected": false,
+          "width": 512,
+          "height": 492
+        },
+        {
+          "id": 7,
+          "connected": false,
+          "width": 512,
+          "height": 7
+        },
+        {
+          "id": 8,
+          "connected": false,
+          "width": 512,
+          "height": 444
+        },
+        {
+          "id": 9,
+          "connected": false,
+          "width": 512,
+          "height": 242
+        },
+        {
+          "id": 10,
+          "connected": false,
+          "width": 512,
+          "height": 294
+        },
+        {
+          "id": 11,
+          "connected": false,
+          "width": 298,
+          "height": 512
+        },
+        {
+          "id": 12,
+          "connected": false,
+          "width": 512,
+          "height": 435
+        },
+        {
+          "id": 13,
+          "connected": false,
+          "width": 486,
+          "height": 512
+        },
+        {
+          "id": 14,
+          "connected": false,
+          "width": 512,
+          "height": 470
+        }
+      ],
+      "subscribers": 323,
+      "lost": false
+    },
+    "after": {
+      "graphics": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "canvas": [
+        655,
+        500
+      ],
+      "camera": {
+        "position": [
+          10.192205568093371,
+          1.5431368234618963,
+          10.941155564387808
+        ],
+        "quaternion": [
+          -0.11588248397144289,
+          -0.04441033891288379,
+          -0.007661931902138186,
+          0.9922400246441272
+        ]
+      },
+      "resources": {
+        "geometries": 405,
+        "textures": 101,
+        "programs": 66
+      },
+      "gi": {
+        "generation": 2,
+        "state": "ready",
+        "enabled": true,
+        "displayed": true,
+        "diffuseReady": true,
+        "probes": 353,
+        "floorProbes": 128,
+        "rooms": 17,
+        "reflections": 0,
+        "completed": 706,
+        "total": 706,
+        "capturedFaces": 0,
+        "captureMs": 0,
+        "worker": false,
+        "geometryBuilds": 0,
+        "source": "saved",
+        "saved": true,
+        "blocked": false,
+        "diffuseEnabled": true,
+        "bakeOnDemand": false,
+        "preparing": false,
+        "warming": false,
+        "reading": false,
+        "inFlight": 0,
+        "volumePending": false,
+        "previewPending": false,
+        "pendingUpdate": false,
+        "floorPreparing": false,
+        "floorLayerReady": true,
+        "volumeSamplingVersion": 1,
+        "xr": false,
+        "capturedProbes": 353,
+        "reflection": false,
+        "face": 0,
+        "saving": false,
+        "exportable": true,
+        "continuous": false,
+        "lightingRevision": 1,
+        "pendingLighting": false,
+        "moving": true,
+        "paused": false
+      },
+      "phase": {
+        "startedAtMs": 8048.199999988079,
+        "phase": "full",
+        "frames": 6036,
+        "geometryReadyMs": 13649.09999999404,
+        "opaqueReadyMs": 21405.09999999404,
+        "lightingReadyMs": 125941.20000001788,
+        "programsAtLighting": 82,
+        "fullReadyMs": 127903.70000001788
+      },
+      "warm": false,
+      "commits": {
+        "1": 125,
+        "2": 292
+      },
+      "workers": [
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 5,
+          "received": 5
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 3,
+          "received": 3
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/threeDLevelPreparation.worker-6K0FmK4m.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/buildingPreparation.worker-C106DpiA.js",
+          "sent": 2,
+          "received": 2
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 7,
+          "received": 12
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 9,
+          "received": 16
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/roofAssembly.worker-NL-a3sPy.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 9,
+          "received": 8
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 7,
+          "received": 6
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 11,
+          "received": 10
+        },
+        {
+          "url": "blob:http://localhost:4173/5ee1055b-92d8-499b-af18-ebf4b480a507",
+          "sent": 10,
+          "received": 9
+        },
+        {
+          "url": "http://localhost:4173/assets/modelPlanDrawing.worker-DKWDKTBh.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/wallRoofClip.worker-Cu4oDqLO.js",
+          "sent": 4,
+          "received": 7
+        },
+        {
+          "url": "http://localhost:4173/assets/roomLightMask.worker-B4ADI9_j.js",
+          "sent": 1,
+          "received": 1
+        },
+        {
+          "url": "http://localhost:4173/assets/indirectBufferCodec.worker-p8u-Zlp4.js",
+          "sent": 13,
+          "received": 13
+        },
+        {
+          "url": "http://localhost:4173/assets/exteriorSkyOcclusion.worker-Bv2bwoTl.js",
+          "sent": 1,
+          "received": 67
+        }
+      ],
+      "contexts": [
+        {
+          "id": 0,
+          "connected": false,
+          "width": 1311,
+          "height": 1000
+        },
+        {
+          "id": 1,
+          "connected": true,
+          "width": 655,
+          "height": 500
+        },
+        {
+          "id": 2,
+          "connected": false,
+          "width": 512,
+          "height": 258
+        },
+        {
+          "id": 3,
+          "connected": false,
+          "width": 198,
+          "height": 512
+        },
+        {
+          "id": 4,
+          "connected": false,
+          "width": 512,
+          "height": 511
+        },
+        {
+          "id": 5,
+          "connected": false,
+          "width": 512,
+          "height": 255
+        },
+        {
+          "id": 6,
+          "connected": false,
+          "width": 512,
+          "height": 492
+        },
+        {
+          "id": 7,
+          "connected": false,
+          "width": 512,
+          "height": 7
+        },
+        {
+          "id": 8,
+          "connected": false,
+          "width": 512,
+          "height": 444
+        },
+        {
+          "id": 9,
+          "connected": false,
+          "width": 512,
+          "height": 242
+        },
+        {
+          "id": 10,
+          "connected": false,
+          "width": 512,
+          "height": 294
+        },
+        {
+          "id": 11,
+          "connected": false,
+          "width": 298,
+          "height": 512
+        },
+        {
+          "id": 12,
+          "connected": false,
+          "width": 512,
+          "height": 435
+        },
+        {
+          "id": 13,
+          "connected": false,
+          "width": 486,
+          "height": 512
+        },
+        {
+          "id": 14,
+          "connected": false,
+          "width": 512,
+          "height": 470
+        }
+      ],
+      "subscribers": 323,
+      "lost": false
+    }
+  },
+  "movingScale": 0.5,
+  "movingSize": [
+    655,
+    500
+  ],
+  "movingBuffer": [
+    655,
+    500
+  ],
+  "restingScale": 1,
+  "restingSize": [
+    1311,
+    1000
+  ],
+  "restingBuffer": [
+    1311,
+    1000
+  ],
+  "status": {
+    "scale": 1,
+    "moving": false,
+    "ready": true
+  }
+}

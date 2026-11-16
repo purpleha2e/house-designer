@@ -1,0 +1,6 @@
+[
+  "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+  "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute.",
+  "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+  "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute."
+]

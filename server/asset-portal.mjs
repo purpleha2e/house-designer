@@ -16,6 +16,7 @@ import { pathToFileURL } from 'node:url'
 import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { getMaterialVariationMetadata } from './material-variation-metadata.mjs'
+import { readModelMaterialNames } from './model-material-names.mjs'
 
 const PORT = Number(process.env.ASSET_PORTAL_PORT ?? 5174)
 const ROOT_DIR = resolve(import.meta.dirname, '..')
@@ -382,6 +383,12 @@ async function listAssetsForManufacturer(manufacturer) {
         if (metadata.assetKind === 'model') {
           const modelFileName = getStoredModelFileName(metadata)
 
+          // Backfill existing uploads once, without rerunning texture conversion.
+          if (modelFileName && !Array.isArray(metadata.materialNames)) {
+            metadata.materialNames = await inferModelMaterialNames(join(root, assetDir.name, modelFileName))
+            await writeJson(metadataPath, metadata)
+          }
+
           if (
             modelFileName &&
             (!metadata.inferredDimensions ||
@@ -691,6 +698,11 @@ function getModelDimensionsFromDocument(document) {
   }
 
   return { ...bounds, depth, height, width }
+}
+
+async function inferModelMaterialNames(filePath) {
+  try { return await readModelMaterialNames(filePath) }
+  catch (error) { console.warn(`Could not inspect model materials for ${filePath}: ${error.message}`); return [] }
 }
 
 async function inferModelDimensions(filePath) {
@@ -1083,6 +1095,8 @@ async function handleUpload(request, response) {
       slug: manufacturer.slug,
     },
     inferredDimensions,
+    materialNames: metadataAssetKind === 'model' && modelFile
+      ? await inferModelMaterialNames(join(assetDir, modelFile.url.split('/').pop() ?? '')) : undefined,
     metadata: {
       ...getMaterialVariationMetadata(fields),
       baseColor: getMaterialBaseColorField(fields),
@@ -1327,6 +1341,8 @@ async function handleUpdateAsset(request, response, pathname) {
       metadata.inferredDimensions = modelFile
         ? await inferModelDimensions(join(assetDir, modelFile.url.split('/').pop() ?? ''))
         : null
+      metadata.materialNames = modelFile
+        ? await inferModelMaterialNames(join(assetDir, modelFile.url.split('/').pop() ?? '')) : []
     }
   }
 

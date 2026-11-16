@@ -342,6 +342,8 @@ export function createSolidRoofGeometryFromFaces(
     )
     geometry.setAttribute('normal', new Float32BufferAttribute(buffers.normals, 3))
     geometry.setAttribute('uv', new Float32BufferAttribute(buffers.uvs, 2))
+    if (buffers === top) geometry.setAttribute('hdGIExteriorReceiver',
+      new Float32BufferAttribute(new Float32Array(buffers.positions.length / 3).fill(1), 1))
     geometry.computeBoundingBox()
     geometry.computeBoundingSphere()
 

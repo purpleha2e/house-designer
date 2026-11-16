@@ -1,6 +1,7 @@
 import { BoxGeometry, Group, Material, Matrix4, Mesh, MeshStandardMaterial, Triangle, Vector3, Vector4, type Scene } from 'three'
 import type { FloorLevel, SurfaceMaterialAssignment, Wall, WallOpening } from './types.ts'
 import { shaderWarmupGeneration } from './shaderWarmupState.ts'
+import { captureMaterialShaderKey, composedMaterialShaderKey } from './shaderKeyTransform.ts'
 import { getWallMaterialAssignmentForSide, getWallSurfaceMaterialAssignments, resolveWallEngineFinish } from './wallEngine/wallRenderPreparation.ts'
 import { resolvedWallMaterialBatchKey, wallMaterialBatchKey } from './wallEngine/wallMaterialBatchKey.ts'
 
@@ -185,8 +186,10 @@ export function applyWallOpeningPreviewShader(material: Material, scene: Scene) 
   const preview = getWallOpeningPreview(scene)
   if (hooked.get(material) === preview) return
   const compile = material.onBeforeCompile, key = material.customProgramCacheKey
+  const upstreamKey = captureMaterialShaderKey(material), composeKey = composedMaterialShaderKey()
   const hook: Material['onBeforeCompile'] = (shader, renderer) => {
     compile.call(material, shader, renderer); Object.assign(shader.uniforms, preview.uniforms)
+    if (shader.fragmentShader.includes('bool hdOpeningHidden(')) return
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 hdOpeningPreviewPosition;')
       .replace('#include <project_vertex>', `#include <project_vertex>
         vec4 hdOpeningWorld=vec4(transformed,1.0);
@@ -202,8 +205,9 @@ export function applyWallOpeningPreviewShader(material: Material, scene: Scene) 
       uniform float hdOpeningPreviewCount,hdOpeningPreviewOverlay;
       uniform vec4 hdOpeningPreviewA[${MAX_OPENINGS}],hdOpeningPreviewB[${MAX_OPENINGS}];
       bool hdOpeningHidden(vec3 p) {
-        for(int i=0;i<${MAX_OPENINGS};i++) {
-          if(float(i)>=hdOpeningPreviewCount)break;
+        // The CPU caps this count to the arrays' capacity. Keep it as the loop
+        // bound: a constant bound can expand all 32 tests in every wall shader.
+        for(int i=0;float(i)<hdOpeningPreviewCount;i++) {
           vec4 a=hdOpeningPreviewA[i],b=hdOpeningPreviewB[i];vec2 d=p.xz-a.xz;
           if(b.w<0.0&&hdOpeningPreviewOverlay>.5)continue;
           if(abs(dot(d,b.xy))<a.w-.00001&&abs(dot(d,vec2(-b.y,b.x)))<abs(b.w)&&p.y>a.y+.00001&&p.y<b.z-.00001)return true;
@@ -211,7 +215,7 @@ export function applyWallOpeningPreviewShader(material: Material, scene: Scene) 
         return false;
       }`).replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\nif(hdOpeningPreviewCount>.5&&hdOpeningHidden(hdOpeningPreviewPosition))discard;')
   }
-  material.onBeforeCompile = hook; material.customProgramCacheKey = () => `${key.call(material)}:opening-preview-v1`
+  material.onBeforeCompile = hook; material.customProgramCacheKey = () => composeKey(upstreamKey(), ':opening-preview-v2')
   material.needsUpdate = true; hooked.set(material, preview)
   const restore = () => {
     if (material.onBeforeCompile === hook) { material.onBeforeCompile = compile; material.customProgramCacheKey = key; material.needsUpdate = true }

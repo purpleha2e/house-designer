@@ -1,0 +1,603 @@
+{
+  "status": {
+    "generation": 3,
+    "completed": 2118,
+    "total": 2118,
+    "rooms": 17,
+    "probes": 353,
+    "floorProbes": 128,
+    "state": "ready",
+    "multiviewViews": 0,
+    "multiviewBatches": 0,
+    "multiviewProbes": 0,
+    "firstProbes": 353,
+    "secondProbes": 353,
+    "reusedProbes": 0,
+    "zones": 17,
+    "partial": false,
+    "capturedFaces": 2118,
+    "captureMs": 16742.90000152588,
+    "maxFaceMs": 11093.300000011921,
+    "maxInFlight": 4,
+    "previewUpdates": 15,
+    "firstPreviewMs": 38535.19999998808,
+    "bakeStartedAt": 90943.10000002384,
+    "roomMean": {
+      "1": [
+        0.07653876983642578,
+        0.08519333038330078,
+        0.09763426116943359
+      ],
+      "2": [
+        0,
+        0,
+        0
+      ],
+      "3": [
+        0.0024915668449401857,
+        0.00234112624168396,
+        0.0022194214839935302
+      ],
+      "4": [
+        0.12451748986816406,
+        0.13804024072265625,
+        0.1604339161376953
+      ],
+      "5": [
+        0.006409783905029297,
+        0.006998023567199707,
+        0.007964900253295899
+      ],
+      "6": [
+        0.06063601483154297,
+        0.06615329718017578,
+        0.03905370446777344
+      ],
+      "7": [
+        0.004303615459442138,
+        0.00397230806350708,
+        0.0034415400924682617
+      ],
+      "8": [
+        0.00020791229438781738,
+        0.00018160631811618805,
+        0.000155194695353508
+      ],
+      "9": [
+        0.0004973836798667908,
+        0.000333420325756073,
+        0.0002717227749824524
+      ],
+      "10": [
+        0,
+        0,
+        0
+      ],
+      "11": [
+        0.2068439970703125,
+        0.2230712980957031,
+        0.24578951953125
+      ],
+      "12": [
+        0.01744434860229492,
+        0.016335483032226563,
+        0.015348322219848633
+      ],
+      "13": [
+        0.02626118215942383,
+        0.02461140655517578,
+        0.022109697647094726
+      ],
+      "14": [
+        0.01045308641052246,
+        0.010236722396850586,
+        0.009878369499206542
+      ],
+      "15": [
+        0.9701762373046875,
+        1.0671073154296875,
+        1.2107730205078124
+      ],
+      "16": [
+        0.043867803771972656,
+        0.04567985238647461,
+        0.05179213577270508
+      ],
+      "17": [
+        0,
+        0,
+        0
+      ]
+    },
+    "worker": true,
+    "geometryBuilds": 1,
+    "captureSceneMs": 1718.8999999761581,
+    "captureSceneMeshes": 476,
+    "captureMergedMeshes": 163,
+    "captureMaterials": 280,
+    "captureDrawCalls": 230711,
+    "captureTriangles": 280433506,
+    "surfaceCacheBytes": 46491648,
+    "surfaceCachedProbes": 353,
+    "surfaceReplayedProbes": 1765,
+    "surfaceReusedFaces": 10590,
+    "surfaceDataFaces": 2118,
+    "surfaceRelitProbes": 0,
+    "surfaceRelighting": true,
+    "prepareMs": 7447.699999988079,
+    "prepareTimings": {
+      "layout": 319.39999997615814,
+      "geometry": 1649.6000000238419,
+      "structure": 6.699999988079071,
+      "probes": 48.59999996423721,
+      "ceilings": 1003.4000000357628,
+      "lamps": 2221.099999964237,
+      "tables": 44.200000047683716,
+      "zones": 0
+    },
+    "geometryRefitted": false,
+    "blocked": false,
+    "enabled": true,
+    "diffuseEnabled": true,
+    "bakeOnDemand": false,
+    "preparing": false,
+    "warming": false,
+    "reading": false,
+    "inFlight": 0,
+    "volumePending": false,
+    "previewPending": false,
+    "pendingUpdate": false,
+    "floorPreparing": false,
+    "floorLayerReady": true,
+    "volumeSamplingVersion": 1,
+    "displayed": true,
+    "xr": false,
+    "capturedProbes": 353,
+    "reflection": false,
+    "face": 0,
+    "saving": false,
+    "saved": true,
+    "source": "baked",
+    "exportable": true,
+    "continuous": true,
+    "lightingRevision": 1,
+    "pendingLighting": false,
+    "moving": false,
+    "paused": false,
+    "lastCapture": {
+      "position": [
+        3.1531691551208496,
+        0.6000000238418579,
+        2.081115961074829
+      ],
+      "calls": 36,
+      "pass": 1,
+      "face": 5,
+      "faces": 1
+    },
+    "lastPreviewCompleted": 349,
+    "interpolationProfile": {
+      "warmVolumeRows": 2808,
+      "warmFloorRows": 918,
+      "warmVolumeCpuMs": 14317.500001013279,
+      "warmFloorCpuMs": 14749.699999809265,
+      "evaluations": [
+        {
+          "copyMs": 0.10000002384185791,
+          "decodeMs": 1.399999976158142,
+          "volumeMs": 319.60000002384186,
+          "floorMs": 358.0999999642372,
+          "outputCopyMs": 6,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0.10000002384185791,
+          "decodeMs": 0.8999999761581421,
+          "volumeMs": 296.69999998807907,
+          "floorMs": 343.5999999642372,
+          "outputCopyMs": 5.800000011920929,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0,
+          "decodeMs": 0.699999988079071,
+          "volumeMs": 303.19999998807907,
+          "floorMs": 353.19999998807907,
+          "outputCopyMs": 5.800000011920929,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0,
+          "decodeMs": 0.800000011920929,
+          "volumeMs": 325.69999998807907,
+          "floorMs": 357.7000000476837,
+          "outputCopyMs": 5.899999976158142,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0,
+          "decodeMs": 0.7999999523162842,
+          "volumeMs": 300.60000002384186,
+          "floorMs": 354.5,
+          "outputCopyMs": 6.199999988079071,
+          "visibilityTests": 0
+        },
+        {
+          "copyMs": 0,
+          "decodeMs": 0.5,
+          "volumeMs": 305.5,
+          "floorMs": 373.7000000476837,
+          "outputCopyMs": 6.099999964237213,
+          "visibilityTests": 0
+        }
+      ],
+      "volume": {
+        "samples": 1533168,
+        "newCells": 219024,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 30481020,
+        "links": 7903234,
+        "visibilityTests": 7903223,
+        "visibleLinks": 1407167,
+        "blockedLinks": 6496067,
+        "blendedLinks": 8443002,
+        "decodedValues": 663552,
+        "growthBytes": 116523008,
+        "reuseAccepted": false,
+        "cellCapacity": 219024,
+        "linkCapacity": 8388608,
+        "localFloorCells": 0,
+        "capacityBytes": 60476768,
+        "averageLinksPerPreparedCell": 36.08387208707722,
+        "coefficientProducts": 227961054
+      },
+      "floor": {
+        "samples": 1271998,
+        "newCells": 181714,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 29901286,
+        "links": 8239119,
+        "visibilityTests": 8239119,
+        "visibleLinks": 1802350,
+        "blockedLinks": 6436769,
+        "blendedLinks": 10814100,
+        "decodedValues": 663552,
+        "growthBytes": 116523008,
+        "reuseAccepted": false,
+        "cellCapacity": 280908,
+        "linkCapacity": 8388608,
+        "localFloorCells": 0,
+        "capacityBytes": 60848072,
+        "averageLinksPerPreparedCell": 45.341134970338004,
+        "coefficientProducts": 291980700
+      },
+      "preview": {
+        "samples": 238140,
+        "newCells": 15876,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 2171952,
+        "links": 555188,
+        "visibilityTests": 551526,
+        "visibleLinks": 94980,
+        "blockedLinks": 456548,
+        "blendedLinks": 705607,
+        "decodedValues": 1658880,
+        "growthBytes": 13762560,
+        "reuseAccepted": false,
+        "cellCapacity": 15876,
+        "linkCapacity": 1048576,
+        "localFloorCells": 0,
+        "capacityBytes": 7877656,
+        "averageLinksPerPreparedCell": 34.970269589317205,
+        "coefficientProducts": 19051389
+      },
+      "previewFloor": {
+        "samples": 174915,
+        "newCells": 11661,
+        "reusedCells": 0,
+        "retainedStates": 0,
+        "invalidatedStates": 0,
+        "candidateChecks": 1902077,
+        "links": 528261,
+        "visibilityTests": 526137,
+        "visibleLinks": 113148,
+        "blockedLinks": 412989,
+        "blendedLinks": 843248,
+        "decodedValues": 1658880,
+        "growthBytes": 13762560,
+        "reuseAccepted": false,
+        "cellCapacity": 18252,
+        "linkCapacity": 1048576,
+        "localFloorCells": 0,
+        "capacityBytes": 7891912,
+        "averageLinksPerPreparedCell": 45.301517880113195,
+        "coefficientProducts": 22767696
+      },
+      "dimensions": {
+        "volumeCells": 219024,
+        "floorCells": 280908,
+        "volumeN": 78,
+        "floorN": 306,
+        "probes": 353
+      }
+    },
+    "fullPassPublications": 6,
+    "batchedPasses": 5,
+    "batchedProbeReadbacks": 5
+  },
+  "performance": {
+    "label": "World-space probe GI",
+    "version": 1,
+    "complete": true,
+    "totalMs": 82823.79999995232,
+    "wallPhases": [
+      {
+        "name": "diffuse pass 1",
+        "ms": 28476.000000059605,
+        "percent": 34.38142176533315
+      },
+      {
+        "name": "GPU readback wait",
+        "ms": 23078.299999952316,
+        "percent": 27.864333681822863
+      },
+      {
+        "name": "shader preparation",
+        "ms": 15581.199999988079,
+        "percent": 18.812466947902713
+      },
+      {
+        "name": "geometry and visibility",
+        "ms": 7429.300000011921,
+        "percent": 8.970006205965191
+      },
+      {
+        "name": "irradiance volume",
+        "ms": 6271.700000047684,
+        "percent": 7.5723403177001
+      },
+      {
+        "name": "batched SH integration",
+        "ms": 1003.5999999642372,
+        "percent": 1.211728995729265
+      },
+      {
+        "name": "cached atlas diffuse relighting",
+        "ms": 955.2000000476837,
+        "percent": 1.1532916867473284
+      },
+      {
+        "name": "preparation",
+        "ms": 26.69999998807907,
+        "percent": 0.03223711057461073
+      },
+      {
+        "name": "diffuse pass 2",
+        "ms": 1,
+        "percent": 0.0012073824190638146
+      },
+      {
+        "name": "diffuse pass 3",
+        "ms": 0.2999999523162842,
+        "percent": 0.00036221466814666427
+      },
+      {
+        "name": "diffuse pass 4",
+        "ms": 0.2999999523162842,
+        "percent": 0.00036221466814666427
+      },
+      {
+        "name": "diffuse pass 5",
+        "ms": 0.10000002384185791,
+        "percent": 0.00012073827069262155
+      },
+      {
+        "name": "diffuse pass 6",
+        "ms": 0.09999996423721313,
+        "percent": 0.00012073819872702135
+      },
+      {
+        "name": "idle",
+        "ms": 0,
+        "percent": 0
+      }
+    ],
+    "stages": [
+      {
+        "name": "worker preparation round trip",
+        "count": 1,
+        "cpuMs": 0,
+        "wallMs": 7447.699999988079,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "worker: layout",
+        "count": 1,
+        "cpuMs": 319.39999997615814,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 319.39999997615814
+      },
+      {
+        "name": "worker: geometry",
+        "count": 1,
+        "cpuMs": 1649.6000000238419,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 1649.6000000238419
+      },
+      {
+        "name": "worker: structure",
+        "count": 1,
+        "cpuMs": 6.699999988079071,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 6.699999988079071
+      },
+      {
+        "name": "worker: probes",
+        "count": 1,
+        "cpuMs": 48.59999996423721,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 48.59999996423721
+      },
+      {
+        "name": "worker: ceilings",
+        "count": 1,
+        "cpuMs": 1003.4000000357628,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 1003.4000000357628
+      },
+      {
+        "name": "worker: lamps",
+        "count": 1,
+        "cpuMs": 2221.099999964237,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 2221.099999964237
+      },
+      {
+        "name": "worker: tables",
+        "count": 1,
+        "cpuMs": 44.200000047683716,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 44.200000047683716
+      },
+      {
+        "name": "worker: zones",
+        "count": 1,
+        "cpuMs": 0,
+        "wallMs": 0,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "probe reduction + asynchronous readback",
+        "count": 353,
+        "cpuMs": 0,
+        "wallMs": 82105.59999972582,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "publication to visible frame",
+        "count": 21,
+        "cpuMs": 0,
+        "wallMs": 315.50000017881393,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "irradiance volume worker",
+        "count": 6,
+        "cpuMs": 0,
+        "wallMs": 4076.5,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "GPU volume upload",
+        "count": 6,
+        "cpuMs": 0,
+        "wallMs": 2114.400000035763,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "batched probe readback wall wait",
+        "count": 5,
+        "cpuMs": 0,
+        "wallMs": 69.60000002384186,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      },
+      {
+        "name": "batched diffuse pass wall time",
+        "count": 5,
+        "cpuMs": 0,
+        "wallMs": 2030.6000000834465,
+        "gpuMs": 0,
+        "gpuSamples": 0,
+        "maxCpuMs": 0
+      }
+    ],
+    "draws": 240943,
+    "triangles": 284544119,
+    "lines": 0,
+    "points": 0,
+    "textures": 123,
+    "geometries": 449,
+    "programs": 104,
+    "ownedTextureBytes": 93790368,
+    "gpuTimerSupported": true,
+    "gpuTimingEnabled": true,
+    "gpuSamplingStride": 8,
+    "pendingGpuQueries": 0,
+    "longTasks": 0,
+    "longTaskMs": 0,
+    "maxLongTaskMs": 0,
+    "units": "ms; GPU execution and CPU submission are separate; async waits overlap"
+  },
+  "uniforms": {
+    "hdFastFeature": 0,
+    "hdFastReady": 0,
+    "hdFastWeight": 1,
+    "hdFastN": 32,
+    "hdGIEnabled": 1,
+    "hdGICapture": 0,
+    "hdGIDiffuseCapture": 0,
+    "hdGIIndoorFill": 0.32,
+    "hdWhiteModel": 0,
+    "hdExteriorSkyFeature": 1,
+    "hdExteriorSkyStrength": 0.75,
+    "hdExteriorSkyCell": 0.385,
+    "hdExteriorSkyFill": 0.75,
+    "hdExteriorEaveLayers": 3,
+    "hdExteriorEaveFilterWidth": 6,
+    "hdGIReceiverSafetyReady": 0,
+    "hdGIContactMode": 0,
+    "hdGIContactLayout": 0,
+    "hdGIProbeStrength": 1,
+    "hdGISHOrder": 2,
+    "hdLightingDiagnostic": 0,
+    "hdDiagnosticSkyReady": 0,
+    "hdSkyMode": 1,
+    "hdGIDisplayStrength": 1,
+    "hdSunBounceStrength": 1,
+    "hdSunBounceReady": 0,
+    "hdSunBounceFeature": 0,
+    "hdSunBouncePacked": 0,
+    "hdLocalSunFeature": 0,
+    "hdLocalSunReady": 0,
+    "hdLocalSunDisplay": 1,
+    "hdLocalSunCombined": 0,
+    "hdLocalSunVolumeScale": 1,
+    "hdGIUseVolume": 1,
+    "hdGIFloorLayerReady": 1,
+    "hdGIFloorCount": 3
+  }
+}

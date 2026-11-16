@@ -1,0 +1,211 @@
+{
+  "ready": {
+    "startup": {
+      "startedAtMs": 5347.70000000298,
+      "opaqueReadyMs": 5374.70000000298,
+      "phase": "full",
+      "frames": 2222,
+      "lightingCompileMs": 15887.5,
+      "lightingReadyMs": 21524.60000000149,
+      "programsAtLighting": 26,
+      "fullReadyMs": 49017.70000000298
+    },
+    "warmup": false,
+    "gi": {
+      "generation": 3,
+      "completed": 0,
+      "state": "preparing",
+      "blocked": false,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "bakeOnDemand": false,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": false,
+      "volumeSamplingVersion": 1,
+      "displayed": false,
+      "xr": false,
+      "capturedProbes": 0,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "saved": false,
+      "source": "baked",
+      "exportable": true,
+      "continuous": false,
+      "lightingRevision": 1,
+      "pendingLighting": true,
+      "moving": false,
+      "paused": false,
+      "previewUpdates": 0,
+      "prepareTimings": {}
+    },
+    "info": {
+      "frame": 406,
+      "calls": 309,
+      "triangles": 147029,
+      "points": 0,
+      "lines": 0
+    },
+    "memory": {
+      "geometries": 283,
+      "textures": 47
+    }
+  },
+  "shadows": {
+    "startup": {
+      "startedAtMs": 5347.70000000298,
+      "opaqueReadyMs": 5374.70000000298,
+      "phase": "full",
+      "frames": 2222,
+      "lightingCompileMs": 15887.5,
+      "lightingReadyMs": 21524.60000000149,
+      "programsAtLighting": 26,
+      "fullReadyMs": 49017.70000000298
+    },
+    "warmup": false,
+    "gi": {
+      "generation": 3,
+      "completed": 0,
+      "state": "preparing",
+      "blocked": false,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "bakeOnDemand": false,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": false,
+      "volumeSamplingVersion": 1,
+      "displayed": false,
+      "xr": false,
+      "capturedProbes": 0,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "saved": false,
+      "source": "baked",
+      "exportable": true,
+      "continuous": false,
+      "lightingRevision": 1,
+      "pendingLighting": true,
+      "moving": false,
+      "paused": false,
+      "previewUpdates": 0,
+      "prepareStage": "geometry",
+      "prepareTimings": {
+        "layout": 305.5
+      }
+    },
+    "info": {
+      "frame": 419,
+      "calls": 0,
+      "triangles": 0,
+      "points": 0,
+      "lines": 0
+    },
+    "memory": {
+      "geometries": 283,
+      "textures": 47
+    }
+  },
+  "switchMs": 2227,
+  "afterSwitch": {
+    "startup": {
+      "startedAtMs": 5347.70000000298,
+      "opaqueReadyMs": 5374.70000000298,
+      "phase": "full",
+      "frames": 2222,
+      "lightingCompileMs": 15887.5,
+      "lightingReadyMs": 21524.60000000149,
+      "programsAtLighting": 26,
+      "fullReadyMs": 49017.70000000298
+    },
+    "warmup": false,
+    "gi": {
+      "generation": 3,
+      "completed": 0,
+      "state": "preparing",
+      "blocked": false,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "bakeOnDemand": false,
+      "preparing": true,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": false,
+      "volumeSamplingVersion": 1,
+      "displayed": false,
+      "xr": false,
+      "capturedProbes": 0,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "saved": false,
+      "source": "baked",
+      "exportable": true,
+      "continuous": false,
+      "lightingRevision": 1,
+      "pendingLighting": true,
+      "moving": false,
+      "paused": false,
+      "previewUpdates": 0,
+      "prepareStage": "ready",
+      "prepareTimings": {
+        "layout": 305.5,
+        "geometry": 689.5,
+        "structure": 37.20000000298023,
+        "probes": 44.29999999701977,
+        "ceilings": 568.8999999985099,
+        "lamps": 505.1000000014901,
+        "tables": 19.600000001490116,
+        "zones": 0
+      }
+    },
+    "atlas": {
+      "ready": true,
+      "lights": 3,
+      "faces": 18,
+      "completed": 18,
+      "texture": "06e58e8a-39ba-4e10-a279-aee437a201f0",
+      "width": 2570,
+      "height": 2056,
+      "tile": 512,
+      "builds": 1
+    },
+    "info": {
+      "frame": 458,
+      "calls": 198,
+      "triangles": 72510,
+      "points": 0,
+      "lines": 0
+    },
+    "memory": {
+      "geometries": 283,
+      "textures": 50
+    }
+  },
+  "errors": [],
+  "failures": [],
+  "warnings": [
+    "THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.",
+    "[HouseDesigner] Main thread stalled for 0.6s after Preparing 2 floors on workers. lights 0/0 | all lights | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending",
+    "[HouseDesigner] Browser long task 600ms. lights 0/0 | all lights | floors 0 | scene shadows on | light shadows off | AO 0.25 | object frustum culling on | ambient 0.30 | baked lightmaps off | lights on | stats pending"
+  ]
+}

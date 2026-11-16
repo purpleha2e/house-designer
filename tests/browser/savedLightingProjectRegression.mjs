@@ -1,3 +1,5 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // With Vite running, after lightingStartupRegression.mjs --cache has created its fixture.
 import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
 import { readFileSync } from 'node:fs'
@@ -55,8 +57,8 @@ try {
     window.giWorkerCreations=0;window.testAlerts=[];
     const OriginalWorker=window.Worker;window.Worker=class extends OriginalWorker{constructor(url,...args){super(url,...args);if(String(url).includes('indirectLighting.worker'))window.giWorkerCreations++}};
     window.alert=message=>window.testAlerts.push(message);
-    window.showOpenFilePicker=async()=>[{getFile:async()=>new File([${JSON.stringify(project)}],'saved-lighting.house.json',{type:'application/json'})}];
-    window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async contents=>{window.savedProjectText=contents},close:async()=>{}})});
+    ${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([${JSON.stringify(project)}],'saved-lighting.house.json',{type:'application/json'})}];
+    ${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async contents=>{window.savedProjectText=contents},close:async()=>{}})});
   ` })
   await call('Page.navigate', { url: 'http://127.0.0.1:' + (process.argv[2] ?? '5180') + '/' })
   await waitFor(`!!document.querySelector('[aria-label="Project menu"]')`, 'editor ready')
@@ -74,7 +76,7 @@ try {
   const saved = JSON.parse(await evaluate('window.savedProjectText'))
   assert.deepEqual(saved.indirectLighting, expected, 'the normal Save button retains all completed GI data')
   assert.equal(saved.floors[0].id, 'lighting-startup')
-  await evaluate(`window.showOpenFilePicker=async()=>[{getFile:async()=>new File([window.savedProjectText],'saved-lighting.house.json',{type:'application/json'})}]`)
+  await evaluate(`${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([window.savedProjectText],'saved-lighting.house.json',{type:'application/json'})}]`)
   await menu('Load')
   await waitFor(`window.savedLightingScene?.()?.userData.indirectLighting?.source==='saved' && window.savedLightingScene().userData.indirectLighting.state==='ready'`, 'saved GI restored in editor')
   assert.equal(await evaluate('window.savedLightingScene().userData.indirectLighting.capturedFaces'), 0)

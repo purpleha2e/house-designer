@@ -1,8 +1,7 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // With Vite running: node tests/browser/roofCreatePreviewRegression.mjs [port]
 import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
-import { rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve, dirname } from 'node:path'
 import { once } from 'node:events'
 import assert from 'node:assert/strict'
 import { Triangle, Vector3 } from 'three'
@@ -66,8 +65,8 @@ try {
   const project = { activeFloorId: floor.id, floors: [floor], wallKind: 'external',
     twoDView: { viewportsByFloorId: { [floor.id]: { x: 380, y: 200, scale: 0.9 } } } }
   await evaluate(`(() => {
-    window.showOpenFilePicker = async () => [{getFile:async () => new File([${JSON.stringify(JSON.stringify(project))}], 'creation.house.json')}];
-    window.showSaveFilePicker = async () => ({createWritable:async () => ({write:async value => {window.savedCreationProject=JSON.parse(value)},close:async () => {}})});
+    ${projectFileInputFixtureSource}window.projectFileFixture = async () => [{getFile:async () => new File([${JSON.stringify(JSON.stringify(project))}], 'creation.house.json')}];
+    ${projectDownloadFixtureSource}window.projectDownloadFixture = async () => ({createWritable:async () => ({write:async value => {window.savedCreationProject=JSON.parse(value)},close:async () => {}})});
   })()`)
   const menu = async name => {
     await evaluate(`document.querySelector('[aria-label="Project menu"]').click()`)
@@ -107,6 +106,15 @@ try {
   await change('Roof ridge offset', 2.25)
   await change('Roof vertical offset', -0.15)
   await evaluate(`[...document.querySelectorAll('.roof-settings-panel label')].find(el=>el.textContent.trim()==='Clip house geometry').querySelector('input').click()`)
+  // The placement options reach the separate 3D React root asynchronously.
+  // Wait for the final requested settings before photographing its preview.
+  await waitFor(`(() => {
+    const host=document.getElementById('root'),key=Object.keys(host).find(k=>k.startsWith('__reactContainer$'));
+    let preview;const visit=f=>{if(!f)return;if((f.type?.name??f.type?.type?.name)==='ThreeDView')preview=f.memoizedProps.roofPlacementPreview;visit(f.child);visit(f.sibling)};
+    if(key)visit(host[key].stateNode.current);const r=preview?.roof;
+    return r?.asymmetricSides===true && r.mountSide==='side1' && r.ridgeOffset===2.25 && r.ridgeHeight===2.1 &&
+      r.heightOffset===-.15 && r.fitSupportingWalls===true && r.clipsGeometry===false;
+  })()`)
   const vertices = role => evaluate(`(() => {
     const result=[];const scene=window.roofCreateScene();scene.updateMatrixWorld(true);
     scene.traverse(o=>{if(o.userData.houseDesignerRole!==${JSON.stringify(role)})return;
@@ -114,7 +122,7 @@ try {
       for(let i=0;i<(index?.count??p.count);i++){
         v.fromBufferAttribute(p,index?index.getX(i):i).applyMatrix4(o.matrixWorld);result.push([v.x,v.y,v.z]);}});return result;
   })()`)
-  await waitFor(`(() => {let count=0;window.roofCreateScene().traverse(o=>{if(o.userData.houseDesignerRole==='roof-placement-preview')count+=o.geometry.attributes.position.count});return count>0})()`)
+  await waitFor(`(() => {let count=0;window.roofCreateScene().traverse(o=>{if(o.userData.houseDesignerRole==='roof-placement-preview' && Math.abs(o.parent.position.y-2.25)<1e-6)count+=o.geometry.attributes.position.count});return count>0})()`)
   const previewVertices = await vertices('roof-placement-preview')
   await evaluate(`[...document.querySelectorAll('.roof-placement-actions button')].find(el=>el.textContent.trim()==='Create').click()`)
   await menu('Save')
@@ -130,7 +138,6 @@ try {
   assert.equal(roof.fitSupportingWalls, true)
   assert.equal(roof.clipsGeometry, false)
   await waitFor(`(() => {let count=0;window.roofCreateScene().traverse(o=>{if(o.userData.houseDesignerRole==='roof-top')count+=o.geometry.attributes.position.count});return count>0})()`)
-  const createdVertices = await vertices('roof-top')
   // The finished mesh subdivides panels for materials and wall fitting. Check
   // surface coverage and area rather than requiring identical triangulation.
   const triangles = vertices => Array.from({ length: vertices.length / 3 }, (_, i) =>
@@ -148,12 +155,24 @@ try {
       }
     }
   }
-  sameSurface(createdVertices, previewVertices)
+  // Room cuts and the roof assembly publish independently. A non-empty mesh
+  // can still be the provisional assembly; wait for the final surface rather
+  // than asserting against whichever worker happened to publish first.
+  const waitForCreatedSurface = async () => {
+    let mismatch
+    for (let i = 0; i < 120; i++) {
+      try { sameSurface(await vertices('roof-top'), previewVertices); return }
+      catch (error) { if (!(error instanceof assert.AssertionError)) throw error; mismatch = error }
+      await pause(250)
+    }
+    throw mismatch
+  }
+  await waitForCreatedSurface()
   // Loading the saved project must retain both the settings and visible shape.
-  await evaluate(`window.showOpenFilePicker=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(saved))}],'roundtrip.house.json')}]`)
+  await evaluate(`${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(saved))}],'roundtrip.house.json')}]`)
   await menu('Load')
-  await pause(500)
-  sameSurface(await vertices('roof-top'), previewVertices)
+  await waitFor('document.body.textContent.includes("roundtrip")')
+  await waitForCreatedSurface()
   console.log('Full app Create, Save and Load preserve asymmetric settings and the exact preview surface')
 } finally {
   if (send && ws?.readyState === WebSocket.OPEN) {
@@ -161,9 +180,5 @@ try {
   } else child.kill()
   ws?.close()
   await exited
-  // Only remove the isolated profile created by this test.
-  const target = resolve(profile), root = resolve(tmpdir())
-  assert.equal(dirname(target), root)
-  assert.ok(target.startsWith(join(root, 'roof-create-preview-')))
-  rmSync(target, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
+  // browserTestProcess owns cleanup of its isolated profile.
 }

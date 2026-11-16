@@ -1,0 +1,161 @@
+{
+  "results": [
+    {
+      "mode": "clear",
+      "elevation": 0.08,
+      "sun": [
+        0,
+        0,
+        0
+      ],
+      "maxAbsoluteError": 0.00048828125,
+      "meanAbsoluteError": 0.000025725199116600885,
+      "combineCpuMs": 9,
+      "values": 258048
+    },
+    {
+      "mode": "clear",
+      "elevation": 0.08,
+      "sun": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "maxAbsoluteError": 0.00048828125,
+      "meanAbsoluteError": 0.000029020602740938703,
+      "combineCpuMs": 4.299999997019768,
+      "values": 258048
+    },
+    {
+      "mode": "clear",
+      "elevation": 0.08,
+      "sun": [
+        1.3,
+        0.8,
+        0.5
+      ],
+      "maxAbsoluteError": 0.00048828125,
+      "meanAbsoluteError": 0.00003163824005732461,
+      "combineCpuMs": 3.7000000029802322,
+      "values": 258048
+    },
+    {
+      "mode": "clear",
+      "elevation": 1,
+      "sun": [
+        0,
+        0,
+        0
+      ],
+      "maxAbsoluteError": 0,
+      "meanAbsoluteError": 0,
+      "combineCpuMs": 3.699999988079071,
+      "values": 258048
+    },
+    {
+      "mode": "clear",
+      "elevation": 1,
+      "sun": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "maxAbsoluteError": 0.0009765625,
+      "meanAbsoluteError": 0.00003254555520557222,
+      "combineCpuMs": 3.8999999910593033,
+      "values": 258048
+    },
+    {
+      "mode": "clear",
+      "elevation": 1,
+      "sun": [
+        1.3,
+        0.8,
+        0.5
+      ],
+      "maxAbsoluteError": 0.0009765625,
+      "meanAbsoluteError": 0.0000442588140094091,
+      "combineCpuMs": 3.8999999910593033,
+      "values": 258048
+    },
+    {
+      "mode": "overcast",
+      "elevation": 0.08,
+      "sun": [
+        0,
+        0,
+        0
+      ],
+      "maxAbsoluteError": 0.0009765625,
+      "meanAbsoluteError": 0.00003418799430604965,
+      "combineCpuMs": 4.200000002980232,
+      "values": 258048
+    },
+    {
+      "mode": "overcast",
+      "elevation": 0.08,
+      "sun": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "maxAbsoluteError": 0.0009765625,
+      "meanAbsoluteError": 0.000031591644362797816,
+      "combineCpuMs": 3.7999999970197678,
+      "values": 258048
+    },
+    {
+      "mode": "overcast",
+      "elevation": 0.08,
+      "sun": [
+        1.3,
+        0.8,
+        0.5
+      ],
+      "maxAbsoluteError": 0.0009765625,
+      "meanAbsoluteError": 0.000029053952958848742,
+      "combineCpuMs": 3.7999999970197678,
+      "values": 258048
+    },
+    {
+      "mode": "overcast",
+      "elevation": 1,
+      "sun": [
+        0,
+        0,
+        0
+      ],
+      "maxAbsoluteError": 0.001953125,
+      "meanAbsoluteError": 0.00006190793854849679,
+      "combineCpuMs": 4.0999999940395355,
+      "values": 258048
+    },
+    {
+      "mode": "overcast",
+      "elevation": 1,
+      "sun": [
+        0.4,
+        0.3,
+        0.2
+      ],
+      "maxAbsoluteError": 0.001953125,
+      "meanAbsoluteError": 0.0000499884287516276,
+      "combineCpuMs": 3.6000000089406967,
+      "values": 258048
+    },
+    {
+      "mode": "overcast",
+      "elevation": 1,
+      "sun": [
+        1.3,
+        0.8,
+        0.5
+      ],
+      "maxAbsoluteError": 0.001953125,
+      "meanAbsoluteError": 0.00007889053178211999,
+      "combineCpuMs": 4.0999999940395355,
+      "values": 258048
+    }
+  ],
+  "glError": 0
+}

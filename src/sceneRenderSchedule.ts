@@ -3,7 +3,7 @@ import type { IndirectLightingStatus } from './indirectLightingProgress.ts'
 /** An unchanged view needs only occasional refreshes while the GPU bakes GI.
  * Camera movement and editing always retain the normal display frame rate. */
 export function shouldRenderSceneFrame(now: number, lastDraw: number, viewChanged: boolean,
-  editing: boolean, lighting?: IndirectLightingStatus, geometryPending = false, staticScene = false) {
+  editing: boolean, lighting?: IndirectLightingStatus, geometryPending = false, staticScene = false, preparationPending = false) {
   // Published tours contain no animation. Let the GPU rest between movements
   // once the final prepared scene is displayed; editors keep their live loop.
   const lightingSettled = lighting?.state === 'ready' || lighting?.state === 'fallback' || lighting?.enabled === false || lighting?.diffuseEnabled === false
@@ -11,6 +11,9 @@ export function shouldRenderSceneFrame(now: number, lastDraw: number, viewChange
   // The previous geometry is already on screen. Let the worker finish instead
   // of competing with repeated draws, but keep navigation and dragging live.
   if (geometryPending && !viewChanged && !editing) return false
+  // Shader compilation also needs GPU/driver time, even with GI off or ready.
+  // Avoid repeatedly drawing the retained scene while its replacement links.
+  if (preparationPending && !viewChanged && !editing) return now - lastDraw >= 1000
   const baking = lighting?.enabled !== false && lighting?.diffuseEnabled !== false && lighting?.state !== 'ready' && lighting?.state !== 'fallback' &&
     (lighting?.preparing || lighting?.warming || lighting?.reading || lighting?.volumePending || lighting?.state === 'refining')
   // Geometry, camera, light inputs and published GI explicitly mark changes.

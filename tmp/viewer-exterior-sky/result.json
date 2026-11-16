@@ -1,0 +1,40 @@
+{
+  "before": {
+    "exterior": {
+      "state": "ready",
+      "bakes": 1,
+      "ms": 889.3000000119209,
+      "rays": 715008,
+      "cell": 0.35,
+      "dimensions": [
+        28,
+        19,
+        28
+      ],
+      "eaveLayers": 0,
+      "bytes": 119168,
+      "enabled": true,
+      "strength": 0.75
+    },
+    "giEnabled": true,
+    "strength": 0.75,
+    "feature": 1,
+    "touch": true
+  },
+  "after": {
+    "state": "ready",
+    "bakes": 1,
+    "ms": 889.3000000119209,
+    "rays": 715008,
+    "cell": 0.35,
+    "dimensions": [
+      28,
+      19,
+      28
+    ],
+    "eaveLayers": 0,
+    "bytes": 119168,
+    "enabled": true,
+    "strength": 0.75
+  }
+}

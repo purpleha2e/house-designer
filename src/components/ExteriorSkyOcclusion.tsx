@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { Data3DTexture, LinearFilter, Mesh, RGBAFormat, UnsignedByteType } from 'three'
 import { indirectGeometryRanges, snapshotIndirectGeometrySteps } from '../indirectVisibility'
@@ -18,6 +18,14 @@ export function ExteriorSkyOcclusion({ enabled, strength, blocked, onStatus }: {
   const { scene, gl, invalidate } = useThree()
   const cache = useRef<Cache | null>(null), tick = useRef(() => {})
   const latest = useRef({ enabled, strength, blocked, onStatus })
+  useLayoutEffect(() => {
+    // Compile the enabled feature before its visibility field finishes baking.
+    // Strength remains zero until data is ready; paint must not trigger a second
+    // shader family merely because the sky worker has now completed.
+    scene.userData.exteriorSkyFeatureRequested = enabled && strength > 0
+    if (scene.userData.exteriorSkyFeatureRequested) requestShaderWarmup(scene)
+    return () => { delete scene.userData.exteriorSkyFeatureRequested }
+  }, [enabled, strength, scene])
   useEffect(() => { latest.current = { enabled, strength, blocked, onStatus } }, [enabled, strength, blocked, onStatus])
   useEffect(() => {
     let stopped = false, worker: Worker | null = null, pendingKey = '', lastCheck = 0, collecting = false, failedKey = '', bakes = 0

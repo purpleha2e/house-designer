@@ -1,5 +1,9 @@
 import { replaceRoofMaterialAssignment, roofSurfaceTargetsMatch } from './roofMaterialAssignments'
+import { browserProjectSaveFile, writeProjectFile, type ProjectFileHandle } from './projectDeviceSave'
 import { getSelectionContextFloor } from './surfaceSelection'
+import { retainProjectModels } from './models/projectModelCatalog'
+import { readRecentProject, rememberRecentProject, useRecentProjects, type LoadedProjectFile } from './recentProjects'
+import { ProjectLoadConfirmation } from './components/ProjectLoadConfirmation'
 import { indirectProjectKey, indirectContentKey, indirectAssetIdentity, savedIndirectLightingMatches, type SavedIndirectLighting } from './indirectLightingPersistence'
 import { normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from './indirectProbeResolution'
 import { ambientLightingPreferences } from './ambientLighting'
@@ -12,6 +16,7 @@ import {
   useCallback,
   startTransition,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -104,7 +109,6 @@ import {
   findDormerPlacement,
   getAttachedDormerPlacement,
 } from './dormerPlacement'
-import { ProjectBootstrap } from './components/ProjectBootstrap'
 //import springfield12Project from '../springfield_14.json'
 //import springfield12Project from '../red_house_3.json'
 import './App.css'
@@ -113,7 +117,6 @@ const DEFAULT_THICKNESS = DEFAULT_EXTERNAL_WALL_THICKNESS_METERS
 const DEFAULT_INTERNAL_THICKNESS = 0.15
 const DEFAULT_ROOM_HEIGHT = 2.4
 const DEFAULT_SLAB_THICKNESS = 0.3
-const MAX_ENABLED_LIGHTS = 11
 const PROJECT_FILE_EXTENSION = '.house.json'
 const PROJECT_FILE_NAME = `house-design${PROJECT_FILE_EXTENSION}`
 const PROJECT_FILE_MIME_TYPE = 'application/json'
@@ -205,44 +208,10 @@ type SavedProject = {
   wallKind: WallKind
 }
 
-type FilePickerFileType = {
-  accept: Record<string, string[]>
-  description: string
-}
-
-type FileSystemFileHandle = {
-  name?: string
-  getFile: () => Promise<File>
-  createWritable: () => Promise<FileSystemWritableFileStream>
-}
-type ProjectSaveDestination = { kind: 'device'; handle: FileSystemFileHandle } | { kind: 'cloud'; assetId: string; name: string }
-
-type FileSystemWritableFileStream = {
-  close: () => Promise<void>
-  write: (data: BlobPart) => Promise<void>
-}
-
-type FileSystemSaveFilePickerOptions = {
-  suggestedName?: string
-  types?: FilePickerFileType[]
-}
-
-type FileSystemOpenFilePickerOptions = {
-  multiple?: boolean
-  types?: FilePickerFileType[]
-}
-
-type WindowWithFileSystemAccess = Window &
-  typeof globalThis & {
-    showOpenFilePicker?: (
-      options?: FileSystemOpenFilePickerOptions,
-    ) => Promise<FileSystemFileHandle[]>
-    showSaveFilePicker?: (
-      options?: FileSystemSaveFilePickerOptions,
-    ) => Promise<FileSystemFileHandle>
-  }
+type ProjectSaveDestination = { kind: 'device'; handle?: ProjectFileHandle } | { kind: 'cloud'; assetId: string; name: string }
 
 type ProjectSnapshot = SavedProject & {
+  threeDNavigationFloorId: string
   selectedFloorViewId: string
   selectedModelId: string | null
   selectedModelIds: string[]
@@ -371,57 +340,36 @@ function isSavedProject(value: unknown): value is SavedProject {
   )
 }
 
-function getProjectFilePickerTypes(): FilePickerFileType[] {
-  return [
-    {
-      description: 'House Designer project',
-      accept: {
-        [PROJECT_FILE_MIME_TYPE]: [PROJECT_FILE_EXTENSION, '.json'],
-      },
-    },
-  ]
-}
-
-async function saveTextToLocalFile(fileName: string, contents: string) {
-  const browserWindow = window as WindowWithFileSystemAccess
-
-  if (browserWindow.showSaveFilePicker) {
-    const fileHandle = await browserWindow.showSaveFilePicker({
-      suggestedName: fileName,
-      types: getProjectFilePickerTypes(),
-    })
-    const writableFile = await fileHandle.createWritable()
-
-    await writableFile.write(contents)
-    await writableFile.close()
-    return fileHandle
-  }
-
+function downloadProjectCopy(fileName: string, contents: string) {
   const blob = new Blob([contents], { type: PROJECT_FILE_MIME_TYPE })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
 
   link.href = url
   link.download = fileName
+  link.hidden = true
+  document.body.append(link)
   link.click()
-  URL.revokeObjectURL(url)
-  return null
-}
-
-type LoadedProjectFile = {
-  contents: string
-  fileName: string
-  handle?: FileSystemFileHandle
+  link.remove()
+  // The browser can start the download after this click handler returns.
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000)
 }
 
 function readTextFromInputFile() {
+  // Use the standard file input even where showOpenFilePicker is available:
+  // affected desktop sessions leave that API pending after choosing a file.
   return new Promise<LoadedProjectFile | null>((resolve, reject) => {
     const input = document.createElement('input')
 
     input.type = 'file'
+    input.hidden = true
     input.accept = `${PROJECT_FILE_EXTENSION},.json,${PROJECT_FILE_MIME_TYPE}`
+    let settled = false
     input.onchange = () => {
+      if (settled) return
+      settled = true
       const file = input.files?.[0]
+      input.remove()
 
       if (!file) {
         resolve(null)
@@ -433,32 +381,16 @@ function readTextFromInputFile() {
         reject,
       )
     }
-    input.oncancel = () => resolve(null)
-    input.click()
-  })
-}
-
-async function readTextFromLocalFile() {
-  const browserWindow = window as WindowWithFileSystemAccess
-
-  if (browserWindow.showOpenFilePicker) {
-    const [fileHandle] = await browserWindow.showOpenFilePicker({
-      multiple: false,
-      types: getProjectFilePickerTypes(),
-    })
-
-    if (!fileHandle) {
-      return null
+    input.oncancel = () => {
+      if (settled) return
+      // Some chooser implementations report cancel when reselecting a file.
+      if (input.files?.length) { input.onchange?.call(input, new Event('change')); return }
+      settled = true; input.remove(); resolve(null)
     }
-
-    return fileHandle.getFile().then(async (file) => ({
-      contents: await file.text(),
-      fileName: file.name,
-      handle: fileHandle,
-    }))
-  }
-
-  return readTextFromInputFile()
+    // Keep the input owned by the document while the menu that opened it unmounts.
+    document.body.append(input)
+    try { input.click() } catch (error) { input.remove(); reject(error) }
+  })
 }
 
 function cloneProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapshot {
@@ -466,8 +398,24 @@ function cloneProjectSnapshot(snapshot: ProjectSnapshot): ProjectSnapshot {
 }
 
 function serializeSavedProject(project: SavedProject) {
-  // GI is derived data; finishing a background bake does not dirty the design.
-  return JSON.stringify(Object.fromEntries(Object.entries(project).filter(([key]) => key !== 'indirectLighting')))
+  // Personal libraries arrive asynchronously and include designs which have
+  // never been placed in this house. Saving can still carry that library, but
+  // loading it is not an edit to the project (nor is navigating either view).
+  const modelIds = new Set(project.floors.flatMap(floor => (floor.models ?? [])
+    .flatMap(model => [model.modelId, model.dormerWindowModelId].filter(Boolean))))
+  const modelDefinitions = (project.modelDefinitions ?? []).filter(model => modelIds.has(model.id))
+  const materialDefinitions = collectLocalMaterialDefinitions(
+    { floors: project.floors, surfaceAssignments: project.surfaceAssignments, modelDefinitions }, project.materialDefinitions ?? [])
+  return JSON.stringify({
+    ...Object.fromEntries(Object.entries(project).filter(([key]) => !['indirectLighting', 'activeFloorId', 'twoDView'].includes(key))),
+    modelDefinitions,
+    materialDefinitions,
+    threeDView: project.threeDView && {
+      diffuseProbeResolution: project.threeDView.diffuseProbeResolution,
+      exposureStops: project.threeDView.exposureStops,
+      ambientLighting: project.threeDView.ambientLighting,
+    },
+  })
 }
 
 function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
@@ -487,72 +435,6 @@ function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
     .sort((firstDefinition, secondDefinition) =>
       firstDefinition.id.localeCompare(secondDefinition.id),
     )
-}
-
-function enforceProjectLightEnabledLimit(
-  floorsToClamp: FloorLevel[],
-  priorityModelId?: string,
-  priorityFloorId?: string,
-) {
-  const enabledLights = floorsToClamp.flatMap((floor, floorIndex) =>
-    (floor.models ?? []).flatMap((model, modelIndex) => {
-      const definition = modelsById.get(model.modelId)
-
-      return definition?.isLight && model.lightEnabled !== false
-        ? [{ floorId: floor.id, floorIndex, model, modelIndex }]
-        : []
-    }),
-  )
-
-  if (enabledLights.length <= MAX_ENABLED_LIGHTS) {
-    return floorsToClamp
-  }
-
-  const enabledLightIds = new Set<string>()
-  const priorityLight = priorityModelId
-    ? enabledLights.find((light) => light.model.id === priorityModelId)
-    : null
-
-  if (priorityLight) {
-    enabledLightIds.add(priorityLight.model.id)
-  }
-
-  const orderedLights = enabledLights
-    .filter((light) => light.model.id !== priorityModelId)
-    .sort((firstLight, secondLight) => {
-      const firstFloorScore = firstLight.floorId === priorityFloorId ? 0 : 1
-      const secondFloorScore = secondLight.floorId === priorityFloorId ? 0 : 1
-
-      return (
-        firstFloorScore - secondFloorScore ||
-        firstLight.floorIndex - secondLight.floorIndex ||
-        firstLight.modelIndex - secondLight.modelIndex
-      )
-    })
-
-  for (const light of orderedLights) {
-    if (enabledLightIds.size >= MAX_ENABLED_LIGHTS) {
-      break
-    }
-
-    enabledLightIds.add(light.model.id)
-  }
-
-  return floorsToClamp.map((floor) => ({
-    ...floor,
-    models: (floor.models ?? []).map((model) => {
-      const definition = modelsById.get(model.modelId)
-
-      return definition?.isLight &&
-        model.lightEnabled !== false &&
-        !enabledLightIds.has(model.id)
-        ? {
-            ...model,
-            lightEnabled: false,
-          }
-        : model
-    }),
-  }))
 }
 
 function normalizeSunPosition(sunPosition?: SunPosition): SunPosition {
@@ -580,11 +462,9 @@ function normalizeSavedProject(project: SavedProject) {
     registerRuntimeModels(project.modelDefinitions)
   }
 
-  const floors = enforceProjectLightEnabledLimit(
-    project.floors.map((floor) => normalizeFloor(floor, modelsById)),
-    undefined,
-    project.activeFloorId,
-  )
+  // Light switches are authored state; GPU light/shadow budgets belong to the
+  // renderer and must never switch lamps off in the saved project.
+  const floors = project.floors.map(normalizeLoadedFloor)
   const activeFloorId = floors.some((floor) => floor.id === project.activeFloorId)
     ? project.activeFloorId
     : floors[0].id
@@ -615,8 +495,19 @@ function normalizeSavedProject(project: SavedProject) {
   }
 }
 
+function normalizeLoadedFloor(input: FloorLevel): FloorLevel {
+  const floor = normalizeFloor(input, modelsById)
+  const existingRooms = new Map((floor.rooms ?? []).map(room => [room.signature, room]))
+  // Migrate derived topology before taking the clean snapshot, rather than
+  // letting the room reconciliation effect make a freshly loaded house dirty.
+  const rooms = buildWallTopology(floor.walls, { floorFootprints: floor.floorFootprints }).rooms
+    .map((room, index) => existingRooms.get(room.signature) ?? {
+      id: createId(), name: `Room ${index + 1}`, signature: room.signature,
+    })
+  return { ...floor, rooms }
+}
+
 function createFallbackProject(): SavedProject {
-  const initialWallId = createId()
   const initialFloorId = createId()
 
   return {
@@ -631,16 +522,7 @@ function createFallbackProject(): SavedProject {
         rooms: [],
         roomHeight: DEFAULT_ROOM_HEIGHT,
         slabThickness: DEFAULT_SLAB_THICKNESS,
-        walls: [
-          {
-            id: initialWallId,
-            kind: 'external',
-            start: { x: 1.5, y: 1.5 },
-            end: { x: 6.5, y: 1.5 },
-            thickness: DEFAULT_THICKNESS,
-            height: DEFAULT_ROOM_HEIGHT,
-          },
-        ],
+        walls: [],
       },
     ],
     sunPosition: DEFAULT_SUN_POSITION,
@@ -701,14 +583,20 @@ function rotatePlanOffset(offset: Point, rotation: number): Point {
   }
 }
 
-function App({ initialProjectSource }: { initialProjectSource: unknown }) {
+export function App({ initialProjectSource }: { initialProjectSource: unknown }) {
+  const recentProjects = useRecentProjects()
   const [localLightControl] = useState(createLocalLightControl)
   const [initialProject] = useState(() => createInitialProject(initialProjectSource))
   const [loadedLightingCache, setLoadedLightingCache] = useState(initialProject.indirectLighting)
   const bakedLightingRef = useRef(initialProject.indirectLighting)
   const projectGeneration = useRef(0)
   const projectLoadRequest = useRef(0)
+  const pendingLoadDecision = useRef<((discard: boolean) => void) | null>(null)
+  const [loadConfirmation, setLoadConfirmation] = useState<{ fileName: string; onDecision: (discard: boolean) => void } | null>(null)
+  const [loadFeedback, setLoadFeedback] = useState<{ error: boolean; message: string } | null>(null)
   const [floors, setFloors] = useState<FloorLevel[]>(initialProject.floors)
+  const currentFloorsRef = useRef(floors)
+  useLayoutEffect(() => { currentFloorsRef.current = floors }, [floors])
   // ThreeDView already coalesces reconciliation after the controls paint.
   // Keep its incoming floors current: another deferred copy here can strand
   // undo/removal on an old snapshot after the plan and saved state have changed.
@@ -733,6 +621,8 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
   )
   const [selectedFloorViewId, setSelectedFloorViewId] =
     useState<string>(initialProject.threeDView.floorViewId)
+  // Keep 3D navigation independent of the floor being edited in the plan.
+  const [threeDNavigationFloorId, setThreeDNavigationFloorId] = useState(initialProject.activeFloorId)
   const [diffuseProbeResolution, setDiffuseProbeResolution] = useState<DiffuseProbeResolution>(
     normalizeDiffuseProbeResolution(initialProject.threeDView.diffuseProbeResolution ?? initialProject.indirectLighting?.settings.diffuseProbeResolution),
   )
@@ -793,6 +683,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [saveDestination, setSaveDestination] = useState<ProjectSaveDestination | null>(null)
   const [isSavingProject, setIsSavingProject] = useState(false)
+  const deviceSavePickerRef = useRef<AbortController | null>(null)
   const [cloudSaveRequested, setCloudSaveRequested] = useState(false)
   const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
@@ -844,14 +735,14 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
     setFloorplanRestoreRevision((revision) => revision + 1)
   }
 
-  const refreshPortalCatalog = useCallback(async () => {
+  const refreshPortalCatalog = useCallback(async (preserveSavedDefinitions = false) => {
     try {
       const catalog = await loadPortalCatalog()
       console.info(
         `[HouseDesigner] Loaded portal catalog: ${catalog.models.length} models, ${catalog.materials.length} materials`,
       )
       registerRuntimeSurfaceMaterials(catalog.materials)
-      registerRuntimeModels(catalog.models)
+      registerRuntimeModels(retainProjectModels(catalog.models, currentFloorsRef.current, modelsById, preserveSavedDefinitions))
       setAvailableMaterials([...surfaceMaterialCatalog])
       setAvailableModels([...modelLibrary])
       setModelAssetVersion((version) => version + 1)
@@ -863,7 +754,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
   }, [])
 
   useEffect(() => {
-    void refreshPortalCatalog()
+    void refreshPortalCatalog(true)
   }, [refreshPortalCatalog])
 
   useEffect(() => {
@@ -910,6 +801,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
   }, [modelAssetVersion])
 
   const getProjectSnapshot = (): ProjectSnapshot => ({
+    threeDNavigationFloorId,
     activeFloorId,
     floors,
     modelDefinitions: getSavedProjectModelDefinitions(floors),
@@ -988,14 +880,9 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
         void saveStairToLibrary(model).catch(error => console.warn('Could not restore local stairs:', error))
       }
     }
-    setFloors(
-      enforceProjectLightEnabledLimit(
-        snapshot.floors.map((floor) => normalizeFloor(floor, modelsById)),
-        undefined,
-        snapshot.activeFloorId,
-      ),
-    )
+    setFloors(snapshot.floors.map((floor) => normalizeFloor(floor, modelsById)))
     setActiveFloorId(snapshot.activeFloorId)
+    setThreeDNavigationFloorId(snapshot.threeDNavigationFloorId)
     setSelectedFloorViewId(snapshot.selectedFloorViewId)
     if (snapshot.threeDView) {
       restoreThreeDViewCameraState(snapshot.threeDView.camera)
@@ -1302,7 +1189,6 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
       },
     ])
     setActiveFloorId(id)
-    setSelectedFloorViewId(id)
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1325,7 +1211,6 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
     }
     setFloors(currentFloors => [...currentFloors, loft])
     setActiveFloorId(loft.id)
-    setSelectedFloorViewId(loft.id)
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1401,7 +1286,8 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
       currentFloors.filter((floor) => floor.id !== floorToDelete.id),
     )
     setActiveFloorId(fallbackFloor.id)
-    setSelectedFloorViewId(fallbackFloor.id)
+    setSelectedFloorViewId(current => current === floorToDelete.id ? ALL_FLOORS_VIEW_ID : current)
+    setThreeDNavigationFloorId(current => current === floorToDelete.id ? fallbackFloor.id : current)
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1542,9 +1428,6 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
       ),
     )
     setActiveFloorId(targetFloor.id)
-    if (selectedFloorViewId !== ALL_FLOORS_VIEW_ID) {
-      setSelectedFloorViewId(targetFloor.id)
-    }
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1584,20 +1467,16 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
     const targetFloorId = activeFloorForPlacement.id
 
     setFloors((currentFloors) =>
-      enforceProjectLightEnabledLimit(
-        currentFloors.map((floor) =>
-          floor.id === targetFloorId
-            ? syncWallOpeningsForModelIfNeeded(
-                {
-                  ...floor,
-                  models: [...(floor.models ?? []), model],
-                },
-                model.modelId,
-              )
-            : floor,
-        ),
-        model.id,
-        targetFloorId,
+      currentFloors.map((floor) =>
+        floor.id === targetFloorId
+          ? syncWallOpeningsForModelIfNeeded(
+              {
+                ...floor,
+                models: [...(floor.models ?? []), model],
+              },
+              model.modelId,
+            )
+          : floor,
       ),
     )
     setActiveFloorId(targetFloorId)
@@ -1752,15 +1631,12 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
   const commitModelUpdate = (modelId: string, updates: Partial<PlacedModel>) => {
     recordHistory(`model:${modelId}`)
     setFloors((currentFloors) => {
-      let updatedModelFloorId: string | undefined
       const nextFloors = currentFloors.map((floor) => {
         const modelOnFloor = (floor.models ?? []).find((model) => model.id === modelId)
 
         if (!modelOnFloor) {
           return floor
         }
-
-        updatedModelFloorId = floor.id
 
         return syncWallOpeningsForModelIfNeeded(
           {
@@ -1804,11 +1680,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
         )
       })
 
-      return enforceProjectLightEnabledLimit(
-        nextFloors,
-        updates.lightEnabled === true ? modelId : undefined,
-        updatedModelFloorId,
-      )
+      return nextFloors
     })
   }
 
@@ -2301,57 +2173,86 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
     )
   }
 
-  const saveProject = async (destination: 'last' | 'device' | 'cloud' = 'last') => {
+  const saveProject = async (destination: 'last' | 'device' | 'cloud' | 'download' = 'last') => {
     if (isSavingProject || (destination === 'last' && !saveDestination)) return false
-    const project = getCurrentSavedProject()
-    if (savedIndirectLightingMatches(bakedLightingRef.current, indirectProjectKey(project)) &&
-      normalizeDiffuseProbeResolution(bakedLightingRef.current?.settings.diffuseProbeResolution) === diffuseProbeResolution) {
-      project.indirectLighting = bakedLightingRef.current
-    }
-    const contents = `${JSON.stringify(project, null, 2)}\n`
-
+    const savingGeneration = projectGeneration.current
+    let pickingDeviceFile = false
     try {
       setIsSavingProject(true)
-      if (destination === 'device') {
-        const handle = await saveTextToLocalFile(projectFileName, contents)
-        setSaveDestination(handle ? { kind: 'device', handle } : null)
-        if (handle?.name) setProjectFileName(handle.name)
+      setLoadFeedback(null)
+      const savingToDevice = destination === 'device' || (destination === 'last' && saveDestination?.kind === 'device')
+      let deviceHandle = destination === 'last' && saveDestination?.kind === 'device' ? saveDestination.handle : undefined
+      if (savingToDevice && !deviceHandle) {
+        pickingDeviceFile = true
+        deviceSavePickerRef.current = new AbortController()
+        setLoadFeedback({ error: false, message: 'Choose a folder and filename in the Save As dialog…' })
+        deviceHandle = await browserProjectSaveFile(projectFileName, deviceSavePickerRef.current.signal)
+        deviceSavePickerRef.current = null
+        pickingDeviceFile = false
+        // A different model may have been opened while the dialog was pending.
+        if (projectGeneration.current !== savingGeneration) return false
+      }
+      setLoadFeedback({ error: false, message: 'Saving model…' })
+      const project = getCurrentSavedProject()
+      if (savedIndirectLightingMatches(bakedLightingRef.current, indirectProjectKey(project)) &&
+        normalizeDiffuseProbeResolution(bakedLightingRef.current?.settings.diffuseProbeResolution) === diffuseProbeResolution) {
+        project.indirectLighting = bakedLightingRef.current
+      }
+      const contents = `${JSON.stringify(project, null, 2)}\n`
+      let savedName = projectFileName
+      const downloaded = destination === 'download'
+      if (downloaded) {
+        downloadProjectCopy(projectFileName, contents)
+      } else if (savingToDevice && deviceHandle) {
+        await writeProjectFile(deviceHandle, contents)
+        savedName = deviceHandle.name
+        if (projectGeneration.current === savingGeneration) {
+          setSaveDestination({ kind: 'device', handle: deviceHandle })
+          setProjectFileName(savedName)
+        }
       } else if (destination === 'cloud' || saveDestination?.kind === 'cloud') {
         const session = await workspaceClient.session()
         if (!session.user) {
-          setCloudSaveRequested(true); setIsAccountOpen(true)
+          setCloudSaveRequested(true); setIsAccountOpen(true); setLoadFeedback(null)
           return false
         }
         const previous = destination === 'last' && saveDestination?.kind === 'cloud' ? saveDestination : null
         const name = previous?.name ?? window.prompt('Design name', projectFileName)
-        if (!name?.trim()) return false
+        if (!name?.trim()) { setLoadFeedback(null); return false }
         const fileName = /\.json$/i.test(name.trim()) ? name.trim() : `${name.trim()}.json`
         const file = new File([contents], fileName, { type: PROJECT_FILE_MIME_TYPE })
         const { asset } = previous ? await workspaceClient.replaceProject(previous.assetId, file) : await workspaceClient.upload(file, 'project')
-        setSaveDestination({ kind: 'cloud', assetId: asset.id, name: asset.name })
-        setProjectFileName(asset.name)
-      } else if (saveDestination?.kind === 'device') {
-        const writable = await saveDestination.handle.createWritable()
-        await writable.write(contents); await writable.close()
+        savedName = asset.name
+        if (projectGeneration.current === savingGeneration) {
+          setSaveDestination({ kind: 'cloud', assetId: asset.id, name: asset.name }); setProjectFileName(asset.name)
+        }
       }
-      lastCleanProjectRef.current = serializeSavedProject(project)
-      return true
+      // A download request cannot confirm that the browser wrote a file.
+      if (!downloaded && projectGeneration.current === savingGeneration) lastCleanProjectRef.current = serializeSavedProject(project)
+      setLoadFeedback({ error: false, message: downloaded
+        ? `Download requested for ${savedName}. Check your browser’s downloads.` : `Saved ${savedName}.` })
+      // Native writes are complete only after close(); downloads remain unconfirmed.
+      return !downloaded
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (pickingDeviceFile && error instanceof Error && error.name === 'AbortError') {
+        setLoadFeedback(null)
         return false
       }
-
-      window.alert(error instanceof Error ? `The house design could not be saved: ${error.message}` : 'The house design could not be saved.')
+      const message = error instanceof Error ? `The house design could not be saved: ${error.message}` : 'The house design could not be saved.'
+      setLoadFeedback({ error: true, message: `${message} Your model is still open. You can use Download copy from the project menu.` })
+      window.alert(message)
       return false
-    } finally { setIsSavingProject(false) }
+    } finally { deviceSavePickerRef.current = null; setIsSavingProject(false) }
   }
 
-  const loadProject = async () => {
+  const loadProject = async (readFile = readTextFromInputFile, recentId?: string) => {
+    pendingLoadDecision.current?.(false)
     const request = ++projectLoadRequest.current
+    setLoadFeedback({ error: false, message: 'Opening model…' })
     const selectedAt = editorPreparationTime()
     traceEditorPreparation('file-selection', projectGeneration.current + 1, { request })
     try {
-      const loadedFile = await readTextFromLocalFile()
+      const loadedFile = await readFile()
 
       if (!loadedFile || request !== projectLoadRequest.current) {
         return
@@ -2363,6 +2264,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
       traceEditorPreparation('json-parse', projectGeneration.current + 1, { request, cpuMs: editorPreparationTime() - parseAt })
 
       if (!isSavedProject(parsedProject)) {
+        setLoadFeedback({ error: true, message: `${loadedFile.fileName} is not a supported House Designer project.` })
         window.alert('The selected house design could not be loaded.')
         return
       }
@@ -2370,6 +2272,19 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
       if (Array.isArray(parsedProject.materialDefinitions)) {
         parsedProject.materialDefinitions.forEach(validateLocalMaterial)
       }
+      if (serializeSavedProject(getCurrentSavedProject()) !== lastCleanProjectRef.current) {
+        setLoadFeedback(null)
+        const discard = await new Promise<boolean>(resolve => {
+          const onDecision = (value: boolean) => {
+            if (pendingLoadDecision.current !== onDecision) return
+            pendingLoadDecision.current = null; setLoadConfirmation(null); resolve(value)
+          }
+          pendingLoadDecision.current = onDecision
+          setLoadConfirmation({ fileName: loadedFile.fileName, onDecision })
+        })
+        if (!discard) return
+      }
+      if (request !== projectLoadRequest.current) return
       // Capture the current house's material values before an imported file
       // replaces definitions with matching library IDs.
       recordHistory()
@@ -2387,11 +2302,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
         setAvailableModels([...modelLibrary])
       }
 
-      const loadedFloors = enforceProjectLightEnabledLimit(
-        parsedProject.floors.map((floor) => normalizeFloor(floor, modelsById)),
-        undefined,
-        parsedProject.activeFloorId,
-      )
+      const loadedFloors = parsedProject.floors.map(normalizeLoadedFloor)
 
       setFloors(loadedFloors)
       setProjectLoadRevision(++projectGeneration.current)
@@ -2415,6 +2326,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
       )
 
       setActiveFloorId(loadedActiveFloorId)
+      setThreeDNavigationFloorId(loadedActiveFloorId)
       setSelectedFloorViewId(loadedThreeDView.floorViewId)
       setDiffuseProbeResolution(normalizeDiffuseProbeResolution(loadedThreeDView.diffuseProbeResolution ?? parsedProject.indirectLighting?.settings.diffuseProbeResolution))
       setExposureStops(normalizeExposureStops(loadedThreeDView.exposureStops))
@@ -2449,14 +2361,15 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
       setSelectedRoofId(null)
       setIsAddingWall(false)
       setProjectFileName(loadedFile.fileName)
-      setSaveDestination(loadedFile.handle ? { kind: 'device', handle: loadedFile.handle } : null)
+      setSaveDestination({ kind: 'device' })
       setSceneRevision((currentRevision) => currentRevision + 1)
+      void rememberRecentProject(loadedFile, recentId).catch(error => console.warn('Could not save recent models:', error))
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
-        return
-      }
-
-      window.alert('The selected house design could not be loaded.')
+      if (request !== projectLoadRequest.current) return
+      setLoadFeedback({ error: true, message: error instanceof Error ? `Could not open the model: ${error.message}` : 'The selected house design could not be loaded.' })
+      window.alert(recentId && error instanceof Error ? error.message : 'The selected house design could not be loaded.')
+    } finally {
+      if (request === projectLoadRequest.current) setLoadFeedback(current => current?.error ? current : null)
     }
   }
 
@@ -2486,12 +2399,15 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
     const project = normalizeSavedProject(createFallbackProject())
 
     projectLoadRequest.current++
+    pendingLoadDecision.current?.(false)
+    setLoadFeedback(null)
     setFloors(project.floors)
     setProjectLoadRevision(++projectGeneration.current)
     traceEditorPreparation('new-project', projectGeneration.current)
     setLoadedLightingCache(undefined)
     bakedLightingRef.current = undefined
     setActiveFloorId(project.activeFloorId)
+    setThreeDNavigationFloorId(project.activeFloorId)
     setSelectedFloorViewId(project.threeDView.floorViewId)
     setDiffuseProbeResolution(normalizeDiffuseProbeResolution(project.threeDView.diffuseProbeResolution))
     setExposureStops(normalizeExposureStops(project.threeDView.exposureStops))
@@ -2974,20 +2890,16 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
     }
 
     setFloors((currentFloors) =>
-      enforceProjectLightEnabledLimit(
-        currentFloors.map((floor) =>
-          floor.id === activeFloorId
-            ? syncWallOpeningsForModelIfNeeded(
-                {
-                  ...floor,
-                  models: [...(floor.models ?? []), modelToPaste],
-                },
-                modelToPaste.modelId,
-              )
-            : floor,
-        ),
-        modelToPaste.id,
-        activeFloorId,
+      currentFloors.map((floor) =>
+        floor.id === activeFloorId
+          ? syncWallOpeningsForModelIfNeeded(
+              {
+                ...floor,
+                models: [...(floor.models ?? []), modelToPaste],
+              },
+              modelToPaste.modelId,
+            )
+          : floor,
       ),
     )
     setSelectedModelId(id)
@@ -3102,6 +3014,12 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
     setIsAddingWall(false)
   }
 
+  const selectEditingFloor = (floorId: string) => {
+    setActiveFloorId(floorId)
+    clearThreeDSelection()
+    setRoofPlacementPreview(null)
+  }
+
   const selectSurfaceFromThreeD = (surface: SelectableSurface) => {
     if (selectableSurfacesMatch(selectedSurface, surface)) {
       clearThreeDSelection()
@@ -3171,7 +3089,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isMaterialEditorOpen || isAccountOpen || isTextEntryElement(event.target)) {
+      if (isMaterialEditorOpen || isAccountOpen || loadConfirmation || isTextEntryElement(event.target)) {
         return
       }
 
@@ -3229,6 +3147,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
   }, [
           isMaterialEditorOpen,
           isAccountOpen,
+          loadConfirmation,
           activeFloor,
           activeFloorId,
           clipboardItem,
@@ -3248,6 +3167,12 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
 
   return (
     <main className="app-shell">
+      {loadConfirmation && <ProjectLoadConfirmation {...loadConfirmation} />}
+      {loadFeedback && <div className="project-load-feedback" role={loadFeedback.error ? 'alert' : 'status'}>
+        <span>{loadFeedback.message}</span>
+        {isSavingProject && deviceSavePickerRef.current && <button type="button" onClick={() => deviceSavePickerRef.current?.abort()}>Cancel save</button>}
+        <button type="button" onClick={() => setLoadFeedback(null)}>Dismiss</button>
+      </div>}
       {isAccountOpen && <AccountDialog onClose={() => { setIsAccountOpen(false); setCloudSaveRequested(false) }}
         onSignedIn={cloudSaveRequested ? () => { setIsAccountOpen(false); setCloudSaveRequested(false); void saveProject('cloud') } : undefined} />}
       {isMaterialEditorOpen ? <MaterialEditor materials={availableMaterials}
@@ -3284,7 +3209,6 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
         materials={availableMaterials}
         onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
         selectedSurface={selectedSurface}
-        selectedFloorViewId={selectedFloorViewId}
         selectedModelCount={selectedModelIds.length}
         selectedWallHeight={selectedSurfaceWall?.height ?? null}
         wallCount={totalWallCount}
@@ -3308,21 +3232,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
             setIsAddingWall(false)
           }
         }}
-        onSelectFloor={(floorId) => {
-          setSelectedFloorViewId(floorId)
-
-          if (floorId !== ALL_FLOORS_VIEW_ID) {
-            setActiveFloorId(floorId)
-          }
-
-          setSelectedWallId(null)
-          setSelectedWallIds([])
-          setSelectedRoomSignature(null)
-          setSelectedModelId(null)
-          setSelectedModelIds([])
-          setSelectedRoofId(null)
-          setIsAddingWall(false)
-        }}
+        onSelectFloor={selectEditingFloor}
         onSlabThicknessChange={updateActiveFloorSlabThickness}
         onCeilingModeChange={updateActiveFloorCeilingMode}
         onToggleAddWall={() => {
@@ -3353,15 +3263,22 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
             <Toolbar onClose={onClose}
               isEngineConsoleOpen={isEngineConsoleOpen}
               onEngineConsoleOpenChange={setIsEngineConsoleOpen}
-              onLoadProject={loadProject}
+              onLoadProject={() => { void loadProject() }}
+              recentProjects={recentProjects}
+              onLoadRecentProject={id => {
+                const entry = recentProjects.find(project => project.id === id)
+                if (entry) void loadProject(() => readRecentProject(entry), id)
+              }}
               onNewProject={newProject}
               onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
               onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
               onOpenAccount={() => setIsAccountOpen(true)}
               onSaveProject={() => { void saveProject() }}
               onSaveToDevice={() => { void saveProject('device') }}
+              onDownloadCopy={() => { void saveProject('download') }}
               onSaveToCloud={() => { void saveProject('cloud') }}
               canSave={!!saveDestination && !isSavingProject}
+              saveToDevice={saveDestination?.kind === 'device'}
               isSaving={isSavingProject}
             />
           )}
@@ -3372,6 +3289,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
           }}
           modelTransformPreviewRef={modelTransformPreviewRef}
           activeFloor={activeFloor}
+          onSelectFloor={selectEditingFloor}
           floors={floors}
           initialViewport={floorplanViewportsRef.current[activeFloor.id]}
           internalWallThickness={internalWallThickness}
@@ -3394,6 +3312,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
           onDeleteRoof={deleteRoof}
           onDeleteWall={deleteWall}
           onExitAddWall={() => setIsAddingWall(false)}
+          onStartMeasuring={() => setIsRoofMode(false)}
           onViewportChange={updateFloorplanViewport}
           onSelectModel={selectModel}
           onSelectRoof={selectRoofFromFloorplan}
@@ -3516,7 +3435,9 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
           onExposureStopsChange={setExposureStops}
           onIndirectLightingReady={updateBakedLighting}
           modelTransformPreviewRef={modelTransformPreviewRef}
-          activeFloorId={activeFloor.id}
+          activeFloorId={selectedFloorViewId === ALL_FLOORS_VIEW_ID
+            ? threeDNavigationFloorId : selectedFloorViewId}
+          onFloorViewChange={setSelectedFloorViewId}
           cameraRestoreRevision={cameraRestoreRequest.revision}
           cameraViewState={cameraRestoreRequest.state}
           floors={floors}
@@ -3529,7 +3450,7 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
           onCameraViewStateChange={updateThreeDViewCameraState}
           onEngineConsoleOpenChange={setIsEngineConsoleOpen}
           onSelectFloor={(floorId) => {
-            setActiveFloorId(floorId)
+            setThreeDNavigationFloorId(floorId)
             setSelectedFloorViewId((currentFloorViewId) =>
               currentFloorViewId === ALL_FLOORS_VIEW_ID
                 ? currentFloorViewId
@@ -3627,5 +3548,5 @@ function App({ initialProjectSource }: { initialProjectSource: unknown }) {
 }
 
 export default function AppBootstrap() {
-  return <ProjectBootstrap validate={isSavedProject} render={source => <App initialProjectSource={source} />} />
+  return <App initialProjectSource={undefined} />
 }

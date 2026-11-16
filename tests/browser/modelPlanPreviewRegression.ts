@@ -1,11 +1,11 @@
 import { Box3, Vector3 } from 'three'
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { createFloorplanGltfLoader } from '../../src/floorplanAssetLoading'
 import { renderModelPlanPreview } from '../../src/modelPlanPreview'
 import bed from '../../src/models/assets/king_bed.glb?url'
 
 const state = window as unknown as { planPreviewResult?: unknown; planPreviewError?: string }
 try {
-  const gltf = await new GLTFLoader().loadAsync(bed)
+  const gltf = await createFloorplanGltfLoader().loadAsync(bed)
   const size = new Box3().setFromObject(gltf.scene).getSize(new Vector3())
   const canvas = await renderModelPlanPreview(gltf.scene)
   document.body.append(canvas)

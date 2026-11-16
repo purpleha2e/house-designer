@@ -308,6 +308,8 @@ async function processModelAsset(metadata, assetDir) {
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS)
   const document = await io.read(sourcePath)
   const inferredDimensions = getModelDimensionsFromDocument(document)
+  const materialNames = [...new Set(document.getRoot().listMeshes().flatMap(mesh =>
+    mesh.listPrimitives().map(primitive => primitive.getMaterial()?.getName()).filter(Boolean)))]
   const textureResults = []
   const errors = []
   let convertedTextureCount = 0
@@ -355,6 +357,7 @@ async function processModelAsset(metadata, assetDir) {
   return {
     errors,
     inferredDimensions,
+    materialNames,
     processedFiles: [processedFile],
     status: errors.length > 0 ? 'partial' : 'complete',
   }
@@ -390,6 +393,7 @@ async function main() {
     }
     metadata.inferredDimensions =
       conversion.inferredDimensions ?? metadata.inferredDimensions
+    metadata.materialNames = conversion.materialNames ?? metadata.materialNames
     metadata.processedFiles = conversion.processedFiles
     metadata.updatedAt = new Date().toISOString()
     await writeJson(metadataPath, metadata)

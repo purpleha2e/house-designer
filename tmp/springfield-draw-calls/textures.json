@@ -1,0 +1,554 @@
+[
+  {
+    "owner": "assets\\island_marble-BXhVyvua.glb",
+    "file": "Image_4",
+    "format": "png",
+    "width": 4096,
+    "height": 4096,
+    "bytes": 18917580
+  },
+  {
+    "owner": "assets\\island_marble-BXhVyvua.glb",
+    "file": "Image_0",
+    "format": "png",
+    "width": 4096,
+    "height": 4096,
+    "bytes": 15564948
+  },
+  {
+    "owner": "assets\\island_marble-BXhVyvua.glb",
+    "file": "Image_1",
+    "format": "jpeg",
+    "width": 4096,
+    "height": 4096,
+    "bytes": 13914388
+  },
+  {
+    "owner": "assets\\island_marble-BXhVyvua.glb",
+    "file": "Image_2",
+    "format": "png",
+    "width": 4096,
+    "height": 4096,
+    "bytes": 20626029
+  },
+  {
+    "owner": "Red Brick",
+    "file": "baseColorTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 814132
+  },
+  {
+    "owner": "Red Brick",
+    "file": "normalTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 5091782
+  },
+  {
+    "owner": "Red Brick",
+    "file": "roughnessTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 63316
+  },
+  {
+    "owner": "Carpet",
+    "file": "baseColorTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 937552
+  },
+  {
+    "owner": "Carpet",
+    "file": "normalTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 5244941
+  },
+  {
+    "owner": "Carpet",
+    "file": "roughnessTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 776510
+  },
+  {
+    "owner": "Stone tiles",
+    "file": "baseColorTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 716885
+  },
+  {
+    "owner": "Stone tiles",
+    "file": "normalTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 2618464
+  },
+  {
+    "owner": "Stone tiles",
+    "file": "roughnessTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 694523
+  },
+  {
+    "owner": "Terracotta roof tile",
+    "file": "baseColorTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 728885
+  },
+  {
+    "owner": "Terracotta roof tile",
+    "file": "normalTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 4696918
+  },
+  {
+    "owner": "Terracotta roof tile",
+    "file": "roughnessTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 390841
+  },
+  {
+    "owner": "Oak Parquet Tiles",
+    "file": "baseColorTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 789340
+  },
+  {
+    "owner": "Oak Parquet Tiles",
+    "file": "normalTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 3769368
+  },
+  {
+    "owner": "Oak Parquet Tiles",
+    "file": "roughnessTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 654720
+  },
+  {
+    "owner": "Light oak",
+    "file": "baseColorTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 667417
+  },
+  {
+    "owner": "Light oak",
+    "file": "normalTextureUrl",
+    "format": "KTX2",
+    "width": 2048,
+    "height": 2048,
+    "levels": 12,
+    "bytes": 4561342
+  },
+  {
+    "owner": "assets\\base_cabinet_marble_cream_800mm-CHunXMKJ.glb",
+    "file": "Image_0",
+    "format": "png",
+    "width": 2048,
+    "height": 2048,
+    "bytes": 2472220
+  },
+  {
+    "owner": "assets\\island_marble-BXhVyvua.glb",
+    "file": "white-marble_albedo",
+    "format": "png",
+    "width": 2048,
+    "height": 2048,
+    "bytes": 2472220
+  },
+  {
+    "owner": "assets\\office_chair-j_CjM3ZN.glb",
+    "file": "Leather026_2K_Color",
+    "format": "png",
+    "width": 2048,
+    "height": 2048,
+    "bytes": 20642703
+  },
+  {
+    "owner": "assets\\panel_interior_door_open_low_detail-BntCw1UH.glb",
+    "file": "Image_0",
+    "format": "png",
+    "width": 2048,
+    "height": 2048,
+    "bytes": 2607262
+  },
+  {
+    "owner": "assets\\panel_interior_door_open_low_detail-BntCw1UH.glb",
+    "file": "Image_1",
+    "format": "png",
+    "width": 2048,
+    "height": 2048,
+    "bytes": 263584
+  },
+  {
+    "owner": "assets\\panel_interior_door_open_low_detail-BntCw1UH.glb",
+    "file": "Image_3",
+    "format": "png",
+    "width": 2048,
+    "height": 2048,
+    "bytes": 297527
+  },
+  {
+    "owner": "assets\\bath-CWd4Elnb.glb",
+    "file": "bath_Material_Normal",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 17379
+  },
+  {
+    "owner": "assets\\bath-CWd4Elnb.glb",
+    "file": "bath_Material_BaseColor",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 23443
+  },
+  {
+    "owner": "assets\\bath-CWd4Elnb.glb",
+    "file": "bath_Material_Metallic.png-bath_Material_Roughness.png",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 23899
+  },
+  {
+    "owner": "assets\\bedside_table-BlT21OHt.glb",
+    "file": "littlecabinet2_Material_Normal",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 286542
+  },
+  {
+    "owner": "assets\\bedside_table-BlT21OHt.glb",
+    "file": "littlecabinet2_Material_BaseColor",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 741875
+  },
+  {
+    "owner": "assets\\bedside_table-BlT21OHt.glb",
+    "file": "littlecabinet2_Material_Metallic.png-littlecabinet2_Material_Roughness.png",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 434153
+  },
+  {
+    "owner": "assets\\corner_cupboard-CEQh5WyQ.glb",
+    "file": "Image_0",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 505012
+  },
+  {
+    "owner": "assets\\corner_cupboard-CEQh5WyQ.glb",
+    "file": "Image_1",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 772324
+  },
+  {
+    "owner": "assets\\corner_cupboard-CEQh5WyQ.glb",
+    "file": "Image_2",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 504641
+  },
+  {
+    "owner": "assets\\kitchen_table_1-Dbim-mLu.glb",
+    "file": "table2_Material_Normal",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 304281
+  },
+  {
+    "owner": "assets\\kitchen_table_1-Dbim-mLu.glb",
+    "file": "table2_Material_BaseColor",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 835951
+  },
+  {
+    "owner": "assets\\kitchen_table_1-Dbim-mLu.glb",
+    "file": "table2_Material_Metallic-table2_Material_Roughness",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 472593
+  },
+  {
+    "owner": "assets\\shower-DpimrC_O.glb",
+    "file": "Shower_Material_Normal",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 51706
+  },
+  {
+    "owner": "assets\\shower-DpimrC_O.glb",
+    "file": "Shower_Material_BaseColor",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 24840
+  },
+  {
+    "owner": "assets\\shower-DpimrC_O.glb",
+    "file": "Shower_Material_Metallic-Shower_Material_Roughness",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 276317
+  },
+  {
+    "owner": "assets\\sofa-CfZ0bs4S.glb",
+    "file": "Image_0",
+    "format": "jpeg",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 188201
+  },
+  {
+    "owner": "assets\\toilet-C5mqruFV.glb",
+    "file": "Image_0",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 6181
+  },
+  {
+    "owner": "assets\\toilet-C5mqruFV.glb",
+    "file": "Image_1",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 11182
+  },
+  {
+    "owner": "assets\\toilet-C5mqruFV.glb",
+    "file": "Image_2",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 23051
+  },
+  {
+    "owner": "assets\\wardrobe-C0cAF7t2.glb",
+    "file": "Image_0",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 545142
+  },
+  {
+    "owner": "assets\\wardrobe-C0cAF7t2.glb",
+    "file": "Image_1",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 1073008
+  },
+  {
+    "owner": "assets\\wardrobe-C0cAF7t2.glb",
+    "file": "Image_2",
+    "format": "png",
+    "width": 1024,
+    "height": 1024,
+    "bytes": 566040
+  },
+  {
+    "owner": "Washer Dryer Stack",
+    "file": "__Color_008_4",
+    "format": "KTX2",
+    "width": 640,
+    "height": 886,
+    "levels": 10,
+    "bytes": 107742
+  },
+  {
+    "owner": "Washer Dryer Stack",
+    "file": "__Color_A07_1",
+    "format": "KTX2",
+    "width": 1426,
+    "height": 360,
+    "levels": 11,
+    "bytes": 98941
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_0",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 108183
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_1",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 45921
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_2",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 275066
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_3",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 65648
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_4",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 147625
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_5",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 52362
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_6",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 57440
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_7",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 328708
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_8",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 53259
+  },
+  {
+    "owner": "Wooden door",
+    "file": "Image_9",
+    "format": "KTX2",
+    "width": 512,
+    "height": 512,
+    "levels": 10,
+    "bytes": 47573
+  },
+  {
+    "owner": "Washer Dryer Stack",
+    "file": "mhYdyzC",
+    "format": "KTX2",
+    "width": 600,
+    "height": 401,
+    "levels": 10,
+    "bytes": 73535
+  },
+  {
+    "owner": "Washer Dryer Stack",
+    "file": "__Color_I01_1",
+    "format": "KTX2",
+    "width": 413,
+    "height": 413,
+    "levels": 9,
+    "bytes": 55926
+  },
+  {
+    "owner": "Fridge Freezer",
+    "file": "Screen_shot_2013-03-30_at_17.55.11",
+    "format": "KTX2",
+    "width": 236,
+    "height": 467,
+    "levels": 9,
+    "bytes": 12639
+  },
+  {
+    "owner": "assets\\computer_desk-DuPLWngK.glb",
+    "file": "Wood_Cherry_Original",
+    "format": "jpeg",
+    "width": 256,
+    "height": 256,
+    "bytes": 27956
+  }
+]

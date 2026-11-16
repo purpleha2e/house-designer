@@ -1,0 +1,545 @@
+{
+  "baseline": {
+    "programs": 111,
+    "gi": {
+      "generation": 3,
+      "faces": 0
+    },
+    "warmups": 2
+  },
+  "draws": [
+    {
+      "phase": "rear-room",
+      "ms": 1447,
+      "name": "",
+      "model": "",
+      "type": "Mesh",
+      "material": "ShaderMaterial",
+      "materialName": "",
+      "side": 0,
+      "transparent": false,
+      "maps": [],
+      "camera": "OrthographicCamera",
+      "added": [
+        {
+          "id": 156,
+          "key": "46,47,highp,srgb-linear,false,,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,,false,false,0,,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,8388608,8519680,srgb,onBeforeCompile() {}",
+          "name": ""
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "phase": "rear-room",
+      "compiling": false,
+      "draw": {
+        "name": "",
+        "model": "",
+        "type": "Mesh",
+        "material": "ShaderMaterial",
+        "materialName": "",
+        "side": 0,
+        "transparent": false,
+        "maps": [],
+        "camera": "OrthographicCamera"
+      },
+      "at": 17455.599999964237,
+      "stack": "Error\n    at g.linkProgram (<anonymous>:10:101)\n    at WebGLProgram (http://127.0.0.1:5188/node_modules/.vite/deps/three.module-2AySgERg.js?v=268ad000:45955:5)\n    at Object.acquireProgram (http://127.0.0.1:5188/node_modules/.vite/deps/three.module-2AySgERg.js?v=268ad000:46471:14)\n    at getProgram (http://127.0.0.1:5188/node_modules/.vite/deps/three.module-2AySgERg.js?v=268ad000:52194:28)\n    at setProgram (http://127.0.0.1:5188/node_modules/.vite/deps/three.module-2AySgERg.js?v=268ad000:52322:15)\n    at WebGLRenderer.renderBufferDirect (http://127.0.0.1:5188/node_modules/.vite/deps/three.module-2AySgERg.js?v=268ad000:51741:20)\n    at WebGLRenderer.<anonymous> (http://127.0.0.1:5188/src/rendererAttributeDefaults.ts:74:20)\n    at r.renderBufferDirect (<anonymous>:8:28)\n    at renderObject (http://127.0.0.1:5188/node_modules/.vite/deps/three.module-2AySgERg.js?v=268ad000:52162:17)\n    at renderObjects (http://127.0.0.1:5188/node_modules/.vite/deps/three.module-2AySgERg.js?v=268ad000:52146:44)"
+    }
+  ],
+  "frames": [
+    {
+      "phase": "landing",
+      "ms": 307.39999997615814
+    },
+    {
+      "phase": "landing",
+      "ms": 245.4000000357628
+    },
+    {
+      "phase": "landing",
+      "ms": 8.099999964237213
+    },
+    {
+      "phase": "landing",
+      "ms": 15.5
+    },
+    {
+      "phase": "landing",
+      "ms": 750.9000000357628
+    },
+    {
+      "phase": "landing",
+      "ms": 93.89999997615814
+    },
+    {
+      "phase": "landing",
+      "ms": 365
+    },
+    {
+      "phase": "landing",
+      "ms": 192
+    },
+    {
+      "phase": "landing",
+      "ms": 373.80000001192093
+    },
+    {
+      "phase": "landing",
+      "ms": 523.8999999761581
+    },
+    {
+      "phase": "landing",
+      "ms": 907.8000000119209
+    },
+    {
+      "phase": "bedroom-left",
+      "ms": 639.3999999761581
+    },
+    {
+      "phase": "bedroom-left",
+      "ms": 2639.600000023842
+    },
+    {
+      "phase": "bedroom-left",
+      "ms": 683.1999999880791
+    },
+    {
+      "phase": "bedroom-window",
+      "ms": 1504.6000000238419
+    },
+    {
+      "phase": "bedroom-window",
+      "ms": 3042.699999988079
+    },
+    {
+      "phase": "bathroom",
+      "ms": 3071.600000023842
+    },
+    {
+      "phase": "bathroom",
+      "ms": 1396.5999999642372
+    },
+    {
+      "phase": "rear-room",
+      "ms": 2174.199999988079
+    },
+    {
+      "phase": "rear-room",
+      "ms": 2759.400000035763
+    },
+    {
+      "phase": "stairs",
+      "ms": 306.5
+    },
+    {
+      "phase": "stairs",
+      "ms": 4841.099999964237
+    },
+    {
+      "phase": "kitchen",
+      "ms": 225.4000000357628
+    },
+    {
+      "phase": "kitchen",
+      "ms": 52.59999996423721
+    },
+    {
+      "phase": "kitchen",
+      "ms": 2992.5
+    },
+    {
+      "phase": "kitchen",
+      "ms": 292.80000001192093
+    },
+    {
+      "phase": "lounge",
+      "ms": 1551.9000000357628
+    },
+    {
+      "phase": "lounge",
+      "ms": 1077.5
+    },
+    {
+      "phase": "lounge",
+      "ms": 868.7999999523163
+    },
+    {
+      "phase": "lounge",
+      "ms": 430
+    },
+    {
+      "phase": "roof",
+      "ms": 957.5
+    },
+    {
+      "phase": "roof",
+      "ms": 2523.5
+    },
+    {
+      "phase": "roof",
+      "ms": 1955.2000000476837
+    },
+    {
+      "phase": "outside",
+      "ms": 1283.3999999761581
+    },
+    {
+      "phase": "outside",
+      "ms": 746.1999999880791
+    },
+    {
+      "phase": "outside",
+      "ms": 3526
+    },
+    {
+      "phase": "landing-return",
+      "ms": 723.3000000119209
+    },
+    {
+      "phase": "landing-return",
+      "ms": 101.69999998807907
+    },
+    {
+      "phase": "landing-return",
+      "ms": 68.30000001192093
+    },
+    {
+      "phase": "landing-return",
+      "ms": 177.80000001192093
+    },
+    {
+      "phase": "landing-return",
+      "ms": 173.89999997615814
+    },
+    {
+      "phase": "landing-return",
+      "ms": 74.30000001192093
+    },
+    {
+      "phase": "landing-return",
+      "ms": 49.60000002384186
+    },
+    {
+      "phase": "landing-return",
+      "ms": 50.69999998807907
+    },
+    {
+      "phase": "landing-return",
+      "ms": 47.5
+    },
+    {
+      "phase": "landing-return",
+      "ms": 70.09999996423721
+    },
+    {
+      "phase": "landing-return",
+      "ms": 403.2000000476837
+    },
+    {
+      "phase": "landing-return",
+      "ms": 48.39999997615814
+    },
+    {
+      "phase": "landing-return",
+      "ms": 51.10000002384186
+    },
+    {
+      "phase": "landing-return",
+      "ms": 188.39999997615814
+    },
+    {
+      "phase": "landing-return",
+      "ms": 48.30000001192093
+    },
+    {
+      "phase": "landing-return",
+      "ms": 45.30000001192093
+    },
+    {
+      "phase": "landing-return",
+      "ms": 42.5
+    },
+    {
+      "phase": "landing-return",
+      "ms": 79.59999996423721
+    },
+    {
+      "phase": "landing-return",
+      "ms": 88.19999998807907
+    },
+    {
+      "phase": "landing-return",
+      "ms": 304.9000000357628
+    },
+    {
+      "phase": "landing-return",
+      "ms": 105.69999998807907
+    },
+    {
+      "phase": "landing-return",
+      "ms": 49.30000001192093
+    },
+    {
+      "phase": "landing-return",
+      "ms": 236.39999997615814
+    },
+    {
+      "phase": "landing-return",
+      "ms": 62.19999998807907
+    },
+    {
+      "phase": "landing-return",
+      "ms": 51
+    },
+    {
+      "phase": "landing-return",
+      "ms": 52.80000001192093
+    },
+    {
+      "phase": "landing-return",
+      "ms": 67.90000003576279
+    },
+    {
+      "phase": "landing-return",
+      "ms": 56.89999997615814
+    }
+  ],
+  "final": {
+    "programs": 96,
+    "gi": {
+      "generation": 3,
+      "faces": 0
+    },
+    "warmups": 2
+  },
+  "warmupProfile": [
+    {
+      "startedAt": 13819.100000023842,
+      "programsReused": false,
+      "stages": {
+        "delayAndSceneScan": 2139.7999999523163,
+        "snapshot": 184,
+        "compile": 109395.40000003576,
+        "resources": 252.39999997615814,
+        "postprocessing": 813.8000000119209
+      },
+      "batches": [
+        {
+          "submittedMs": 15.800000011920929,
+          "readyMs": 23782.30000001192,
+          "objects": 4,
+          "programs": 20
+        },
+        {
+          "submittedMs": 5.399999976158142,
+          "readyMs": 20949.600000023842,
+          "objects": 4,
+          "programs": 24
+        },
+        {
+          "submittedMs": 5.900000035762787,
+          "readyMs": 23560.400000035763,
+          "objects": 4,
+          "programs": 28
+        },
+        {
+          "submittedMs": 14.199999988079071,
+          "readyMs": 23345,
+          "objects": 4,
+          "programs": 32
+        },
+        {
+          "submittedMs": 17.69999998807907,
+          "readyMs": 18430.69999998808,
+          "objects": 4,
+          "programs": 36
+        },
+        {
+          "submittedMs": 6.599999964237213,
+          "readyMs": 13745.899999976158,
+          "objects": 4,
+          "programs": 40
+        },
+        {
+          "submittedMs": 14,
+          "readyMs": 26800.5,
+          "objects": 4,
+          "programs": 43
+        },
+        {
+          "submittedMs": 4.800000011920929,
+          "readyMs": 13996.399999976158,
+          "objects": 4,
+          "programs": 46
+        },
+        {
+          "submittedMs": 11.699999988079071,
+          "readyMs": 37007.30000001192,
+          "objects": 4,
+          "programs": 49
+        },
+        {
+          "submittedMs": 36.89999997615814,
+          "readyMs": 47947.89999997616,
+          "objects": 4,
+          "programs": 53
+        },
+        {
+          "submittedMs": 17.899999976158142,
+          "readyMs": 49609.59999996424,
+          "objects": 4,
+          "programs": 55
+        },
+        {
+          "submittedMs": 41.5,
+          "readyMs": 48544.30000001192,
+          "objects": 4,
+          "programs": 58
+        },
+        {
+          "submittedMs": 4.100000023841858,
+          "readyMs": 4.300000011920929,
+          "objects": 4,
+          "programs": 58
+        },
+        {
+          "submittedMs": 4.5,
+          "readyMs": 4.699999988079071,
+          "objects": 4,
+          "programs": 58
+        },
+        {
+          "submittedMs": 26.69999998807907,
+          "readyMs": 29547.69999998808,
+          "objects": 4,
+          "programs": 59
+        },
+        {
+          "submittedMs": 8.599999964237213,
+          "readyMs": 76,
+          "objects": 4,
+          "programs": 61
+        },
+        {
+          "submittedMs": 27.299999952316284,
+          "readyMs": 23397.599999964237,
+          "objects": 4,
+          "programs": 63
+        },
+        {
+          "submittedMs": 6.699999988079071,
+          "readyMs": 54.69999998807907,
+          "objects": 4,
+          "programs": 64
+        },
+        {
+          "submittedMs": 52,
+          "readyMs": 411,
+          "objects": 4,
+          "programs": 69
+        },
+        {
+          "submittedMs": 12,
+          "readyMs": 86.90000003576279,
+          "objects": 4,
+          "programs": 72
+        },
+        {
+          "submittedMs": 2.300000011920929,
+          "readyMs": 2.399999976158142,
+          "objects": 4,
+          "programs": 72
+        },
+        {
+          "submittedMs": 5.399999976158142,
+          "readyMs": 5.599999964237213,
+          "objects": 4,
+          "programs": 72
+        },
+        {
+          "submittedMs": 1.800000011920929,
+          "readyMs": 1.800000011920929,
+          "objects": 4,
+          "programs": 72
+        },
+        {
+          "submittedMs": 2.699999988079071,
+          "readyMs": 90,
+          "objects": 3,
+          "programs": 73
+        }
+      ],
+      "cancelled": false
+    },
+    {
+      "startedAt": 131779.89999997616,
+      "programsReused": false,
+      "stages": {
+        "delayAndSceneScan": 72.20000004768372,
+        "snapshot": 2244,
+        "compile": 103137.09999996424,
+        "resources": 66.59999996423721,
+        "postprocessing": 0
+      },
+      "batches": [
+        {
+          "submittedMs": 27.399999976158142,
+          "readyMs": 39473.39999997616,
+          "objects": 4,
+          "programs": 86
+        },
+        {
+          "submittedMs": 37.69999998807907,
+          "readyMs": 35509.09999996424,
+          "objects": 4,
+          "programs": 90
+        },
+        {
+          "submittedMs": 39.90000003576279,
+          "readyMs": 36944.90000003576,
+          "objects": 4,
+          "programs": 94
+        },
+        {
+          "submittedMs": 39.10000002384186,
+          "readyMs": 67873.90000003576,
+          "objects": 4,
+          "programs": 99
+        },
+        {
+          "submittedMs": 69.70000004768372,
+          "readyMs": 52706.5,
+          "objects": 4,
+          "programs": 104
+        },
+        {
+          "submittedMs": 81.39999997615814,
+          "readyMs": 52147.5,
+          "objects": 4,
+          "programs": 107
+        },
+        {
+          "submittedMs": 32.19999998807907,
+          "readyMs": 42702,
+          "objects": 4,
+          "programs": 108
+        },
+        {
+          "submittedMs": 89.40000003576279,
+          "readyMs": 31807.5,
+          "objects": 4,
+          "programs": 111
+        },
+        {
+          "submittedMs": 3.899999976158142,
+          "readyMs": 20.19999998807907,
+          "objects": 2,
+          "programs": 111
+        }
+      ],
+      "cancelled": false
+    }
+  ]
+}

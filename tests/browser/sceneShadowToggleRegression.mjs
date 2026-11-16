@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Real saved Springfield scene: master/local switches must reuse prepared programs.
 // node tests/browser/sceneShadowToggleRegression.mjs [vite-port]
 import assert from 'node:assert/strict'
@@ -9,7 +10,7 @@ const unexpected=()=>b.errors.filter(e=>!/^THREE\.BufferGeometryUtils: \.merge(A
 async function wait(e){const end=Date.now()+360000;while(!await b.evaluate(e)){assert.deepEqual(unexpected(),[]);if(Date.now()>end)throw Error(e);await new Promise(r=>setTimeout(r,150))}}
 try{
   await b.call('Emulation.setDeviceMetricsOverride',{width:1600,height:1000,deviceScaleFactor:1,mobile:false})
-  await b.call('Page.addScriptToEvaluateOnNewDocument',{source:`const f=fetch;window.fetch=(i,o)=>f(String(i?.url??i).includes('/bb35ad04a6c60479b06147e9ddd58e7e/processed/model.glb')?'/src/models/assets/interior_door_closed.glb':i,o);window.confirm=()=>false;window.showOpenFilePicker=async()=>[{getFile:async()=>new File([await(await fetch('/springfield_14.json')).text()],'springfield_14.json')}];`})
+  await b.call('Page.addScriptToEvaluateOnNewDocument',{source:`const f=fetch;window.fetch=(i,o)=>f(String(i?.url??i).includes('/bb35ad04a6c60479b06147e9ddd58e7e/processed/model.glb')?'/src/models/assets/interior_door_closed.glb':i,o);window.confirm=()=>false;${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([await(await fetch('/springfield_14.json')).text()],'springfield_14.json')}];`})
   await b.call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5180}/tests/browser/editorRegression.html`})
   await wait('!!window.perfScene?.()')
   await b.evaluate(`document.querySelector('[aria-label="Project menu"]').click()`)

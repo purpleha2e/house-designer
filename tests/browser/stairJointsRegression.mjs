@@ -1,3 +1,5 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Vite and asset portal running: node tests/browser/stairJointsRegression.mjs [port]
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
@@ -53,9 +55,9 @@ try {
       walls:polygon.map(([x,y],i)=>({id:id+'-wall-'+i,kind:'external',height:2.7,thickness:.2,start:{x,y},end:{x:polygon[(i+1)%4][0],y:polygon[(i+1)%4][1]}}))});
     const ground=floor('ground',0),upper=floor('upper',2.9);ground.models=[{id:'joint-stair',modelId:'joint-design',position:{x:0,y:0},rotation:0,scale:1}];
     window.fixture={activeFloorId:'upper',wallKind:'external',threeDView:{floorViewId:'all'},floors:[ground,upper],modelDefinitions:[stairDefinition('joint-design','Joint regression stairs',d)]};
-    window.alert=message=>{throw Error(message)};window.showOpenFilePicker=async()=>[{getFile:async()=>new File([JSON.stringify(fixture)],'joints.house.json')}];
+    window.alert=message=>{throw Error(message)};${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([JSON.stringify(fixture)],'joints.house.json')}];
     const {Box3,AmbientLight}=await import('/node_modules/.vite/deps/three.js'),{getStairSlabOpenings}=await import('/src/stairSlabOpenings.ts'),{pointIsInsideRoomPolygon}=await import('/src/roomLightMask.ts');
-    window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async text=>{window.savedJoints=JSON.parse(text)},close:async()=>{}})});
+    ${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async text=>{window.savedJoints=JSON.parse(text)},close:async()=>{}})});
     window.skirtOverVoid=()=>{let count=0,total=0;const openings=getStairSlabOpenings(fixture.floors[0],fixture.floors[1],fixture.floors,new Map(fixture.modelDefinitions.map(d=>[d.id,d])));roofCreateScene().updateMatrixWorld(true);roofCreateScene().traverse(o=>{if(o.userData.houseDesignerRole!=='skirting')return;const p=o.geometry.getAttribute('position'),v=new Box3().setFromObject(o);if(v.min.y<2.8)return;total++;for(let i=0;i<p.count;i+=3){const a=new (v.min.constructor)();for(let j=0;j<3;j++)a.add(new (v.min.constructor)().fromBufferAttribute(p,i+j).applyMatrix4(o.matrixWorld));a.multiplyScalar(1/3);if(openings.some(polygon=>pointIsInsideRoomPolygon({x:a.x,y:a.z},polygon)))count++}});return{count,total}};
     window.jointReport=()=>{const scene=roofCreateScene(),reveals=[];scene.updateMatrixWorld(true);scene.traverse(o=>{if(o.isMesh&&o.userData.houseDesignerOpeningReveal){const b=new Box3().setFromObject(o);reveals.push({min:b.min.toArray(),max:b.max.toArray()})}});return reveals};
     window.jointCapture=async(x)=>{const s=roofCreateStates()[0];s.setFrameloop('never');s.scene.add(new AmbientLight('#ffffff',2));s.scene.traverse(o=>{if(o.isMesh){const role=o.userData.houseDesignerRole??'';o.visible=o.name.startsWith('stair-')||role.includes('slab')||role.includes('floor')}});s.camera.position.set(x+2.4,5.4,3.2);s.camera.lookAt(x,2.2,.2);s.camera.updateMatrixWorld();s.gl.render(s.scene,s.camera)};
@@ -103,7 +105,7 @@ try {
   lightingFixture.floors.forEach((f,i)=>f.models.push({id:'storey-lamp-'+i,modelId:'point-light',position:{x:1.8,y:0},height:1.8,rotation:0,scale:1,lightPower:120,lightEnabled:true}))
   await call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5186}/tests/browser/roofCreatePreviewRegression.html`})
   await until(`!!window.roofCreateScene?.() && !!document.querySelector('[aria-label="Project menu"]')`)
-  await evaluate(`window.showOpenFilePicker=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(lightingFixture))}],'stairwell-lights.house.json')}];document.querySelector('[aria-label="Project menu"]').click()`)
+  await evaluate(`${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(lightingFixture))}],'stairwell-lights.house.json')}];document.querySelector('[aria-label="Project menu"]').click()`)
   await pause(100);await evaluate(`[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Load').click()`)
   await until(`(()=>{const lights=[];roofCreateScene().traverse(o=>{if(o.isPointLight&&o.intensity>0)lights.push(o.position.y)});return lights.some(y=>Math.abs(y-1.8)<.01)&&lights.some(y=>Math.abs(y-4.7)<.01)})()`)
   assert.ok(await evaluate(`document.querySelector('[aria-label="Selection details"]').textContent.includes('upper')`),'both storeys emit while upper floor is active')

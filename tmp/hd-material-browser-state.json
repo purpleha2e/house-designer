@@ -1,0 +1,1485 @@
+{
+  "body": "Download requested for hd-slots.house.json. Check your browser’s downloads.\nDismiss\n2D floor\nFloor 0\n100%\nFloor 0 internal area: 0.0m2\nContext\n\nFloor 0 - Tagged bed\n\nFrame\nTest red\nChoose material…\nLadder\nOriginal model material\nModel finish · Choose…\nDrawer fronts\nOriginal model material\nModel finish · Choose…\nMattress\nOriginal model material\nModel finish · Choose…\nPillow\nOriginal model material\nModel finish · Choose…\nQuilt\nOriginal model material\nModel finish · Choose…\nTransform\nWidth\nm\nLength\nm\nX scale\n×\nY scale\n×\nZ scale\n×\nRotation\n°\nEnter or leave a field to apply · Esc to cancel\nFloor elev.\n0.00 m\nRoom height\n2.40 m\nCeiling / floor depth\n0.20 m\nType\nFurniture\nLength\n1.91 m\nDepth\n1.14 m\nHeight\n1.14 m\nScale\n1.00x / 1.00w / 1.00d\nRotation\n0 deg\nActions\nDelete\n3D floors\nAll floors\nFloor 0\nGI ready · 0 probes · 0 reflections · ready to save with model\n60 FPS\n0/0 lights\n24 shaders\nGI ready\n94 calls\n35 geo / 37 tex\n298,290 tris\nVR NOT SUPPORTED",
+  "models": [
+    {
+      "id": "bed-a",
+      "modelId": "portal-model-hd-bed",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "rotation": 0,
+      "scale": 1,
+      "flipped": false,
+      "mirrored": false,
+      "widthScale": 1,
+      "depthScale": 1,
+      "materialOverrides": {
+        "hd_frame": "portal-material-hd-red"
+      }
+    },
+    {
+      "id": "bed-b",
+      "modelId": "portal-model-hd-bed",
+      "position": {
+        "x": 3,
+        "y": 0
+      },
+      "rotation": 0,
+      "scale": 1,
+      "flipped": false,
+      "mirrored": false,
+      "widthScale": 1,
+      "depthScale": 1
+    }
+  ],
+  "data": {
+    "exteriorSkyFeatureRequested": true,
+    "shaderWarmupGeneration": 8,
+    "shaderWarmupPending": false,
+    "projectGeneration": 1,
+    "progressiveStartup": {
+      "startedAtMs": 3001.5,
+      "phase": "full",
+      "frames": 159,
+      "geometryReadyMs": 212.09999999403954,
+      "opaqueReadyMs": 895.3000000119209,
+      "lightingReadyMs": 3569.800000011921,
+      "programsAtLighting": 25,
+      "fullReadyMs": 3575.4000000059605
+    },
+    "liveLightRevision": 4,
+    "localLightSlotsRevision": 361,
+    "roomLightOcclusion": {
+      "ready": false,
+      "lights": 0,
+      "records": 0
+    },
+    "displayEffectRevision": 4,
+    "indirectReflectionPending": false,
+    "indirectLighting": {
+      "generation": 4,
+      "completed": 0,
+      "total": 0,
+      "rooms": 0,
+      "probes": 0,
+      "floorProbes": 0,
+      "state": "ready",
+      "multiviewViews": 3,
+      "multiviewBatches": 0,
+      "multiviewProbes": 0,
+      "firstProbes": 0,
+      "secondProbes": 0,
+      "reusedProbes": 0,
+      "zones": 0,
+      "partial": false,
+      "capturedFaces": 0,
+      "captureMs": 0,
+      "maxFaceMs": 0,
+      "maxInFlight": 0,
+      "previewUpdates": 0,
+      "bakeStartedAt": 7553.300000011921,
+      "roomMean": {},
+      "worker": true,
+      "geometryBuilds": 1,
+      "captureSceneMs": 49.900000005960464,
+      "captureSceneMeshes": 12,
+      "captureMergedMeshes": 3,
+      "captureMaterials": 12,
+      "captureDrawCalls": 0,
+      "captureTriangles": 0,
+      "surfaceCacheBytes": 0,
+      "surfaceCachedProbes": 0,
+      "surfaceReplayedProbes": 0,
+      "surfaceReusedFaces": 0,
+      "surfaceDataFaces": 0,
+      "surfaceRelitProbes": 0,
+      "surfaceRelighting": false,
+      "blocked": false,
+      "enabled": true,
+      "diffuseEnabled": true,
+      "bakeOnDemand": false,
+      "preparing": false,
+      "warming": false,
+      "reading": false,
+      "inFlight": 0,
+      "volumePending": false,
+      "previewPending": false,
+      "pendingUpdate": false,
+      "floorPreparing": false,
+      "floorLayerReady": true,
+      "volumeSamplingVersion": 1,
+      "displayed": true,
+      "xr": false,
+      "capturedProbes": 0,
+      "reflection": false,
+      "face": 0,
+      "saving": false,
+      "saved": true,
+      "source": "baked",
+      "exportable": true,
+      "continuous": false,
+      "lightingRevision": 1,
+      "pendingLighting": false,
+      "moving": false,
+      "paused": false
+    },
+    "ambientFillBudget": {
+      "requested": 0.3,
+      "applied": 0.3,
+      "exteriorSkyReady": true
+    },
+    "bindSoftFloorGI": {},
+    "fastGI": {
+      "configure": {},
+      "refresh": {},
+      "options": {
+        "enabled": false,
+        "hybrid": true,
+        "mode": "combined",
+        "viewsPerFrame": 3
+      },
+      "stats": {
+        "state": "disabled"
+      },
+      "engine": null,
+      "weight": 0,
+      "inspect": {}
+    },
+    "indirectSHExperiment": {
+      "requested": 1,
+      "selected": 1,
+      "coefficientCount": 4
+    },
+    "getIndirectUniforms": {},
+    "getBakedIndirectLighting": {},
+    "getIndirectCaptureScene": {},
+    "getIndirectMultiview": {},
+    "getIndirectSurfaceCache": {},
+    "getIndirectSurfaceCaptureScene": {},
+    "getLightingPerformance": {},
+    "measureLightingApplication": {},
+    "getLightingField": {},
+    "indirectScanPending": false,
+    "prepareRoomLightMaterials": {},
+    "daylightEnvironment": {
+      "updates": 2,
+      "skyCpuMs": 1.4000000059604645,
+      "basisCpuMs": 4,
+      "pmremCpuSubmissionMs": 0,
+      "width": 336,
+      "height": 256,
+      "sourceSize": 32
+    },
+    "fastGIRevision": 2,
+    "shaderWarmupProfile": [
+      {
+        "startedAt": 4230.5999999940395,
+        "programsReused": false,
+        "stages": {
+          "delayAndSceneScan": 350.7999999821186,
+          "snapshot": 25.200000017881393,
+          "compile": 1539.8999999761581,
+          "resources": 1.100000023841858,
+          "postprocessing": 360.39999997615814
+        },
+        "batches": [
+          {
+            "submittedMs": 7.0999999940395355,
+            "readyMs": 1533,
+            "objects": 4,
+            "programs": 7
+          },
+          {
+            "submittedMs": 3,
+            "readyMs": 55.20000001788139,
+            "objects": 4,
+            "programs": 13
+          },
+          {
+            "submittedMs": 1.5999999940395355,
+            "readyMs": 27,
+            "objects": 4,
+            "programs": 16
+          },
+          {
+            "submittedMs": 0.4000000059604645,
+            "readyMs": 36.30000001192093,
+            "objects": 4,
+            "programs": 16
+          },
+          {
+            "submittedMs": 0.3999999761581421,
+            "readyMs": 25.799999982118607,
+            "objects": 4,
+            "programs": 17
+          },
+          {
+            "submittedMs": 0.19999998807907104,
+            "readyMs": 5.9000000059604645,
+            "objects": 2,
+            "programs": 17
+          }
+        ],
+        "cancelled": false
+      }
+    ],
+    "exteriorSkyOcclusion": {
+      "state": "error",
+      "message": "No building surfaces are available.",
+      "bakes": 0
+    },
+    "softFloorGI": {
+      "state": "ready",
+      "cm": 10,
+      "statistics": {
+        "filterMs": 0.19999998807907104,
+        "planMs": 0.19999998807907104,
+        "reusedPlan": false,
+        "reusedSource": false,
+        "radius": 0.1,
+        "sigma": 0.05,
+        "links": 0,
+        "changedComponents": 0,
+        "maxCoefficientDelta": 0,
+        "workingBytes": 27040,
+        "incremental": false,
+        "wallMs": 441.30000001192093,
+        "graph": {
+          "preparationMs": 0.699999988079071,
+          "queries": 0,
+          "supportChecks": 0,
+          "rejectedBarrier": 0,
+          "rejectedSupport": 0,
+          "rejectedContact": 0,
+          "retainedPairs": 0,
+          "validCells": 0,
+          "pairs": 0,
+          "bytes": 676
+        }
+      }
+    }
+  },
+  "objects": [
+    {
+      "name": "Imported model render batches",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "PointLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "SpotLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "SpotLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "SpotLight",
+      "materials": []
+    },
+    {
+      "name": "local-light:spare",
+      "type": "SpotLight",
+      "materials": []
+    },
+    {
+      "name": "model-transform-bed-a",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "model-local-transform-bed-a",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "f97316"
+        }
+      ]
+    },
+    {
+      "name": "Juniper_•_compact_cabin_bed",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "Juniper_cabin_bed_•_191_×_85_cm",
+      "type": "Object3D",
+      "materials": []
+    },
+    {
+      "name": "hd_frame",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_frame",
+          "colour": "b42d35"
+        }
+      ]
+    },
+    {
+      "name": "hd_ladder",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_ladder",
+          "colour": "caa77a"
+        }
+      ]
+    },
+    {
+      "name": "hd_drawer_fronts",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_drawer_fronts",
+          "colour": "819b8b"
+        }
+      ]
+    },
+    {
+      "name": "hd_mattress",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_mattress",
+          "colour": "ede9df"
+        }
+      ]
+    },
+    {
+      "name": "hd_pillow",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_pillow",
+          "colour": "fff6e8"
+        }
+      ]
+    },
+    {
+      "name": "hd_quilt",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_quilt",
+          "colour": "628c9c"
+        }
+      ]
+    },
+    {
+      "name": "model-selection-overlay",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "model-selection-highlight",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "248cff"
+        }
+      ]
+    },
+    {
+      "name": "model-selection-highlight",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "248cff"
+        }
+      ]
+    },
+    {
+      "name": "model-selection-highlight",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "248cff"
+        }
+      ]
+    },
+    {
+      "name": "model-selection-highlight",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "248cff"
+        }
+      ]
+    },
+    {
+      "name": "model-selection-highlight",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "248cff"
+        }
+      ]
+    },
+    {
+      "name": "model-selection-highlight",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "248cff"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff0000"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff0000"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff0000"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ff00"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ff00"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ff00"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "0000ff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "0000ff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "0000ff"
+        }
+      ]
+    },
+    {
+      "name": "XYZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ffff"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ffff"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ffff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff00ff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff00ff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff00ff"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff0000"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff0000"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ff00"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ff00"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "0000ff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "0000ff"
+        }
+      ]
+    },
+    {
+      "name": "E",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "E",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "E",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "E",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "E",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "XYZE",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "787878"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff0000"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff0000"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ff00"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ff00"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "0000ff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "0000ff"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffff00"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ffff"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ffff"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "00ffff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff00ff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff00ff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ff00ff"
+        }
+      ]
+    },
+    {
+      "name": "XYZX",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XYZY",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XYZZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XYZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "E",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XYZE",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XY",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "YZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XYZX",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XYZY",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "XYZZ",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "START",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "END",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "DELTA",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "AXIS",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "X",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Y",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "Z",
+      "type": "Line",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "",
+      "type": "TransformControlsPlane",
+      "materials": [
+        {
+          "name": "",
+          "colour": "ffffff"
+        }
+      ]
+    },
+    {
+      "name": "model-transform-bed-b",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "model-local-transform-bed-b",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "Juniper_•_compact_cabin_bed",
+      "type": "Group",
+      "materials": []
+    },
+    {
+      "name": "Juniper_cabin_bed_•_191_×_85_cm",
+      "type": "Object3D",
+      "materials": []
+    },
+    {
+      "name": "hd_frame",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_frame",
+          "colour": "e6decc"
+        }
+      ]
+    },
+    {
+      "name": "hd_ladder",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_ladder",
+          "colour": "caa77a"
+        }
+      ]
+    },
+    {
+      "name": "hd_drawer_fronts",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_drawer_fronts",
+          "colour": "819b8b"
+        }
+      ]
+    },
+    {
+      "name": "hd_mattress",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_mattress",
+          "colour": "ede9df"
+        }
+      ]
+    },
+    {
+      "name": "hd_pillow",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_pillow",
+          "colour": "fff6e8"
+        }
+      ]
+    },
+    {
+      "name": "hd_quilt",
+      "type": "Mesh",
+      "materials": [
+        {
+          "name": "hd_quilt",
+          "colour": "628c9c"
+        }
+      ]
+    }
+  ]
+}

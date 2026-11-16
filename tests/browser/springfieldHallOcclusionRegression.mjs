@@ -1,3 +1,4 @@
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 import {mkdirSync,writeFileSync,readFileSync} from 'node:fs'
 import {lightingBrowser} from './lightingHarness.mjs'
 const b=await lightingBrowser(),out='tmp/hall-occlusion-regression';mkdirSync(out,{recursive:true});
@@ -5,7 +6,7 @@ const project=JSON.parse(readFileSync('springfield_14.json','utf8'));
 const wait=async(e,timeout=600000)=>{const end=Date.now()+timeout;while(!await b.evaluate(e)){if(Date.now()>end)throw Error(e);await new Promise(r=>setTimeout(r,250))}};
 try{
 await b.call('Emulation.setDeviceMetricsOverride',{width:1400,height:950,deviceScaleFactor:1,mobile:false});
-await b.call('Page.addScriptToEvaluateOnNewDocument',{source:`const f=fetch;window.fetch=(i,o)=>f(String(i?.url??i).includes('/bb35ad04a6c60479b06147e9ddd58e7e/processed/model.glb')?'/src/models/assets/interior_door_closed.glb':i,o);window.confirm=()=>false;window.showOpenFilePicker=async()=>[{getFile:async()=>{const p=await(await fetch('/springfield_14.json')).json();p.floors[0].models.find(m=>m.id==='6b994a32-4a8c-4114-97d2-4db97917b5cc').lightEnabled=true;return new File([JSON.stringify(p)],'springfield_14.json')}}];`});
+await b.call('Page.addScriptToEvaluateOnNewDocument',{source:`const f=fetch;window.fetch=(i,o)=>f(String(i?.url??i).includes('/bb35ad04a6c60479b06147e9ddd58e7e/processed/model.glb')?'/src/models/assets/interior_door_closed.glb':i,o);window.confirm=()=>false;${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>{const p=await(await fetch('/springfield_14.json')).json();p.floors[0].models.find(m=>m.id==='6b994a32-4a8c-4114-97d2-4db97917b5cc').lightEnabled=true;return new File([JSON.stringify(p)],'springfield_14.json')}}];`});
 await b.call('Page.navigate',{url:'http://127.0.0.1:5180/tests/browser/editorRegression.html?lightingDiagnostics'});
 await wait('!!window.perfScene?.()');
 await b.evaluate(`document.querySelector('[aria-label="Project menu"]').click()`);

@@ -1,0 +1,48 @@
+{
+  "props": {
+    "project": "566565:9e4c5d10:5ec228e2",
+    "assets": "14707:24609ff8:fd828700",
+    "settings": {
+      "skyMode": "clear",
+      "skyStrength": 1,
+      "diffuseBounces": 6,
+      "diffuseProbeResolution": 16,
+      "daylightBounceStrength": 1,
+      "daylight": true,
+      "lights": true,
+      "shadows": true,
+      "lightShadows": false,
+      "hideRoofs": false,
+      "floorSlabs": true,
+      "ambientTerm": 0.32,
+      "nightAmbientTerm": 0.32,
+      "softAmbientShading": true,
+      "softAmbientStrength": 1,
+      "groundPlane": true
+    },
+    "saved": {
+      "project": "566565:9e4c5d10:5ec228e2",
+      "assets": "14707:24609ff8:fd828700",
+      "settings": {
+        "skyMode": "clear",
+        "skyStrength": 1,
+        "diffuseBounces": 6,
+        "diffuseProbeResolution": 16,
+        "daylightBounceStrength": 1,
+        "daylight": true,
+        "lights": true,
+        "shadows": true,
+        "lightShadows": false,
+        "hideRoofs": false,
+        "floorSlabs": true,
+        "ambientTerm": 0.32,
+        "nightAmbientTerm": 0.32,
+        "softAmbientShading": true,
+        "softAmbientStrength": 1,
+        "groundPlane": true,
+        "shOrder": 2
+      }
+    }
+  },
+  "text": "Upstairs · Floor 1\nScene ready. Saved lighting does not match the lighting settings.\n-- FPS\n↕\n↔"
+}

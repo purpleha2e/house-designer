@@ -1,5 +1,6 @@
 import { _roots } from '@react-three/fiber'
 export * from 'three'
+export { useProgress } from '@react-three/drei'
 export { default as Konva } from 'konva'
 // Resolve through Vite so browser regressions use the app's dependency cache,
 // including when a diagnostic server has its own cacheDir.

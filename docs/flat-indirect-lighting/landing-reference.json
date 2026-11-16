@@ -1,0 +1,1391 @@
+{
+  "full": {
+    "ok": true,
+    "results": [
+      {
+        "name": "ceiling above sunlit carpet",
+        "position": [
+          10.3,
+          4.979999999999999,
+          8.32679243153937
+        ],
+        "normal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "ceiling above sunlit carpet",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.0045429278541657715,
+            0.004923272649139243,
+            0.0054691343473154425
+          ],
+          "reflected": [
+            0.08641023094000135,
+            0.07693839606183557,
+            0.07003674075503463
+          ],
+          "skyStandardError": [
+            0.0005445961280829953,
+            0.0005901910195997374,
+            0.0006556277108346573
+          ],
+          "reflectedStandardError": [
+            0.0022910206001120594,
+            0.002269377906403885,
+            0.00234156366564658
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47168,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.013595521020018847,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "upper-right ceiling corner",
+        "position": [
+          11.260553674964545,
+          4.979999999999999,
+          6.719084483250522
+        ],
+        "normal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "upper-right ceiling corner",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.0013826302164852344,
+            0.0014983873279989018,
+            0.0016645191491829604
+          ],
+          "reflected": [
+            0.06119359931025951,
+            0.05596831123004054,
+            0.05277845356555708
+          ],
+          "skyStandardError": [
+            0.00030132768144795486,
+            0.0003265555562677283,
+            0.0003627619951949606
+          ],
+          "reflectedStandardError": [
+            0.0019448125060948789,
+            0.002013098885661237,
+            0.002186821013271648
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 46156,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.013595521020018018,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "upper-right wall",
+        "position": [
+          11.539628028869629,
+          4.373284749465688,
+          8.366308754249449
+        ],
+        "normal": [
+          -1,
+          0,
+          0
+        ],
+        "geometricNormal": [
+          -1,
+          0,
+          0
+        ],
+        "reference": {
+          "name": "upper-right wall",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.005202030628453843,
+            0.0056486212183132585,
+            0.0062892289833296295
+          ],
+          "reflected": [
+            0.09532563703975386,
+            0.08684155813678211,
+            0.0808080090786324
+          ],
+          "skyStandardError": [
+            0.0006162998037998011,
+            0.0006706734683707613,
+            0.0007486956996665976
+          ],
+          "reflectedStandardError": [
+            0.002604918985504353,
+            0.0026221626873196746,
+            0.0027371324688626243
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47171,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.019701784984713477,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "lower wall near carpet",
+        "position": [
+          9.227927207946777,
+          3.456287703312553,
+          8.569690175004176
+        ],
+        "normal": [
+          1,
+          0,
+          0
+        ],
+        "geometricNormal": [
+          1,
+          0,
+          0
+        ],
+        "reference": {
+          "name": "lower wall near carpet",
+          "direct": [
+            0.2639354761019931,
+            0.24775246465031348,
+            0.22566288108811416
+          ],
+          "sky": [
+            0.014604260309132932,
+            0.016177026803962626,
+            0.01842383608229077
+          ],
+          "reflected": [
+            0.09037147066828304,
+            0.08182898218917177,
+            0.07601176722426738
+          ],
+          "skyStandardError": [
+            0.0016299174498256392,
+            0.0018054470213453233,
+            0.0020562035520877296
+          ],
+          "reflectedStandardError": [
+            0.0025032766872231274,
+            0.0025561433624006836,
+            0.0027193197864148794
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47088,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 1,
+        "firstOccluderDistance": null,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": true
+          },
+          {
+            "offset": 0.004,
+            "visible": true
+          },
+          {
+            "offset": 0.01,
+            "visible": true
+          }
+        ]
+      },
+      {
+        "name": "sunlit carpet",
+        "position": [
+          9.787449036540949,
+          2.611999999999998,
+          7.252797966371995
+        ],
+        "normal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "sunlit carpet",
+          "direct": [
+            0.3824807293429099,
+            0.35902920204382416,
+            0.32701819633693596
+          ],
+          "sky": [
+            0.010070432359660552,
+            0.011154940459931689,
+            0.01270423774603331
+          ],
+          "reflected": [
+            0.06879568703650651,
+            0.06235324233551377,
+            0.05855247922124919
+          ],
+          "skyStandardError": [
+            0.0014218998122631245,
+            0.0015750274843529992,
+            0.0017937813016242494
+          ],
+          "reflectedStandardError": [
+            0.0021704327348714097,
+            0.0022209412166721196,
+            0.0023874469374609193
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47040,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 1,
+        "firstOccluderDistance": null,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": true
+          },
+          {
+            "offset": 0.004,
+            "visible": true
+          },
+          {
+            "offset": 0.01,
+            "visible": true
+          }
+        ]
+      },
+      {
+        "name": "shadowed carpet",
+        "position": [
+          10.385425160576519,
+          2.611999999999998,
+          7.252797966371995
+        ],
+        "normal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "shadowed carpet",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0.010002038942742805,
+            0.011079181598115108,
+            0.012617956820075538
+          ],
+          "reflected": [
+            0.06571692009477278,
+            0.05936011169284007,
+            0.05558868038198263
+          ],
+          "skyStandardError": [
+            0.0014274553705105302,
+            0.001581181333488587,
+            0.0018007898520286687
+          ],
+          "reflectedStandardError": [
+            0.0021893220779791007,
+            0.0022342625633038696,
+            0.00238179753632204
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 46840,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 4.694373691626466,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      }
+    ],
+    "elapsedMs": 13914.699999988079,
+    "samples": 8192,
+    "depth": 6,
+    "snapshot": {
+      "triangles": 364936,
+      "textures": 31
+    },
+    "lighting": {
+      "sun": [
+        1.3,
+        1.2202914469934547,
+        1.1114903905573652
+      ],
+      "sky": [
+        0.65,
+        0.72,
+        0.82
+      ],
+      "lights": 0
+    }
+  },
+  "solar": {
+    "ok": true,
+    "results": [
+      {
+        "name": "ceiling above sunlit carpet",
+        "position": [
+          10.3,
+          4.979999999999999,
+          8.32679243153937
+        ],
+        "normal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "ceiling above sunlit carpet",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.0541525955423225,
+            0.044852751758077375,
+            0.03669524132581136
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0011135842636219979,
+            0.0009509797307841095,
+            0.0007939639622253512
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47168,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.013595521020018847,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "upper-right ceiling corner",
+        "position": [
+          11.260553674964545,
+          4.979999999999999,
+          6.719084483250522
+        ],
+        "normal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "upper-right ceiling corner",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.03677894773438894,
+            0.030350790033521487,
+            0.024689911392718717
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0009497990680624629,
+            0.0008146930954472007,
+            0.0006822696097941397
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 46156,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.013595521020018018,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "upper-right wall",
+        "position": [
+          11.539628028869629,
+          4.373284749465688,
+          8.366308754249449
+        ],
+        "normal": [
+          -1,
+          0,
+          0
+        ],
+        "geometricNormal": [
+          -1,
+          0,
+          0
+        ],
+        "reference": {
+          "name": "upper-right wall",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.05637753547504173,
+            0.047421427765842496,
+            0.039339974434565536
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0012181081676631883,
+            0.001051763767207486,
+            0.0008888919597233438
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47171,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.019701784984713477,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "lower wall near carpet",
+        "position": [
+          9.227927207946777,
+          3.456287703312553,
+          8.569690175004176
+        ],
+        "normal": [
+          1,
+          0,
+          0
+        ],
+        "geometricNormal": [
+          1,
+          0,
+          0
+        ],
+        "reference": {
+          "name": "lower wall near carpet",
+          "direct": [
+            0.2639354761019931,
+            0.24775246465031348,
+            0.22566288108811416
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.05406341325563917,
+            0.0448269888191354,
+            0.0365672297747362
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.001141174173870844,
+            0.000982699144413464,
+            0.0008183860695734101
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47088,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 1,
+        "firstOccluderDistance": null,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": true
+          },
+          {
+            "offset": 0.004,
+            "visible": true
+          },
+          {
+            "offset": 0.01,
+            "visible": true
+          }
+        ]
+      },
+      {
+        "name": "sunlit carpet",
+        "position": [
+          9.787449036540949,
+          2.611999999999998,
+          7.252797966371995
+        ],
+        "normal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "sunlit carpet",
+          "direct": [
+            0.3824807293429099,
+            0.35902920204382416,
+            0.32701819633693596
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.04058719285715409,
+            0.033331129118768,
+            0.027218590288598483
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0009733204733863701,
+            0.0008295072451807779,
+            0.0006964328965254012
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 47040,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 1,
+        "firstOccluderDistance": null,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": true
+          },
+          {
+            "offset": 0.004,
+            "visible": true
+          },
+          {
+            "offset": 0.01,
+            "visible": true
+          }
+        ]
+      },
+      {
+        "name": "shadowed carpet",
+        "position": [
+          10.385425160576519,
+          2.611999999999998,
+          7.252797966371995
+        ],
+        "normal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "shadowed carpet",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.03681413781802275,
+            0.029942292139023524,
+            0.024237950646379947
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0009286078281030508,
+            0.0007950096998201034,
+            0.0006720111492612793
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 6,
+          "rays": 46840,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 4.694373691626466,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      }
+    ],
+    "elapsedMs": 17911.100000023842,
+    "samples": 8192,
+    "depth": 6,
+    "snapshot": {
+      "triangles": 364936,
+      "textures": 31
+    },
+    "lighting": {
+      "sun": [
+        1.3,
+        1.2202914469934547,
+        1.1114903905573652
+      ],
+      "sky": [
+        0.65,
+        0.72,
+        0.82
+      ],
+      "lights": 0
+    }
+  },
+  "solarFirst": {
+    "ok": true,
+    "results": [
+      {
+        "name": "ceiling above sunlit carpet",
+        "position": [
+          10.3,
+          4.979999999999999,
+          8.32679243153937
+        ],
+        "normal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "ceiling above sunlit carpet",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.025681100633019902,
+            0.02240455309759268,
+            0.019045972025982558
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0007767500487330345,
+            0.0006879090798954942,
+            0.0005913979873743994
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 1,
+          "rays": 8192,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.013595521020018847,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "upper-right ceiling corner",
+        "position": [
+          11.260553674964545,
+          4.979999999999999,
+          6.719084483250522
+        ],
+        "normal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          -1,
+          -2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "upper-right ceiling corner",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.012815428475625059,
+            0.011118404814763862,
+            0.0094060474730371
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0005602148740058468,
+            0.0004936025915679626,
+            0.0004216191609782132
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 1,
+          "rays": 8192,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.013595521020018018,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "upper-right wall",
+        "position": [
+          11.539628028869629,
+          4.373284749465688,
+          8.366308754249449
+        ],
+        "normal": [
+          -1,
+          0,
+          0
+        ],
+        "geometricNormal": [
+          -1,
+          0,
+          0
+        ],
+        "reference": {
+          "name": "upper-right wall",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.020855863644174834,
+            0.018389657882914155,
+            0.015881104853138657
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0007091516425359273,
+            0.0006323890674038016,
+            0.0005511365231691635
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 1,
+          "rays": 8192,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 0.019701784984713477,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      },
+      {
+        "name": "lower wall near carpet",
+        "position": [
+          9.227927207946777,
+          3.456287703312553,
+          8.569690175004176
+        ],
+        "normal": [
+          1,
+          0,
+          0
+        ],
+        "geometricNormal": [
+          1,
+          0,
+          0
+        ],
+        "reference": {
+          "name": "lower wall near carpet",
+          "direct": [
+            0.2639354761019931,
+            0.24775246465031348,
+            0.22566288108811416
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.01899108627995906,
+            0.016379006093442033,
+            0.013725367295925632
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0007085597543694499,
+            0.0006244184386479374,
+            0.0005319913164996921
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 1,
+          "rays": 8192,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 1,
+        "firstOccluderDistance": null,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": true
+          },
+          {
+            "offset": 0.004,
+            "visible": true
+          },
+          {
+            "offset": 0.01,
+            "visible": true
+          }
+        ]
+      },
+      {
+        "name": "sunlit carpet",
+        "position": [
+          9.787449036540949,
+          2.611999999999998,
+          7.252797966371995
+        ],
+        "normal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "sunlit carpet",
+          "direct": [
+            0.3824807293429099,
+            0.35902920204382416,
+            0.32701819633693596
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.005468388857616009,
+            0.0048898095165995714,
+            0.004281793360403179
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.00036222945311274615,
+            0.00032407955242838007,
+            0.00028396539586062825
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 1,
+          "rays": 8192,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 1,
+        "firstOccluderDistance": null,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": true
+          },
+          {
+            "offset": 0.004,
+            "visible": true
+          },
+          {
+            "offset": 0.01,
+            "visible": true
+          }
+        ]
+      },
+      {
+        "name": "shadowed carpet",
+        "position": [
+          10.385425160576519,
+          2.611999999999998,
+          7.252797966371995
+        ],
+        "normal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "geometricNormal": [
+          0,
+          1,
+          2.220446049250313e-16
+        ],
+        "reference": {
+          "name": "shadowed carpet",
+          "direct": [
+            0,
+            0,
+            0
+          ],
+          "sky": [
+            0,
+            0,
+            0
+          ],
+          "reflected": [
+            0.004078994882151951,
+            0.0036440960342540045,
+            0.003188310725322439
+          ],
+          "skyStandardError": [
+            0,
+            0,
+            0
+          ],
+          "reflectedStandardError": [
+            0.0003134711945138411,
+            0.0002801314382721828,
+            0.00024517994803808634
+          ],
+          "samples": 8192,
+          "depth": 6,
+          "maxEncounters": 1,
+          "rays": 8192,
+          "method": "independent scene-triangle diffuse path integration; no SH, probes, volume or capture replay",
+          "limitations": [
+            "Secondary paths use geometric face normals and diffuse albedo, including base-colour textures; they exclude specular transport and secondary normal-map perturbation.",
+            "Mesh-material emission is excluded; explicit point/spot lamps are included.",
+            "Sun and lamps use exact hard visibility, rather than the display shadow-map filter. Authored daylight gain is applied once to transported daylight."
+          ]
+        },
+        "bvhSunVisibility": 0,
+        "firstOccluderDistance": 4.694373691626466,
+        "localVisibility": [],
+        "visibilityOffsets": [
+          {
+            "offset": 0.0002,
+            "visible": false
+          },
+          {
+            "offset": 0.004,
+            "visible": false
+          },
+          {
+            "offset": 0.01,
+            "visible": false
+          }
+        ]
+      }
+    ],
+    "elapsedMs": 9819.399999976158,
+    "samples": 8192,
+    "depth": 6,
+    "snapshot": {
+      "triangles": 364936,
+      "textures": 31
+    },
+    "lighting": {
+      "sun": [
+        1.3,
+        1.2202914469934547,
+        1.1114903905573652
+      ],
+      "sky": [
+        0.65,
+        0.72,
+        0.82
+      ],
+      "lights": 0
+    }
+  }
+}

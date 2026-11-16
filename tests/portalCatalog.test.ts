@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { loadPortalCatalog } from '../src/portalCatalog.ts'
+import { loadPortalCatalog, createRuntimePortalCatalog } from '../src/portalCatalog.ts'
+
+test('tagged slots become editable regions for furniture, doors, windows and stairs', () => {
+  const names=['hd_frame','hd_drawer_fronts','original_fixed_finish']
+  const catalog=createRuntimePortalCatalog({manufacturers:[{assets:['furniture','interior-door','window','stairs'].map((objectType,i)=>({
+    assetKind:'model' as const, id:String(i), category:'',collection:'',manufacturer:{name:'Test',slug:'test'},
+    files:[{fieldName:'model',url:'/bed.glb'}],metadata:{objectType},materialNames:names,
+  }))}]})
+  for(const model of catalog.models)assert.deepEqual(model.materialRegions,[
+    {id:'hd_frame',label:'Frame',sourceMaterialNames:['hd_frame']},
+    {id:'hd_drawer_fronts',label:'Drawer fronts',sourceMaterialNames:['hd_drawer_fronts']},
+  ])
+  assert.equal(catalog.materials.length,0,'slot names do not create fake catalogue products')
+})
 
 test('portal catalogue carries explicit door leaf counts and ignores invalid counts', async context => {
   const originalFetch = globalThis.fetch

@@ -1,0 +1,78 @@
+{
+  "steps": [
+    {
+      "action": "2D switch",
+      "id": "ground",
+      "elapsedMs": 861
+    },
+    {
+      "action": "2D switch",
+      "id": "loft",
+      "elapsedMs": 855
+    },
+    {
+      "action": "2D switch",
+      "id": "first",
+      "elapsedMs": 785
+    },
+    {
+      "action": "3D isolate",
+      "elapsedMs": 158
+    }
+  ],
+  "initial": {
+    "active": "first",
+    "all": true,
+    "objects": [
+      {
+        "name": "model-transform-0-light",
+        "uuid": "b6d7e550-439b-4e73-ba81-2c2e46801f1d"
+      },
+      {
+        "name": "model-transform-0-window",
+        "uuid": "ffbd6bc6-12df-4009-b2d3-00447d2657c1"
+      },
+      {
+        "name": "model-transform-1-light",
+        "uuid": "4b4d26f6-6288-4d66-b9fc-4e1a6dea8e69"
+      },
+      {
+        "name": "model-transform-1-window",
+        "uuid": "dc956a76-574f-4eb7-b774-38430ba90b38"
+      },
+      {
+        "name": "model-transform-2-light",
+        "uuid": "e542dbe0-a2fb-4720-8b26-2d8be5005c40"
+      },
+      {
+        "name": "model-transform-2-window",
+        "uuid": "1e5cd067-4529-45ed-baa0-2755b0799002"
+      }
+    ],
+    "atlas": {
+      "ready": true,
+      "lights": 3,
+      "faces": 18,
+      "completed": 18,
+      "texture": "3019921b-3d79-49fd-bb51-234b768e372d",
+      "width": 2570,
+      "height": 2056,
+      "tile": 512,
+      "builds": 2
+    },
+    "camera": [
+      6,
+      5,
+      8
+    ],
+    "rotation": [
+      -0.3973272361458831,
+      0.20973476206080321,
+      0.09379623704253996,
+      0.8884507093343063
+    ],
+    "warmup": 24,
+    "gi": 3
+  },
+  "errors": []
+}

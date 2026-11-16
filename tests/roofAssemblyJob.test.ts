@@ -17,7 +17,7 @@ test('worker roof output preserves joined geometry, UVs and affine abutments', (
   for (const [id,parts] of direct) for (const [part,geometry] of Object.entries(parts)) {
     const other = background.get(id)![part as keyof typeof parts]
     if (!geometry) { assert.equal(other, geometry); continue }
-    for (const attribute of ['position', 'normal', 'uv']) assert.deepEqual(other!.getAttribute(attribute).array, geometry.getAttribute(attribute).array)
+    for (const attribute of Object.keys(geometry.attributes)) assert.deepEqual(other!.getAttribute(attribute).array, geometry.getAttribute(attribute).array)
     geometry.dispose(); other!.dispose()
   }
 })

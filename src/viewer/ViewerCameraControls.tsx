@@ -100,7 +100,7 @@ export function ViewerCameraControls({ mode, floorElevation, enabled }: {
     // usable below 10 FPS while limiting each step and skipping long pauses.
     const movementDelta = touch && (touch.get().x || touch.get().y) && delta > 0 && delta < .5
       ? Math.min(delta, .05) : timedDelta
-    if (delta > .1) resyncLook.current = true
+    if (inputTiming.current.didStall) resyncLook.current = true
     if (!enabled || gl.xr.isPresenting || document.hidden) return
     if (keys.current.size || touch?.get().x || touch?.get().y) markViewportNavigation()
     frameCamera.getWorldDirection(forward.current)

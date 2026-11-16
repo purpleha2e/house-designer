@@ -41,6 +41,23 @@ test('queued press and look input is discarded before and after a blocked frame'
   assert.equal(timing.accepts(5901, 6001), false, 'recent-looking events from before recovery are also stale')
   assert.equal(timing.accepts(6002, 6003), true)
 })
+
+test('slow GPU frames keep keyboard and look input responsive without catch-up movement', () => {
+  for (const fps of [3,5,9,10,15]) {
+    const timing = new CameraInputTiming(0), delta=1/fps
+    let movement=0
+    for (let frame=1;frame<=10;frame++) {
+      const now=frame*delta*1000
+      assert.equal(timing.accepts(now-20,now-1),true,`${fps} FPS accepts fresh input between draws`)
+      movement+=timing.frame(delta,now)
+      assert.equal(timing.didStall,false,`${fps} FPS must not reset mouse look on every frame`)
+    }
+    assert.ok(Math.abs(movement-.5)<1e-8, 'movement advances in bounded 50ms steps')
+    assert.equal(timing.frame(.8,4000),0)
+    assert.equal(timing.didStall,true,'an actual stall still resets queued mouse motion')
+    assert.equal(timing.accepts(3800,4001),false)
+  }
+})
 test('background work yields during navigation and resumes after its idle grace period', () => {
   markViewportNavigation(1000)
   assert.equal(isViewportNavigating(1000), true)

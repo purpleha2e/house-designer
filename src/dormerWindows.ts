@@ -76,7 +76,7 @@ export function createDormerWindow(floor: FloorLevel, dormerId: string, modelId:
   if (!host || definition?.wallMount !== 'window') return null
   const width = Math.abs(host.assembly.walls[0].start.x) * 2 * host.widthScale
   const scale = Math.min(1, width * 0.66 / definition.width, host.assembly.wallHeight * host.scale * 0.64 / definition.height)
-  return fitDormerWindow(floor, { id, modelId, scale, widthScale: 1,
+  return fitDormerWindow(floor, { id, modelId, scale, widthScale: 1, flipped: false, mirrored: false,
     depthScale: Math.min(0.14, definition.depth) / (definition.depth * scale),
     position: host.placement.position, rotation: host.placement.rotation,
     dormerAttachment: { dormerId, offset: 0, bottom: host.assembly.windowBottom } }, definitions)
@@ -120,7 +120,7 @@ export function migrateDormerWindows(floor: FloorLevel, definitions: Definitions
     let id = `${parent.id}:window`
     while (models.some(model => model.id === id)) id += ':window'
     const scale = host.assembly.windowHeight * host.scale / definition.height
-    models.push({ id, modelId: definition.id, scale,
+    models.push({ id, modelId: definition.id, scale, flipped: false, mirrored: false,
       widthScale: host.assembly.windowWidth * host.widthScale / (definition.width * scale),
       depthScale: Math.max(0.06, Math.min(definition.depth, 0.14)) * host.depthScale / (definition.depth * scale),
       position: parent.position, rotation: parent.rotation,

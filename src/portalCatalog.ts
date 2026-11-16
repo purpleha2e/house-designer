@@ -1,6 +1,7 @@
 import type { SurfaceCategory, SurfaceFinish, SurfaceMaterialProduct } from './types'
 import { materialVariationFromMetadata } from './materials/proceduralVariation.ts'
 import type { ModelDefinition, ModelObjectType } from './models/modelLibrary'
+import { discoverHdMaterialRegions } from './modelMaterialOverrides.ts'
 
 type PortalCatalogFile = {
   fieldName: string
@@ -30,6 +31,7 @@ type PortalCatalogAsset = {
     slug: string
   }
   metadata: Record<string, string>
+  materialNames?: string[]
   processedFiles?: PortalCatalogFile[]
 }
 
@@ -252,6 +254,7 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
     asset.metadata.modelBehavior || objectType,
   )
   const inferredDimensions = asset.inferredDimensions
+  const taggedRegions = asset.materialNames ? discoverHdMaterialRegions(asset.materialNames) : undefined
   const hasLocalBounds = [
     inferredDimensions?.maxX,
     inferredDimensions?.maxZ,
@@ -280,6 +283,9 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
       : undefined,
     name: asset.metadata.productName || 'Uploaded model',
     normalizeToDimensions: hasManualDimensions,
+    // Older stair assets use their established stairs_* regions. New tagged
+    // models opt into their own authored slots, including an empty furniture list.
+    materialRegions: objectType === 'stairs' && !taggedRegions?.length ? undefined : taggedRegions,
     objectType,
     openingWidth: parsePositiveNumber(asset.metadata.openingWidth),
     previewUrl: findOriginalFile(asset, 'preview'),

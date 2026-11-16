@@ -1,3 +1,5 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Run against Vite: node tests/browser/windowBuilderRegression.mjs [port]
 import { createBrowserTestProfile, spawnBrowserTest as spawn } from './browserTestProcess.mjs'
 import { writeFileSync } from 'node:fs'
@@ -31,7 +33,7 @@ try {
   const menu=async name=>{await aria('Project menu');await click(name);await pause(250)}
   const save=async()=>{await evaluate('window.savedWindowProject=null');await menu('Save');await waitFor('!!window.savedWindowProject');return evaluate('window.savedWindowProject')}
   const fixture={activeFloorId:'ground',wallKind:'external',floors:[{id:'ground',name:'Ground',elevation:0,roomHeight:3,slabThickness:.2,rooms:[],walls:[],models:[],roofs:[]}]}
-  await evaluate(`window.fixture=${JSON.stringify(fixture)};window.alert=msg=>{window.lastAlert=msg};window.showOpenFilePicker=async()=>[{getFile:async()=>new File([JSON.stringify(window.fixture)],'windows.house.json')}];window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async value=>{window.savedWindowProject=JSON.parse(value)},close:async()=>{}})})`)
+  await evaluate(`window.fixture=${JSON.stringify(fixture)};window.alert=msg=>{window.lastAlert=msg};${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([JSON.stringify(window.fixture)],'windows.house.json')}];${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async value=>{window.savedWindowProject=JSON.parse(value)},close:async()=>{}})})`)
   await menu('Load')
   await aria('Add windows or doors');await click('Build a window')
   await waitFor(`!!document.querySelector('.window-builder')`)

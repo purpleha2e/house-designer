@@ -3,7 +3,16 @@ import test from 'node:test'
 import {
   getModelMaterialOverrideId,
   getModelMaterialRegion,
+  discoverHdMaterialRegions,
 } from '../src/modelMaterialOverrides.ts'
+
+test('hd_ names opt into stable editable regions without merging distinct authored slots', () => {
+  const found = discoverHdMaterialRegions(['hd_frame','paint','hd_drawer_fronts','hd_frame','HD_Glass', 'hd_frame.001','hd_', 'hd_  ', 'hd_door-leaf','hd_door_leaf'])
+  assert.deepEqual(found.map(r=>[r.id,r.label]), [['hd_frame','Frame'],['hd_drawer_fronts','Drawer fronts'],['HD_Glass','Glass'],['hd_frame.001','Frame.001'],['hd_door-leaf','Door leaf'],['hd_door_leaf','Door leaf']])
+  assert.equal(getModelMaterialOverrideId({'hd_frame':'oak'},found,'hd_frame'),'oak')
+  assert.equal(getModelMaterialOverrideId({'hd_frame':'oak'},found,'hd_frame.001'),undefined)
+  assert.equal(getModelMaterialOverrideId({'hd_frame':'oak'},found,'paint'),undefined)
+})
 
 const regions = [
   {

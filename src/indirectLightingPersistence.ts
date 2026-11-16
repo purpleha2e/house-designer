@@ -6,7 +6,6 @@ import { normalizeDiffuseProbeResolution, type DiffuseProbeResolution } from './
 import { INDIRECT_FLOOR_LAYER_VERSION, indirectFloorSize } from './indirectFloorLighting.ts'
 import { pack, unpack } from './indirectBufferCodecClient.ts'
 import type { PackedBuffer } from './indirectBufferCodec.ts'
-import { nightAmbientTerm } from './ambientLighting.ts'
 import { DAYLIGHT_TRANSPORT_VERSION, type DaylightSkyMode } from './daylightSky.ts'
 import { indirectSHCoefficientCount, type IndirectSHOrder } from './indirectSH.ts'
 import { normalizeSunStrength } from './sunStrength.ts'
@@ -18,7 +17,9 @@ export const INDIRECT_L2_CACHE_VERSION = 10
 // Older captures could omit navigation-hidden faces or sky on exterior roofs
 // above occupied floor-plan cells. Retain their display during upgrade, but
 // never reuse those incomplete direct baselines in new transport.
-export const INDIRECT_CAPTURE_VISIBILITY_VERSION = 2
+// Exterior shadow styling previously dimmed the indoor sky source at sunset.
+// Keep old coefficients visible during replacement, but recapture that source.
+export const INDIRECT_CAPTURE_VISIBILITY_VERSION = 3
 export type IndirectLightingSettings = {
   daylight: boolean; lights: boolean; shadows: boolean; lightShadows: boolean
   hideRoofs: boolean; floorSlabs: boolean; ambientTerm: number
@@ -33,7 +34,7 @@ export type IndirectLightingSettings = {
   skyStrength?: number
   diffuseBounces?: number
   shOrder?: IndirectSHOrder
-  spatialInterpolation?: 'occluder-local'
+  spatialInterpolation?: 'occluder-local'|'distance-local'
   contactLighting?: boolean
   contactLightingVersion?:number
 }
@@ -132,14 +133,14 @@ function legacySHCache(cache: SavedIndirectLighting) {
 
 /** Local shadow maps affect display only; captures use cached geometry visibility. */
 export function indirectLightingSettingsKey(settings?: IndirectLightingSettings) {
-  return indirectContentKey(settings && { ...settings, lightShadows: undefined, nightFill: undefined,
+  return indirectContentKey(settings && { ...settings, lightShadows: undefined, nightFill: undefined, ambientTerm: undefined,
     shOrder: settings.shOrder === 2 ? 2 : undefined,
     contactLighting: settings.contactLighting?true:undefined,
     contactLightingVersion:settings.contactLighting?settings.contactLightingVersion:undefined,
     transportVersion: DAYLIGHT_TRANSPORT_VERSION, skyMode: settings.skyMode??'clear',
     skyStrength: settings.skyStrength === 1 ? undefined : settings.skyStrength,
     diffuseBounces: settings.diffuseBounces??6,
-    nightAmbientTerm: nightAmbientTerm(settings),
+    nightAmbientTerm: undefined,
     daylightBounceStrength: settings.daylightBounceStrength ?? 1,
     diffuseProbeResolution: normalizeDiffuseProbeResolution(settings.diffuseProbeResolution) })
 }
@@ -151,7 +152,7 @@ export function validIndirectLightingSettings(settings?: IndirectLightingSetting
     (settings.skyMode===undefined||['clear','overcast'].includes(settings.skyMode)) &&
     (settings.skyStrength===undefined||Number.isFinite(settings.skyStrength)&&settings.skyStrength>=0&&settings.skyStrength<=4) &&
     (settings.shOrder===undefined||settings.shOrder===1||settings.shOrder===2) &&
-    (settings.spatialInterpolation===undefined||settings.spatialInterpolation==='occluder-local') &&
+    (settings.spatialInterpolation===undefined||settings.spatialInterpolation==='occluder-local'||settings.spatialInterpolation==='distance-local') &&
     (settings.contactLighting===undefined||typeof settings.contactLighting==='boolean') &&
     (settings.contactLightingVersion===undefined||settings.contactLightingVersion===1) &&
     (settings.diffuseBounces===undefined||Number.isInteger(settings.diffuseBounces)&&settings.diffuseBounces>=2&&settings.diffuseBounces<=8) &&

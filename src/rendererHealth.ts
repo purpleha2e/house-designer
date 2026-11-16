@@ -1,7 +1,7 @@
 import type { Camera, Object3D, WebGLRenderer } from 'three'
 type TrackedTarget = NonNullable<Parameters<WebGLRenderer['setRenderTarget']>[0]>
 
-type HealthEvent = { type: string; at: number; detail?: string }
+type HealthEvent = { type: string; at: number; detail?: string; ms?: number; preparation?: string; camera?: number[] }
 type TargetInfo = { width: number; height: number; samples: number; textures: number; depth: boolean }
 const installed = new WeakMap<WebGLRenderer, ReturnType<typeof createHealth>>()
 export const rendererHealthHistory: { id: number; events: HealthEvent[]; renders: number; frames: number }[] = []
@@ -13,8 +13,9 @@ function createHealth(renderer: WebGLRenderer, scene: Object3D, restored?: () =>
   let nextTargetId = 0
   let renders = 0, frames = 0, lastFrameAt = 0, lastRenderAt = 0, disposed = false, contextGeneration = 0
   let lastCamera: Camera | undefined
-  const record = (type: string, detail?: string) => {
-    events.push({ type, at: performance.now(), ...(detail ? { detail } : {}) })
+  const record = (type: string, detail?: string, ms?: number) => {
+    events.push({ type, at: performance.now(), ...(detail ? { detail } : {}), ...(ms===undefined?{}:{ms}),
+      preparation: scene.userData.viewportPreparation?.message, camera: lastCamera?.position.toArray() })
     if (events.length > 100) events.shift()
   }
   const track = (target: TrackedTarget | null) => {
@@ -65,12 +66,38 @@ function createHealth(renderer: WebGLRenderer, scene: Object3D, restored?: () =>
   const setTarget = renderer.setRenderTarget.bind(renderer), initTarget = renderer.initRenderTarget.bind(renderer)
   const dispose = renderer.dispose.bind(renderer)
   renderer.render = (...args) => {
-    renders++; lastRenderAt = performance.now(); lastCamera = args[1]
+    renders++; lastRenderAt = performance.now(); lastCamera ??= args[1]
+    const started=performance.now()
     try { return render(...args) } catch (error) { record('render-exception', String(error)); throw error }
+    finally { const ms=performance.now()-started;if(ms>=250)record('slow-render',args[0]===scene?'house display':args[0].name||'offscreen pass',ms) }
   }
   renderer.compileAsync = (...args) => {
-    try { return compile(...args).catch(error => { record('shader-failure', String(error)); throw error }) }
+    const started=performance.now(),before=renderer.info.programs?.length??0
+    try {
+      const pending=compile(...args),added=(renderer.info.programs?.length??0)-before
+      const submitted=performance.now()-started
+      if(added>0||submitted>=50)record('shader-preparation-submitted',`${added} programs`,submitted)
+      return pending.then(value=>{if(added>0)record('shader-preparation-ready',`${added} programs (wall time, including yields)`,performance.now()-started);return value},error=>{record('shader-failure',String(error));throw error})
+    }
     catch (error) { record('shader-failure', String(error)); throw error }
+  }
+  // Time actual first use, not just compile submission. Uniform reflection
+  // can block on a driver link here even when linkProgram itself was quick.
+  const direct=renderer.renderBufferDirect?.bind(renderer)
+  if(direct)renderer.renderBufferDirect=(...args)=>{
+    const started=performance.now(),before=renderer.info.programs?.length??0
+    try{return direct(...args)}finally{
+      const ms=performance.now()-started,added=(renderer.info.programs?.length??0)-before
+      if(added>0||ms>=100){
+        const material=args[3],object=args[4]
+        record(added>0?'shader-first-use':'slow-material-draw',`${material.name||material.type}; ${object.userData.houseDesignerRole||object.name||object.type}; ${added} new programs`,ms)
+      }
+    }
+  }
+  const initTexture=renderer.initTexture?.bind(renderer)
+  if(initTexture)renderer.initTexture=(...args)=>{
+    const started=performance.now()
+    try{return initTexture(...args)}finally{const ms=performance.now()-started;if(ms>=50)record('slow-texture-upload',args[0].name||'texture',ms)}
   }
   renderer.setRenderTarget = (target, ...args) => { track(target); return setTarget(target, ...args) }
   renderer.initRenderTarget = target => { track(target); return initTarget(target) }
@@ -85,7 +112,11 @@ function createHealth(renderer: WebGLRenderer, scene: Object3D, restored?: () =>
   }
   record('created')
   scene.userData.getRendererHealth = snapshot
-  return { snapshot, frame(camera: Camera) { frames++; lastFrameAt = performance.now(); lastCamera = camera } }
+  return { snapshot, frame(camera: Camera) {
+    const now=performance.now()
+    if(lastFrameAt&&now-lastFrameAt>=250&&(typeof document==='undefined'||!document.hidden))record('frame-gap','Time between display callbacks; inspect preceding operations for cause',now-lastFrameAt)
+    frames++;lastFrameAt=now;lastCamera=camera
+  } }
 }
 
 /** Normal frames only update counters. GL queries require explicit inspection. */

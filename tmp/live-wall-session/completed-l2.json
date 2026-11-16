@@ -1,0 +1,38 @@
+{
+  "id": 5,
+  "value": {
+    "state": "ready",
+    "completed": 1806,
+    "total": 1806,
+    "volumePending": false,
+    "field": 2,
+    "volumeSize": 122,
+    "mode": {
+      "requested": 2,
+      "selected": 2,
+      "coefficientCount": 9
+    },
+    "uniform": 2,
+    "useVolume": 1,
+    "settings": {
+      "skyMode": "overcast",
+      "skyStrength": 1,
+      "diffuseBounces": 6,
+      "diffuseProbeResolution": 16,
+      "daylightBounceStrength": 3.5,
+      "daylight": true,
+      "lights": true,
+      "shadows": true,
+      "lightShadows": false,
+      "hideRoofs": false,
+      "floorSlabs": true,
+      "ambientTerm": 0.19,
+      "nightAmbientTerm": 0.18,
+      "softAmbientShading": false,
+      "softAmbientStrength": 1,
+      "groundPlane": true,
+      "shOrder": 2
+    }
+  },
+  "errors": []
+}

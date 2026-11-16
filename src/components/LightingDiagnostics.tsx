@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from 'react'
 import {Html} from '@react-three/drei'
 import {useFrame,useThree} from '@react-three/fiber'
 import {Color,DataUtils,InstancedMesh,Matrix4,MeshBasicMaterial,SphereGeometry,Vector3} from 'three'
-import {lightingDiagnosticsEnabled,lightingDiagnosticModes,type LightingDiagnosticMode} from '../lightingDiagnostics'
+import {lightingDiagnosticsEnabled,lightingDiagnosticModes,lightingDiagnosticValue,type LightingDiagnosticMode} from '../lightingDiagnostics'
 import type {IndirectField} from '../indirectLighting'
 import {updateIndirectUniforms,type IndirectUniforms} from '../indirectLightingShader'
 import {createPackedDiagnosticField} from '../lightingDiagnosticFields'
@@ -37,9 +37,8 @@ export function LightingDiagnostics({uniforms,snapshot,buildSky}:{uniforms:Indir
   })
   useEffect(()=>{
     if(!active)return
-    uniforms.hdLightingDiagnostic.value=Math.min(6,lightingDiagnosticModes.indexOf(mode))
+    uniforms.hdLightingDiagnostic.value=lightingDiagnosticValue(mode)
     scene.userData.lightingDiagnosticUnlit=mode==='World normals'||mode==='Albedo'
-    if(mode==='Probe irradiance'||mode==='Probe visibility')uniforms.hdLightingDiagnostic.value=0
     scene.userData.liveLightRevision=(scene.userData.liveLightRevision??0)+1;invalidate()
   },[active,mode,uniforms,scene,invalidate])
   useFrame(()=>{
@@ -69,13 +68,15 @@ export function LightingDiagnostics({uniforms,snapshot,buildSky}:{uniforms:Indir
     {probes&&<IndirectLightingProbes snapshot={()=>{const s=snapshot();return {...s,completed:scene.userData.indirectLighting?.completed??0}}}/>}
     {visibility&&<ProbeInfluence snapshot={snapshot} selected={probe}/>}
     {visibility&&<IndirectLightingInspector enabled snapshot={()=>{const s=snapshot();return {...s,lights:[]}}}/>}
-    <Html fullscreen style={{pointerEvents:'none'}} zIndexRange={[300,300]}><section aria-label="Lighting diagnostics" style={{pointerEvents:'auto',position:'absolute',right:12,top:12,width:310,padding:12,background:'#111e',color:'white',font:'12px sans-serif',borderRadius:6}}>
+    <Html fullscreen calculatePosition={(_,__,size)=>[size.width/2,size.height/2]} style={{pointerEvents:'none'}} zIndexRange={[300,300]}><section aria-label="Lighting diagnostics" style={{pointerEvents:'auto',position:'absolute',right:12,top:12,width:310,padding:12,background:'#111e',color:'white',font:'12px sans-serif',borderRadius:6}}>
       <strong>Lighting diagnostics · developer</strong>
       <label style={{display:'block',margin:'8px 0'}}>View <select aria-label="Lighting diagnostic view" value={mode} onChange={e=>setMode(e.currentTarget.value as LightingDiagnosticMode)}>{lightingDiagnosticModes.map(value=><option key={value}>{value}</option>)}</select></label>
       <label>Probe <input aria-label="Probe index" type="number" min={0} max={3967} value={probe} onChange={e=>setProbe(Math.max(0,Math.min(3967,Number(e.currentTarget.value))))}/></label>
       {report&&<p>#{report.index} · {report.valid?'valid':'invalid / unused'} · {report.captured?'captured':'not captured'}<br/>Position {report.position.map(v=>v.toFixed(2)).join(', ')}<br/>Upward RGB E: {report.upwardIrradiance?.map(v=>v.toFixed(4)).join(', ')}<br/>Sky RGB E: {report.upwardSky?.map(v=>v.toFixed(4)).join(', ')??'not available for this cache'}</p>}
       <p>{performanceText}</p><p>{message}</p>
       <p>Values are linear scene-relative irradiance, before albedo/exposure, not lux. Cyan wire spheres show maximum support; red marks invalid probes. In visibility view click a surface for exact occlusion tests.</p>
+      {mode==='Probe indirect only'&&<p>Full probe diffuse contribution, including sky through openings; authored albedo, normal maps and material AO apply. Direct light, ambient fill, emission and specular reflections are excluded.</p>}
+      {mode==='Indirect irradiance false colour'&&<p>Probe irradiance luminance: blue 0, cyan 0.12, yellow 0.30, red 1 or above. Log scale in linear scene units, before albedo; normal exposure and tone mapping apply.</p>}
       <button onClick={save}>Download measurements</button>
     </section></Html>
   </>

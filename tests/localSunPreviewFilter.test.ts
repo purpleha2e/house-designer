@@ -21,6 +21,15 @@ test('preview filtering cannot leak across a thin wall, a normal discontinuity o
  const f=fixture();f.image.set([100,100,100],0);f.positions[2]=.04
  f.image.set([100,100,100],4);f.normals.set([1,0,0,1],4)
  f.image.set([100,100,100],8);f.normals[11]=0
- const out=filterLocalSunPreview(f.image,f.normals,f.positions,3,3)
- assert.deepEqual(Array.from(out.subarray(16,19)),[2,3,4]);assert.deepEqual(Array.from(out.subarray(8,12)),Array.from(f.image.subarray(8,12)));assert.equal(f.normals[11],0)
+ for(const passes of [1,4]){const out=filterLocalSunPreview(f.image,f.normals,f.positions,3,3,passes)
+ assert.deepEqual(Array.from(out.subarray(16,19)),[2,3,4]);assert.deepEqual(Array.from(out.subarray(8,12)),Array.from(f.image.subarray(8,12)));assert.equal(f.normals[11],0)}
+})
+
+test('progressive surface filtering suppresses broad sampling noise without changing average energy',()=>{
+ const width=32,height=32,image=new Float32Array(width*height*4),normals=new Float32Array(image.length),positions=new Float32Array(width*height*3)
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){const i=y*width+x;image.set([((x*7+y*13)%17)/8,1,1,5],i*4);normals.set([0,0,1,1],i*4);positions.set([x*.03,y*.03,0],i*3)}
+ const out=filterLocalSunPreview(image,normals,positions,width,height,4)
+ let variance=0,original=0,mean=0
+ for(let i=0;i<width*height;i++){variance+=(out[i*4]-1)**2;original+=(image[i*4]-1)**2;mean+=out[i*4];assert.equal(out[i*4+3],5)}
+ assert.ok(variance<original*.02);assert.ok(Math.abs(mean/(width*height)-1)<.02)
 })

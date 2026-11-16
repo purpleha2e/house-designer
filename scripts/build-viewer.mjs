@@ -24,6 +24,26 @@ export function collectStrings(value, result = new Set()) {
   return result
 }
 
+export function viewerModelDefinitions(usedModelIds, savedModels, catalogModels, retiredModelIds = []) {
+  const retired = new Set(retiredModelIds)
+  for (const id of retired) {
+    if (!id?.startsWith('portal-model-') || !usedModelIds.has(id)) throw new Error(`Retired model must be a referenced uploaded model: ${id}`)
+    if (savedModels.some(model => model.id === id)) throw new Error(`Cannot retire ${id}: the saved house still defines it. Remove it in the editor and save first.`)
+  }
+  const models = [...new Map([...catalogModels, ...savedModels]
+    .filter(model => usedModelIds.has(model.id) && !retired.has(model.id))
+    .map(model => [model.id, model])).values()]
+  for (const id of usedModelIds) {
+    if (id.startsWith('portal-model-') && !retired.has(id) && !models.some(model => model.id === id)) {
+      throw new Error(`Missing model definition ${id}. Restore its local manufacturer assets before building this viewer. If this is a replaced object with no saved definition, use --retired-model ${id}.`)
+    }
+  }
+  // Retired references had no definition (and rendered no mesh) in the saved
+  // house. Keep their inert placement records so the validated GI project key
+  // remains unchanged; never substitute a mesh or rewrite the lighting keys.
+  return models
+}
+
 function inside(root, path) {
   const suffix = relative(root, path)
   if (suffix === '..' || suffix.startsWith(`..${sep}`) || isAbsolute(suffix)) throw new Error(`Asset is outside the allowed directory: ${path}`)
@@ -43,7 +63,7 @@ async function metadataFiles(root) {
   return result
 }
 
-async function prepare(projectPath, title, allowUnbaked = false) {
+async function prepare(projectPath, title, allowUnbaked = false, retiredModelIds = []) {
   const project = JSON.parse(await readFile(projectPath, 'utf8'))
   if (!Array.isArray(project.floors) || !project.floors.length) throw new Error('Choose a saved House Designer project with at least one floor.')
   let indirectLighting
@@ -82,12 +102,8 @@ async function prepare(projectPath, title, allowUnbaked = false) {
   for (const id of usedMaterialIds) {
     if (!catalog.materials.some(material => material.id === id)) throw new Error(`Missing published material ${id}. Restore its local manufacturer assets before building this viewer.`)
   }
-  const definitions = [...catalog.models, ...(project.modelDefinitions ?? [])]
-    .filter(model => usedModelIds.has(model.id))
-  const mergedDefinitions = [...new Map(definitions.map(model => [model.id, model])).values()]
-  for (const id of usedPortalModelIds) {
-    if (!mergedDefinitions.some(model => model.id === id)) throw new Error(`Missing model definition ${id}. Restore its local manufacturer assets before building this viewer.`)
-  }
+  const mergedDefinitions = viewerModelDefinitions(usedModelIds, project.modelDefinitions ?? [], catalog.models, retiredModelIds)
+  for (const id of retiredModelIds) console.log(`Leaving retired, undefined model ${id} out of the tour; preserving saved lighting identity.`)
 
   // Only this known generated directory may be replaced; never the source project.
   inside(workspace, staging)
@@ -182,7 +198,8 @@ async function main() {
   if (!projectArg) throw new Error('Usage: npm run build:viewer -- --project house.json --title "House name"\nAdd --serve to preview the viewer locally.')
   const projectPath = resolve(workspace, projectArg)
   const title = option('--title') ?? basename(projectPath, extname(projectPath)).replaceAll('_', ' ')
-  const { usedModelIds, houseFilename } = await prepare(projectPath, title, args.includes('--allow-unbaked'))
+  const retiredModelIds = args.flatMap((arg, index) => arg === '--retired-model' ? [args[index + 1]] : [])
+  const { usedModelIds, houseFilename } = await prepare(projectPath, title, args.includes('--allow-unbaked'), retiredModelIds)
   const config = {
     configFile: resolve(workspace, 'vite.viewer.config.ts'),
     define: { 'import.meta.env.VITE_HOUSE_SNAPSHOT': JSON.stringify(`./${houseFilename}`) },

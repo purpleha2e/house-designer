@@ -3,10 +3,12 @@ import type {IndirectField} from './indirectLighting.ts'
 import type {IndirectVisibility} from './indirectVisibility.ts'
 import {INDIRECT_MASK_SIZE} from './indirectLighting.ts'
 
-export type IndirectSpatialInterpolation='legacy'|'occluder-local'
+export type IndirectSpatialInterpolation='legacy'|'occluder-local'|'distance-local'
 /** Experimental only: retain the current transport unless explicitly requested. */
-export function requestedIndirectSpatialInterpolation():IndirectSpatialInterpolation{
- return typeof location!=='undefined'&&new URLSearchParams(location.search).get('giSpatial')==='occluder-local'?'occluder-local':'legacy'
+export function requestedIndirectSpatialInterpolation(savedMode?:IndirectSpatialInterpolation):IndirectSpatialInterpolation{
+ if(savedMode!==undefined)return savedMode
+ const requested=typeof location!=='undefined'?new URLSearchParams(location.search).get('giSpatial'):null
+ return requested==='occluder-local'||requested==='distance-local'?requested:'legacy'
 }
 const origin=new Vector3(),up=new Vector3(0,1,0)
 /** Floors under a nearby opaque underside need local radiance. A structural

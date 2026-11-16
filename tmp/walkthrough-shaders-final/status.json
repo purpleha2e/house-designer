@@ -1,0 +1,1310 @@
+{
+  "stage": "passed",
+  "cancelled": {
+    "message": "Stopped by movement; choose Refine this view to restart",
+    "active": false,
+    "busy": false
+  },
+  "health": {
+    "id": 2,
+    "disposed": false,
+    "contextGeneration": 0,
+    "lost": false,
+    "frames": 11704,
+    "renders": 24217,
+    "lastFrameAt": 255156.5,
+    "lastRenderAt": 255170.19999998808,
+    "canvas": {
+      "width": 595,
+      "height": 800,
+      "connected": true
+    },
+    "target": null,
+    "errors": [],
+    "textures": 103,
+    "geometries": 407,
+    "programs": 97,
+    "targets": [
+      {
+        "width": 2048,
+        "height": 2048,
+        "samples": 0,
+        "textures": 1,
+        "depth": true
+      },
+      {
+        "width": 5654,
+        "height": 5140,
+        "samples": 0,
+        "textures": 1,
+        "depth": true
+      },
+      {
+        "width": 595,
+        "height": 800,
+        "samples": 0,
+        "textures": 1,
+        "depth": true
+      },
+      {
+        "width": 595,
+        "height": 800,
+        "samples": 0,
+        "textures": 1,
+        "depth": true
+      },
+      {
+        "width": 595,
+        "height": 800,
+        "samples": 0,
+        "textures": 1,
+        "depth": true
+      },
+      {
+        "width": 595,
+        "height": 800,
+        "samples": 0,
+        "textures": 1,
+        "depth": true
+      },
+      {
+        "width": 297,
+        "height": 400,
+        "samples": 0,
+        "textures": 2,
+        "depth": true
+      },
+      {
+        "width": 297,
+        "height": 400,
+        "samples": 0,
+        "textures": 1,
+        "depth": false
+      },
+      {
+        "width": 297,
+        "height": 400,
+        "samples": 0,
+        "textures": 1,
+        "depth": false
+      },
+      {
+        "width": 297,
+        "height": 400,
+        "samples": 0,
+        "textures": 1,
+        "depth": false
+      },
+      {
+        "width": 595,
+        "height": 800,
+        "samples": 0,
+        "textures": 1,
+        "depth": false
+      },
+      {
+        "width": 595,
+        "height": 800,
+        "samples": 0,
+        "textures": 1,
+        "depth": true
+      }
+    ],
+    "events": [
+      {
+        "type": "shader-preparation-submitted",
+        "at": 47677.299999952316,
+        "detail": "4 programs",
+        "ms": 26.799999952316284,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 51194.89999997616,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 26492.899999976158,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 51212.799999952316,
+        "detail": "4 programs",
+        "ms": 11.400000035762787,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 51263.39999997616,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 26543.399999976158,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 51297.799999952316,
+        "detail": "3 programs",
+        "ms": 28.799999952316284,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 51867.39999997616,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 27222.5,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 51883.39999997616,
+        "detail": "3 programs",
+        "ms": 11.100000023841858,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 70894.09999996424,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 19692.80000001192,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 70917.29999995232,
+        "detail": "3 programs",
+        "ms": 18.19999998807907,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 71192.19999998808,
+        "detail": "3 programs (wall time, including yields)",
+        "ms": 19319.900000035763,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 71245.39999997616,
+        "detail": "4 programs",
+        "ms": 41.10000002384186,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 72212.69999998808,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 24562.19999998808,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 72239.79999995232,
+        "detail": "2 programs",
+        "ms": 21.799999952316284,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 81485.79999995232,
+        "detail": "3 programs (wall time, including yields)",
+        "ms": 30216.799999952316,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 81542.89999997616,
+        "detail": "3 programs",
+        "ms": 47.30000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 82317.19999998808,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 274.10000002384186,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 84273,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 463.7000000476837,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 91883.79999995232,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 324.19999998807907,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 101472.79999995232,
+        "detail": "3 programs (wall time, including yields)",
+        "ms": 30573.69999998808,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 101517.19999998808,
+        "detail": "1 programs",
+        "ms": 19.80000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 109112.29999995232,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 37908,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 109123.19999998808,
+        "detail": "2 programs",
+        "ms": 6.400000035762787,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 109181.69999998808,
+        "detail": "2 programs (wall time, including yields)",
+        "ms": 64.90000003576279,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 109206.39999997616,
+        "detail": "2 programs",
+        "ms": 19.69999998807907,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 110469.69999998808,
+        "detail": "2 programs (wall time, including yields)",
+        "ms": 38251.69999998808,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 110478.59999996424,
+        "detail": "1 programs",
+        "ms": 4.599999964237213,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 110517.19999998808,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 43.19999998807907,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 110560.19999998808,
+        "detail": "5 programs",
+        "ms": 36.5,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 110787.89999997616,
+        "detail": "5 programs (wall time, including yields)",
+        "ms": 264.19999998807907,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 110802,
+        "detail": "3 programs",
+        "ms": 8,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 110854.5,
+        "detail": "3 programs (wall time, including yields)",
+        "ms": 60.5,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 110913.5,
+        "detail": "1 programs",
+        "ms": 2.100000023841858,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 110953.39999997616,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 41.89999997615814,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 116318.19999998808,
+        "detail": "3 programs (wall time, including yields)",
+        "ms": 34822.5,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 120107.59999996424,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 18610.19999998808,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 123314.69999998808,
+        "detail": "2 programs (wall time, including yields)",
+        "ms": 14128,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 123534.69999998808,
+        "detail": "1 programs",
+        "ms": 0.9000000357627869,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 123756.59999996424,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 222.80000001192093,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 123762,
+        "detail": "1 programs",
+        "ms": 0.40000003576278687,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 123876.59999996424,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 115,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 123882.59999996424,
+        "detail": "1 programs",
+        "ms": 1.199999988079071,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 123960.89999997616,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 79.5,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 123965.69999998808,
+        "detail": "1 programs",
+        "ms": 0.40000003576278687,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 123982.29999995232,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 17,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 123988.5,
+        "detail": "1 programs",
+        "ms": 0.20000004768371582,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 124005.29999995232,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 16.900000035762787,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 124013.59999996424,
+        "detail": "1 programs",
+        "ms": 0.30000001192092896,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 124030.39999997616,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 17.100000023841858,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 124035.79999995232,
+        "detail": "1 programs",
+        "ms": 0.3999999761581421,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 124094.69999998808,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 59.30000001192093,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 124100.19999998808,
+        "detail": "1 programs",
+        "ms": 0.800000011920929,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 124130.29999995232,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 30.899999976158142,
+        "preparation": "Preparing scene effects...",
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 124860.09999996424,
+        "detail": "BackgroundCubeMaterial; Mesh; 1 new programs",
+        "ms": 15.5,
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 125350.29999995232,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 358.69999998807907,
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 125716,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 365.7000000476837,
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 126947.29999995232,
+        "detail": "MeshDepthMaterial; Mesh; 1 new programs",
+        "ms": 15.300000011920929,
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 126962,
+        "detail": "MeshDepthMaterial; Mesh; 1 new programs",
+        "ms": 14.300000011920929,
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 126983.19999998808,
+        "detail": "MeshDepthMaterial; Mesh; 1 new programs",
+        "ms": 20.100000023841858,
+        "camera": [
+          10.441276239634616,
+          1.5431368234618963,
+          10.919619534623866
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 160453.29999995232,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 264,
+        "camera": [
+          7.14475,
+          1.8509,
+          8.9035
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 167444.19999998808,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 255.4000000357628,
+        "camera": [
+          19.514514999884366,
+          6.857357499966025,
+          17.65715749991834
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 170961.39999997616,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 278,
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 171422,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 264.60000002384186,
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 172144,
+        "detail": "MeshDepthMaterial; model-batch; 1 new programs",
+        "ms": 13.300000011920929,
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 172152,
+        "detail": "MeshDepthMaterial; slab-shadow-cap; 1 new programs",
+        "ms": 6.300000011920929,
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 172434.69999998808,
+        "detail": "MeshDepthMaterial; Mesh; 1 new programs",
+        "ms": 6.699999988079071,
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 172441.59999996424,
+        "detail": "MeshDepthMaterial; Mesh; 1 new programs",
+        "ms": 6.5,
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-first-use",
+        "at": 172484.29999995232,
+        "detail": "MeshDepthMaterial; Mesh; 1 new programs",
+        "ms": 41.09999996423721,
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 178776.59999996424,
+        "detail": "4 programs",
+        "ms": 34,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 178833.79999995232,
+        "detail": "4 programs",
+        "ms": 37.59999996423721,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 178880,
+        "detail": "4 programs",
+        "ms": 41.40000003576279,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 178947.39999997616,
+        "detail": "5 programs",
+        "ms": 62.80000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 180649.19999998808,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 385.60000002384186,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 183071.89999997616,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 1328.3999999761581,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 185503.69999998808,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 427.30000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 186177.19999998808,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 349.80000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 186848.5,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 568.7000000476837,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 188522.5,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 280.30000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 190090.59999996424,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 889.6999999880791,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 191620.5,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 291.7000000476837,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 194033.29999995232,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 2323.7999999523163,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 195928.89999997616,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 332,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 197988.09999996424,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 286.30000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 199488.69999998808,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 371.9000000357628,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 207768.89999997616,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 5943.399999976158,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 208398.09999996424,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 629.1000000238419,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 208902.09999996424,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 469.69999998807907,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "frame-gap",
+        "at": 211211.59999996424,
+        "detail": "Time between display callbacks; inspect preceding operations for cause",
+        "ms": 852.8999999761581,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 216590.89999997616,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 37794.69999998808,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 216642,
+        "detail": "5 programs",
+        "ms": 46.700000047683716,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 217329.09999996424,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 38490.5,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 217354.5,
+        "detail": "3 programs",
+        "ms": 20.30000001192093,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 218145.69999998808,
+        "detail": "4 programs (wall time, including yields)",
+        "ms": 39403.10000002384,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 218160.39999997616,
+        "detail": "1 programs",
+        "ms": 10.100000023841858,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "slow-material-draw",
+        "at": 232568.59999996424,
+        "detail": "pale_blue_glass; glass_pane_3; 0 new programs",
+        "ms": 102.89999997615814,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 235419.09999996424,
+        "detail": "5 programs (wall time, including yields)",
+        "ms": 56534.5,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-submitted",
+        "at": 235464.09999996424,
+        "detail": "3 programs",
+        "ms": 33.59999996423721,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 241284.69999998808,
+        "detail": "1 programs (wall time, including yields)",
+        "ms": 23134.400000035763,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 245744.59999996424,
+        "detail": "5 programs (wall time, including yields)",
+        "ms": 29149.30000001192,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 245865.79999995232,
+        "detail": "3 programs (wall time, including yields)",
+        "ms": 28531.599999964237,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      },
+      {
+        "type": "shader-preparation-ready",
+        "at": 249997.79999995232,
+        "detail": "3 programs (wall time, including yields)",
+        "ms": 14567.299999952316,
+        "preparation": "Compiling scene shaders...",
+        "camera": [
+          10.3,
+          4.15,
+          11.15
+        ]
+      }
+    ],
+    "camera": {
+      "finite": true,
+      "position": [
+        10.450000000000001,
+        4.15,
+        11.15
+      ]
+    }
+  },
+  "errors": []
+}

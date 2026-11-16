@@ -75,6 +75,7 @@ test('an already-open editor upgrades sky-only lighting state before compiling t
     const shader = { uniforms: UniformsUtils.clone(ShaderLib.standard.uniforms), vertexShader: ShaderLib.standard.vertexShader, fragmentShader: ShaderLib.standard.fragmentShader }
     material.onBeforeCompile(shader as never, {} as WebGLRenderer)
     assert.ok(shader.uniforms.hdExteriorEaveLayers)
+    assert.equal(uniforms.hdExteriorEaveFilterWidth.value,6)
     assert.equal(uniforms.hdExteriorEaveLayers.value, 0, 'roof data starts disabled until bound')
     assert.equal(uniforms.hdExteriorSkyStrength, skyStrength)
     assert.equal(uniforms.hdExteriorSkyStrength.value, .65)

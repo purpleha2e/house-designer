@@ -1,3 +1,5 @@
+import { projectDownloadFixtureSource } from './projectDownloadFixture.mjs'
+import { projectFileInputFixtureSource } from './projectFileInputFixture.mjs'
 // Run Vite on port 5180, then node tests/browser/materialEditorRegression.mjs.
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, readdir, writeFile } from 'node:fs/promises'
@@ -170,7 +172,7 @@ try {
       materialDefinitions: [saved] }
     await call('Page.navigate', { url: process.env.MATERIAL_EDITOR_APP_URL })
     await wait(`!!document.querySelector('button[aria-label="Project menu"]')`, 'production designer ready')
-    await evaluate(`window.showOpenFilePicker=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(project))}],'material-house.json',{type:'application/json'})}];window.showSaveFilePicker=async()=>({createWritable:async()=>({write:async text=>{window.savedHouseText=text},close:async()=>{}})});window.confirm=()=>true`)
+    await evaluate(`${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(project))}],'material-house.json',{type:'application/json'})}];${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async text=>{window.savedHouseText=text},close:async()=>{}})});window.confirm=()=>true`)
     await evaluate(`document.querySelector('button[aria-label="Project menu"]').click()`)
     await click('Load')
     await wait(`document.title.includes('material-house')||!!document.querySelector('.project-menu-dropdown')===false`, 'portable house load submitted')
@@ -198,7 +200,7 @@ try {
     const alternate = structuredClone(project)
     alternate.materialDefinitions[0].productName = 'Alternate material revision'
     alternate.materialDefinitions[0].pbr.roughness = .2
-    await evaluate(`window.savedHouseText='';window.showOpenFilePicker=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(alternate))}],'alternate-house.json',{type:'application/json'})}]`)
+    await evaluate(`window.savedHouseText='';${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([${JSON.stringify(JSON.stringify(alternate))}],'alternate-house.json',{type:'application/json'})}]`)
     await evaluate(`document.querySelector('button[aria-label="Project menu"]').click()`)
     await click('Load'); await pause(700)
     await evaluate(`document.querySelector('button[aria-label="Project menu"]').click()`)
