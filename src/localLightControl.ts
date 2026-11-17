@@ -1,10 +1,21 @@
-/** Uniform preview for an editor's installed lamps. Persisted state and GI still
- * follow the normal model update, without delaying the direct light switch. */
+/** Keep the latest switch intent while deferred scene commits catch up. A
+ * one-shot event can be overwritten by an older pooled-light React commit.
+ * Project/history restoration replaces these intents with its own switches. */
 export function createLocalLightControl() {
-  const listeners = new Map<string, Set<(enabled: boolean) => void>>()
+  const listeners = new Map<string, Set<() => void>>()
+  const enabledById = new Map<string, boolean>()
   return {
-    setEnabled(id: string, enabled: boolean) { listeners.get(id)?.forEach(listener => listener(enabled)) },
-    subscribe(id: string, listener: (enabled: boolean) => void) {
+    getEnabled(id: string) { return enabledById.get(id) },
+    setEnabled(id: string, enabled: boolean) {
+      enabledById.set(id, enabled)
+      listeners.get(id)?.forEach(listener => listener())
+    },
+    restore(switches: Iterable<readonly [string, boolean]>) {
+      enabledById.clear()
+      for (const [id, enabled] of switches) enabledById.set(id, enabled)
+      listeners.forEach(group => group.forEach(listener => listener()))
+    },
+    subscribe(id: string, listener: () => void) {
       let group = listeners.get(id)
       if (!group) { group = new Set(); listeners.set(id, group) }
       group.add(listener)

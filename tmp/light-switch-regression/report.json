@@ -1,0 +1,8006 @@
+{
+  "wait": "lampState().model===true",
+  "baseline": {
+    "at": 75066.09999996424,
+    "power": 24,
+    "otherPower": 16,
+    "enabled": true,
+    "model": true,
+    "gi": "ready",
+    "generation": 3
+  },
+  "switches": [
+    {
+      "enabled": false,
+      "immediate": {
+        "at": 75215.89999997616,
+        "power": 0,
+        "otherPower": 16,
+        "enabled": false,
+        "model": true,
+        "gi": "ready",
+        "generation": 3
+      },
+      "samples": [
+        {
+          "at": 75218,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75379.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75390.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75429.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75436.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75443.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75465.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75484.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75503.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75521.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75541.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75562.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75582.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75637.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75682.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75746.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75798.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75838.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75875.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 75912.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        }
+      ]
+    },
+    {
+      "enabled": true,
+      "immediate": {
+        "at": 76147.19999998808,
+        "power": 24,
+        "otherPower": 16,
+        "enabled": true,
+        "model": true,
+        "gi": "ready",
+        "generation": 3
+      },
+      "samples": [
+        {
+          "at": 76260.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 76295.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 76458.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 76502,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 76546,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 76629.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 76928.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        }
+      ]
+    },
+    {
+      "enabled": false,
+      "immediate": {
+        "at": 77365.5,
+        "power": 0,
+        "otherPower": 16,
+        "enabled": false,
+        "model": true,
+        "gi": "ready",
+        "generation": 3
+      },
+      "samples": [
+        {
+          "at": 77473,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 77679.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 78066.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 78160.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 78365.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 78534.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 78725.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 78913.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 79114.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 79296,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 79468,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 79641.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 79838,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 80012.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 80185.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 80363.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 80639.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 80834.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 81016.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 81055.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 81182.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 81232.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": true,
+          "gi": "ready",
+          "generation": 3
+        },
+        {
+          "at": 81301.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 3
+        },
+        {
+          "at": 81534,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 81707.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 81775.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82092,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82176.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82184.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82191.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82216.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82262,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82270.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82280.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82301.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82311.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82334.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82342.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82358,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82385.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82396,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82411.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82431,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82445.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82468.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82475.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82491.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82512.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82525.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82542.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82560.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82577.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82603.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82609.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82626.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82667.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82674.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82681.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82715.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82722.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82729.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82742,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82862.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82872.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 82943.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83306,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83454,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83492.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83558.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83564.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83615.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83626.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83637.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83673,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83730.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83913.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83924.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 83995.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84014.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84061.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84073.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84084.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84093.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84141.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84150.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84162.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84175.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84193.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84235.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84410.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84418.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84515.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84524.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84531.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84565.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84570,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84576.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84591.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84607.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84624.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84773.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84778.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84940,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 84947.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85108.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85115.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85292.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85303.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85545,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85554.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85769.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 85781,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86047.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86057.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86224.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86237,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86406.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86416.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86563.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86573.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86726.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86735.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86888.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 86896.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87055.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87062.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87224.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87231.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87380.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87411.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87551.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87608.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87763.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87771.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87913.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 87921,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88066.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88082,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88227.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88238.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88301.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88313.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88349,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88358.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88524.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88532.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88676.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88683.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88825.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88832.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88974,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 88985.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89123.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89133.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89272.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89280.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89410.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89421,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89569.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89579.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89721.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89731.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89866.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89898.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89962.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 89972.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90009.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90013.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90024.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90040.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90057.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90074.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90090.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90107.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90125.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90141.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90158.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90175.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90191.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90209.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90226,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90241.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90258,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90274.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90290.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90307.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90324.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90340.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90357.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "loading",
+          "generation": 4
+        },
+        {
+          "at": 90402.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90409.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90412.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90424.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90440.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90459.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90474.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90490.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90507,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90525.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90542.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90558.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90575.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90590.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90607.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90624.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90641.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90657.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90674,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90690.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90708.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90724.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90742.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90757.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90774.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90791.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90809,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90825,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90841.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90859.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90875.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90893.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90907,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90923.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90940.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90956.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90973.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 90990.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91007.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91023.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91041.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91059.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91076.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91092.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91107.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91123.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91260.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91267.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91432.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91438.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91495.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91501.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91510.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91547.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91581.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91613.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91616.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91625,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91640.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "updating",
+          "generation": 4
+        },
+        {
+          "at": 91776.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91803.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91810,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91824.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91843,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91861.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91874.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91891.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91907.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91923.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91940.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91957.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91973.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 91989.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92006.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92025.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92040.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92056.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92073.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92089.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92106.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92124.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92143,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92174,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92180.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92190.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92258.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92273.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92290,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92307.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92323.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92340.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92356.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92373.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92390,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92406.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92423.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92439.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92457.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92477.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92490.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92507.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92523.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92540.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92556.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92574,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92592.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92606.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92625,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92641,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92657,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92673.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92690.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92707.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92725.29999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92740.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92757.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92773.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92808.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92810.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92823.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92840.39999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92859.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92873,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92890.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92906.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92923.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92939.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92956.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92972.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 92990.09999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93006.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93023.5,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93040,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93056.59999996424,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93073.79999995232,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93092.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93106.69999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93123.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93140.19999998808,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93157.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93173.89999997616,
+          "power": 0,
+          "otherPower": 16,
+          "enabled": false,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        }
+      ]
+    },
+    {
+      "enabled": true,
+      "immediate": {
+        "at": 93287.89999997616,
+        "power": 24,
+        "otherPower": 16,
+        "enabled": true,
+        "model": false,
+        "gi": "preparing",
+        "generation": 5
+      },
+      "samples": [
+        {
+          "at": 93321,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93330.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93416.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": false,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93496.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93512.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93773.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93821.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93824.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93835.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93845.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93872.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 93995.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94026.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94043.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94057.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94067.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94076.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94095.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94113,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94131,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94146.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94161.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94182.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94199.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94206.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94223.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94240.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94262.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94275.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94297.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94309,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94327.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94344.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94361.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94454.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94463,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94518,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94835.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 94991.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95016.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95070.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95076.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95117.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95131,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95167.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95360.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95401.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95710.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95718.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95792.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95803.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95818.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95834.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95892.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95900,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95943.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95951.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95961.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 95973.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96015.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96019.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96154.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96161.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96221.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96232.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96264.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96267.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96273.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96297.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96433.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96439.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96563.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96570.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96686.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96695.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96877.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 96887,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97180.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97383.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97401.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97534.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97549.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97692.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97704.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97818.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97830.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97947.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 97958.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98072.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98079.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98212.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98218,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98338.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98345.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98464,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98466.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98582.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98584.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98700.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98707,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98827.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98832.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98941.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 98950,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99059.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99068.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99176.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99185.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99321.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99328.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99463.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99470.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99593.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 99601.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 101094.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 101393,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 101456.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102081,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102101,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102172.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102188.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102202,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102217.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102231.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102269.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102287.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102461,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102541.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102552.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102562.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102575.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102597.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102611.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102624.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102642,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102657.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102674.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102762.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102771.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102777.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102791.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102807.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102823.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102840.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102873.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102875.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102890.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102907.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102924.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102944.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 102959.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103037,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103041.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103043.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103057.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103078.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103090,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103106.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103123.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103139.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103156.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103174.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103191.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103206.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103226.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103241.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103257.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103273.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103290.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103310.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103323.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103340.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103356.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103373.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103390.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103406.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103423.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103439.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103456.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103473.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103489.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103506.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103523,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103540.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103556.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103573.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103590.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103606.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103623.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103639.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103656.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103673.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103689.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103706.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103745.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103748.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103756.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103773.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103789.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103807.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103823.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103840.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103857,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103873.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103890,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103906.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103926.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103939.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103956.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103976.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 103989.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104006,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104022.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104039.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104057.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104073.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104089.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104106.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104122.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104139.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104156.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104172.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104189.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104206.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104222.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104239.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104256.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104272.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104289.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104306.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104323.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104339.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104356.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104372.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104389.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104406.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104422.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104439.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104456.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104472.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104492.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104506.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104525.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104539.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104556.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104573.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104589.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104606.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104623.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104639.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104656.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104672.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104689.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104706.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104722.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104757.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104758.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104772.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104789.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104806.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104822.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104840.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104856.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104872.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104889.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104906.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104922.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104941.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104956.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104973,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 104989.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105006.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105022.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105039.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105056.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105072.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105089.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105106.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105125.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105139.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105156.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105172.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105189.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105206,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105222.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105239.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105256.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105272.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105289.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105306.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105322.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105339.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105355.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105373.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105389.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105406.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105422.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105439.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105456,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105472.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105489.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105506.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105522.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105539.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105556,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105572.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105589.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105606,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105623.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105639.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105656,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105673.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105689.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105706.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105725.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105757.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105762.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105772.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105789.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105806,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105822.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105839.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105856,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105872.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105889.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105907.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105922.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105939.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105955.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105972.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 105989.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106006.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106037.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106052.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106057.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106073.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106089.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106106.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106123.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106140.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106156.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106173.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106190.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106207.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106224.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106239.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106256.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106273.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106291,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106306,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106322.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106341.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106356,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106372.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106389.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106406.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106423.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106439.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106456,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106472.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106489.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106506,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106525,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106541.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106558.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106574.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106591.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106608.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106622.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106639.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106659.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106675.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106692.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106706.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106722.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106739.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106775.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106785.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106789.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106822.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106826.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106839.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106871.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106876.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106918.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106920.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106925.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106942.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106958,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106974.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 106989.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107006,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107022.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107039.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107056.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107072.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107089.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107106.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107123.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107139.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107156.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107173.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107189.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107206.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107222.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107239.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107255.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107272.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107289.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107305.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107322.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107339.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107355.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107372.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107389.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107406.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107423.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107442,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107457.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107473.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107489.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107506.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107525.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107543.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107556.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107573.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107590,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107606.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107622.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107639.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107658.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107675.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107689.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107706.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107723,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107739.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107756.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107789.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107793.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107805.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107822.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107839.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107856,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107874.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107890.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107906.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107923.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107941.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107958.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107973.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 107990,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108005.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108024.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108041.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108057.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108074.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108090.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108106.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108122.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108139.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108158.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108172.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108190.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108210,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108225.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108240.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108256.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108273.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108289.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108306.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108322.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108339.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108355.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108372.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108389.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108406.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108422.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108439.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108456,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108473.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108489.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108508.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108524.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108540.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108556.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108572.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108598.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108606.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108623.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108639.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108656.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108672.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108689.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108706,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108723.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108739.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108759.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108789.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108796.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108806.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108822.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108839.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108856.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108872.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108889.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108906.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108922.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108939.59999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108956.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108973.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 108989.39999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109016.5,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109024.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109040.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109056.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109079.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109089.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109106.09999996424,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109122.79999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "preparing",
+          "generation": 5
+        },
+        {
+          "at": 109149.89999997616,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "refining",
+          "generation": 5
+        },
+        {
+          "at": 109156.19999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "refining",
+          "generation": 5
+        },
+        {
+          "at": 109172.69999998808,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "refining",
+          "generation": 5
+        },
+        {
+          "at": 109189.29999995232,
+          "power": 24,
+          "otherPower": 16,
+          "enabled": true,
+          "model": true,
+          "gi": "refining",
+          "generation": 5
+        }
+      ]
+    }
+  ],
+  "final": {
+    "at": 109212.5,
+    "power": 24,
+    "otherPower": 16,
+    "enabled": true,
+    "model": true,
+    "gi": "refining",
+    "generation": 5
+  },
+  "stage": "passed",
+  "errors": [
+    "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+    "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute.",
+    "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+    "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute."
+  ]
+}

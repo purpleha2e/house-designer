@@ -7,7 +7,6 @@ import { useToolbarMenu } from './useToolbarMenu'
 import { normalizeExposureStops } from '../projectViewState'
 import { ViewerCameraControls } from '../viewer/ViewerCameraControls'
 import { ViewerAdaptiveResolution } from '../viewer/ViewerAdaptiveResolution'
-import { ViewportNavigationResolution } from './ViewportNavigationResolution'
 import { GamepadCameraControls } from './GamepadCameraControls'
 import { ViewerStairs } from '../viewer/ViewerStairs'
 import type { ViewerNavigationMode } from '../viewer/viewerNavigation'
@@ -38,7 +37,7 @@ import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import { RoomExposure } from './RoomExposure'
 import { ROOM_EXPOSURE_STORAGE } from '../roomExposure'
-import {EDITOR_LIGHTING_VIEWS,EDITOR_VIEW_QUALITY_STORAGE,editorLightingDisplay,editorLightingOverrides,editorResolutionScale,normalizeEditorViewQuality,type EditorLightingView} from '../editorViewLighting'
+import {EDITOR_LIGHTING_VIEWS,editorLightingDisplay,editorLightingOverrides,type EditorLightingView} from '../editorViewLighting'
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing'
 import { SceneRenderer } from './SceneRenderer'
 import { AmbientOcclusionToggle } from './AmbientOcclusionToggle'
@@ -164,7 +163,7 @@ import { colorPickSampleFrustum } from '../colorPickFrustum'
 import { createRoomLightMask } from '../roomLightMask'
 import { createLightPortalTexture, type LightPortalPlane } from '../roomLightPortals'
 import { useRoomLightOcclusion } from './useRoomLightOcclusion'
-import { indirectLightingStructureKey } from '../indirectContinuousLighting'
+import { indirectLightingStructureKey, sameIndirectFloorStructure } from '../indirectContinuousLighting'
 import {
   applyRoomLightShader,
   createRoomLightMaskTexture,
@@ -15018,13 +15017,18 @@ function useLiveLocalLight(lightRef: MutableRefObject<PointLight | SpotLight>, s
   const { scene, invalidate } = useThree()
   useLayoutEffect(() => {
     if (!slot) return
-    return control.subscribe(slot.id, enabled => {
+    const update = () => {
+      const enabled = control.getEnabled(slot.id) ?? slot.power > 0
       const light = lightRef.current
       light.power = enabled ? slot.enabledPower ?? slot.power : 0
       setLightShadowEnabled(light.shadow, castShadow && shadowControl.get(), light.intensity > 0)
       scene.userData.liveLightRevision = (scene.userData.liveLightRevision ?? 0) + 1
       invalidate()
-    })
+    }
+    // React may just have committed an older slot or reassigned a pool entry.
+    // Reapply the current intent before that frame is drawn.
+    update()
+    return control.subscribe(slot.id, update)
   }, [castShadow, control, invalidate, lightRef, scene, shadowControl, slot])
 }
 
@@ -19423,7 +19427,6 @@ function ThreeDScene({
   const [localExposureStops, setLocalExposureStops] = useState(0)
   const [lightingView,setLightingView]=useState<EditorLightingView>(()=>readOnly||basicSceneDiagnostic||new URLSearchParams(location.search).get('lightingView')==='custom'?'custom':'build')
   const [viewBrightness,setViewBrightness]=useState(0)
-  const [viewQuality,setViewQuality]=useState(()=>{try{return normalizeEditorViewQuality(localStorage.getItem(EDITOR_VIEW_QUALITY_STORAGE))}catch{return 'balanced'}})
   const [roomExposure, setRoomExposure] = useState(() => { try { return localStorage.getItem(ROOM_EXPOSURE_STORAGE) === 'true' } catch { return false } })
   const [lightingRefinement,setLightingRefinement]=useState<LightingRefinementQuality>(()=>{try{return normalizeLightingRefinement(localStorage.getItem(LIGHTING_REFINEMENT_STORAGE))}catch{return 'fast'}})
   const [refinementStatus]=useState(createLightingRefinementStatus)
@@ -19527,7 +19530,6 @@ function ThreeDScene({
   const [localLightLimit, setLocalLightLimit] = useState(FALLBACK_REALTIME_LOCAL_LIGHTS)
   const [cameraLightBudgetEnabled, setCameraLightBudgetEnabled] = useState(false)
   const [viewerResolution, setViewerResolution] = useState(1)
-  const [navigationResolution, setNavigationResolution] = useState(1)
   const [localShadowLightLimit, setLocalShadowLightLimit] = useState(1)
   const [localLightIds, setLocalLightIds] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -19595,11 +19597,10 @@ function ThreeDScene({
   }), [localRenderOptions,ambientLighting])
   const renderOptions = useMemo<RenderOptions>(() => ({ ...authoredRenderOptions,
     ...editorLightingOverrides(lightingView),
-    ...(!readOnly&&viewQuality==='faster'?{ambientOcclusion:false}:{}),
     // Keep casting/receiving features and their programs prepared. Display
     // switches change shadow intensity, never the renderer's shader family.
     shadows: !basicSceneDiagnostic && rendererShadowMode !== 'off',
-  }), [authoredRenderOptions,lightingView,readOnly,viewQuality])
+  }), [authoredRenderOptions,lightingView])
   const [sceneShadowControl] = useState(() => createLightShadowControl(lightingView==='custom'?localRenderOptions.shadows:true))
   const [groundShadowRetention] = useState(() => ({ value: .55 }))
   const [exteriorAmbientTint] = useState(() => ({ value: new Vector3(1, 1, 1) }))
@@ -21338,25 +21339,20 @@ function ThreeDScene({
                   </select>
                 </label>
                 <p className="viewport-menu-description">{lightingView==='custom'?'Using saved/custom lighting settings.':EDITOR_LIGHTING_VIEWS[lightingView].description}</p>
-                <label className="render-options-slider editor-view-select" title="Faster reduces image resolution and disables ambient occlusion. It keeps the same lighting and does not rebuild GI."><span>Quality</span>
-                  <select aria-label="View quality" value={viewQuality} onChange={event=>{const value=normalizeEditorViewQuality(event.currentTarget.value);setViewQuality(value);try{localStorage.setItem(EDITOR_VIEW_QUALITY_STORAGE,value)}catch{/* Optional device preference. */}}}>
-                    <option value="balanced">Balanced</option><option value="faster">Faster</option>
-                  </select>
-                </label>
                 <label><input aria-label="Daylight" type="checkbox" checked={renderOptions.daylight} onChange={()=>updateRenderOption('daylight')} />Daylight</label>
                 <label><input aria-label="Room lights" type="checkbox" checked={renderOptions.lights} onChange={()=>updateRenderOption('lights')} />Room lights</label>
                 {lightingView!=='custom'&&<label className="render-options-slider editor-view-brightness" title="Adjust the view brightness without changing the house lights or recalculating lighting."><span>Brightness</span>
                   <input aria-label="View brightness" aria-valuetext={viewBrightness===0?'Standard':viewBrightness<0?'Darker':'Brighter'} type="range" min="-1" max="1" step="0.25" value={viewBrightness} onChange={event=>setViewBrightness(Number(event.currentTarget.value))} />
                   <span>{viewBrightness===0?'Standard':viewBrightness<0?'Darker':'Brighter'}</span>
                 </label>}
-                <button type="button" onClick={()=>{chooseLightingView('build');setViewQuality('balanced');try{localStorage.setItem(EDITOR_VIEW_QUALITY_STORAGE,'balanced')}catch{/* Optional device preference. */}}}>Reset view defaults</button>
+                <button type="button" onClick={()=>chooseLightingView('build')}>Reset view defaults</button>
                 <details className="viewport-advanced-settings">
                   <summary>Advanced lighting and diagnostics</summary>
                   <p className="viewport-menu-description">Build and Lighting preview manage the lighting controls below. Custom restores the saved settings for manual adjustment.</p>
                   <button type="button" aria-label="Use custom lighting" onClick={()=>chooseLightingView('custom')} disabled={lightingView==='custom'}>Use saved/custom lighting</button>
                 <button type="button" title="Saves recent frame stalls, shader preparation and rendering settings. No model geometry or textures are included." onClick={()=>{
                   const scene=viewportScene.current
-                  const report={version:1,createdAt:new Date().toISOString(),settings:renderOptions,lightingRefinement,lightingView,viewQuality,viewBrightness,
+                  const report={version:1,createdAt:new Date().toISOString(),settings:renderOptions,lightingRefinement,lightingView,viewBrightness,
                     health:scene?.userData.getRendererHealth?.(),warmup:scene?.userData.shaderWarmupProfile,
                     refinement:scene?.userData.localSunPreview,events:engineLogEntries.slice(-160)}
                   const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}))
@@ -21802,7 +21798,7 @@ function ThreeDScene({
           }}
           // Mobile tours keep saved GI and glass, without AO's repeated scene /
           // transparency passes. Keep resolution bounded when AO is bypassed.
-          dpr={readOnly && viewerTouchDevice && !isXrPresenting ? viewerResolution : postprocessingEnabled ? (!readOnly && !isXrPresenting ? editorResolutionScale(viewQuality,navigationResolution) : 1) : [1, 1.5]}
+          dpr={readOnly && viewerTouchDevice && !isXrPresenting ? viewerResolution : postprocessingEnabled ? 1 : [1, 1.5]}
           gl={{ antialias: true, powerPreference: 'high-performance' }}
           onCreated={({ gl, scene }) => {
             viewportScene.current = scene
@@ -21901,8 +21897,6 @@ function ThreeDScene({
               pickTargetsRef={pickTargetsRef}
             /> : null}
             <FpsCounter onFpsChange={updateFps} movingOnly={readOnly} />
-            {!readOnly && <ViewportNavigationResolution enabled={postprocessingEnabled && !isXrPresenting}
-              onChange={setNavigationResolution} />}
             {readOnly && <ViewerAdaptiveResolution enabled={viewerTouchDevice && viewerRenderQuality === 'auto' && !isXrPresenting}
               onChange={setViewerResolution} />}
             <RendererStatsSampler onStatsChange={updateRendererStats} />
@@ -22040,7 +22034,7 @@ function ThreeDScene({
               captureReflections={renderOptions.roomReflections}
               automaticBake={lightingUpdateMode === 'automatic'}
               bakeRevision={activeBakeRevision}
-              liveEditPending={() => liveGeometryFloors.current !== sourceFloors}
+              liveEditPending={() => !sameIndirectFloorStructure(liveGeometryFloors.current, sourceFloors)}
               liveInput={liveLightingInput}
               cacheBlocked={shaderWarmupBlocked || lightingCacheKeys.pending || isTransformingModel}
               effectsEnabled={effectsStarted}

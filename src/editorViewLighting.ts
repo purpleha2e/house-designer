@@ -1,6 +1,4 @@
 export type EditorLightingView = 'build' | 'lighting' | 'custom'
-export type EditorViewQuality = 'balanced' | 'faster'
-export const EDITOR_VIEW_QUALITY_STORAGE = 'house-designer-view-quality-v1'
 
 /** Editor display policy, separate from authored sun/lamps and the GI cache.
  * Opening a project starts in Build; old experimental device settings cannot
@@ -22,5 +20,3 @@ export function editorLightingOverrides(view: EditorLightingView) {
  return {ambientTerm:preset.fill,nightAmbientTerm:preset.fill,ambientOcclusion:true,ambientOcclusionIntensity:.25,lightShadows:true}
 }
 
-export function normalizeEditorViewQuality(value:unknown):EditorViewQuality{return value==='faster'?'faster':'balanced'}
-export function editorResolutionScale(quality:EditorViewQuality,navigation:number){return Math.min(quality==='faster'?.7:1,navigation)}

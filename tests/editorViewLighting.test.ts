@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {editorLightingDisplay,editorLightingOverrides,editorResolutionScale,normalizeEditorViewQuality} from '../src/editorViewLighting.ts'
+import {editorLightingDisplay,editorLightingOverrides} from '../src/editorViewLighting.ts'
 
 test('Build has a deterministic readable baseline independent of legacy exposure/adaptation',()=>{
  assert.deepEqual(editorLightingDisplay('build',4,true),{exposure:.5,adapt:false})
@@ -16,10 +16,7 @@ test('Lighting preview removes editing fill; custom preserves authored controls'
  assert.deepEqual(editorLightingDisplay('custom',1.75,false),{exposure:1.75,adapt:false})
  assert.deepEqual(editorLightingDisplay('custom',-1,true),{exposure:-1,adapt:true})
 })
-test('Brightness is bounded and Faster caps pixel work without raising a lower adaptive scale',()=>{
+test('Brightness is bounded',()=>{
  assert.equal(editorLightingDisplay('build',0,false,50).exposure,1.5)
  assert.equal(editorLightingDisplay('lighting',0,false,-50).exposure,0)
- assert.equal(editorResolutionScale('faster',1),.7)
- assert.equal(editorResolutionScale('faster',.5),.5)
- assert.equal(normalizeEditorViewQuality('ultra'),'balanced')
 })

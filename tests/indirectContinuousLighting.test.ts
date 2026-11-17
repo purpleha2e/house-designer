@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createIndirectLightingUpdates, indirectLightingStructureKey, indirectSkyIndependentRevision, prioritizeIndirectLighting } from '../src/indirectContinuousLighting.ts'
+import { createIndirectLightingUpdates, indirectLightingStructureKey, indirectSkyIndependentRevision, prioritizeIndirectLighting, sameIndirectFloorStructure } from '../src/indirectContinuousLighting.ts'
+
+test('deferred lamp settings do not count as pending geometry, but moving a lamp does', () => {
+  const floors = [{ id: 'floor', models: [{ id: 'lamp', position: {x: 1, y: 2}, lightEnabled: true, lightPower: 90 }] }]
+  const switched = structuredClone(floors)
+  switched[0].models[0].lightEnabled = false
+  switched[0].models[0].lightPower = 150
+  assert.equal(sameIndirectFloorStructure(floors, switched), true)
+  const moved = structuredClone(switched)
+  moved[0].models[0].position.x++
+  assert.equal(sameIndirectFloorStructure(floors, moved), false)
+  assert.equal(sameIndirectFloorStructure(floors, []), false)
+})
 
 test('restoring cached lighting preserves sun edits arriving during decode and upload', () => {
   const updates = createIndirectLightingUpdates()

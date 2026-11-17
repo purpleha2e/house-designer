@@ -880,6 +880,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         void saveStairToLibrary(model).catch(error => console.warn('Could not restore local stairs:', error))
       }
     }
+    localLightControl.restore(snapshot.floors.flatMap(floor => floor.models.filter(model => modelsById.get(model.modelId)?.isLight)
+      .map(model => [model.id, model.lightEnabled !== false] as const)))
     setFloors(snapshot.floors.map((floor) => normalizeFloor(floor, modelsById)))
     setActiveFloorId(snapshot.activeFloorId)
     setThreeDNavigationFloorId(snapshot.threeDNavigationFloorId)
@@ -2304,6 +2306,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
 
       const loadedFloors = parsedProject.floors.map(normalizeLoadedFloor)
 
+      localLightControl.restore(loadedFloors.flatMap(floor => floor.models.filter(model => modelsById.get(model.modelId)?.isLight)
+        .map(model => [model.id, model.lightEnabled !== false] as const)))
       setFloors(loadedFloors)
       setProjectLoadRevision(++projectGeneration.current)
       traceEditorPreparation('project-replacement', projectGeneration.current, { request, floors: loadedFloors.length })
@@ -2401,6 +2405,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     projectLoadRequest.current++
     pendingLoadDecision.current?.(false)
     setLoadFeedback(null)
+    localLightControl.restore([])
     setFloors(project.floors)
     setProjectLoadRevision(++projectGeneration.current)
     traceEditorPreparation('new-project', projectGeneration.current)
@@ -3338,6 +3343,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           viewportRestoreRevision={floorplanRestoreRevision}
         >
           {transformControls => <ContextPanel
+            lightControl={localLightControl}
             transformControls={transformControls}
             activeFloor={contextFloor}
             floors={floors}

@@ -21,6 +21,22 @@ export function indirectLightingStructureKey(revision: string) {
   } catch { return revision }
 }
 
+const floorStructureKeys = new WeakMap<object, string>()
+/** Floor arrays are immutable. Compare geometry once per revision, rather than
+ * cancelling GI whenever a deferred lamp-uniform edit changes array identity. */
+export function sameIndirectFloorStructure(a: readonly unknown[], b: readonly unknown[]) {
+  if (a === b) return true
+  const key = (floors: readonly unknown[]) => {
+    let value = floorStructureKeys.get(floors)
+    if (value === undefined) {
+      value = indirectLightingStructureKey(JSON.stringify({ floors }))
+      floorStructureKeys.set(floors, value)
+    }
+    return value
+  }
+  return key(a) === key(b)
+}
+
 /** One active sweep and one latest request, regardless of input frequency.
  * New requests never reset a sweep's probe cursor, so distant probes cannot
  * starve during a long drag. A quiet final sweep produces an exportable result. */

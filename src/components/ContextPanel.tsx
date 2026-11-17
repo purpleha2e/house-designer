@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react'
+import type { LocalLightControl } from '../localLightControl'
 import type {
   FloorLevel,
   PlacedModel,
@@ -21,6 +22,7 @@ import { MaterialChoice } from './MaterialChoice'
 import { getStairFinish, stairParts } from '../stairDesign'
 
 type ContextPanelProps = {
+  lightControl?: LocalLightControl
   transformControls?: ReactNode
   activeFloor: FloorLevel
   floors: FloorLevel[]
@@ -178,7 +180,17 @@ function getDefaultSurfaceMaterialLabel(
   return `Default ${getSurfaceTypeLabel(selectedSurface).toLowerCase()}`
 }
 
+function LightEnabledInput({ model, control, onUpdate }: {
+  model: PlacedModel; control?: LocalLightControl; onUpdate: ContextPanelProps['onUpdateModel']
+}) {
+  const subscribe = useCallback((notify: () => void) => control?.subscribe(model.id, notify) ?? (() => {}), [control, model.id])
+  const enabled = useSyncExternalStore(subscribe, () => control?.getEnabled(model.id) ?? model.lightEnabled !== false)
+  return <input type="checkbox" aria-label="Light enabled" checked={enabled}
+    onChange={event => onUpdate(model.id, { lightEnabled: event.currentTarget.checked })} />
+}
+
 export function ContextPanel({
+  lightControl,
   transformControls,
   activeFloor,
   floors,
@@ -612,15 +624,7 @@ export function ContextPanel({
                 <div className="context-field">
                   <dt>Enabled</dt>
                   <dd>
-                    <input
-                      type="checkbox"
-                      checked={selectedModel.model.lightEnabled !== false}
-                      onChange={(event) =>
-                        onUpdateModel(selectedModel.model.id, {
-                          lightEnabled: event.target.checked,
-                        })
-                      }
-                    />
+                    <LightEnabledInput model={selectedModel.model} control={lightControl} onUpdate={onUpdateModel} />
                   </dd>
                 </div>
                 <div className="context-field">
