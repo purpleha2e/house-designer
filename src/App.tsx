@@ -22,6 +22,7 @@ import {
   useState,
   type CSSProperties,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { ContextPanel } from './components/ContextPanel'
 import {
   FloorplanCanvas,
@@ -655,6 +656,17 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     null,
   )
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
+  const [isPropertiesOpen, setIsPropertiesOpen] = useState(false)
+  const [propertiesFullscreenHost, setPropertiesFullscreenHost] = useState<Element | null>(null)
+  const openProperties = useCallback(() => setIsPropertiesOpen(true), [])
+  useEffect(() => {
+    const update = () => {
+      const fullscreen = document.fullscreenElement
+      setPropertiesFullscreenHost(fullscreen?.classList.contains('three-editor-pane') ? fullscreen : null)
+    }
+    document.addEventListener('fullscreenchange', update)
+    return () => document.removeEventListener('fullscreenchange', update)
+  }, [])
   const [selectedRoofId, setSelectedRoofId] = useState<string | null>(null)
   const [roofPlacementPreview, setRoofPlacementPreview] =
     useState<RoofPlacementPreview | null>(null)
@@ -2947,16 +2959,18 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
+    setSelectedSurface(null)
     setSelectedRoofId(null)
     setIsAddingWall(false)
   }
 
-  const selectModelFromThreeD = (modelId: string) => {
+  const selectModelFromThreeD = (modelId: string, _floorId: string, keepSelected = false) => {
     // Canvas reconciliation can still be showing the preceding callback when
     // a second click arrives. Toggle against the current selection queue, not
     // the selection captured by that older rendered scene.
     setSelectedModelIds(currentSelectedIds => {
-      const shouldDeselect = currentSelectedIds.length === 1 && currentSelectedIds[0] === modelId
+      if (keepSelected && currentSelectedIds.at(-1) === modelId) return currentSelectedIds
+      const shouldDeselect = !keepSelected && currentSelectedIds.length === 1 && currentSelectedIds[0] === modelId
       setSelectedModelId(shouldDeselect ? null : modelId)
       return shouldDeselect ? [] : [modelId]
     })
@@ -2968,8 +2982,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setIsAddingWall(false)
   }
 
-  const selectRoofFromThreeD = (roofId: string, floorId: string) => {
-    const shouldDeselect = selectedRoofId === roofId && selectedSurface?.type === 'roof' && !selectedSurface.part
+  const selectRoofFromThreeD = (roofId: string, floorId: string, keepSelected = false) => {
+    const shouldDeselect = !keepSelected && selectedRoofId === roofId && selectedSurface?.type === 'roof' && !selectedSurface.part
 
     setSelectedRoofId(shouldDeselect ? null : roofId)
     setSelectedModelId(null)
@@ -3025,9 +3039,9 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setRoofPlacementPreview(null)
   }
 
-  const selectSurfaceFromThreeD = (surface: SelectableSurface) => {
+  const selectSurfaceFromThreeD = (surface: SelectableSurface, keepSelected = false) => {
     if (selectableSurfacesMatch(selectedSurface, surface)) {
-      clearThreeDSelection()
+      if (!keepSelected) clearThreeDSelection()
       return
     }
 
@@ -3318,6 +3332,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           onDeleteWall={deleteWall}
           onExitAddWall={() => setIsAddingWall(false)}
           onStartMeasuring={() => setIsRoofMode(false)}
+          onOpenProperties={openProperties}
           onViewportChange={updateFloorplanViewport}
           onSelectModel={selectModel}
           onSelectRoof={selectRoofFromFloorplan}
@@ -3342,53 +3357,60 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           onUpdateWalls={updateWallGeometries}
           viewportRestoreRevision={floorplanRestoreRevision}
         >
-          {transformControls => <ContextPanel
-            lightControl={localLightControl}
-            transformControls={transformControls}
-            activeFloor={contextFloor}
-            floors={floors}
-            canVaultRoom={!floors.some(floor => floor.elevation > contextFloor.elevation)}
-            selectedModel={selectedModel}
-            selectedRoom={selectedRoom}
-            selectedSurface={selectedSurface}
-            selectedWall={selectedWall ?? selectedSurfaceWall ?? undefined}
-            surfaceAssignments={surfaceAssignments}
-            surfaceMaterials={availableMaterials}
-            onDeleteModel={deleteModel}
-            onAddDormerWindow={addWindowToDormer}
-            onSelectDormerWindow={modelId => {
-              setSelectedModelId(modelId)
-              setSelectedModelIds([modelId])
-            }}
-            onRenameRoom={(roomSignature, name) => {
-              recordHistory()
-              setFloors((currentFloors) =>
-                currentFloors.map((floor) =>
-                  floor.id === contextFloor.id
-                    ? {
-                        ...floor,
-                        rooms: (floor.rooms ?? []).map((room) =>
-                          room.signature === roomSignature ? { ...room, name } : room,
-                        ),
-                      }
-                    : floor,
-                ),
-              )
-            }}
-            onUpdateRoomCeilingMode={(roomSignature, ceilingMode) => {
-              const room = contextFloor.rooms.find(candidate => candidate.signature === roomSignature)
-              if (!room || (room.ceilingMode ?? contextFloor.ceilingMode ?? 'horizontal') === ceilingMode) return
-              recordHistory()
-              setFloors(currentFloors => currentFloors.map(floor =>
-                floor.id === contextFloor.id
-                  ? { ...floor, rooms: floor.rooms.map(candidate =>
-                    candidate.signature === roomSignature ? { ...candidate, ceilingMode } : candidate) }
-                  : floor,
-              ))
-            }}
-            onUpdateModel={updateModel}
-            onUpdateWall={updateWallGeometry}
-          />}
+          {transformControls => {
+            if (!isPropertiesOpen) return null
+            const panel = (
+              <ContextPanel
+                lightControl={localLightControl}
+                transformControls={transformControls}
+                activeFloor={contextFloor}
+                floors={floors}
+                canVaultRoom={!floors.some(floor => floor.elevation > contextFloor.elevation)}
+                selectedModel={selectedModel}
+                selectedRoom={selectedRoom}
+                selectedSurface={selectedSurface}
+                selectedWall={selectedWall ?? selectedSurfaceWall ?? undefined}
+                surfaceAssignments={surfaceAssignments}
+                surfaceMaterials={availableMaterials}
+                onClose={() => setIsPropertiesOpen(false)}
+                onDeleteModel={deleteModel}
+                onAddDormerWindow={addWindowToDormer}
+                onSelectDormerWindow={modelId => {
+                  setSelectedModelId(modelId)
+                  setSelectedModelIds([modelId])
+                }}
+                onRenameRoom={(roomSignature, name) => {
+                  recordHistory()
+                  setFloors((currentFloors) =>
+                    currentFloors.map((floor) =>
+                      floor.id === contextFloor.id
+                        ? {
+                            ...floor,
+                            rooms: (floor.rooms ?? []).map((room) =>
+                              room.signature === roomSignature ? { ...room, name } : room,
+                            ),
+                          }
+                        : floor,
+                    ),
+                  )
+                }}
+                onUpdateRoomCeilingMode={(roomSignature, ceilingMode) => {
+                  const room = contextFloor.rooms.find(candidate => candidate.signature === roomSignature)
+                  if (!room || (room.ceilingMode ?? contextFloor.ceilingMode ?? 'horizontal') === ceilingMode) return
+                  recordHistory()
+                  setFloors(currentFloors => currentFloors.map(floor =>
+                    floor.id === contextFloor.id
+                      ? { ...floor, rooms: floor.rooms.map(candidate =>
+                        candidate.signature === roomSignature ? { ...candidate, ceilingMode } : candidate) }
+                      : floor,
+                  ))
+                }}
+                onUpdateModel={updateModel}
+                onUpdateWall={updateWallGeometry}
+              />
+            )
+            return propertiesFullscreenHost ? createPortal(panel, propertiesFullscreenHost) : panel
+          }}
         </FloorplanCanvas>
         <div
           className="view-splitter"
@@ -3465,6 +3487,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
             clearThreeDSelection()
           }}
           onSelectModel={selectModelFromThreeD}
+          onOpenProperties={openProperties}
           onSelectRoof={selectRoofFromThreeD}
           onSelectSurface={selectSurfaceFromThreeD}
           onLightDirectionChange={setSunPosition}

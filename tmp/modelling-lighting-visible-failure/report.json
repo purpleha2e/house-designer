@@ -1,0 +1,194 @@
+{
+  "error": "Error: Error: Shader preparation failed (62): FRAGMENT shader texture image units count exceeds MAX_TEXTURE_IMAGE_UNITS(16)\n\nWARNING: 0:636: '[]' : Performance: dynamic indexing of vectors and matrices is emulated and can be slow.\nWARNING: 0:639: '[]' : Performance: dynamic indexing of vectors and matrices is emulated and can be slow.\n\n    at initialise (http://127.0.0.1:5188/src/shaderDiagnostics.ts:39:10)",
+  "final": {
+    "model": {
+      "state": "preparing",
+      "pending": false,
+      "requests": 1,
+      "publications": 0,
+      "scope": "ee37bc18-f901-44fc-acf6-7bb806bb82bc:-32:317|-32:33|142:238|142:33|252:238|252:317",
+      "status": "Preparing bounced lighting…",
+      "frameBudgetMs": 2,
+      "bounces": 3,
+      "stats": {
+        "state": "preparing",
+        "revision": 1,
+        "views": 0,
+        "captureSubmitMs": 0,
+        "reconstructionSubmitMs": 0,
+        "propagationSubmitMs": 0,
+        "preparationMs": 0,
+        "geometryMs": 59,
+        "gpuBatches": 0,
+        "bytes": 12812288,
+        "probeProgress": 0,
+        "passCompilations": 0,
+        "capturePreparations": 0,
+        "captureLights": 8,
+        "bounces": 0,
+        "targetBounces": 3
+      }
+    },
+    "ambient": {
+      "requested": 0.16,
+      "applied": 0.61,
+      "exteriorSkyReady": false
+    },
+    "floors": 0,
+    "giEnabled": 1,
+    "weight": 0,
+    "ready": 0,
+    "fill": 0.16,
+    "feature": 1,
+    "position": [
+      1.1588100122317273,
+      1.4590878017993665,
+      8.712081489393837
+    ],
+    "probe": "preview",
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "role": "ambient-fill",
+        "intensity": 0.27449999999999997,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "HemisphereLight",
+        "role": "ambient-sky-fill",
+        "intensity": 0.6405,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "DirectionalLight",
+        "role": "sun-light",
+        "intensity": 1.3,
+        "color": [
+          1,
+          0.9386857284565036,
+          0.85499260812105
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "programs": 53
+  },
+  "errors": [
+    "Error: Shader preparation failed (62): FRAGMENT shader texture image units count exceeds MAX_TEXTURE_IMAGE_UNITS(16)\n\nWARNING: 0:636: '[]' : Performance: dynamic indexing of vectors and matrices is emulated and can be slow.\nWARNING: 0:639: '[]' : Performance: dynamic indexing of vectors and matrices is emulated and can be slow.\n\n    at initialise (http://127.0.0.1:5188/src/shaderDiagnostics.ts:39:10)"
+  ]
+}

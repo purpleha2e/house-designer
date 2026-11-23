@@ -1,0 +1,32 @@
+{
+  "samples": {
+    "linear": {
+      "medianMs": 57.89999997615814,
+      "displayed": 108,
+      "newPrograms": 0
+    },
+    "quadratic": {
+      "medianMs": 75.5,
+      "displayed": 108,
+      "newPrograms": 0
+    },
+    "off": {
+      "medianMs": 57.10000002384186,
+      "displayed": 108,
+      "newPrograms": 0
+    },
+    "linearRepeat": {
+      "medianMs": 58.89999997615814,
+      "displayed": 108,
+      "newPrograms": 0
+    }
+  },
+  "size": [
+    1092,
+    1056
+  ],
+  "renderer": "ANGLE (AMD, AMD Radeon Pro 5600M (0x00007360) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+  "startupError": 1282,
+  "requests": 0,
+  "glError": 0
+}

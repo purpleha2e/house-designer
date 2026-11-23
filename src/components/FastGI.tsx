@@ -12,8 +12,8 @@ import { setFastGIShaderFeature } from '../fastGIShader'
 
 /** Console feature flag: houseDesignerFastGI.configure({enabled:true}).
  * Also accepts ?fastGI=1, and ?fastGI=captures for method A without geometry. */
-export function FastGI({ floors, revision, enabled, blocked, featureEnabled, fallbackToPreview = false, probesEnabled = true, daylight, daylightBounceStrength, captureLights, uniforms }: {
-  floors: IndirectFloor[]; revision: string; enabled: boolean; blocked:boolean; featureEnabled?:boolean; fallbackToPreview?: boolean; probesEnabled?:boolean; daylight:boolean; daylightBounceStrength:number; captureLights:readonly (PointLight|SpotLight)[]; uniforms: IndirectUniforms
+export function FastGI({ floors, revision, enabled, blocked, featureEnabled, keepFeature = false, fallbackToPreview = false, probesEnabled = true, daylight, daylightBounceStrength, captureLights, uniforms }: {
+  floors: IndirectFloor[]; revision: string; enabled: boolean; blocked:boolean; featureEnabled?:boolean; keepFeature?:boolean; fallbackToPreview?: boolean; probesEnabled?:boolean; daylight:boolean; daylightBounceStrength:number; captureLights:readonly (PointLight|SpotLight)[]; uniforms: IndirectUniforms
 }) {
   const { gl, scene, camera, invalidate } = useThree()
   const state = useRef<{ engine: ReturnType<typeof createFastGI>; key: string; debug: ReturnType<typeof createFastGIDebug> | null;
@@ -52,7 +52,7 @@ export function FastGI({ floors, revision, enabled, blocked, featureEnabled, fal
   useFrame((_,delta)=>{
     const progress=scene.userData.indirectLighting
     const current=state.current,active=(current.options.enabled || fallbackToPreview && ['preview','fallback'].includes(progress?.state))&&enabled
-    setFastGIShaderFeature(scene,uniforms.hdFastFeature,active)
+    setFastGIShaderFeature(scene,uniforms.hdFastFeature,active || keepFeature)
     if(!active){if(current.engine){current.debug?.dispose();current.debug=null;current.engine.dispose();current.engine=null;current.key=''}return}
     if(gl.xr.isPresenting)return
     // Startup can still be publishing materials, geometry and sun shadows.

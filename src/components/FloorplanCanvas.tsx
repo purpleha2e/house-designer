@@ -2,6 +2,7 @@ import { renderModelPlanPreview } from '../modelPlanPreview'
 import { traceModelPlanPreview } from '../modelPlanDrawingClient'
 import type { ModelPlanDrawing } from '../modelPlanDrawing'
 import { ToolbarIcon } from './ToolbarIcon'
+import { ViewportContextMenu } from './ViewportContextMenu'
 import { PlanRuler } from './PlanRuler'
 import { StairPlanSymbol } from './StairPlanSymbol'
 import { DoorPlanSymbol } from './DoorPlanSymbol'
@@ -42,6 +43,7 @@ import { getModelTransformBounds, getModelTransformValues, updateModelTransformF
 import { ObjectTransformPanel } from './ObjectTransformPanel'
 import { GroundImageControls, GroundImageLayer } from './GroundImage'
 import { getWallDragDelta } from '../wallDragModifiers'
+import { getWallStartAtOffset, getWallStartGuide, parseWallStartOffset, type WallStartGuide } from '../wallStartGuide'
 import { snapWallTranslationToReferences } from '../wallReferenceSnap'
 import { getTransformDragDelta, getTransformRotation } from '../transformModifiers'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -103,6 +105,7 @@ const WALL_JOIN_EPSILON_METERS = 0.03
 const ALIGNMENT_GUIDE_TOLERANCE_METERS = 0.5
 const WALL_DIRECTION_SNAP_TOLERANCE_METERS = 0.04
 const DIMENSION_OFFSET_METERS = 0.28
+const EXTERIOR_JOIN_MIN_DOT = Math.cos(Math.PI / 180)
 const DIMENSION_CHEVRON_LENGTH_METERS = 0.09
 const DIMENSION_CHEVRON_MAX_SCREEN_PIXELS = 9
 const DIMENSION_CHEVRON_ANGLE_RADIANS = Math.PI / 5
@@ -169,6 +172,7 @@ type FloorplanCanvasProps = {
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
   onStartMeasuring?: () => void
+  onOpenProperties?: () => void
   onViewportChange: (
     floorId: string,
     viewport: FloorplanViewportState,
@@ -279,7 +283,7 @@ type FloorplanRenderOptions = {
 
 type ContextMenuState = {
   targetId: string
-  targetType: 'model' | 'roof' | 'wall'
+  targetType: 'model' | 'roof' | 'room' | 'wall'
   x: number
   y: number
 }
@@ -371,7 +375,7 @@ type DimensionGuide = {
   faceStart: Point
   faceEnd: Point
   labelPoint: Point
-  tickMode: 'connector' | 'cross' | 'internal'
+  tickMode: 'cross' | 'internal'
   text: string
   rotation: number
 }
@@ -1271,20 +1275,20 @@ function getExternalDimensionSide(wall: Wall, walls: Wall[]): -1 | 1 {
   return centerSide < 0 ? 1 : -1
 }
 
-function getExternalDimensionEndpointOffset(
+function getExternalDimensionEndpoint(
   wall: Wall,
   endpoint: 'start' | 'end',
   side: -1 | 1,
   renderedExtension: number,
   walls: Wall[],
   topology: WallTopology,
-) {
+): { extension: number; continuation?: Point } {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
   const length = Math.hypot(dx, dy)
 
   if (length === 0) {
-    return 0
+    return { extension: 0 }
   }
 
   const unit = { x: dx / length, y: dy / length }
@@ -1293,61 +1297,51 @@ function getExternalDimensionEndpointOffset(
     x: -unit.y * side,
     y: unit.x * side,
   }
-  let offset = renderedExtension
-  const connectedEndpointWalls = getOtherNodeConnections(
-    topology,
-    wall,
-    endpoint,
-  ).map((connection) => connection.wall)
+  const connections = getOtherNodeConnections(topology, wall, endpoint)
+  const joinedExteriorWalls = connections.flatMap(({ wall: otherWall, endpoint: otherEndpoint }) => {
+    if (otherWall.kind === 'internal') return []
+    const neighbour = topology.renderedWallsById.get(otherWall.id)?.wall ?? otherWall
+    const join = neighbour[otherEndpoint]
+    const farEnd = neighbour[otherEndpoint === 'start' ? 'end' : 'start']
+    return [{ thickness: neighbour.thickness, direction: normalize(farEnd.x - join.x, farEnd.y - join.y) }]
+  })
+  const outwardSign = endpoint === 'start' ? -1 : 1
+  const straightContinuation = joinedExteriorWalls.find(({ direction }) =>
+    outwardSign * (unit.x * direction.x + unit.y * direction.y) >= EXTERIOR_JOIN_MIN_DOT,
+  )
+  // The rendered wall bodies can overlap at a join. The rulers share its centre.
+  let offset = straightContinuation ? 0 : renderedExtension
 
-  if (connectedEndpointWalls.length >= 2) {
-    let hasPerpendicularExternalConnection = false
+  if (connections.length >= 2) {
     let measuredSideStop: number | null = null
     let outsideCornerExtension: number | null = null
 
-    for (const otherWall of connectedEndpointWalls) {
-      if (otherWall.kind === 'internal') {
-        continue
-      }
-
-      const otherDirection =
-        distance(endpointPoint, otherWall.start) <= CONNECTION_SNAP_METERS
-          ? normalize(
-              otherWall.end.x - otherWall.start.x,
-              otherWall.end.y - otherWall.start.y,
-            )
-          : normalize(
-              otherWall.start.x - otherWall.end.x,
-              otherWall.start.y - otherWall.end.y,
-            )
+    for (const { thickness, direction } of joinedExteriorWalls) {
       const isPerpendicular =
-        Math.abs(unit.x * otherDirection.x + unit.y * otherDirection.y) <= 0.08
+        Math.abs(unit.x * direction.x + unit.y * direction.y) <= 0.08
 
       if (!isPerpendicular) {
         continue
       }
 
-      hasPerpendicularExternalConnection = true
-
       const turnsIntoMeasuredSide =
-        otherDirection.x * faceNormal.x + otherDirection.y * faceNormal.y > 0.08
+        direction.x * faceNormal.x + direction.y * faceNormal.y > 0.08
 
       if (turnsIntoMeasuredSide) {
         measuredSideStop = Math.min(
           measuredSideStop ?? Number.POSITIVE_INFINITY,
-          -otherWall.thickness / 2,
+          -thickness / 2,
         )
-      } else {
+      } else if (!straightContinuation) {
         outsideCornerExtension = Math.max(
           outsideCornerExtension ?? Number.NEGATIVE_INFINITY,
-          otherWall.thickness / 2,
+          thickness / 2,
         )
       }
     }
 
-    if (hasPerpendicularExternalConnection) {
-      return measuredSideStop ?? outsideCornerExtension ?? renderedExtension
-    }
+    if (measuredSideStop !== null) return { extension: measuredSideStop }
+    if (outsideCornerExtension !== null) return { extension: outsideCornerExtension }
   }
 
   for (const otherWall of walls) {
@@ -1489,12 +1483,17 @@ function getExternalDimensionEndpointOffset(
 
     if (turnsIntoMeasuredSide) {
       offset = Math.min(offset, -otherWall.thickness / 2)
-    } else {
+    } else if (!straightContinuation) {
       offset = Math.max(offset, otherWall.thickness / 2)
     }
   }
 
-  return offset
+  return {
+    extension: offset,
+    continuation: offset === 0 && straightContinuation?.thickness === wall.thickness
+      ? straightContinuation.direction
+      : undefined,
+  }
 }
 
 function getInternalDimensionEndpointOffset(
@@ -1599,9 +1598,8 @@ function getInternalDimensionEndpointOffset(
       continue
     }
 
-    const useFarEndCap =
-      adjoiningWallRunsAwayFromMeasuredSide && otherWall.kind === 'internal'
-    const faceOffset = useFarEndCap
+    // A return that turns away leaves this face exposed to the far edge of the corner.
+    const faceOffset = adjoiningWallRunsAwayFromMeasuredSide
       ? endpoint === 'start'
         ? -minAxisDistance
         : maxAxisDistance - length
@@ -1626,12 +1624,16 @@ function getDimensionGuides(
   wall: Wall,
   walls: Wall[],
   topology: WallTopology,
+  { externalDimensions, internalDimensions }: Pick<FloorplanRenderOptions, 'externalDimensions' | 'internalDimensions'> = {
+    externalDimensions: true,
+    internalDimensions: true,
+  },
 ): DimensionGuide[] {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
   const centerlineLength = Math.hypot(dx, dy)
 
-  if (centerlineLength === 0) {
+  if (centerlineLength === 0 || (!externalDimensions && !internalDimensions)) {
     return []
   }
 
@@ -1640,23 +1642,27 @@ function getDimensionGuides(
   const normalX = -unitY
   const normalY = unitX
   const offset = wall.thickness / 2 + DIMENSION_OFFSET_METERS
-  const rotation = (Math.atan2(dy, dx) * 180) / Math.PI
-  const isInternalWall = wall.kind === 'internal'
   const isDiagonalWall = Math.abs(unitX) > 0.001 && Math.abs(unitY) > 0.001
+  const outside = wall.kind === 'internal' ? null : getExternalDimensionSide(wall, walls)
+  const guides: DimensionGuide[] = []
 
-  if (!isInternalWall) {
-    const side = getExternalDimensionSide(wall, walls)
+  if (outside !== null && externalDimensions) {
+    const side = outside
     const renderedWall = topology.renderedWallsById.get(wall.id)
-    const startExtension = getExternalDimensionEndpointOffset(
-      wall,
+    const exteriorWall = renderedWall && distance(renderedWall.wall.start, renderedWall.wall.end) > 0
+      ? renderedWall.wall
+      : wall
+    const exteriorUnit = normalize(exteriorWall.end.x - exteriorWall.start.x, exteriorWall.end.y - exteriorWall.start.y)
+    const startJoin = getExternalDimensionEndpoint(
+      exteriorWall,
       'start',
       side,
       renderedWall?.startExtension ?? 0,
       walls,
       topology,
     )
-    const endExtension = getExternalDimensionEndpointOffset(
-      wall,
+    const endJoin = getExternalDimensionEndpoint(
+      exteriorWall,
       'end',
       side,
       renderedWall?.endExtension ?? 0,
@@ -1665,50 +1671,55 @@ function getDimensionGuides(
     )
     const measuredSegment = {
       start: {
-        x: wall.start.x - unitX * startExtension,
-        y: wall.start.y - unitY * startExtension,
+        x: exteriorWall.start.x - exteriorUnit.x * startJoin.extension,
+        y: exteriorWall.start.y - exteriorUnit.y * startJoin.extension,
       },
       end: {
-        x: wall.end.x + unitX * endExtension,
-        y: wall.end.y + unitY * endExtension,
+        x: exteriorWall.end.x + exteriorUnit.x * endJoin.extension,
+        y: exteriorWall.end.y + exteriorUnit.y * endJoin.extension,
       },
     }
-    const centerMidpoint = {
-      x: (measuredSegment.start.x + measuredSegment.end.x) / 2,
-      y: (measuredSegment.start.y + measuredSegment.end.y) / 2,
+    const exteriorNormal = { x: -exteriorUnit.y * side, y: exteriorUnit.x * side }
+    const rulerPoint = (point: Point, continuation?: Point) => {
+      if (!continuation) return { x: point.x + exteriorNormal.x * offset, y: point.y + exteriorNormal.y * offset }
+      // Intersect the offset lines so both rulers use the same tick at a slight bend.
+      const adjacentNormal = { x: -continuation.y, y: continuation.x }
+      const dot = exteriorNormal.x * adjacentNormal.x + exteriorNormal.y * adjacentNormal.y
+      const sign = Math.sign(dot)
+      const scale = offset / (1 + Math.abs(dot))
+      return {
+        x: point.x + (exteriorNormal.x + adjacentNormal.x * sign) * scale,
+        y: point.y + (exteriorNormal.y + adjacentNormal.y * sign) * scale,
+      }
     }
-    const dimensionOffsetX = normalX * offset * side
-    const dimensionOffsetY = normalY * offset * side
+    const start = rulerPoint(measuredSegment.start, startJoin.continuation)
+    const end = rulerPoint(measuredSegment.end, endJoin.continuation)
     const measuredLength = distance(measuredSegment.start, measuredSegment.end)
 
-    return [
-      {
-        start: {
-          x: measuredSegment.start.x + dimensionOffsetX,
-          y: measuredSegment.start.y + dimensionOffsetY,
-        },
-        end: {
-          x: measuredSegment.end.x + dimensionOffsetX,
-          y: measuredSegment.end.y + dimensionOffsetY,
-        },
-        faceStart: measuredSegment.start,
-        faceEnd: measuredSegment.end,
-        labelPoint: {
-          x: centerMidpoint.x + dimensionOffsetX,
-          y: centerMidpoint.y + dimensionOffsetY,
-        },
-        tickMode: 'cross',
-        text: `${measuredLength.toFixed(2)} m`,
-        rotation,
+    guides.push({
+      start,
+      end,
+      faceStart: measuredSegment.start,
+      faceEnd: measuredSegment.end,
+      labelPoint: {
+        x: (start.x + end.x) / 2,
+        y: (start.y + end.y) / 2,
       },
-    ]
+      tickMode: 'cross',
+      text: `${measuredLength.toFixed(2)} m`,
+      rotation: (Math.atan2(exteriorUnit.y, exteriorUnit.x) * 180) / Math.PI,
+    })
   }
 
-  if (isDiagonalWall) {
-    return []
+  if (!internalDimensions || isDiagonalWall) {
+    return guides
   }
 
-  const sides = ([-1, 1] as const).map((side) => ({
+  // Partitions have two interior faces. For a perimeter wall only the face
+  // opposite the outside belongs to the internal dimension layer, even before
+  // the perimeter has closed into a room.
+  const internalSides: (-1 | 1)[] = outside === null ? [-1, 1] : [outside === 1 ? -1 : 1]
+  const sides = internalSides.map((side) => ({
     side,
     blockers: getFaceBlockers(wall, side, walls, topology),
   }))
@@ -1738,8 +1749,8 @@ function getDimensionGuides(
       x: wall.end.x + unitX * endContinuation,
       y: wall.end.y + unitY * endContinuation,
     }
-    const offsetX = normalX * offset * side
-    const offsetY = normalY * offset * side
+    const inward = { x: normalX * side, y: normalY * side }
+    const halfThickness = wall.thickness / 2
     const visibleLength = distance(faceStart, faceEnd)
 
     return subtractBlockedIntervals(
@@ -1750,42 +1761,108 @@ function getDimensionGuides(
       ]),
     ).map(([segmentStart, segmentEnd]) => {
       const segmentFaceStart = {
-        x: faceStart.x + unitX * segmentStart,
-        y: faceStart.y + unitY * segmentStart,
+        x: faceStart.x + unitX * segmentStart + inward.x * halfThickness,
+        y: faceStart.y + unitY * segmentStart + inward.y * halfThickness,
       }
       const segmentFaceEnd = {
-        x: faceStart.x + unitX * segmentEnd,
-        y: faceStart.y + unitY * segmentEnd,
+        x: faceStart.x + unitX * segmentEnd + inward.x * halfThickness,
+        y: faceStart.y + unitY * segmentEnd + inward.y * halfThickness,
       }
-      const segmentLength = segmentEnd - segmentStart
 
       return {
-        start: {
-          x: segmentFaceStart.x + offsetX,
-          y: segmentFaceStart.y + offsetY,
-        },
-        end: {
-          x: segmentFaceEnd.x + offsetX,
-          y: segmentFaceEnd.y + offsetY,
-        },
-        faceStart: segmentFaceStart,
-        faceEnd: segmentFaceEnd,
-        labelPoint: {
-          x: (segmentFaceStart.x + segmentFaceEnd.x) / 2 + offsetX,
-          y: (segmentFaceStart.y + segmentFaceEnd.y) / 2 + offsetY,
-        },
+        ...createInteriorDimensionGuide(segmentFaceStart, segmentFaceEnd, inward),
         blockerCount: blockers.length,
         segmentEnd,
         segmentStart,
         side,
-        tickMode: 'internal',
-        text: `${segmentLength.toFixed(2)} m`,
-        rotation,
       }
     })
   })
 
-  return candidates
+  return [...guides, ...candidates]
+}
+
+function createInteriorDimensionGuide(faceStart: Point, faceEnd: Point, inward: Point): DimensionGuide {
+  const offset = (point: Point) => ({
+    x: point.x + inward.x * DIMENSION_OFFSET_METERS,
+    y: point.y + inward.y * DIMENSION_OFFSET_METERS,
+  })
+  const start = offset(faceStart)
+  const end = offset(faceEnd)
+  return {
+    start, end, faceStart, faceEnd,
+    labelPoint: { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 },
+    tickMode: 'internal',
+    text: `${distance(faceStart, faceEnd).toFixed(2)} m`,
+    rotation: (Math.atan2(faceEnd.y - faceStart.y, faceEnd.x - faceStart.x) * 180) / Math.PI,
+  }
+}
+
+function getInteriorFaceRange(guide: DimensionGuide, other: DimensionGuide, tolerance: number): [number, number] | null {
+  const { faceStart, faceEnd } = guide
+  const unit = normalize(faceEnd.x - faceStart.x, faceEnd.y - faceStart.y)
+  const inward = { x: guide.start.x - faceStart.x, y: guide.start.y - faceStart.y }
+  const otherInward = { x: other.start.x - other.faceStart.x, y: other.start.y - other.faceStart.y }
+  const facing = inward.x * otherInward.x + inward.y * otherInward.y
+  if (facing < DIMENSION_OFFSET_METERS ** 2 * EXTERIOR_JOIN_MIN_DOT) return null
+
+  const start = { x: other.faceStart.x - faceStart.x, y: other.faceStart.y - faceStart.y }
+  const end = { x: other.faceEnd.x - faceStart.x, y: other.faceEnd.y - faceStart.y }
+  if ([start, end].some(point => Math.abs(unit.x * point.y - unit.y * point.x) > tolerance)) return null
+  const a = start.x * unit.x + start.y * unit.y
+  const b = end.x * unit.x + end.y * unit.y
+  return [Math.min(a, b), Math.max(a, b)]
+}
+
+function sliceInteriorDimension(guide: DimensionGuide, start: number, end: number) {
+  const { faceStart, faceEnd } = guide
+  const unit = normalize(faceEnd.x - faceStart.x, faceEnd.y - faceStart.y)
+  const inward = normalize(guide.start.x - faceStart.x, guide.start.y - faceStart.y)
+  const pointAt = (along: number) => ({ x: faceStart.x + unit.x * along, y: faceStart.y + unit.y * along })
+  return createInteriorDimensionGuide(pointAt(start), pointAt(end), inward)
+}
+
+function getInteriorDimensionGuides(wallGuides: DimensionGuide[], roomBoundaries: Point[][]) {
+  // The wall union has already removed intermediate vertices along continuous room faces.
+  const roomGuides = roomBoundaries.flatMap(polygon => {
+    const side = Math.sign(getSignedArea(polygon))
+    return polygon.flatMap((start, index) => {
+      const end = polygon[(index + 1) % polygon.length]
+      if (distance(start, end) < MIN_WALL_LENGTH_METERS) return []
+      const along = normalize(end.x - start.x, end.y - start.y)
+      return [createInteriorDimensionGuide(start, end, { x: -along.y * side, y: along.x * side })]
+    })
+  })
+
+  // Retain measurements along open walls in the same plan, outside the room edges.
+  const openGuides = wallGuides.flatMap(guide => {
+    const covered = roomGuides.flatMap(room => {
+      const range = getInteriorFaceRange(guide, room, WALL_JOIN_EPSILON_METERS)
+      return range ? [[range[0] - WALL_JOIN_EPSILON_METERS, range[1] + WALL_JOIN_EPSILON_METERS] as [number, number]] : []
+    })
+    return covered.length
+      ? subtractBlockedIntervals(distance(guide.faceStart, guide.faceEnd), covered)
+        .map(([start, end]) => sliceInteriorDimension(guide, start, end))
+      : [guide]
+  })
+
+  const merged: DimensionGuide[] = []
+  const tolerance = 0.001
+  for (let guide of openGuides) {
+    for (let i = 0; i < merged.length;) {
+      const range = getInteriorFaceRange(guide, merged[i], tolerance)
+      const length = distance(guide.faceStart, guide.faceEnd)
+      if (!range || range[1] < -tolerance || range[0] > length + tolerance) {
+        i++
+        continue
+      }
+      guide = sliceInteriorDimension(guide, Math.min(0, range[0]), Math.max(length, range[1]))
+      merged.splice(i, 1)
+      i = 0
+    }
+    merged.push(guide)
+  }
+  return [...roomGuides, ...merged]
 }
 
 function snapToWallDirection(start: Point, end: Point): Point {
@@ -2753,7 +2830,10 @@ function getSnapSegments(
   movingWallThickness?: number,
 ): SnapSegment[] {
   return getRenderedWalls(walls).flatMap(({ wall, startExtension, endExtension }) => {
-    const centerSegment = getOffsetSegment(wall, 0, startExtension, endExtension)
+    const centerSegment = {
+      ...getOffsetSegment(wall, 0, startExtension, endExtension),
+      snapWall: wall,
+    }
 
     if (wallKind !== 'internal' || wall.kind !== 'external') {
       return [
@@ -3026,23 +3106,6 @@ function getDirectionalSnapTarget({
   return closestEndpointTarget ?? closestJunctionTarget
 }
 
-function getSnapPreviewTarget(
-  point: Point,
-  segments: SnapSegment[],
-): SnapTarget | null {
-  const target = getSnapTarget(point, segments)
-
-  if (!target) {
-    return null
-  }
-
-  if (target.kind === 'junction' && distance(point, target.point) < 0.01) {
-    return null
-  }
-
-  return target
-}
-
 function getClosestAlignmentGuide(
   point: Point,
   walls: Wall[],
@@ -3196,6 +3259,7 @@ export function FloorplanCanvas({
   onDeleteWall,
   onExitAddWall,
   onStartMeasuring,
+  onOpenProperties,
   onViewportChange,
   onSelectModel,
   onSelectRoof,
@@ -3331,9 +3395,14 @@ export function FloorplanCanvas({
   const [hoverSnapTarget, setHoverSnapTarget] = useState<SnapTarget | null>(null)
   const [hoverAlignmentGuide, setHoverAlignmentGuide] =
     useState<AlignmentGuide | null>(null)
+  const [hoverWallStartGuide, setHoverWallStartGuide] = useState<WallStartGuide | null>(null)
+  const [draftWallStartGuide, setDraftWallStartGuide] = useState<WallStartGuide | null>(null)
+  const [wallStartOffsetEdit, setWallStartOffsetEdit] =
+    useState<{ guide: WallStartGuide; value: string } | null>(null)
   const [draftLengthInput, setDraftLengthInput] = useState<string | null>(null)
   const [draftAngleInput, setDraftAngleInput] = useState<string | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  useEffect(() => { setContextMenu(null) }, [activeFloor.id, viewportRestoreRevision])
   const [isMiddlePanning, setIsMiddlePanning] = useState(false)
   const [isDraggingModel, setIsDraggingModel] = useState(false)
   const [modelTransformPreview, setModelTransformPreview] = useState<{
@@ -3401,6 +3470,7 @@ export function FloorplanCanvas({
     {},
   )
   const lengthInputRef = useRef<HTMLInputElement>(null)
+  const wallStartOffsetInputRef = useRef<HTMLInputElement>(null)
   const stageRef = useRef<KonvaStage | null>(null)
   const middlePanRef = useRef<PanState | null>(null)
   const stagePanRef = useRef<StagePanState | null>(null)
@@ -3682,6 +3752,20 @@ export function FloorplanCanvas({
     }
   }, [draftLengthInput])
 
+  const isEditingWallStartOffset = wallStartOffsetEdit !== null
+  useEffect(() => {
+    if (!isEditingWallStartOffset) return
+    const input = wallStartOffsetInputRef.current
+    input?.focus()
+    input?.setSelectionRange(input.value.length, input.value.length)
+  }, [isEditingWallStartOffset])
+
+  useEffect(() => {
+    setHoverWallStartGuide(null)
+    setDraftWallStartGuide(null)
+    setWallStartOffsetEdit(null)
+  }, [activeFloor.id, draftWallThickness, viewportRestoreRevision, walls])
+
   useEffect(() => {
     const typedLength = parseLengthInput(draftLengthInput ?? '')
     const typedAngle = parseAngleInput(draftAngleInput ?? '')
@@ -3744,30 +3828,49 @@ export function FloorplanCanvas({
     }
 
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') {
+      if (event.defaultPrevented || event.key !== 'Escape') {
         return
       }
 
       event.preventDefault()
+      if (isEditingWallStartOffset) {
+        setWallStartOffsetEdit(null)
+        return
+      }
       resetDraftWall()
       onExitAddWall()
     }
 
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [isAddingWall, onExitAddWall])
+  }, [isAddingWall, isEditingWallStartOffset, onExitAddWall])
 
   useEffect(() => {
-    if (!draftWall || !isAddingWall) {
+    if (!isAddingWall || (!draftWall && !hoverWallStartGuide)) {
       return
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement) {
+      if (
+        event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+        (event.key === 'Enter' && event.target instanceof HTMLButtonElement) ||
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement ||
+        (event.target instanceof HTMLElement && event.target.isContentEditable)
+      ) {
         return
       }
 
       const isLengthKey = /^\d$/.test(event.key) || event.key === '.'
+
+      if (!draftWall) {
+        if (hoverWallStartGuide && !isEditingWallStartOffset && (isLengthKey || event.key === ',')) {
+          event.preventDefault()
+          setWallStartOffsetEdit({ guide: hoverWallStartGuide, value: event.key })
+        }
+        return
+      }
 
       if (!isLengthKey && event.key !== 'Backspace' && event.key !== 'Enter' && event.key !== 'Escape') {
         return
@@ -3816,7 +3919,7 @@ export function FloorplanCanvas({
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeFloor.walls, draftWall, isAddingWall, onAddWall, onExitAddWall])
+  }, [activeFloor.walls, draftWall, hoverWallStartGuide, isAddingWall, isEditingWallStartOffset, onAddWall, onExitAddWall])
 
   useEffect(() => {
     if (isAddingWall || draftWall || isMeasuring) {
@@ -3921,9 +4024,40 @@ export function FloorplanCanvas({
     setDraftWall(null)
     setHoverSnapTarget(null)
     setHoverAlignmentGuide(null)
+    setHoverWallStartGuide(null)
+    setDraftWallStartGuide(null)
+    setWallStartOffsetEdit(null)
     setDraftLengthInput(null)
     setDraftAngleInput(null)
     setIsAxisLocked(true)
+  }
+
+  function beginDraftWall(start: Point, guide: WallStartGuide | null) {
+    setDraftWall({ start, end: start })
+    setDraftWallStartGuide(guide)
+    setHoverAlignmentGuide(null)
+    setHoverSnapTarget(null)
+    setHoverWallStartGuide(null)
+    setWallStartOffsetEdit(null)
+    setIsAxisLocked(true)
+  }
+
+  function commitWallStartOffset(guide: WallStartGuide, offset: number) {
+    const start = getWallStartAtOffset(guide, offset)
+    const nextGuide = { ...guide, distance: offset }
+    if (!draftWall) {
+      beginDraftWall(start, nextGuide)
+      return
+    }
+    setDraftWall({
+      start,
+      end: {
+        x: draftWall.end.x + start.x - draftWall.start.x,
+        y: draftWall.end.y + start.y - draftWall.start.y,
+      },
+    })
+    setDraftWallStartGuide(nextGuide)
+    setWallStartOffsetEdit(null)
   }
 
   useEffect(() => {
@@ -3998,12 +4132,19 @@ export function FloorplanCanvas({
       segments: referenceSnapSegments,
     })
 
-  const getPreferredSnapPreviewTarget = (point: Point) =>
-    getSnapPreviewTarget(point, activeSnapSegments) ??
-    getSnapPreviewTarget(point, referenceSnapSegments)
+  const getWallStartTarget = (point: Point, alignment: AlignmentGuide | null) =>
+    getPreferredSnapTarget(point) ?? getPreferredSnapTarget(applyAlignmentGuide(point, alignment))
 
-  const snapToPreferredConnection = (point: Point) =>
-    getPreferredSnapTarget(point)?.point ?? point
+  const getStartGuide = (point: Point, target: SnapTarget | null) => {
+    const host = target?.snapWall
+    if (target?.kind !== 'junction' || !host || !wallTopology.wallPolygonsById.has(host.id)) return null
+    const axis = normalize(host.end.x - host.start.x, host.end.y - host.start.y)
+    const sideOfPointer = (point.y - target.point.y) * axis.x - (point.x - target.point.x) * axis.y
+    const side = Math.abs(sideOfPointer) > WALL_JOIN_EPSILON_METERS / 4
+      ? sideOfPointer > 0 ? 1 : -1
+      : host.kind === 'external' && getExternalDimensionSide(host, walls) === 1 ? -1 : 1
+    return getWallStartGuide(host, target.point, side, draftWallThickness, wallTopology.wallPolygonsById)
+  }
 
   const wallEndpointSnapIsValid = ({
     activeWalls,
@@ -4199,9 +4340,7 @@ export function FloorplanCanvas({
     closeWallMeasurementEdit()
   }
 
-  const closeContextMenu = () => {
-    setContextMenu(null)
-  }
+  const closeContextMenu = useCallback(() => setContextMenu(null), [])
 
   const toggleRoofPlacementPoint = (point: Point) => {
     setRoofPlacementPoints((currentPoints) =>
@@ -4303,67 +4442,37 @@ export function FloorplanCanvas({
     setRoofPlacementPoints([])
   }
 
-  const openWallContextMenu = (
-    wallId: string,
-    event: KonvaEventObject<PointerEvent>,
-  ) => {
-    event.evt.preventDefault()
-    const containerBounds = containerRef.current?.getBoundingClientRect()
-
-    if (!containerBounds) {
-      return
-    }
-
-    onSelectWall(wallId)
-    setContextMenu({
-      targetId: wallId,
-      targetType: 'wall',
-      x: event.evt.clientX - containerBounds.left,
-      y: event.evt.clientY - containerBounds.top,
-    })
-  }
-
-  const openModelContextMenu = (
-    modelId: string,
-    event: KonvaEventObject<PointerEvent>,
+  const openContextMenu = useCallback((
+    targetType: ContextMenuState['targetType'], targetId: string, event: KonvaEventObject<PointerEvent>,
   ) => {
     event.evt.preventDefault()
     event.cancelBubble = true
+    if (isAddingWall || placementModel || isMeasuring || groundImageEditing || (targetType === 'room' && !onOpenProperties)) return
     const containerBounds = containerRef.current?.getBoundingClientRect()
+    if (!containerBounds) return
 
-    if (!containerBounds) {
-      return
+    switch (targetType) {
+      case 'model':
+        if (selectedModelId !== targetId) onSelectModel(targetId)
+        break
+      case 'roof':
+        if (selectedRoofId !== targetId) onSelectRoof(targetId)
+        break
+      case 'room':
+        if (selectedRoomSignature !== targetId) onSelectRoom(targetId)
+        break
+      case 'wall':
+        if (selectedWallId !== targetId) onSelectWall(targetId)
+        break
     }
-
-    onSelectModel(modelId)
     setContextMenu({
-      targetId: modelId,
-      targetType: 'model',
+      targetId,
+      targetType,
       x: event.evt.clientX - containerBounds.left,
       y: event.evt.clientY - containerBounds.top,
     })
-  }
-
-  const openRoofContextMenu = (
-    roofId: string,
-    event: KonvaEventObject<PointerEvent>,
-  ) => {
-    event.evt.preventDefault()
-    event.cancelBubble = true
-    const containerBounds = containerRef.current?.getBoundingClientRect()
-
-    if (!containerBounds) {
-      return
-    }
-
-    onSelectRoof(roofId)
-    setContextMenu({
-      targetId: roofId,
-      targetType: 'roof',
-      x: event.evt.clientX - containerBounds.left,
-      y: event.evt.clientY - containerBounds.top,
-    })
-  }
+  }, [groundImageEditing, isAddingWall, isMeasuring, onOpenProperties, onSelectModel, onSelectRoof, onSelectRoom,
+    onSelectWall, placementModel, selectedModelId, selectedRoofId, selectedRoomSignature, selectedWallId])
 
   const setCompositorPanOffset = (offsetX: number, offsetY: number) => {
     const content = stageRef.current?.getContent()
@@ -4466,6 +4575,11 @@ export function FloorplanCanvas({
       return
     }
 
+    if (wallStartOffsetEdit) {
+      setWallStartOffsetEdit(null)
+      return
+    }
+
     if (draftWall) {
       const point = getPointerPoint(event)
       const wallToAdd = point
@@ -4505,14 +4619,10 @@ export function FloorplanCanvas({
     if (point) {
       const alignmentGuide = event.evt.ctrlKey
         ? null
-        : hoverAlignmentGuide ?? getClosestAlignmentGuide(point, snapWalls)
-      const alignedPoint = applyAlignmentGuide(point, alignmentGuide)
-      const snappedPoint = event.evt.ctrlKey
-        ? point
-        : hoverSnapTarget?.point ?? snapToPreferredConnection(alignedPoint)
-      setDraftWall({ start: snappedPoint, end: snappedPoint })
-      setHoverAlignmentGuide(null)
-      setIsAxisLocked(true)
+        : getClosestAlignmentGuide(point, snapWalls)
+      const target = event.evt.ctrlKey ? null : getWallStartTarget(point, alignmentGuide)
+      const start = target?.point ?? applyAlignmentGuide(point, alignmentGuide)
+      beginDraftWall(start, getStartGuide(point, target))
     }
   }
 
@@ -4586,11 +4696,14 @@ export function FloorplanCanvas({
       return
     }
 
+    if (wallStartOffsetEdit) return
+
     if (!draftWall) {
-      setHoverSnapTarget(event.evt.ctrlKey ? null : getPreferredSnapPreviewTarget(point))
-      setHoverAlignmentGuide(
-        event.evt.ctrlKey ? null : getClosestAlignmentGuide(point, snapWalls),
-      )
+      const alignment = event.evt.ctrlKey ? null : getClosestAlignmentGuide(point, snapWalls)
+      const target = event.evt.ctrlKey ? null : getWallStartTarget(point, alignment)
+      setHoverSnapTarget(target?.kind === 'junction' && distance(point, target.point) < .01 ? null : target)
+      setHoverAlignmentGuide(alignment)
+      setHoverWallStartGuide(getStartGuide(point, target))
       return
     }
 
@@ -4844,6 +4957,29 @@ export function FloorplanCanvas({
         ? walls.find((wall) => wall.id === wallMeasurementEdit.wallId) ?? null
         : null
   const measurementWall = draftWall ?? selectedWallMeasurementPreview
+  const startOffset = wallStartOffsetEdit
+    ? parseWallStartOffset(wallStartOffsetEdit.value, wallStartOffsetEdit.guide)
+    : null
+  const startGuide = isAddingWall
+    ? wallStartOffsetEdit?.guide ?? (draftWall ? null : hoverWallStartGuide)
+    : null
+  const startGuideDistance = startOffset ?? startGuide?.distance ?? 0
+  const startGuideDisplay = startGuide ? (() => {
+    const pushOff = startGuide.hostHalfThickness + .13
+    const reference = toCanvasPoint({
+      x: startGuide.reference.x + startGuide.normal.x * pushOff,
+      y: startGuide.reference.y + startGuide.normal.y * pushOff,
+    })
+    const end = {
+      x: reference.x + startGuide.direction.x * startGuideDistance * METERS_TO_PIXELS,
+      y: reference.y + startGuide.direction.y * startGuideDistance * METERS_TO_PIXELS,
+    }
+    return {
+      reference,
+      end,
+      label: { x: (reference.x + end.x) / 2, y: (reference.y + end.y) / 2 },
+    }
+  })() : null
   const measurementAnchor =
     measurementWall && wallMeasurementEdit && !draftWall
       ? measurementWall[wallMeasurementEdit.anchorEndpoint]
@@ -4949,7 +5085,8 @@ export function FloorplanCanvas({
                   strokeScaleEnabled={false}
                   dash={[6, 6]}
                   listening
-                  onClick={() => onSelectRoom(room.signature)}
+                  onClick={event => { if (event.evt.button === 0) onSelectRoom(room.signature) }}
+                  onContextMenu={event => openContextMenu('room', room.signature, event)}
                   onTap={() => onSelectRoom(room.signature)}
                 />
               ) : null}
@@ -4974,6 +5111,7 @@ export function FloorplanCanvas({
         : [],
     [
       onSelectRoom,
+      openContextMenu,
       renderOptions.roomAreas,
       renderOptions.roomHighlights,
       roomMetadataBySignature,
@@ -5264,13 +5402,14 @@ export function FloorplanCanvas({
         listening={!isAddingWall && !placementModel}
         onClick={(event) => {
           event.cancelBubble = true
+          if (event.evt.button !== 0) return
           onSelectModel(model.id, event.evt.ctrlKey || event.evt.metaKey)
         }}
         onTap={(event) => {
           event.cancelBubble = true
           onSelectModel(model.id)
         }}
-        onContextMenu={(event) => openModelContextMenu(model.id, event)}
+        onContextMenu={(event) => openContextMenu('model', model.id, event)}
         onDragMove={(event) => {
           event.cancelBubble = true
           const rawPosition = toPlanPoint({
@@ -5766,17 +5905,23 @@ export function FloorplanCanvas({
     )
   })
 
+  const { externalDimensions, internalDimensions } = renderOptions
+  const planDimensionGuides = useMemo(() => {
+    const wallGuides = dimensionWalls.flatMap(wall => getDimensionGuides(wall, previewWalls, previewWallTopology, {
+      externalDimensions,
+      internalDimensions,
+    }))
+    if (!internalDimensions) return wallGuides
+    const exterior = wallGuides.filter(guide => guide.tickMode === 'cross')
+    const interior = getInteriorDimensionGuides(
+      wallGuides.filter(guide => guide.tickMode === 'internal'),
+      wallDragPreview ? [] : wallPlanPerimeters.flatMap(perimeter => perimeter.holes),
+    )
+    return [...exterior, ...interior]
+  }, [externalDimensions, internalDimensions, dimensionWalls, previewWallTopology, previewWalls, wallDragPreview, wallPlanPerimeters])
+
   const dimensionRulers = useMemo(
-    () =>
-      dimensionWalls.flatMap((wall) =>
-        (wall.kind === 'internal'
-          ? renderOptions.internalDimensions
-          : renderOptions.externalDimensions)
-          ? getDimensionGuides(
-              wall,
-              previewWalls,
-              previewWallTopology,
-            ).map((guide, index) => {
+    () => planDimensionGuides.map((guide, index) => {
       const measurementTextScale =
         viewport.scale > MEASUREMENT_TEXT_SCALE_THRESHOLD
           ? MEASUREMENT_TEXT_SCALE_THRESHOLD / viewport.scale
@@ -5795,8 +5940,6 @@ export function FloorplanCanvas({
       const measurementTextWidth = 70 * finalTextScale
       const start = toCanvasPoint(guide.start)
       const end = toCanvasPoint(guide.end)
-      const faceStart = toCanvasPoint(guide.faceStart)
-      const faceEnd = toCanvasPoint(guide.faceEnd)
       const labelPoint = toCanvasPoint(guide.labelPoint)
       const guideDx = guide.end.x - guide.start.x
       const guideDy = guide.end.y - guide.start.y
@@ -5839,12 +5982,10 @@ export function FloorplanCanvas({
         guide.rotation > 90 || guide.rotation < -90
           ? guide.rotation + 180
           : guide.rotation
-      const showConnectorLines =
-        guide.tickMode === 'connector' && wall.kind !== 'internal'
       const showChevrons = guide.tickMode !== 'internal'
 
       return (
-        <Fragment key={`${wall.id}-dimension-${index}`}>
+        <Fragment key={index}>
           <Line
             points={[start.x, start.y, end.x, end.y]}
             stroke="#64748b"
@@ -5852,22 +5993,6 @@ export function FloorplanCanvas({
             strokeScaleEnabled={false}
             dash={[4, 5]}
           />
-          {showConnectorLines ? (
-            <>
-              <Line
-                points={[faceStart.x, faceStart.y, start.x, start.y]}
-                stroke="#64748b"
-                strokeWidth={1}
-                strokeScaleEnabled={false}
-              />
-              <Line
-                points={[faceEnd.x, faceEnd.y, end.x, end.y]}
-                stroke="#64748b"
-                strokeWidth={1}
-                strokeScaleEnabled={false}
-              />
-            </>
-          ) : null}
           <Line
             points={[startTickA.x, startTickA.y, startTickB.x, startTickB.y]}
             stroke="#64748b"
@@ -5931,17 +6056,8 @@ export function FloorplanCanvas({
           />
         </Fragment>
       )
-        })
-          : [],
-      ),
-    [
-      renderOptions.externalDimensions,
-      renderOptions.internalDimensions,
-      viewport.scale,
-      dimensionWalls,
-      previewWallTopology,
-      previewWalls,
-    ],
+    }),
+    [planDimensionGuides, viewport.scale],
   )
   const roofFootprints = [...roofs]
     .filter(roof => isRoofMode || roof.id === selectedRoofId)
@@ -6144,14 +6260,10 @@ export function FloorplanCanvas({
         listening={isRoofMode}
         onClick={(event) => {
           event.cancelBubble = true
+          if (event.evt.button !== 0) return
           onSelectRoof(isSelectedRoof ? null : roof.id)
         }}
-        onContextMenu={(event) => openRoofContextMenu(roof.id, event)}
-        onPointerDown={(event) => {
-          if (event.evt.button === 2) {
-            openRoofContextMenu(roof.id, event)
-          }
-        }}
+        onContextMenu={(event) => openContextMenu('roof', roof.id, event)}
         onTap={(event) => {
           event.cancelBubble = true
           onSelectRoof(isSelectedRoof ? null : roof.id)
@@ -6553,8 +6665,14 @@ export function FloorplanCanvas({
           {editControls}
         </div>
       </div>
-      {isAddingWall && <div className="floorplan-tool-hint" role="status">
-        {draftWall ? 'Ctrl: fine movement / Shift: 45-degree direction' : 'Click to start wall'}
+      {isAddingWall && <div className="floorplan-tool-hint floorplan-wall-hint">
+        <span role="status">{draftWall
+          ? 'Ctrl: fine movement / Shift: 45-degree direction'
+          : hoverWallStartGuide ? 'Click to start, or type a distance from the nearest wall' : 'Click to start wall'}</span>
+        {draftWallStartGuide && !wallStartOffsetEdit && <button type="button" onClick={() =>
+          setWallStartOffsetEdit({ guide: draftWallStartGuide, value: draftWallStartGuide.distance.toFixed(3) })}>
+          Distance from nearest wall
+        </button>}
       </div>}
       {isMeasuring && <div className="floorplan-tool-hint" role="status" style={{ maxWidth: 'calc(100% - 64px)' }}>
         Ruler: click start and end · Ctrl: 45° lock · Esc: exit
@@ -6606,6 +6724,7 @@ export function FloorplanCanvas({
             !placementModel
           }
           onPointerDown={handlePointerDown}
+          onContextMenu={event => event.evt.preventDefault()}
           onPointerMove={handlePointerMove}
           onDragStart={(event) => {
             if (event.target !== event.target.getStage()) return
@@ -6646,6 +6765,7 @@ export function FloorplanCanvas({
 
             if (!draftWall) {
               setHoverSnapTarget(null)
+              setHoverWallStartGuide(null)
             }
           }}
         >
@@ -6730,14 +6850,14 @@ export function FloorplanCanvas({
                   strokeWidth={1.5} strokeScaleEnabled={false}
                   lineJoin="miter"
                   onClick={(event) => {
-                    if (isAddingWall) return
+                    if (isAddingWall || event.evt.button !== 0) return
                     onSelectWall(
                       renderedWall.wall.id,
                       event.evt.ctrlKey || event.evt.metaKey,
                     )
                   }}
                   onContextMenu={(event) =>
-                    openWallContextMenu(renderedWall.wall.id, event)
+                    openContextMenu('wall', renderedWall.wall.id, event)
                   }
                   onTap={() => {
                     if (!isAddingWall) onSelectWall(renderedWall.wall.id)
@@ -7195,6 +7315,21 @@ export function FloorplanCanvas({
             })() : null}
 
             <Group name="dimension-rulers" listening={false}>{dimensionRulers}</Group>
+
+            {startGuideDisplay && <Group name="wall-start-guide" listening={false}>
+              <Arrow
+                points={[startGuideDisplay.reference.x, startGuideDisplay.reference.y, startGuideDisplay.end.x, startGuideDisplay.end.y]}
+                stroke="#2563eb" fill="#2563eb" strokeWidth={1.5} strokeScaleEnabled={false}
+                pointerAtBeginning pointerLength={Math.min(6 / viewport.scale, startGuideDistance * METERS_TO_PIXELS / 3)}
+                pointerWidth={5 / viewport.scale}
+              />
+              {!wallStartOffsetEdit && <Group x={startGuideDisplay.label.x} y={startGuideDisplay.label.y}
+                scaleX={1 / viewport.scale} scaleY={1 / viewport.scale}>
+                <Rect x={-33} y={-10} width={66} height={20} cornerRadius={4} fill="#eff6ff" stroke="#bfdbfe" />
+                <Text x={-33} y={-6} width={66} align="center" fontSize={12} fontStyle="bold"
+                  text={`${startGuideDistance.toFixed(2)} m`} fill="#1d4ed8" />
+              </Group>}
+            </Group>}
 
             {measurementWall ? (
               <Line
@@ -7760,7 +7895,42 @@ export function FloorplanCanvas({
           </div>
         ) : null}
 
-        {(draftLengthInput !== null || draftAngleInput !== null) &&
+        {wallStartOffsetEdit && startGuideDisplay ? (
+          <div className="draft-length-panel wall-start-offset-panel"
+            style={{
+              left: clamp(startGuideDisplay.label.x * viewport.scale + viewport.x, 106, Math.max(106, size.width - 106)),
+              top: clamp(startGuideDisplay.label.y * viewport.scale + viewport.y - 42, 42, Math.max(42, size.height - 42)),
+            }}>
+            <label>
+              <span>Distance from nearest wall</span>
+              <input ref={wallStartOffsetInputRef}
+                aria-label="Distance from nearest wall" aria-invalid={startOffset === null}
+                value={wallStartOffsetEdit.value} inputMode="decimal"
+                onChange={event => {
+                  const value = event.target.value
+                  setWallStartOffsetEdit(current => current && { ...current, value })
+                }}
+                onBlur={() => setWallStartOffsetEdit(null)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === 'Escape') {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }
+                  if (event.key === 'Escape') setWallStartOffsetEdit(null)
+                  if (event.key === 'Enter' && startOffset !== null) {
+                    commitWallStartOffset(wallStartOffsetEdit.guide, startOffset)
+                  }
+                }}
+              />
+              <span>m</span>
+            </label>
+            {startOffset === null && wallStartOffsetEdit.value.trim() !== '' && <span role="status">
+              Use 0 to {Math.floor(wallStartOffsetEdit.guide.maxDistance * 1000) / 1000} m.
+            </span>}
+          </div>
+        ) : null}
+
+        {!wallStartOffsetEdit && (draftLengthInput !== null || draftAngleInput !== null) &&
         draftLengthPanelPosition ? (
           <div
             className="draft-length-panel"
@@ -7858,13 +8028,13 @@ export function FloorplanCanvas({
         ) : null}
 
         {contextMenu ? (
-          <div
-            className="canvas-context-menu"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-            onContextMenu={(event) => event.preventDefault()}
-          >
-            <button
-              type="button"
+          <ViewportContextMenu position={contextMenu} onDismiss={closeContextMenu}>
+            {onOpenProperties && <button type="button" onClick={() => {
+              onOpenProperties()
+              closeContextMenu()
+            }}>Properties</button>}
+            {contextMenu.targetType !== 'room' && <button
+              type="button" className="context-danger-action"
               onClick={() => {
                 if (contextMenu.targetType === 'model') {
                   onDeleteModel(contextMenu.targetId)
@@ -7879,8 +8049,8 @@ export function FloorplanCanvas({
               {contextMenu.targetType === 'roof'
                 ? 'Delete roof segment'
                 : `Delete ${contextMenu.targetType}`}
-            </button>
-          </div>
+            </button>}
+          </ViewportContextMenu>
         ) : null}
       </div>
       {typeof children === 'function' ? children(transformControls) : children}

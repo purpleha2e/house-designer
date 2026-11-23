@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BatchedMesh, BoxGeometry, DirectionalLight, Group, InstancedMesh, Light, Matrix4, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PointLight, SpotLight, Scene, Texture, Vector3, WebGLRenderTarget } from 'three'
+import { AmbientLight, BatchedMesh, BoxGeometry, Color, DirectionalLight, Group, HemisphereLight, InstancedMesh, Light, Matrix4, Mesh, MeshPhysicalMaterial, MeshStandardMaterial, PointLight, SpotLight, Scene, Texture, Vector3, WebGLRenderTarget } from 'three'
 import { createOpaqueViewportScene, prepareOpaqueViewportScene } from '../src/opaqueViewportScene.ts'
 import { createIndirectField } from '../src/indirectLighting.ts'
 import { applyIndirectLightingShader, createIndirectUniforms, getIndirectLightingUniforms } from '../src/indirectLightingShader.ts'
@@ -19,6 +19,64 @@ test('basic geometry fallback keeps authored colour, glass and cutouts without d
   for (const key of ['normalMap', 'roughnessMap', 'metalnessMap', 'aoMap'] as const) assert.equal(copy[key], null)
   assert.equal(source.normalMap, map); assert.equal(source.transmission, 1)
   display.dispose(); geometry.dispose(); source.dispose(); map.dispose()
+})
+
+test('the basic Design preview uses its studio lights without enabling shadow maps', () => {
+  const source = new Scene()
+  const ambient = new AmbientLight('#ffffff', 1.1)
+  const fill = new HemisphereLight('#f5f8ff', '#bac0c7', .8)
+  const key = new DirectionalLight('#fff8f1', 1.04)
+  key.position.set(-3, 8, 5)
+  source.add(ambient, fill, key)
+  const preview = createOpaqueViewportScene(source, { basic: true, reuseSceneLights: true })
+  const studio = preview.scene.children.filter(o => o instanceof Light)
+  assert.deepEqual(studio.map(light => light.intensity), [ambient.intensity, fill.intensity, key.intensity])
+  assert.ok((studio[1] as HemisphereLight).groundColor.equals(fill.groundColor))
+  assert.ok(studio[2].position.equals(key.position))
+  assert.equal(preview.scene.userData.preparedLightingViewport, false)
+  preview.dispose()
+})
+
+test('viewport previews carry the ground tint without altering source materials', () => {
+  const scene = new Scene(), geometry = new BoxGeometry()
+  const ground = new MeshStandardMaterial({ color: '#f8fafc', userData: { groundDisplayTint: '#c2c8c4' } })
+  scene.add(new Mesh(geometry, ground))
+  const physicalColor = ground.color.clone()
+  const displayColor = physicalColor.clone().multiply(new Color(ground.userData.groundDisplayTint))
+  for (const basic of [true, false]) {
+    const preview = createOpaqueViewportScene(scene, { basic })
+    const copy = (preview.scene.children.find(o => o instanceof Mesh) as Mesh).material as MeshStandardMaterial
+    assert.ok(copy.color.equals(displayColor))
+    assert.ok(ground.color.equals(physicalColor))
+    preview.dispose()
+  }
+  geometry.dispose(); ground.dispose()
+})
+
+test('edit preview program leases preserve compiled materials while releasing obsolete geometry and textures', () => {
+  const scene = new Scene(), geometry = new BoxGeometry(), map = new Texture()
+  const original = new MeshStandardMaterial({ map })
+  scene.add(new Mesh(geometry, original))
+  const display = createOpaqueViewportScene(scene, { basic: true })
+  const material = (display.scene.children.find(object => object instanceof Mesh) as Mesh).material as MeshStandardMaterial
+  let materialDisposals = 0, resourceDisposals = 0
+  material.addEventListener('dispose', () => materialDisposals++)
+  geometry.addEventListener('dispose', () => resourceDisposals++)
+  map.addEventListener('dispose', () => resourceDisposals++)
+  const releaseFirst = display.retainPrograms(), releaseSecond = display.retainPrograms()
+  geometry.dispose(); map.dispose()
+  assert.equal(resourceDisposals, 0, 'the displayed preview still owns its resource leases')
+  display.dispose(); display.dispose()
+  assert.equal(display.scene.children.length, 0)
+  assert.equal(resourceDisposals, 2, 'program retention does not pin obsolete buffers or textures')
+  assert.equal(materialDisposals, 0, 'the renderer retains the exact compiled material until its last program lease ends')
+  releaseFirst(); releaseFirst()
+  assert.equal(materialDisposals, 0)
+  releaseSecond(); releaseSecond()
+  assert.equal(materialDisposals, 1)
+  display.retainPrograms()()
+  assert.equal(materialDisposals, 1, 'a disposed preview cannot reacquire stale programs')
+  original.dispose()
 })
 
 test('early sunlight preserves casters, receivers and hidden ceiling blockers without owning the source shadow map', () => {

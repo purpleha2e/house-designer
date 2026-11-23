@@ -14,10 +14,10 @@ const logs=[], b=await lightingBrowser({onEvent:m=>{
   if(m.method==='Runtime.consoleAPICalled'&&['warning','error'].includes(m.params.type)) logs.push({type:m.params.type,args:m.params.args.map(a=>String(a.value??a.description).slice(0,2000))})
 }}),report={samples:[],steps:[]}
 const pause=ms=>new Promise(r=>setTimeout(r,ms))
-async function mouse({x,y}){for(const type of ['mouseMoved','mousePressed','mouseReleased'])await b.call('Input.dispatchMouseEvent',{type,x,y,button:type==='mouseMoved'?'none':'left',buttons:type==='mousePressed'?1:0,clickCount:type==='mouseMoved'?0:1})}
+async function mouse({x,y},button='left'){for(const type of ['mouseMoved','mousePressed','mouseReleased'])await b.call('Input.dispatchMouseEvent',{type,x,y,button:type==='mouseMoved'?'none':button,buttons:type==='mousePressed'?(button==='right'?2:1):0,clickCount:type==='mouseMoved'?0:1})}
 async function key(code,key,ms){await b.call('Input.dispatchKeyEvent',{type:'keyDown',key,code,windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)});await pause(ms);await b.call('Input.dispatchKeyEvent',{type:'keyUp',key,code,windowsVirtualKeyCode:key.toUpperCase().charCodeAt(0)})}
 async function look(target){
-  await b.call('Input.dispatchMouseEvent',{type:'mousePressed',x:1050,y:450,button:'right',buttons:2,clickCount:1});await b.wait('!!document.pointerLockElement',2000)
+  await b.call('Input.dispatchMouseEvent',{type:'mousePressed',x:1050,y:450,button:'right',buttons:2,clickCount:1});await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:1062,y:450,button:'right',buttons:2});await b.wait('!!document.pointerLockElement',2000)
   for(let i=0;i<3;i++){await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0,button:'right',buttons:2});await pause(25)}
   const delta=await b.evaluate(`(()=>{const s=previewState(),e=s.camera.rotation.clone().setFromQuaternion(s.camera.quaternion,'YXZ'),d=s.camera.position.clone().set(...${JSON.stringify(target)}).sub(s.camera.position).normalize();let y=Math.atan2(-d.x,-d.z)-e.y;while(y>Math.PI)y-=Math.PI*2;while(y<-Math.PI)y+=Math.PI*2;return{x:-y/.002,y:-(Math.asin(d.y)-e.x)/.002}})()`)
   for(let i=1;i<=4;i++){await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:delta.x*i/4,y:delta.y*i/4,button:'right',buttons:2});await pause(50)}
@@ -106,6 +106,11 @@ try {
     report.skyEvents=await b.evaluate('window.houseDesignerEngineLog?.recent(500)');report.skyFinal=await b.evaluate('previewSnapshot()')
   }
   if(process.argv.includes('--edit')){
+    if(!await b.evaluate(`!!document.querySelector('[aria-label="Object width"]')`)){
+      await mouse(report.steps.at(-1).target,'right')
+      await b.wait('!!document.querySelector(".canvas-context-menu button")',5000)
+      await b.evaluate('document.querySelector(".canvas-context-menu button").click()')
+    }
     const input=await b.evaluate(`(()=>{const e=document.querySelector('input[aria-label="Object width"]');if(!e)return;const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2,value:e.value}})()`)
     if(!input)throw Error('Cross-floor dimension field missing')
     await mouse(input)

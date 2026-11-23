@@ -26,6 +26,21 @@ test('a stair cut which meets the slab boundary still gets all three exposed edg
   assert.ok(Math.abs(length(edges) - 6) < 1e-6)
 })
 
+test('stair lining faces into the opening for enclosed holes and boundary notches', () => {
+  for (const [x, y, width, height] of [[1, 1, 2, 3], [-1, 2, 3, 2]]) {
+    const opening = rectangle(x, y, width, height)
+    const edges = getSlabOpeningRevealEdges(subtractPlanCutouts(floor, [opening]), [opening], 0)
+    for (const { point: a, nextPoint: b } of edges) {
+      const span = Math.hypot(b.x - a.x, b.y - a.y)
+      // PlaneGeometry's +Z normal after FloorSlabEdgeFace's Y rotation.
+      const nx = -(b.y - a.y) / span, nz = (b.x - a.x) / span
+      const facing = { x: (a.x + b.x) / 2 + nx * .01, y: (a.y + b.y) / 2 + nz * .01 }
+      assert.ok(facing.x > x && facing.x < x + width && facing.y > y && facing.y < y + height,
+        'the lit face must point into the void, not into the slab')
+    }
+  }
+})
+
 test('adjoining cuts have no duplicate reveal edges or faces across the opening', () => {
   const cuts = [rectangle(-1, 2, 3, 2), rectangle(2, 3, 2, 2)]
   const edges = getSlabOpeningRevealEdges(subtractPlanCutouts(floor, cuts), cuts, 0)

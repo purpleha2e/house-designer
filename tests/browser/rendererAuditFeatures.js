@@ -3,7 +3,7 @@
 import {ShaderChunk} from './rendererTestModules.ts'
 
 export function installMainShaderFeatures(){
- const getContext=HTMLCanvasElement.prototype.getContext,contexts=[],stats={patched:0,normal:0,reflection:0,shadow:0,room:0,brdf:0,flat:0,packed:0,zeroLight:0}
+ const getContext=HTMLCanvasElement.prototype.getContext,contexts=[],stats={patched:0,normal:0,reflection:0,shadow:0,room:0,brdf:0,direct:0,flat:0,packed:0,zeroLight:0}
  let feature=0,packedPrograms=new WeakSet()
  const patch=source=>{
   if(!/^#define SHADER_TYPE Mesh(?:Standard|Physical)Material$/m.test(source))return source
@@ -16,6 +16,7 @@ export function installMainShaderFeatures(){
   inject('float','hdRoomLightRoomAt','if(hdAuditFeature==4)return 0.0;','room')
   inject('float','hdRoomLightFactor','if(hdAuditFeature==4)return 1.0;','room')
   inject('vec3','BRDF_GGX','if(hdAuditFeature==5)return vec3(0.0);','brdf')
+  inject('void','RE_Direct_Physical','if(hdAuditFeature==9)return;','direct')
   const rough='float roughnessFactor = roughness;'
   if(source.includes(rough)){stats.flat++;source=source.replace(rough,`if(hdAuditFeature==8){gl_FragColor=vec4(vec3(.5),diffuseColor.a);return;}\n${rough}`)}
   const metal='vec4 texelMetalness = texture2D( metalnessMap, vMetalnessMapUv );'

@@ -39,7 +39,8 @@ try {
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
   await call('Runtime.enable'); await call('Page.enable')
   await call('Emulation.setFocusEmulationEnabled', { enabled: true })
-  await call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5180}/tests/browser/fastGIReceiverRegression.html`})
+  const query = process.argv.includes('--linear') ? '?linear' : ''
+  await call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5180}/tests/browser/fastGIReceiverRegression.html${query}`})
   for(let i=0;i<600;i++){await pause(100);if(await evaluate('!!window.fastGIReceiverRegression'))break;if(errors.length)throw Error(JSON.stringify(errors))}
   const result=await evaluate('window.fastGIReceiverRegression');console.log(JSON.stringify(result))
   assert.ok(result.ceilingJoin.min>.99,'constant indoor lighting cannot disappear at a padded ceiling/wall join')

@@ -29,6 +29,8 @@
     "@react-three/postprocessing": "^3.0.5",
     "konva": "^10.3.1",
     "ktx2-encoder": "^0.6.0",
+    "meshoptimizer": "1.1.1",
+    "oidn-webgpu": "0.6.0",
     "polygon-clipping": "^0.15.7",
     "postprocessing": "^6.39.4",
     "react": "^19.2.8",
@@ -37,6 +39,7 @@
     "sharp": "^0.35.4",
     "three": "^0.185.1",
     "three-bvh-csg": "^0.0.18",
+    "three-gpu-pathtracer": "0.0.24",
     "three-mesh-bvh": "^0.9.15"
   },
   "devDependencies": {

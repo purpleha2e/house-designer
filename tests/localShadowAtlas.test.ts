@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BackSide, BoxGeometry, DoubleSide, FrontSide, Mesh, MeshStandardMaterial, Vector3 } from 'three'
-import { createLocalShadowAtlas, localShadowAtlasLayout, localShadowCamera, type AtlasLight } from '../src/localShadowAtlas.ts'
+import { BackSide, BoxGeometry, DoubleSide, FrontSide, Mesh, MeshStandardMaterial, RGBADepthPacking, Vector3 } from 'three'
+import { createLocalShadowAtlas, createLocalShadowDepthMaterials, localShadowAtlasLayout, localShadowCamera, type AtlasLight } from '../src/localShadowAtlas.ts'
 import { indirectGeometryRanges } from '../src/indirectVisibility.ts'
 
 const point: AtlasLight = { id: 'point', kind: 'point', position: [2, 3, 4], target: [2, 2, 4], angle: Math.PI / 4, distance: 20 }
+
+test('local shadow materials retain all sidedness programs between geometry snapshots and release at teardown', () => {
+  const materials = createLocalShadowDepthMaterials()
+  const variants = [FrontSide, BackSide, DoubleSide].map(side => materials.get(side))
+  let disposed = 0
+  for (const material of variants) {
+    material.addEventListener('dispose', () => disposed++)
+    assert.equal(material.depthPacking, RGBADepthPacking)
+  }
+  for (let edit = 0; edit < 3; edit++) for (const material of variants) assert.equal(materials.get(material.side), material)
+  assert.equal(disposed, 0)
+  materials.dispose(); materials.dispose()
+  assert.equal(disposed, 3)
+})
 test('shadow snapshots match native caster sidedness while leaving GI ranges unchanged', () => {
   const material = new MeshStandardMaterial(), mesh = new Mesh(new BoxGeometry(), material)
   try {

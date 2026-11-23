@@ -1,7 +1,7 @@
-import { AdditiveBlending, Box3, BufferAttribute, BufferGeometry, Color, DataTexture, DepthTexture, DirectionalLight,
-  GLSL3, HalfFloatType, Matrix4, Mesh, MeshStandardMaterial, NearestFilter, OrthographicCamera,
+import { AdditiveBlending, AmbientLight, Box3, BufferAttribute, BufferGeometry, Color, CubeDepthTexture, DataTexture, DepthTexture, DirectionalLight,
+  GLSL3, HalfFloatType, HemisphereLight, LessEqualCompare, LightProbe, LinearFilter, Matrix4, Mesh, MeshStandardMaterial, NearestFilter, OrthographicCamera, PCFShadowMap, PCFSoftShadowMap,
   PerspectiveCamera, PlaneGeometry, PointLight, Points, RedFormat, RGBAFormat, Scene, ShaderMaterial, SpotLight,
-  UnsignedByteType, Vector2, Vector3, Vector4, WebGLRenderTarget, type WebGLRenderer } from 'three'
+  UnsignedByteType, UnsignedIntType, Vector2, Vector3, Vector4, WebGLCubeRenderTarget, WebGLRenderTarget, type WebGLRenderer } from 'three'
 import { createIndirectCaptureScene } from './indirectCaptureScene.ts'
 import { snapshotFastGIGeometry } from './fastGIGeometry.ts'
 import { roomLightCaptureUniform } from './roomLightShader.ts'
@@ -11,17 +11,51 @@ import { fastFilterFragment, fastFilterSigma } from './fastGIFilter.ts'
 import type { IndirectFloor } from './indirectLighting.ts'
 import { pointIsInsideRoomPolygon } from './roomLightMask.ts'
 import { INDIRECT_ATLAS_SIZE, INDIRECT_MAX_LOCAL_LIGHTS, roomProbePoint } from './indirectLighting.ts'
-import { configureFastGIShadows } from './fastGIShadows.ts'
+import { configureFastGIShadows, fastGICaptureShadowSlots } from './fastGIShadows.ts'
 import { compileShaderWarmup, prepareShaderWarmupSnapshot } from './shaderWarmup.ts'
 import { daylightTransportSkyBase, type DaylightSkyMode } from './daylightSky.ts'
 import { createLightingPerformance } from './lightingPerformance.ts'
+import { isModellingLightingArchitecture } from './modellingLightingGeometry.ts'
 
 export type FastGIMode = 'combined' | 'fast' | 'probe'
 export type FastGIOptions = { enabled: boolean; hybrid: boolean; mode: FastGIMode; viewsPerFrame: number; bounces?: number; frameBudgetMs?: number }
+export type FastGIResourceOptions = {
+  /** Keep a bounded point/spot and shadow layout across edits and lamp toggles. */
+  stableCaptureLights?: boolean
+  lightSlotsPerKind?: number
+  /** Fullscreen passes have no scene-dependent defines and only need one warmup. */
+  retainPassPrograms?: boolean
+  /** Furniture receives the result, but only the building shell transports it. */
+  architectureOnly?: boolean
+}
 export type FastGIStats = { state: string; revision: number; views: number; captureSubmitMs: number;
   reconstructionSubmitMs: number; propagationSubmitMs: number; preparationMs: number; geometryMs: number;
   firstVisibleMs?: number; publishedAt?:number; gpuMs?: number; gpuCaptureMs?:number; gpuReconstructionMs?:number; gpuPropagationMs?:number;
-  gpuBatches:number; bytes: number; probeProgress: number; bounces?:number; targetBounces?:number; error?: string }
+  gpuBatches:number; bytes: number; probeProgress: number; bounces?:number; targetBounces?:number; error?: string;
+  passCompilations?: number; capturePreparations?: number; captureLights?: number }
+
+/** Stable shader light counts; values and authored visibility indices remain data.
+ * Nearby bright lights win the bounded budget. Zero-energy slots never add fill. */
+export function fastGICaptureLightSlots(lights: readonly (PointLight | SpotLight)[], bounds: Box3, slotsPerKind = 4) {
+  const count = Math.max(1, Math.min(4, Math.floor(slotsPerKind) || 4))
+  const candidates = lights.slice(0, INDIRECT_MAX_LOCAL_LIGHTS).map((light, index) => {
+    const distance = bounds.distanceToPoint(light.position)
+    const energy = Math.max(0, light.intensity) * Math.max(light.color.r, light.color.g, light.color.b)
+    const score = light.distance > 0 && distance >= light.distance ? 0 : energy / Math.max(1, distance * distance)
+    return { light, index, score }
+  })
+  return [false, true].flatMap(spot => {
+    const selected = candidates.filter(entry => (entry.light instanceof SpotLight) === spot)
+      .sort((a, b) => b.score - a.score || a.index - b.index).slice(0, count)
+    return Array.from({ length: count }, (_, slot) => {
+      const entry = selected[slot]
+      const light = entry ? entry.light.clone(false) : spot ? new SpotLight(0xffffff, 0) : new PointLight(0xffffff, 0)
+      if (light instanceof SpotLight && entry?.light instanceof SpotLight) light.target = entry.light.target.clone()
+      if (!entry) { light.position.copy(bounds.getCenter(new Vector3())); light.distance = 1 }
+      return { light, index: entry?.index ?? -1 }
+    })
+  })
+}
 
 /** Stable room coordinates prevent camera movement from changing the lighting.
  * The prototype covers one room and its boundary; other rooms retain probes. */
@@ -49,40 +83,59 @@ export function fastGIRoom(floors: IndirectFloor[], camera: Vector3) {
 }
 
 const axes = [new Vector3(1,0,0),new Vector3(-1,0,0),new Vector3(0,1,0),new Vector3(0,-1,0),new Vector3(0,0,1),new Vector3(0,0,-1)]
+const primaryViews = 12
+const secondaryDirections = [axes[0], axes[1], axes[4], axes[5]]
+const maxSecondaryAnchors = 6
+type FastGICaptureVolume = {
+  bounds: Box3; anchor: Vector3; polygon?: { x: number; y: number }[]; additionalAnchors?: readonly Vector3[]
+}
 const quadVertex = 'void main(){gl_Position=vec4(position.xy,0.0,1.0);}'
 
 /** GPU-only depth reconstruction, surface accumulation and two diffuse bounces.
  * The optional worker supplies occupancy only; captures remain the light source. */
-export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: IndirectUniforms, n=32, size=64) {
+export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: IndirectUniforms, n=32, size=64, resourceOptions: FastGIResourceOptions = {}) {
   const context = renderer.getContext() as WebGL2RenderingContext
   if (!renderer.extensions.has('EXT_color_buffer_float') || context.getParameter(context.MAX_DRAW_BUFFERS)<4 ||
     renderer.capabilities.logarithmicDepthBuffer || renderer.capabilities.reversedDepthBuffer) return null
+  const captureSlots = resourceOptions.architectureOnly
+    ? fastGICaptureShadowSlots(renderer.capabilities.maxTextures, resourceOptions.lightSlotsPerKind)
+    : resourceOptions.lightSlotsPerKind
   const target = (width:number,height:number,count=1,depthBuffer=false) => new WebGLRenderTarget(width,height,{
     count,depthBuffer,type:HalfFloatType,format:RGBAFormat,minFilter:NearestFilter,magFilter:NearestFilter,generateMipmaps:false })
-  const captures=target(size*4,size*3,4,true), surfaces=target(n*n,n*6,3), coefficients=target(n*n,n,4), bounced=target(n*n,n*6)
-  captures.depthTexture=new DepthTexture(size*4,size*3)
+  const maxViews = primaryViews + (resourceOptions.architectureOnly ? maxSecondaryAnchors * secondaryDirections.length : 0)
+  const captureRows = maxViews / 4
+  const captureDefines = { HD_FAST_MAX_VIEWS: maxViews, HD_FAST_CAPTURE_ROWS: captureRows }
+  const captures=target(size*4,size*captureRows,4,true), surfaces=target(n*n,n*6,3), coefficients=target(n*n,n,4), bounced=target(n*n,n*6)
+  captures.depthTexture=new DepthTexture(captures.width,captures.height)
   const states=[target(n*n,n),target(n*n,n)], lighting=[target(n*n,n*4),target(n*n,n*4)]
+  if (resourceOptions.architectureOnly) for (const bank of lighting) {
+    bank.texture.minFilter = bank.texture.magFilter = LinearFilter
+  }
   const filtered=target(n*n,n*4)
   const geometryData=new Uint8Array(n**3), geometryTexture=new DataTexture(geometryData,n*n,n,RedFormat,UnsignedByteType)
   geometryTexture.needsUpdate=true
-  const inverseVP=Array.from({length:12},()=>new Matrix4()), vp=inverseVP.map(()=>new Matrix4()), eyes=axes.concat(axes).map(()=>new Vector3())
+  const inverseVP=Array.from({length:maxViews},()=>new Matrix4()), vp=inverseVP.map(()=>new Matrix4()), eyes=inverseVP.map(()=>new Vector3())
   const minimum=new Vector3(), volumeSize=new Vector3(), anchor=new Vector3(), bounds=new Box3()
   const perspectiveCamera=new PerspectiveCamera(90,1,.03,50),verticalCamera=new OrthographicCamera(-1,1,1,-1,.03,50)
   let captureCamera:PerspectiveCamera|OrthographicCamera=perspectiveCamera
   const shared={ n:{value:n},volumeMin:{value:minimum},volumeSize:{value:volumeSize},inverseVP:{value:inverseVP},vp:{value:vp},eyes:{value:eyes} }
-  const splatMaterial=new ShaderMaterial({glslVersion:GLSL3,depthTest:false,depthWrite:false,toneMapped:false,
+  const captureViews = { value: primaryViews }
+  const splatMaterial=new ShaderMaterial({glslVersion:GLSL3,depthTest:false,depthWrite:false,toneMapped:false,defines:captureDefines,
     transparent:true,blending:AdditiveBlending,uniforms:{...shared,captureDepth:{value:captures.depthTexture},captureSize:{value:size},
       captureNormal:{value:captures.textures[2]},captureRadiance:{value:captures.texture},captureResponse:{value:captures.textures[3]}},vertexShader:fastSplatVertex,fragmentShader:fastSplatFragment})
-  const pointsGeometry=new BufferGeometry();pointsGeometry.setAttribute('position',new BufferAttribute(new Float32Array(12*size*size*3),3))
+  const pointsGeometry=new BufferGeometry();pointsGeometry.setAttribute('position',new BufferAttribute(new Float32Array(maxViews*size*size*3),3))
   const splatScene=new Scene(),points=new Points(pointsGeometry,splatMaterial);points.frustumCulled=false;splatScene.add(points)
-  const stateMaterial=new ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,uniforms:{...shared,
+  const stateMaterial=new ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,
+    defines:resourceOptions.architectureOnly ? { ...captureDefines, HD_FAST_STOREY: 1 } : captureDefines,uniforms:{...shared,captureViews,
     surfaceRadiance:{value:surfaces.texture},geometryOccupancy:{value:geometryTexture},captureDepth:{value:captures.depthTexture},hybrid:{value:1}},
     vertexShader:quadVertex,fragmentShader:fastStateFragment})
   const rays=Array.from({length:fastGIRayCount},(_,i)=>{const y=1-2*(i+.5)/fastGIRayCount,a=i*2.3999632297,r=Math.sqrt(1-y*y);return new Vector3(Math.cos(a)*r,y,Math.sin(a)*r)})
-  const gatherMaterial=new ShaderMaterial({glslVersion:GLSL3,depthTest:false,depthWrite:false,toneMapped:false,uniforms:{...shared,
+  const gatherMaterial=new ShaderMaterial({glslVersion:GLSL3,depthTest:false,depthWrite:false,toneMapped:false,
+    defines:resourceOptions.architectureOnly ? { HD_FAST_STOREY: 1 } : {},uniforms:{...shared,
     surfaceRadiance:{value:surfaces.texture},surfaceNormal:{value:surfaces.textures[1]},occupancy:{value:states[0].texture},rays:{value:rays},skyRadiance:{value:new Vector3()},hdSkyMode:{value:1},hdSkySunIrradiance:{value:new Vector3()}},
     vertexShader:quadVertex,fragmentShader:fastGatherFragment})
-  const packMaterial=new ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,uniforms:{
+  const packMaterial=new ShaderMaterial({depthTest:false,depthWrite:false,toneMapped:false,
+    defines:resourceOptions.architectureOnly?{HD_FAST_LINEAR_RECEIVER:1}:{},uniforms:{
     ...shared,occupancy:{value:states[0].texture},
     c0:{value:coefficients.textures[0]},cx:{value:coefficients.textures[1]},cy:{value:coefficients.textures[2]},cz:{value:coefficients.textures[3]},
     outputSize:{value:new Vector2(n*n,n*4)}},vertexShader:quadVertex,fragmentShader:fastPackFragment})
@@ -96,21 +149,27 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
   quadScene.add(quad)
   let proxies:ReturnType<typeof createIndirectCaptureScene>|null=null,worker:Worker|null=null,version=0,view=0,bank=0,started=0,disposed=false
   let previousProxies:ReturnType<typeof createIndirectCaptureScene>|null=null
+  let publishedBank = -1
+  const preparedPasses = new Set<ShaderMaterial>()
+  const emptyShadows = new Map<boolean, WebGLRenderTarget>()
   let shadowPrograms:Awaited<ReturnType<typeof prepareShaderWarmupSnapshot>>
   const preparingScenes=new Set<ReturnType<typeof createIndirectCaptureScene>>()
   let activePreparations=0
-  const release=()=>{[captures,surfaces,coefficients,bounced,filtered,...states,...lighting].forEach(t=>t.dispose());geometryTexture.dispose()
+  const release=()=>{[captures,surfaces,coefficients,bounced,filtered,...states,...lighting,...emptyShadows.values()].forEach(t=>t.dispose());geometryTexture.dispose()
     ;[splatMaterial,stateMaterial,gatherMaterial,packMaterial,bounceMaterial,filterMaterial].forEach(m=>m.dispose());pointsGeometry.dispose();geometry.dispose()}
   let stage='idle', compiled=false,geometryReady=false,requestedHybrid=true,requestedBounds:Box3|null=null
   let roomPolygon:{x:number;y:number}[]|undefined
+  let additionalAnchors: readonly Vector3[] = []
   let bounceStrength=1
   let captureLightIndices:{point:Float32Array;spot:Float32Array}|null=null
+  let selectViewLights: ((view: number) => boolean) | undefined
   const timerPending:{query:WebGLQuery;stage:string}[]=[]
   const timerExtension=context.getExtension('EXT_disjoint_timer_query_webgl2')
   const performanceProfile=createLightingPerformance(renderer)
   let bounceCount=0
   const stats:FastGIStats={state:'idle',revision:0,views:0,captureSubmitMs:0,reconstructionSubmitMs:0,propagationSubmitMs:0,preparationMs:0,
-    geometryMs:0,gpuBatches:0,bytes:(size*size*12*(4*8+4)+n**3*(6*4*8+4*8+2*8+3*4*8)+n**3),probeProgress:0}
+    geometryMs:0,gpuBatches:0,bytes:(size*size*maxViews*(4*8+4)+n**3*(6*4*8+4*8+2*8+3*4*8)+n**3),probeProgress:0,
+    passCompilations:0,capturePreparations:0,captureLights:0}
   const restoreState = <T>(action:()=>T):T => {
     const rt=renderer.getRenderTarget(),face=renderer.getActiveCubeFace(),mip=renderer.getActiveMipmapLevel(),xr=renderer.xr.enabled
     const auto=renderer.autoClear,clear=renderer.getClearColor(new Color()),alpha=renderer.getClearAlpha(),viewport=renderer.getViewport(new Vector4()),scissor=renderer.getScissor(new Vector4()),scissorTest=renderer.getScissorTest()
@@ -126,7 +185,34 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
       uniforms.hdGIPointIndices.value.set(pointIndices);uniforms.hdGISpotIndices.value.set(spotIndices)
       renderer.setRenderTarget(rt,face,mip);renderer.setViewport(viewport);renderer.setScissor(scissor);renderer.setScissorTest(scissorTest);Object.assign(renderer.info.render,renderStats) }
   }
-  const draw=(material:ShaderMaterial,destination:WebGLRenderTarget)=>{quad.material=material;renderer.setRenderTarget(destination);renderer.setViewport(0,0,destination.width,destination.height);renderer.setScissorTest(false);renderer.render(quadScene,quadCamera)}
+  const draw=(material:ShaderMaterial,destination:WebGLRenderTarget)=>{quad.material=material;renderer.setRenderTarget(destination);renderer.render(quadScene,quadCamera)}
+  const captureTile = (x: number, y: number, width: number, height: number) => {
+    // Target rectangles are physical pixels. renderer.setViewport uses the
+    // display DPR, and the shadow pass restores the target's own rectangles.
+    captures.viewport.set(x, y, width, height)
+    captures.scissor.copy(captures.viewport)
+    captures.scissorTest = true
+    renderer.setRenderTarget(captures)
+  }
+  const emptyShadow = (point: boolean) => {
+    let map = emptyShadows.get(point)
+    if (map) return map
+    map = point ? new WebGLCubeRenderTarget(1) : new WebGLRenderTarget(1, 1)
+    const depth = point ? new CubeDepthTexture(1, UnsignedIntType) : new DepthTexture(1, 1, UnsignedIntType)
+    const pcf = renderer.shadowMap.type === PCFShadowMap || renderer.shadowMap.type === PCFSoftShadowMap
+    depth.compareFunction = pcf ? LessEqualCompare : null
+    depth.minFilter = depth.magFilter = pcf ? LinearFilter : NearestFilter
+    // The runtime supports cube-depth attachments; RenderTarget's declaration
+    // still restricts the setter to the 2D DepthTexture image generic.
+    Object.assign(map, { depthTexture: depth })
+    const target = map
+    restoreState(() => {
+      renderer.setScissorTest(false)
+      for (let face = 0; face < (point ? 6 : 1); face++) { renderer.setRenderTarget(target, face); renderer.clear() }
+    })
+    emptyShadows.set(point, map)
+    return map
+  }
   const filter=()=>{
     // Neither target is the previous published bank. Keep the old room field
     // intact while all three directional sweeps prepare its replacement.
@@ -136,7 +222,7 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
     }
   }
   const fail=(error:unknown)=>{stage='error';stats.state='error';stats.error=String(error);worker?.terminate();worker=null;uniforms.hdFastReady.value=0}
-  const configureCamera=(index:number)=>{
+  const configurePrimaryCamera=(index:number)=>{
     const axis=axes[Math.floor(index/2)],reverse=index%2===1
     captureCamera=reverse&&Math.abs(axis.y)>.5?verticalCamera:perspectiveCamera
     captureCamera.position.copy(anchor);captureCamera.up.set(0,Math.abs(axis.y)>.5?0:1,Math.abs(axis.y)>.5?1:0)
@@ -166,10 +252,23 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
       } else captureCamera.lookAt(anchor)
     } else captureCamera.lookAt(anchor.clone().add(axis))
     if(captureCamera instanceof PerspectiveCamera)captureCamera.fov=reverse?110:90
+  }
+  const configureCamera=(index:number)=>{
+    if (index < primaryViews) configurePrimaryCamera(index)
+    else {
+      const secondary = index - primaryViews
+      const point = additionalAnchors[Math.floor(secondary / secondaryDirections.length)]
+      const direction = secondaryDirections[secondary % secondaryDirections.length]
+      captureCamera = perspectiveCamera
+      captureCamera.position.copy(point)
+      captureCamera.up.set(0, 1, 0)
+      captureCamera.lookAt(point.clone().add(direction))
+      captureCamera.fov = 110
+    }
     captureCamera.far=volumeSize.length()*2;captureCamera.updateProjectionMatrix();captureCamera.updateMatrixWorld(true)
     vp[index].multiplyMatrices(captureCamera.projectionMatrix,captureCamera.matrixWorldInverse);inverseVP[index].copy(vp[index]).invert();eyes[index].copy(captureCamera.position)
   }
-  const cancel=(retain=false)=>{version++;worker?.terminate();worker=null;stage='idle';
+  const cancel=(retain=false)=>{version++;worker?.terminate();worker=null;stage='idle';selectViewLights=undefined
     if(proxies&&!preparingScenes.has(proxies)) {
       previousProxies?.dispose();previousProxies=retain?proxies:null
       if(!retain)proxies.dispose()
@@ -178,17 +277,29 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
     timerPending.forEach(item=>context.deleteQuery(item.query));timerPending.length=0 }
   return {
     stats,captures,surfaces,states,lighting,performance:performanceProfile,
-    request(room:{bounds:Box3;anchor:Vector3;polygon?:{x:number;y:number}[]},hybrid:boolean,daylight=false,daylightBounceStrength=1,skyMode:DaylightSkyMode='clear') {
+    pause() {
+      // Mode changes cancel pending CPU/GPU preparation without releasing the
+      // last field or compiled programs. The revision also stops cooperative
+      // proxy construction before it reaches this engine's async continuation.
+      cancel(true)
+      stats.revision=version;stats.state='idle';performanceProfile.finish()
+    },
+    request(room:FastGICaptureVolume,hybrid:boolean,daylight=false,daylightBounceStrength=1,skyMode:DaylightSkyMode='clear',skyStrength=1) {
       cancel(true);const id=version;started=performance.now();requestedBounds=room.bounds.clone();bounds.copy(room.bounds);minimum.copy(bounds.min);bounds.getSize(volumeSize);anchor.copy(room.anchor)
-      requestedHybrid=hybrid;geometryReady=!hybrid;view=0;bank=1-bank;stage='preparing';compiled=false
+      // Cancellation may happen repeatedly before publication. Alternating on
+      // every request would eventually overwrite the still-displayed bank.
+      requestedHybrid=hybrid;geometryReady=!hybrid;view=0;bank=publishedBank===0?1:0;stage='preparing';compiled=false
       roomPolygon=room.polygon
+      additionalAnchors = resourceOptions.architectureOnly ? room.additionalAnchors?.slice(0, maxSecondaryAnchors) ?? [] : []
+      captureViews.value = primaryViews + additionalAnchors.length * secondaryDirections.length
+      pointsGeometry.setDrawRange(0, captureViews.value * size * size)
       bounceStrength=daylightBounceStrength
       bounceCount=0;performanceProfile.begin('Room GPU preview')
       gatherMaterial.uniforms.hdSkyMode.value=skyMode==='overcast'?2:1
       const sun=source.children.find(object=>object instanceof DirectionalLight && object.userData.houseDesignerRole==='sun-light') as DirectionalLight|undefined
       const sunDirection=sun?new Vector3().subVectors(sun.position,sun.target.position).normalize():new Vector3()
       gatherMaterial.uniforms.hdSkySunIrradiance.value.set(sun?.color.r??0,sun?.color.g??0,sun?.color.b??0).multiplyScalar(daylight&&sun?sun.intensity*Math.max(0,sunDirection.y)*daylightBounceStrength:0)
-      daylightTransportSkyBase(gatherMaterial.uniforms.skyRadiance.value).multiplyScalar(daylight?daylightBounceStrength:0)
+      daylightTransportSkyBase(gatherMaterial.uniforms.skyRadiance.value).multiplyScalar(daylight?daylightBounceStrength*Math.max(0,skyStrength):0)
       Object.assign(stats,{state:stage,revision:id,views:0,captureSubmitMs:0,reconstructionSubmitMs:0,propagationSubmitMs:0,preparationMs:0,geometryMs:0,
         firstVisibleMs:undefined,publishedAt:undefined,gpuMs:undefined,gpuCaptureMs:undefined,gpuReconstructionMs:undefined,gpuPropagationMs:undefined,gpuBatches:0,bounces:0,error:undefined})
       // Geometry and render preparation are independent. Neither waits for probes.
@@ -197,7 +308,7 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
         worker.onmessage=event=>{if(disposed||id!==version)return; if(event.data.error){fail(event.data.error);return}
           geometryData.set(event.data.data);geometryTexture.needsUpdate=true;geometryReady=true;stats.geometryMs=event.data.ms;worker?.terminate();worker=null}
         worker.onerror=event=>{if(id===version)fail(event.message)}
-        worker.postMessage({id,parts:snapshotFastGIGeometry(source,bounds),min:minimum.toArray(),size:volumeSize.toArray(),n})
+        worker.postMessage({id,parts:snapshotFastGIGeometry(source,bounds,resourceOptions.architectureOnly?isModellingLightingArchitecture:undefined),min:minimum.toArray(),size:volumeSize.toArray(),n})
       }
       // Existing proxies preserve authored material hooks, instancing and shared
       // sun shadows. Cooperative construction is used by the runtime component.
@@ -211,25 +322,50 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
         if(disposed||id!==version){next.dispose();return}
         prepared=next;preparingScenes.add(next)
         proxies=next
+        if(resourceOptions.architectureOnly) {
+          // Editor visibility fill is a display aid, not incoming radiance.
+          // In a cold modelling scene no legacy room mask exists yet, so the
+          // direct-capture shader cannot reject that ambient by room ID. Remove
+          // it from the owned capture scene instead. Sky enters through the
+          // voxel visibility rays; sun and authored lamps remain direct sources.
+          const fillLights: (AmbientLight | HemisphereLight | LightProbe)[] = []
+          proxies.scene.traverse(object => {
+            if(object instanceof AmbientLight || object instanceof HemisphereLight || object instanceof LightProbe) fillLights.push(object)
+          })
+          fillLights.forEach(light => light.removeFromParent())
+        }
         captureLightIndices=null
-        if(localLights.length){
+        const storeyLightGroups = additionalAnchors.length && resourceOptions.stableCaptureLights
+          ? [anchor, ...additionalAnchors].map(position => fastGICaptureLightSlots(
+            localLights, new Box3(position, position).expandByScalar(.75), captureSlots))
+          : []
+        let liveSlots: ReturnType<typeof fastGICaptureLightSlots> = []
+        if(localLights.length || resourceOptions.stableCaptureLights){
           // Realtime light slots can be culled or have zero intensity. Use the
           // same authored capture lights as probes, cloned into this scene.
           proxies.scene.children.filter(object=>object instanceof PointLight||object instanceof SpotLight).forEach(object=>object.removeFromParent())
           captureLightIndices={point:new Float32Array(INDIRECT_MAX_LOCAL_LIGHTS).fill(-1),spot:new Float32Array(INDIRECT_MAX_LOCAL_LIGHTS).fill(-1)}
           let point=0,spot=0
-          localLights.forEach((original,index)=>{
-            if(original.intensity<=0)return
-            const light=original.clone(false);proxies!.scene.add(light)
-            if(light instanceof SpotLight){light.target=original instanceof SpotLight?original.target.clone():light.target;proxies!.scene.add(light.target)}
+          const slots = resourceOptions.stableCaptureLights ? storeyLightGroups[0] ?? fastGICaptureLightSlots(localLights,bounds,captureSlots)
+            : localLights.flatMap((original,index)=>{
+              if(original.intensity<=0)return []
+              const light=original.clone(false)
+              if(light instanceof SpotLight && original instanceof SpotLight)light.target=original.target.clone()
+              return [{light,index}]
+            })
+          stats.captureLights=slots.length
+          slots.forEach(({light,index})=>{
+            proxies!.scene.add(light)
+            if(light instanceof SpotLight)proxies!.scene.add(light.target)
             const indices=light instanceof SpotLight?captureLightIndices!.spot:captureLightIndices!.point,slot=light instanceof SpotLight?spot++:point++
-            if(slot<indices.length)indices[slot]=INDIRECT_ATLAS_SIZE**2-INDIRECT_MAX_LOCAL_LIGHTS+index
+            if(slot<indices.length && index>=0)indices[slot]=INDIRECT_ATLAS_SIZE**2-INDIRECT_MAX_LOCAL_LIGHTS+index
           })
+          liveSlots = slots
           proxies.scene.updateMatrixWorld(true)
         }
         proxies.scene.traverse(object=>{if(object instanceof DirectionalLight&&object.userData.houseDesignerRole==='sun-light')object.intensity*=bounceStrength})
         const furniture:Box3[]=[]
-        source.traverse(object=>{if(object.name.startsWith('model-transform-')||/model/i.test(object.name)&&object instanceof Mesh)
+        if(!resourceOptions.architectureOnly)source.traverse(object=>{if(object.name.startsWith('model-transform-')||/model/i.test(object.name)&&object instanceof Mesh)
           furniture.push(new Box3().setFromObject(object).expandByScalar(.12))})
         if(furniture.some(box=>box.containsPoint(anchor))) {
           const centre=anchor.clone()
@@ -243,10 +379,29 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
         proxies.scene.traverse(object=>{if(object instanceof Mesh)for(const material of Array.isArray(object.material)?object.material:[object.material])
           if(material instanceof MeshStandardMaterial)materials.add(material)})
         materials.forEach(material=>applyIndirectLightingShader(material,uniforms))
+        if(resourceOptions.architectureOnly) materials.forEach(material => {
+          // Native GPU shadows already provide transport visibility. The
+          // editor's room/probe/atlas paths consume texture units even when
+          // disabled by a uniform. Leave the bounded shadow layout and authored
+          // material maps within the renderer's fragment sampler budget.
+          material.defines = { ...material.defines, HD_GI_NATIVE_CAPTURE: 1 }
+        })
         proxies.enableSurfaceRadianceCapture(false,true);proxies.scene.background=null
-        const shadows=configureFastGIShadows(proxies.scene)
+        const shadows=configureFastGIShadows(proxies.scene,resourceOptions.stableCaptureLights)
+        // Three's default null texture is not a valid cube-depth/shadow sampler.
+        // Give unused slots tiny persistent maps; keep them out of shadow draws.
+        if (resourceOptions.stableCaptureLights) for (const light of shadows.lights) {
+          if (light.intensity <= 0) light.shadow.map = emptyShadow(light instanceof PointLight)
+        }
         const dispose=next.dispose
-        next.dispose=()=>{shadows.dispose();dispose()}
+        let released=false
+        next.dispose=()=>{if(!released){
+          released=true
+          for (const light of shadows.lights) {
+            if (light.shadow.map === emptyShadows.get(light instanceof PointLight)) light.shadow.map = null
+          }
+          shadows.dispose();dispose()
+        }}
         configureCamera(0)
         // Compile every variant without changing the display's capture uniforms.
         quad.material=stateMaterial
@@ -259,12 +414,12 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
           try {
             const ready=await compileShaderWarmup(renderer,snapshot.root,captureCamera,next.scene,{cancelled,
               compile:batch=>restoreState(()=>{renderer.setRenderTarget(captures);return renderer.compileAsync(batch,captureCamera,next.scene)})})
-            if(!ready)return
+            if(!ready||disposed||id!==version)return
             // A normal render establishes Three's render state before its
             // internal shadow pass. Keep the throwaway colour pass tiny.
             restoreState(()=>{
-              renderer.shadowMap.needsUpdate=true;renderer.setRenderTarget(captures)
-              renderer.setViewport(0,0,1,1);renderer.setScissor(0,0,1,1);renderer.setScissorTest(true)
+              renderer.shadowMap.needsUpdate=true
+              captureTile(0, 0, 1, 1)
               renderer.render(next.scene,captureCamera)
             })
             shadows.lights.forEach(light=>{light.shadow.autoUpdate=false;light.shadow.needsUpdate=false})
@@ -273,12 +428,51 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
         }
         await compile(next.scene,captureCamera,captures)
         if(disposed||id!==version)return
-        await compile(splatScene,quadCamera,surfaces)
+        stats.capturePreparations=(stats.capturePreparations??0)+1
+        const preparePass = async (material:ShaderMaterial,scene:Scene,destination:WebGLRenderTarget) => {
+          if(resourceOptions.retainPassPrograms && preparedPasses.has(material))return
+          await compile(scene,quadCamera,destination)
+          preparedPasses.add(material);stats.passCompilations=(stats.passCompilations??0)+1
+        }
+        await preparePass(splatMaterial,splatScene,surfaces)
         for(const [material,destination] of [[stateMaterial,states[bank]],[gatherMaterial,coefficients],[packMaterial,lighting[bank]],[bounceMaterial,bounced],[filterMaterial,filtered]] as const) {
           if(disposed||id!==version)return
-          quad.material=material;await compile(quadScene,quadCamera,destination)
+          quad.material=material;await preparePass(material,quadScene,destination)
         }
         if(disposed||id!==version)return
+        if (storeyLightGroups.length) {
+          // Keep the exact number of native shadow samplers. Rank lamps near
+          // each capture room so distant bright lamps cannot displace every
+          // lamp in a smaller room on the storey.
+          let activeGroup = 0
+          selectViewLights = view => {
+            const group = view < primaryViews ? 0 : 1 + Math.floor((view - primaryViews) / secondaryDirections.length)
+            if (group === activeGroup) return false
+            const before = storeyLightGroups[activeGroup], after = storeyLightGroups[group]
+            activeGroup = group
+            let shadowsChanged = false
+            for (const [index, slot] of liveSlots.entries()) {
+              if (before[index].index === after[index].index) continue
+              const light = slot.light, authored = after[index].light
+              light.position.copy(authored.position); light.color.copy(authored.color)
+              light.intensity = authored.intensity; light.distance = authored.distance; light.decay = authored.decay
+              if (light instanceof SpotLight && authored instanceof SpotLight) {
+                light.target.position.copy(authored.target.position)
+                light.angle = authored.angle; light.penumbra = authored.penumbra
+                light.target.updateMatrixWorld(true)
+              }
+              // The capture scene's world matrices are frozen. Only these
+              // light slots move between view groups.
+              light.updateMatrixWorld(true)
+              if (light.intensity > 0 && light.shadow.map === emptyShadows.get(light instanceof PointLight)) light.shadow.map = null
+              light.shadow.camera.far = Math.min(80, light.distance || 80)
+              light.shadow.camera.updateProjectionMatrix()
+              light.shadow.needsUpdate = light.intensity > 0
+              shadowsChanged ||= light.shadow.needsUpdate
+            }
+            return shadowsChanged
+          }
+        }
         stats.preparationMs=performance.now()-started;compiled=true;stage='capture'
         previousProxies?.dispose();previousProxies=null
         restoreState(()=>{captures.scissorTest=false;renderer.setRenderTarget(captures);renderer.clear();renderer.setRenderTarget(surfaces);renderer.clear()})
@@ -320,14 +514,16 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
         }
         if(stage==='capture') submit('capture',()=>{
           const at=performance.now()
-          for(let count=0;count<Math.max(1,Math.min(6,options.viewsPerFrame))&&view<12&&(count===0||performance.now()-at<budget);count++,view++) {
-            configureCamera(view);renderer.setRenderTarget(captures);renderer.setViewport((view%4)*size,Math.floor(view/4)*size,size,size)
-            renderer.setScissor((view%4)*size,Math.floor(view/4)*size,size,size);renderer.setScissorTest(true);renderer.render(proxies!.scene,captureCamera)
+          for(let count=0;count<Math.max(1,Math.min(6,options.viewsPerFrame))&&view<captureViews.value&&(count===0||performance.now()-at<budget);count++,view++) {
+            renderer.shadowMap.needsUpdate = selectViewLights?.(view) ?? false
+            configureCamera(view)
+            captureTile((view % 4) * size, Math.floor(view / 4) * size, size, size)
+            renderer.render(proxies!.scene,captureCamera)
           }
-          stats.views=view;stats.captureSubmitMs+=performance.now()-at;if(view===12)stage='reconstruct'
+          stats.views=view;stats.captureSubmitMs+=performance.now()-at;if(view===captureViews.value)stage='reconstruct'
         })
         if(stage==='reconstruct'&&geometryReady&&performance.now()-frameStart<budget) submit('reconstruct',()=>{
-          const at=performance.now();renderer.setRenderTarget(surfaces);renderer.setViewport(0,0,n*n,n*6);renderer.setScissorTest(false);renderer.render(splatScene,quadCamera)
+          const at=performance.now();renderer.setRenderTarget(surfaces);renderer.render(splatScene,quadCamera)
           stateMaterial.uniforms.hybrid.value=requestedHybrid?1:0;draw(stateMaterial,states[bank]);stats.reconstructionSubmitMs+=performance.now()-at;stage='gather'
         })
         if(stage==='gather'&&performance.now()-frameStart<budget) submit('gather',()=>{
@@ -343,6 +539,8 @@ export function createFastGI(renderer: WebGLRenderer, source: Scene, uniforms: I
           stats.bounces=++bounceCount
           if(bounceCount<targetBounces)return
           uniforms.hdFastLight.value=lighting[bank].texture
+          uniforms.hdFastLinearReceiver.value=resourceOptions.architectureOnly?1:0
+          publishedBank=bank
           const wasReady=uniforms.hdFastReady.value>.5
           uniforms.hdFastMin.value.copy(requestedBounds!.min);requestedBounds!.getSize(uniforms.hdFastSize.value);uniforms.hdFastN.value=n;uniforms.hdFastReady.value=1
           uniforms.hdFastWeight.value=options.mode==='probe'?0:options.mode==='fast'||!wasReady?1:Math.max(.2,uniforms.hdFastWeight.value)

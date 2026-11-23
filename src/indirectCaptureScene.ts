@@ -13,7 +13,7 @@ type Renderable = Object3D & { material: Material | Material[]; geometry: Buffer
 
 /** A retained offscreen scene. Live geometry/textures and sun shadow maps remain
  * owned by the editor; only capture materials and merged buffers are owned here. */
-function* captureSceneSteps(source: Scene, localLights: boolean, merge = true) {
+function* captureSceneSteps(source: Scene, localLights: boolean, merge = true, include?: (object: Object3D) => boolean) {
   source.updateMatrixWorld(true)
   const scene = new Scene(), materials = new Map<Material, Material>()
   const geometries = new Set<BufferGeometry>(), instances: InstancedMesh[] = []
@@ -40,6 +40,8 @@ function* captureSceneSteps(source: Scene, localLights: boolean, merge = true) {
     if (hasViewportSurfaceVisibility(original)) material.visible = true
     if (material instanceof MeshStandardMaterial) {
       material.defines = { ...(original as MeshStandardMaterial).defines, HD_GI_CAPTURE_VISIBILITY: 1 }
+      // This ground tint is only for display, including when the capture uses native shadows.
+      if (typeof original.userData.groundDisplayTint === 'string') material.defines.HD_GROUND_CAPTURE = 1
     }
     material.onBeforeCompile = original.onBeforeCompile.bind(original)
     const attributes = original as Material & { defaultAttributeValues?: Record<string, number[]> }
@@ -107,6 +109,7 @@ function* captureSceneSteps(source: Scene, localLights: boolean, merge = true) {
     if (ancestor) continue // Visible lamp markers belong only to the editor.
     const renderable = object as Renderable
     if (!renderable.geometry || !renderable.material) continue
+    if (include && !include(object)) continue
     const proxy = addProxy(renderable)
     if (!(object instanceof Mesh)) continue
     sourceMeshes++
@@ -125,7 +128,8 @@ function* captureSceneSteps(source: Scene, localLights: boolean, merge = true) {
     if (!geometry.boundingBox) geometry.computeBoundingBox()
     geometry.boundingBox?.getCenter(centre).applyMatrix4(object.matrixWorld)
     const attributes = Object.entries(geometry.attributes).map(([name, attribute]) =>
-      [name, attribute.itemSize, attribute.normalized, attribute.array.constructor.name]).sort()
+      [name, attribute.itemSize, attribute.normalized, attribute.array.constructor.name,
+        Reflect.get(attribute, 'gpuType'), !!Reflect.get(attribute, 'isFloat16BufferAttribute')]).sort()
     const worldBatch=source.userData.indirectWorldCaptureBatching!==false&&!geometry.attributes.hdGIReceiverLinearNormal&&!geometry.attributes.hdGIReceiverOffset&&!geometry.attributes.hdGICorner0&&!geometry.attributes.hdGIWallMount0&&
       !/wall|roof|ceiling|slab/.test(String(object.userData.houseDesignerRole))&&!(object.material.clippingPlanes?.length)
     let materialKey=object.material.uuid
@@ -201,8 +205,8 @@ export function prepareIndirectCaptureScene(source: Scene, localLights: boolean,
 
 /** The immediate GI experiment must progress during navigation as well. Keep
  * each CPU task small, without waiting for the probe scheduler's idle gate. */
-export async function prepareFastCaptureScene(source: Scene, cancelled: () => boolean) {
-  const steps = captureSceneSteps(source, false, false)
+export async function prepareFastCaptureScene(source: Scene, cancelled: () => boolean, include?: (object: Object3D) => boolean) {
+  const steps = captureSceneSteps(source, false, false, include)
   try {
     while (!cancelled()) {
       const start = performance.now()

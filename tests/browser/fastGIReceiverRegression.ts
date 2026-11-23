@@ -1,4 +1,4 @@
-import { DataTexture, FloatType, Mesh, NearestFilter, OrthographicCamera, PlaneGeometry, RGBAFormat,
+import { DataTexture, DataUtils, FloatType, HalfFloatType, LinearFilter, Mesh, NearestFilter, OrthographicCamera, PlaneGeometry, RGBAFormat,
   Scene, ShaderMaterial, Vector3, WebGLRenderer, WebGLRenderTarget } from 'three'
 import { fastGIShader } from '../../src/fastGIShader'
 
@@ -7,11 +7,15 @@ import { fastGIShader } from '../../src/fastGIShader'
 Object.assign(window, { fastGIReceiverRegression: (async () => {
   const renderer = new WebGLRenderer(), n = 8, width = 128
   const data = new Float32Array(n ** 3 * 4 * 4)
-  const light = new DataTexture(data, n * n, n * 4, RGBAFormat, FloatType)
+  const linear = new URLSearchParams(location.search).has('linear')
+  const halfData = new Uint16Array(data.length)
+  const light = new DataTexture(linear ? halfData : data, n * n, n * 4, RGBAFormat, linear ? HalfFloatType : FloatType)
   light.minFilter = light.magFilter = NearestFilter
+  if (linear) light.minFilter = light.magFilter = LinearFilter
   const material = new ShaderMaterial({ depthTest: false, depthWrite: false, uniforms: {
     hdFastLight: { value: light }, hdFastMin: { value: new Vector3() }, hdFastSize: { value: new Vector3(8, 1, 8) },
-    hdFastN: { value: n }, hdFastReady: { value: 1 }, hdFastWeight: { value: 1 }, mode: { value: 0 },
+    hdFastN: { value: n }, hdFastReady: { value: 1 }, hdFastWeight: { value: 1 },
+    hdFastLinearReceiver: { value: linear ? 1 : 0 }, mode: { value: 0 },
   }, vertexShader: 'void main(){gl_Position=vec4(position.xy,0.0,1.0);}', fragmentShader: `
     #define HD_FAST_GI
     ${fastGIShader}
@@ -40,6 +44,19 @@ Object.assign(window, { fastGIReceiverRegression: (async () => {
         data[index] = data[index + 1] = data[index + 2] = occupied ? 0 : energy / .282095
         data[index + 3] = occupied ? 1 : 0
         data[index + 2 * n ** 3 * 4 + 3] = !occupied && (mode !== 4 || y < 6) ? 1 : 0
+      }
+      if (linear) {
+        const stride = n ** 3 * 4
+        for (let y = 0; y < n - 1; y++) for (let z = 0; z < n - 1; z++) for (let x = 0; x < n - 1; x++) {
+          const index = (x + z * n + y * n * n) * 4
+          let clear = true
+          for (let i = 0; i < 8; i++) {
+            const offset = ((i % 2) + (Math.floor(i / 4)) * n + (Math.floor(i / 2) % 2) * n * n) * 4
+            clear &&= data[index + offset + 3] < .5
+          }
+          data[index + 3 * stride + 3] = clear ? 1 : 0
+        }
+        for (let i = 0; i < data.length; i++) halfData[i] = DataUtils.toHalfFloat(data[i])
       }
       light.needsUpdate = true; material.uniforms.mode.value = mode
       renderer.setRenderTarget(target); await renderer.compileAsync(scene, camera); renderer.render(scene, camera)

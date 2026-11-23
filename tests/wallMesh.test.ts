@@ -481,6 +481,24 @@ test('wall mesh builder cuts wall side faces around openings', () => {
   )
 })
 
+test('window and doorway reveals face into the opening for either wall direction', () => {
+  for (const [dx, dz] of [[4, 0], [0, 4], [2.4, 3.2], [-2.4, -3.2]]) {
+    for (const bottom of [0, .8]) {
+      const height = bottom ? 1 : 2.1
+      const source = wall({ id: 'reveal-normal', start: { x: 1, y: 2 }, end: { x: 1 + dx, y: 2 + dz },
+        openings: [{ id: 'opening', modelId: 'model', center: 2, width: 1, bottom, height }] })
+      const faces = buildWallMeshFaces([source]).filter(face => face.faceId.includes(':opening:'))
+      assert.ok(faces.length >= 6)
+      const centre = [1 + dx / 2, bottom + height / 2, 2 + dz / 2]
+      for (const face of faces) {
+        const middle = [0, 1, 2].map(axis => face.vertices.reduce((sum, vertex) => sum + vertex.position[axis], 0) / face.vertices.length)
+        const facing = face.normal.reduce((sum, n, axis) => sum + n * (centre[axis] - middle[axis]), 0)
+        assert.ok(facing > 0, `${face.faceId} must face the opening, not solid wall (direction ${dx}, ${dz})`)
+      }
+    }
+  }
+})
+
 test('wall mesh builder cuts floor-level doorways out of the bottom face', () => {
   const faces = buildWallMeshFaces([
     wall({

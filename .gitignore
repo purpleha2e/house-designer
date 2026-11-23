@@ -9,6 +9,7 @@ lerna-debug.log*
 
 node_modules
 /docs/
+/experiments/
 dist
 dist-viewer/
 .viewer-data/
@@ -20,6 +21,7 @@ dist-ssr
 .local-certs/
 manufacturer-assets/
 .workspace-data/
+tmp/lighting-lab/
 
 # Local recovery/export artifacts
 recovered-chrome-localstorage-*/

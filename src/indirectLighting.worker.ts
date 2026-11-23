@@ -1,6 +1,6 @@
 import type {IndirectSpatialInterpolation} from './indirectSpatialInterpolation.ts'
 import type { IndirectProbeObstacle } from './indirectProbeObstacles.ts'
-import { prepareIndirectCache, prepareIndirectCacheSteps } from './indirectLightingCache.ts'
+import { buildIndirectGpuInterpolationGraph, prepareIndirectCache, prepareIndirectCacheSteps } from './indirectLightingCache.ts'
 import { restoreIndirectField, INDIRECT_MASK_SIZE, type IndirectFloor, type IndirectFieldData } from './indirectLighting.ts'
 import { createIndirectVisibilityFromSnapshot, type IndirectGeometrySnapshot } from './indirectVisibility.ts'
 import { createIndirectFloorLookup, writeIndirectFloorLayer } from './indirectFloorLighting.ts'
@@ -20,7 +20,7 @@ export type IndirectWorkerRequest = { id: number } & (
   { kind: 'lampResult'; data?: Float32Array } |
   { kind: 'lampPorts'; ports: MessagePort[] } |
   { kind: 'volume' | 'preview'; coefficients: Uint16Array[]; positions: Float32Array } |
-  { kind: 'gpuPreview' } |
+  { kind: 'gpuPreview'; fullResolution?: boolean; restored?: { field: IndirectFieldData; geometry: IndirectGeometrySnapshot } } |
   ({kind:'contactReceivers'}&IndirectContactReceiverQuery) |
   { kind: 'plan'; previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } |
   { kind: 'lights'; positions: [number, number, number][]; zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] } } |
@@ -96,8 +96,15 @@ self.onmessage = async (event: MessageEvent<IndirectWorkerRequest>) => {
       const zonePlan = request.zones ? cache.plan(request.zones.previous, request.zones.changes) : undefined
       self.postMessage({ id: request.id, ok: true, value: { ...data, zonePlan } }, { transfer: [data.distances.buffer, data.positions.buffer] })
     } else if (request.kind === 'gpuPreview') {
-      if (!cache) throw new Error('GI geometry has not been prepared')
-      const value = cache.gpuPreview()
+      let value: ReturnType<typeof buildIndirectGpuInterpolationGraph>
+      if (request.restored) {
+        const field = restoreIndirectField(request.restored.field), visibility = createIndirectVisibilityFromSnapshot(request.restored.geometry)
+        try { value = buildIndirectGpuInterpolationGraph(field, visibility) }
+        finally { field.dispose(); visibility.dispose() }
+      } else {
+        if (!cache) throw new Error('GI geometry has not been prepared')
+        value = cache.gpuPreview(request.fullResolution)
+      }
       const buffers=(graph:typeof value.volume)=>[graph.offsets.buffer,graph.counts.buffer,graph.indices.buffer,graph.weights.buffer,...(graph.supports?[graph.supports.buffer]:[]),...(graph.supportOverrides?[graph.supportOverrides.indices.buffer,graph.supportOverrides.weights.buffer]:[])]
       self.postMessage({ id: request.id, ok: true, value }, { transfer: [
         ...buffers(value.volume),...buffers(value.floor),

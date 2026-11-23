@@ -12,10 +12,11 @@ function texture(data: Float32Array, width: number, height: number) {
   result.minFilter = result.magFilter = NearestFilter; result.generateMipmaps = false; result.needsUpdate = true
   return result
 }
-function graphTextures(graph: IndirectInterpolationGraph, n: number) {
+function graphTextures(graph: IndirectInterpolationGraph, n: number, sizeLimit: number) {
   const headers = new Float32Array(graph.offsets.length * 4)
   graph.offsets.forEach((offset, i) => { headers[i * 4] = offset; headers[i * 4 + 1] = graph.counts[i] })
-  const width = Math.min(1024, Math.max(1, graph.indices.length)), height = Math.max(1, Math.ceil(graph.indices.length / width))
+  const preferred = Math.max(1024, Math.ceil(graph.indices.length / sizeLimit))
+  const width = Math.min(sizeLimit, preferred, Math.max(1, graph.indices.length)), height = Math.max(1, Math.ceil(graph.indices.length / width))
   const links = new Float32Array(width * height * 4)
   graph.indices.forEach((index, i) => { links[i * 4] = index; links[i * 4 + 1] = graph.weights[i];links[i*4+2]=graph.supports?.[i]??graph.weights[i] })
   graph.supportOverrides?.indices.forEach((index,i)=>{links[index*4+2]=graph.supportOverrides!.weights[i]})
@@ -24,15 +25,28 @@ function graphTextures(graph: IndirectInterpolationGraph, n: number) {
 
 /** The display-only path never reads pixels or replaces the authoritative CPU bake.
  * Its interpolation links come from the bake's exact segment visibility tests. */
-export function createIndirectGpuPreview(renderer: WebGLRenderer, source: IndirectField, graph: IndirectGpuPreviewGraph) {
+export function createIndirectGpuPreview(renderer: WebGLRenderer, source: IndirectField, graph: IndirectGpuPreviewGraph,
+  mode: 'relight' | 'coefficients' = 'relight') {
   if (source.shOrder !== 1) throw new Error('The optional legacy GPU preview supports L1 fields only')
-  const field = createIndirectPreviewField(source), count = INDIRECT_ATLAS_SIZE ** 2
+  const coefficientsOnly = mode === 'coefficients'
+  const field = coefficientsOnly
+    ? { ...source, volume: { ...source.volume, maps: source.volume.maps.slice() }, floorLayer: { ...source.floorLayer } }
+    : createIndirectPreviewField(source)
+  const count = INDIRECT_ATLAS_SIZE ** 2
+  if (graph.volume.offsets.length !== field.volume.n ** 2 * source.floors.length * INDIRECT_VOLUME_HEIGHT ||
+    graph.floor.offsets.length !== field.floorLayer.n ** 2 * source.floors.length)
+    throw new Error('GPU interpolation weights do not match the field layout')
+  const sizeLimit = renderer.capabilities.maxTextureSize
+  for (const [layer, links] of [[field.volume, graph.volume], [field.floorLayer, graph.floor]] as const) {
+    if (links.offsets.length / layer.n > sizeLimit || links.indices.length > sizeLimit ** 2 || count > sizeLimit)
+      throw new Error('GPU interpolation weights exceed device texture limits')
+  }
   const localSupport=source.spatialInterpolation==='occluder-local'||source.probes.some(p=>p.kind==='contact')
   const current = new WebGLRenderTarget(4, count, { type: HalfFloatType, format: RGBAFormat, depthBuffer: false })
   current.texture.minFilter = current.texture.magFilter = NearestFilter
   const oldData = new Float32Array(count * 16), finalData = new Float32Array(count * 16)
   const old = texture(oldData, 4, count), final = texture(finalData, 4, count)
-  const volume = graphTextures(graph.volume, field.volume.n), floor = graphTextures(graph.floor, field.floorLayer.n)
+  const volume = graphTextures(graph.volume, field.volume.n, sizeLimit), floor = graphTextures(graph.floor, field.floorLayer.n, sizeLimit)
   const geometry = new PlaneGeometry(2, 2), scene = new Scene(), camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
   const material = new ShaderMaterial({ depthTest: false, depthWrite: false, toneMapped: false, blending: NoBlending,
     uniforms: { current: { value: current.texture }, previous: { value: old }, final: { value: final },
@@ -58,10 +72,14 @@ export function createIndirectGpuPreview(renderer: WebGLRenderer, source: Indire
           int address = int(header.x) + i;
           ${localSupport?'vec3':'vec2'} link = texelFetch(links, ivec2(address % width, address / width), 0).${localSupport?'rgb':'rg'};
           ivec2 p = ivec2(coefficient, int(link.x));
-          vec4 before = texelFetch(final, p, 0), direct = texelFetch(current, p, 0);
+          vec4 before = texelFetch(final, p, 0);
+          ${coefficientsOnly ? `
+          if (before.a < .5) continue;
+          vec3 light = before.rgb;` : `
+          vec4 direct = texelFetch(current, p, 0);
           vec4 baseline = texelFetch(previous, p, 0);
           if (before.a < .5 && direct.a < .5) continue;
-          vec3 light = direct.a > .5 ? before.rgb + direct.rgb - baseline.rgb : before.rgb;
+          vec3 light = direct.a > .5 ? before.rgb + direct.rgb - baseline.rgb : before.rgb;`}
           sum += light * link.y; support += link.${localSupport?'z':'y'};${localSupport?'total+=link.y;':''}
         }
         float confidence = isFloor ? min(1.0, support / .1) : 1.0;
@@ -72,7 +90,7 @@ export function createIndirectGpuPreview(renderer: WebGLRenderer, source: Indire
   const makeTarget = (n: number, height: number) => new WebGL3DRenderTarget(n, height * 4, n,
     { type: HalfFloatType, format: RGBAFormat, depthBuffer: false, minFilter: LinearFilter, magFilter: LinearFilter })
   const volumeTarget = makeTarget(field.volume.n, field.volume.height), floorTarget = makeTarget(field.floorLayer.n, field.floorLayer.height)
-  field.volume.maps[0].dispose(); field.floorLayer.texture.dispose()
+  if (!coefficientsOnly) { field.volume.maps[0].dispose(); field.floorLayer.texture.dispose() }
   field.volume.maps[0] = volumeTarget.texture; field.floorLayer.texture = floorTarget.texture
   // Targets belong to the display field: an old view may remain visible while
   // its relighting resources are retired for replacement geometry.
@@ -80,6 +98,16 @@ export function createIndirectGpuPreview(renderer: WebGLRenderer, source: Indire
   const context = renderer.getContext() as WebGL2RenderingContext
   const timer = context.getExtension('EXT_disjoint_timer_query_webgl2')
   let query: WebGLQuery | null = null, measuring = false, batchSize = 4, lastMs = 0, disposed = false, initialized = false
+  const pollTimer = () => {
+    if (!query) return true
+    if (!context.getQueryParameter(query, context.QUERY_RESULT_AVAILABLE)) return false
+    if (!context.getParameter(timer!.GPU_DISJOINT_EXT)) {
+      lastMs = context.getQueryParameter(query, context.QUERY_RESULT) / 1e6
+      batchSize = Math.max(1, Math.min(16, Math.round(batchSize * Math.min(1.5, 2 / Math.max(.1, lastMs)))))
+    }
+    context.deleteQuery(query); query = null
+    return true
+  }
   const preserve = <T>(action: () => T) => {
     const target = renderer.getRenderTarget(), face = renderer.getActiveCubeFace(), mip = renderer.getActiveMipmapLevel()
     const autoClear = renderer.autoClear, stats = { ...renderer.info.render }
@@ -88,23 +116,38 @@ export function createIndirectGpuPreview(renderer: WebGLRenderer, source: Indire
   }
   return { field, coefficients: current,
     get batchSize() { return batchSize }, get gpuMs() { return lastMs },
+    pollTimer,
     /** A pending GPU measurement also bounds the amount of queued GPU work. */
     begin() {
-      if (query) {
-        if (!context.getQueryParameter(query, context.QUERY_RESULT_AVAILABLE)) return false
-        if (!context.getParameter(timer!.GPU_DISJOINT_EXT)) {
-          lastMs = context.getQueryParameter(query, context.QUERY_RESULT) / 1e6
-          batchSize = Math.max(1, Math.min(16, Math.round(batchSize * Math.min(1.5, 2 / Math.max(.1, lastMs)))))
-        }
-        context.deleteQuery(query); query = null
-      }
+      if (!pollTimer()) return false
       if (timer && !context.getQuery(timer.TIME_ELAPSED_EXT, context.CURRENT_QUERY)) {
         query = context.createQuery(); context.beginQuery(timer.TIME_ELAPSED_EXT, query); measuring = true
       }
       return true
     },
     end() { if (measuring) { context.endQuery(timer!.TIME_ELAPSED_EXT); measuring = false } },
+    setCoefficients(values: Float32Array, indices: ArrayLike<number>, positions: Float32Array) {
+      if (!coefficientsOnly || values.length !== indices.length * 12 || positions.length !== source.positionData.length)
+        throw new Error('Invalid absolute GPU probe coefficients')
+      finalData.fill(0)
+      for (let i = 0; i < indices.length; i++) {
+        const probe = indices[i]
+        if (!Number.isInteger(probe) || probe < 0 || probe >= count) throw new Error('Probe index exceeds the GI atlas')
+        if (positions[probe * 4 + 3] < .5) continue
+        for (let k = 0; k < 4; k++) {
+          const src = i * 12 + k * 3, dst = probe * 16 + k * 4
+          if (!Number.isFinite(values[src]) || !Number.isFinite(values[src + 1]) || !Number.isFinite(values[src + 2]))
+            throw new Error('Nonfinite absolute GPU probe coefficients')
+          finalData[dst] = values[src]
+          finalData[dst + 1] = values[src + 1]
+          finalData[dst + 2] = values[src + 2]
+          finalData[dst + 3] = 1
+        }
+      }
+      final.needsUpdate = true
+    },
     seed(direct: Uint16Array[], settled: Uint16Array[], positions: Float32Array) {
+      if (coefficientsOnly) throw new Error('Absolute GPU fields use setCoefficients')
       initialized = false
       oldData.fill(0); finalData.fill(0)
       for (const probe of source.probes) for (let coefficient = 0; coefficient < 4; coefficient++) {

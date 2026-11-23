@@ -47,9 +47,9 @@ export function evaluateObjectGI(coefficients:number[],normal:Vector3){const bas
  * receiver-offset or volume sampler. The existing PBR diffuse BRDF consumes
  * irradiance; no extra GI contribution is added. */
 export function patchObjectGIShader(source:string){
- const receiver='float hdGIId = hdGIReceiver(',begin='            vec3 hdGIMean;',end='            irradiance = hdGICapture'
+ const receiver='hdGIId = hdGIReceiver(',begin='            vec3 hdGIMean;',end='            irradiance = hdGICapture'
  if(!source.includes(receiver)||!source.includes(begin)||!source.includes(end))throw Error('Object GI shader contract changed')
- source=source.replace(receiver,'float hdGIId = hdGICapture < .5 ? 0.0 : hdGIReceiver(')
+ source=source.replace(receiver,'hdGIId = hdGICapture < .5 ? 0.0 : hdGIReceiver(')
  const start=source.indexOf(begin),stop=source.indexOf(end,start),original=source.slice(start,stop).replace('            vec3 hdGIMean;','').replaceAll('vec3 hdGILight =','hdGILight =')
  const block=`vec3 hdGILight;vec3 hdGIMean;
  if(hdGICapture<.5){vec4 basis=vec4(.886227,1.023328*hdGINormal.y,1.023328*hdGINormal.z,1.023328*hdGINormal.x);

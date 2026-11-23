@@ -14,8 +14,8 @@ async function click(selector,text){
  await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',buttons:0,...p})
  await b.call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,...p});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,...p})
 }
-async function mouse(point,type='click'){
- if(type==='click'){await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',buttons:0,...point});await b.call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,...point});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,...point})}
+async function mouse(point,button='left'){
+ await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',buttons:0,...point});await b.call('Input.dispatchMouseEvent',{type:'mousePressed',button,buttons:button==='right'?2:1,clickCount:1,...point});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',button,buttons:0,clickCount:1,...point})
 }
 async function selectModel(id){
  for(let i=0;i<3;i++){
@@ -101,6 +101,8 @@ try{
   await measured('add furniture using Paste',()=>click('button[aria-label="Paste"]'),`editorProps('FloorplanCanvas').activeFloor.models.length===editorOriginalModelCount+1`)
   await measured('undo added furniture',()=>click('button[aria-label="Undo"]'),`editorProps('FloorplanCanvas').activeFloor.models.length===editorOriginalModelCount`)
   await selectModel(id)
+  const {x,y}=await b.evaluate(`editorPlanPoint('${id}')`)
+  await mouse({x,y},'right');await click('.canvas-context-menu button','Properties')
   await measured('remove furniture using Delete',()=>click('.context-panel button','Delete'),`!editorState().scene.getObjectByName('model-transform-${id}')`)
   await measured('undo furniture removal',()=>click('button[aria-label="Undo"]'),`!!editorState().scene.getObjectByName('model-transform-${id}')`)
   // Picking a wall during reconstruction can select a transient model instead.

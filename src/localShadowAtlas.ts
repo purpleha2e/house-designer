@@ -1,10 +1,24 @@
 import { BackSide, Color, DataTexture, FloatType, Matrix4, MeshDepthMaterial, NearestFilter,
   PerspectiveCamera, RGBAFormat, RGBADepthPacking, UnsignedByteType, Vector2, Vector3,
-  WebGLRenderTarget, type Scene, type WebGLRenderer } from 'three'
+  WebGLRenderTarget, type Scene, type Side, type WebGLRenderer } from 'three'
 
 export type AtlasLight = { id: string; kind: 'point' | 'spot'; position: number[]; target: number[]; distance: number; angle: number }
 const directions = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]
 const ups = [[0,-1,0],[0,-1,0],[0,0,1],[0,0,-1],[0,-1,0],[0,-1,0]]
+
+/** Frozen atlas geometry has only three sidedness variants. Keep their exact
+ * materials alive between geometry snapshots so Three retains linked programs. */
+export function createLocalShadowDepthMaterials() {
+  const materials = new Map<Side, MeshDepthMaterial>()
+  return {
+    get(side: Side) {
+      let material = materials.get(side)
+      if (!material) { material = new MeshDepthMaterial({ depthPacking: RGBADepthPacking, side }); materials.set(side, material) }
+      return material
+    },
+    dispose() { materials.forEach(material => material.dispose()); materials.clear() },
+  }
+}
 
 /** One padded tile per projection, six for an omnidirectional lamp. Limit the
  * atlas allocation, not the number of lights receiving persistent shadows. */

@@ -11,7 +11,7 @@ const b=await lightingBrowser({onEvent:m=>{if(m.method==='Tracing.tracingComplet
 const save=(name,data)=>writeFileSync(`${out}/${name}.json`,JSON.stringify(data,null,2))
 const digest=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex')
 async function shot(name){const r=await b.call('Page.captureScreenshot',{format:'png'});writeFileSync(`${out}/${name}.png`,Buffer.from(r.data,'base64'))}
-async function mouse({x,y}){await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await b.call('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'left',buttons:1,clickCount:1});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'left',buttons:0,clickCount:1})}
+async function mouse({x,y},button='left'){await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',x,y});await b.call('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button,buttons:button==='right'?2:1,clickCount:1});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button,buttons:0,clickCount:1})}
 async function control(selector,text){const p=await b.evaluate(`(()=>{const es=[...document.querySelectorAll(${JSON.stringify(selector)})],e=${text?`es.find(e=>e.textContent.trim()===${JSON.stringify(text)})`:'es[0]'};if(!e)throw Error('Missing control');const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`);await mouse(p)}
 async function step(target,label,delay=180){const before=await b.evaluate('selectionAudit.snapshot()');await b.evaluate(`selectionAudit.event('test.input',{label:${JSON.stringify(label)}})`);await mouse(target);await pause(delay);const after=await b.evaluate('selectionAudit.snapshot()');report.steps.push({label,target:{...target},before,after});if(!full)await shot('click-'+report.steps.length)}
 try{
@@ -28,6 +28,7 @@ try{
  await b.call('Input.dispatchKeyEvent',{type:'keyUp',key:'s',code:'KeyS',windowsVirtualKeyCode:83})
  report.navigation={before:await b.evaluate('selectionAudit.snapshot()')}
  await b.call('Input.dispatchMouseEvent',{type:'mousePressed',x:1050,y:450,button:'right',buttons:2,clickCount:1})
+ await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:1062,y:450,button:'right',buttons:2})
  await b.wait('!!document.pointerLockElement',2000)
  for(let i=0;i<3;i++){await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0,button:'right',buttons:2});await pause(25)}
  const delta=await b.evaluate(`(()=>{const s=selectionAudit.state(),e=new selectionAudit.Three.Euler().setFromQuaternion(s.camera.quaternion,'YXZ'),d=new selectionAudit.Three.Vector3(6,4,9).sub(s.camera.position).normalize();let yaw=Math.atan2(-d.x,-d.z)-e.y;while(yaw>Math.PI)yaw-=Math.PI*2;while(yaw<-Math.PI)yaw+=Math.PI*2;return{x:-yaw/.002,y:-(Math.asin(d.y)-e.x)/.002,e:e.toArray()}})()`)
@@ -67,6 +68,10 @@ try{
   for(const p of windows)Object.assign(p,await b.evaluate(`selectionAudit.candidates().find(t=>t.id===${JSON.stringify(p.id)})`))
   // A real saved-geometry edit through the public properties panel.
   if(await b.evaluate('selectionAudit.snapshot().selected')!==windows[1].id)await step(windows[1],'select before edit')
+  if(!await b.evaluate(`!!document.querySelector('[aria-label="Object width"]')`)){
+    await mouse(windows[1],'right');await b.wait('!!document.querySelector(".canvas-context-menu button")',5000)
+    await control('.canvas-context-menu button','Properties')
+  }
   await control('[aria-label="Object width"]')
   await b.call('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});await b.call('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65})
   await b.call('Input.insertText',{text:'1.25'});await b.call('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await b.call('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await pause(600)

@@ -1,0 +1,10 @@
+{
+  "model": "rt_hdr_calb_cnrm.tza",
+  "purpose": "OIDN HDR denoising with clean albedo and normal guides",
+  "source": "https://raw.githubusercontent.com/pissang/oidn-webgpu/main/weights/rt_hdr_calb_cnrm.tza",
+  "sha256": "d0057057bd76c64e3e67b449728ef8f4fd2f11ccfb74c1e59b9d50dafd50ee0e",
+  "bytes": 1841160,
+  "copyright": "Intel Corporation",
+  "license": "Apache-2.0; see LICENSE.txt",
+  "runtime": "oidn-webgpu 0.6.0 (MIT)"
+}

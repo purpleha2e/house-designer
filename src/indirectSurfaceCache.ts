@@ -262,9 +262,10 @@ export function applyIndirectSurfaceRadianceCapture(material: Material, relighti
     const response = standard ? /* glsl */ `
       vec3 hdSurfaceN = normalize(transformNormalByInverseViewMatrix(geometryNormal, viewMatrix));
       vec3 hdSurfaceGeometricN = normalize(transformNormalByInverseViewMatrix(nonPerturbedNormal, viewMatrix));
-      vec3 hdSurfaceP; float hdSurfaceFloor;
+      ${rawReceiver ? `vec3 hdSurfaceP = hdGIWorldPosition; float hdSurfaceFloor = 0.0;
+      float hdSurfaceId = -1.0;` : `vec3 hdSurfaceP; float hdSurfaceFloor;
       float hdSurfaceId = hdGIReceiver(hdGIWorldPosition, hdGIReceiverWorldOffset, hdSurfaceGeometricN,
-        1.0, hdSurfaceP, hdSurfaceFloor);
+        1.0, hdSurfaceP, hdSurfaceFloor);`}
       hdSurfaceReceiver = ${rawReceiver ? 'vec4(hdGIWorldPosition, 1.0)' : 'vec4(hdSurfaceP, hdSurfaceId + 1.0)'};
       // Preserve the exact exterior sky eligibility, including roof undersides.
       // Transport recognizes only positive indoor receiver IDs.

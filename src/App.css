@@ -902,7 +902,20 @@
 
 .context-panel h2 { margin: 0; color: #172033; font-size: 13px; line-height: 1.2; }
 .context-panel p { margin: 3px 0 0; color: #64748b; font-size: 11px; overflow-wrap: anywhere; }
-.context-panel > div { flex-shrink: 0; }
+.context-panel-header { display: flex; flex-shrink: 0; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.context-panel-close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #334155;
+  font: 18px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+.context-panel-close:hover { background: #e2e8f0; }
 .context-panel dl {
   display: flex;
   flex-direction: column;
@@ -1930,16 +1943,23 @@
   outline: 2px solid rgba(37, 99, 235, 0.2);
 }
 
+.wall-start-offset-panel label {
+  grid-template-columns: 64px 1fr;
+}
+
+.wall-start-offset-panel label > span:first-child {
+  grid-column: 1 / -1;
+}
+
 .canvas-context-menu {
   position: absolute;
-  z-index: 3;
+  z-index: 20;
   min-width: 142px;
   padding: 5px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   background: #ffffff;
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
-  transform: translate(2px, 2px);
 }
 
 .canvas-context-menu button {
@@ -1948,7 +1968,7 @@
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: #991b1b;
+  color: #172033;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -1958,9 +1978,13 @@
 
 .canvas-context-menu button:hover,
 .canvas-context-menu button:focus-visible {
-  background: #fee2e2;
+  background: #e2e8f0;
   outline: none;
 }
+
+.canvas-context-menu .context-danger-action { color: #991b1b; }
+.canvas-context-menu .context-danger-action:hover,
+.canvas-context-menu .context-danger-action:focus-visible { background: #fee2e2; }
 
 .modal-backdrop {
   position: fixed;
@@ -2532,6 +2556,21 @@
   background: var(--toolbar-background);
   font-size: 12px;
   pointer-events: none;
+}
+.floorplan-wall-hint {
+  max-width: calc(100% - 64px);
+}
+
+.floorplan-wall-hint button {
+  margin-left: 8px;
+  padding: 3px 6px;
+  border: 1px solid #93c5fd;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
 }
 .gi-inspection-panel {
   position: absolute;

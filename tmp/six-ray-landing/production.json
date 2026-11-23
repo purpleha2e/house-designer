@@ -1,0 +1,23 @@
+{
+  "screenshots": {
+    "production": {
+      "exposure": 1.4142135623730951,
+      "toneMapping": 0,
+      "fill": 0.16,
+      "programs": 101,
+      "clip": {
+        "x": 0,
+        "y": 0,
+        "width": 1084,
+        "height": 820,
+        "scale": 1
+      }
+    }
+  },
+  "browserErrors": [
+    "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+    "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute.",
+    "THREE.BufferGeometryUtils: .mergeAttributes() failed. BufferAttribute.gpuType must be consistent across matching attributes.",
+    "THREE.BufferGeometryUtils: .mergeGeometries() failed while trying to merge the position attribute."
+  ]
+}

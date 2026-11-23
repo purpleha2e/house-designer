@@ -91,8 +91,8 @@ export class IndirectLightingClient {
   plan(previous: IndirectZoneProbe[], changes: IndirectZoneChange[]) {
     return this.request<IndirectZonePlan>({ kind: 'plan', previous, changes })
   }
-  gpuPreview() {
-    return this.request<{ volume: IndirectInterpolationGraph; floor: IndirectInterpolationGraph }>({ kind: 'gpuPreview' })
+  gpuPreview(fullResolution = false, restored?: Extract<IndirectWorkerRequest, { kind: 'gpuPreview' }>['restored']) {
+    return this.request<{ volume: IndirectInterpolationGraph; floor: IndirectInterpolationGraph }>({ kind: 'gpuPreview', fullResolution, restored })
   }
   contactReceivers(query:IndirectContactReceiverQuery){return this.request<Int16Array>({...query,kind:'contactReceivers'})}
   lights(positions: [number, number, number][], zones?: { previous: IndirectZoneProbe[]; changes: IndirectZoneChange[] }) {

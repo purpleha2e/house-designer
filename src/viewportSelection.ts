@@ -1,5 +1,15 @@
-import { Group, Mesh, type Object3D, type Scene } from 'three'
+import { Group, Mesh, type MeshBasicMaterialParameters, type Object3D, type Scene } from 'three'
 import { isSelectionDecorationRoot } from './shaderWarmup.ts'
+
+export const wallSelectionMaterialParameters = {
+  colorWrite: true,
+  depthWrite: false,
+  opacity: 0.26,
+  polygonOffset: true,
+  polygonOffsetFactor: -4,
+  polygonOffsetUnits: -4,
+  transparent: true,
+} satisfies MeshBasicMaterialParameters
 
 /** Selection stays live while the expensive building display is retained.
  * These proxies borrow geometry/materials; their mounted source owns disposal. */

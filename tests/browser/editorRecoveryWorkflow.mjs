@@ -14,10 +14,10 @@ async function click(selector, text) {
   const p = await b.evaluate(`(()=>{const a=[...document.querySelectorAll(${JSON.stringify(selector)})],e=${text ? `a.find(e=>e.textContent.trim()===${JSON.stringify(text)})` : 'a[0]'};if(!e||e.disabled)throw Error('Control unavailable: '+${JSON.stringify(selector + ' ' + (text ?? ''))});e.scrollIntoView({block:'center'});const r=e.getBoundingClientRect();return{x:r.x+r.width/2,y:r.y+r.height/2}})()`)
   await mouse(p)
 }
-async function mouse(p) {
+async function mouse(p, button = 'left') {
   await b.call('Input.dispatchMouseEvent', { type: 'mouseMoved', buttons: 0, ...p })
-  await b.call('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', buttons: 1, clickCount: 1, ...p })
-  await b.call('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', buttons: 0, clickCount: 1, ...p })
+  await b.call('Input.dispatchMouseEvent', { type: 'mousePressed', button, buttons: button === 'right' ? 2 : 1, clickCount: 1, ...p })
+  await b.call('Input.dispatchMouseEvent', { type: 'mouseReleased', button, buttons: 0, clickCount: 1, ...p })
 }
 async function shot(name) { const s = await b.call('Page.captureScreenshot', { format: 'png' }); writeFileSync(`${out}/${name}.png`, Buffer.from(s.data, 'base64')) }
 async function field(selector, text) {
@@ -93,6 +93,7 @@ try {
     await mouse(point); await b.wait(`recoveryProps('FloorplanCanvas').activeFloor.models.length>0`, 5000)
     report.steps.push({ action: 'window inserted in plan', at, observed: await b.evaluate('performance.now()') })
     await shot('window-initial'); await observe(15); await shot('window-prepared')
+    await mouse(await planPoint(3,1.5), 'right'); await click('.canvas-context-menu button', 'Properties')
     const resizeAt = await arm('resize window')
     await field('[aria-label="Object width"]', '0.6'); await observe(2)
     report.steps.push({ action: 'resize window', at: resizeAt, state: await b.evaluate(snapshot) }); await shot('window-resized')

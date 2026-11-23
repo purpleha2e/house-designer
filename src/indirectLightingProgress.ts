@@ -25,6 +25,7 @@ export type IndirectLightingStatus = {
 }
 
 export function formatIndirectLightingProgress(status?: IndirectLightingStatus) {
+  if (status?.state === 'suspended') return 'Probe GI paused for modelling'
   if (!status) return 'GI preparing'
   if (status.enabled === false) return 'GI off'
   if (status.diffuseEnabled === false) return 'Probe GI off'
@@ -42,6 +43,7 @@ export function formatIndirectLightingProgress(status?: IndirectLightingStatus) 
 
 /** Longer status for the engine activity area; transient editor work has priority. */
 export function formatIndirectLightingEngineStatus(status?: IndirectLightingStatus) {
+  if (status?.state === 'suspended') return 'Probe GI paused · Modelling GI active'
   if (!status) return 'GI preparing'
   if (status.enabled === false) return 'GI off'
   if (status.diffuseEnabled === false) return 'Probe GI off'

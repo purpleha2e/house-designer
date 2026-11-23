@@ -111,7 +111,13 @@ export function getSlabOpeningRevealEdges(footprints: PlanFootprint[], cutouts: 
       }
       const p = offset[i], q = offset[(i + 1) % ring.length]
       const pointAt = (t: number) => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t })
-      for (const [start, end] of merged) edges.push({ point: pointAt(start), nextPoint: pointAt(end) })
+      // The rendered vertical plane faces the left side of its directed edge.
+      // Polygon-clipping holes (and boundary notches) commonly need the other
+      // direction: their original winding points the plane into the solid slab.
+      // Orient the face toward the opening, just like the inset normal above.
+      for (const [start, end] of merged) edges.push(sign > 0
+        ? { point: pointAt(start), nextPoint: pointAt(end) }
+        : { point: pointAt(end), nextPoint: pointAt(start) })
     }
   }
   return edges

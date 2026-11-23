@@ -124,7 +124,7 @@ export class SunCascades {
 }
 
 const cascadePars = /* glsl */ `
-#if defined(USE_SHADOWMAP) && defined(SHADOWMAP_TYPE_PCF) && !defined(HD_GI_CAPTURE_VISIBILITY)
+#if defined(USE_SHADOWMAP) && defined(SHADOWMAP_TYPE_PCF) && !defined(HD_GI_CAPTURE_VISIBILITY) && !defined(HD_GI_NATIVE_CAPTURE)
 uniform float hdSunCascadesEnabled;
 uniform int hdSunCascadeCount;
 uniform mat4 hdSunCascadeView;

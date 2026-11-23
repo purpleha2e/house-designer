@@ -34,14 +34,14 @@ test('fast GI switches hold the display and keep retained and early lit programs
   copies.forEach((m,i)=>{assert.equal(m.version,versions[i]);assert.equal(m.customProgramCacheKey(),keys[i]);assert.equal(m.transparent,false)})
   const replacement=retainViewportScene(scene)
   const next=(replacement.scene.children.find(o=>o instanceof Mesh) as Mesh).material as MeshStandardMaterial
-  assert.match(next.customProgramCacheKey(),/display-fast/,'replacement uses the newly prepared variant')
+  assert.match(next.customProgramCacheKey(),/-fast$/,'replacement uses the newly prepared variant')
   const enabledGeneration=shaderWarmupGeneration(scene)
   assert.equal(setFastGIShaderFeature(scene,uniforms.hdFastFeature,true),false,'repeated frames do not restart preparation')
   assert.equal(shaderWarmupGeneration(scene),enabledGeneration)
   setFastGIShaderFeature(scene,uniforms.hdFastFeature,false)
   assert.equal(completeShaderWarmup(scene,enabledGeneration),false,'disabling during preparation requires a newer generation')
   retained.syncLighting();opaque.syncLighting()
-  copies.forEach(m=>assert.doesNotMatch(m.customProgramCacheKey(),/display-fast/))
+  copies.forEach(m=>assert.doesNotMatch(m.customProgramCacheKey(),/-fast$/))
   replacement.dispose();retained.dispose();opaque.dispose();geometry.dispose();material.dispose();field.dispose()
 })
 
@@ -62,6 +62,9 @@ test('conservative occupancy closes thin walls while retaining a window and tabl
   const translated=parts.map(part=>({...part,matrices:part.matrices.map(m=>new Matrix4().makeTranslation(0,0,1).multiply(new Matrix4().fromArray(m)).toArray())}))
   const moved=voxelizeFastGeometry(translated,[0,0,0],[4,4,4],n)
   assert.notDeepEqual(moved.data,result.data,'world transforms participate in occupancy')
+  const axisMask=(x:number,y:number,z:number)=>result.data[Math.floor(x/4*n)+Math.floor(z/4*n)*n+Math.floor(y/4*n)*n*n]
+  assert.equal(axisMask(2,2,.5),4,'an isolated wall cell stores only its surface axis')
+  assert.equal(axisMask(1.25,1.5,2),3,'an edge cell records its intersecting vertical and horizontal surfaces')
   geometries.forEach(g=>g.dispose());material.dispose()
 })
 

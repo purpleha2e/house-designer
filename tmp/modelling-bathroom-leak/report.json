@@ -1,0 +1,79 @@
+{
+  "ids": [
+    "c3efd73d-1d28-413f-8301-b32a4c777fc9",
+    "04d995c9-4188-4e94-9bbe-f13e03af4bc5"
+  ],
+  "camera": [
+    12.35,
+    1.48,
+    4.45
+  ],
+  "lights": [
+    {
+      "angle": 1.0471975511965976,
+      "color": "#ffffff",
+      "distance": 10,
+      "falloff": 1.35,
+      "id": "04d995c9-4188-4e94-9bbe-f13e03af4bc5",
+      "kind": "point",
+      "penumbra": 0.75,
+      "position": [
+        10.401601857546476,
+        1.8212027273605849,
+        10.96302341380047
+      ],
+      "power": 4,
+      "target": [
+        10.401601857546476,
+        0.8212027273605849,
+        10.96302341380047
+      ]
+    },
+    {
+      "angle": 1.0471975511965976,
+      "color": "#f8f5e3",
+      "distance": 10,
+      "falloff": 0.5,
+      "id": "c3efd73d-1d28-413f-8301-b32a4c777fc9",
+      "kind": "point",
+      "penumbra": 0.75,
+      "position": [
+        11.102699736767374,
+        1.8499999999999999,
+        7.121973884191153
+      ],
+      "power": 12,
+      "target": [
+        11.102699736767374,
+        0.8499999999999999,
+        7.121973884191153
+      ]
+    }
+  ],
+  "samples": [
+    {
+      "label": "direct",
+      "id": "c3efd73d-1d28-413f-8301-b32a4c777fc9",
+      "peak": 0,
+      "litPixels": 0
+    },
+    {
+      "label": "bounce",
+      "id": "c3efd73d-1d28-413f-8301-b32a4c777fc9",
+      "peak": 4.333333333333333,
+      "litPixels": 313
+    },
+    {
+      "label": "direct",
+      "id": "04d995c9-4188-4e94-9bbe-f13e03af4bc5",
+      "peak": 0,
+      "litPixels": 0
+    },
+    {
+      "label": "bounce",
+      "id": "04d995c9-4188-4e94-9bbe-f13e03af4bc5",
+      "peak": 0,
+      "litPixels": 0
+    }
+  ]
+}

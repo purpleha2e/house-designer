@@ -121,21 +121,25 @@ function texture(data: Uint8Array | Uint16Array | Float32Array, width: number, h
 }
 
 /** Rooms place probes indoors; only geometry visibility governs their blending. */
-export function createIndirectField(input: IndirectFloor[], localLightCount = 1, shOrder: IndirectSHOrder = 1, spatialInterpolation:IndirectSpatialInterpolation='legacy',contactLighting=false) {
+const productionResolution = { volumeSpacing: .16, floorSpacing: .04, maskSize: INDIRECT_MASK_SIZE }
+
+export function createIndirectField(input: IndirectFloor[], localLightCount = 1, shOrder: IndirectSHOrder = 1, spatialInterpolation:IndirectSpatialInterpolation='legacy',contactLighting=false,
+  resolution = productionResolution) {
   const coefficientCount = indirectSHCoefficientCount(shOrder)
+  const maskSize = resolution.maskSize
   const floors = [...input].sort((a, b) => a.elevation - b.elevation).slice(0, INDIRECT_MAX_FLOORS)
   const points = floors.flatMap(f => f.rooms.flatMap(r => r.polygon))
   const minX = (points.length ? Math.min(...points.map(p => p.x)) : 0) - .25
   const minZ = (points.length ? Math.min(...points.map(p => p.y)) : 0) - .25
   const size = Math.max(1, ...points.map(p => p.x - minX + .25), ...points.map(p => p.y - minZ + .25))
-  const maskData = new Uint8Array(INDIRECT_MASK_SIZE * INDIRECT_MASK_SIZE * Math.max(1, floors.length) * 4)
+  const maskData = new Uint8Array(maskSize * maskSize * Math.max(1, floors.length) * 4)
   const regions: IndirectRegion[] = []
   const locators = new Map<IndirectRegion, ReturnType<typeof createRoomProbeLocator>>()
   const ranges = Array.from({ length: INDIRECT_MAX_FLOORS }, () => ({ bottom: 1e8, top: -1e8 }))
   for (const [index, floor] of floors.entries()) {
     const top = floors[index + 1]?.elevation ?? floor.elevation + floor.height
     ranges[index] = { bottom: floor.elevation - .06, top: top - .005 }
-    const mask = createRoomLightMask(floor.rooms, { minX, minZ, size }, INDIRECT_MASK_SIZE)
+    const mask = createRoomLightMask(floor.rooms, { minX, minZ, size }, maskSize)
     const ids = new Map<number, number>()
     for (const room of floor.rooms) {
       const localId = mask.roomIdsBySignature.get(room.signature)
@@ -153,7 +157,7 @@ export function createIndirectField(input: IndirectFloor[], localLightCount = 1,
     }
     mask.data.forEach((localId, pixel) => {
       // This is occupancy, never a room ID: adjoining rooms have identical values.
-      maskData[(index * INDIRECT_MASK_SIZE ** 2 + pixel) * 4] = ids.has(localId) ? 255 : 0
+      maskData[(index * maskSize ** 2 + pixel) * 4] = ids.has(localId) ? 255 : 0
     })
     // Room polygons stop at partition faces. Their missing wall footprint is
     // not outdoor space: a stair tread above a short partition still receives
@@ -161,9 +165,9 @@ export function createIndirectField(input: IndirectFloor[], localLightCount = 1,
     if (floor.indoorPartitions?.length) {
       const partitions = createRoomLightMask(floor.indoorPartitions.map((polygon, i) => ({
         signature: `partition-${i}`, polygon,
-      })), { minX, minZ, size }, INDIRECT_MASK_SIZE)
+      })), { minX, minZ, size }, maskSize)
       partitions.data.forEach((occupied, pixel) => {
-        if (occupied) maskData[(index * INDIRECT_MASK_SIZE ** 2 + pixel) * 4] = 255
+        if (occupied) maskData[(index * maskSize ** 2 + pixel) * 4] = 255
       })
     }
   }
@@ -225,9 +229,9 @@ export function createIndirectField(input: IndirectFloor[], localLightCount = 1,
   const distances = new DataTexture(distanceData, distanceWidth, distanceHeight, RedFormat, FloatType)
   distances.magFilter = distances.minFilter = NearestFilter
   distances.generateMipmaps = false; distances.needsUpdate = true
-  const mask = texture(maskData, INDIRECT_MASK_SIZE, INDIRECT_MASK_SIZE * Math.max(1, floors.length))
-  const volume = createIndirectVolume(size, floors.length, .16, 128, coefficientCount)
-  const floorLayer = createIndirectFloorLayer(size, floors.length, .04, 512, coefficientCount)
+  const mask = texture(maskData, maskSize, maskSize * Math.max(1, floors.length))
+  const volume = createIndirectVolume(size, floors.length, resolution.volumeSpacing, 128, coefficientCount)
+  const floorLayer = createIndirectFloorLayer(size, floors.length, resolution.floorSpacing, 512, coefficientCount)
   const contactData=new Uint16Array(INDIRECT_CONTACT_PROBE_BUDGET*3*4),contactTexture=texture(contactData,INDIRECT_CONTACT_PROBE_BUDGET,3)
   return { floors, ranges, grids, probes, regions, spacing, n, shOrder, spatialInterpolation, contactLighting, contactReceiverTag:0, coefficientCount, floorProbeLayoutVersion: 0, volumeSamplingVersion: INDIRECT_VOLUME_SAMPLING_VERSION, bounds: { minX, minZ, size }, mask, maps, coefficients,
     positions, positionData, distances, distanceData, distanceColumns, distanceRows, distanceSize, distanceWidth, volume, floorLayer,contactData,contactTexture,contactFrozen:false,
@@ -269,7 +273,7 @@ export function serializeIndirectField(field: IndirectField) {
 }
 export type IndirectFieldData = Omit<ReturnType<typeof serializeIndirectField>, 'floorProbeLayoutVersion' | 'volumeSamplingVersion' | 'shOrder' | 'spatialInterpolation' | 'contactLighting'> & { floorProbeLayoutVersion?: number; volumeSamplingVersion?: number; shOrder?: IndirectSHOrder; spatialInterpolation?:IndirectSpatialInterpolation;contactLighting?:boolean }
 
-export function restoreIndirectField(data: IndirectFieldData): IndirectField {
+export function restoreIndirectField(data: IndirectFieldData, resolution = productionResolution): IndirectField {
   const shOrder = data.shOrder ?? 1, coefficientCount = indirectSHCoefficientCount(shOrder)
   const regions = data.regions.map(region => ({ ...region, centre: new Vector3().fromArray(region.centre) }))
   const probes = data.probes.map(probe => ({ index: probe.index, position: new Vector3().fromArray(probe.position),
@@ -280,9 +284,9 @@ export function restoreIndirectField(data: IndirectFieldData): IndirectField {
   const distanceHeight = data.distanceRows * data.distanceSize
   const distances = new DataTexture(data.distanceData, data.distanceWidth, distanceHeight, RedFormat, FloatType)
   distances.magFilter = distances.minFilter = NearestFilter; distances.generateMipmaps = false; distances.needsUpdate = true
-  const mask = texture(data.maskData, INDIRECT_MASK_SIZE, INDIRECT_MASK_SIZE * Math.max(1, data.floors.length))
-  const volume = createIndirectVolume(data.bounds.size, data.floors.length, .16, 128, coefficientCount)
-  const floorLayer = createIndirectFloorLayer(data.bounds.size, data.floors.length, .04, 512, coefficientCount)
+  const mask = texture(data.maskData, resolution.maskSize, resolution.maskSize * Math.max(1, data.floors.length))
+  const volume = createIndirectVolume(data.bounds.size, data.floors.length, resolution.volumeSpacing, 128, coefficientCount)
+  const floorLayer = createIndirectFloorLayer(data.bounds.size, data.floors.length, resolution.floorSpacing, 512, coefficientCount)
   const contactData=new Uint16Array(INDIRECT_CONTACT_PROBE_BUDGET*3*4),contactTexture=texture(contactData,INDIRECT_CONTACT_PROBE_BUDGET,3)
   return { ...data, shOrder, spatialInterpolation:data.spatialInterpolation??'legacy', contactLighting:data.contactLighting??false, contactReceiverTag:0, coefficientCount, floorProbeLayoutVersion: data.floorProbeLayoutVersion ?? 0, volumeSamplingVersion: data.volumeSamplingVersion ?? 0, regions, probes, coefficients, maps, positions, distances, mask, volume, floorLayer,contactData,contactTexture,contactFrozen:false,
     dispose() { mask.dispose(); positions.dispose(); distances.dispose(); volume.dispose(); floorLayer.dispose();contactTexture.dispose(); maps.forEach(map => map.dispose()) } }

@@ -4,7 +4,7 @@ import {lightingBrowser} from './lightingHarness.mjs'
 const b=await lightingBrowser()
 try{
  await b.call('Page.navigate',{url:`http://127.0.0.1:${process.argv[2]??5181}/tests/browser/groundShadowContrast.html`})
- await b.wait('!!window.groundWeatherResults')
+ await b.wait('!!window.groundDisplayResults')
  const results=await b.evaluate('groundShadowResults')
  mkdirSync('tmp/ground-shadow',{recursive:true})
  for(const r of results){
@@ -28,4 +28,10 @@ try{
  }
  assert.equal(weather.programsAfter,weather.programsBefore,'weather and sun height reuse existing shaders')
  console.log('PASS weather palette and stable shaders',JSON.stringify(weather))
+ const display=await b.evaluate('groundDisplayResults')
+ assert.ok(display.displayGround<display.physicalGround-15,'editor ground is visibly darker')
+ assert.equal(display.displayWall,display.physicalWall,'the display tint leaves walls unchanged')
+ assert.equal(display.probeGround,display.physicalGround,'probe captures keep the physical ground colour')
+ assert.equal(display.nativeGround,display.physicalGround,'native-shadow captures keep the physical ground colour')
+ console.log('PASS visible editor ground and unchanged transport',JSON.stringify(display))
 }finally{b.close()}

@@ -25,7 +25,7 @@ export async function lightingBrowser(options={}) {
       if(m.method==='Log.entryAdded')logs.push(m.params.entry)
     })
     const send=(method,params={},sessionId)=>new Promise((resolve,reject)=>{
-      const requestId=++id,timer=setTimeout(()=>{pending.delete(requestId);reject(Error(`${method} timed out`))},180000)
+      const requestId=++id,timer=setTimeout(()=>{pending.delete(requestId);reject(Error(`${method} timed out`))},options.requestTimeout??180000)
       pending.set(requestId,{resolve,reject,timer});ws.send(JSON.stringify({id:requestId,method,params,sessionId}))
     })
     const {targetId}=await send('Target.createTarget',{url:'about:blank'}),{sessionId}=await send('Target.attachToTarget',{targetId,flatten:true})
@@ -33,7 +33,7 @@ export async function lightingBrowser(options={}) {
     const evaluate=async expression=>{const r=await call('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value}
     await call('Runtime.enable');await call('Page.enable');await call('Emulation.setFocusEmulationEnabled',{enabled:true})
     await call('Page.addScriptToEvaluateOnNewDocument',{source:`const NativeSocket=window.WebSocket;window.WebSocket=class extends NativeSocket{constructor(url,protocols){super(url,protocols);if(protocols==='vite-hmr')this.addEventListener('message',event=>event.stopImmediatePropagation())}};`})
-    return {call,browserCall:(method,params={})=>send(method,params),evaluate,errors,logs,async wait(expression,timeout=180000){
+    return {call,browserCall:(method,params={},sessionId)=>send(method,params,sessionId),evaluate,errors,logs,async wait(expression,timeout=180000){
       const end=Date.now()+timeout
       while(!await evaluate(expression)){if(errors.length)throw Error(errors.join('\n'));if(Date.now()>end)throw Error(`Timed out: ${expression}`);await new Promise(r=>setTimeout(r,80))}
     },close(){for(const request of pending.values())clearTimeout(request.timer);ws.close();browser.kill()}}

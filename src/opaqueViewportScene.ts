@@ -10,7 +10,15 @@ import { createViewportSurfaceVisibility, hasViewportSurfaceVisibility, includeV
 
 /** A display-only PBR copy: shared geometry/textures and alpha glass. The lit
  * stage preserves sunlight shadows while the full effects prepare. */
-type OpaqueViewportOptions = { lighting?: boolean; basic?: boolean }
+type OpaqueViewportOptions = { lighting?: boolean; basic?: boolean; reuseSceneLights?: boolean }
+
+// Keep this release closure separate from the scene builder so it owns only
+// material leases, not obsolete meshes, geometry or transform bindings.
+function retainMaterialPrograms(materials: Iterable<Material>) {
+  const releases = Array.from(materials, retainResource)
+  return () => releases.splice(0).forEach(release => release())
+}
+
 function* opaqueViewportSteps(source: Scene, options: OpaqueViewportOptions = {}) {
   const sourceRoot = source
   source.updateMatrixWorld(true)
@@ -18,8 +26,8 @@ function* opaqueViewportSteps(source: Scene, options: OpaqueViewportOptions = {}
   display.userData.basicGeometryViewport = options.basic === true
   display.userData.projectGeneration = source.userData.projectGeneration
   let sunShadows = false
-  source.traverse(object => {
-    if (options.lighting && object instanceof DirectionalLight &&
+  if (options.lighting) source.traverse(object => {
+    if (object instanceof DirectionalLight &&
       object.userData.houseDesignerRole === 'sun-light' && object.castShadow) sunShadows = true
   })
   display.userData.preparedLightingViewport = sunShadows
@@ -28,7 +36,7 @@ function* opaqueViewportSteps(source: Scene, options: OpaqueViewportOptions = {}
   const transforms = createViewportModelTransforms(source)
   const visibility = createViewportSurfaceVisibility()
   const opaqueMaterials = new Map<Material, MeshStandardMaterial>()
-  if (options.lighting) {
+  if (options.lighting || options.reuseSceneLights) {
     source.traverseVisible(object => {
       if (!(object instanceof Light)) return
       const copy = object.clone(false); copy.castShadow = false
@@ -85,7 +93,11 @@ function* opaqueViewportSteps(source: Scene, options: OpaqueViewportOptions = {}
       const transmission = 'transmission' in m ? Number(m.transmission) || 0 : 0
       const opacity = transmission > 0 ? m.opacity * (1 - Math.min(1, transmission) * .9) : m.opacity
       const transparent = m.transparent || transmission > 0
-      const common = { color: m.color ?? 0xffffff, map: m.map ?? null,
+      const groundDisplayTint: unknown = m.userData.groundDisplayTint
+      const color = typeof groundDisplayTint === 'string'
+        ? new Color(m.color ?? 0xffffff).multiply(new Color(groundDisplayTint))
+        : m.color ?? 0xffffff
+      const common = { color, map: m.map ?? null,
         side: DoubleSide, transparent, opacity, alphaTest: m.alphaTest,
         alphaMap: m.alphaMap ?? null, depthWrite: transparent ? false : m.depthWrite,
         shadowSide: m.shadowSide,
@@ -179,7 +191,11 @@ function* opaqueViewportSteps(source: Scene, options: OpaqueViewportOptions = {}
     }
   })
   completed = true
-  return { scene: display, meshes: preparedMeshes, syncLighting, syncTransforms: transforms.sync, syncVisibility: visibility.sync, dispose }
+  return { scene: display, meshes: preparedMeshes, syncLighting, syncTransforms: transforms.sync, syncVisibility: visibility.sync,
+    /** Preserve already-compiled material programs across an edit preview's
+     * disposal, while releasing its geometry and texture leases immediately. */
+    retainPrograms: () => retainMaterialPrograms(disposed ? [] : opaqueMaterials.values()),
+    dispose }
   } finally { if (!completed) dispose() }
 }
 

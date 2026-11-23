@@ -35,7 +35,7 @@ test('cached lighting keys preserve custom identity and live features in canonic
     const roomSuffix=`:house-designer-room-light-v29-${rendererShadowMode}-${rendererShadowSize}-capacity11`
     const key=upstream==='custom-source'?'custom-source':':other'
     const ibl='-house-designer-specular-ibl-v1'
-    const suffix=':house-designer-indirect-grid-l'+uniforms.hdGISHOrder.value+'-v48-exterior-tint'+
+    const suffix=':house-designer-indirect-grid-l'+uniforms.hdGISHOrder.value+'-v49-exterior-tint'+
       (uniforms.hdFastFeature.value?'-fast':'')+(lightingDiagnosticsEnabled?'-diagnostics':'')+
       (uniforms.hdGIContactMode.value>.5?'-contacts':'')+(uniforms.hdSunBounceFeature.value>.5?'-sunbounce':'')+
       (uniforms.hdLocalSunFeature.value>.5?'-local-sun':'')

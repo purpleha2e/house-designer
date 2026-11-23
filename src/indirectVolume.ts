@@ -43,7 +43,8 @@ export function createIndirectVolume(size: number, floors: number, spacing = .16
 const origin = new Vector3(), direction = new Vector3()
 
 /** Visibility depends on geometry, not illumination. Reuse it across previews and bounce passes. */
-export function createIndirectVolumeLookup(field: IndirectField, visibility: IndirectVisibility, voxels = field.volume.rows * field.volume.n,reuse?:IndirectInterpolationReuse,floorLookup=false) {
+export function createIndirectVolumeLookup(field: IndirectField, visibility: Pick<IndirectVisibility, 'hit' | 'occluded'>, voxels = field.volume.rows * field.volume.n,reuse?:IndirectInterpolationReuse,floorLookup=false,
+  maxVisibleLinks?: number) {
   const counters={samples:0,newCells:0,reusedCells:0,retainedStates:0,invalidatedStates:0,candidateChecks:0,links:0,visibilityTests:0,visibleLinks:0,blockedLinks:0,blendedLinks:0,decodedValues:0,growthBytes:0}
   const bins = new Map<string, typeof field.probes>()
   for (const original of field.probes) {
@@ -105,7 +106,10 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
         }
         neighbourhoods.set(key, candidates)
       }
-      for (const probe of candidates) {
+      const nearby = maxVisibleLinks ? candidates.filter(probe => probe.region.floorId === field.floors[_floor].id)
+        .sort((a, b) => distanceToCell(a.position) - distanceToCell(b.position)) : candidates
+      function distanceToCell(point: Vector3) { return (x-point.x)**2 + (y-point.y)**2 + (z-point.z)**2 }
+      for (const probe of nearby) {
         counters.candidateChecks++
         rayOrigin.copy(probe.position); rayDirection.set(x - rayOrigin.x, y - rayOrigin.y, z - rayOrigin.z)
         const distanceSquared = rayDirection.lengthSq()
@@ -123,7 +127,7 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
     result.fill(0)
     if(localFloorCells&&!localFloorCells[voxel])localFloorCells[voxel]=indirectLocalFloorReceiver(field,visibility,_floor,x,y,z)?2:1
     const local=distanceLocal||localFloorCells?.[voxel]===2
-    let total = 0, support=0
+    let total = 0, support=0, visible = 0
     const start = offsets[voxel], end = start + counts[voxel]
     for (let i = start; i < end; i++) {
       const index = indices[i]
@@ -147,6 +151,7 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
         result[colour * field.coefficientCount + coefficient] += (decoded ? decoded[colour][index * field.coefficientCount + coefficient]
           : DataUtils.fromHalfFloat(field.coefficients[colour][index * field.coefficientCount + coefficient])) * weight
       }
+      if (maxVisibleLinks && ++visible === maxVisibleLinks) break
     }
     if (total > 0) for (let i = 0; i < field.coefficientCount * 3; i++) result[i] /= total
     return support
@@ -184,7 +189,7 @@ export function createIndirectVolumeLookup(field: IndirectField, visibility: Ind
 
 /** Exact segments are affordable during the bake and avoid angular moment-map wedges. */
 export function sampleIndirectCoefficients(field: IndirectField, _floor: number, x: number, y: number, z: number,
-  result: Float64Array, visibility: IndirectVisibility,localFloor=false) {
+  result: Float64Array, visibility: Pick<IndirectVisibility, 'occluded'>,localFloor=false) {
   result.fill(0)
   const radiusSquared = (field.spacing * 1.75) ** 2
   let total = 0,support=0
@@ -233,7 +238,7 @@ export function writeIndirectCeilingRow(field: IndirectField, row: number, struc
 }
 
 /** One row is a small, bounded unit of background CPU work. */
-export function writeIndirectVolumeRow(field: IndirectField, row: number, result: Float64Array, visibility: IndirectVisibility,
+export function writeIndirectVolumeRow(field: IndirectField, row: number, result: Float64Array, visibility: Pick<IndirectVisibility, 'occluded'>,
   lookup?: ReturnType<typeof createIndirectVolumeLookup>, visibilityOnly = false) {
   const volume = field.volume, floor = Math.floor(row / (volume.n * INDIRECT_VOLUME_HEIGHT))
   const iz = Math.floor(row / INDIRECT_VOLUME_HEIGHT) % volume.n, iy = row % INDIRECT_VOLUME_HEIGHT
@@ -243,9 +248,10 @@ export function writeIndirectVolumeRow(field: IndirectField, row: number, result
   const z = field.bounds.minZ + iz / (volume.n - 1) * field.bounds.size
   for (let ix = 0; ix < volume.n; ix++) {
     const x = field.bounds.minX + ix / (volume.n - 1) * field.bounds.size
-    const mx = Math.min(INDIRECT_MASK_SIZE - 1, Math.floor(ix / (volume.n - 1) * INDIRECT_MASK_SIZE))
-    const mz = Math.min(INDIRECT_MASK_SIZE - 1, Math.floor(iz / (volume.n - 1) * INDIRECT_MASK_SIZE))
-    const mask = field.mask.image.data as Uint8Array, m = ((floor * INDIRECT_MASK_SIZE + mz) * INDIRECT_MASK_SIZE + mx) * 4
+    const maskSize = field.mask.image.width
+    const mx = Math.min(maskSize - 1, Math.floor(ix / (volume.n - 1) * maskSize))
+    const mz = Math.min(maskSize - 1, Math.floor(iz / (volume.n - 1) * maskSize))
+    const mask = field.mask.image.data as Uint8Array, m = ((floor * maskSize + mz) * maskSize + mx) * 4
     const ceiling = range.bottom + (mask[m + 1] * 256 + mask[m + 2]) / 65535 * (range.top - range.bottom)
     // Extend interior radiance into the border above the ceiling. Occupancy
     // still excludes exterior receivers; filtering never mixes with attic black.

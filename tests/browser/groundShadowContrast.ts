@@ -1,6 +1,8 @@
 import { ACESFilmicToneMapping, AmbientLight, BoxGeometry, DirectionalLight, Mesh, MeshStandardMaterial, PCFShadowMap, PerspectiveCamera, PlaneGeometry, Scene, Vector3, WebGLRenderer } from 'three'
 import { withGroundShadowContrast } from '../../src/materials/groundShadowContrast'
 import { daylightSkyBase, daylightSunAppearance } from '../../src/daylightSky'
+import { createIndirectCaptureScene } from '../../src/indirectCaptureScene'
+import { configureFastGIShadows } from '../../src/fastGIShadows'
 
 const renderer=new WebGLRenderer({antialias:true,preserveDrawingBuffer:true})
 renderer.setSize(800,600);renderer.setClearColor('#b7bdc5');renderer.toneMapping=ACESFilmicToneMapping
@@ -41,3 +43,19 @@ for(const mode of ['clear','overcast'] as const)for(const elevation of [1,.08]){
  weatherResults.push({mode,elevation,...capture(enhanced,true)})
 }
 Object.assign(window,{groundWeatherResults:{rows:weatherResults,programsBefore,programsAfter:renderer.info.programs!.length}})
+
+const groundDisplayTint = '#c2c8c4'
+const tinted = original.clone()
+tinted.userData.groundDisplayTint = groundDisplayTint
+Object.assign(tinted, withGroundShadowContrast(retention, undefined, groundDisplayTint))
+ground.receiveShadow = false
+const { lit: physicalGround, wall: physicalWall } = capture(enhanced)
+const { lit: displayGround, wall: displayWall } = capture(tinted)
+const transport = createIndirectCaptureScene(scene, false)
+const proxy = transport.scene.children.find(object => object instanceof Mesh && object.geometry === ground.geometry) as Mesh
+const captureGround = proxy.material as MeshStandardMaterial
+const probeGround = capture(captureGround).lit
+const nativeShadows = configureFastGIShadows(transport.scene)
+const nativeGround = capture(captureGround).lit
+nativeShadows.dispose(); transport.dispose(); tinted.dispose()
+Object.assign(window, { groundDisplayResults: { physicalGround, displayGround, physicalWall, displayWall, probeGround, nativeGround } })

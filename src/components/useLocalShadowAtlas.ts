@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { BackSide, BufferAttribute, BufferGeometry, InterleavedBuffer, InterleavedBufferAttribute, Mesh, MeshDepthMaterial, RGBADepthPacking, Scene, type Side } from 'three'
-import { createLocalShadowAtlas, type AtlasLight, type LocalShadowAtlasUniforms } from '../localShadowAtlas'
+import { BackSide, BufferAttribute, BufferGeometry, InterleavedBuffer, InterleavedBufferAttribute, Mesh, Scene } from 'three'
+import { createLocalShadowAtlas, createLocalShadowDepthMaterials, type AtlasLight, type LocalShadowAtlasUniforms } from '../localShadowAtlas'
 import { snapshotIndirectGeometrySteps } from '../indirectVisibility'
 import { runViewportTask } from '../viewportScheduling'
 import { subscribeShaderWarmup } from '../shaderWarmupState'
@@ -9,19 +9,14 @@ import type { LightShadowState } from '../lightShadowResources'
 
 /** Frozen opaque geometry, including camera-hidden ceilings. Use the same
  * glazing/physical-visibility rules as GI; never bake navigation fades. */
-export function* shadowSceneSteps(source: Scene) {
+export function* shadowSceneSteps(source: Scene, sharedMaterials?: ReturnType<typeof createLocalShadowDepthMaterials>) {
   const snapshot = yield* snapshotIndirectGeometrySteps(source, mesh => {
     for (let parent = mesh.parent; parent; parent = parent.parent) if (parent.userData.indirectLightModel) return false
     return true
   }, true)
-  const scene = new Scene(), materials = new Map<Side, MeshDepthMaterial>(), geometries: BufferGeometry[] = []
-  const depthMaterial = (side: Side) => {
-    let material = materials.get(side)
-    if (!material) { material = new MeshDepthMaterial({ depthPacking: RGBADepthPacking, side }); materials.set(side, material) }
-    return material
-  }
+  const scene = new Scene(), materials = sharedMaterials ?? createLocalShadowDepthMaterials(), geometries: BufferGeometry[] = []
   let complete = false
-  const dispose = () => { geometries.forEach(geometry => geometry.dispose()); materials.forEach(material => material.dispose()); scene.clear() }
+  const dispose = () => { geometries.forEach(geometry => geometry.dispose()); if (!sharedMaterials) materials.dispose(); scene.clear() }
   try {
     for (const part of snapshot) {
       yield
@@ -29,7 +24,7 @@ export function* shadowSceneSteps(source: Scene) {
       geometry.setAttribute('position', new InterleavedBufferAttribute(new InterleavedBuffer(part.position, part.stride), 3, part.offset, part.normalized))
       if (part.index) geometry.setIndex(new BufferAttribute(part.index, 1))
       part.ranges.forEach((range, index) => geometry.addGroup(range.start, range.count, index))
-      const meshMaterials = part.ranges.map(range => depthMaterial(range.shadowSide ?? BackSide))
+      const meshMaterials = part.ranges.map(range => materials.get(range.shadowSide ?? BackSide))
       geometries.push(geometry)
       for (const matrix of part.matrices) {
         const mesh = new Mesh(geometry, meshMaterials)
@@ -57,6 +52,8 @@ export function useLocalShadowAtlas(lights: AtlasLight[], revision: string, bloc
   const pending = useRef<{ atlas: ReturnType<typeof createLocalShadowAtlas>; capture: { scene: Scene; dispose: () => void }; key: string } | null>(null)
   const preparedKey = useRef('')
   const revisionCounter = useRef(0)
+  const depthMaterials = useRef<ReturnType<typeof createLocalShadowDepthMaterials> | null>(null)
+  useEffect(() => () => { depthMaterials.current?.dispose(); depthMaterials.current = null }, [gl])
   useEffect(() => subscribeShaderWarmup(scene, () => { revisionCounter.current++; invalidate() }), [scene, invalidate])
   const rebuild = useRef<() => void>(() => {})
   const preparing = useRef<object | null>(null)
@@ -78,7 +75,8 @@ export function useLocalShadowAtlas(lights: AtlasLight[], revision: string, bloc
       const request = {}
       preparing.current = request
       const version = revisionCounter.current
-      void runViewportTask(shadowSceneSteps(scene), () => cancelled || version !== revisionCounter.current).then(capture => {
+      depthMaterials.current ??= createLocalShadowDepthMaterials()
+      void runViewportTask(shadowSceneSteps(scene, depthMaterials.current), () => cancelled || version !== revisionCounter.current).then(capture => {
         if (preparing.current !== request) { capture?.dispose(); return }
         preparing.current = null
         if (!capture) return

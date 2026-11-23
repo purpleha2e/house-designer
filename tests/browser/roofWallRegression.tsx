@@ -6,6 +6,7 @@ import { _roots } from '@react-three/fiber'
 import { DoubleSide, Mesh, PerspectiveCamera, Raycaster, Vector3 } from 'three'
 import { ThreeDView } from '../../src/components/ThreeDView'
 import { ContextPanel } from '../../src/components/ContextPanel'
+import { roomViews } from './lumenRoomViews.mjs'
 import redHouse from '../../red_house_3.json'
 import redHouse4 from '../../red_house_4.json'
 import redHouse5 from '../../red_house_5.json'
@@ -33,6 +34,10 @@ import type { PublishedHouse } from '../../src/viewer/viewerProject'
 
 const noop = () => {}
 const searchParams = new URLSearchParams(location.search)
+if (searchParams.has('profileMaterialCost')) {
+  const { installMainShaderFeatures } = await import('./rendererAuditFeatures.js')
+  installMainShaderFeatures()
+}
 const kitchenCamera=new PerspectiveCamera();kitchenCamera.position.set(4.65,1.6,9.95);kitchenCamera.lookAt(2.1,1.25,4.95)
 const kitchenCameraState={position:{x:kitchenCamera.position.x,y:kitchenCamera.position.y,z:kitchenCamera.position.z},quaternion:{x:kitchenCamera.quaternion.x,y:kitchenCamera.quaternion.y,z:kitchenCamera.quaternion.z,w:kitchenCamera.quaternion.w}}
 const stairwellCamera=new PerspectiveCamera();stairwellCamera.position.set(4,4.25,15.8);stairwellCamera.lookAt(6.22,3.25,15.31785)
@@ -45,7 +50,18 @@ const isRoofTests2 = searchParams.has('roof-tests-2')
 const isRoofTests3 = searchParams.has('roof-tests-3')
 const isRedHouseDoor = searchParams.has('red-house-door')
 const isLoftTest = searchParams.has('loft-test')
-const savedProject = searchParams.has('bedroom-daylight') ? await (await fetch(searchParams.has('bedroom-live')?'/tmp/bedroom-live-project.json':'/tmp/bedroom-daylight-project.json')).json() as typeof colin : searchParams.has('gi-l2-house') ? await (await fetch('/tmp/gi-l2-house-project.json')).json() as typeof colin : searchParams.has('artefact-audit') ? await (await fetch('/tmp/render-artefacts/project.json')).json() as typeof colin : searchParams.has('gi-test') ? await (await fetch('/gi-test.json')).json() as typeof colin : searchParams.has('new-test') ? await (await fetch('/new_test.json')).json() as typeof colin : searchParams.has('colin') ? colin : searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
+const lightingRoom = searchParams.has('lighting-room')
+const reviewPose=roomViews[searchParams.get('review-view') as keyof typeof roomViews]
+const reviewCamera=reviewPose && {
+  position:{x:reviewPose.position[0],y:reviewPose.position[1],z:reviewPose.position[2]},
+  quaternion:{x:reviewPose.quaternion[0],y:reviewPose.quaternion[1],z:reviewPose.quaternion[2],w:reviewPose.quaternion[3]},
+}
+if (lightingRoom) {
+  const style=document.createElement('style')
+  style.textContent='#root,.editor-pane{height:100vh}'
+  document.head.append(style)
+}
+const savedProject = lightingRoom ? await (await fetch('/lighting-test.json')).json() as typeof colin : searchParams.has('bedroom-daylight') ? await (await fetch(searchParams.has('bedroom-live')?'/tmp/bedroom-live-project.json':'/tmp/bedroom-daylight-project.json')).json() as typeof colin : searchParams.has('gi-l2-house') ? await (await fetch('/tmp/gi-l2-house-project.json')).json() as typeof colin : searchParams.has('artefact-audit') ? await (await fetch('/tmp/render-artefacts/project.json')).json() as typeof colin : searchParams.has('gi-test') ? await (await fetch('/gi-test.json')).json() as typeof colin : searchParams.has('new-test') ? await (await fetch('/new_test.json')).json() as typeof colin : searchParams.has('colin') ? colin : searchParams.has('roof-clipping') ? roofClippingFixture : searchParams.has('floor-test') ? floorTest : searchParams.has('loft-test') ? loftTest : searchParams.has('springfield-14') ? springfield14 : searchParams.has('red-house-5') ? redHouse5 : searchParams.has('red-house-4') ? redHouse4 : isRoofTests3 ? roofTests3 : isRoofTests2 ? roofTests2 : isRoofTests1 ? roofTests1 : isRoofTests ? roofTests : isSpringfield ? springfield : redHouse
 if(searchParams.has('bedroom-daylight')){
   Object.assign(savedProject.sunPosition,{strength:1})
   Object.assign(savedProject.indirectLighting.settings,{skyStrength:Number(searchParams.get('skyStrength')??1)})
@@ -115,8 +131,25 @@ if (lightingStartup && searchParams.has('selection-shaders')) {
     { id: 'selection-door', modelId: 'interior-door-closed', position: { x: 6, y: 4 }, elevation: 0, wallAttachment: { wallId: 'north', offset: 2, side: 1 as const } },
   ].map(model => ({ ...model, rotation: 0, scale: 1 })))
 }
+if (lightingStartup && searchParams.has('phase5-edits')) {
+  const ground = lightingStartupFloors[0]
+  if (searchParams.has('phase5-partition')) ground.walls.push({
+    id: 'phase5-partition', start: { x: 4, y: 0 }, end: { x: 4, y: 4 }, kind: 'internal',
+    height: 2.4, thickness: .14, openings: [],
+  })
+  lightingStartupFloors.push({
+    ...ground, id: 'phase5-upper', name: 'Upper storey', elevation: 2.6,
+    walls: ground.walls.filter(wall => wall.kind === 'external').map(wall => ({ ...wall, id: 'upper-' + wall.id })),
+    models: [],
+  })
+}
 const sourceFloors = (lightingStartup ? lightingStartupFloors : groundOnly ? [savedProject.floors[0]] : savedProject.floors)
   .map(floor => normalizeFloor(floor as unknown as FloorLevel, modelsById))
+if ((springfield14 || lightingRoom) && searchParams.has('daylight-only')) {
+  for (const floor of sourceFloors) {
+    for (const model of floor.models) model.lightEnabled = false
+  }
+}
 const previewSource = sourceFloors[0].roofs?.[0]
 const floors = showPreview && previewSource
   ? sourceFloors.map((floor, index) => index === 0 ? { ...floor, roofs: [] } : floor)
@@ -155,6 +188,7 @@ function RegressionScene() {
     regressionSetLightingMode: setLightingMode,
     regressionTools: { Mesh, modelsById, syncWallOpenings, registerRuntimeSurfaceMaterials, surfaceMaterialsById },
     selectRegressionModel: setSelection,
+    selectRegressionSurface: setSurfaceSelection,
     chooseRegressionOpening: (id: string | null) => setPlacementDefinition(id ? modelsById.get(id) ?? null : null),
     regressionSelectedModelId: selection,
     updateRegressionActiveFloor: setActiveFloorId,
@@ -216,6 +250,7 @@ function RegressionScene() {
     onRenameRoom={noop} onUpdateRoomCeilingMode={noop} onUpdateModel={updateModel} onUpdateWall={noop}
   /> : null}
   <ThreeDView
+  {...((springfield14 || lightingRoom) && searchParams.has('daylight-only') ? {ambientLighting:{daylight:true,ambientTerm:0,nightAmbientTerm:0}} : {})}
   {...(searchParams.has('sky-preferences')?{ambientLighting:skyPreferences,onAmbientLightingChange:setSkyPreferences}:{})}
   lightingUpdateMode={lightingMode}
   lightControl={lightControl}
@@ -225,7 +260,7 @@ function RegressionScene() {
     roof: { ...previewSource, id: '__roof-placement-preview__' },
   } : null}
   activeFloorId={activeFloorId} floors={sceneFloors}
-  cameraRestoreRevision={1} cameraViewState={searchParams.has('stairwell-diagnostics')?stairwellCameraState:searchParams.has('kitchen-diagnostics')?kitchenCameraState:savedProject.threeDView.camera}
+  cameraRestoreRevision={1} cameraViewState={reviewCamera??(searchParams.has('stairwell-diagnostics')?stairwellCameraState:searchParams.has('kitchen-diagnostics')?kitchenCameraState:savedProject.threeDView.camera)}
   isEngineConsoleOpen={false} lightDirection={sunPosition}
   modelAssetVersion={1} onCameraViewStateChange={noop} onClearSelection={() => { setSelection(null); setSurfaceSelection(null) }}
   onEngineConsoleOpenChange={noop} onLightDirectionChange={position => {
@@ -250,6 +285,16 @@ createRoot(document.getElementById('root')!).render(searchParams.has('strict') ?
 
 // Expose camera controls for repeatable inspection from both roof ends.
 Object.assign(window, { roofWallScene: () => [..._roots.values()][0]?.store.getState() })
+if(reviewPose){
+  const setFieldOfView=()=>{
+    const root=[..._roots.values()][0]?.store.getState()
+    if(root?.scene.userData.progressiveStartup?.phase!=='full' || !(root.camera instanceof PerspectiveCamera)){
+      requestAnimationFrame(setFieldOfView);return
+    }
+    root.camera.fov=reviewPose.fov;root.camera.updateProjectionMatrix();root.invalidate()
+  }
+  requestAnimationFrame(setFieldOfView)
+}
 Object.assign(window, { regressionPickTargets: () => {
   const root = [..._roots.values()][0]?.fiber.current
   const visit = (node: typeof root): unknown => {

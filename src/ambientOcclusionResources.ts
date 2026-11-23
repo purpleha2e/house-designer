@@ -7,9 +7,20 @@ export type AmbientOcclusionPass = {
   dispose: () => void
   scene?: Scene
   firstFrame?: () => void
+  enabled?: boolean
+  configuration?: {transparencyAware?:boolean}
+  autoDetectTransparency?: boolean
+  transparencyRenderTargetDWFalse?: WebGLRenderTarget
 }
 
 const configured = new WeakSet<AmbientOcclusionPass>()
+const viewportTransparency = new WeakMap<Scene,AmbientOcclusionPass>()
+export const aoTransparencyMask={value:0}
+
+export function readViewportTransparency(scene:Scene){
+  const pass=viewportTransparency.get(scene)
+  return pass?.enabled && pass.configuration?.transparencyAware ? pass.transparencyRenderTargetDWFalse?.texture : undefined
+}
 
 /** N8AO's transparency-only renders must use the complete scene's shadows. */
 export function configureAmbientOcclusionPass(pass: AmbientOcclusionPass | null) {
@@ -35,11 +46,15 @@ export function configureAmbientOcclusionPass(pass: AmbientOcclusionPass | null)
     if (scene) scene.matrixWorldAutoUpdate = false
     const { shadowMap } = renderer
     const { autoUpdate, needsUpdate } = shadowMap
+    const previousMask=aoTransparencyMask.value
     shadowMap.autoUpdate = false
     shadowMap.needsUpdate = false
     try {
+      aoTransparencyMask.value=1
       renderTransparency.call(this, renderer)
+      if(scene)viewportTransparency.set(scene,pass)
     } finally {
+      aoTransparencyMask.value=previousMask
       if (scene) scene.matrixWorldAutoUpdate = matrixWorldAutoUpdate!
       shadowMap.autoUpdate = autoUpdate
       shadowMap.needsUpdate = needsUpdate
@@ -51,6 +66,7 @@ export function configureAmbientOcclusionPass(pass: AmbientOcclusionPass | null)
   // Their geometry is shared by all N8AO passes and must remain alive.
   const dispose = pass.dispose
   pass.dispose = function() {
+    if(this.scene && viewportTransparency.get(this.scene)===this)viewportTransparency.delete(this.scene)
     const directResources = new Set<unknown>(Object.values(this))
     const materials = new Set<Material>()
     for (const resource of directResources) {

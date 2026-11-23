@@ -39,6 +39,7 @@ type ContextPanelProps = {
   selectedWall: Wall | undefined
   surfaceAssignments: SurfaceMaterialAssignment[]
   surfaceMaterials: SurfaceMaterialProduct[]
+  onClose?: () => void
   onDeleteModel: (modelId: string) => void
   onAddDormerWindow: (dormerId: string, modelId: string) => void
   onSelectDormerWindow: (modelId: string) => void
@@ -201,6 +202,7 @@ export function ContextPanel({
   selectedWall,
   surfaceAssignments,
   surfaceMaterials,
+  onClose,
   onDeleteModel,
   onAddDormerWindow,
   onSelectDormerWindow,
@@ -371,20 +373,24 @@ export function ContextPanel({
   }
 
   return (
-    <aside className="context-panel" aria-label="Selection details">
-      <div>
-        <h2>Context</h2>
-        <p>
-          {selectedSurface
-            ? `${activeFloor.name} - ${getSurfaceTypeLabel(selectedSurface)}`
-            : selectedWall
-            ? `${activeFloor.name} - wall ${selectedWall.id.slice(0, 8)}`
-            : selectedModel
-              ? `${activeFloor.name} - ${selectedModel.definition.name}`
-              : selectedRoom
-                ? `${activeFloor.name} - ${selectedRoom.metadata.name}`
-                : `${activeFloor.name} selected`}
-        </p>
+    <aside className="context-panel" aria-label="Properties">
+      <div className="context-panel-header">
+        <div>
+          <h2>Properties</h2>
+          <p>
+            {selectedSurface
+              ? `${activeFloor.name} - ${getSurfaceTypeLabel(selectedSurface)}`
+              : selectedWall
+              ? `${activeFloor.name} - wall ${selectedWall.id.slice(0, 8)}`
+              : selectedModel
+                ? `${activeFloor.name} - ${selectedModel.definition.name}`
+                : selectedRoom
+                  ? `${activeFloor.name} - ${selectedRoom.metadata.name}`
+                  : 'Select an item to view its properties.'}
+          </p>
+        </div>
+        {onClose && <button type="button" className="context-panel-close" onClick={onClose}
+          aria-label="Close properties" title="Close properties">×</button>}
       </div>
 
       <dl>

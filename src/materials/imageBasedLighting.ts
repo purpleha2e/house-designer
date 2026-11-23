@@ -41,14 +41,23 @@ const reflectionOnlyMaterials = new WeakSet<Material>()
 
 /** Compose with existing variation/light-mask hooks, once per material. */
 export function applySpecularOnlyImageBasedLighting(material: Material) {
-  if (reflectionOnlyMaterials.has(material)) return false
+  if (reflectionOnlyMaterials.has(material)) return
+  const compile = material.onBeforeCompile
+  const cacheKey = material.customProgramCacheKey
   const overrides = withSpecularOnlyImageBasedLighting({
-    onBeforeCompile: material.onBeforeCompile.bind(material),
+    onBeforeCompile: compile.bind(material),
     customProgramCacheKey: captureMaterialShaderKey(material),
   })
   material.onBeforeCompile = overrides.onBeforeCompile!
   material.customProgramCacheKey = overrides.customProgramCacheKey!
   reflectionOnlyMaterials.add(material)
   material.needsUpdate = true
-  return true
+  return () => {
+    if (material.onBeforeCompile !== overrides.onBeforeCompile ||
+      material.customProgramCacheKey !== overrides.customProgramCacheKey) return
+    material.onBeforeCompile = compile
+    material.customProgramCacheKey = cacheKey
+    reflectionOnlyMaterials.delete(material)
+    material.needsUpdate = true
+  }
 }

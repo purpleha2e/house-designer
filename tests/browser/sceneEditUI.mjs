@@ -13,8 +13,8 @@ async function click(selector,text){
  await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',buttons:0,...p})
  await b.call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,...p});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,...p})
 }
-async function mouse(point,type='click'){
- if(type==='click'){await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',buttons:0,...point});await b.call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',buttons:1,clickCount:1,...point});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',buttons:0,clickCount:1,...point})}
+async function mouse(point,button='left'){
+ await b.call('Input.dispatchMouseEvent',{type:'mouseMoved',buttons:0,...point});await b.call('Input.dispatchMouseEvent',{type:'mousePressed',button,buttons:button==='right'?2:1,clickCount:1,...point});await b.call('Input.dispatchMouseEvent',{type:'mouseReleased',button,buttons:0,clickCount:1,...point})
 }
 async function field(selector,text){
  await click(selector);await b.call('Input.dispatchKeyEvent',{type:'keyDown',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:2});await b.call('Input.dispatchKeyEvent',{type:'keyUp',key:'a',code:'KeyA',windowsVirtualKeyCode:65,modifiers:0});await b.call('Input.insertText',{text})
@@ -86,6 +86,8 @@ try{
   await measured('undo furniture move',()=>click('button[aria-label="Undo"]'),`(()=>{const o=editorState().scene.getObjectByName('model-transform-${id}');return o&&Math.abs(o.matrixWorld.elements[12]-${original.x})<1e-5})()`)
   p=await b.evaluate(`editorPlanPoint('${id}')`);await mouse({x:p.x,y:p.y});await b.wait(`editorProps('FloorplanCanvas').selectedModelId==='${id}'`)
   }
+  const {x,y}=await b.evaluate(`editorPlanPoint('${id}')`)
+  await mouse({x,y},'right');await click('.canvas-context-menu button','Properties')
   await measured('remove furniture using Delete',()=>click('.context-panel button','Delete'),`!editorState().scene.getObjectByName('model-transform-${id}')`)
   await measured('undo furniture removal',()=>click('button[aria-label="Undo"]'),`!!editorState().scene.getObjectByName('model-transform-${id}')`)
   // Picking a wall during reconstruction can select a transient model instead.

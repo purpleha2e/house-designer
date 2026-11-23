@@ -55,9 +55,9 @@ try {
   const menu = async text => { await aria('Project menu'); await click(text) }
   const save = async () => { await evaluate('window.savedStairProject=null'); await menu('Save'); await until('!!window.savedStairProject'); return evaluate('window.savedStairProject') }
   const screenshot = async name => writeFileSync(`.tmp-viewer-stair-builder-${name}.png`, Buffer.from((await call('Page.captureScreenshot', { format: 'png' })).data, 'base64'))
-  const mouseClick = async point => {
-    await call('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', clickCount: 1, ...point })
-    await call('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', clickCount: 1, ...point })
+  const mouseClick = async (point, button = 'left') => {
+    await call('Input.dispatchMouseEvent', { type: 'mousePressed', button, buttons: button === 'right' ? 2 : 1, clickCount: 1, ...point })
+    await call('Input.dispatchMouseEvent', { type: 'mouseReleased', button, buttons: 0, clickCount: 1, ...point })
     await pause(250)
   }
   await call('Runtime.enable'); await call('Page.enable')
@@ -202,7 +202,9 @@ try {
   assert.equal(Object.fromEntries(drawn.colours).stairs_spindles, '293849')
   await until(`window.roofCreateScene().getObjectByName('model-transform-custom-stair-0').getObjectByName('parametric-stairs').getObjectByName('stair-risers').material.map?.repeat.x===${repeat[0] * 2}`)
   const pick = await evaluate(`(async()=>{const {Vector3}=await import('/node_modules/.vite/deps/three.js'),{getStairLayout}=await import('/src/stairDesign.ts');const s=window.roofCreateStates()[0],g=s.scene.getObjectByName('model-transform-custom-stair-0');const d=g.getObjectByName('parametric-stairs').userData.stairDesign,step=getStairLayout(d).surfaces[0];s.camera.position.set(-5,4,-7);s.camera.lookAt(0,1.5,0);s.controls?.target?.set(0,1.5,0);s.camera.updateMatrixWorld();s.invalidate();const p=new Vector3(step.polygon.reduce((a,p)=>a+p.x/step.polygon.length,0),step.top,step.polygon.reduce((a,p)=>a+p.z/step.polygon.length,0)).applyMatrix4(g.matrixWorld).project(s.camera),r=s.gl.domElement.getBoundingClientRect();return{x:r.x+(p.x+1)*r.width/2,y:r.y+(1-p.y)*r.height/2}})()`)
-  await pause(300); await mouseClick(pick)
+  await pause(300); await mouseClick(pick, 'right')
+  await until(`!!document.querySelector('.three-host .canvas-context-menu button')`)
+  await click('Properties')
   await until(`!!document.querySelector('.window-variety-edit') && document.querySelector('.window-variety-edit').textContent==='Edit stair variety'`)
   assert.ok(await evaluate(`!!document.querySelector('[aria-label="Banister / handrails material"]')`), 'placed stairs expose their banister finish')
   const banisterMaterial = async value => {

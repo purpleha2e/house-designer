@@ -20,6 +20,11 @@ const serverProxy = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rolldownOptions: {
+      input: { main: resolve(import.meta.dirname, 'index.html'), lightingLab: resolve(import.meta.dirname, 'lighting-lab/index.html') },
+    },
+  },
   preview: useHttps
     ? {
         https: existsSync(localPfx)

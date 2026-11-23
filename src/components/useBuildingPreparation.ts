@@ -47,10 +47,12 @@ export function useBuildingStoreys(input: Extract<BuildingPreparationRequest, { 
   return { value: prepared.value, pending: prepared.input !== input }
 }
 
-export function useLightingCacheKeys(input: Extract<BuildingPreparationRequest, { kind: 'lighting-keys' }>) {
+export function useLightingCacheKeys(input: Extract<BuildingPreparationRequest, { kind: 'lighting-keys' }> | undefined, onRequest?: () => void) {
   const [prepared, setPrepared] = useState<{ input?: typeof input; projectKey: string; assetKey: string }>({ projectKey: '', assetKey: '' })
   useEffect(() => {
+    if (!input || prepared.input === input) return
     const controller = new AbortController()
+    onRequest?.()
     void request<{ projectKey: string; assetKey: string }>(input, controller.signal)
       // This result releases the GI update gate. A non-expiring transition can
       // starve behind continuous viewport work after changing the sun, leaving
@@ -58,6 +60,6 @@ export function useLightingCacheKeys(input: Extract<BuildingPreparationRequest, 
       .then(value => publishViewportUpdate(() => setPrepared({ input, ...value }), () => controller.signal.aborted))
       .catch(error => { if (!controller.signal.aborted) console.error('Lighting cache validation failed:', error) })
     return () => controller.abort()
-  }, [input])
-  return { ...prepared, pending: prepared.input !== input }
+  }, [input, onRequest, prepared.input])
+  return { ...prepared, pending: !!input && prepared.input !== input }
 }

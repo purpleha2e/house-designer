@@ -1,0 +1,1825 @@
+{
+  "ready": {
+    "model": {
+      "state": "ready",
+      "pending": false,
+      "requests": 1,
+      "publications": 1,
+      "scope": "ee37bc18-f901-44fc-acf6-7bb806bb82bc:-32:317|-32:33|142:238|142:33|252:238|252:317",
+      "status": "Modelling lighting · 3 diffuse bounces",
+      "frameBudgetMs": 2,
+      "bounces": 3,
+      "stats": {
+        "state": "ready",
+        "revision": 1,
+        "views": 12,
+        "captureSubmitMs": 16.899999976158142,
+        "reconstructionSubmitMs": 8,
+        "propagationSubmitMs": 2.100000023841858,
+        "preparationMs": 3843.8000000715256,
+        "geometryMs": 31.800000071525574,
+        "gpuBatches": 13,
+        "bytes": 12812288,
+        "probeProgress": 0,
+        "passCompilations": 6,
+        "capturePreparations": 1,
+        "captureLights": 8,
+        "firstVisibleMs": 5835.899999976158,
+        "publishedAt": 31774.299999952316,
+        "gpuMs": 15.03555,
+        "gpuCaptureMs": 0.24632,
+        "gpuReconstructionMs": 14.78923,
+        "bounces": 3,
+        "targetBounces": 3
+      }
+    },
+    "ambient": {
+      "requested": 0.16,
+      "applied": 0.61,
+      "exteriorSkyReady": false
+    },
+    "floors": 0,
+    "giEnabled": 1,
+    "weight": 1,
+    "ready": 1,
+    "fill": 0.16,
+    "feature": 1,
+    "position": [
+      1.1588100122317273,
+      1.4590878017993665,
+      8.712081489393837
+    ],
+    "probe": "suspended",
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "role": "ambient-fill",
+        "intensity": 0.27449999999999997,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "HemisphereLight",
+        "role": "ambient-sky-fill",
+        "intensity": 0.6405,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "DirectionalLight",
+        "role": "sun-light",
+        "intensity": 1.3,
+        "color": [
+          1,
+          0.9386857284565036,
+          0.85499260812105
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "programs": 59
+  },
+  "programs": [
+    {
+      "id": 55,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "tDiffuse",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 57,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "inputBuffer",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 58,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "envMap",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 56,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "sceneDepth",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "native": false,
+      "direct": false,
+      "samplerCount": 8,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "native": false,
+      "direct": false,
+      "samplerCount": 8,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 18,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 19,
+      "native": false,
+      "direct": false,
+      "samplerCount": 9,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdExteriorSkyField",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "native": false,
+      "direct": false,
+      "samplerCount": 12,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdExteriorSkyField",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "map",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        },
+        {
+          "name": "normalMap",
+          "size": 1
+        },
+        {
+          "name": "roughnessMap",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 22,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 23,
+      "native": false,
+      "direct": false,
+      "samplerCount": 9,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdExteriorSkyField",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 25,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 26,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 27,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 28,
+      "native": false,
+      "direct": false,
+      "samplerCount": 9,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdExteriorSkyField",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 30,
+      "native": false,
+      "direct": false,
+      "samplerCount": 8,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "native": false,
+      "direct": false,
+      "samplerCount": 10,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdExteriorSkyField",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "envMap",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 33,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 34,
+      "native": false,
+      "direct": false,
+      "samplerCount": 9,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdExteriorSkyField",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "native": false,
+      "direct": false,
+      "samplerCount": 8,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "native": false,
+      "direct": false,
+      "samplerCount": 8,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "native": false,
+      "direct": false,
+      "samplerCount": 10,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdExteriorSkyField",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "envMap",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "native": false,
+      "direct": false,
+      "samplerCount": 12,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "map",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        },
+        {
+          "name": "normalMap",
+          "size": 1
+        },
+        {
+          "name": "roughnessMap",
+          "size": 1
+        },
+        {
+          "name": "metalnessMap",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "map",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "map",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "native": false,
+      "direct": false,
+      "samplerCount": 9,
+      "samplers": [
+        {
+          "name": "hdGIMask",
+          "size": 1
+        },
+        {
+          "name": "hdGIVolume",
+          "size": 1
+        },
+        {
+          "name": "hdGIFloorLayer",
+          "size": 1
+        },
+        {
+          "name": "hdFastLight",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowAtlas",
+          "size": 1
+        },
+        {
+          "name": "hdLocalShadowData",
+          "size": 1
+        },
+        {
+          "name": "envMap",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 42,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 43,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 44,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 45,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 46,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 47,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 48,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 49,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 50,
+      "native": false,
+      "direct": false,
+      "samplerCount": 7,
+      "samplers": [
+        {
+          "name": "sceneDiffuse",
+          "size": 1
+        },
+        {
+          "name": "sceneDepth",
+          "size": 1
+        },
+        {
+          "name": "downsampledDepth",
+          "size": 1
+        },
+        {
+          "name": "transparencyDWFalse",
+          "size": 1
+        },
+        {
+          "name": "transparencyDWTrue",
+          "size": 1
+        },
+        {
+          "name": "transparencyDWTrueDepth",
+          "size": 1
+        },
+        {
+          "name": "tDiffuse",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "native": false,
+      "direct": false,
+      "samplerCount": 3,
+      "samplers": [
+        {
+          "name": "sceneNormal",
+          "size": 1
+        },
+        {
+          "name": "sceneDepth",
+          "size": 1
+        },
+        {
+          "name": "bluenoise",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "native": false,
+      "direct": false,
+      "samplerCount": 3,
+      "samplers": [
+        {
+          "name": "sceneDepth",
+          "size": 1
+        },
+        {
+          "name": "tDiffuse",
+          "size": 1
+        },
+        {
+          "name": "blueNoise",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "depthTexture",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "tDiffuse",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 59,
+      "native": true,
+      "direct": true,
+      "samplerCount": 10,
+      "samplers": [
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        },
+        {
+          "name": "spotShadowMap[0]",
+          "size": 4
+        },
+        {
+          "name": "pointShadowMap[0]",
+          "size": 4
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 61,
+      "native": false,
+      "direct": false,
+      "samplerCount": 0,
+      "samplers": []
+    },
+    {
+      "id": 62,
+      "native": true,
+      "direct": true,
+      "samplerCount": 10,
+      "samplers": [
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        },
+        {
+          "name": "spotShadowMap[0]",
+          "size": 4
+        },
+        {
+          "name": "pointShadowMap[0]",
+          "size": 4
+        }
+      ]
+    },
+    {
+      "id": 63,
+      "native": true,
+      "direct": true,
+      "samplerCount": 13,
+      "samplers": [
+        {
+          "name": "map",
+          "size": 1
+        },
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        },
+        {
+          "name": "spotShadowMap[0]",
+          "size": 4
+        },
+        {
+          "name": "pointShadowMap[0]",
+          "size": 4
+        },
+        {
+          "name": "normalMap",
+          "size": 1
+        },
+        {
+          "name": "roughnessMap",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 64,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "map",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 65,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "map",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 66,
+      "native": true,
+      "direct": true,
+      "samplerCount": 10,
+      "samplers": [
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        },
+        {
+          "name": "spotShadowMap[0]",
+          "size": 4
+        },
+        {
+          "name": "pointShadowMap[0]",
+          "size": 4
+        }
+      ]
+    },
+    {
+      "id": 67,
+      "native": true,
+      "direct": true,
+      "samplerCount": 10,
+      "samplers": [
+        {
+          "name": "dfgLUT",
+          "size": 1
+        },
+        {
+          "name": "directionalShadowMap[0]",
+          "size": 1
+        },
+        {
+          "name": "spotShadowMap[0]",
+          "size": 4
+        },
+        {
+          "name": "pointShadowMap[0]",
+          "size": 4
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "native": false,
+      "direct": false,
+      "samplerCount": 4,
+      "samplers": [
+        {
+          "name": "captureDepth",
+          "size": 1
+        },
+        {
+          "name": "captureNormal",
+          "size": 1
+        },
+        {
+          "name": "captureRadiance",
+          "size": 1
+        },
+        {
+          "name": "captureResponse",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 69,
+      "native": false,
+      "direct": false,
+      "samplerCount": 3,
+      "samplers": [
+        {
+          "name": "surfaceRadiance",
+          "size": 1
+        },
+        {
+          "name": "geometryOccupancy",
+          "size": 1
+        },
+        {
+          "name": "captureDepth",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 70,
+      "native": false,
+      "direct": false,
+      "samplerCount": 3,
+      "samplers": [
+        {
+          "name": "surfaceRadiance",
+          "size": 1
+        },
+        {
+          "name": "surfaceNormal",
+          "size": 1
+        },
+        {
+          "name": "occupancy",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 71,
+      "native": false,
+      "direct": false,
+      "samplerCount": 5,
+      "samplers": [
+        {
+          "name": "c0",
+          "size": 1
+        },
+        {
+          "name": "cx",
+          "size": 1
+        },
+        {
+          "name": "cy",
+          "size": 1
+        },
+        {
+          "name": "cz",
+          "size": 1
+        },
+        {
+          "name": "occupancy",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 72,
+      "native": false,
+      "direct": false,
+      "samplerCount": 4,
+      "samplers": [
+        {
+          "name": "surfaceRadiance",
+          "size": 1
+        },
+        {
+          "name": "surfaceNormal",
+          "size": 1
+        },
+        {
+          "name": "surfaceResponse",
+          "size": 1
+        },
+        {
+          "name": "light",
+          "size": 1
+        }
+      ]
+    },
+    {
+      "id": 73,
+      "native": false,
+      "direct": false,
+      "samplerCount": 1,
+      "samplers": [
+        {
+          "name": "light",
+          "size": 1
+        }
+      ]
+    }
+  ],
+  "off": {
+    "model": {
+      "state": "ready",
+      "pending": false,
+      "requests": 1,
+      "publications": 1,
+      "scope": "ee37bc18-f901-44fc-acf6-7bb806bb82bc:-32:317|-32:33|142:238|142:33|252:238|252:317",
+      "status": "Modelling lighting · 3 diffuse bounces",
+      "frameBudgetMs": 2,
+      "bounces": 3,
+      "stats": {
+        "state": "ready",
+        "revision": 1,
+        "views": 12,
+        "captureSubmitMs": 16.899999976158142,
+        "reconstructionSubmitMs": 8,
+        "propagationSubmitMs": 2.100000023841858,
+        "preparationMs": 3843.8000000715256,
+        "geometryMs": 31.800000071525574,
+        "gpuBatches": 13,
+        "bytes": 12812288,
+        "probeProgress": 0,
+        "passCompilations": 6,
+        "capturePreparations": 1,
+        "captureLights": 8,
+        "firstVisibleMs": 5835.899999976158,
+        "publishedAt": 31774.299999952316,
+        "gpuMs": 15.03555,
+        "gpuCaptureMs": 0.24632,
+        "gpuReconstructionMs": 14.78923,
+        "bounces": 3,
+        "targetBounces": 3
+      }
+    },
+    "ambient": {
+      "requested": 0.16,
+      "applied": 0.61,
+      "exteriorSkyReady": false
+    },
+    "floors": 0,
+    "giEnabled": 1,
+    "weight": 0,
+    "ready": 1,
+    "fill": 0.16,
+    "feature": 1,
+    "position": [
+      1.1588100122317273,
+      1.4590878017993665,
+      8.712081489393837
+    ],
+    "probe": "suspended",
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "role": "ambient-fill",
+        "intensity": 0.27449999999999997,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "HemisphereLight",
+        "role": "ambient-sky-fill",
+        "intensity": 0.6405,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "DirectionalLight",
+        "role": "sun-light",
+        "intensity": 1.3,
+        "color": [
+          1,
+          0.9386857284565036,
+          0.85499260812105
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "programs": 59
+  },
+  "buildDifference": {
+    "meanChannelDifference": 0.8429255763179863,
+    "fractionOver3": 0.04563025749694985,
+    "max": 9
+  },
+  "noFillState": {
+    "model": {
+      "state": "ready",
+      "pending": false,
+      "requests": 1,
+      "publications": 1,
+      "scope": "ee37bc18-f901-44fc-acf6-7bb806bb82bc:-32:317|-32:33|142:238|142:33|252:238|252:317",
+      "status": "Modelling lighting · 3 diffuse bounces",
+      "frameBudgetMs": 2,
+      "bounces": 3,
+      "stats": {
+        "state": "ready",
+        "revision": 1,
+        "views": 12,
+        "captureSubmitMs": 16.899999976158142,
+        "reconstructionSubmitMs": 8,
+        "propagationSubmitMs": 2.100000023841858,
+        "preparationMs": 3843.8000000715256,
+        "geometryMs": 31.800000071525574,
+        "gpuBatches": 13,
+        "bytes": 12812288,
+        "probeProgress": 0,
+        "passCompilations": 6,
+        "capturePreparations": 1,
+        "captureLights": 8,
+        "firstVisibleMs": 5835.899999976158,
+        "publishedAt": 31774.299999952316,
+        "gpuMs": 15.03555,
+        "gpuCaptureMs": 0.24632,
+        "gpuReconstructionMs": 14.78923,
+        "bounces": 3,
+        "targetBounces": 3
+      }
+    },
+    "ambient": {
+      "requested": 0.16,
+      "applied": 0.61,
+      "exteriorSkyReady": false
+    },
+    "floors": 0,
+    "giEnabled": 1,
+    "weight": 1,
+    "ready": 1,
+    "fill": 0,
+    "feature": 1,
+    "position": [
+      1.1588100122317273,
+      1.4590878017993665,
+      8.712081489393837
+    ],
+    "probe": "suspended",
+    "lights": [
+      {
+        "type": "AmbientLight",
+        "role": "ambient-fill",
+        "intensity": 0.27449999999999997,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "HemisphereLight",
+        "role": "ambient-sky-fill",
+        "intensity": 0.6405,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "DirectionalLight",
+        "role": "sun-light",
+        "intensity": 1.3,
+        "color": [
+          1,
+          0.9386857284565036,
+          0.85499260812105
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0.7639437268410976,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "PointLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "type": "SpotLight",
+        "intensity": 0,
+        "color": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "programs": 59
+  },
+  "noFillDifference": {
+    "meanChannelDifference": 1.1806160234594063,
+    "fractionOver3": 0.11623450844410198,
+    "max": 13
+  },
+  "errors": []
+}

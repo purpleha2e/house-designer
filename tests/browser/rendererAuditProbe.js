@@ -2,6 +2,8 @@ import {getEditorFiber} from './rendererTestModules.ts'
 import {getIndirectLightingUniforms} from '../../src/indirectLightingShader.ts'
 import {ACESFilmicToneMapping,Object3D} from './rendererTestModules.ts'
 import {getRoomLightUniforms} from '../../src/roomLightShader.ts'
+import {DataUtils} from 'three'
+import {linearToSRGB} from './lumenComposition.ts'
 
 const sum=a=>a.reduce((x,y)=>x+y,0)
 const distribution=a=>{const s=[...a].sort((x,y)=>x-y),q=p=>s[Math.min(s.length-1,Math.floor(s.length*p))]??null;return{count:s.length,mean:s.length?sum(s)/s.length:null,median:q(.5),p95:q(.95),p99:q(.99),worst:q(1)}}
@@ -29,12 +31,13 @@ export async function installRendererAudit(s){
  let cpu=[],gpu=[],passData=new Map(),rootFrames=0,rootRenderCalls=0,pending=[],lastSampleConfig={},activeMaterial=null
  const samplerReports=new Map(),programSeen=new WeakSet(),callbackWrappers=new Map()
  let callbackData=new Map()
+ let geometryProfile=false,shadowScope=0,drawOrdinal=0
  const getPass=key=>{let v=passData.get(key);if(!v)passData.set(key,v={executions:0,cpuMs:0,gpuMs:[],calls:0,triangles:0,switches:0,target:null});return v}
- const beginQuery=label=>{if(!active||!timer||queryOpen||pending.length>128)return null;const query=g.createQuery();g.beginQuery(timer.TIME_ELAPSED_EXT,query);queryOpen={query,label};return queryOpen}
+ const beginQuery=label=>{if(!active||!timer||queryOpen||pending.length>128||(geometryProfile&&!label.startsWith('geometry/')))return null;const query=g.createQuery();g.beginQuery(timer.TIME_ELAPSED_EXT,query);queryOpen={query,label};return queryOpen}
  const endQuery=token=>{if(!token||queryOpen!==token)return;g.endQuery(timer.TIME_ELAPSED_EXT);pending.push(token);queryOpen=null}
  const poll=()=>{const disjoint=timer&&g.getParameter(timer.GPU_DISJOINT_EXT);for(let i=pending.length-1;i>=0;i--){const p=pending[i];if(!g.getQueryParameter(p.query,g.QUERY_RESULT_AVAILABLE))continue;const ms=g.getQueryParameter(p.query,g.QUERY_RESULT)/1e6;if(!disjoint){if(p.label==='frame')gpu.push(ms);else getPass(p.label).gpuMs.push(ms)}g.deleteQuery(p.query);pending.splice(i,1)}}
  const targetLabel=target=>{const id=trackTarget(target);return target?`target${id}:${target.width}x${target.height}`:'canvas'}
- const partLabel=(object,camera)=>{const override=object.overrideMaterial,mat=object.material;return`${currentPass}/${object===s.scene?'house':object.userData?.preparedLightingViewport?'prepared-house':object.type}/${camera.type}/${override?.type??mat?.name??mat?.type??'scene-materials'}/${targetLabel(r.getRenderTarget())}`}
+ const partLabel=(object,camera)=>{const override=object.overrideMaterial,mat=object.material??(camera.isOrthographicCamera&&object.children?.length===1?object.children[0].material:null);return`${currentPass}/${object===s.scene?'house':object.userData?.preparedLightingViewport?'prepared-house':object.type}/${camera.type}/${override?.type??mat?.name??mat?.type??'scene-materials'}/${targetLabel(r.getRenderTarget())}`}
  const renderCore=(...args)=>{
   if(!active)return original.render(...args)
   const label=partLabel(...args),context={label,shadowCpu:0,shadowCalls:0,shadowTriangles:0,token:null},previous=renderContext
@@ -46,7 +49,8 @@ export async function installRendererAudit(s){
   if(!active)return original.shadow(...args)
   const context=renderContext,label=`${currentPass}/shadow-map-dispatch`,at=performance.now(),calls=r.info.render.calls,tri=r.info.render.triangles
   const token=passMode?beginQuery(label):null
-  try{return original.shadow(...args)}finally{endQuery(token);const duration=performance.now()-at,row=getPass(label),deltaCalls=r.info.render.calls-calls,deltaTri=r.info.render.triangles-tri;row.executions++;row.cpuMs+=duration;row.calls+=deltaCalls;row.triangles+=deltaTri;if(context){context.shadowCpu+=duration;context.shadowCalls+=deltaCalls;context.shadowTriangles+=deltaTri;if(passMode)context.token=beginQuery(context.label)}}
+  shadowScope++
+  try{return original.shadow(...args)}finally{shadowScope--;endQuery(token);const duration=performance.now()-at,row=getPass(label),deltaCalls=r.info.render.calls-calls,deltaTri=r.info.render.triangles-tri;row.executions++;row.cpuMs+=duration;row.calls+=deltaCalls;row.triangles+=deltaTri;if(context){context.shadowCpu+=duration;context.shadowCalls+=deltaCalls;context.shadowTriangles+=deltaTri;if(passMode)context.token=beginQuery(context.label)}}
  }
  let postprocess=true
  composer.render=(...args)=>{
@@ -59,7 +63,20 @@ export async function installRendererAudit(s){
  }
  for(const [index,pass]of composer.passes.entries()){const render=pass.render.bind(pass);pass.render=(...args)=>{const previous=currentPass;currentPass=`${index}:${pass.constructor.name}${pass.effects?'('+pass.effects.map(e=>e.name||e.constructor.name).join('+')+')':''}`;try{return render(...args)}finally{currentPass=previous}}}
  const direct=r.renderBufferDirect.bind(r)
- r.renderBufferDirect=(...args)=>{const before=activeMaterial;activeMaterial=args[3];try{return direct(...args)}finally{activeMaterial=before}}
+ r.renderBufferDirect=(...args)=>{
+   const before=activeMaterial;activeMaterial=args[3]
+   try{
+     if(!active || !geometryProfile)return direct(...args)
+     const [, ,geometry,material,object,group]=args
+     const triangles=(group?.count??geometry.index?.count??geometry.attributes.position?.count??0)/3
+     const role=object.userData.houseDesignerRole||object.name||geometry.name||material.name||object.type
+     const name='geometry/'+currentPass+'/'+(shadowScope?'shadow/':'colour/')+(triangles>=256?'dense/':'simple/')+role
+     const row=getPass(name),count=r.info.render.triangles
+     const token=(drawOrdinal+rootFrames)%8===0?beginQuery(name):null
+     drawOrdinal++
+     try{return direct(...args)}finally{endQuery(token);row.executions++;row.calls++;row.triangles+=r.info.render.triangles-count}
+   }finally{activeMaterial=before}
+ }
  function introspect(explicitProgram){
   if(!captureBindings)return
   const program=explicitProgram??g.getParameter(g.CURRENT_PROGRAM);if(!program||programSeen.has(program))return;programSeen.add(program)
@@ -91,19 +108,21 @@ export async function installRendererAudit(s){
   return{hardware:{vendor:g.getParameter(debug?debug.UNMASKED_VENDOR_WEBGL:g.VENDOR),renderer:g.getParameter(debug?debug.UNMASKED_RENDERER_WEBGL:g.RENDERER),version:g.getParameter(g.VERSION),limits,timer:!!timer},canvas:{width:r.domElement.width,height:r.domElement.height,dpr:r.getPixelRatio()},camera:{position:s.camera.position.toArray(),quaternion:s.camera.quaternion.toArray()},three:{textures:r.info.memory.textures,geometries:r.info.memory.geometries,programs:r.info.programs.length},native:{live:Object.fromEntries(Object.entries(native.live).map(([k,v])=>[k,v.size])),textureUploads:native.textureUploads,bufferUploads:native.bufferUploads,compileCalls:native.compileCalls,compileCpuMs:native.compileCpuMs,linkCalls:native.linkCalls,events:native.events},targets:[...targets.values()],textures:[...native.textures.values()].map(t=>({...t,labels:[...textureLabels.get(t.id)??[]]})),buffers:[...native.buffers.values()],renderbuffers:[...native.renderbuffers.values()],programTiming:[...native.programs.values()],effectiveGI:[...gi].map(u=>({enabled:u.hdGIEnabled.value,strength:u.hdGIProbeStrength.value,volume:u.hdGIUseVolume.value})),passEnabled:composer.passes.map(p=>p.enabled),workers:window.rendererAuditWorkers.map(w=>({...w,kinds:{...w.kinds}})),reactUI:window.rendererAuditReact&&{...window.rendererAuditReact},heap:performance.memory?.usedJSHeapSize,framebuffer:g.isContextLost()?null:g.checkFramebufferStatus(g.FRAMEBUFFER),lost:g.isContextLost(),errors,health:s.scene.userData.getRendererHealth?.(false),softFloor:s.scene.userData.softFloorGI,gi:s.scene.userData.indirectLighting,config:lastSampleConfig}
  }
  function captureCallbacks(){for(const sub of s.internal.subscribers){const ref=sub.ref;if(callbackWrappers.has(ref)&&ref.current===callbackWrappers.get(ref))continue;const fn=ref.current,label=`priority${sub.priority}:${fn.name||fn.toString().slice(0,140)}`;const wrapper=(...a)=>{if(!active)return fn(...a);const at=performance.now();try{return fn(...a)}finally{let row=callbackData.get(label);if(!row)callbackData.set(label,row={calls:0,ms:0,worst:0});const dt=performance.now()-at;row.calls++;row.ms+=dt;row.worst=Math.max(row.worst,dt)}};callbackWrappers.set(ref,wrapper);ref.current=wrapper}}
- async function sample(duration=30000,moving=false,passes=false){
+ async function sample(duration=30000,moving=false,passes=false,restore=true){
   const base=s.camera.position.clone(),rotation=s.camera.quaternion.clone(),before=snapshot(),frames=[];let start,last,previousFrames=0,presented=0
   cpu=[];gpu=[];passData=new Map();callbackData=new Map();rootFrames=0;rootRenderCalls=0;passMode=passes;captureCallbacks();active=true
   await new Promise(resolve=>{const tick=now=>{
    if(start===undefined){start=last=now}else{frames.push(now-last);last=now;if(rootFrames!==previousFrames){presented++;previousFrames=rootFrames}}
    poll();const t=(now-start)/1000
-   if(moving){s.camera.position.copy(base);s.camera.position.x+=Math.sin(t*.8)*.25;s.camera.position.z+=Math.cos(t*.8)*.25;s.camera.quaternion.copy(rotation);s.camera.rotateY(Math.sin(t*.5)*.15);s.camera.updateMatrixWorld()}
+   if(typeof moving==='function')moving(s.camera,Math.min(1,(now-start)/duration))
+   else if(moving){s.camera.position.copy(base);s.camera.position.x+=Math.sin(t*.8)*.25;s.camera.position.z+=Math.cos(t*.8)*.25;s.camera.quaternion.copy(rotation);s.camera.rotateY(Math.sin(t*.5)*.15);s.camera.updateMatrixWorld()}
    // A fixed image is actively rendered for a fair frame-budget measurement;
    // idle walkthroughs intentionally submit no frames. No lighting is changed.
    s.scene.userData.displayEffectRevision=(s.scene.userData.displayEffectRevision??0)+1;s.invalidate()
    if(now-start<duration){requestAnimationFrame(tick);return}resolve()
   };requestAnimationFrame(tick)})
-  active=false;await new Promise(resolve=>setTimeout(resolve,100));poll();s.camera.position.copy(base);s.camera.quaternion.copy(rotation);s.camera.updateMatrixWorld();s.invalidate()
+  active=false;await new Promise(resolve=>setTimeout(resolve,100));poll()
+  if(restore){s.camera.position.copy(base);s.camera.quaternion.copy(rotation);s.camera.updateMatrixWorld();s.invalidate()}
   const after=snapshot(),ms=sum(frames)
   return{durationMs:ms,frames:frames.length,animationFPS:frames.length*1000/ms,presentedFPS:presented*1000/ms,frameMs:distribution(frames),cpuFrameMs:distribution(cpu),gpuFrameMs:distribution(gpu),gpuTimingMode:passes?'per-render-pass, not whole frame':'whole composer frame',timerQueriesRemaining:pending.length,renderCalls:rootRenderCalls,passes:[...passData].map(([name,v])=>({name,...v,gpuMs:distribution(v.gpuMs),executionsPerFrame:v.executions/Math.max(1,rootFrames),cpuMsPerFrame:v.cpuMs/Math.max(1,rootFrames),drawCallsPerFrame:v.calls/Math.max(1,rootFrames),trianglesPerFrame:v.triangles/Math.max(1,rootFrames)})),callbacks:[...callbackData].map(([name,v])=>({name,...v,cpuMsPerFrame:v.ms/Math.max(1,rootFrames)})),before,after,newPrograms:after.three.programs-before.three.programs,newTextureUploads:after.native.textureUploads-before.native.textureUploads,newBufferUploads:after.native.bufferUploads-before.native.bufferUploads,newWorkerMessages:sum(after.workers.map(w=>w.messages))-sum(before.workers.map(w=>w.messages))}
  }
@@ -127,6 +146,153 @@ export async function installRendererAudit(s){
   try{const result=await sample(1000,moving);return{frames:result.cpuFrameMs.count,rows:[...rows].map(([pass,counts])=>({pass,totals:counts,perFrame:Object.fromEntries(Object.entries(counts).map(([key,n])=>[key,n/result.cpuFrameMs.count]))}))}}
   finally{for(const [key,original]of saved)Object3D.prototype[key]=original}
  }
- return{configure,sample,snapshot,captureSamplers,countSceneOperations,composerPasses:composer.passes.map(p=>({name:p.constructor.name,enabled:p.enabled,configuration:p.configuration&&Object.fromEntries(['aoRadius','aoSamples','denoiseSamples','denoiseIterations','halfRes','transparencyAware','intensity'].map(k=>[k,p.configuration[k]]))}))}
+ // Hold the selected backend, material uniforms, camera and cache fixed while
+ // omitting just the new composer pass. Restore the live enable flag afterward.
+ async function sampleLumenControl(enabled,passes=false,moving=false){
+  const pass=composer.passes.find(p=>p.name==='Lumen first bounce')
+  if(!pass)throw Error('Missing experimental composer pass')
+  let requested=pass.enabled
+  const descriptor=Object.getOwnPropertyDescriptor(pass,'enabled')
+  Object.defineProperty(pass,'enabled',{configurable:true,get:()=>enabled&&requested,set:value=>{requested=value}})
+   try{return await sample(3000,moving,passes)}
+  finally{if(descriptor)Object.defineProperty(pass,'enabled',descriptor);else delete pass.enabled;pass.enabled=requested}
+ }
+ async function sampleGeometry(){
+   geometryProfile=true
+   try{
+     const p=await sample(2600,true,true)
+     return p.passes.filter(row=>row.name.startsWith('geometry/')).map(row=>({name:row.name,draws:row.drawCallsPerFrame,triangles:row.trianglesPerFrame,queries:row.gpuMs.count,estimatedMs:row.gpuMs.mean===null?null:row.gpuMs.mean*row.executionsPerFrame})).sort((a,b)=>(b.estimatedMs??0)-(a.estimatedMs??0))
+   }finally{geometryProfile=false}
+ }
+ async function sampleTraceStages(){
+   const p=composer.passes.find(p=>p.name==='Lumen first bounce')
+   const u=p.traceMaterial.uniforms.auditTraceStage
+   const rows=[]
+   try{
+     for(const stage of [0,1,2,0]){
+       u.value=stage
+       const result=await sample(1500,true,true)
+       const trace=result.passes.find(r=>r.name.includes('/LumenQuarterResolutionTrace/'))
+       rows.push({stage:['complete','receiver lookup and sky','receiver and screen trace'][stage],gpu:trace?.gpuMs})
+     }
+   }finally{u.value=0}
+   return rows
+ }
+ async function createDepthStudy(){
+  const main=composer.passes.find(p=>p.name==='RenderPass')
+  if(!main)throw Error('No opaque pass available')
+  const {createLumenDepthStudy}=await import('./lumenDepthStudy.ts')
+  return createLumenDepthStudy(s.scene,s.camera,main)
+ }
+ async function sampleLumenDistance(){
+  const pass=composer.passes.find(p=>p.name==='Lumen first bounce')
+  const uniform=pass?.traceMaterial.uniforms.useDistanceField
+  if(!timer || !uniform?.value)throw Error('A resident distance field and GPU timer are required')
+  const queue=[],samples={patches:[],sdf:[]},base=s.camera.position.clone()
+  const trace=pass.trace,render=trace.render
+  let index=0
+  const flush=()=>{
+   if(g.getParameter(timer.GPU_DISJOINT_EXT)){
+    for(const {query} of queue.splice(0))g.deleteQuery(query)
+    return
+   }
+   while(queue.length && g.getQueryParameter(queue[0].query,g.QUERY_RESULT_AVAILABLE)){
+    const {query,method}=queue.shift()
+    samples[method].push(g.getQueryParameter(query,g.QUERY_RESULT)/1e6)
+    g.deleteQuery(query)
+   }
+  }
+  trace.render=function(...args){
+   const prior=uniform.value,method=['patches','sdf','sdf','patches'][index++%4]
+   const query=queue.length<32 && !g.getQuery(timer.TIME_ELAPSED_EXT,g.CURRENT_QUERY)?g.createQuery():null
+   if(query)g.beginQuery(timer.TIME_ELAPSED_EXT,query)
+   uniform.value=method==='sdf'
+   try{return render.apply(this,args)}finally{
+    uniform.value=prior
+    if(query){g.endQuery(timer.TIME_ELAPSED_EXT);queue.push({query,method})}
+   }
+  }
+  try{
+   const started=performance.now()
+   while(performance.now()-started<6000){
+    const now=await new Promise(requestAnimationFrame)
+    s.camera.position.x=base.x+Math.sin((now-started)*.001)*.18
+    s.camera.updateMatrixWorld(true)
+    s.invalidate()
+    flush()
+   }
+   trace.render=render
+   const deadline=performance.now()+1500
+   while(queue.length && performance.now()<deadline){await new Promise(requestAnimationFrame);flush()}
+   return Object.fromEntries(Object.entries(samples).map(([method,ms])=>[method,distribution(ms)]))
+  }finally{
+   trace.render=render
+   for(const {query} of queue)g.deleteQuery(query)
+   s.camera.position.copy(base);s.camera.updateMatrixWorld(true);s.invalidate()
+  }
+ }
+ const lumenPass=()=>composer.passes.find(p=>p.name==='Lumen first bounce')
+ function lumenDirectOnly(on){
+  const pass=lumenPass()
+  let requested=pass.enabled
+  if(on){
+   Object.defineProperty(pass,'enabled',{configurable:true,get:()=>false,set:value=>{requested=value}})
+   return()=>{delete pass.enabled;pass.enabled=requested}
+  }
+ }
+ async function captureLumenLinear(receivers,saveImage=false){
+  const pass=lumenPass(),render=pass.render
+  return new Promise((resolve,reject)=>{
+   pass.render=function(renderer,input,output,...rest){
+    pass.render=render
+    render.call(this,renderer,input,output,...rest)
+    const {width,height}=output,raw=new Uint16Array(width*height*4)
+    void renderer.readRenderTargetPixelsAsync(output,0,0,width,height,raw).then(()=>{
+     const samples=Object.fromEntries(Object.entries(receivers).map(([name,[u,v]])=>{
+      const at=((height-1-Math.floor(v*height))*width+Math.floor(u*width))*4
+      return [name,Array.from(raw.slice(at,at+3),DataUtils.fromHalfFloat)]
+     }))
+     if(!saveImage){resolve({samples});return}
+     const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height
+     const ctx=canvas.getContext('2d'),pixels=ctx.createImageData(width,height)
+     for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+      const to=(y*width+x)*4,from=((height-1-y)*width+x)*4
+      for(let c=0;c<3;c++)pixels.data[to+c]=255*linearToSRGB(Math.max(0,DataUtils.fromHalfFloat(raw[from+c])))
+      pixels.data[to+3]=255
+     }
+     ctx.putImageData(pixels,0,0);resolve({samples,image:canvas.toDataURL('image/png')})
+    },reject)
+   }
+   s.scene.userData.displayEffectRevision++;s.invalidate()
+  })
+ }
+ async function readLumenWorld(receivers){
+  const pass=lumenPass(),u=pass.displayMaterial.uniforms,points=u.surfacePoint.value.image.data,
+   normals=u.surfaceNormal.value.image.data,albedo=u.surfaceAlbedo.value.image.data
+  const read=async(target,index,attachment=0)=>{
+   const data=new Uint16Array(4)
+   await r.readRenderTargetPixelsAsync(target,index%target.width,Math.floor(index/target.width),1,1,data,undefined,attachment)
+   return Array.from(data,DataUtils.fromHalfFloat)
+  }
+  return Object.fromEntries(await Promise.all(Object.entries(receivers).map(async([name,{position,normal}])=>{
+   let index=-1,best=.14**2,side=0
+   for(let i=0;i<points.length;i+=4){
+    const facing=normal.reduce((n,v,c)=>n+v*normals[i+c],0)
+    if(Math.abs(facing)<.98)continue
+    const delta=position.map((v,c)=>v-points[i+c])
+    if(Math.abs(delta.reduce((n,v,c)=>n+v*normal[c],0))>.012)continue
+    const distance=delta.reduce((n,v)=>n+v*v,0)
+    if(distance<best){best=distance;index=i/4;side=facing<0?1:0}
+   }
+   if(index<0)return [name,{missing:true}]
+   const [daylight,ground,first,second]=await Promise.all([read(pass.skyAtlas,index),read(pass.skyAtlas,index,1),
+    read(pass.surfaceBounceAtlases[0],index,side),read(pass.surfaceBounceAtlases[1],index,side)])
+   const rho=Array.from(albedo.slice(index*4,index*4+3)),sky=u.skyBase.value.toArray(),lower=u.groundRadiance.value.toArray(),groundAlbedo=u.groundDiffuse.value.toArray()
+   return [name,{cachePosition:Array.from(points.slice(index*4,index*4+3)),albedo:rho,
+    apertureSky:rho.map((v,c)=>v*(sky[c]*daylight[side*2]+lower[c]*daylight[side*2+1])),
+    exteriorGround:rho.map((v,c)=>v*sky[c]*groundAlbedo[c]*ground[side]),sweep1:first.slice(0,3),sweep2:second.slice(0,3)}]
+  })))
+ }
+ return{configure,sample,sampleLumenControl,sampleGeometry,sampleTraceStages,createDepthStudy,sampleLumenDistance,lumenDirectOnly,captureLumenLinear,readLumenWorld,snapshot,captureSamplers,countSceneOperations,composer,lumenPass,ao,composerPasses:composer.passes.map(p=>({name:p.constructor.name,enabled:p.enabled,configuration:p.configuration&&Object.fromEntries(['aoRadius','aoSamples','denoiseSamples','denoiseIterations','halfRes','transparencyAware','intensity'].map(k=>[k,p.configuration[k]]))}))}
 }
 

@@ -50,13 +50,12 @@ export function installNonBlockingShaderDiagnostics(renderer: WebGLRenderer, opt
     } finally { renderer.debug.checkShaderErrors = diagnostics }
   }
   const compile = renderer.compileAsync.bind(renderer)
-  const submit = options.contextSafePolling ? renderer.compile?.bind(renderer) : undefined
   renderer.compileAsync = (...args) => {
     const epoch = contextEpoch
     // Native compileAsync polls material properties even after context restore
     // replaces them. Submit with the same native compile(), then use the existing
     // cancellable program checks instead of stacking two independent pollers.
-    const pending = submit ? Promise.resolve(submit(...args)).then(() => args[0]) : compile(...args)
+    const pending = options.contextSafePolling ? Promise.resolve(renderer.compile(...args)).then(() => args[0]) : compile(...args)
     // A geometry preview or one material batch must not wait for unrelated
     // programs submitted by the full scene, nor inherit their old failures.
     // Three submits synchronously before compileAsync returns. Include both

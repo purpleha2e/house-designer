@@ -1,8 +1,17 @@
 import type { Material } from 'three'
 import { captureMaterialShaderKey, composedMaterialShaderKey } from '../shaderKeyTransform.ts'
+import { withSpecularOnlyImageBasedLighting } from './imageBasedLighting.ts'
+import { createMaterialVariationShader } from './proceduralVariation.ts'
+import { withWallShadowReceiver } from './wallShadowReceiver.ts'
 
 type ShaderOverrides = Partial<Pick<Material, 'onBeforeCompile' | 'customProgramCacheKey'>>
 const finishes = new WeakMap<Material, { overrides: ShaderOverrides }>()
+
+export function createSurfaceFinishShader(variationKey: string, reflectEnvironment: boolean, wallReceiver: boolean) {
+  const variation = variationKey ? createMaterialVariationShader(JSON.parse(variationKey)) : {}
+  const finish = reflectEnvironment ? withSpecularOnlyImageBasedLighting(variation) : variation
+  return wallReceiver ? withWallShadowReceiver(finish) : finish
+}
 
 /** Keep one finish hook so asynchronous textures cannot replace GI/room-light hooks. */
 export function updateSurfaceMaterialShader(material: Material, overrides: ShaderOverrides) {

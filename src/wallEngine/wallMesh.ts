@@ -1137,10 +1137,12 @@ function addOpeningRevealFaces({
       const pointNegative = getWallSidePointAtDistance(wall, segment.x, -1)
       const pointSplit = getWallSidePointAtDistance(wall, segment.x, splitSide)
       const pointPositive = getWallSidePointAtDistance(wall, segment.x, 1)
+      // Opening jambs face into the void, opposite the end caps of a solid
+      // wall. Inward normals sent GI rays into masonry and blackened reveals.
       const normal =
         segment.edge === 'left'
-          ? getEndpointNormal(wall, 'start')
-          : getEndpointNormal(wall, 'end')
+          ? getEndpointNormal(wall, 'end')
+          : getEndpointNormal(wall, 'start')
 
       addRevealFace({
         faceId: `${faceIdPrefix}:-1`,

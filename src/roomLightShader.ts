@@ -450,7 +450,7 @@ export function applyRoomLightShader(material: Material, uniforms: RoomLightShad
         hdRoomLightReceiverWorldOffset = (modelMatrix * hdRoomLightReceiver).xyz;`)
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\n#define HD_ROOM_LIGHT_CAPACITY ${uniforms.pointRoomIds.value.length}\n${localShadowAtlasGLSL}\n${uniforms.atlasOnly ? atlasLightPars : roomLightShaderPars}`)
-      .replace('#include <lights_fragment_begin>', uniforms.atlasOnly ? atlasLightsChunk : maskedLightsChunk)
+      .replace('#include <lights_fragment_begin>', `#ifdef HD_GI_NATIVE_CAPTURE\n${ShaderChunk.lights_fragment_begin}\n#else\n${uniforms.atlasOnly ? atlasLightsChunk : maskedLightsChunk}\n#endif`)
     if (rendererShadowMode === 'cascaded') applySunCascadeShader(shader, renderer)
   }
   const roomKeySuffix = `:house-designer-room-light-v${uniforms.atlasOnly ? 30 : 29}-${rendererShadowMode}-${rendererShadowSize}`

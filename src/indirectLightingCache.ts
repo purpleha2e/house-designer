@@ -2,8 +2,8 @@ import type {IndirectSpatialInterpolation} from './indirectSpatialInterpolation.
 import { Vector3 } from 'three'
 import { createIndirectProbeObstacles, type IndirectProbeObstacle } from './indirectProbeObstacles.ts'
 import { createIndirectField, INDIRECT_ATLAS_SIZE, INDIRECT_MASK_SIZE, INDIRECT_MAX_LOCAL_LIGHTS, serializeIndirectField,
-  writeIndirectPosition, type IndirectFloor } from './indirectLighting.ts'
-import { createIndirectVisibilityFromSnapshot, writeIndirectVisibility, type IndirectGeometrySnapshot, type IndirectVisibilitySnapshot } from './indirectVisibility.ts'
+  writeIndirectPosition, type IndirectField, type IndirectFloor } from './indirectLighting.ts'
+import { createIndirectVisibilityFromSnapshot, writeIndirectVisibility, type IndirectGeometrySnapshot, type IndirectVisibility, type IndirectVisibilitySnapshot } from './indirectVisibility.ts'
 import { createIndirectVolumeLookup, writeIndirectCeilingRow, writeIndirectVolumeRow,type IndirectInterpolationReuseData } from './indirectVolume.ts'
 import { pointIsInsideRoomPolygon } from './roomLightMask.ts'
 import { createIndirectFloorLookup, writeIndirectFloorLayer, writeIndirectFloorRow } from './indirectFloorLighting.ts'
@@ -15,6 +15,14 @@ import { createIndirectPreparationTimer, type IndirectPreparationProgress } from
 import type { IndirectSHOrder } from './indirectSH.ts'
 
 export const INDIRECT_MIN_PROBE_SPACING = 0.6
+
+export function buildIndirectGpuInterpolationGraph(layout: IndirectField, visibility: IndirectVisibility,
+  volume = createIndirectVolumeLookup(layout, visibility), floor = createIndirectFloorLookup(layout, visibility)) {
+  const result = new Float64Array(layout.coefficientCount * 3)
+  for (let row = 0; row < layout.volume.rows; row++) writeIndirectVolumeRow(layout, row, result, visibility, volume, true)
+  for (let row = 0; row < layout.floors.length * layout.floorLayer.n; row++) writeIndirectFloorRow(layout, row, visibility, floor, true)
+  return { volume: volume.graph(), floor: floor.graph() }
+}
 
 /** Relocation can collapse several grid nodes onto one wall inset or clear
  * furniture position. Keep the least-displaced sample, but never combine
@@ -166,11 +174,9 @@ export function* prepareIndirectCacheSteps(floors: IndirectFloor[], lights: [num
     plan(previous: IndirectZoneProbe[], changes: IndirectZoneChange[]) {
       return planIndirectZones(field, visibility, previous, changes)
     },
-    gpuPreview() {
-      const result = new Float64Array(field.coefficientCount * 3)
-      for (let row = 0; row < preview.volume.rows; row++) writeIndirectVolumeRow(preview, row, result, visibility, previewLookup, true)
-      for (let row = 0; row < preview.floors.length * preview.floorLayer.n; row++) writeIndirectFloorRow(preview, row, visibility, previewFloorLookup, true)
-      return { volume: previewLookup.graph(), floor: previewFloorLookup.graph() }
+    gpuPreview(fullResolution = false) {
+      const [layout, volume, floor] = fullResolution ? [field, lookup, floorLookup] : [preview, previewLookup, previewFloorLookup]
+      return buildIndirectGpuInterpolationGraph(layout, visibility, volume, floor)
     },
     preview(coefficients: Uint16Array[], positions: Float32Array) {
       // Separate coefficient buffers preserve completed full-resolution bounce data.

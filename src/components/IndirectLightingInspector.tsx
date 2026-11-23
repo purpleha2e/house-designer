@@ -2,14 +2,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Html } from '@react-three/drei'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Color, InstancedMesh, Matrix3, Matrix4, Mesh, MeshStandardMaterial, Raycaster, Vector2, Vector3 } from 'three'
+import { BufferGeometry, Color, Float32BufferAttribute, InstancedMesh, LineBasicMaterial, LineSegments, Matrix3, Matrix4, Mesh, MeshStandardMaterial, Raycaster, Scene, Vector2, Vector3 } from 'three'
 import { serializeIndirectField, type IndirectField } from '../indirectLighting'
 import { snapshotIndirectGeometry } from '../indirectVisibility'
-import type { IndirectPointInspection } from '../indirectLightingDiagnostic'
+import { sampleDisplayedIndirect, type IndirectPointInspection } from '../indirectLightingDiagnostic'
 import type { IndirectInspectionRequest } from '../indirectLightingDiagnostic.worker'
+import type { HybridProbeInspection } from '../../experiments/ml-gi/phase5/editor'
+import type { SixRayInspection } from '../sixRayLighting'
 
 type Snapshot = { field: IndirectField; generation: number; ready: boolean; direct?: Uint16Array[];
   lights: { position: number[]; color: string }[] }
+type RayReport = SixRayInspection & { displayed?: number[] }
 const numberText = (value: number) => Number(value.toPrecision(3)).toString()
 const rgbText = (rgb: number[]) => rgb.map(numberText).join(', ')
 const swatch = (rgb: number[]) => {
@@ -20,20 +23,62 @@ const swatch = (rgb: number[]) => {
 
 /** Pick a receiver and inspect its immutable lighting snapshot in a separate worker. */
 export function IndirectLightingInspector({ enabled, snapshot }: { enabled: boolean; snapshot: () => Snapshot }) {
-  const { camera, gl, scene } = useThree()
+  const { camera, gl, scene, invalidate } = useThree()
   const latest = useRef(snapshot)
   useLayoutEffect(() => { latest.current = snapshot }, [snapshot])
   const [report, setReport] = useState<IndirectPointInspection | null>(null)
+  const [hybridReport, setHybridReport] = useState<HybridProbeInspection | null>(null)
+  const [rayReport, setRayReport] = useState<RayReport>()
+  const [showRays, setShowRays] = useState(true)
   const [message, setMessage] = useState('Wait for GI ready, then click an indoor surface to inspect its lighting.')
   const [busy, setBusy] = useState(false)
   const reportGeneration = useRef(-1)
   const liveGeneration = useRef(-1)
+  const hybridGeneration = useRef('')
+  const rayGeneration = useRef(0)
   useFrame(() => {
     liveGeneration.current = latest.current().generation
+    const status = scene.userData.experimentalHybridGI
+    const next = status ? status.active + '/' + status.published : ''
+    if (hybridGeneration.current !== next) { hybridGeneration.current = next; setHybridReport(null) }
+    const rays = scene.userData.sixRayGI?.published ?? 0
+    if (rayGeneration.current !== rays) { rayGeneration.current = rays; setRayReport(undefined) }
     if (reportGeneration.current >= 0 && reportGeneration.current !== liveGeneration.current) {
       reportGeneration.current = -1; setReport(null); setMessage('Lighting changed. Click the surface again to inspect the new bake.')
     }
   })
+  useEffect(() => {
+    if (!rayReport || !showRays) return
+    const points: number[] = [], colors: number[] = []
+    const segment = (start: number[], direction: number[], hit: number[] | undefined, color: string) => {
+      const end = hit ?? new Vector3().fromArray(start).addScaledVector(new Vector3().fromArray(direction), 2).toArray()
+      const rgb = new Color(color).toArray()
+      points.push(...start, ...end); colors.push(...rgb, ...rgb)
+    }
+    for (const ray of rayReport.traces) {
+      segment(rayReport.origin, ray.direction, ray.hit?.point, ray.target ? '#ffb84e' : '#36c9ff')
+      if (ray.hit) for (const bounce of ray.secondary) segment(ray.hit.point, bounce.direction, bounce.hit?.point, '#b699fa')
+    }
+    const geometry = new BufferGeometry().setAttribute('position', new Float32BufferAttribute(points, 3))
+      .setAttribute('color', new Float32BufferAttribute(colors, 3))
+    const material = new LineBasicMaterial({ vertexColors: true, depthTest: false, depthWrite: false, toneMapped: false })
+    const lines = new LineSegments(geometry, material)
+    lines.name = 'six-ray-probe-rays'
+    lines.frustumCulled = false
+    lines.layers.enableAll()
+    const overlay = new Scene()
+    overlay.add(lines)
+    scene.userData.sixRayOverlay = overlay
+    const refresh = () => {
+      scene.userData.displayEffectRevision = (scene.userData.displayEffectRevision ?? 0) + 1
+      invalidate()
+    }
+    refresh()
+    return () => {
+      if (scene.userData.sixRayOverlay === overlay) delete scene.userData.sixRayOverlay
+      geometry.dispose(); material.dispose(); refresh()
+    }
+  }, [invalidate, rayReport, scene, showRays])
   useEffect(() => {
     if (!enabled) return
     let disposed = false
@@ -42,7 +87,32 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
     gl.domElement.style.cursor = 'crosshair'
     const inspect = (point: Vector3, normal: Vector3) => {
       const current = latest.current()
-      if (!current.ready || gl.xr.isPresenting) { setMessage('Wait for GI ready, then click an indoor surface.'); return }
+      const inspectRays = scene.userData.inspectSixRayProbe as ((point: number[], normal: number[]) => Promise<SixRayInspection | undefined>) | undefined
+      if (inspectRays) {
+        const request = ++sequence
+        const generation = scene.userData.sixRayGI?.published
+        activeWorker?.terminate(); activeWorker = null
+        setBusy(true); setReport(null); setHybridReport(null); setRayReport(undefined)
+        setMessage('Inspecting the nearest ray-traced probe…')
+        return inspectRays(point.toArray(), normal.toArray()).then(result => {
+          if (disposed || request !== sequence) return
+          setBusy(false)
+          if (generation === scene.userData.sixRayGI?.published && result) {
+            const field = scene.userData.getSixRayField?.().field as IndirectField | undefined
+            const sample = point.clone().addScaledVector(normal, .045)
+            const floor = field?.ranges.findLastIndex(range => sample.y >= range.bottom && sample.y <= range.top) ?? -1
+            const displayed = field && floor >= 0 ? sampleDisplayedIndirect(field, floor, sample, normal).rgb : undefined
+            setRayReport({ ...result, displayed }); setMessage('Click another surface to inspect its nearest probe.')
+          } else setMessage('Wait for ray-traced lighting to settle, then click again.')
+        })
+      }
+      const hybrid: HybridProbeInspection | undefined = import.meta.env.DEV
+        ? scene.userData.inspectExperimentalHybridProbe?.(point, normal) : undefined
+      setHybridReport(hybrid ?? null)
+      if (!current.ready || gl.xr.isPresenting) {
+        setMessage(hybrid ? 'Click another surface to inspect its nearest hybrid probe.' : 'Wait for GI ready, then click an indoor surface.')
+        return
+      }
       const request = ++sequence
       activeWorker?.terminate()
       const diagnostic = new Worker(new URL('../indirectLightingDiagnostic.worker.ts', import.meta.url), { type: 'module' })
@@ -103,8 +173,8 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
   }, [enabled, camera, gl, scene])
   if (!enabled) return null
   const download = () => {
-    if (!report) return
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ generation: reportGeneration.current, ...report }, null, 2)], { type: 'application/json' }))
+    if (!report && !hybridReport && !rayReport) return
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ generation: reportGeneration.current, ...report, hybrid: hybridReport, rays: rayReport }, null, 2)], { type: 'application/json' }))
     const link = document.createElement('a'); link.href = url; link.download = 'gi-point-inspection.json'; link.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
@@ -117,6 +187,39 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
     onOcclude={() => {}} zIndexRange={[50, 50]} style={{ pointerEvents: 'none' }}><section className="gi-inspection-panel" aria-label="GI point inspection" aria-busy={busy}>
     <strong>GI point inspection</strong>
     <p aria-live="polite">{message}</p>
+    {rayReport && <>
+      <p>Probe {rayReport.probe} · Reconstructed irradiance {rgbText(rayReport.irradiance)}</p>
+      {rayReport.displayed && <p>Volume irradiance at receiver {rgbText(rayReport.displayed)}</p>}
+      <label><input type="checkbox" checked={showRays} onChange={event => setShowRays(event.target.checked)} /> Show primary and secondary rays</label>
+      {showRays && <p>Blue coverage · amber targeted · violet secondary</p>}
+      <details open><summary>Primary rays</summary>
+        <ol>{rayReport.traces.map((ray, i) => <li key={i}>
+          <details><summary>{ray.target ? `${ray.target.kind} · ${ray.target.id}` : 'Broad coverage'} · {rgbText(ray.direction)}</summary>
+            <p>{ray.hit ? `Hit ${rgbText(ray.hit.point)} · material ${ray.hit.material} · reflectance ${rgbText(ray.hit.reflectance)} · sun ${ray.solarVisible ? 'visible' : 'absent'}` : 'Escaped to the environment'}</p>
+            <p>First contribution {rgbText(ray.first)} · second bounce {rgbText(ray.second)}</p>
+            {ray.secondary.length > 0 && <ul>{ray.secondary.map((bounce, j) => <li key={j}>
+              {bounce.hit ? `Hit ${rgbText(bounce.hit.point)}` : 'Environment'} · radiance {rgbText(bounce.radiance)}
+            </li>)}</ul>}
+          </details>
+        </li>)}</ol>
+      </details>
+      <details><summary>Candidate influence and SH coefficients</summary>
+        <p>{rgbText(rayReport.coefficients)}</p>
+        <ul>{rayReport.candidates.map((candidate, i) => <li key={i}>{candidate.kind} · {candidate.id} · {numberText(candidate.score)} · {candidate.visible ? 'visible' : 'occluded'}</li>)}</ul>
+      </details>
+    </>}
+    {hybridReport && <details open><summary>Hybrid probe {hybridReport.probe} · {numberText(hybridReport.distance)} m away</summary>
+      <table><tbody>
+        <tr><td>Exact first solar bounce</td><td>{rgbText(hybridReport.firstSolarIrradiance)}</td></tr>
+        <tr><td>Other reflected light</td><td>{rgbText(hybridReport.otherReflectedIrradiance)}</td></tr>
+        <tr><td>Total directional irradiance</td><td>{rgbText(hybridReport.irradiance)}</td></tr>
+      </tbody></table>
+      <details><summary>SH coefficients and strongest visible patches under fixed transfer</summary>
+        <p>Coefficients {rgbText(hybridReport.coefficients)}</p>
+        <p>Learned minus fixed {rgbText(hybridReport.learnedMinusFixed)}</p>
+        <ul>{hybridReport.sources.map(patch => <li key={patch.patch}>Patch {patch.patch}, material {patch.material} · {rgbText(patch.position)} · {numberText(patch.meanRadiance)}</li>)}</ul>
+      </details>
+    </details>}
     {report && <>
       {bounces ? <>
         <table aria-label="Bounce contribution"><thead><tr><th>Light at this surface</th><th>Relative brightness</th></tr></thead><tbody>
@@ -137,7 +240,7 @@ export function IndirectLightingInspector({ enabled, snapshot }: { enabled: bool
       <details><summary>Nearby probes, evaluated in the surface direction</summary><table><thead><tr><th>Probe</th><th>Light</th><th>Visible</th></tr></thead><tbody>
         {report.probes.map(probe => <tr key={probe.index}><td>{probe.index} · {probe.distance.toFixed(2)} m</td><td><span className="gi-inspection-swatch" style={{ background: swatch(probe.finalRGB) }} />{rgbText(probe.finalRGB)}</td><td>{probe.visibleAtSurface ? 'Yes' : 'No'}</td></tr>)}
       </tbody></table></details>
-      <button type="button" onClick={download}>Download report</button>
     </>}
+    {(report || hybridReport || rayReport) && <button type="button" onClick={download}>Download report</button>}
   </section></Html>
 }

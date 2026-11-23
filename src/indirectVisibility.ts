@@ -16,18 +16,23 @@ export type IndirectGeometrySnapshot = {
 /** Shared by cache identity and worker snapshots. Changing a finish to glass
  * changes visibility; changing the order of opaque material groups does not.
  * Registered navigation hiding never removes a physical floor/ceiling. */
-export function indirectGeometryRanges(object: Mesh, shadowSides = false) {
+export function indirectMaterialRanges(object: Mesh) {
   const geometry = object.geometry, materials = Array.isArray(object.material) ? object.material : [object.material]
   const count = geometry.index?.count ?? geometry.attributes.position?.count ?? 0
   const groups = geometry.groups.length ? geometry.groups : [{ start: 0, count, materialIndex: 0 }]
-  return groups.filter(group => {
+  const ranges: {start:number;count:number;material:MeshStandardMaterial}[]=[]
+  for(const group of groups){
     const material = materials[Array.isArray(object.material) ? group.materialIndex ?? 0 : 0]
-    return material instanceof MeshStandardMaterial && (material.visible || hasViewportSurfaceVisibility(material)) && !isLightingGlazing(material) && (material.opacity > 0 || material.transparent)
-  }).map(group => {
-    const material = materials[Array.isArray(object.material) ? group.materialIndex ?? 0 : 0]
-    return { start: group.start, count: Math.min(group.count, count - group.start),
-      ...(shadowSides ? { shadowSide: material.shadowSide ?? (material.side === DoubleSide ? DoubleSide : material.side === BackSide ? FrontSide : BackSide) } : {}) }
-  })
+    if(material instanceof MeshStandardMaterial && (material.visible || hasViewportSurfaceVisibility(material)) && !isLightingGlazing(material) && (material.opacity > 0 || material.transparent)){
+      ranges.push({start:group.start,count:Math.min(group.count,count-group.start),material})
+    }
+  }
+  return ranges
+}
+
+export function indirectGeometryRanges(object: Mesh, shadowSides = false) {
+  return indirectMaterialRanges(object).map(({start,count,material})=>({start,count,
+    ...(shadowSides ? { shadowSide: material.shadowSide ?? (material.side === DoubleSide ? DoubleSide : material.side === BackSide ? FrontSide : BackSide) } : {}) }))
 }
 
 /** Copy only descriptors on the UI thread. postMessage clones the source buffers;

@@ -1,0 +1,33 @@
+{
+  "width": 1092,
+  "height": 1056,
+  "samples": {
+    "normal": {
+      "gpuMs": 147.27586,
+      "cpuMs": 16.699999928474426,
+      "completedMs": 156.29999995231628,
+      "frames": 40
+    },
+    "withoutBounceLookup": {
+      "gpuMs": 133.7312,
+      "cpuMs": 17.09999990463257,
+      "completedMs": 68.89999997615814,
+      "frames": 40
+    },
+    "withoutAmbientOcclusion": {
+      "gpuMs": 88.58555,
+      "cpuMs": 12.100000023841858,
+      "completedMs": 88.5,
+      "frames": 40
+    },
+    "normalRepeat": {
+      "gpuMs": 105.50962,
+      "cpuMs": 19.5,
+      "completedMs": 105.70000004768372,
+      "frames": 40
+    }
+  },
+  "requests": 0,
+  "newPrograms": 0,
+  "state": "ready"
+}

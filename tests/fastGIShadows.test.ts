@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BoxGeometry, Mesh, MeshStandardMaterial, PointLight, Scene } from 'three'
-import { configureFastGIShadows } from '../src/fastGIShadows.ts'
+import { configureFastGIShadows, fastGICaptureShadowSlots } from '../src/fastGIShadows.ts'
+
+test('architectural capture reserves sampler capacity independently of scene edits', () => {
+  assert.equal(fastGICaptureShadowSlots(16), 2)
+  assert.equal(fastGICaptureShadowSlots(24), 4)
+  assert.equal(fastGICaptureShadowSlots(32, 2), 2)
+  assert.equal(fastGICaptureShadowSlots(16, 1), 1)
+})
 
 test('preview lights use their own bounded GPU shadows without requiring probe visibility atlases', () => {
   const scene = new Scene(), geometry = new BoxGeometry(), material = new MeshStandardMaterial()
