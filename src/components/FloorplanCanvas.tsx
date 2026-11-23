@@ -44,6 +44,7 @@ import { ObjectTransformPanel } from './ObjectTransformPanel'
 import { GroundImageControls, GroundImageLayer } from './GroundImage'
 import { getWallDragDelta } from '../wallDragModifiers'
 import { getWallStartAtOffset, getWallStartGuide, parseWallStartOffset, type WallStartGuide } from '../wallStartGuide'
+import { getWallSplitTarget, type WallSplitTarget } from '../wallSplit'
 import { snapWallTranslationToReferences } from '../wallReferenceSnap'
 import { getTransformDragDelta, getTransformRotation } from '../transformModifiers'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -77,6 +78,8 @@ import {
 } from '../modelPlacement'
 import { findDormerPlacement } from '../dormerPlacement'
 import { snapStairApertureToWalls } from '../stairPlacement'
+import { getStairLayout } from '../stairDesign'
+import { getStairGuardrailPaths } from '../stairGuardrails'
 import {
   endpointSnapRespectsMinimumJoinAngle,
   wallRespectsMinimumJoinAngles,
@@ -152,6 +155,7 @@ type FloorplanCanvasProps = {
   initialViewport?: FloorplanViewportState
   internalWallThickness: number
   isAddingWall: boolean
+  isSplittingWall?: boolean
   isRoofMode: boolean
   modelAssetVersion: number
   placementModel: ModelDefinition | null
@@ -165,6 +169,7 @@ type FloorplanCanvasProps = {
   wallHeight: number
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
+  onSplitWall?: (wallId: string, offset: number) => void
   onAddRoof: (options: RoofCreateOptions) => void
   onCancelModelPlacement: () => void
   onDeleteModel: (modelId: string) => void
@@ -3233,25 +3238,27 @@ export function FloorplanCanvas({
   onGroundImageChange,
   showImages = true,
   onShowImagesChange,
-  activeFloor,
+  activeFloor: editingFloor,
   children,
   floors,
   initialViewport,
   internalWallThickness,
   isAddingWall,
+  isSplittingWall = false,
   isRoofMode,
   modelAssetVersion,
   placementModel,
   projectFileName,
   selectedModelId,
   selectedModelIds,
-  selectedRoofId,
+  selectedRoofId: requestedSelectedRoofId,
   selectedRoomSignature,
   selectedWallId,
   selectedWallIds,
   wallHeight,
   wallKind,
   onAddWall,
+  onSplitWall,
   onAddRoof,
   onCancelModelPlacement,
   onDeleteModel,
@@ -3274,13 +3281,21 @@ export function FloorplanCanvas({
   onUpdateWalls,
   viewportRestoreRevision,
 }: FloorplanCanvasProps) {
+  const [roofFloorOverride, setRoofFloorOverride] = useState<string | null>(null)
+  const roofFloor = floors.find(floor => floor.id === roofFloorOverride) ?? editingFloor
+  const activeFloor = isRoofMode ? roofFloor : editingFloor
+  const selectedRoofId = isRoofMode && !activeFloor.roofs?.some(roof => roof.id === requestedSelectedRoofId)
+    ? null
+    : requestedSelectedRoofId
+  useEffect(() => { setRoofFloorOverride(null) }, [editingFloor.id, viewportRestoreRevision])
+
   const [isMeasuring, setIsMeasuring] = useState(false)
   useEffect(() => { setIsMeasuring(false) }, [activeFloor.id, viewportRestoreRevision])
   useEffect(() => {
-    if (isAddingWall || isRoofMode || placementModel) setIsMeasuring(false)
-  }, [isAddingWall, isRoofMode, placementModel])
+    if (isAddingWall || isSplittingWall || isRoofMode || placementModel) setIsMeasuring(false)
+  }, [isAddingWall, isSplittingWall, isRoofMode, placementModel])
   const [groundImageEditing, setGroundImageEditing] = useState(false)
-  useEffect(() => { setGroundImageEditing(false) }, [activeFloor.id])
+  useEffect(() => { setGroundImageEditing(false) }, [activeFloor.id, isRoofMode])
   useEffect(() => { if (!showImages) setGroundImageEditing(false) }, [showImages])
   const walls = activeFloor.walls
   const roofs = activeFloor.roofs ?? []
@@ -3336,7 +3351,7 @@ export function FloorplanCanvas({
     // The revision and floor id deliberately control restoration. The viewport
     // prop also changes when this component reports ordinary pan/zoom updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFloor.id, viewportRestoreRevision])
+  }, [editingFloor.id, viewportRestoreRevision])
 
   useEffect(() => {
     if (skipNextViewportReportRef.current) {
@@ -3344,8 +3359,8 @@ export function FloorplanCanvas({
       return
     }
 
-    onViewportChange(activeFloor.id, viewport)
-  }, [activeFloor.id, onViewportChange, viewport])
+    onViewportChange(editingFloor.id, viewport)
+  }, [editingFloor.id, onViewportChange, viewport])
   const [isRenderMenuOpen, setIsRenderMenuOpen] = useState(false)
   useToolbarMenu(isRenderMenuOpen, setIsRenderMenuOpen, floorplanMenuRef)
   const [renderOptions, setRenderOptions] = useState<FloorplanRenderOptions>({
@@ -3396,6 +3411,7 @@ export function FloorplanCanvas({
   const [hoverAlignmentGuide, setHoverAlignmentGuide] =
     useState<AlignmentGuide | null>(null)
   const [hoverWallStartGuide, setHoverWallStartGuide] = useState<WallStartGuide | null>(null)
+  const [hoverWallSplit, setHoverWallSplit] = useState<WallSplitTarget | null>(null)
   const [draftWallStartGuide, setDraftWallStartGuide] = useState<WallStartGuide | null>(null)
   const [wallStartOffsetEdit, setWallStartOffsetEdit] =
     useState<{ guide: WallStartGuide; value: string } | null>(null)
@@ -3562,7 +3578,7 @@ export function FloorplanCanvas({
   useEffect(() => {
     setRoofPlacementPoints([])
     setHoverRoofPlacementPoint(null)
-  }, [activeFloor.id])
+  }, [activeFloor.id, editingFloor.id, viewportRestoreRevision])
 
   useEffect(() => {
     let isMounted = true
@@ -3767,6 +3783,20 @@ export function FloorplanCanvas({
   }, [activeFloor.id, draftWallThickness, viewportRestoreRevision, walls])
 
   useEffect(() => {
+    setHoverWallSplit(null)
+  }, [isSplittingWall, activeFloor.id, viewportRestoreRevision, walls])
+
+  useEffect(() => {
+    if (isSplittingWall) {
+      setGroundImageEditing(false)
+      setWallMeasurementEdit(null)
+      setDraftLengthInput(null)
+      setDraftAngleInput(null)
+      setWallDragPreview(null)
+    }
+  }, [isSplittingWall])
+
+  useEffect(() => {
     const typedLength = parseLengthInput(draftLengthInput ?? '')
     const typedAngle = parseAngleInput(draftAngleInput ?? '')
     if (!typedLength && typedAngle === null) {
@@ -3823,7 +3853,7 @@ export function FloorplanCanvas({
   }, [draftAngleInput, draftLengthInput, selectedWallId, wallMeasurementEdit, walls])
 
   useEffect(() => {
-    if (!isAddingWall) {
+    if (!isAddingWall && !isSplittingWall) {
       return
     }
 
@@ -3843,7 +3873,7 @@ export function FloorplanCanvas({
 
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [isAddingWall, isEditingWallStartOffset, onExitAddWall])
+  }, [isAddingWall, isSplittingWall, isEditingWallStartOffset, onExitAddWall])
 
   useEffect(() => {
     if (!isAddingWall || (!draftWall && !hoverWallStartGuide)) {
@@ -3922,7 +3952,7 @@ export function FloorplanCanvas({
   }, [activeFloor.walls, draftWall, hoverWallStartGuide, isAddingWall, isEditingWallStartOffset, onAddWall, onExitAddWall])
 
   useEffect(() => {
-    if (isAddingWall || draftWall || isMeasuring) {
+    if (isAddingWall || isSplittingWall || draftWall || isMeasuring) {
       return
     }
 
@@ -4001,6 +4031,7 @@ export function FloorplanCanvas({
   }, [
     draftWall,
     isAddingWall,
+    isSplittingWall,
     isMeasuring,
     selectedWallId,
     selectedWallIds.length,
@@ -4360,46 +4391,8 @@ export function FloorplanCanvas({
       }
       return
     }
-    const baseRotation =
-      roofPlacementType === 'lean-to'
-        ? getLeanToRotationFromSnappedWall(
-            roofPlacementPoints,
-            roofAttachmentWalls,
-            roofAttachmentContext.rooms,
-          )
-        : roofPlacementType === 'flat' || roofPlacementType === 'up-and-over'
-          ? getUpAndOverRotationFromPlacementPoints(roofPlacementPoints)
-          : null
-    const rotation =
-      (baseRotation ??
-        getRoofPlacementRotation(
-          roofPlacementType,
-          roofPlacementDirection,
-        )) +
-      roofPlacementQuarterTurns * (Math.PI / 2)
-    const supportPoints = getRoofPlacementSupportPoints({
-      points: roofPlacementPoints,
-      roofType: roofPlacementType,
-      rotation,
-      walls: roofAttachmentWalls,
-    })
-    const supportBounds = getRoofSupportBounds(supportPoints, rotation)
-    const bounds = getRoofPlacementBounds({
-      overhangEnd: roofPlacementEndOverhang,
-      overhangSide: roofPlacementSideOverhang,
-      overhangSideNegative:
-        roofPlacementType === 'up-and-over'
-          ? roofPlacementSideNegativeOverhang
-          : roofPlacementSideOverhang,
-      overhangSidePositive:
-        roofPlacementType === 'up-and-over'
-          ? roofPlacementSidePositiveOverhang
-          : roofPlacementSideOverhang,
-      points: supportPoints,
-      roofType: roofPlacementType,
-      rotation,
-    })
-
+    const bounds = roofPlacementBounds
+    const supportBounds = roofPlacementSupportBounds
     if (!bounds || !supportBounds) {
       return
     }
@@ -4432,7 +4425,7 @@ export function FloorplanCanvas({
       ridgeStartChamfer: roofPlacementType === 'up-and-over'
         ? roofPlacementRidgeStartChamfer
         : undefined,
-      rotation,
+      rotation: roofPlacementRotation,
       supportDepth: supportBounds.depth,
       supportPosition: supportBounds.position,
       supportWidth: supportBounds.width,
@@ -4447,7 +4440,7 @@ export function FloorplanCanvas({
   ) => {
     event.evt.preventDefault()
     event.cancelBubble = true
-    if (isAddingWall || placementModel || isMeasuring || groundImageEditing || (targetType === 'room' && !onOpenProperties)) return
+    if (isAddingWall || isSplittingWall || placementModel || isMeasuring || groundImageEditing || (targetType === 'room' && !onOpenProperties)) return
     const containerBounds = containerRef.current?.getBoundingClientRect()
     if (!containerBounds) return
 
@@ -4471,7 +4464,7 @@ export function FloorplanCanvas({
       x: event.evt.clientX - containerBounds.left,
       y: event.evt.clientY - containerBounds.top,
     })
-  }, [groundImageEditing, isAddingWall, isMeasuring, onOpenProperties, onSelectModel, onSelectRoof, onSelectRoom,
+  }, [groundImageEditing, isAddingWall, isSplittingWall, isMeasuring, onOpenProperties, onSelectModel, onSelectRoof, onSelectRoom,
     onSelectWall, placementModel, selectedModelId, selectedRoofId, selectedRoomSignature, selectedWallId])
 
   const setCompositorPanOffset = (offsetX: number, offsetY: number) => {
@@ -4533,6 +4526,7 @@ export function FloorplanCanvas({
         startClientY: event.evt.clientY,
       }
       setCompositorPanOffset(0, 0)
+      setHoverWallSplit(null)
       setIsMiddlePanning(true)
       return
     }
@@ -4545,6 +4539,13 @@ export function FloorplanCanvas({
     if (isMeasuring) return
 
     if (groundImageEditing) return
+
+    if (isSplittingWall) {
+      const point = getPointerPoint(event)
+      const target = point && getWallSplitTarget(walls, point, 8 / (METERS_TO_PIXELS * viewport.scale))
+      if (target && !target.blocker) onSplitWall?.(target.wallId, target.offset)
+      return
+    }
 
     if (placementModel) {
       if (modelPlacementPreview) {
@@ -4643,6 +4644,12 @@ export function FloorplanCanvas({
     }
 
     if (isMeasuring) return
+
+    if (isSplittingWall) {
+      const point = getPointerPoint(event)
+      setHoverWallSplit(point && getWallSplitTarget(walls, point, 8 / (METERS_TO_PIXELS * viewport.scale)))
+      return
+    }
 
     if (placementModel) {
       const point = getPointerPoint(event)
@@ -4963,16 +4970,19 @@ export function FloorplanCanvas({
   const startGuide = isAddingWall
     ? wallStartOffsetEdit?.guide ?? (draftWall ? null : hoverWallStartGuide)
     : null
-  const startGuideDistance = startOffset ?? startGuide?.distance ?? 0
-  const startGuideDisplay = startGuide ? (() => {
-    const pushOff = startGuide.hostHalfThickness + .13
+  const splitGuide = isSplittingWall ? hoverWallSplit : null
+  const rulerGuide = startGuide ?? splitGuide
+  const rulerDistance = startOffset ?? rulerGuide?.distance ?? 0
+  const rulerColour = splitGuide?.blocker ? '#b91c1c' : '#2563eb'
+  const startGuideDisplay = rulerGuide ? (() => {
+    const pushOff = rulerGuide.hostHalfThickness + .13
     const reference = toCanvasPoint({
-      x: startGuide.reference.x + startGuide.normal.x * pushOff,
-      y: startGuide.reference.y + startGuide.normal.y * pushOff,
+      x: rulerGuide.reference.x + rulerGuide.normal.x * pushOff,
+      y: rulerGuide.reference.y + rulerGuide.normal.y * pushOff,
     })
     const end = {
-      x: reference.x + startGuide.direction.x * startGuideDistance * METERS_TO_PIXELS,
-      y: reference.y + startGuide.direction.y * startGuideDistance * METERS_TO_PIXELS,
+      x: reference.x + rulerGuide.direction.x * rulerDistance * METERS_TO_PIXELS,
+      y: reference.y + rulerGuide.direction.y * rulerDistance * METERS_TO_PIXELS,
     }
     return {
       reference,
@@ -5084,7 +5094,7 @@ export function FloorplanCanvas({
                   strokeWidth={isSelectedRoom ? 2 : 1}
                   strokeScaleEnabled={false}
                   dash={[6, 6]}
-                  listening
+                  listening={!isSplittingWall}
                   onClick={event => { if (event.evt.button === 0) onSelectRoom(room.signature) }}
                   onContextMenu={event => openContextMenu('room', room.signature, event)}
                   onTap={() => onSelectRoom(room.signature)}
@@ -5111,6 +5121,7 @@ export function FloorplanCanvas({
         : [],
     [
       onSelectRoom,
+      isSplittingWall,
       openContextMenu,
       renderOptions.roomAreas,
       renderOptions.roomHighlights,
@@ -5192,6 +5203,22 @@ export function FloorplanCanvas({
     })
   }), [renderedWalls, wallPlanPolygonsById])
   const transformPanelModels: { model: PlacedModel; bounds: HandleBounds; baseHeight: number; window: boolean }[] = []
+  const floorBelow = floors.filter(floor => floor.elevation < activeFloor.elevation)
+    .toSorted((a, b) => b.elevation - a.elevation)[0]
+  const stairwellGuardrails = floorBelow?.models.map(model => {
+    const design = modelsById.get(model.modelId)?.stairDesign
+    if (!design?.upperGuardrail) return null
+    const scale = (model.scale ?? 1) * METERS_TO_PIXELS
+    const paths = getStairGuardrailPaths(design, getStairLayout(design))
+    const center = toCanvasPoint(model.position)
+    return <Group key={model.id} name="stairwell-guardrails-plan" {...center} rotation={model.rotation * 180 / Math.PI}
+      scaleX={scale * (model.widthScale ?? 1)} scaleY={scale * (model.depthScale ?? 1)} listening={false}>
+      <Group rotation={model.flipped ? 180 : 0} scaleX={model.mirrored ? -1 : 1}>
+        {Object.entries(paths).map(([name, path]) => path.length > 0 && <Line key={name}
+          points={path.flatMap(p => [p.x, p.z])} stroke="#334155" strokeWidth={2} strokeScaleEnabled={false} lineJoin="round" />)}
+      </Group>
+    </Group>
+  })
   // Lights are small editing targets: keep them above furniture regardless of
   // the order the objects were added to the house.
   const modelFootprints = (activeFloor.models ?? []).toSorted((first, second) =>
@@ -5395,11 +5422,12 @@ export function FloorplanCanvas({
         rotation={rotation}
         draggable={
           !isAddingWall &&
+          !isSplittingWall &&
           !placementModel &&
           !isRoofMountedModel &&
           transformMode === 'translate'
         }
-        listening={!isAddingWall && !placementModel}
+        listening={!isAddingWall && !isSplittingWall && !placementModel}
         onClick={(event) => {
           event.cancelBubble = true
           if (event.evt.button !== 0) return
@@ -6562,7 +6590,7 @@ export function FloorplanCanvas({
             {projectMenu?.(() => setIsRenderMenuOpen(false))}
             <div className="viewport-menu-heading">2D view</div>
             <p className="viewport-menu-description">{projectFileName} / {activeFloor.name}</p>
-          {onGroundImageChange && <GroundImageControls key={activeFloor.id}
+          {onGroundImageChange && !isRoofMode && <GroundImageControls key={activeFloor.id}
             image={activeFloor.groundImage} editing={groundImageEditing}
             maxSize={{ width: size.width * 0.65 / viewport.scale / METERS_TO_PIXELS,
               length: size.height * 0.65 / viewport.scale / METERS_TO_PIXELS }}
@@ -6632,13 +6660,13 @@ export function FloorplanCanvas({
         <div className="viewport-toolbar-main">
           {onSelectFloor && <label className="viewport-floor-selector">
             <span>2D floor</span>
-            <select aria-label="2D editing floor" value={activeFloor.id}
+            <select aria-label="2D editing floor" value={editingFloor.id}
               onChange={event => onSelectFloor(event.target.value)}>
               {floors.map(floor => <option key={floor.id} value={floor.id}>{floor.name}</option>)}
             </select>
           </label>}
-          <span className="viewport-caption" title={`${projectFileName} / Editing ${activeFloor.name}`}>
-            {projectFileName.replace(/(?:\.house)?\.json$/i, '')} / {activeFloor.name}
+          <span className="viewport-caption" title={`${projectFileName} / ${isRoofMode ? 'Roof on' : 'Editing'} ${activeFloor.name}`}>
+            {projectFileName.replace(/(?:\.house)?\.json$/i, '')} / {isRoofMode && activeFloor.id !== editingFloor.id ? `Roof on ${activeFloor.name}` : activeFloor.name}
           </span>
           <div className="viewport-button-group" role="group" aria-label="2D transform mode">
             {([['translate', 'move', 'Move'], ['rotate', 'rotate', 'Rotate'], ['scale', 'scale', 'Scale']] as const).map(([mode, icon, label]) =>
@@ -6674,13 +6702,19 @@ export function FloorplanCanvas({
           Distance from nearest wall
         </button>}
       </div>}
+      {isSplittingWall && <div className="floorplan-tool-hint floorplan-wall-hint">
+        <span role="status">{splitGuide?.blocker === 'opening'
+          ? 'Choose a spot clear of the opening'
+          : splitGuide?.blocker === 'end' ? 'Move further from the wall end' : 'Click a wall to split it'}</span>
+        <button type="button" onClick={onExitAddWall}>Exit split</button>
+      </div>}
       {isMeasuring && <div className="floorplan-tool-hint" role="status" style={{ maxWidth: 'calc(100% - 64px)' }}>
         Ruler: click start and end · Ctrl: 45° lock · Esc: exit
       </div>}
 
       <div
         ref={containerRef}
-        className={`canvas-host${isMiddlePanning ? ' panning' : ''}${placementModel || isMeasuring ? ' placing-opening' : ''}`}
+        className={`canvas-host${isMiddlePanning ? ' panning' : ''}${placementModel || isMeasuring || isSplittingWall ? ' placing-opening' : ''}`}
       >
         {placementModel ? (
           <div className="model-placement-hint" role="status">
@@ -6716,6 +6750,7 @@ export function FloorplanCanvas({
           draggable={
             !isMeasuring &&
             !isAddingWall &&
+            !isSplittingWall &&
             !draftWall &&
             !isMiddlePanning &&
             !isDraggingModel &&
@@ -6762,6 +6797,7 @@ export function FloorplanCanvas({
             setHoverAlignmentGuide(null)
             setHoverRoofPlacementPoint(null)
             setModelPlacementPreview(null)
+            setHoverWallSplit(null)
 
             if (!draftWall) {
               setHoverSnapTarget(null)
@@ -6844,13 +6880,13 @@ export function FloorplanCanvas({
                   key={renderedWall.wall.id}
                   points={polygon}
                   closed
-                  draggable={!isAddingWall}
+                  draggable={!isAddingWall && !isSplittingWall}
                   fill={wallPlanPerimeters.length === 0 ? '#aab4bf' : 'rgba(0, 0, 0, 0)'}
                   stroke={wallPlanPerimeters.length === 0 ? '#334155' : undefined}
                   strokeWidth={1.5} strokeScaleEnabled={false}
                   lineJoin="miter"
                   onClick={(event) => {
-                    if (isAddingWall || event.evt.button !== 0) return
+                    if (isAddingWall || isSplittingWall || event.evt.button !== 0) return
                     onSelectWall(
                       renderedWall.wall.id,
                       event.evt.ctrlKey || event.evt.metaKey,
@@ -6860,7 +6896,7 @@ export function FloorplanCanvas({
                     openContextMenu('wall', renderedWall.wall.id, event)
                   }
                   onTap={() => {
-                    if (!isAddingWall) onSelectWall(renderedWall.wall.id)
+                    if (!isAddingWall && !isSplittingWall) onSelectWall(renderedWall.wall.id)
                   }}
                   onDragStart={(event) => {
                     event.cancelBubble = true
@@ -7103,7 +7139,7 @@ export function FloorplanCanvas({
                 renderedWall.wall.id === selectedWallId ||
                 selectedWallIds.includes(renderedWall.wall.id)
 
-              if (!isSelectedWall || isAddingWall) {
+              if (!isSelectedWall || isAddingWall || isSplittingWall) {
                 return []
               }
 
@@ -7276,6 +7312,7 @@ export function FloorplanCanvas({
             {wallOpeningMarkers}
 
             {modelFootprints}
+            {stairwellGuardrails}
 
             {placementModel && modelPlacementPreview ? (() => {
               const center = toCanvasPoint(modelPlacementPreview.position)
@@ -7316,18 +7353,23 @@ export function FloorplanCanvas({
 
             <Group name="dimension-rulers" listening={false}>{dimensionRulers}</Group>
 
-            {startGuideDisplay && <Group name="wall-start-guide" listening={false}>
-              <Arrow
+            {startGuideDisplay && <Group name={splitGuide ? 'wall-split-guide' : 'wall-start-guide'} listening={false}>
+              {splitGuide && <Line points={[-1, 1].flatMap(sign => {
+                const reach = (splitGuide.hostHalfThickness + .04) * sign
+                const point = toCanvasPoint({ x: splitGuide.point.x + splitGuide.normal.x * reach, y: splitGuide.point.y + splitGuide.normal.y * reach })
+                return [point.x, point.y]
+              })} stroke={rulerColour} strokeWidth={2} strokeScaleEnabled={false} />}
+              {rulerDistance > 0 && <Arrow
                 points={[startGuideDisplay.reference.x, startGuideDisplay.reference.y, startGuideDisplay.end.x, startGuideDisplay.end.y]}
-                stroke="#2563eb" fill="#2563eb" strokeWidth={1.5} strokeScaleEnabled={false}
-                pointerAtBeginning pointerLength={Math.min(6 / viewport.scale, startGuideDistance * METERS_TO_PIXELS / 3)}
+                stroke={rulerColour} fill={rulerColour} strokeWidth={1.5} strokeScaleEnabled={false}
+                pointerAtBeginning pointerLength={Math.min(6 / viewport.scale, rulerDistance * METERS_TO_PIXELS / 3)}
                 pointerWidth={5 / viewport.scale}
-              />
+              />}
               {!wallStartOffsetEdit && <Group x={startGuideDisplay.label.x} y={startGuideDisplay.label.y}
                 scaleX={1 / viewport.scale} scaleY={1 / viewport.scale}>
                 <Rect x={-33} y={-10} width={66} height={20} cornerRadius={4} fill="#eff6ff" stroke="#bfdbfe" />
                 <Text x={-33} y={-6} width={66} align="center" fontSize={12} fontStyle="bold"
-                  text={`${startGuideDistance.toFixed(2)} m`} fill="#1d4ed8" />
+                  text={`${rulerDistance.toFixed(2)} m`} fill={rulerColour} />
               </Group>}
             </Group>}
 
@@ -7716,6 +7758,12 @@ export function FloorplanCanvas({
           >
             <RoofSettingsFields roof={roofPlacementRidgeRoof} floors={floors} floorId={activeFloor.id}
               creating candidate={roofPlacementCandidate}
+              onPlacementFloorChange={floorId => {
+                setRoofFloorOverride(floorId === editingFloor.id ? null : floorId)
+                setRoofPlacementPoints([])
+                setHoverRoofPlacementPoint(null)
+                if (requestedSelectedRoofId) onSelectRoof(null)
+              }}
               bayRidgeMaxLength={bayPlacementGeometry ? getBayRoofRidge(bayPlacementGeometry).maxLength : undefined}
               shapeControls={<>
             <label>

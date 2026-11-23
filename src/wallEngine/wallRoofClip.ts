@@ -8,7 +8,7 @@ export type WallRoofClipVolume = {
   planes: ClipPlane[]
   protectedFootprints: ClipPlane[][]
   // At a shared coverage edge, the higher adjacent panel owns coplanar walls.
-  boundaryProtections?: { boundary: ClipPlane; planes: ClipPlane[] }[]
+  boundaryProtections?: { boundary: ClipPlane; planes: ClipPlane[]; outsideOnly?: boolean }[]
   excludedWallIds: ReadonlySet<string>
   clipSides: boolean
   clipHeightWallIds?: ReadonlySet<string>
@@ -169,6 +169,9 @@ export function clipWallFacesToRoofUndersides(
         const kept = [...cut.outside]
         for (const protection of volume.boundaryProtections ?? []) {
           if (!polygon.every((v) => Math.abs(protection.boundary(v.position)) <= EPSILON)) continue
+          // Preserve a wall whose outward face touches the cut but whose body stays outside it.
+          if (protection.outsideOnly &&
+            protection.boundary(face.normal) - protection.boundary([0, 0, 0]) <= EPSILON) continue
           removed = removed.flatMap((part) => {
             const protectedPart = partition(part, protection.planes)
             if (hasArea(protectedPart.inside)) kept.push(protectedPart.inside)

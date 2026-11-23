@@ -1,4 +1,6 @@
 import type { FloorLevel, Point } from './types.ts'
+import { getStairLayout } from './stairDesign.ts'
+import { getStairGuardrailOpening } from './stairGuardrails.ts'
 import { fitStairOpeningFootprints } from './stairOpeningFit.ts'
 import type {
   ModelDefinition,
@@ -96,6 +98,21 @@ export function getStairSlabOpenings(
         stairTop < slabBottom - STAIR_SLAB_REACH_TOLERANCE_METERS
       ) {
         return []
+      }
+
+      const design = definition.stairDesign
+      const opening = isOnLowerFloor && upperFloor && design?.upperGuardrail
+        ? getStairGuardrailOpening(design, getStairLayout(design))
+        : null
+      if (opening) {
+        const rotation = model.rotation + (model.flipped ? Math.PI : 0)
+        const cosine = Math.cos(rotation), sine = Math.sin(rotation)
+        const polygon = opening.polygon.map(point => {
+          const x = point.x * scale * widthScale * (model.mirrored ? -1 : 1)
+          const z = point.z * scale * depthScale
+          return { x: model.position.x + x * cosine - z * sine, y: model.position.y + x * sine + z * cosine }
+        })
+        return fitStairOpeningFootprints(polygon, borderingWalls, opening.fixedEdges)
       }
 
       if (definition.stairFootprint?.length) {

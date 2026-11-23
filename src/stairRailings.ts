@@ -1,5 +1,5 @@
 import { BufferGeometry, Float32BufferAttribute } from 'three'
-import { getStairLayout, type StairDesign, type StairRailPoint } from './stairDesign.ts'
+import { stairGuardrailMinSetback, type getStairLayout, type StairDesign, type StairRailPoint } from './stairDesign.ts'
 import { rotateStairUvs } from './stairUvs.ts'
 
 const distance = (a: StairRailPoint, b: StairRailPoint) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)
@@ -12,7 +12,7 @@ const direction = (a: StairRailPoint, b: StairRailPoint) => {
 /** Heights follow the nosing pitch, never the discrete tread underneath an inset post. */
 export function getStairRailPath(design: StairDesign, layout: ReturnType<typeof getStairLayout>, side: 'left' | 'right') {
   const source = layout[side].filter((p, i, all) => !i || !matches(p, all[i - 1]))
-  const inset = Math.max(design.spindleWidth, design.postWidth, design.handrailWidth) / 2 + .005
+  const inset = stairGuardrailMinSetback(design) + .005
   const sign = side === 'left' ? 1 : -1
   const flights = layout.flights.flatMap(f => [f.left, f.right])
   const outer = side === (design.turn === 'right' ? 'left' : 'right')

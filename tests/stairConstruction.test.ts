@@ -86,27 +86,51 @@ test('stepped landing soffits do not overlap their risers or form paired coplana
   }
 })
 
-test('rounded tread nosing has six curved faces, continuous normals and metre-based unwrapped UVs', () => {
+test('tread nosing rounds both edges with six segments and continuous normals and UVs', () => {
   const d = createStairDesign(), s = getStairLayout(d).surfaces[0], r = .01
   const geometry = createStairTread(s, d.treadThickness, d.nosing, r)
   try {
     const p = geometry.getAttribute('position'), n = geometry.getAttribute('normal'), uv = geometry.getAttribute('uv')
-    const arcAngles = new Set<number>(), arcVertices = []
-    for (let i = 0; i < p.count; i++) if (n.getY(i) > 1e-6 && n.getY(i) < .999999 && n.getZ(i) < -1e-6) {
-      const angle = Math.acos(n.getY(i)); arcAngles.add(Math.round(angle * 1e6)); arcVertices.push(i)
-      assert.ok(Math.abs(p.getY(i) - (s.top - r + r * Math.cos(angle))) < 1e-6)
+    const upperAngles = new Set<number>(), lowerAngles = new Set<number>()
+    for (let i = 0; i < p.count; i++) {
+      const ny = n.getY(i)
+      if (Math.abs(ny) < 1e-6 || Math.abs(ny) > .999999 || n.getZ(i) >= -1e-6) continue
+      const angle = Math.acos(ny), upper = ny > 0
+      const angles = upper ? upperAngles : lowerAngles
+      angles.add(Math.round(angle * 1e6))
+      const centreY = upper ? s.top - r : s.top - d.treadThickness + r
+      const travel = d.nosing - r + r * angle + (upper ? 0 : d.treadThickness - 2 * r)
+      assert.ok(Math.abs(p.getY(i) - (centreY + r * Math.cos(angle))) < 1e-6)
       assert.ok(Math.abs(p.getZ(i) - (s.front[0].z - d.nosing + r - r * Math.sin(angle))) < 1e-6)
-      assert.ok(Math.abs(uv.getY(i) - (-s.front[0].z + d.nosing - r + r * angle)) < 1e-6)
+      assert.ok(Math.abs(uv.getY(i) - (-s.front[0].z + travel)) < 1e-6)
     }
-    assert.equal(arcAngles.size, 5, 'five intermediate angles divide the quarter-round into six segments')
-    assert.ok(arcVertices.length)
+    assert.equal(upperAngles.size, 5, 'six segments on the top edge')
+    assert.equal(lowerAngles.size, 5, 'six segments on the underside edge')
     const square = createStairTread(s, d.treadThickness, d.nosing)
-    assert.equal(p.count - square.getAttribute('position').count, 72, 'rounding adds only 24 triangles per tread, including end caps')
+    assert.equal(p.count - square.getAttribute('position').count, 144, 'rounding adds 24 triangles per edge, including end caps')
     square.dispose()
     const roundDesign = { ...d, nosingRadius: r }
     assert.equal(validateStairDesign(JSON.parse(JSON.stringify(roundDesign))), null)
     assert.notEqual(stairGeometryKey(roundDesign), stairGeometryKey(d))
   } finally { geometry.dispose() }
+})
+
+test('the rounded edges meet cleanly at the radius limit and preserve nosing projection', () => {
+  const design = createStairDesign(), surface = getStairLayout(design).surfaces[0]
+  for (const [nosing, radius] of [[.02, .0175], [.007, .007]]) {
+    const geometry = createStairTread(surface, design.treadThickness, nosing, .06)
+    try {
+      const p = geometry.getAttribute('position')
+      const front = surface.front[0].z - nosing, frontHeights: number[] = []
+      for (let i = 0; i < p.count; i++) {
+        assert.ok(p.getZ(i) >= front - 1e-6)
+        if (Math.abs(p.getZ(i) - front) < 1e-6) frontHeights.push(p.getY(i))
+      }
+      assert.ok(frontHeights.length)
+      assert.ok(Math.abs(Math.min(...frontHeights) - (surface.top - design.treadThickness + radius)) < 1e-6)
+      assert.ok(Math.abs(Math.max(...frontHeights) - (surface.top - radius)) < 1e-6)
+    } finally { geometry.dispose() }
+  }
 })
 
 test('riser end caps clear the fascia, fronts do not protrude, and fascia normals face outwards', () => {

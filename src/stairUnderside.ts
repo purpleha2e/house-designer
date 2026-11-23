@@ -1,12 +1,36 @@
 import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2 } from 'three'
-import type { StairDesign, StairPoint, getStairLayout } from './stairDesign.ts'
+import type { StairDesign, StairPoint, StairRailPoint, getStairLayout } from './stairDesign.ts'
 import { setStairWorldUvs } from './stairUvs.ts'
+
+const planKey = (p: StairPoint) => `${Math.round(p.x * 1e7)},${Math.round(p.z * 1e7)}`
+
+/** The same lower surface drives the visible soffit and its wall cut. */
+export function getStairSoffitPanels(design: StairDesign, layout: ReturnType<typeof getStairLayout>,
+  depth = Math.max(.14, design.treadThickness + .04)) {
+  return layout.surfaces.map(surface => {
+    // Collapse the coincident inner points of a quarter-turn fan.
+    const ring: StairRailPoint[] = []
+    surface.polygon.forEach((point, i) => {
+      const y = Math.max(0, surface.top - depth - (surface.landing ? 0 : (1 - surface.progression[i]) * layout.riserHeight))
+      const previous = ring.at(-1)
+      if (previous && planKey(previous) === planKey(point)) previous.y = Math.min(previous.y, y)
+      else ring.push({ ...point, y })
+    })
+    if (ring.length > 1 && planKey(ring[0]) === planKey(ring.at(-1)!)) {
+      ring[0].y = Math.min(ring[0].y, ring.at(-1)!.y); ring.pop()
+    }
+    const area = ring.reduce((sum, a, i) => { const b = ring[(i + 1) % ring.length]; return sum + a.x * b.z - b.x * a.z }, 0)
+    if (area < 0) ring.reverse()
+    const triangles = ShapeUtils.triangulateShape(ring.map(p => new Vector2(p.x, p.z)), [])
+    return { surface, ring, triangles }
+  })
+}
 
 /** A thin closed soffit under the pitch line, with fascia only around exposed
  * edges. It leaves the space beneath the staircase usable. */
 export function createStairUnderside(design: StairDesign, layout: ReturnType<typeof getStairLayout>) {
   const positions: number[] = [], uvs: number[] = []
-  type Vertex = StairPoint & { y: number }
+  type Vertex = StairRailPoint
   type Edge = { a: Vertex; b: Vertex; top: number; front?: [StairPoint, StairPoint]; riserBottom: number }
   const edges = new Map<string, Edge[]>()
   const triangle = (a: Vertex, b: Vertex, c: Vertex) => {
@@ -16,24 +40,9 @@ export function createStairUnderside(design: StairDesign, layout: ReturnType<typ
   const quad = (a: Vertex, b: Vertex, c: Vertex, d: Vertex) => {
     triangle(a, b, c); triangle(a, c, d)
   }
-  const key = (p: StairPoint) => `${Math.round(p.x * 1e7)},${Math.round(p.z * 1e7)}`
-  const depth = Math.max(.14, design.treadThickness + .04), thickness = .025
-  for (const surface of layout.surfaces) {
-    // Collapse the coincident inner points of a quarter-turn fan.
-    const ring: Vertex[] = []
-    surface.polygon.forEach((point, i) => {
-      const y = Math.max(0, surface.top - depth - (surface.landing ? 0 : (1 - surface.progression[i]) * layout.riserHeight))
-      const previous = ring.at(-1)
-      if (previous && key(previous) === key(point)) previous.y = Math.min(previous.y, y)
-      else ring.push({ ...point, y })
-    })
-    if (ring.length > 1 && key(ring[0]) === key(ring.at(-1)!)) {
-      ring[0].y = Math.min(ring[0].y, ring.at(-1)!.y); ring.pop()
-    }
-    const area = ring.reduce((sum, a, i) => { const b = ring[(i + 1) % ring.length]; return sum + a.x * b.z - b.x * a.z }, 0)
-    if (area < 0) ring.reverse()
+  const thickness = .025
+  for (const { ring, surface, triangles } of getStairSoffitPanels(design, layout)) {
     const cap = ring.map(point => ({ ...point, y: Math.min(surface.top - design.treadThickness, point.y + thickness) }))
-    const triangles = ShapeUtils.triangulateShape(ring.map(p => new Vector2(p.x, p.z)), [])
     for (const [a, b, c] of triangles) {
       const cross = (ring[b].x - ring[a].x) * (ring[c].z - ring[a].z) - (ring[b].z - ring[a].z) * (ring[c].x - ring[a].x)
       if (cross < 0) { triangle(cap[a], cap[b], cap[c]); triangle(ring[a], ring[c], ring[b]) }
@@ -41,8 +50,8 @@ export function createStairUnderside(design: StairDesign, layout: ReturnType<typ
     }
     for (let i = 0; i < ring.length; i++) {
       const j = (i + 1) % ring.length, a = ring[i], b = ring[j]
-      if (key(a) === key(b)) continue
-      const edgeKey = [key(a), key(b)].sort().join('|')
+      if (planKey(a) === planKey(b)) continue
+      const edgeKey = [planKey(a), planKey(b)].sort().join('|')
       const list = edges.get(edgeKey) ?? []
       list.push({ a, b, top: surface.top - design.treadThickness,
         front: design.closedRisers && (!surface.landing || surface.riser) ? surface.front : undefined,
@@ -71,8 +80,8 @@ export function createStairUnderside(design: StairDesign, layout: ReturnType<typ
       // A single face joins the soffits. The old pair of bottom/cap bridges
       // overlapped each other, and could also extend through the landing riser.
       const second = list[1]
-      const a = key(second.a) === key(first.a) ? second.a : second.b
-      const b = key(second.b) === key(first.b) ? second.b : second.a
+      const a = planKey(second.a) === planKey(first.a) ? second.a : second.b
+      const b = planKey(second.b) === planKey(first.b) ? second.b : second.a
       const limit = design.closedRisers ? Math.min(first.top, second.top) : Infinity
       const clip = (p: Vertex) => ({ ...p, y: Math.min(p.y, limit) })
       const vertices = [clip(first.a), clip(first.b), clip(b), clip(a)]

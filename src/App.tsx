@@ -92,6 +92,7 @@ import { getFloorEnvelopeWalls } from './floorEnvelope'
 import { createCeilingLoftFloor, getAddLoftFloorDisabledReason } from './loftFloor'
 import { createDormerWindow, syncDormerWindows, updateDormerWindow } from './dormerWindows'
 import { DEFAULT_EXTERNAL_WALL_THICKNESS_METERS, MAX_WALL_HEIGHT_METERS } from './wallGeometry'
+import { remapSplitWallFinishes, splitFloorWall } from './wallSplit'
 import {
   ALL_FLOORS_VIEW_ID,
   normalizeExposureStops,
@@ -646,7 +647,10 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     DEFAULT_INTERNAL_THICKNESS,
   )
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
-  const [isAddingWall, setIsAddingWall] = useState(false)
+  const [wallTool, setWallTool] = useState<'add' | 'split' | null>(null)
+  const isAddingWall = wallTool === 'add'
+  const isSplittingWall = wallTool === 'split'
+  const exitWallTool = useCallback(() => setWallTool(null), [])
   const [isRoofMode, setIsRoofMode] = useState(false)
   const [projectFileName, setProjectFileName] = useState(initialProjectSource === undefined ? PROJECT_FILE_NAME : 'colin_house_v2.json')
   //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
@@ -922,7 +926,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSunPosition(normalizeSunPosition(snapshot.sunPosition))
     setSurfaceAssignments(snapshot.surfaceAssignments ?? [])
     setWallKind(snapshot.wallKind)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const updateHistoryAvailability = () => {
@@ -1123,6 +1127,25 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedRoofId(null)
   }
 
+  const splitWall = (wallId: string, offset: number) => {
+    const floor = floors.find(candidate => candidate.id === activeFloorId) ?? floors[0]
+    const split = splitFloorWall(floor, wallId, offset, createId())
+    if (!split) return
+
+    const nextFloor = syncWallOpenings(split.floor, modelsById)
+    const nextAssignments = remapSplitWallFinishes(surfaceAssignments, split, nextFloor, createId)
+    recordHistory()
+    setFloors(current => current.map(candidate => candidate.id === floor.id ? nextFloor : candidate))
+    setSurfaceAssignments(nextAssignments)
+    setSelectedWallId(split.second.id)
+    setSelectedWallIds([split.second.id])
+    setSelectedRoomSignature(null)
+    setSelectedModelId(null)
+    setSelectedModelIds([])
+    setSelectedRoofId(null)
+    setSelectedSurface(null)
+  }
+
   const deleteWall = (wallId: string) => {
     if (!floors.some((floor) => floor.walls.some((wall) => wall.id === wallId))) {
       return
@@ -1209,7 +1232,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedModelId(null)
     setSelectedModelIds([])
     setSelectedRoofId(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const addCeilingLoftFloor = () => {
@@ -1232,7 +1255,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedModelId(null)
     setSelectedModelIds([])
     setSelectedRoofId(null)
-    setIsAddingWall(false)
+    setWallTool(null)
     setIsRoofMode(false)
   }
 
@@ -1308,7 +1331,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedModelId(null)
     setSelectedModelIds([])
     setSelectedRoofId(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const addRoof = ({
@@ -1345,7 +1368,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     type,
     width,
   }: RoofCreateOptions) => {
-    const targetFloor = floors.find((floor) => floor.id === floorId) ?? activeFloor
+    const targetFloor = floors.find((floor) => floor.id === floorId)
+    if (!targetFloor) return
     const bounds = getFloorWallBounds(targetFloor)
     const roofWidth = Math.max(0.3, width)
     const roofDepth = Math.max(depth ?? bounds?.depth ?? roofWidth, 0.3)
@@ -1441,7 +1465,6 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           : floor,
       ),
     )
-    setActiveFloorId(targetFloor.id)
     setSelectedWallId(null)
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
@@ -1455,7 +1478,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     })
     setIsRoofMode(false)
     setRoofPlacementPreview(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const addModel = (modelId: string, placement?: ModelPlacement) => {
@@ -1500,7 +1523,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedModelId(model.id)
     setSelectedModelIds([model.id])
     setSelectedRoofId(null)
-    setIsAddingWall(false)
+    setWallTool(null)
     setPendingModelId(null)
     setIsModelSelectorOpen(false)
   }
@@ -1516,7 +1539,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
 
     if (definition && isOpeningModel(definition)) {
       setPendingModelId(modelId)
-      setIsAddingWall(false)
+      setWallTool(null)
       setIsRoofMode(false)
       setIsModelSelectorOpen(false)
       return
@@ -2375,7 +2398,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       setSelectedModelId(null)
       setSelectedModelIds([])
       setSelectedRoofId(null)
-      setIsAddingWall(false)
+      setWallTool(null)
       setProjectFileName(loadedFile.fileName)
       setSaveDestination({ kind: 'device' })
       setSceneRevision((currentRevision) => currentRevision + 1)
@@ -2443,7 +2466,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedRoofId(null)
     setSelectedSurface(null)
     setClipboardItem(null)
-    setIsAddingWall(false)
+    setWallTool(null)
     setProjectFileName(PROJECT_FILE_NAME)
     setSaveDestination(null)
     historyPastRef.current = []
@@ -2876,7 +2899,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       setSelectedModelIds([])
       setSelectedRoofId(null)
       setSelectedRoomSignature(null)
-      setIsAddingWall(false)
+      setWallTool(null)
       return
     }
 
@@ -2926,7 +2949,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
     setSelectedSurface(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const selectModel = (modelId: string | null, additive = false) => {
@@ -2961,7 +2984,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedRoomSignature(null)
     setSelectedSurface(null)
     setSelectedRoofId(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const selectModelFromThreeD = (modelId: string, _floorId: string, keepSelected = false) => {
@@ -2979,7 +3002,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedRoomSignature(null)
     setSelectedSurface(null)
     setSelectedRoofId(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const selectRoofFromThreeD = (roofId: string, floorId: string, keepSelected = false) => {
@@ -3000,10 +3023,11 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
             type: 'roof',
           },
     )
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const selectRoofFromFloorplan = (roofId: string | null) => {
+    const roofFloor = roofId ? floors.find(floor => floor.roofs?.some(roof => roof.id === roofId)) : undefined
     setSelectedRoofId(roofId)
     setSelectedModelId(null)
     setSelectedModelIds([])
@@ -3011,15 +3035,15 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
     setSelectedSurface(
-      roofId
+      roofId && roofFloor
         ? {
-            floorId: activeFloor.id,
+            floorId: roofFloor.id,
             roofId,
             type: 'roof',
           }
         : null,
     )
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const clearThreeDSelection = () => {
@@ -3030,7 +3054,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedWallIds([])
     setSelectedRoomSignature(null)
     setSelectedSurface(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   const selectEditingFloor = (floorId: string) => {
@@ -3103,7 +3127,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedRoofId(null)
     setSelectedRoomSignature(null)
     setSelectedSurface(null)
-    setIsAddingWall(false)
+    setWallTool(null)
   }
 
   useEffect(() => {
@@ -3224,6 +3248,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         floors={floors}
         internalWallThickness={internalWallThickness}
         isAddingWall={isAddingWall}
+        isSplittingWall={isSplittingWall}
         isRoofMode={isRoofMode}
         materials={availableMaterials}
         onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
@@ -3248,7 +3273,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           setIsRoofMode(nextIsRoofMode)
 
           if (nextIsRoofMode) {
-            setIsAddingWall(false)
+            setWallTool(null)
+            setPendingModelId(null)
           }
         }}
         onSelectFloor={selectEditingFloor}
@@ -3256,7 +3282,12 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         onCeilingModeChange={updateActiveFloorCeilingMode}
         onToggleAddWall={() => {
           setIsRoofMode(false)
-          setIsAddingWall((value) => !value)
+          setWallTool(value => value === 'add' ? null : 'add')
+        }}
+        onToggleSplitWall={() => {
+          setIsRoofMode(false)
+          setPendingModelId(null)
+          setWallTool(value => value === 'split' ? null : 'split')
         }}
         onInternalWallThicknessChange={setInternalWallThickness}
         onWallHeightChange={setNewWallHeight}
@@ -3313,6 +3344,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           initialViewport={floorplanViewportsRef.current[activeFloor.id]}
           internalWallThickness={internalWallThickness}
           isAddingWall={isAddingWall}
+          isSplittingWall={isSplittingWall}
           isRoofMode={isRoofMode}
           modelAssetVersion={modelAssetVersion}
           placementModel={pendingModel}
@@ -3325,12 +3357,13 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           wallHeight={Math.min(newWallHeight, MAX_WALL_HEIGHT_METERS)}
           wallKind={wallKind}
           onAddWall={addWall}
+          onSplitWall={splitWall}
           onAddRoof={addRoof}
           onCancelModelPlacement={() => setPendingModelId(null)}
           onDeleteModel={deleteModel}
           onDeleteRoof={deleteRoof}
           onDeleteWall={deleteWall}
-          onExitAddWall={() => setIsAddingWall(false)}
+          onExitAddWall={exitWallTool}
           onStartMeasuring={() => setIsRoofMode(false)}
           onOpenProperties={openProperties}
           onViewportChange={updateFloorplanViewport}

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import type { FloorLevel } from '../src/types.ts'
+import type { FloorLevel, PlacedModel, Wall } from '../src/types.ts'
 import type { ModelDefinition } from '../src/models/modelLibrary.ts'
+import { createStairDesign, getStairLayout, type StairDesign } from '../src/stairDesign.ts'
 import {
   getStairOpeningPolygon,
   getStairSlabOpenings,
@@ -31,6 +32,45 @@ const stairDefinition: ModelDefinition = {
   shape: 'box',
   width: 0.9,
 }
+
+test('the guardrail widens only the stairwell slab and follows rotation, mirroring and scaling', () => {
+  const ground = floor('ground', 0), upper = floor('upper', 2.7), loft = floor('loft', 5.4)
+  const design: StairDesign = { ...createStairDesign(), upperGuardrail: { side: 'right', oppositeEnd: true, setback: .15 } }
+  const { bounds } = getStairLayout(design)
+  const definition = { ...stairDefinition, stairDesign: design, localBounds: bounds, height: design.totalRise }
+  const definitions = new Map([['stairs', definition]])
+  const model: PlacedModel = { id: 'stair', modelId: 'stairs', position: { x: 10, y: 20 }, rotation: Math.PI / 2,
+    scale: 2, widthScale: .75, depthScale: .5, mirrored: true, flipped: true }
+  ground.models.push(model)
+  const floors = [ground, upper, loft]
+  const [opening] = getStairSlabOpenings(ground, upper, floors, definitions)
+  const limits = (polygon: { x: number; y: number }[]) => [
+    Math.min(...polygon.map(p => p.x)), Math.max(...polygon.map(p => p.x)),
+    Math.min(...polygon.map(p => p.y)), Math.max(...polygon.map(p => p.y)),
+  ].map(value => Number(value.toFixed(6)))
+  const extension = .15 - design.postWidth / 2
+  assert.deepEqual(limits(opening), [10 + bounds.minZ - extension, 10 + bounds.maxZ,
+    20 + bounds.minX * 1.5, 20 + (bounds.maxX + extension) * 1.5].map(value => Number(value.toFixed(6))))
+  const [loftOpening] = getStairSlabOpenings(upper, loft, floors, definitions)
+  assert.deepEqual(limits(loftOpening), limits(getStairOpeningPolygon(model.position, model.rotation,
+    definition.width, definition.depth, model.scale, bounds, model.widthScale, model.depthScale, model.mirrored)))
+})
+
+test('a wall keeps its slab support where it crosses a widened stairwell edge', () => {
+  const ground = floor('ground', 0), upper = floor('upper', 2.7)
+  const design: StairDesign = { ...createStairDesign(), upperGuardrail: { side: 'right', setback: .2 } }
+  const { bounds } = getStairLayout(design)
+  const definition = { ...stairDefinition, stairDesign: design, localBounds: bounds }
+  ground.models.push({ id: 'stair', modelId: 'stairs', position: { x: 0, y: 0 }, rotation: 0, scale: 1 })
+  const edge = bounds.maxX + .2 - design.postWidth / 2
+  const wall: Wall = { id: 'partition', kind: 'internal', thickness: .12, height: 2.4,
+    start: { x: edge, y: -.5 }, end: { x: edge, y: .5 } }
+  ground.walls.push(wall)
+  const [opening] = getStairSlabOpenings(ground, upper, [ground, upper], new Map([['stairs', definition]]))
+  assert.equal(Math.max(...opening.map(p => p.x)), Number(edge.toFixed(6)))
+  const insideFace = Number((edge - wall.thickness / 2).toFixed(6))
+  assert.deepEqual(opening.filter(p => p.x === insideFace).map(p => p.y).sort((a, b) => a - b), [-.5, .5])
+})
 
 test('parametric L-stair openings retain the separate flight footprints under mirroring and rotation', () => {
   const ground = floor('ground', 0)

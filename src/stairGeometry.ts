@@ -5,6 +5,7 @@ import spindle from './stairSpindle.json' with { type: 'json' }
 import { getStairFinish, getStairLayout, stairParts, type StairDesign, type StairPart, type StairPoint, type StairRailPoint } from './stairDesign.ts'
 import { createStairUnderside } from './stairUnderside.ts'
 import { createStairHandrail, getStairRailPath } from './stairRailings.ts'
+import { getStairGuardrailPaths } from './stairGuardrails.ts'
 import { stairNewelRailHeight, trimStairRailsAtNewels } from './stairRailJoints.ts'
 import { getStairSpindlePositions } from './stairSpindlePlacement.ts'
 import { createStairRiser } from './stairRiser.ts'
@@ -24,7 +25,7 @@ export function stairGeometryKey(design: StairDesign) {
   const { finishes: _finishes, ...geometry } = design
   void _finishes
   // Invalidate existing previews when the generated topology changes too.
-  return `8:${JSON.stringify(geometry)}`
+  return `9:${JSON.stringify(geometry)}`
 }
 
 function contains(p: StairPoint, polygon: StairPoint[]) {
@@ -39,16 +40,16 @@ function contains(p: StairPoint, polygon: StairPoint[]) {
 }
 
 /** One draw mesh per material, irrespective of the number of treads/spindles. */
-export function createStairGeometry(design: StairDesign) {
+export function createStairGeometry(design: StairDesign, { upperFloorHeight = design.totalRise, guardrailOnly = false } = {}) {
   const layout = getStairLayout(design), group = new Group()
-  group.name = 'parametric-stairs'
+  group.name = guardrailOnly ? 'stairwell-guardrails' : 'parametric-stairs'
   group.userData.stairDesign = design
   const parts = Object.fromEntries(stairParts.map(part => [part, [] as BufferGeometry[]])) as Record<StairPart, BufferGeometry[]>
   const add = (part: StairPart, geometry: BufferGeometry) => {
     if (geometry.index) { const expanded = geometry.toNonIndexed(); geometry.dispose(); geometry = expanded }
     geometry.clearGroups(); parts[part].push(geometry)
   }
-  if (design.closedUnderside) add('underside', createStairUnderside(design, layout))
+  if (!guardrailOnly && design.closedUnderside) add('underside', createStairUnderside(design, layout))
   const beam = (part: StairPart, from: StairRailPoint, to: StairRailPoint, width: number) => {
     const a = new Vector3(from.x, from.y, from.z), b = new Vector3(to.x, to.y, to.z), direction = b.clone().sub(a)
     if (direction.lengthSq() < 1e-10) return
@@ -63,7 +64,7 @@ export function createStairGeometry(design: StairDesign) {
   const riser = (a: StairPoint, b: StairPoint, top: number, inside: StairPoint, footprint?: StairPoint[]) => {
     add('risers', createStairRiser(a, b, inside, top - design.treadThickness, layout.riserHeight - design.treadThickness, footprint))
   }
-  for (const surface of layout.surfaces) {
+  for (const surface of guardrailOnly ? [] : layout.surfaces) {
     add('treads', createStairTread(surface, design.treadThickness, design.nosing, design.nosingRadius))
     if (surface.landing && !surface.riser) continue
     const [a, b] = surface.front, dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz)
@@ -71,13 +72,13 @@ export function createStairGeometry(design: StairDesign) {
     const centre = surface.polygon.reduce((sum, p) => ({ x: sum.x + p.x / surface.polygon.length, z: sum.z + p.z / surface.polygon.length }), { x: 0, z: 0 })
     if (design.closedRisers) riser(a, b, surface.top, centre, surface.polygon)
   }
-  if (layout.compactLanding && design.closedRisers) {
+  if (!guardrailOnly && layout.compactLanding && design.closedRisers) {
     const upper = layout.flights.at(-1)!
     const a = upper.left.at(-1)!, b = upper.right.at(-1)!, before = upper.left.at(-2)!
     riser(a, b, design.totalRise, { x: a.x * 2 - before.x, z: a.z * 2 - before.z })
   }
   // The enclosed side panels replace these separate open-stair supports.
-  if (design.stringers && !design.closedUnderside) for (const flight of layout.flights) for (const [path, opposite] of [[flight.left, flight.right], [flight.right, flight.left]]) {
+  if (!guardrailOnly && design.stringers && !design.closedUnderside) for (const flight of layout.flights) for (const [path, opposite] of [[flight.left, flight.right], [flight.right, flight.left]]) {
     const a = path[0], b = path.at(-1)!
     // Keep open-stair supports underneath the tread footprint.
     const inset = .07 / 2 + .001
@@ -87,32 +88,48 @@ export function createStairGeometry(design: StairDesign) {
   }
   const originalSpindle = createStairSpindleGeometry()
   const newelBounds: Box3[] = []
+  const guardrails = getStairGuardrailPaths(design, layout, upperFloorHeight)
+  const railY = (p: StairRailPoint) => p.y + design.railHeight
+  const addHandrail = (path: StairRailPoint[]) => {
+    if (path.length > 1) add('handrails', createStairHandrail(path.map(p => ({ ...p, y: railY(p) })), design.handrailWidth))
+  }
+  const addPost = (p: StairRailPoint, bottom: number, railHeight: number) => {
+    const top = railHeight + design.railHeight + design.handrailWidth / 2 + .025
+    const end = Math.max(top, bottom + .05), half = design.postWidth / 2
+    beam('posts', { ...p, y: bottom }, { ...p, y: end }, design.postWidth)
+    newelBounds.push(new Box3(new Vector3(p.x - half, bottom, p.z - half), new Vector3(p.x + half, end, p.z + half)))
+  }
+  const addSpindles = (path: StairRailPoint[], posts: StairRailPoint[], baseHeight: (p: StairRailPoint) => number) => {
+    for (const p of getStairSpindlePositions(path, posts, design)) {
+      const bottom = baseHeight(p), height = Math.max(.05, railY(p) - design.handrailWidth / 2 - bottom)
+      const geometry = originalSpindle.clone()
+      geometry.scale(design.spindleWidth / spindle.size[0], height / spindle.size[1], design.spindleWidth / spindle.size[2])
+      geometry.translate(p.x, bottom, p.z); add('spindles', geometry)
+    }
+  }
   try {
     for (const side of ['left', 'right'] as const) {
+      const returnsAtTop = design.upperGuardrail?.side === side
+      if (guardrailOnly && !returnsAtTop) continue
       if (!design.banisters[side] && !design.handrails[side]) continue
-      const baseHeight = (p: StairPoint, fallback: number) => {
-        const heights = layout.surfaces.filter(s => contains(p, s.polygon)).map(s => s.top)
-        return heights.length ? Math.max(...heights) : fallback
-      }
       const path = getStairRailPath(design, layout, side)
-      const railY = (p: StairRailPoint) => p.y + design.railHeight
-      if (design.handrails[side]) {
+      if (!guardrailOnly && design.handrails[side]) {
         // Different landing levels meet inside a newel. Cap each rail there,
         // rather than bending a rail vertically through the step transition.
         let section: StairRailPoint[] = []
-        const flush = () => { if (section.length > 1) add('handrails', createStairHandrail(section, design.handrailWidth)) }
         for (const p of path) {
           const previous = section.at(-1)
-          if (previous && Math.hypot(p.x - previous.x, p.z - previous.z) < 1e-7) { flush(); section = [] }
-          section.push({ ...p, y: railY(p) })
+          if (previous && Math.hypot(p.x - previous.x, p.z - previous.z) < 1e-7) { addHandrail(section); section = [] }
+          section.push(p)
         }
-        flush()
+        addHandrail(section)
       }
       if (!design.banisters[side]) continue
       const posts: StairRailPoint[] = []
       const insideUTurn = design.layout === 'u' && side === (design.turn === 'right' ? 'right' : 'left')
       const turnZ = layout.flights[0].left.at(-1)!.z
       for (let i = 0; i < path.length; i++) {
+        if (guardrailOnly && i !== path.length - 1) continue
         const p = path[i], before = path[Math.max(0, i - 1)], after = path[Math.min(path.length - 1, i + 1)]
         const ax = p.x - before.x, az = p.z - before.z, bx = after.x - p.x, bz = after.z - p.z
         const corner = (ax * bx + az * bz) / (Math.hypot(ax, az) * Math.hypot(bx, bz) || 1) < .8
@@ -128,17 +145,23 @@ export function createStairGeometry(design: StairDesign) {
         const isBottomPost = Math.hypot(p.x - path[0].x, p.z - path[0].z) < 1e-7
         const bottom = isBottomPost ? 0 : heights.length ? Math.min(...heights) : p.y
         const railHeight = design.handrails[side] ? stairNewelRailHeight(path, p, design.postWidth, design.handrailWidth) : p.y
-        const top = railHeight + design.railHeight + design.handrailWidth / 2 + .025
-        const end = Math.max(top, bottom + .05), half = design.postWidth / 2
-        beam('posts', { ...p, y: bottom }, { ...p, y: end }, design.postWidth)
-        newelBounds.push(new Box3(new Vector3(p.x - half, bottom, p.z - half), new Vector3(p.x + half, end, p.z + half)))
+        if (returnsAtTop && Math.hypot(p.x - path.at(-1)!.x, p.z - path.at(-1)!.z) < 1e-7) {
+          addPost(p, Math.min(bottom, upperFloorHeight), Math.max(railHeight, upperFloorHeight))
+        } else addPost(p, bottom, railHeight)
       }
-      for (const p of getStairSpindlePositions(path, posts, design)) {
-        const bottom = baseHeight(p, p.y), height = Math.max(.05, railY(p) - design.handrailWidth / 2 - bottom)
-        const geometry = originalSpindle.clone()
-        geometry.scale(design.spindleWidth / spindle.size[0], height / spindle.size[1], design.spindleWidth / spindle.size[2])
-        geometry.translate(p.x, bottom, p.z); add('spindles', geometry)
-      }
+      if (!guardrailOnly) addSpindles(path, posts, p => {
+        const heights = layout.surfaces.filter(s => contains(p, s.polygon)).map(s => s.top)
+        return heights.length ? Math.max(...heights) : p.y
+      })
+    }
+    const guardrailPosts = guardrails.side.slice(1)
+    for (const point of guardrails.oppositeEnd) {
+      if (!guardrailPosts.some(post => Math.hypot(post.x - point.x, post.z - point.z) < 1e-7)) guardrailPosts.push(point)
+    }
+    for (const post of guardrailPosts) addPost(post, post.y, post.y)
+    for (const path of [guardrails.side, guardrails.oppositeEnd]) {
+      addHandrail(path)
+      addSpindles(path, path, p => p.y)
     }
   } finally { originalSpindle.dispose() }
   for (const part of stairParts) {

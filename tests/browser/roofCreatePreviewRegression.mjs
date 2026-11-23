@@ -57,13 +57,17 @@ try {
   await call('Page.navigate', { url: `http://127.0.0.1:${process.argv[2] ?? 5180}/tests/browser/roofCreatePreviewRegression.html` })
   await waitFor(`!!window.roofCreateStage?.() && !!window.roofCreateScene?.() && !!document.querySelector('[aria-label="Project menu"]')`)
   const points = [{ x: 1, y: 1 }, { x: 6, y: 1 }, { x: 6, y: 10 }, { x: 1, y: 10 }]
-  const floor = { id: 'creation-floor', name: 'Creation regression', elevation: 0, roomHeight: 2.4,
+  const floor = { id: 'creation-floor', name: 'Upper floor', elevation: 3, roomHeight: 2.4,
     slabThickness: 0.2, models: [], rooms: [], roofs: [],
     walls: points.map((start, i) => ({ id: `wall-${i}`, start, end: points[(i + 1) % points.length],
       kind: 'external', thickness: 0.2, height: 2.4, openings: [] })),
   }
-  const project = { activeFloorId: floor.id, floors: [floor], wallKind: 'external',
-    twoDView: { viewportsByFloorId: { [floor.id]: { x: 380, y: 200, scale: 0.9 } } } }
+  const groundPoints = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 12 }, { x: 0, y: 12 }]
+  const ground = { ...floor, id: 'ground-floor', name: 'Ground floor', elevation: 0,
+    walls: groundPoints.map((start, index) => ({ ...floor.walls[index], id: `ground-wall-${index}`,
+      start, end: groundPoints[(index + 1) % groundPoints.length] })) }
+  const project = { activeFloorId: ground.id, floors: [ground, floor], wallKind: 'external', threeDView: { floorViewId: 'all' },
+    twoDView: { viewportsByFloorId: { [ground.id]: { x: 380, y: 200, scale: 0.9 } } } }
   await evaluate(`(() => {
     ${projectFileInputFixtureSource}window.projectFileFixture = async () => [{getFile:async () => new File([${JSON.stringify(JSON.stringify(project))}], 'creation.house.json')}];
     ${projectDownloadFixtureSource}window.projectDownloadFixture = async () => ({createWritable:async () => ({write:async value => {window.savedCreationProject=JSON.parse(value)},close:async () => {}})});
@@ -88,7 +92,7 @@ try {
       el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));})()`)
     await pause(200)
   }
-  for (const point of points) {
+  const selectPoint = async point => {
     // Invoke the mounting marker's click handler directly: this regression
     // checks creation fidelity, independently of canvas hit-buffer timing.
     await evaluate(`(() => {const marker=window.roofCreateStage().find('Circle').find(n=>
@@ -96,6 +100,17 @@ try {
       if(!marker)throw new Error('Missing mounting marker');marker.fire('click',{evt:new MouseEvent('click')});})()`)
     await pause(200)
   }
+  const floorChoice = `[aria-label="Roof floor"]`
+  const editingFloor = `[aria-label="2D editing floor"]`
+  assert.equal(await evaluate(`document.querySelector('${floorChoice}').value`), ground.id, 'roof floor defaults to the 2D editing floor')
+  await selectPoint(groundPoints[0])
+  assert.equal(await evaluate(`document.querySelector('.roof-placement-actions button').disabled`), false)
+  await change('Roof floor', floor.id)
+  assert.equal(await evaluate(`document.querySelector('${editingFloor}').value`), ground.id)
+  assert.equal(await evaluate(`document.querySelector('.roof-placement-actions button').disabled`), true, 'changing floors clears draft anchors')
+  const groundAnchorIsVisible = await evaluate(`roofCreateStage().find('Circle').some(n=>n.x()===0&&n.y()===0&&n.isListening())`)
+  assert.equal(groundAnchorIsVisible, false, 'roof anchors use the selected floor and its upper supports')
+  for (const point of points) await selectPoint(point)
   assert.equal(await evaluate(`[...document.querySelectorAll('.roof-placement-actions button')].find(el=>el.textContent.trim()==='Create').disabled`), false)
   await evaluate(`document.querySelector('[aria-label="Asymmetric roof sides"]').click()`)
   await tab('Height & joins')
@@ -112,7 +127,7 @@ try {
     const host=document.getElementById('root'),key=Object.keys(host).find(k=>k.startsWith('__reactContainer$'));
     let preview;const visit=f=>{if(!f)return;if((f.type?.name??f.type?.type?.name)==='ThreeDView')preview=f.memoizedProps.roofPlacementPreview;visit(f.child);visit(f.sibling)};
     if(key)visit(host[key].stateNode.current);const r=preview?.roof;
-    return r?.asymmetricSides===true && r.mountSide==='side1' && r.ridgeOffset===2.25 && r.ridgeHeight===2.1 &&
+    return preview?.floorId===${JSON.stringify(floor.id)} && r?.asymmetricSides===true && r.mountSide==='side1' && r.ridgeOffset===2.25 && r.ridgeHeight===2.1 &&
       r.heightOffset===-.15 && r.fitSupportingWalls===true && r.clipsGeometry===false;
   })()`)
   const vertices = role => evaluate(`(() => {
@@ -122,14 +137,17 @@ try {
       for(let i=0;i<(index?.count??p.count);i++){
         v.fromBufferAttribute(p,index?index.getX(i):i).applyMatrix4(o.matrixWorld);result.push([v.x,v.y,v.z]);}});return result;
   })()`)
-  await waitFor(`(() => {let count=0;window.roofCreateScene().traverse(o=>{if(o.userData.houseDesignerRole==='roof-placement-preview' && Math.abs(o.parent.position.y-2.25)<1e-6)count+=o.geometry.attributes.position.count});return count>0})()`)
+  await waitFor(`(() => {let count=0;window.roofCreateScene().traverse(o=>{if(o.userData.houseDesignerRole==='roof-placement-preview' && Math.abs(o.parent.position.y-5.25)<1e-6)count+=o.geometry.attributes.position.count});return count>0})()`)
   const previewVertices = await vertices('roof-placement-preview')
   await evaluate(`[...document.querySelectorAll('.roof-placement-actions button')].find(el=>el.textContent.trim()==='Create').click()`)
+  assert.equal(await evaluate(`document.querySelector('${editingFloor}').value`), ground.id)
   await menu('Save')
   await waitFor('!!window.savedCreationProject')
   const saved = await evaluate('window.savedCreationProject')
-  const roof = saved.floors[0].roofs[0]
-  assert.ok(roof, 'the real app creates a roof')
+  const roof = saved.floors.find(candidate => candidate.id === floor.id).roofs[0]
+  assert.ok(roof, 'the real app creates a roof on the chosen floor')
+  assert.equal(saved.floors.find(candidate => candidate.id === ground.id).roofs.length, 0)
+  assert.equal(saved.activeFloorId, ground.id)
   assert.equal(roof.asymmetricSides, true)
   assert.equal(roof.mountSide, 'side1')
   assert.equal(roof.ridgeOffset, 2.25)
@@ -173,7 +191,7 @@ try {
   await menu('Load')
   await waitFor('document.body.textContent.includes("roundtrip")')
   await waitForCreatedSurface()
-  console.log('Full app Create, Save and Load preserve asymmetric settings and the exact preview surface')
+  console.log('Full app creates the exact roof preview on the chosen floor and preserves the editing floor through Save and Load')
 } finally {
   if (send && ws?.readyState === WebSocket.OPEN) {
     try { await send('Browser.close') } catch { child.kill() }

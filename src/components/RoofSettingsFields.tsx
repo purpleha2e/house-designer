@@ -8,10 +8,11 @@ import { RoofConnectionFields } from './RoofConnectionFields'
 import { ROOF_TYPE_LABELS } from '../roofLabels'
 
 export function RoofSettingsFields({ roof, floors, floorId, candidate, onChange, creating = false,
-  shapeControls, overhangControls, actions, bayRidgeMaxLength }: {
+  shapeControls, overhangControls, actions, bayRidgeMaxLength, onPlacementFloorChange }: {
   roof: RoofStructure; floors: FloorLevel[]; floorId: string; candidate?: BuildingRoof
   onChange: (updates: Partial<RoofStructure>) => void; creating?: boolean
   shapeControls?: ReactNode; overhangControls?: ReactNode; actions?: ReactNode; bayRidgeMaxLength?: number
+  onPlacementFloorChange?: (floorId: string) => void
 }) {
   const [tab, setTab] = useState<'shape' | 'height' | 'advanced'>('shape')
   const id = useId()
@@ -29,6 +30,12 @@ export function RoofSettingsFields({ roof, floors, floorId, candidate, onChange,
       <p>{creating ? 'Choose a shape, then select its supporting points on the plan.'
         : `${floor?.name ?? ''} · ${roof.type === 'flat' ? 'Flat roof' : `${roof.pitchDegrees}° pitch`}`}</p>
     </header>
+    {creating && onPlacementFloorChange && <label>
+      <span>Roof floor</span>
+      <select aria-label="Roof floor" value={floorId} onChange={event => onPlacementFloorChange(event.target.value)}>
+        {floors.map(option => <option key={option.id} value={option.id}>{option.name}</option>)}
+      </select>
+    </label>}
     <div className="roof-settings-tabs" role="tablist" aria-label="Roof settings sections">
       {([['shape', 'Shape'], ['height', 'Height & joins'], ['advanced', 'Advanced']] as const).map(([value, label]) =>
         <button type="button" key={value} role="tab" id={`${id}-${value}-tab`} aria-controls={`${id}-${value}`}

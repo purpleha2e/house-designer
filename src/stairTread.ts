@@ -1,8 +1,8 @@
 import { BufferGeometry, Float32BufferAttribute, ShapeUtils, Vector2, Vector3 } from 'three'
 import type { StairPoint, StairSurface } from './stairDesign.ts'
 
-/** Closed tread and nosing in one shell, without an internal front cap. The
- * quarter-round uses six quads along the width, with smooth radial normals. */
+/** Closed tread and nosing in one shell, without an internal front cap.
+ * Each rounded edge uses six quads with smooth radial normals. */
 export function createStairTread(surface: StairSurface, thickness: number, nosing: number, requestedRadius = 0) {
   const positions: number[] = [], normals: number[] = [], uvs: number[] = []
   type Vertex = { position: Vector3; normal: Vector3; uv: Vector2 }
@@ -45,30 +45,34 @@ export function createStairTread(surface: StairSurface, thickness: number, nosin
     const centre = polygon.reduce((p, v) => ({ x: p.x + v.x / polygon.length, z: p.z + v.z / polygon.length }), { x: 0, z: 0 })
     let nx = -dz / length, nz = dx / length
     if (nx * (centre.x - a.x) + nz * (centre.z - a.z) > 0) { nx = -nx; nz = -nz }
-    const radius = Math.min(requestedRadius, thickness, nosing)
+    const radius = Math.min(requestedRadius, thickness / 2, nosing)
+    const tangent = nosing - radius, quarterArc = radius * Math.PI / 2
+    const frontTravel = tangent + quarterArc + thickness - 2 * radius
     type Profile = { s: number; y: number; travel: number; angle: number }
     const profile: Profile[] = [{ s: 0, y: top, travel: 0, angle: 0 },
-      { s: nosing - radius, y: top, travel: nosing - radius, angle: 0 }]
+      { s: tangent, y: top, travel: tangent, angle: 0 }]
     if (radius > 0) for (let i = 1; i <= 6; i++) {
       const angle = i * Math.PI / 12
-      profile.push({ s: nosing - radius + radius * Math.sin(angle), y: top - radius + radius * Math.cos(angle),
-        travel: nosing - radius + radius * angle, angle })
+      profile.push({ s: tangent + radius * Math.sin(angle), y: top - radius + radius * Math.cos(angle),
+        travel: tangent + radius * angle, angle })
     }
     else profile.push({ s: nosing, y: top, travel: nosing, angle: Math.PI / 2 })
-    profile.push({ s: nosing, y: bottom, travel: nosing - radius + radius * Math.PI / 2 + thickness - radius, angle: Math.PI / 2 },
-      { s: 0, y: bottom, travel: 0, angle: Math.PI })
+    profile.push({ s: nosing, y: bottom + radius, travel: frontTravel, angle: Math.PI / 2 })
+    if (radius > 0) for (let i = 1; i <= 6; i++) {
+      const sweep = i * Math.PI / 12, angle = Math.PI / 2 + sweep
+      profile.push({ s: tangent + radius * Math.cos(sweep), y: bottom + radius - radius * Math.sin(sweep),
+        travel: frontTravel + radius * sweep, angle })
+    }
+    profile.push({ s: 0, y: bottom, travel: radius > 0 ? frontTravel + quarterArc + tangent : 0, angle: Math.PI })
     const vertex = (p: Profile, end: boolean, normal: Vector3): Vertex => {
       const origin = end ? b : a
       return { position: new Vector3(origin.x + nx * p.s, p.y, origin.z + nz * p.s), normal,
         uv: new Vector2(origin.x + nx * p.travel, -origin.z - nz * p.travel) }
     }
+    const radial = (angle: number) => new Vector3(nx * Math.sin(angle), Math.cos(angle), nz * Math.sin(angle))
     for (let i = 1; i < profile.length; i++) {
       const p = profile[i - 1], q = profile[i], isBottom = i === profile.length - 1
-      const radial = (angle: number) => new Vector3(nx * Math.sin(angle), Math.cos(angle), nz * Math.sin(angle))
       const pNormal = isBottom ? new Vector3(0, -1, 0) : radial(p.angle), qNormal = isBottom ? pNormal : radial(q.angle)
-      // Flat top and straight front keep crisp boundaries; only the arc blends.
-      if (p.y === q.y && !isBottom) { pNormal.set(0, 1, 0); qNormal.set(0, 1, 0) }
-      if (Math.abs(p.s - q.s) < 1e-8 && !isBottom) { pNormal.set(nx, 0, nz); qNormal.set(nx, 0, nz) }
       quad(vertex(p, false, pNormal), vertex(p, true, pNormal), vertex(q, true, qNormal), vertex(q, false, qNormal))
     }
     // End caps meet the existing side panels without covering their surface.

@@ -4,15 +4,17 @@ import { createStairGeometry, disposeStairGeometry, stairGeometryKey } from '../
 import { getStairFinish, type StairDesign, type StairPart } from '../stairDesign'
 import { PbrEnvironmentContext } from '../pbrEnvironmentContext'
 
-export function StairMesh({ design, active = true, castsShadow = true, wireframe = false, onObject, materialRevision = '', children }: {
+export function StairMesh({ design, active = true, castsShadow = true, wireframe = false, onObject, materialRevision = '',
+  upperFloorHeight = design.totalRise, guardrailOnly = false, children }: {
   design: StairDesign; active?: boolean; castsShadow?: boolean; wireframe?: boolean;
-  onObject?: (object: Object3D) => () => void; materialRevision?: string; children?: (group: Group) => ReactNode
+  onObject?: (object: Object3D) => () => void; materialRevision?: string; upperFloorHeight?: number; guardrailOnly?: boolean;
+  children?: (group: Group) => ReactNode
 }) {
   const environment = useContext(PbrEnvironmentContext)
   const key = stairGeometryKey(design)
   // Finish changes retain the generated geometry and GPU/acceleration buffers.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const geometry = useMemo(() => createStairGeometry(design), [key])
+  const geometry = useMemo(() => createStairGeometry(design, { upperFloorHeight, guardrailOnly }), [key, upperFloorHeight, guardrailOnly])
   const finishesKey = JSON.stringify(design.finishes)
   const finishes = useMemo<StairDesign['finishes']>(() => JSON.parse(finishesKey), [finishesKey])
   const object = useMemo(() => {

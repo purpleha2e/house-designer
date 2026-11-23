@@ -37,13 +37,8 @@ export class FloorDisplayBatching {
     scene.traverseVisible(object => {
       if (object instanceof Mesh && typeof object.userData.floorSurfaceBatchKey === 'string' && opaqueFloor(object)) sources.push(object)
     })
-    const covered = new Set(sources.filter(source => source.userData.houseDesignerRole === 'room-floor-finish')
-      .map(source => source.userData.floorSurfaceCoverageKey).filter(key => typeof key === 'string'))
     const hidden: Mesh[] = [], added: Mesh[] = [], groups = new Map<string, typeof sources>()
     for (const source of sources) {
-      if (source.userData.houseDesignerRole === 'room-floor-base' && covered.has(source.userData.floorSurfaceCoverageKey)) {
-        hidden.push(source); continue
-      }
       // Only parts with equivalent authored finishes share a batch. Keep
       // render state and storey separate, including inherited render order.
       let ancestor = source.parent

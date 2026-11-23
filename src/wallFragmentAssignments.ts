@@ -140,7 +140,7 @@ export function findWallFragmentAssignmentForFace(
   return bestAssignment
 }
 
-function parseWallSideFragmentBounds(fragmentId: string) {
+export function parseWallSideFragmentBounds(fragmentId: string) {
   const match = fragmentId.match(
     /^perimeter-wall:[^:]+:(?:-1|1):side:(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?):(-?\d+(?:\.\d+)?)(?=:|$)/,
   )

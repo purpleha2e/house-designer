@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { Shape } from 'three'
+import { Mesh, MeshBasicMaterial, Path, Raycaster, Shape, ShapeGeometry, Vector3, Vector2 } from 'three'
 
 import {
   createCeilingSlabGeometry,
   offsetEdgeTowardPoint,
 } from '../src/ceilingSlabGeometry.ts'
+import { subtractPlanCutouts, type PlanFootprint } from '../src/planarCutouts.ts'
 
 function createSquareShape() {
   const shape = new Shape()
@@ -38,6 +39,44 @@ test('combines slab caps and one facade quad per outer edge', () => {
   )
   assert.equal(geometry.getAttribute('position').count, 18)
   geometry.dispose()
+})
+
+test('floor finish fills its part of the slab top at the same height and keeps the stair hole open', () => {
+  const rectangle = (minX: number, minY: number, maxX: number, maxY: number) => [
+    { x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY },
+  ]
+  const stair = rectangle(2, 1, 3, 3)
+  const slab = { outline: rectangle(0, 0, 6, 4), holes: [stair] }
+  const finish = { outline: rectangle(1, 0, 4, 4), holes: [stair] }
+  const shape = ({ outline, holes }: PlanFootprint) => {
+    const vectors = (ring: typeof outline) => ring.map(point => new Vector2(point.x, point.y))
+    const result = new Shape(vectors(outline))
+    result.holes = holes.map(ring => new Path(vectors(ring)))
+    return result
+  }
+  const barePatches = subtractPlanCutouts(slab, [finish])
+  assert.equal(barePatches.length, 2)
+  const height = .22
+  const geometry = createCeilingSlabGeometry(barePatches.map(shape), height, [], 0, 'top')
+  const material = new MeshBasicMaterial()
+  const bare = new Mesh(geometry, [material])
+  const carpet = new Mesh(new ShapeGeometry(shape(finish)), material)
+  carpet.position.z = height
+  carpet.updateMatrixWorld()
+  try {
+    const hit = (x: number, y: number) => new Raycaster(new Vector3(x, y, 1), new Vector3(0, 0, -1))
+      .intersectObjects([bare, carpet])
+    for (const [x, y, mesh] of [[.5, 1.2, bare], [1.6, 1.2, carpet], [4.5, 1.2, bare]] as const) {
+      const hits = hit(x, y)
+      assert.deepEqual(hits.map(result => result.object), [mesh])
+      assert.ok(Math.abs(hits[0].point.z - height) < 1e-6)
+    }
+    assert.deepEqual(hit(2.5, 1.5), [])
+  } finally {
+    geometry.dispose()
+    carpet.geometry.dispose()
+    material.dispose()
+  }
 })
 
 test('keeps metre-based wall UV coordinates on slab facades', () => {

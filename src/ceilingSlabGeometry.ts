@@ -66,7 +66,7 @@ export function offsetEdgeTowardPoint(
  * cap here and clips the separate underside at its own elevation.
  */
 export function createCeilingSlabGeometry(
-  shape: Shape,
+  shape: Shape | Shape[],
   depth: number,
   facadeEdges: readonly CeilingSlabFacadeEdge[],
   capInset = 0,
@@ -78,11 +78,11 @@ export function createCeilingSlabGeometry(
   })
   const sourcePositions = source.getAttribute('position')
   const sourceUvs = source.getAttribute('uv')
-  const capGroup = source.groups.find((group) => group.materialIndex === 0)
   const positions: number[] = []
   const uvs: number[] = []
 
-  if (capGroup) {
+  for (const capGroup of source.groups) {
+    if (capGroup.materialIndex !== 0) continue
     const capEnd = capGroup.start + capGroup.count
 
     for (let index = capGroup.start; index < capEnd; index += 1) {

@@ -5,11 +5,18 @@ export const STAIR_OPENING_WALL_FIT_DISTANCE = .05
 
 /** Partial walls need a notch at their actual ends, not a guessed full-length
  * wall plane. Keep occupied wall bodies out of the shared opening as well. */
-export function fitStairOpeningFootprints(polygon: Point[], walls: Wall[]): Point[][] {
-  const fitted = fitStairOpeningToWalls(polygon, walls)
+export function fitStairOpeningFootprints(polygon: Point[], walls: Wall[], fixedEdges?: ReadonlySet<number>): Point[][] {
+  const fitted = fitStairOpeningToWalls(polygon, walls, STAIR_OPENING_WALL_FIT_DISTANCE, fixedEdges)
   const cutters = walls.flatMap(wall => {
     const wx = wall.end.x - wall.start.x, wy = wall.end.y - wall.start.y, length = Math.hypot(wx, wy)
     if (length < 1e-6) return []
+    const overlapsEdge = (p: Point, i: number) => {
+      const q = fitted[(i + 1) % fitted.length], interval = wallOpeningEdgeInterval(p, q, wall)
+      return interval && (interval[1] - interval[0]) * Math.hypot(q.x - p.x, q.y - p.y) > .00001
+    }
+    // A cut aligned to a newel cannot move to a nearby wall, but a wall
+    // that crosses that edge still keeps its slab support.
+    const crossesFixedEdge = fixedEdges && fitted.some((p, i) => fixedEdges.has(i) && overlapsEdge(p, i))
     const touches = polygon.some((p, i) => {
       const q = polygon[(i + 1) % polygon.length], dx = q.x - p.x, dy = q.y - p.y, edgeLength = Math.hypot(dx, dy)
       if (edgeLength < 1e-6 || Math.abs(dx * wy - dy * wx) / (edgeLength * length) > 1e-5) return false
@@ -18,11 +25,7 @@ export function fitStairOpeningFootprints(polygon: Point[], walls: Wall[]): Poin
       const distance = Math.abs((p.x - wall.start.x) * wy - (p.y - wall.start.y) * wx) / length
       return Math.abs(distance - wall.thickness / 2) <= STAIR_OPENING_WALL_FIT_DISTANCE
     })
-    if (!touches) return []
-    if (!fitted.some((p, i) => {
-      const q = fitted[(i + 1) % fitted.length], interval = wallOpeningEdgeInterval(p, q, wall)
-      return interval && (interval[1] - interval[0]) * Math.hypot(q.x - p.x, q.y - p.y) > .00001
-    })) return []
+    if (!crossesFixedEdge && !(touches && fitted.some(overlapsEdge))) return []
     const nx = -wy / length * wall.thickness / 2, ny = wx / length * wall.thickness / 2
     return [[{ x: wall.start.x + nx, y: wall.start.y + ny }, { x: wall.end.x + nx, y: wall.end.y + ny },
       { x: wall.end.x - nx, y: wall.end.y - ny }, { x: wall.start.x - nx, y: wall.start.y - ny }]]
@@ -33,7 +36,8 @@ export function fitStairOpeningFootprints(polygon: Point[], walls: Wall[]): Poin
 /** Meet nearby inside wall faces. Small gaps are bridged; where a wall already
  * intrudes into the stair footprint, retain its support rather than cutting
  * underneath it. Actual wall offsets become closed ledges, not open seams. */
-export function fitStairOpeningToWalls(polygon: Point[], walls: Wall[], tolerance = STAIR_OPENING_WALL_FIT_DISTANCE): Point[] {
+export function fitStairOpeningToWalls(polygon: Point[], walls: Wall[], tolerance = STAIR_OPENING_WALL_FIT_DISTANCE,
+  fixedEdges?: ReadonlySet<number>): Point[] {
   if (polygon.length < 3 || !walls.length) return polygon
   const area = polygon.reduce((sum, p, i) => { const q = polygon[(i + 1) % polygon.length]; return sum + p.x * q.y - q.x * p.y }, 0)
   const sign = area > 0 ? 1 : -1
@@ -41,6 +45,7 @@ export function fitStairOpeningToWalls(polygon: Point[], walls: Wall[], toleranc
     const q = polygon[(i + 1) % polygon.length], length = Math.hypot(q.x - p.x, q.y - p.y)
     const dx = (q.x - p.x) / length, dy = (q.y - p.y) / length
     const normal = { x: sign * dy, y: -sign * dx }
+    if (fixedEdges?.has(i)) return { normal, constant: p.x * normal.x + p.y * normal.y, shift: 0 }
     let fittedShift: number | null = null
     for (const wall of walls) {
       const wx = wall.end.x - wall.start.x, wy = wall.end.y - wall.start.y, wl = Math.hypot(wx, wy)

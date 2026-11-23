@@ -3,11 +3,11 @@ import test from 'node:test'
 import { Group, Mesh, MeshStandardMaterial, PlaneGeometry, Scene, Shape, ShapeGeometry, Vector3 } from 'three'
 import { FloorDisplayBatching } from '../src/floorDisplayBatching.ts'
 
-function floor(scene: Scene, x: number, key = 'wood:floor0', coverage = String(x), base = false) {
+function floor(scene: Scene, x: number, key = 'wood:floor0', base = false) {
   const mesh = new Mesh(new PlaneGeometry(2, 2), new MeshStandardMaterial())
-  mesh.position.set(x, base ? 0 : .002, 0); mesh.rotation.x = -Math.PI / 2
+  mesh.position.set(x, 0, 0); mesh.rotation.x = -Math.PI / 2
   mesh.receiveShadow = true; mesh.renderOrder = base ? 1 : 2
-  mesh.userData = { houseDesignerRole: base ? 'room-floor-base' : 'room-floor-finish', floorSurfaceBatchKey: key, floorSurfaceCoverageKey: coverage }
+  mesh.userData = { houseDesignerRole: base ? 'room-floor-base' : 'room-floor-finish', floorSurfaceBatchKey: key }
   scene.add(mesh)
   return mesh
 }
@@ -70,25 +70,17 @@ test('incompatible attribute layouts remain separate without retrying failed mer
   batching.dispose()
 })
 
-test('only an opaque matching footprint removes a base from display; all sources survive errors', () => {
+test('adjacent bare and finished areas keep their materials and survive display errors', () => {
   const scene = new Scene(), batching = new FloorDisplayBatching()
-  const base = floor(scene, 0, 'base', 'room-with-stair-opening', true), finish = floor(scene, 0, 'wood', 'room-with-stair-opening')
-  const uncovered = floor(scene, 3, 'base', 'uncovered-room', true)
-  batching.draw(scene, () => assert.deepEqual(visible(scene), [finish, uncovered]))
-  finish.material.transparent = true; finish.material.opacity = .5
+  const base = floor(scene, 0, 'base', true), finish = floor(scene, 2, 'wood')
+  const secondBase = floor(scene, 4, 'base', true)
   batching.draw(scene, () => {
     const bases = visible(scene).filter(mesh => mesh.userData.houseDesignerRole === 'room-floor-base')
     assert.equal(finish.visible, true); assert.equal(bases.length, 1)
-    assert.deepEqual(worldVertices(bases[0]), [...worldVertices(base), ...worldVertices(uncovered)])
+    assert.deepEqual(worldVertices(bases[0]), [...worldVertices(base), ...worldVertices(secondBase)])
   })
-  finish.material.transparent = false; finish.material.opacity = 1; finish.userData.floorSurfaceCoverageKey = 'different-openings'
-  batching.draw(scene, () => {
-    const bases = visible(scene).filter(mesh => mesh.userData.houseDesignerRole === 'room-floor-base')
-    assert.deepEqual(worldVertices(bases[0]), [...worldVertices(base), ...worldVertices(uncovered)])
-  })
-  finish.userData.floorSurfaceCoverageKey = base.userData.floorSurfaceCoverageKey
   assert.throws(() => batching.draw(scene, () => { assert.equal(base.visible, false); throw Error('display failed') }), /display failed/)
-  assert.deepEqual(visible(scene), [base, finish, uncovered])
+  assert.deepEqual(visible(scene), [base, finish, secondBase])
   batching.dispose()
 })
 

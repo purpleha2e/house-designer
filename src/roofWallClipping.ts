@@ -3,6 +3,7 @@ import type { WallMeshFace } from './wallEngine/wallMesh.ts'
 import type { SolidPlane, SolidPoint } from './convexSolid.ts'
 import { createWallRoofSurfaceDividers } from './wallEngine/wallRoofSurfacePartitions.ts'
 import { getWallPolygon } from './wallGeometry.ts'
+import type { StairWallCutFace } from './stairWallCut.ts'
 
 import { footprintPlanes, roofFacePlanes, type ClipPlane, type WallRoofClipVolume } from './wallEngine/wallRoofClip.ts'
 
@@ -23,6 +24,7 @@ export function createWallRoofClipOptions({
   floorElevation, floorId, isInsideRoom, roofs, walls, wallFaces, gableWallIds = [], gableCeilingFaces = [],
   clipToInheritedRoofs = false,
   gableWallVolumes = [],
+  stairSoffits = [],
 }: {
   floorElevation: number
   floorId: string
@@ -34,6 +36,7 @@ export function createWallRoofClipOptions({
   wallFaces?: WallMeshFace[]
   gableWallIds?: string[]
   gableCeilingFaces?: SolidPoint[][]
+  stairSoffits?: StairWallCutFace[]
 }) {
   const wallBounds = new Map(walls.map(wall => [wall.id, { bottom: 0, top: wall.height }]))
   for (const face of wallFaces ?? []) {
@@ -143,6 +146,18 @@ export function createWallRoofClipOptions({
       protectedFootprints: [], excludedWallIds: new Set<string>(), clipSides: true,
       clipHeightWallIds: internalWallIds, onlySelectedWalls: true,
     })))
+  }
+  for (const face of stairSoffits) {
+    const planes = roofFacePlanes(face)
+    if (!planes.length) continue
+    volumes.push({
+      planes,
+      surfacePlane: planes.at(-1),
+      boundaryProtections: planes.slice(0, -1).map(boundary => ({ boundary, planes: [], outsideOnly: true })),
+      protectedFootprints: [],
+      excludedWallIds: new Set(),
+      clipSides: true,
+    })
   }
   return { floorElevation, volumes, surfaceDividers }
 }

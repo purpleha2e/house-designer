@@ -51,6 +51,7 @@ type LeftToolRailProps = {
   floors: FloorLevel[]
   internalWallThickness: number
   isAddingWall: boolean
+  isSplittingWall: boolean
   isRoofMode: boolean
   materials: SurfaceMaterialProduct[]
   selectedSurface: SelectableSurface | null
@@ -82,6 +83,7 @@ type LeftToolRailProps = {
   onSlabThicknessChange: (thickness: number) => void
   onCeilingModeChange: (mode: NonNullable<FloorLevel['ceilingMode']>) => void
   onToggleAddWall: () => void
+  onToggleSplitWall: () => void
   onWallHeightChange: (height: number) => void
   onWallKindChange: (wallKind: WallKind) => void
 }
@@ -273,6 +275,7 @@ export function LeftToolRail({
   floors,
   internalWallThickness,
   isAddingWall,
+  isSplittingWall,
   isRoofMode,
   materials,
   selectedSurface,
@@ -295,6 +298,7 @@ export function LeftToolRail({
   onSlabThicknessChange,
   onCeilingModeChange,
   onToggleAddWall,
+  onToggleSplitWall,
   onWallHeightChange,
   onWallKindChange,
 }: LeftToolRailProps) {
@@ -467,7 +471,7 @@ export function LeftToolRail({
     <>
       <nav className="left-tool-rail" aria-label="Editor tools">
         <IconButton
-          active={isAddingWall || openPanel === 'wall'}
+          active={isAddingWall || isSplittingWall || openPanel === 'wall'}
           label="Wall tools"
           onClick={() => togglePanel('wall')}
         >
@@ -519,7 +523,7 @@ export function LeftToolRail({
             <>
               <header>
                 <h2>Walls</h2>
-                <p>{isAddingWall ? 'Click start, click end' : 'Choose wall type'}</p>
+                <p>{isAddingWall ? 'Click start, click end' : isSplittingWall ? 'Click an existing wall to split it' : 'Choose wall type'}</p>
               </header>
               <button
                 type="button"
@@ -527,6 +531,11 @@ export function LeftToolRail({
                 onClick={onToggleAddWall}
               >
                 {isAddingWall ? 'Stop adding walls' : 'Add wall'}
+              </button>
+              <button type="button" className={isSplittingWall ? 'active' : ''} aria-pressed={isSplittingWall}
+                disabled={!floors.some(floor => floor.id === activeFloorId && floor.walls.length > 0)}
+                onClick={() => { onToggleSplitWall(); setOpenPanel(null) }}>
+                Split wall
               </button>
               <div className="flyout-segmented-control" aria-label="Wall type">
                 <button

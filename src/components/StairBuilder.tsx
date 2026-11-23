@@ -4,10 +4,12 @@ import { Bounds, OrbitControls } from '@react-three/drei'
 import type { Object3D } from 'three'
 import type { ModelDefinition } from '../models/modelLibrary'
 import type { SurfaceMaterialProduct } from '../types'
-import { createStairDesign, getStairFinish, getStairLayout, stairParts, stairPartLabels, stairTurnSteps, validateStairDesign,
-  type StairDesign, type StairPart } from '../stairDesign'
+import { createStairDesign, getStairFinish, getStairLayout, stairGuardrailFullLength, stairGuardrailMaxSetback,
+  stairGuardrailMinLength, stairGuardrailMinSetback, stairParts, stairPartLabels, stairTurnSteps, validateStairDesign,
+  type StairDesign, type StairGuardrail, type StairPart } from '../stairDesign'
 import { stairGeometryKey } from '../stairGeometry'
 import { downloadStairGlb, stairDefinition } from '../stairLibrary'
+import { getStairGuardrailOpening, getStairGuardrailPaths } from '../stairGuardrails'
 import { StairContent } from './ThreeDView'
 import { PbrEnvironmentProvider } from './PbrEnvironment'
 import './WindowBuilder.css'
@@ -32,6 +34,11 @@ export function StairBuilder({ definition, instanceCount, floorRise, materials, 
   const [exporting, setExporting] = useState(false)
   const dialog = useRef<HTMLElement>(null), previewObject = useRef<Object3D | null>(null)
   const validation = validateStairDesign(design), layout = getStairLayout(preview), b = layout.bounds
+  const planGuardrails = Object.values(getStairGuardrailPaths(preview, layout))
+  const planOpening = getStairGuardrailOpening(preview, layout)
+  const guardrailPoints = planGuardrails.flat()
+  const planMinX = Math.min(b.minX, ...guardrailPoints.map(p => p.x)), planMaxX = Math.max(b.maxX, ...guardrailPoints.map(p => p.x))
+  const planMinZ = Math.min(b.minZ, ...guardrailPoints.map(p => p.z)), planMaxZ = Math.max(b.maxZ, ...guardrailPoints.map(p => p.z))
   const actualRise = design.totalRise / design.riserCount, finish = getStairFinish(design, part)
   const turnSteps = stairTurnSteps(design), secondFlight = design.riserCount - design.stepsBeforeTurn - turnSteps
   const update = (patch: Partial<StairDesign>) => {
@@ -44,8 +51,19 @@ export function StairBuilder({ definition, instanceCount, floorRise, materials, 
     if (['layout', 'turnType', 'riserCount', 'winderCount'].some(key => key in patch))
       next.stepsBeforeTurn = Math.max(next.turnType === 'landing' ? 2 : 1,
         Math.min(next.stepsBeforeTurn, next.riserCount - stairTurnSteps(next) - (next.turnType === 'landing' ? 2 : 1)))
+    const guardrail = next.upperGuardrail
+    if (guardrail && next.layout !== 'straight') next.upperGuardrail = undefined
+    else if (guardrail?.side && (!next.banisters[guardrail.side] || !next.handrails[guardrail.side]))
+      next.upperGuardrail = guardrail.oppositeEnd ? { oppositeEnd: true, setback: guardrail.setback } : undefined
     setPast(p => [...p.slice(-39), design]); setDesign(next); setError('')
     if (!validateStairDesign(next)) setPreview(next)
+  }
+  const updateGuardrail = (patch: Partial<StairGuardrail>) => {
+    const next = { setback: .1, ...design.upperGuardrail, ...patch }
+    if (!next.side) next.length = undefined
+    if (patch.oppositeEnd === false && next.length !== undefined && next.length > stairGuardrailFullLength(design, next))
+      next.length = undefined
+    update({ upperGuardrail: next.side || next.oppositeEnd ? next : undefined })
   }
   const setFinish = (patch: Partial<typeof finish>) => update({ finishes: { ...design.finishes, [part]: { ...finish, ...patch } } })
   useEffect(() => {
@@ -118,11 +136,11 @@ export function StairBuilder({ definition, instanceCount, floorRise, materials, 
           <div className="window-builder-fields">{number('Stair width', 'width', 400, 3000)}{number('Tread depth', 'going', 100, 600)}
             {number('Tread thickness', 'treadThickness', 10, 120, 1)}{number('Nosing', 'nosing', 0, 60, 1)}</div>
           <label className="window-builder-checkbox"><input type="checkbox" checked={!!design.nosingRadius}
-            onChange={e => update({ nosingRadius: e.target.checked ? .01 : 0 })} />Rounded tread edges (6 segments)</label>
+            onChange={e => update({ nosingRadius: e.target.checked ? .01 : 0 })} />Rounded tread edges</label>
           {!!design.nosingRadius && <>
             <label>Edge radius (mm)<input type="number" min={1} max={60} step={1} value={Math.round(design.nosingRadius * 1000)}
               onChange={e => update({ nosingRadius: Number(e.target.value) / 1000 })} /></label>
-            <p className="window-builder-help">Rounds the carpet over each tread and landing edge. Radius is limited by the nosing and tread thickness.</p>
+            <p className="window-builder-help">Rounds the top and underside of each nosing. The radius is limited to the nosing projection or half the tread thickness, whichever is smaller.</p>
           </>}
           {design.layout !== 'straight' && <>
             <div className="window-builder-fields">
@@ -155,13 +173,17 @@ export function StairBuilder({ definition, instanceCount, floorRise, materials, 
                 <Bounds fit clip observe margin={1.8} key={stairGeometryKey(preview)}><StairContent design={preview}
                   onObject={object => { previewObject.current = object; return () => { previewObject.current = null } }} /></Bounds>
               </PbrEnvironmentProvider><OrbitControls makeDefault />
-            </Canvas> : <svg aria-label="Stair plan, arrow points upstairs" viewBox={`${b.minX - .25} ${-b.maxZ - .25} ${b.maxX - b.minX + .5} ${b.maxZ - b.minZ + .5}`}>
+            </Canvas> : <svg aria-label="Stair plan, arrow points upstairs" viewBox={`${planMinX - .25} ${-planMaxZ - .25} ${planMaxX - planMinX + .5} ${planMaxZ - planMinZ + .5}`}>
               <defs><marker id="stair-up-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#176f9d" /></marker></defs>
               {layout.surfaces.map((s, i) => <polygon key={i} points={s.polygon.map(p => `${p.x},${-p.z}`).join(' ')} fill={preview.finishes.treads.color} stroke="#586d7f" strokeWidth={.012} />)}
+              {planOpening && <polygon aria-label="Floor opening" points={planOpening.polygon.map(p => `${p.x},${-p.z}`).join(' ')}
+                fill="none" stroke="#586d7f" strokeWidth={.012} strokeDasharray=".045 .025" />}
               {layout.flights.map((f, i) => {
                 const a = f.left[0], z = f.left.at(-1)!, ra = f.right[0], rz = f.right.at(-1)!
                 return <line key={i} x1={(a.x + ra.x) / 2} y1={-(a.z + ra.z) / 2} x2={(z.x + rz.x) / 2} y2={-(z.z + rz.z) / 2} stroke="#176f9d" strokeWidth={.025} markerEnd="url(#stair-up-arrow)" />
               })}
+              {planGuardrails.map((path, i) => path.length > 0 && <polyline key={i}
+                points={path.map(p => `${p.x},${-p.z}`).join(' ')} fill="none" stroke="#334155" strokeWidth={.04} strokeLinejoin="round" />)}
             </svg>}
           </div>
           <div className="stair-builder-metrics"><span>{shapeLabel} · {Math.round((b.maxX - b.minX) * 1000)} × {Math.round((b.maxZ - b.minZ) * 1000)} mm plan</span>
@@ -174,6 +196,27 @@ export function StairBuilder({ definition, instanceCount, floorRise, materials, 
           <div className="stair-builder-rail-options">{(['left', 'right'] as const).map(side => <div key={side}><strong>{side === 'left' ? 'Left side' : 'Right side'}</strong>
             {(['banisters', 'handrails'] as const).map(key => <label key={key} className="window-builder-checkbox">
               <input type="checkbox" checked={design[key][side]} onChange={e => update({ [key]: { ...design[key], [side]: e.target.checked } })} />{key === 'banisters' ? 'Spindles & posts' : 'Handrail'}</label>)}</div>)}</div>
+          {design.layout === 'straight' && <>
+            <h3>Upper-floor guardrails</h3>
+            <label>Side guardrail<select value={design.upperGuardrail?.side ?? ''}
+              onChange={e => updateGuardrail({ side: (e.target.value || undefined) as StairGuardrail['side'] })}>
+              <option value="">None</option>
+              <option value="left" disabled={!design.banisters.left || !design.handrails.left}>Return on left</option>
+              <option value="right" disabled={!design.banisters.right || !design.handrails.right}>Return on right</option>
+            </select></label>
+            <label className="window-builder-checkbox"><input type="checkbox" checked={design.upperGuardrail?.oppositeEnd ?? false}
+              onChange={e => updateGuardrail({ oppositeEnd: e.target.checked })} />Opposite end guardrail</label>
+            <p className="window-builder-help">The side rail returns from the top newel on a side with spindles and a handrail. The end rail spans the opening above the foot of the stairs.</p>
+            {design.upperGuardrail && <>
+              {design.upperGuardrail.side && <label>Side length (mm)<input type="number"
+                min={stairGuardrailMinLength * 1000} max={Math.floor(stairGuardrailFullLength(design, design.upperGuardrail) * 1000 + 1e-7)}
+                placeholder="Full stairwell" value={design.upperGuardrail.length === undefined ? '' : Math.round(design.upperGuardrail.length * 1000)}
+                onChange={e => updateGuardrail({ length: e.target.value === '' ? undefined : Number(e.target.value) / 1000 })} /></label>}
+              <label>Setback from stair edge (mm)<input type="number" min={Math.ceil(stairGuardrailMinSetback(design) * 1000)}
+                max={stairGuardrailMaxSetback * 1000} value={Math.round(design.upperGuardrail.setback * 1000)}
+                onChange={e => updateGuardrail({ setback: Number(e.target.value) / 1000 })} /></label>
+            </>}
+          </>}
           <div className="window-builder-fields">{number('Rail height', 'railHeight', 400, 1500)}{number('Spindle width', 'spindleWidth', 10, 100, 1)}
             {number('Spindle spacing', 'spindleSpacing', 60, 400)}{number('Newel width', 'postWidth', 30, 200, 1)}
             {number('Handrail width', 'handrailWidth', 25, 150, 1)}</div>

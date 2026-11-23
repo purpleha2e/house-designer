@@ -78,12 +78,12 @@ function toFootprints(multiPolygon: MultiPolygon): PlanFootprint[] {
   })
 }
 
-export function subtractPlanCutouts(outline: Point[], cutouts: PlanCutout[]) {
-  if (outline.length < 3 || cutouts.length === 0 || !differencePolygons) {
-    return outline.length >= 3 ? [{ holes: [], outline }] : []
-  }
+export function subtractPlanCutouts(footprint: PlanCutout, cutouts: PlanCutout[]) {
+  const source = Array.isArray(footprint) ? { outline: footprint, holes: [] } : footprint
+  if (source.outline.length < 3) return []
+  if (cutouts.length === 0 || !differencePolygons) return [source]
 
-  const polygon = toPolygon(outline)
+  const polygon = toPolygon(source)
   if (!polygon.length) return []
   const cutters = cutouts.map(toPolygon).filter(candidate => candidate.length)
   return toFootprints(cutters.length ? differencePolygons(polygon, ...cutters) : [polygon])

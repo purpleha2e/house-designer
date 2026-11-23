@@ -40,7 +40,7 @@ export type WallRoofClipJob = {
   planes: Plane[]
   volumes: {
     planes: number[]; surfacePlane?: number; protectedFootprints: number[][]
-    boundaryProtections: { boundary: number; planes: number[] }[]
+    boundaryProtections: { boundary: number; planes: number[]; outsideOnly?: boolean }[]
     excludedWallIds: string[]; clipSides: boolean; clipHeightWallIds?: string[]
     onlySelectedWalls?: boolean
     onlyTopFaces?: boolean
@@ -63,7 +63,9 @@ export function createWallRoofClipJob(faces: WallMeshFace[], options: WallRoofCl
   const volumes = options.volumes.map(v => ({
     planes: v.planes.map(encode), surfacePlane: v.surfacePlane ? encode(v.surfacePlane) : undefined,
     protectedFootprints: v.protectedFootprints.map(p => p.map(encode)),
-    boundaryProtections: (v.boundaryProtections ?? []).map(p => ({ boundary: encode(p.boundary), planes: p.planes.map(encode) })),
+    boundaryProtections: (v.boundaryProtections ?? []).map(p => ({
+      boundary: encode(p.boundary), planes: p.planes.map(encode), outsideOnly: p.outsideOnly,
+    })),
     excludedWallIds: [...v.excludedWallIds], clipSides: v.clipSides,
     clipHeightWallIds: [...(v.clipHeightWallIds ?? [])],
     onlySelectedWalls: v.onlySelectedWalls,
@@ -80,7 +82,7 @@ export function runWallRoofClipJob(job: WallRoofClipJob) {
     volumes: job.volumes.map(v => ({
       ...v, planes: v.planes.map(i => planes[i]), surfacePlane: v.surfacePlane === undefined ? undefined : planes[v.surfacePlane],
       protectedFootprints: v.protectedFootprints.map(p => p.map(i => planes[i])),
-      boundaryProtections: v.boundaryProtections.map(p => ({ boundary: planes[p.boundary], planes: p.planes.map(i => planes[i]) })),
+      boundaryProtections: v.boundaryProtections.map(p => ({ ...p, boundary: planes[p.boundary], planes: p.planes.map(i => planes[i]) })),
       excludedWallIds: new Set(v.excludedWallIds),
       clipHeightWallIds: new Set(v.clipHeightWallIds ?? []),
       skipWallIds: new Set(v.skipWallIds ?? []),

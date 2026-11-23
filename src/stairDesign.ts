@@ -3,6 +3,15 @@ import { createStairLandingProfile } from './stairLandingProfile.ts'
 /** Dimensions are metres. Local +Z is the first direction of ascent. */
 export type StairPart = 'treads' | 'risers' | 'stringers' | 'spindles' | 'posts' | 'handrails' | 'underside'
 export type StairFinish = { color: string; roughness: number; metalness: number; materialId?: string; textureScale?: number }
+export type StairGuardrail = {
+  side?: 'left' | 'right'
+  oppositeEnd?: boolean
+  /** Absent for a full-length side guardrail. */
+  length?: number
+  setback: number
+}
+export const stairGuardrailMinLength = .25
+export const stairGuardrailMaxSetback = 2
 export type StairDesign = {
   version: 1
   layout: 'straight' | 'l' | 'u'
@@ -28,6 +37,7 @@ export type StairDesign = {
   stringers: boolean
   banisters: { left: boolean; right: boolean }
   handrails: { left: boolean; right: boolean }
+  upperGuardrail?: StairGuardrail
   railHeight: number
   spindleWidth: number
   spindleSpacing: number
@@ -96,6 +106,19 @@ export function validateStairDesign(value: unknown): string | null {
   if (typeof d.closedRisers !== 'boolean' || (d.closedUnderside !== undefined && typeof d.closedUnderside !== 'boolean') || typeof d.stringers !== 'boolean' ||
     [d.banisters?.left, d.banisters?.right, d.handrails?.left, d.handrails?.right].some(v => typeof v !== 'boolean')) return 'The railing settings are invalid.'
   if (d.spindleSpacing < d.spindleWidth || d.postWidth >= d.width || d.handrailWidth >= d.width) return 'Railing widths and spacing must fit the staircase.'
+  if (d.upperGuardrail !== undefined) {
+    const guardrail = d.upperGuardrail
+    if (!guardrail || d.layout !== 'straight' || (!guardrail.side && guardrail.oppositeEnd !== true) ||
+      (guardrail.oppositeEnd !== undefined && typeof guardrail.oppositeEnd !== 'boolean'))
+      return 'Choose a side or opposite-end guardrail for a straight stair.'
+    const { side, length, setback } = guardrail
+    if (side !== undefined && ((side !== 'left' && side !== 'right') || !d.banisters[side] || !d.handrails[side]))
+      return 'The side guardrail needs spindles, posts and a handrail on the chosen side.'
+    if (!Number.isFinite(setback) || setback < stairGuardrailMinSetback(d) || setback > stairGuardrailMaxSetback ||
+      (length !== undefined && (!side || !Number.isFinite(length) || length < stairGuardrailMinLength ||
+        length > stairGuardrailFullLength(d, guardrail) + 1e-7)))
+      return 'Choose an upper-floor guardrail length and setback within the allowed ranges.'
+  }
   for (const part of stairParts) {
     const f = d.finishes?.[part]
     if (part === 'underside' && f === undefined) continue
@@ -106,6 +129,14 @@ export function validateStairDesign(value: unknown): string | null {
       return 'Choose valid colours and finishes for each part (texture scale 0.01–100).'
   }
   return null
+}
+
+export function stairGuardrailMinSetback(d: StairDesign) {
+  return Math.max(d.postWidth, d.spindleWidth, d.handrailWidth) / 2
+}
+
+export function stairGuardrailFullLength(d: StairDesign, guardrail: StairGuardrail) {
+  return d.riserCount * d.going + (guardrail.oppositeEnd ? guardrail.setback : 0)
 }
 
 export function getStairLayout(d: StairDesign) {

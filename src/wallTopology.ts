@@ -2,7 +2,7 @@ import * as polygonClipping from 'polygon-clipping'
 import type { Point, Wall } from './types'
 import { getRenderedWalls, getWallPolygon, type RenderedWall } from './wallGeometry.ts'
 
-const NODE_EPSILON_METERS = 0.25
+export const EXTERNAL_WALL_NODE_MERGE_METERS = 0.25
 const GRAPH_EPSILON_METERS = 0.03
 const MIN_ROOM_AREA_SQUARE_METERS = 0.5
 export const WALL_TOPOLOGY_VERSION = 4
@@ -631,8 +631,8 @@ function getEndpointKey(wallId: string, endpoint: WallEndpoint) {
 }
 
 function createNodeId(point: Point) {
-  return `${Math.round(point.x / NODE_EPSILON_METERS)}:${Math.round(
-    point.y / NODE_EPSILON_METERS,
+  return `${Math.round(point.x / EXTERNAL_WALL_NODE_MERGE_METERS)}:${Math.round(
+    point.y / EXTERNAL_WALL_NODE_MERGE_METERS,
   )}`
 }
 
@@ -654,7 +654,7 @@ function endpointNodeMergeDistance(wall: Wall, node: WallNode) {
     return GRAPH_EPSILON_METERS
   }
 
-  return NODE_EPSILON_METERS
+  return EXTERNAL_WALL_NODE_MERGE_METERS
 }
 
 function findNode(nodes: WallNode[], point: Point, wall: Wall) {

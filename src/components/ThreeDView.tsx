@@ -240,13 +240,14 @@ import {
   WALL_MOUNT_FRAME_DEPTH_METERS,
   WINDOW_WALL_FACE_INSET_METERS,
 } from '../wallMountedReveal'
-import { subtractPlanCutouts, type PlanCutout } from '../planarCutouts'
+import { subtractPlanCutouts, type PlanCutout, type PlanFootprint } from '../planarCutouts'
 import { getSlabOpeningRevealEdges, getSlabOpeningRevealHeights, splitSlabOpeningRevealsAtWalls, trimSlabRevealsAtStairs } from '../slabOpeningReveals'
 import { STAIR_OPENING_WALL_FIT_DISTANCE } from '../stairOpeningFit'
 import { clipSkirtingAtOpenings } from '../skirtingOpenings'
 import { batchSkirtingByMaterial, DEFAULT_SKIRTING_MATERIAL, type SkirtingGeometryPart } from '../skirtingBatching'
 import { snapStairApertureToWalls } from '../stairPlacement'
 import { getStairLandingPosition } from '../stairLandings'
+import { getStairWallCutFaces, type StairWallCutFace } from '../stairWallCut'
 import {
   getStairSlabOpenings,
 } from '../stairSlabOpenings'
@@ -337,8 +338,6 @@ const ROOM_BOUNDARY_DEBUG_OVERLAY_ENABLED = false
 const SHADER_WARMUP_ENABLED = true
 const CEILING_VERTICAL_OVERLAP_METERS = 0.02
 const CEILING_SLAB_CAP_INSET_METERS = 0.001
-const FLOOR_BASE_VERTICAL_OFFSET_METERS = 0.008
-const FLOOR_FINISH_VERTICAL_OFFSET_METERS = 0.012
 const CEILING_VISUAL_OVERLAP_METERS = 0.035
 
 type WallEngineFace = FloorWallSurfaceFace
@@ -443,12 +442,9 @@ type RenderToggleOption = Exclude<
 >
 
 type PortalFloorGeometry = {
-  center: Point
-  depth: number
-  direction: Point
+  footprints: PlanFootprint[]
   openingId: string
   wallId: string
-  width: number
 }
 
 type FloorVisibilityState = {
@@ -2781,6 +2777,7 @@ const DormerWallJunctionContext = createContext<ReadonlyMap<string, SolidPlane[]
 const DormerWallContactsContext = createContext<ReadonlyMap<string, DormerWallContact[]>>(new Map())
 const DormerBaseElevationsContext = createContext<ReadonlyMap<string, number>>(new Map())
 const StoreyGeometryContext = createContext<ReadonlyMap<string, StoreyGeometry>>(new Map())
+const StairWallCutContext = createContext<ReadonlyMap<string, StairWallCutFace[]>>(new Map())
 const RoofGableContext = createContext<RoofGable[]>([])
 const GableClipContext = createContext(new Map<string, { gableWallIds: string[]; gableCeilingFaces: [number,number,number][][] }>())
 const BuildingRoomCutsContext = createContext<RoomRoofCut[]>([])
@@ -2851,6 +2848,7 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
     [rooms, walls],
   )
   const storeys = useContext(StoreyGeometryContext)
+  const stairSoffits = useContext(StairWallCutContext).get(floorId)
   const gables = useContext(RoofGableContext)
   const gableClipData = useContext(GableClipContext).get(floorId)
   const storeyGeometry = storeys.get(floorId)
@@ -2883,6 +2881,7 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
         .flatMap(gable => gable.solids.map(solid => solid.planes)) : [],
       floorElevation: elevation,
       floorId,
+      stairSoffits,
       roomPolygons: rooms.map(room => room.polygon),
       roofs: wallClippingRoofs.map((candidate) => {
         const bounds = getRoofSupportBoundsInRoofSpace(candidate.roof)
@@ -2911,7 +2910,7 @@ const WallEngineWallMeshes = memo(function WallEngineWallMeshes({
       }),
       walls,
       wallFaces: stableUncutFaces,
-    }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces, roofFootprints, gableClipData, clipToInheritedRoofs, gables])
+    }), [elevation, floorId, rooms, wallClippingRoofs, walls, stableUncutFaces, roofFootprints, gableClipData, clipToInheritedRoofs, gables, stairSoffits])
   const [{ faces, pickPayload }, setPreparedWalls] = useState(() => ({
     faces: [] as WallEngineFace[], pickPayload: buildWallBufferGeometryPayload([], { floorId, groupBy: 'face' }),
   }))
@@ -6285,6 +6284,7 @@ const SkirtingBoards = memo(function SkirtingBoards({
   wireframe: boolean
 }) {
   const gables = useContext(RoofGableContext)
+  const stairSoffits = useContext(StairWallCutContext).get(floorId)
   const roofClipVolumes = useMemo(() => [
     ...wallClippingRoofs.filter(candidate => candidate.roof.clipsGeometry !== false).flatMap(candidate =>
       getRoofCoverageUndersideFaces(candidate.resolved).map(roofFacePlanes)
@@ -6297,7 +6297,9 @@ const SkirtingBoards = memo(function SkirtingBoards({
       // Skirting vertices have already been rounded to Float32. Expand the
       // buried cut by 0.1 mm so rounding cannot leave an exterior sliver.
       ([a, b, c, d]): ClipPlane => ([x, y, z]) => a * x + b * y + c * z + d + 0.0001 * Math.hypot(a, b, c)))),
-  ], [wallClippingRoofs, gables])
+    ...(stairSoffits ?? []).filter(face => face.some(vertex => vertex[1] <= elevation + SKIRTING_HEIGHT_METERS))
+      .map(roofFacePlanes).filter(planes => planes.length > 0),
+  ], [wallClippingRoofs, gables, stairSoffits, elevation])
   const wallBodyPerimeters = useMemo(
     () => buildWallBodyPerimeters(geometryContextWalls).perimeters,
     [geometryContextWalls],
@@ -7015,6 +7017,7 @@ function CeilingSlabSolid({
   depth,
   edges,
   shape,
+  topShapes,
   topY,
   wireframe,
 }: {
@@ -7022,6 +7025,7 @@ function CeilingSlabSolid({
   depth: number
   edges: readonly CeilingSlabOuterEdge[]
   shape: Shape
+  topShapes: Shape[]
   topY: number
   wireframe: boolean
 }) {
@@ -7033,7 +7037,7 @@ function CeilingSlabSolid({
   const geometry = useMemo(
     () =>
       createCeilingSlabGeometry(
-        shape,
+        topShapes,
         depth,
         edges.map((edge, edgeIndex) => {
           const dx = edge.nextPoint.x - edge.point.x
@@ -7050,10 +7054,10 @@ function CeilingSlabSolid({
             uvStart: 0,
           }
         }),
-        CEILING_SLAB_CAP_INSET_METERS,
+        0,
         'top',
       ),
-    [depth, edges, shape],
+    [depth, edges, topShapes],
   )
 
   useEffect(() => () => geometry.dispose(), [geometry])
@@ -7063,13 +7067,13 @@ function CeilingSlabSolid({
     <>
     {/* Keep the solid boundary in local shadow maps when its visual cap is
         hidden from the camera on the floor below. Shape holes stay open. */}
-    <mesh castShadow={castsShadow} position={[0, Math.max(depth - CEILING_SLAB_CAP_INSET_METERS, depth / 2), 0]}
+    {castsShadow ? <mesh castShadow position={[0, Math.max(depth - CEILING_SLAB_CAP_INSET_METERS, depth / 2), 0]}
       rotation={[-Math.PI / 2, 0, 0]} userData={{ houseDesignerRole: 'slab-shadow-cap' }}>
       <shapeGeometry args={[shape]} />
       <meshBasicMaterial colorWrite={false} depthWrite={false} side={DoubleSide} shadowSide={DoubleSide} />
-    </mesh>
+    </mesh> : null}
     <mesh
-      castShadow={castsShadow}
+      castShadow={castsShadow && edges.length > 0}
       receiveShadow
       rotation={[-Math.PI / 2, 0, 0]}
       renderOrder={0}
@@ -7079,9 +7083,6 @@ function CeilingSlabSolid({
       <meshStandardMaterial
         attach="material-0"
         color="#cbd5e1"
-        polygonOffset
-        polygonOffsetFactor={1}
-        polygonOffsetUnits={1}
         roughness={0.82}
         shadowSide={DoubleSide}
         side={DoubleSide}
@@ -7133,6 +7134,7 @@ function CeilingSlab({
   selectedSurface,
   sunShadowBlocker,
   surfaceAssignments,
+  topCoverage,
   upperFloor,
   wireframe,
 }: {
@@ -7147,6 +7149,7 @@ function CeilingSlab({
   selectedSurface?: SelectableSurface | null
   sunShadowBlocker?: boolean
   surfaceAssignments?: SurfaceMaterialAssignment[]
+  topCoverage?: PlanCutout[]
   upperFloor: FloorLevel | null
   wireframe: boolean
 }) {
@@ -7218,6 +7221,11 @@ function CeilingSlab({
     () => slabFootprints.map(createPlanShapeWithHoles),
     [slabFootprints],
   )
+  const slabTopShapes = useMemo(
+    () => isSolid ? slabFootprints.map(footprint =>
+      (topCoverage?.length ? subtractPlanCutouts(footprint, topCoverage) : [footprint]).map(createPlanShapeWithHoles)) : [],
+    [isSolid, slabFootprints, topCoverage],
+  )
   const undersideShapes = useMemo(() => footprints.flatMap(footprint =>
     subtractPlanCutouts(footprint, [...openings, ...undersideRoofCutouts])).map(createPlanShapeWithHoles),
     [footprints, openings, undersideRoofCutouts])
@@ -7245,9 +7253,8 @@ function CeilingSlab({
   const openingRevealBottomY =
     floor.elevation + floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS
   const openingRevealTopY =
-    (upperFloor?.elevation ??
-      floor.elevation + floor.roomHeight + floor.slabThickness) +
-    FLOOR_FINISH_VERTICAL_OFFSET_METERS
+    upperFloor?.elevation ??
+      floor.elevation + floor.roomHeight + floor.slabThickness
 
   const openingRevealPanels = useMemo(() => trimSlabRevealsAtStairs(openingRevealEdges.map(edge => ({
     ...edge, ...getSlabOpeningRevealHeights(edge, floor, upperFloor, openingRevealBottomY, openingRevealTopY),
@@ -7277,6 +7284,7 @@ function CeilingSlab({
                 depth={slabTop - slabBottom}
                 edges={slabOuterEdges[index]}
                 shape={slabShape}
+                topShapes={slabTopShapes[index]}
                 topY={slabTop}
                 wireframe={wireframe}
               />
@@ -9748,7 +9756,7 @@ function SelectableRoomSurfaceMesh({
   const isSelected = surfacesMatch(selectedSurface, surface)
   const y =
     type === 'room-floor'
-      ? elevation + 0.012
+      ? elevation
       : elevation + roomHeight - 0.03
   const pickSide = type === 'ceiling' ? BackSide : FrontSide
 
@@ -10848,7 +10856,7 @@ function SelectableRoomSurfaceAreaMesh({
   const meshRef = useRef<Object3D>(null!)
   const y =
     type === 'room-floor'
-      ? elevation + 0.006
+      ? elevation
       : elevation + roomHeight - 0.015
   const pickSide = type === 'ceiling' ? BackSide : FrontSide
   const planeShapeKey = JSON.stringify([floorPlane.centerX, floorPlane.centerZ, floorPlane.size, openings])
@@ -10990,152 +10998,58 @@ function useHorizontalSurfaceVisibility(
   }, [camera, footprint, registry, surfaceRef, visibleFrom, y])
 }
 
-function RoomFloorFinishMesh({
+function RoomFloorSurface({
   assignment,
   elevation,
-  materialId,
-  openings,
+  footprints,
   polygon,
+  shadowsEnabled,
   wireframe,
 }: {
-  assignment: SurfaceMaterialAssignment
+  assignment?: SurfaceMaterialAssignment
   elevation: number
-  materialId: string
-  openings: PlanCutout[]
+  footprints: PlanFootprint[]
   polygon: Point[]
+  shadowsEnabled: boolean
   wireframe: boolean
 }) {
   const meshRef = useRef<Object3D>(null!)
-  const material = surfaceMaterialsById.get(materialId)
+  const material = assignment && surfaceMaterialsById.get(assignment.materialId)
   const shapes = useMemo(
-    () => createPlanShapesWithCutouts(polygon, openings),
-    [openings, polygon],
+    () => footprints.map(createPlanShapeWithHoles),
+    [footprints],
   )
-  const y = elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS
-  const floorBatchData = useMemo(() => ({ houseDesignerRole: 'room-floor-finish',
-    floorSurfaceBatchKey: JSON.stringify(['finish', elevation, materialId, material?.pbr,
-      assignment.customColor ?? null, assignment.textureScale ?? 1, assignment.textureRotation ?? 0]),
-    floorSurfaceCoverageKey: JSON.stringify([elevation, polygon, openings]),
-  }), [elevation, materialId, material, assignment.customColor, assignment.textureScale, assignment.textureRotation, polygon, openings])
-  // The finish is physically above the base. A negative depth offset makes
-  // grazing-angle edges bleed through exterior walls.
+  const floorBatchData = useMemo(() => ({
+    houseDesignerRole: material ? 'room-floor-finish' : 'room-floor-base',
+    floorSurfaceBatchKey: JSON.stringify(material ? ['finish', elevation, material.id, material.pbr,
+      assignment?.customColor ?? null, assignment?.textureScale ?? 1, assignment?.textureRotation ?? 0] : ['base', elevation]),
+  }), [elevation, material, assignment])
 
-  useHorizontalSurfaceVisibility(meshRef, y, 'above', polygon)
-
-  if (!material) {
-    return null
-  }
+  useHorizontalSurfaceVisibility(meshRef, elevation, 'above', polygon)
 
   return (
     <mesh
       ref={meshRef}
-      position={[0, y, 0]}
-      receiveShadow
+      position={[0, elevation, 0]}
+      receiveShadow={Boolean(material) || shadowsEnabled}
       rotation={[-Math.PI / 2, 0, 0]}
-      renderOrder={2}
+      renderOrder={material ? 2 : 1}
       userData={floorBatchData}
     >
       <shapeGeometry args={[shapes]} />
-      <SurfaceMeshStandardMaterial
+      {assignment && material ? <SurfaceMeshStandardMaterial
         assignment={assignment}
         displacementEnabled={false}
         material={material}
         side={FrontSide}
         wireframe={wireframe}
-      />
-    </mesh>
-  )
-}
-
-function RoomFloorBaseMesh({
-  elevation,
-  openings,
-  polygon,
-  shadowsEnabled,
-  wireframe,
-}: {
-  elevation: number
-  openings: PlanCutout[]
-  polygon: Point[]
-  shadowsEnabled: boolean
-  wireframe: boolean
-}) {
-  const meshRef = useRef<Object3D>(null!)
-  const shapes = useMemo(
-    () => createPlanShapesWithCutouts(polygon, openings),
-    [openings, polygon],
-  )
-  const y = elevation + FLOOR_BASE_VERTICAL_OFFSET_METERS
-  const floorBatchData = useMemo(() => ({ houseDesignerRole: 'room-floor-base',
-    floorSurfaceBatchKey: JSON.stringify(['base', elevation]),
-    floorSurfaceCoverageKey: JSON.stringify([elevation, polygon, openings]),
-  }), [elevation, polygon, openings])
-
-  useHorizontalSurfaceVisibility(meshRef, y, 'above', polygon)
-
-  return (
-    <mesh
-      ref={meshRef}
-      position={[0, y, 0]}
-      receiveShadow={shadowsEnabled}
-      rotation={[-Math.PI / 2, 0, 0]}
-      renderOrder={1}
-      userData={floorBatchData}
-    >
-      <shapeGeometry args={[shapes]} />
-      <meshStandardMaterial
+      /> : <meshStandardMaterial
         color="#f8fafc"
         roughness={0.82}
         side={FrontSide}
         wireframe={wireframe}
-      />
+      />}
     </mesh>
-  )
-}
-
-function RoomFloorBaseMeshes({
-  elevation,
-  openings,
-  roomSurfacePolygonsBySignature,
-  rooms,
-  shadowsEnabled,
-  visibleRoomSignatures,
-  wireframe,
-}: {
-  elevation: number
-  openings: PlanCutout[]
-  roomSurfacePolygonsBySignature?: Map<string, Point[]>
-  rooms: DetectedRoom[]
-  shadowsEnabled: boolean
-  visibleRoomSignatures?: ReadonlySet<string> | null
-  wireframe: boolean
-}) {
-  return (
-    <group>
-      {rooms
-        .filter(
-          (room) =>
-            !visibleRoomSignatures ||
-            visibleRoomSignatures.has(room.signature),
-        )
-        .map((room) => {
-          const polygon = getRenderableRoomPolygon(
-            room,
-            roomSurfacePolygonsBySignature,
-          )
-
-          return polygon ? (
-            <RoomFloorBaseMesh
-              key={room.signature}
-              elevation={elevation}
-              openings={openings}
-              polygon={polygon}
-              shadowsEnabled={shadowsEnabled}
-              wireframe={wireframe}
-            />
-          ) : null
-        })}
-    </group>
   )
 }
 
@@ -11496,81 +11410,102 @@ function BakedFloorLightmap({
   )
 }
 
-function RoomFloorFinishes({
-  elevation,
-  floorId,
-  openings,
-  roomSurfacePolygonsBySignature,
-  rooms,
-  surfaceAssignments,
-  visibleRoomSignatures,
-  wireframe,
-}: {
-  elevation: number
-  floorId: string
-  openings: PlanCutout[]
-  roomSurfacePolygonsBySignature?: Map<string, Point[]>
-  rooms: DetectedRoom[]
-  surfaceAssignments: SurfaceMaterialAssignment[]
-  visibleRoomSignatures?: ReadonlySet<string> | null
-  wireframe: boolean
-}) {
-  return (
-    <group>
-      {rooms
-        .filter(
-          (room) =>
-            !visibleRoomSignatures ||
-            visibleRoomSignatures.has(room.signature),
-        )
-        .map((room) => {
-          const polygon = getRenderableRoomPolygon(
-            room,
-            roomSurfacePolygonsBySignature,
-          )
-          const assignment = getRoomFloorMaterialAssignment(
-            surfaceAssignments,
-            floorId,
-            room.signature,
-            polygon,
-            rooms,
-          )
-
-          return assignment && polygon ? (
-            <RoomFloorFinishMesh
-              key={room.signature}
-              assignment={assignment}
-              elevation={elevation}
-              materialId={assignment.materialId}
-              openings={openings}
-              polygon={polygon}
-              wireframe={wireframe}
-            />
-          ) : null
-        })}
-    </group>
-  )
+type FloorExtension = {
+  key: string
+  footprint: PlanFootprint
+  roomSignature: string
+  role: 'dormer-floor' | 'doorway-floor'
 }
 
-function RoomFloorExtensionPatch({ floorId, roomSignature, elevation, polygon, openings, assignment, wireframe, onRegisterPickTarget,
-  role = 'dormer-floor', isSelected = false }: {
-  floorId: string; roomSignature: string; elevation: number; polygon: Point[]; openings: PlanCutout[]
+function getRoomFloorPolygons(rooms: DetectedRoom[], surfacePolygons: Map<string, Point[]> | undefined) {
+  return rooms.flatMap(room => {
+    const polygon = getRenderableRoomPolygon(room, surfacePolygons)
+    return polygon ? [{ signature: room.signature, polygon }] : []
+  })
+}
+
+function getDormerFloorPatches(recesses: DormerFloorRecess[], floorId: string, roomFloors: ReturnType<typeof getRoomFloorPolygons>,
+  floorOpenings: PlanCutout[], stairOpenings: PlanCutout[], doorways: PlanFootprint[] = []): FloorExtension[] {
+  const floorRecesses = recesses.filter(recess => recess.floorId === floorId)
+  if (!floorRecesses.length) return []
+  const covered = [
+    ...roomFloors.flatMap(({ polygon }) => subtractPlanCutouts(polygon, floorOpenings)),
+    ...stairOpenings,
+    ...doorways,
+  ]
+  return floorRecesses.flatMap(recess => {
+    const distance = (polygon: Point[]) => isPointInsideOrOnPolygon(recess.roomProbe, polygon) ? 0
+      : Math.min(...polygon.map((p, i) => getDistanceToSegment(recess.roomProbe, p, polygon[(i + 1) % polygon.length])))
+    const adjoining = [...roomFloors].sort((a, b) => distance(a.polygon) - distance(b.polygon))[0]
+    if (!adjoining) return []
+    const patches = subtractPlanCutouts(recess.polygon, covered)
+    covered.push(...patches)
+    return patches.map((footprint, index) => ({
+      key: `dormer:${recess.modelId}:${index}`, footprint, roomSignature: adjoining.signature, role: 'dormer-floor',
+    }))
+  })
+}
+
+/** Use the rendered floor footprints to cut the bare slab cap. */
+function prepareFloorTopSurfaces(data: RenderedFloorData, floorOpenings: PlanCutout[], stairOpenings: PlanCutout[],
+  surfaceAssignments: SurfaceMaterialAssignment[], recesses: DormerFloorRecess[], includeUnfinished: boolean) {
+  const { floor, rooms, roomSurfacePolygonsBySignature, geometryContextWalls } = data
+  const roomFloors = getRoomFloorPolygons(rooms, roomSurfacePolygonsBySignature)
+  const coverage: PlanFootprint[] = []
+  const roomTops = roomFloors.flatMap(room => {
+    const assignment = getRoomFloorMaterialAssignment(surfaceAssignments, floor.id, room.signature, room.polygon, rooms)
+    if (!includeUnfinished && (!assignment || !surfaceMaterialsById.has(assignment.materialId))) return []
+    const footprints = subtractPlanCutouts(room.polygon, [...floorOpenings, ...coverage])
+    coverage.push(...footprints)
+    return footprints.length ? [{ ...room, assignment, footprints }] : []
+  })
+  const walls = geometryContextWalls.map(wall => ({ ...wall,
+    openings: wall.openings?.filter(opening => modelsById.get(opening.modelId)?.roofMount !== 'dormer'),
+  }))
+  const doorways = buildDoorwayFloorPatches(walls, roomFloors, floorOpenings)
+  const extensions: FloorExtension[] = doorways.patches.map((footprint, index) => ({
+    key: `doorway:${footprint.wallId}:${footprint.openingId}:${index}`, footprint,
+    roomSignature: footprint.roomSignature, role: 'doorway-floor',
+  }))
+  extensions.push(...getDormerFloorPatches(recesses, floor.id, roomFloors, floorOpenings, stairOpenings, doorways.patches))
+  coverage.push(...extensions.map(extension => extension.footprint))
+  const portals: PortalFloorGeometry[] = walls.flatMap(wall => {
+    const dx = wall.end.x - wall.start.x, dy = wall.end.y - wall.start.y, length = Math.hypot(dx, dy)
+    if (length < 1e-6) return []
+    return (wall.openings ?? []).flatMap(opening => {
+      if (opening.bottom > .05 || doorways.replacedPortals.has(doorwayFloorKey(wall.id, opening.id))) return []
+      const center = getWallPointAtDistance(wall, opening.center)
+      const point = (along: number, across: number) => ({
+        x: center.x + (dx * along - dy * across) / length,
+        y: center.y + (dy * along + dx * across) / length,
+      })
+      const w = opening.width / 2, d = wall.thickness / 2
+      const footprints = subtractPlanCutouts([point(-w, -d), point(w, -d), point(w, d), point(-w, d)], [...floorOpenings, ...coverage])
+      coverage.push(...footprints)
+      return footprints.length ? [{ footprints, wallId: wall.id, openingId: opening.id }] : []
+    })
+  })
+  return { roomFloors, roomTops, extensions, portals, coverage }
+}
+
+function RoomFloorExtensionPatch({ floorId, roomSignature, elevation, footprint, assignment, wireframe, onRegisterPickTarget,
+  role, isSelected = false }: {
+  floorId: string; roomSignature: string; elevation: number; footprint: PlanFootprint
   assignment?: SurfaceMaterialAssignment; wireframe: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
-  role?: 'dormer-floor' | 'doorway-floor'
+  role: FloorExtension['role']
   isSelected?: boolean
 }) {
   const ref = useRef<Object3D>(null!)
-  const highlightShapes = useMemo(() => isSelected ? createPlanShapesWithCutouts(polygon, openings) : [],
-    [isSelected, polygon, openings])
+  const footprints = useMemo(() => [footprint], [footprint])
+  const highlightShapes = useMemo(() => isSelected ? [createPlanShapeWithHoles(footprint)] : [], [isSelected, footprint])
   useEffect(() => onRegisterPickTarget({ blocksCollision: false, floorId, kind: 'surface', object: ref.current,
     pickSide: FrontSide, surface: { type: 'room-floor', floorId, roomSignature },
   }), [floorId, roomSignature, onRegisterPickTarget])
   return <group ref={ref} userData={{ houseDesignerRole: role, floorId, roomSignature }}>
-    <RoomFloorBaseMesh elevation={elevation} polygon={polygon} openings={openings} shadowsEnabled wireframe={wireframe} />
-    {assignment ? <RoomFloorFinishMesh elevation={elevation} polygon={polygon} openings={openings}
-      assignment={assignment} materialId={assignment.materialId} wireframe={wireframe} /> : null}
-    {isSelected ? <mesh position={[0, elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS, 0]}
+    <RoomFloorSurface elevation={elevation} polygon={footprint.outline} footprints={footprints}
+      assignment={assignment} shadowsEnabled wireframe={wireframe} />
+    {isSelected ? <mesh position={[0, elevation, 0]}
       name="room-floor-extension-selection-highlight"
       userData={{ selectionDecoration: true, houseDesignerRole: 'room-floor-highlight', floorId, roomSignature }}
       rotation={[-Math.PI / 2, 0, 0]} renderOrder={6} raycast={() => null}>
@@ -11581,32 +11516,18 @@ function RoomFloorExtensionPatch({ floorId, roomSignature, elevation, polygon, o
   </group>
 }
 
-function DormerFloorExtensions({ recesses, floor, rooms, roomSurfacePolygonsBySignature, floorOpenings, stairOpenings,
-  surfaceAssignments, visibleRoomSignatures, wireframe, onRegisterPickTarget }: {
-  recesses: DormerFloorRecess[]; floor: FloorLevel; rooms: DetectedRoom[]
-  roomSurfacePolygonsBySignature?: Map<string, Point[]>; floorOpenings: PlanCutout[]; stairOpenings: PlanCutout[]
-  surfaceAssignments: SurfaceMaterialAssignment[]; visibleRoomSignatures?: ReadonlySet<string> | null; wireframe: boolean
+function RoomFloorExtensions({ extensions, roomFloors, floor, rooms, surfaceAssignments, selectedSurface, wireframe, onRegisterPickTarget }: {
+  extensions: FloorExtension[]; roomFloors: ReturnType<typeof getRoomFloorPolygons>; floor: FloorLevel; rooms: DetectedRoom[]
+  surfaceAssignments: SurfaceMaterialAssignment[]; selectedSurface?: SelectableSurface | null; wireframe: boolean
   onRegisterPickTarget: (target: PickTarget) => () => void
 }) {
-  const floorRecesses = recesses.filter(recess => recess.floorId === floor.id)
-  if (!floorRecesses.length) return null
-  const roomFloors = rooms.flatMap(room => {
-    const polygon = getRenderableRoomPolygon(room, roomSurfacePolygonsBySignature)
-    return polygon ? [{ room, polygon }] : []
-  })
-  const covered: PlanCutout[] = roomFloors.flatMap(({ polygon }) => subtractPlanCutouts(polygon, floorOpenings))
-  return <>{floorRecesses.flatMap(recess => {
-    const distance = (polygon: Point[]) => isPointInsideOrOnPolygon(recess.roomProbe, polygon) ? 0
-      : Math.min(...polygon.map((p,i) => getDistanceToSegment(recess.roomProbe, p, polygon[(i+1)%polygon.length])))
-    const adjoining = [...roomFloors].sort((a,b) => distance(a.polygon) - distance(b.polygon))[0]
-    if (!adjoining || (visibleRoomSignatures && !visibleRoomSignatures.has(adjoining.room.signature))) return []
-    const assignment = getRoomFloorMaterialAssignment(surfaceAssignments, floor.id, adjoining.room.signature, adjoining.polygon, rooms)
-    const patches = subtractPlanCutouts(recess.polygon, [...covered, ...stairOpenings])
-    covered.push(...patches)
-    return patches.map((patch,index) => <RoomFloorExtensionPatch key={`${recess.modelId}:${index}`}
-      floorId={floor.id} roomSignature={adjoining.room.signature} elevation={floor.elevation}
-      polygon={patch.outline} openings={patch.holes} assignment={assignment} wireframe={wireframe}
-      onRegisterPickTarget={onRegisterPickTarget} />)
+  return <>{extensions.map(({ key, footprint, roomSignature, role }) => {
+    const polygon = roomFloors.find(room => room.signature === roomSignature)?.polygon
+    const assignment = getRoomFloorMaterialAssignment(surfaceAssignments, floor.id, roomSignature, polygon, rooms)
+    return <RoomFloorExtensionPatch key={key} floorId={floor.id} roomSignature={roomSignature} elevation={floor.elevation}
+      role={role} footprint={footprint} assignment={assignment} wireframe={wireframe} onRegisterPickTarget={onRegisterPickTarget}
+      isSelected={selectedSurface?.type === 'room-floor' && selectedSurface.floorId === floor.id &&
+        selectedSurface.roomSignature === roomSignature} />
   })}</>
 }
 
@@ -11632,32 +11553,7 @@ function RoomPortalFloorMesh({
   wireframe: boolean
 }) {
   const meshRef = useRef<Object3D>(null!)
-  const y = elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS
-  const shape = useMemo(() => {
-    const halfWidth = portal.width / 2
-    const halfDepth = portal.depth / 2
-    const normal = {
-      x: -portal.direction.y,
-      y: portal.direction.x,
-    }
-    const along = (distance: number, across: number) => ({
-      x:
-        portal.center.x +
-        portal.direction.x * distance +
-        normal.x * across,
-      y:
-        portal.center.y +
-        portal.direction.y * distance +
-        normal.y * across,
-    })
-
-    return createPlanShape([
-      along(-halfWidth, -halfDepth),
-      along(halfWidth, -halfDepth),
-      along(halfWidth, halfDepth),
-      along(-halfWidth, halfDepth),
-    ])
-  }, [portal])
+  const shapes = useMemo(() => portal.footprints.map(createPlanShapeWithHoles), [portal.footprints])
   const surface = useMemo<SelectableSurface>(
     () => ({
       floorId,
@@ -11668,7 +11564,7 @@ function RoomPortalFloorMesh({
     [floorId, portal.openingId, portal.wallId],
   )
 
-  useHorizontalSurfaceVisibility(meshRef, y, 'above')
+  useHorizontalSurfaceVisibility(meshRef, elevation, 'above')
 
   useEffect(() => {
     const object = meshRef.current
@@ -11691,13 +11587,13 @@ function RoomPortalFloorMesh({
     <group>
       <mesh
         ref={meshRef}
-        position={[0, y, 0]}
+        position={[0, elevation, 0]}
         receiveShadow={shadowsEnabled}
         rotation={[-Math.PI / 2, 0, 0]}
         renderOrder={2}
         userData={{ houseDesignerRole: 'portal-floor', floorId }}
       >
-        <shapeGeometry args={[shape]} />
+        <shapeGeometry args={[shapes]} />
         {assignment && material ? (
           <SurfaceMeshStandardMaterial
             assignment={assignment}
@@ -11719,11 +11615,11 @@ function RoomPortalFloorMesh({
         <mesh
           name="portal-floor-selection-highlight"
           userData={{ selectionDecoration: true, houseDesignerRole: 'portal-floor-highlight', floorId }}
-          position={[0, y, 0]}
+          position={[0, elevation, 0]}
           rotation={[-Math.PI / 2, 0, 0]}
           renderOrder={6}
         >
-          <shapeGeometry args={[shape]} />
+          <shapeGeometry args={[shapes]} />
           <meshBasicMaterial
             color="#f97316"
             depthWrite={false}
@@ -11740,84 +11636,34 @@ function RoomPortalFloorMesh({
   )
 }
 
-function RoomPortalFloors({
-  elevation,
-  floorId,
+function FloorTopSurfaces({
+  floor,
   onRegisterPickTarget,
-  openings,
   rooms,
-  roomSurfacePolygonsBySignature,
-  visibleRoomSignatures,
   selectedSurface,
   shadowsEnabled,
   surfaceAssignments,
-  walls,
+  top,
   wireframe,
 }: {
-  elevation: number
-  floorId: string
+  floor: FloorLevel
   onRegisterPickTarget: (target: PickTarget) => () => void
-  openings: PlanCutout[]
   rooms: DetectedRoom[]
-  roomSurfacePolygonsBySignature?: Map<string, Point[]>
-  visibleRoomSignatures?: ReadonlySet<string> | null
   selectedSurface: SelectableSurface | null
   shadowsEnabled: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
-  walls: Wall[]
+  top?: ReturnType<typeof prepareFloorTopSurfaces>
   wireframe: boolean
 }) {
-  const roomFloors = useMemo(() => rooms.flatMap(room => {
-    const polygon = getRenderableRoomPolygon(room, roomSurfacePolygonsBySignature)
-    return polygon ? [{ signature: room.signature, polygon }] : []
-  }), [rooms, roomSurfacePolygonsBySignature])
-  const doorways = useMemo(() => buildDoorwayFloorPatches(walls.map(wall => ({ ...wall,
-    openings: wall.openings?.filter(opening => modelsById.get(opening.modelId)?.roofMount !== 'dormer'),
-  })), roomFloors, openings), [walls, roomFloors, openings])
-  const thresholdPortals = useMemo(() => {
-    return walls.flatMap((wall) => {
-      const wallLength = Math.hypot(
-        wall.end.x - wall.start.x,
-        wall.end.y - wall.start.y,
-      )
-
-      if (wallLength <= 0.000001) {
-        return []
-      }
-
-      const direction = {
-        x: (wall.end.x - wall.start.x) / wallLength,
-        y: (wall.end.y - wall.start.y) / wallLength,
-      }
-
-      return (wall.openings ?? [])
-        // Dormer recesses already have a continuous room floor extension.
-        .filter((opening) => opening.bottom <= 0.05 && modelsById.get(opening.modelId)?.roofMount !== 'dormer' &&
-          !doorways.replacedPortals.has(doorwayFloorKey(wall.id, opening.id)))
-        .map((opening) => ({
-          center: getWallPointAtDistance(wall, opening.center),
-          depth: wall.thickness,
-          direction,
-          openingId: opening.id,
-          wallId: wall.id,
-          width: opening.width,
-        }))
-    })
-  }, [walls, doorways])
-
+  if (!top) return null
+  const { id: floorId, elevation } = floor
   return <>
-    {doorways.patches.filter(patch => !visibleRoomSignatures || visibleRoomSignatures.has(patch.roomSignature))
-      .map((patch, index) => {
-        const polygon = roomFloors.find(room => room.signature === patch.roomSignature)?.polygon
-        const assignment = getRoomFloorMaterialAssignment(surfaceAssignments, floorId, patch.roomSignature, polygon, rooms)
-        return <RoomFloorExtensionPatch key={`doorway:${patch.wallId}:${patch.openingId}:${index}`}
-          role="doorway-floor" floorId={floorId} roomSignature={patch.roomSignature} elevation={elevation}
-          isSelected={selectedSurface?.type === 'room-floor' && selectedSurface.floorId === floorId &&
-            selectedSurface.roomSignature === patch.roomSignature}
-          polygon={patch.outline} openings={patch.holes} assignment={assignment} wireframe={wireframe}
-          onRegisterPickTarget={onRegisterPickTarget} />
-      })}
-    {thresholdPortals.map((portal) => {
+    {top.roomTops.map(room => <RoomFloorSurface key={room.signature} elevation={elevation} assignment={room.assignment}
+      footprints={room.footprints} polygon={room.polygon} shadowsEnabled={shadowsEnabled} wireframe={wireframe} />)}
+    <RoomFloorExtensions extensions={top.extensions} roomFloors={top.roomFloors} floor={floor} rooms={rooms}
+      surfaceAssignments={surfaceAssignments} selectedSurface={selectedSurface} wireframe={wireframe}
+      onRegisterPickTarget={onRegisterPickTarget} />
+    {top.portals.map((portal) => {
     const surface: SelectableSurface = {
       floorId,
       openingId: portal.openingId,
@@ -12723,6 +12569,7 @@ function ModelMesh({
   shadowsEnabled,
   surfaceAssignments,
   stairSnapWalls,
+  stairUpperFloorElevation,
   transformEnabled,
   transformMode,
   walls,
@@ -12748,6 +12595,7 @@ function ModelMesh({
   shadowsEnabled: boolean
   surfaceAssignments: SurfaceMaterialAssignment[]
   stairSnapWalls: Wall[]
+  stairUpperFloorElevation?: number
   transformEnabled: boolean
   transformMode: TransformMode
   walls: Wall[]
@@ -13377,6 +13225,8 @@ function ModelMesh({
       ) : modelDefinition.stairDesign ? (
         <StairContent design={modelDefinition.stairDesign} active={isActive} castsShadow={castsShadow}
           wireframe={wireframe} materialOverrides={model.materialOverrides}
+          upperFloorHeight={modelDefinition.stairDesign.upperGuardrail && stairUpperFloorElevation !== undefined
+            ? (stairUpperFloorElevation - elevation) / (model.scale ?? 1) : undefined}
           onObject={registerParametricStair} />
       ) : modelDefinition.windowDesign ? (
         <WindowMesh design={modelDefinition.windowDesign} scale={model.scale ?? 1} widthScale={model.widthScale ?? 1}
@@ -13609,6 +13459,7 @@ function SolidFloorScene({
   shadowsEnabled,
   showWallPerimeter,
   stairSnapWalls,
+  stairUpperFloorElevation,
   stairOpenings,
   surfaceAssignments,
   transformEnabled,
@@ -13641,6 +13492,7 @@ function SolidFloorScene({
   shadowsEnabled: boolean
   showWallPerimeter: boolean
   stairSnapWalls: Wall[]
+  stairUpperFloorElevation?: number
   stairOpenings: Point[][]
   surfaceAssignments: SurfaceMaterialAssignment[]
   transformEnabled: boolean
@@ -13900,6 +13752,7 @@ function SolidFloorScene({
               shadowsEnabled={shadowsEnabled}
               surfaceAssignments={surfaceAssignments}
               stairSnapWalls={stairSnapWalls}
+              stairUpperFloorElevation={stairUpperFloorElevation}
               transformEnabled={transformEnabled}
               transformMode={transformMode}
               walls={floor.walls}
@@ -14364,7 +14217,7 @@ function ImportedModelMaterialOverride({
 /** Shares the existing PBR texture/variation and GI path with imported objects. */
 export function StairContent({ design, materialOverrides, ...props }: {
   design: StairDesign; materialOverrides?: Record<string, string>; active?: boolean; castsShadow?: boolean;
-  wireframe?: boolean; onObject?: (object: Object3D) => () => void
+  wireframe?: boolean; upperFloorHeight?: number; guardrailOnly?: boolean; onObject?: (object: Object3D) => () => void
 }) {
   const environment = useContext(PbrEnvironmentContext)
   const overrides = Object.fromEntries(parametricStairMaterialRegions.map(region => {
@@ -14379,6 +14232,23 @@ export function StairContent({ design, materialOverrides, ...props }: {
         textureScale={getStairFinish(design, region.id.slice(7) as keyof StairDesign['finishes']).textureScale} />
     </Suspense> : null)}
   </StairMesh>
+}
+
+function UpperFloorStairGuardrails({ lower, elevation, castsShadow, wireframe }: {
+  lower: FloorLevel; elevation: number; castsShadow: boolean; wireframe: boolean
+}) {
+  return lower.models.map(model => {
+    const design = modelsById.get(model.modelId)?.stairDesign
+    if (!design?.upperGuardrail) return null
+    const scale = model.scale ?? 1
+    return <group key={model.id} position={[model.position.x, lower.elevation, model.position.y]}
+      rotation={[0, -model.rotation, 0]} scale={[scale * (model.widthScale ?? 1), scale, scale * (model.depthScale ?? 1)]}>
+      <group rotation={[0, model.flipped ? Math.PI : 0, 0]} scale={[model.mirrored ? -1 : 1, 1, 1]}>
+        <StairContent design={design} materialOverrides={model.materialOverrides} upperFloorHeight={(elevation - lower.elevation) / scale}
+          guardrailOnly castsShadow={castsShadow} wireframe={wireframe} />
+      </group>
+    </group>
+  })
 }
 
 function ImportedModelContent({
@@ -20039,6 +19909,16 @@ function ThreeDScene({
   }), [storeyInputs, preparedFloors, renderOptions.floorSlabs, showAllFloorsInScene, belowAssemblyFloorId, wallClippingRoofs])
   const preparedStoreys = useBuildingStoreys(storeyRequest)
   const storeyGeometry = preparedStoreys.value
+  const stairWallCuts = useMemo(() => {
+    const cuts = new Map<string, StairWallCutFace[]>()
+    for (const floor of floors) {
+      const faces = getStairWallCutFaces(floor, modelsById)
+      if (faces.length) cuts.set(floor.id, faces)
+    }
+    return cuts
+    // Model definitions can change when saved stair varieties are edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floors, modelAssetVersion])
   const gableAssemblyKey = JSON.stringify([...storeyGeometry.values()].flatMap(storey => storey.assembly
     ? [{ bottom: storey.assembly.bottom, top: storey.assembly.top, footprints: storey.assembly.footprints }] : []))
   const gableAssemblies = useMemo(() => JSON.parse(gableAssemblyKey), [gableAssemblyKey])
@@ -20287,7 +20167,7 @@ function ThreeDScene({
       ...floorStairOpenings,
       ...getRoofCeilingCutouts(
         wallClippingRoofs.map(candidate => candidate.resolved),
-        floor.elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS,
+        floor.elevation,
       ),
     ]
     const ceilingOpenings = getStairSlabOpenings(
@@ -20308,6 +20188,19 @@ function ThreeDScene({
     )
     return [floor.id, { upperFloor, ceilingRoomSignatures, hasHorizontalCeiling, floorStairOpenings, floorOpenings, ceilingOpenings, ceilingRoofCutouts, slabRoofCutouts }] as const
   })), [visibleRenderedFloors, floorsByElevation, floors, wallClippingRoofs, buildingRoomVolumes.cuts, modelAssetVersion])
+  const floorTops = useMemo(() => {
+    const tops = new Map<string, ReturnType<typeof prepareFloorTopSurfaces>>()
+    if (renderOptions.roofsOnly) return tops
+    for (const data of visibleRenderedFloors) {
+      const floorId = data.floor.id
+      if (!showAllFloorsInScene && floorId !== activeFloorId) continue
+      const input = floorSurfaceInputs.get(floorId)!
+      tops.set(floorId, prepareFloorTopSurfaces(data, input.floorOpenings, input.floorStairOpenings,
+        surfaceAssignments, dormerInteriors.floorRecesses, !showAllFloorsInScene))
+    }
+    return tops
+  }, [renderOptions.roofsOnly, visibleRenderedFloors, showAllFloorsInScene, activeFloorId, floorSurfaceInputs,
+    surfaceAssignments, dormerInteriors.floorRecesses])
   const scenePreparationPending =
     preparedBuildingRooms.pending || preparedGables.pending || preparedStoreys.pending ||
     isRoofGeometryPending || isCooperativePreparationPending ||
@@ -20938,6 +20831,7 @@ function ThreeDScene({
           : visibleRenderedWallsForFloor
       const slabIsSolid = floor.id === floorBelowActive?.id
       const { upperFloor, ceilingRoomSignatures, hasHorizontalCeiling, floorStairOpenings, floorOpenings, ceilingOpenings, ceilingRoofCutouts, slabRoofCutouts } = floorSurfaceInputs.get(floor.id)!
+      const topCoverage = upperFloor ? floorTops.get(upperFloor.id)?.coverage : undefined
       const hasShadowSurface = renderOptions.shadows && isActive
       const visibleRoomsForFloor = rooms
       const visibleModelsForFloor = floor.models ?? []
@@ -20969,23 +20863,13 @@ function ThreeDScene({
                   undersideRoofCutouts={ceilingRoofCutouts}
                   selectedSurface={selectedSurface}
                   surfaceAssignments={surfaceAssignments}
+                  topCoverage={topCoverage}
                   upperFloor={upperFloor}
                   wireframe={renderOptions.wireframe}
                 />
               ) : null}
-              <RoomFloorFinishes
-                elevation={floor.elevation}
-                floorId={floor.id}
-                openings={floorOpenings}
-                roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
-                rooms={rooms}
-                surfaceAssignments={surfaceAssignments}
-                visibleRoomSignatures={null}
-                wireframe={renderOptions.wireframe}
-              />
-              <DormerFloorExtensions recesses={dormerInteriors.floorRecesses} floor={floor} rooms={rooms}
-                roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature} floorOpenings={floorOpenings}
-                stairOpenings={floorStairOpenings} surfaceAssignments={surfaceAssignments}
+              <FloorTopSurfaces floor={floor} top={floorTops.get(floor.id)} rooms={rooms}
+                surfaceAssignments={surfaceAssignments} selectedSurface={selectedSurface} shadowsEnabled={renderOptions.shadows}
                 wireframe={renderOptions.wireframe} onRegisterPickTarget={registerPickTarget} />
               <BakedFloorLightmap
                 daylightEnabled={renderOptions.daylight}
@@ -20994,19 +20878,6 @@ function ThreeDScene({
                 lightDirection={lightDirection}
                 roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                 rooms={rooms}
-                walls={geometryContextWalls}
-                wireframe={renderOptions.wireframe}
-              />
-              <RoomPortalFloors
-                elevation={floor.elevation}
-                floorId={floor.id}
-                onRegisterPickTarget={registerPickTarget}
-                openings={floorOpenings}
-                rooms={rooms}
-                roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
-                selectedSurface={selectedSurface}
-                shadowsEnabled={renderOptions.shadows}
-                surfaceAssignments={surfaceAssignments}
                 walls={geometryContextWalls}
                 wireframe={renderOptions.wireframe}
               />
@@ -21043,6 +20914,7 @@ function ThreeDScene({
               />
               <SolidFloorScene
                 stairOpenings={floorStairOpenings}
+                stairUpperFloorElevation={upperFloor?.elevation}
                 daylightEnabled={renderOptions.daylight}
                 externalWallFootprintGroups={externalWallFootprintGroups}
                 externalWallUnionWallIds={externalWallUnionWallIds}
@@ -21104,6 +20976,7 @@ function ThreeDScene({
           onRegisterPickTarget={registerPickTarget} openings={ceilingOpenings}
           roofCutouts={slabRoofCutouts} undersideRoofCutouts={ceilingRoofCutouts}
           selectedSurface={selectedSurface} surfaceAssignments={surfaceAssignments}
+          topCoverage={topCoverage}
           upperFloor={upperFloor} wireframe={renderOptions.wireframe} />
         {/* Keep wall-owned slab facades visible when their lower
             storey's rooms and wall bodies are hidden for editing. */}
@@ -21141,35 +21014,15 @@ function ThreeDScene({
                 selectedSurface={selectedSurface}
                 sunShadowBlocker={isActive && !slabIsSolid && !floorHasRoofs}
                 surfaceAssignments={surfaceAssignments}
+                topCoverage={topCoverage}
                 upperFloor={upperFloor}
                 wireframe={renderOptions.wireframe}
               />
             ) : null}
             {isActive ? (
               <>
-                <RoomFloorBaseMeshes
-                  elevation={floor.elevation}
-                  openings={floorOpenings}
-                  roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
-                  rooms={rooms}
-                  shadowsEnabled={renderOptions.shadows}
-                  visibleRoomSignatures={activeVisibleRoomSignatures}
-                  wireframe={renderOptions.wireframe}
-                />
-                <RoomFloorFinishes
-                  elevation={floor.elevation}
-                  floorId={floor.id}
-                  openings={floorOpenings}
-                  roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
-                  rooms={rooms}
-                  surfaceAssignments={surfaceAssignments}
-                  visibleRoomSignatures={activeVisibleRoomSignatures}
-                  wireframe={renderOptions.wireframe}
-                />
-                <DormerFloorExtensions recesses={dormerInteriors.floorRecesses} floor={floor} rooms={rooms}
-                  roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature} floorOpenings={floorOpenings}
-                  stairOpenings={floorStairOpenings} surfaceAssignments={surfaceAssignments}
-                  visibleRoomSignatures={activeVisibleRoomSignatures}
+                <FloorTopSurfaces floor={floor} top={floorTops.get(floor.id)} rooms={rooms}
+                  surfaceAssignments={surfaceAssignments} selectedSurface={selectedSurface} shadowsEnabled={renderOptions.shadows}
                   wireframe={renderOptions.wireframe} onRegisterPickTarget={registerPickTarget} />
                 <BakedFloorLightmap
                   daylightEnabled={renderOptions.daylight}
@@ -21178,20 +21031,6 @@ function ThreeDScene({
                   lightDirection={lightDirection}
                   roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
                   rooms={visibleRoomsForFloor}
-                  walls={geometryContextWalls}
-                  wireframe={renderOptions.wireframe}
-                />
-                <RoomPortalFloors
-                  elevation={floor.elevation}
-                  floorId={floor.id}
-                  onRegisterPickTarget={registerPickTarget}
-                  openings={floorOpenings}
-                  rooms={rooms}
-                  roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature}
-                  visibleRoomSignatures={activeVisibleRoomSignatures}
-                  selectedSurface={selectedSurface}
-                  shadowsEnabled={renderOptions.shadows}
-                  surfaceAssignments={surfaceAssignments}
                   walls={geometryContextWalls}
                   wireframe={renderOptions.wireframe}
                 />
@@ -21424,6 +21263,7 @@ function ThreeDScene({
                           ? [...floor.walls, ...upperFloor.walls]
                           : floor.walls
                       }
+                      stairUpperFloorElevation={upperFloor?.elevation}
                       transformEnabled={transformEnabled}
                       transformMode={transformMode}
                       walls={floor.walls}
@@ -21454,7 +21294,7 @@ function ThreeDScene({
     })
   ), [
     activeFloorId, buildingRoomVolumes, dormerInteriors, fakeAmbientOcclusionEnabled,
-    fakeAmbientOcclusionIntensity, floorBelowActive, floorSurfaceInputs, floors,
+    fakeAmbientOcclusionIntensity, floorBelowActive, floorSurfaceInputs, floors, floorTops,
     lightDirection, modelAssetVersion, objectFrustumCullingEnabled, onUpdateModel,
     pickTargetsRef, registerPickTarget, renderOptions, renderedFloors, roofFaceSide,
     sceneRevision, selectedModelId, selectedRoofId, selectedSurface, selectedWallId,
@@ -22078,6 +21918,7 @@ function ThreeDScene({
         <DormerWallContactsContext.Provider value={dormerInteriors.wallContacts}>
         <DormerBaseElevationsContext.Provider value={dormerInteriors.baseElevations}>
         <StoreyGeometryContext.Provider value={storeyGeometry}>
+        <StairWallCutContext.Provider value={stairWallCuts}>
         <RoofGableContext.Provider value={roofGables}>
         <GableClipContext.Provider value={preparedGables.clipData}>
           <BuildingRoomCutsContext.Provider value={buildingRoomVolumes.cuts}>
@@ -22271,7 +22112,7 @@ function ThreeDScene({
                 const input = floorSurfaceInputs.get(floor.id)
                 return input?.upperFloor ? [
                   { y: floor.elevation + floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS, openings: input.ceilingOpenings },
-                  { y: input.upperFloor.elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS, openings: input.ceilingOpenings },
+                  { y: input.upperFloor.elevation, openings: input.ceilingOpenings },
                 ] : []
               }) : []}
               shadowsEnabled={renderOptions.shadows && !isXrPresenting}
@@ -22387,15 +22228,21 @@ function ThreeDScene({
                 const lower = floorsByElevation.filter(candidate => candidate.elevation < floor.elevation).at(-1)
                 const stairs = lower ? getStairSlabOpenings(lower, floor, floors, modelsById) : []
                 const openings = [...stairs, ...getRoofCeilingCutouts(wallClippingRoofs.map(candidate => candidate.resolved),
-                  floor.elevation + FLOOR_FINISH_VERTICAL_OFFSET_METERS)]
-                return <DormerFloorExtensions key={`dormer-floor:${floor.id}`} floor={floor} rooms={rooms}
-                  recesses={dormerInteriors.floorRecesses.filter(recess => activeFloor?.models.some(model => model.id === recess.modelId))}
-                  roomSurfacePolygonsBySignature={roomSurfacePolygonsBySignature} floorOpenings={openings}
-                  stairOpenings={stairs} surfaceAssignments={surfaceAssignments}
+                  floor.elevation)]
+                const roomFloors = getRoomFloorPolygons(rooms, roomSurfacePolygonsBySignature)
+                const recesses = dormerInteriors.floorRecesses.filter(recess => activeFloor?.models.some(model => model.id === recess.modelId))
+                const extensions = getDormerFloorPatches(recesses, floor.id, roomFloors, openings, stairs)
+                return <RoomFloorExtensions key={`dormer-floor:${floor.id}`} floor={floor} rooms={rooms}
+                  extensions={extensions} roomFloors={roomFloors} surfaceAssignments={surfaceAssignments}
                   wireframe={renderOptions.wireframe} onRegisterPickTarget={registerPickTarget} />
               }) : null}
 
             {buildingScene}
+
+            {!showAllFloorsInScene && !renderOptions.roofsOnly && activeFloor && floorBelowActive ? (
+              <UpperFloorStairGuardrails lower={floorBelowActive} elevation={activeFloor.elevation}
+                castsShadow={renderOptions.shadows} wireframe={renderOptions.wireframe} />
+            ) : null}
 
             {!renderOptions.roofsOnly ? inheritedRoofRenderedFloors.map(({ floor, renderedWalls, rooms }) => (
               <group key={`inherited-roofs:${sceneRevision}:${floor.id}`}>
@@ -22477,6 +22324,7 @@ function ThreeDScene({
           </BuildingRoomCutsContext.Provider>
         </GableClipContext.Provider>
         </RoofGableContext.Provider>
+        </StairWallCutContext.Provider>
         </StoreyGeometryContext.Provider>
         </DormerBaseElevationsContext.Provider>
         </DormerWallContactsContext.Provider>
