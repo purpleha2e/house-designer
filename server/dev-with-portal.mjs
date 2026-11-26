@@ -1,12 +1,11 @@
 import { spawn } from 'node:child_process'
 
 const processes = [
-  spawn(process.execPath, ['--experimental-strip-types', 'server/workspace-service.ts'], {
+  spawn(process.execPath, ['--watch', '--experimental-strip-types', 'server/workspace-service.ts'], {
     stdio: 'inherit', windowsHide: true,
   }),
-  spawn('node', ['server/asset-portal.mjs'], {
-    shell: true,
-    stdio: 'inherit',
+  spawn(process.execPath, ['--watch', 'server/asset-portal.mjs'], {
+    stdio: 'inherit', windowsHide: true,
   }),
   spawn('npm', ['run', 'dev', '--', '--host', '0.0.0.0'], {
     shell: true,

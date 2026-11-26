@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import type { Wall } from '../src/types.ts'
-import { buildWallTopology } from '../src/wallTopology.ts'
+import type { FloorLevel, Room, Wall } from '../src/types.ts'
+import { buildWallTopology, preserveRoomMetadataAfterWallMove, wallEditCollapsesGeometry } from '../src/wallTopology.ts'
 
 function wall(overrides: Partial<Wall> & Pick<Wall, 'id' | 'kind'>): Wall {
   return {
@@ -14,6 +14,48 @@ function wall(overrides: Partial<Wall> & Pick<Wall, 'id' | 'kind'>): Wall {
     ...overrides,
   }
 }
+
+test('moving a partition keeps room metadata on the same side of the wall', () => {
+  const corners = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }]
+  const perimeter = corners.map((start, index) => wall({
+    id: `exterior-${index}`, kind: 'external', start, end: corners[(index + 1) % corners.length],
+  }))
+  const partition = (x: number) => wall({ id: 'partition', kind: 'internal', start: { x, y: 0 }, end: { x, y: 6 } })
+  const walls = [...perimeter, partition(2)]
+  const [west, east] = buildWallTopology(walls).rooms.toSorted((a, b) =>
+    Math.min(...a.polygon.map(point => point.x)) - Math.min(...b.polygon.map(point => point.x)))
+  const rooms: Room[] = [
+    { id: 'west', name: 'Landing', function: 'landing', signature: west.signature },
+    { id: 'east', name: 'Main bedroom', function: 'bedroom', ceilingMode: 'open', signature: east.signature },
+  ]
+  const floor: FloorLevel = { id: 'upper', name: 'First floor', elevation: 2.7, roomHeight: 2.4,
+    slabThickness: .2, walls, rooms, models: [] }
+  const resized = { ...floor, walls: [...perimeter, partition(8)] }
+  const [newWest, newEast] = buildWallTopology(resized.walls).rooms.toSorted((a, b) =>
+    Math.min(...a.polygon.map(point => point.x)) - Math.min(...b.polygon.map(point => point.x)))
+
+  assert.notEqual(newWest.signature, west.signature)
+  assert.notEqual(newEast.signature, east.signature)
+  assert.deepEqual(preserveRoomMetadataAfterWallMove(floor, resized).rooms, [
+    { ...rooms[0], signature: newWest.signature }, { ...rooms[1], signature: newEast.signature },
+  ])
+
+  const opened = { ...floor, walls: [...perimeter, { ...partition(2), end: { x: 2, y: 5 } }] }
+  assert.equal(buildWallTopology(opened.walls).rooms.length, 1)
+  assert.equal(preserveRoomMetadataAfterWallMove(floor, opened), opened)
+})
+
+test('wall edits reject newly collapsed segments and allow edits beside old collapsed segments', () => {
+  const main = wall({ id: 'main', kind: 'external' })
+  const returnWall = wall({ id: 'return', kind: 'external', start: main.end, end: { x: 4.4, y: 0 } })
+  const collapsed = { ...returnWall, end: { x: 4.19, y: 0 } }
+  const shortPartition = wall({ id: 'partition', kind: 'internal', end: { x: .13, y: 0 } })
+
+  assert.equal(wallEditCollapsesGeometry([main], [main, collapsed]), true)
+  assert.equal(wallEditCollapsesGeometry([main, returnWall], [main, collapsed]), true)
+  assert.equal(wallEditCollapsesGeometry([main, collapsed], [main, collapsed, shortPartition]), false)
+  assert.equal(wallEditCollapsesGeometry([main, collapsed], [main, returnWall]), false)
+})
 
 test('room detection uses topology-snapped endpoints', () => {
   const topology = buildWallTopology([

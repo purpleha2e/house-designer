@@ -25,10 +25,13 @@ export type WallOpening = {
   height: number
 }
 
+export type RoomFunction = 'bedroom' | 'bathroom' | 'landing' | 'kitchen-diner' | 'utility' | 'office' | 'living-room' | 'cloakroom'
+
 export type Room = {
   id: string
   name: string
   signature: string
+  function?: RoomFunction
   ceilingMode?: 'horizontal' | 'open'
 }
 
@@ -156,14 +159,17 @@ export type SurfaceMaterialProduct = {
   tags?: string[]
 }
 
-export type SurfaceMaterialAssignment = {
+export type MaterialTextureTransform = {
+  textureRotation?: number
+  textureScale?: number
+}
+
+export type SurfaceMaterialAssignment = MaterialTextureTransform & {
   coverageHeight?: number
   customColor?: string
   id: string
   materialId: string
   target: SurfaceTarget
-  textureRotation?: number
-  textureScale?: number
 }
 
 export type WallFaceReference = {
@@ -231,6 +237,8 @@ export type PlacedModel = {
   flipped?: boolean
   id: string
   height?: number
+  /** Which point the kitchen unit's saved position represents. Older units used the centre. */
+  kitchenUnitOrigin?: 'back'
   lightColor?: string
   lightDistance?: number
   lightEnabled?: boolean
@@ -239,6 +247,7 @@ export type PlacedModel = {
   lightSpread?: number
   mirrored?: boolean
   materialOverrides?: Record<string, string>
+  materialTextureTransforms?: Record<string, MaterialTextureTransform>
   modelId: string
   position: Point
   roofAttachment?: RoofAttachment
@@ -338,6 +347,7 @@ export type GroundImage = {
 }
 
 export type FloorLevel = {
+  assistantWindowExclusion?: 'left' | 'right'
   /** Independent reference overlay; shown only while this floor is active. */
   groundImage?: GroundImage
   /** Independent slab boundary for a loft, without perimeter walls. */

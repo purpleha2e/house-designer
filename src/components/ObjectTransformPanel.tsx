@@ -56,17 +56,19 @@ function TransformField({ field, label, unit, value, disabled, onCommit }: {
   </div>
 }
 
-export function ObjectTransformPanel({ values, disabled, side, onCommit, window = false }: {
+export function ObjectTransformPanel({ values, disabled, side, onCommit, window = false, wallMounted = false }: {
   values: Record<ModelTransformField, number>; disabled: boolean
   side: 'left' | 'right'
   window?: boolean
+  wallMounted?: boolean
   onCommit: (field: ModelTransformField, value: number) => void
 }) {
   return <div className={`model-scale-readout${side === 'left' ? ' is-left' : ''}`} role="group" aria-label="Object transform"
     onPointerDown={event => event.stopPropagation()}>
     <strong>Object transform</strong>
     <div className="model-transform-fields">
-      {fields.filter(item => window ? ['width', 'height', 'scaleX', 'scaleY'].includes(item.field) : item.field !== 'height').map(item => <TransformField key={item.field} {...item} value={values[item.field]}
+      {fields.filter(item => window ? ['width', 'height', 'scaleX', 'scaleY'].includes(item.field) :
+        item.field !== 'height' && (!wallMounted || item.field !== 'rotation')).map(item => <TransformField key={item.field} {...item} value={values[item.field]}
         disabled={disabled} onCommit={onCommit} />)}
     </div>
     <small>Enter or leave a field to apply · Esc to cancel</small>

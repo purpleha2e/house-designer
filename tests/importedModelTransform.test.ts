@@ -47,3 +47,13 @@ test('ordinary imported assets retain their original normalization and pivot', (
   assert.deepEqual(unchanged.offset.toArray(), [0, 0, 0])
   assert.ok(unchanged.placementBounds.equals(bounds))
 })
+
+test('an imported picture frame uses its centre and bottom as the wall attachment reference', () => {
+  const bounds = new Box3(new Vector3(1, -430, -.3), new Vector3(9, -422, -.02))
+  const target = new Vector3(.8, .8, .028)
+  const mounted = getImportedModelTransform(bounds, target, true, undefined, true)
+  assert.ok(mounted.placementBounds.getSize(new Vector3()).distanceTo(target) < 1e-9)
+  assert.ok(Math.abs(mounted.placementBounds.min.y) < 1e-9)
+  assert.ok(Math.abs(mounted.center.x) < 1e-9)
+  assert.ok(Math.abs(mounted.placementBounds.min.z + .03) < 1e-9)
+})

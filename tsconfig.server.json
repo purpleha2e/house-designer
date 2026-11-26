@@ -5,7 +5,7 @@
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
     "moduleResolution": "bundler",
-    "types": ["node"],
+    "types": ["node", "vite/client"],
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
@@ -16,5 +16,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["server/workspace-service.ts", "server/workspace-store.ts"]
+  "include": ["server/workspace-service.ts", "server/workspace-store.ts", "server/design-agent.worker.ts", "src/models/bundledModelMaterials.d.ts"]
 }

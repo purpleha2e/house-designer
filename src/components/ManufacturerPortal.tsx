@@ -76,6 +76,7 @@ const emptyAssetMetadata = {
   modelBehavior: '',
   objectType: '',
   openingWidth: '',
+  placement: '',
   productName: '',
   productUrl: '',
   realWorldHeightMeters: '',
@@ -404,7 +405,7 @@ export function ManufacturerPortal({
     setMessage(editingAsset ? 'Saving asset changes...' : 'Uploading asset...')
 
     try {
-      await portalRequest(
+      const saved = await portalRequest<{ asset: PortalAsset }>(
         editingAsset
           ? `/api/portal/assets/${editingAsset.manufacturer.slug}/${
               editingAsset.assetKind === 'model' ? 'models' : 'materials'
@@ -416,6 +417,10 @@ export function ManufacturerPortal({
         token,
         },
       )
+      if (assetKind === 'model' && metadata.placement && saved.asset.metadata.placement !== metadata.placement) {
+        setMessage('The portal server did not save the placement setting. Restart the local portal and try again.')
+        return
+      }
       form.reset()
       setMetadata({ ...emptyAssetMetadata })
       const changedAssetKind = assetKind
@@ -906,16 +911,11 @@ export function ManufacturerPortal({
                       value={metadata.objectType}
                       onChange={(event) => {
                         const objectType = event.target.value
+                        const opening = ['exterior-door', 'interior-door', 'patio-door', 'window'].includes(objectType)
                         setMetadata((current) => ({
                           ...current,
-                          modelBehavior: [
-                            'exterior-door',
-                            'interior-door',
-                            'patio-door',
-                            'window',
-                          ].includes(objectType)
-                            ? objectType
-                            : '',
+                          modelBehavior: opening ? objectType : '',
+                          placement: opening ? '' : current.placement,
                           objectType,
                         }))
                       }}
@@ -936,6 +936,15 @@ export function ManufacturerPortal({
                       <option value="other">Other</option>
                     </select>
                   </label>
+                  {!metadata.modelBehavior && (
+                    <label>Placement
+                      <select value={metadata.placement || 'floor'} onChange={event => setMetadataField('placement', event.target.value)}>
+                        <option value="floor">On floor</option>
+                        <option value="wall-mounted">Wall-mounted</option>
+                        <option value="ceiling-mounted">Ceiling-mounted</option>
+                      </select>
+                    </label>
+                  )}
                   {[
                     'exterior-door',
                     'interior-door',

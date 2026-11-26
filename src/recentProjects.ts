@@ -43,7 +43,7 @@ function load() {
   return loading
 }
 
-/** Only call after a file has been validated and successfully loaded. */
+/** Store the bytes from a validated load or a completed device save. */
 export function rememberRecentProject(file: LoadedProjectFile, existingId?: string) {
   const write = writes.catch(() => undefined).then(async () => {
     await load()

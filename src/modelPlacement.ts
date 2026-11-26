@@ -1,15 +1,26 @@
-import type { FloorLevel, PlacedModel, Point, RoofAttachment, RoofEndChamfer, Wall, WallOpening } from './types'
+import type { FloorLevel, PlacedModel, Point, RoofAttachment, RoofEndChamfer, Wall, WallAttachment, WallOpening } from './types'
 import { normalizeRoofEndConnection } from './roofJunctions.ts'
 import { normalizeRoofHeightAlignment } from './roofHeightAlignment.ts'
 import { normalizeBayOutline } from './bayRoof.ts'
 import { getRoofThickness } from './roofThickness.ts'
 import { migrateDormerWindows, syncDormerWindows } from './dormerWindows.ts'
 import { createDormerStructuralAssembly } from './dormerPlacement.ts'
+import { isPlanDoor } from './doorPlan.ts'
+import { getWallPolygon } from './wallGeometry.ts'
 import type { ModelDefinition } from './models/modelLibrary'
+import type { DetectedRoom } from './wallTopology.ts'
+import { getStairSlabOpenings } from './stairSlabOpenings.ts'
+import { pointInPolygon } from './assistant/planGeometry.ts'
+import { migrateArtworkMaterial } from './modelMaterialOverrides.ts'
+import { withKitchenUnitBackOrigin } from './kitchenUnitDesign.ts'
+import { constrainModelDrag, getFootprintOffsetOverlap, MODEL_CONTACT_EPSILON, planAabbsOverlap, type OrientedFootprint,
+  type PlanAabb } from './modelDragCollision.ts'
+import { getWallBodyFaceRange } from './wallEngine/wallBodyPerimeter.ts'
+import type { Ray } from 'three'
 
 export type ModelPlacement = Pick<
   PlacedModel,
-  'position' | 'roofAttachment' | 'rotation' | 'wallAttachment' | 'wallOpeningBottom'
+  'height' | 'position' | 'roofAttachment' | 'rotation' | 'wallAttachment' | 'wallOpeningBottom'
 > & {
   floorId: string
 }
@@ -17,6 +28,7 @@ export type ModelPlacement = Pick<
 const WINDOW_SILL_HEIGHT_METERS = 0.9
 const PATIO_DOOR_WIDTH_METERS = 1.62
 const PATIO_SIDE_LIGHT_BOTTOM_METERS = 1.02
+const DOOR_JUNCTION_TOLERANCE_METERS = 0.03
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -125,10 +137,10 @@ export function getWallLength(wall: Wall) {
   return distance(wall.start, wall.end)
 }
 
-export function getWallMountForPoint(point: Point, walls: Wall[]) {
+export function getWallMountForPoint(point: Point, walls: Wall[], maxDistance = 0.55,
+  faceRange?: (wall: Wall, side: -1 | 1) => ReturnType<typeof getWallBodyFaceRange> | null) {
   const candidates = walls
-    .map((wall) => {
-      const projection = getProjectionOnWall(point, wall)
+    .flatMap((wall) => {
       const wallLength = getWallLength(wall)
       const unit =
         wallLength > 0
@@ -142,19 +154,22 @@ export function getWallMountForPoint(point: Point, walls: Wall[]) {
         y: unit.x,
       }
       const signedDistance =
-        (point.x - projection.point.x) * normal.x +
-        (point.y - projection.point.y) * normal.y
+        (point.x - wall.start.x) * normal.x + (point.y - wall.start.y) * normal.y
       const side: -1 | 1 = signedDistance < 0 ? -1 : 1
+      const range = faceRange ? faceRange(wall, side) : { start: 0, end: wallLength }
+      if (!range) return []
+      const offset = clamp((point.x - wall.start.x) * unit.x + (point.y - wall.start.y) * unit.y, range.start, range.end)
+      const projected = { x: wall.start.x + offset * unit.x, y: wall.start.y + offset * unit.y }
 
-      return {
-        distance: distance(point, projection.point),
-        point: projection.point,
+      return [{
+        distance: distance(point, projected),
+        point: projected,
         side,
-        t: projection.t,
+        offset,
         wall,
-      }
+      }]
     })
-    .filter((candidate) => candidate.distance <= 0.55)
+    .filter((candidate) => candidate.distance <= maxDistance)
     .sort((firstCandidate, secondCandidate) => firstCandidate.distance - secondCandidate.distance)
 
   const closest = candidates[0]
@@ -168,10 +183,220 @@ export function getWallMountForPoint(point: Point, walls: Wall[]) {
     rotation: getWallAngle(closest.wall) + (closest.side < 0 ? Math.PI : 0),
     wallAttachment: {
       wallId: closest.wall.id,
-      offset: closest.t * getWallLength(closest.wall),
+      offset: closest.offset,
       side: closest.side,
     },
   }
+}
+
+type WallObjectSize = Partial<Pick<PlacedModel, 'height' | 'scale' | 'widthScale' | 'wallAttachment'>>
+type WallCabinetSize = WallObjectSize & Partial<Pick<PlacedModel, 'id' | 'depthScale'>>
+type WallMountedObjectPlacement = NonNullable<ReturnType<typeof fitWallMountedObject>>
+
+export function canMountObjectOnWall(definition: ModelDefinition) {
+  return !definition.wallMount && !definition.roofMount &&
+    (definition.placement === 'wall-mounted' ||
+      (definition.objectType === 'decor' && definition.placement !== 'ceiling-mounted'))
+}
+
+export function isWallMountedDecoration(definition: ModelDefinition, model: Pick<PlacedModel, 'wallAttachment'>) {
+  return canMountObjectOnWall(definition) &&
+    (definition.placement === 'wall-mounted' || Boolean(model.wallAttachment))
+}
+
+export function fitWallMountedObject(definition: ModelDefinition, wall: Wall, requested: WallAttachment, model: WallObjectSize = {},
+  walls?: Wall[]) {
+  const length = getWallLength(wall)
+  const scaledHeight = definition.height * (model.scale ?? 1)
+  const halfWidth = definition.width * (model.scale ?? 1) * (model.widthScale ?? 1) / 2
+  const side = requested.side ?? 1
+  if (length < 0.001 || scaledHeight > wall.height) return null
+  const wallUnit = definition.kitchenUnitDesign?.unitType === 'wall'
+  const range = wallUnit && walls ? getWallBodyFaceRange(walls, wall, side) : { start: 0, end: length }
+  if (halfWidth * 2 > range.end - range.start + MODEL_CONTACT_EPSILON) return null
+  const offset = clamp(requested.offset, range.start + halfWidth, range.end - halfWidth)
+  const angle = getWallAngle(wall)
+  const defaultHeight = wallUnit ? 1.4 : 1.45 - scaledHeight / 2
+  return {
+    position: { x: wall.start.x + Math.cos(angle) * offset, y: wall.start.y + Math.sin(angle) * offset },
+    rotation: angle + (side < 0 ? Math.PI : 0),
+    height: clamp(model.height ?? defaultHeight, 0, wall.height - scaledHeight),
+    wallAttachment: { wallId: wall.id, side, offset },
+  }
+}
+
+export function getWallMountedObjectPlacement(definition: ModelDefinition, walls: Wall[], point: Point,
+  model: WallObjectSize = {}, maxDistance?: number) {
+  const scale = model.scale ?? 1
+  const wallUnit = definition.kitchenUnitDesign?.unitType === 'wall'
+  const width = definition.width * scale * (model.widthScale ?? 1)
+  const mount = getWallMountForPoint(point, walls.filter(wall => wall.height >= definition.height * scale &&
+    (wallUnit || getWallLength(wall) >= width)), maxDistance, wallUnit ? (wall, side) => {
+      if (getWallLength(wall) < .001) return null
+      const range = getWallBodyFaceRange(walls, wall, side)
+      return range.end - range.start + MODEL_CONTACT_EPSILON >= width ? range : null
+    } : undefined)
+  if (!mount) return null
+  const wall = walls.find(wall => wall.id === mount.wallAttachment.wallId)
+  if (!wall) return null
+  const side = model.wallAttachment?.wallId === wall.id && distance(point, mount.position) < 0.001
+    ? model.wallAttachment.side : mount.wallAttachment.side
+  return fitWallMountedObject(definition, wall, { ...mount.wallAttachment, side }, model, walls)
+}
+
+export function getWallMountedObjectDisplayPoint(wall: Wall, attachment: WallAttachment, localBack: number) {
+  const angle = getWallAngle(wall)
+  const depth = (wall.thickness / 2 - localBack + 0.001) * (attachment.side ?? 1)
+  return {
+    x: wall.start.x + Math.cos(angle) * attachment.offset - Math.sin(angle) * depth,
+    y: wall.start.y + Math.sin(angle) * attachment.offset + Math.cos(angle) * depth,
+  }
+}
+
+function wallCabinetFootprint(definition: ModelDefinition, model: WallCabinetSize,
+  wall: Wall, attachment: WallAttachment): OrientedFootprint {
+  const angle = getWallAngle(wall)
+  const along = { x: Math.cos(angle), y: Math.sin(angle) }
+  const side = attachment.side ?? 1
+  const across = { x: -along.y * side, y: along.x * side }
+  const scale = model.scale ?? 1
+  const halfDepth = definition.depth * scale * (model.depthScale ?? 1) / 2
+  const rear = getWallMountedObjectDisplayPoint(wall, attachment, 0)
+  return { along, across, halfDepth, halfWidth: definition.width * scale * (model.widthScale ?? 1) / 2,
+    center: { x: rear.x + across.x * halfDepth, y: rear.y + across.y * halfDepth } }
+}
+
+export function resolveWallCabinetPlacement(definition: ModelDefinition, floor: Pick<FloorLevel, 'walls' | 'models'>,
+  definitions: ModelsById, candidate: WallMountedObjectPlacement | null, model: WallCabinetSize = {},
+  { from, snap, snapDistance = .06, slide = true }: {
+    from?: WallMountedObjectPlacement | null; snap?: 'horizontal' | 'both'; snapDistance?: number; slide?: boolean
+  } = {}): WallMountedObjectPlacement | null {
+  if (!candidate || definition.kitchenUnitDesign?.unitType !== 'wall') return candidate
+  const attachment = candidate.wallAttachment
+  const wall = floor.walls.find(item => item.id === attachment.wallId)
+  if (!wall) return null
+
+  // After projecting the cabinet footprints, the drag is two-dimensional:
+  // the offset along the host wall and the elevation above the floor.
+  const footprint = wallCabinetFootprint(definition, model, wall, attachment)
+  const height = definition.height * (model.scale ?? 1)
+  const obstacles: (PlanAabb & { kind: 'wall' | 'cabinet' })[] = []
+  const addObstacle = (target: OrientedFootprint, minY: number, maxY: number, kind: 'wall' | 'cabinet') => {
+    const overlap = getFootprintOffsetOverlap(footprint, target)
+    if (overlap) obstacles.push({ minX: attachment.offset + overlap.min, maxX: attachment.offset + overlap.max, minY, maxY, kind })
+  }
+  for (const other of floor.walls) {
+    if (other.id === wall.id) continue
+    const length = getWallLength(other)
+    if (length < .001 || other.thickness <= 0 || other.height <= 0) continue
+    const along = { x: (other.end.x - other.start.x) / length, y: (other.end.y - other.start.y) / length }
+    const center = { x: (other.start.x + other.end.x) / 2, y: (other.start.y + other.end.y) / 2 }
+    addObstacle({ center, along, across: { x: -along.y, y: along.x }, halfWidth: length / 2, halfDepth: other.thickness / 2 },
+      0, other.height, 'wall')
+  }
+  for (const other of floor.models) {
+    if (other.id === model.id || !other.wallAttachment) continue
+    const target = definitions.get(other.modelId)
+    if (target?.kitchenUnitDesign?.unitType !== 'wall') continue
+    const host = floor.walls.find(item => item.id === other.wallAttachment?.wallId)
+    const mount = host && fitWallMountedObject(target, host, other.wallAttachment, other, floor.walls)
+    if (!host || !mount) continue
+    addObstacle(wallCabinetFootprint(target, other, host, mount.wallAttachment), mount.height,
+      mount.height + target.height * (other.scale ?? 1), 'cabinet')
+  }
+  if (!obstacles.length) return candidate
+
+  const bounds = (x: number, y: number) => ({ minX: x, maxX: x, minY: y, maxY: y + height })
+  const blocked = (x: number, y: number) => obstacles.some(obstacle => planAabbsOverlap(bounds(x, y), obstacle))
+  let x = attachment.offset, y = candidate.height
+  if (from?.wallAttachment.wallId === attachment.wallId && from.wallAttachment.side === attachment.side) {
+    const start = from.wallAttachment.offset
+    const motion = constrainModelDrag(bounds(start, from.height), { x: x - start, y: y - from.height }, obstacles, slide)
+    x = start + motion.x
+    y = from.height + motion.y
+  }
+
+  let nearest: WallMountedObjectPlacement | null = null
+  let nearestDistance = snapDistance
+  const at = (offset: number, bottom: number) =>
+    fitWallMountedObject(definition, wall, { ...attachment, offset }, { ...model, height: bottom }, floor.walls)
+  const trySnap = (offset: number, bottom: number, distance: number) => {
+    if (distance > nearestDistance) return false
+    const placement = at(offset, bottom)
+    if (!placement || Math.abs(placement.wallAttachment.offset - offset) > MODEL_CONTACT_EPSILON ||
+      Math.abs(placement.height - bottom) > MODEL_CONTACT_EPSILON || blocked(offset, bottom)) return false
+    nearest = placement
+    nearestDistance = distance
+    return true
+  }
+  if (snap) for (const obstacle of obstacles) {
+    const matchCabinetHeight = snap === 'both' && obstacle.kind === 'cabinet'
+    if (y < obstacle.maxY - MODEL_CONTACT_EPSILON && y + height > obstacle.minY + MODEL_CONTACT_EPSILON) {
+      for (const edge of [obstacle.minX, obstacle.maxX]) {
+        const distance = Math.abs(edge - x)
+        const row = matchCabinetHeight && Math.abs(obstacle.minY - y) <= snapDistance
+        if (row && trySnap(edge, obstacle.minY, distance)) continue
+        trySnap(edge, y, distance)
+      }
+    }
+    if (matchCabinetHeight && x > obstacle.minX + MODEL_CONTACT_EPSILON && x < obstacle.maxX - MODEL_CONTACT_EPSILON) {
+      for (const edge of [obstacle.minY - height, obstacle.maxY]) trySnap(x, edge, Math.abs(edge - y))
+    }
+  }
+  return nearest ?? (blocked(x, y) ? null : at(x, y))
+}
+
+export function getWallFaceHit(ray: Ray, wall: Wall, elevation: number, faceWalls?: Wall[]) {
+  const length = getWallLength(wall)
+  if (length < 0.001) return null
+
+  const x = (wall.end.x - wall.start.x) / length
+  const z = (wall.end.y - wall.start.y) / length
+  const originX = ray.origin.x - wall.start.x
+  const originZ = ray.origin.z - wall.start.y
+  const signedDistance = -z * originX + x * originZ
+  const side: -1 | 1 = signedDistance < 0 ? -1 : 1
+  const approach = -z * ray.direction.x + x * ray.direction.z
+  if (Math.abs(approach) < 1e-6) return null
+
+  const distance = (side * wall.thickness / 2 - signedDistance) / approach
+  if (distance <= 0) return null
+  const offset = x * (originX + distance * ray.direction.x) + z * (originZ + distance * ray.direction.z)
+  const height = ray.origin.y + distance * ray.direction.y - elevation
+  const range = faceWalls ? getWallBodyFaceRange(faceWalls, wall, side) : { start: 0, end: length }
+  if (offset < range.start || offset > range.end || height < 0 || height > wall.height) return null
+  return { attachment: { wallId: wall.id, offset, side }, height, distance }
+}
+
+export function getWallMountedObjectPlacementAlongRay(ray: Ray, floor: Pick<FloorLevel, 'walls' | 'elevation'>,
+  definition: ModelDefinition, model: WallObjectSize = {}, grab?: { alongWall: number; height: number }) {
+  let closest: (NonNullable<ReturnType<typeof fitWallMountedObject>> & { distance: number }) | null = null
+  for (const wall of floor.walls) {
+    const hit = getWallFaceHit(ray, wall, floor.elevation, definition.kitchenUnitDesign?.unitType === 'wall' ? floor.walls : undefined)
+    if (!hit || (closest && hit.distance >= closest.distance)) continue
+    const { attachment } = hit
+    const offset = attachment.offset - (grab?.alongWall ?? 0) * attachment.side
+    const height = hit.height - (grab?.height ?? definition.height * (model.scale ?? 1) / 2)
+    const placement = fitWallMountedObject(definition, wall, { ...attachment, offset }, { ...model, height }, floor.walls)
+    if (placement) closest = { ...placement, distance: hit.distance }
+  }
+  return closest
+}
+
+export type CeilingMountArea = { rooms: Point[][]; stairOpenings: Point[][] }
+
+export function getCeilingMountArea(floor: FloorLevel, floors: FloorLevel[], rooms: DetectedRoom[], definitions: ModelsById): CeilingMountArea {
+  const above = floors.filter(level => level.elevation > floor.elevation).sort((a, b) => a.elevation - b.elevation)[0]
+  const ceilingModes = new Map(floor.rooms.map(room => [room.signature, room.ceilingMode]))
+  return {
+    rooms: rooms.filter(room => above || (ceilingModes.get(room.signature) ?? floor.ceilingMode) !== 'open').map(room => room.polygon),
+    stairOpenings: getStairSlabOpenings(floor, above ?? null, floors, definitions),
+  }
+}
+
+export function ceilingMountFits(point: Point, area: CeilingMountArea | undefined) {
+  return !!area && area.rooms.some(room => pointInPolygon(point, room)) &&
+    !area.stairOpenings.some(opening => pointInPolygon(point, opening))
 }
 
 function openingBelongsToModel(opening: WallOpening, modelIds: Set<string>) {
@@ -238,17 +463,14 @@ function wallsAreCollinear(firstWall: Wall, secondWall: Wall) {
   )
 }
 
+type OpeningDimensions = Pick<PlacedModel, 'id' | 'modelId' | 'scale' | 'widthScale' | 'wallOpeningBottom'>
+
 function getRawModelOpenings(
-  model: PlacedModel,
+  model: OpeningDimensions,
   wall: Wall,
-  modelsById: ModelsById,
+  definition: ModelDefinition,
+  modelOffset: number,
 ): WallOpening[] {
-  const definition = modelsById.get(model.modelId)
-
-  if (!definition?.wallMount || !model.wallAttachment) {
-    return []
-  }
-
   const scale = model.scale ?? 1
   const widthScale = model.widthScale ?? 1
   const wallLength = getWallLength(wall)
@@ -269,7 +491,6 @@ function getRawModelOpenings(
     Math.max(definition.height * scale, 0.3),
     Math.max(wall.height - bottom, 0.3),
   )
-  const modelOffset = getModelOffsetOnWall(model, wall)
   const openingCenter =
     modelOffset + (definition.openingCenterOffset ?? 0) * scale * widthScale
   const opening: WallOpening = {
@@ -335,6 +556,116 @@ function getRawModelOpenings(
   ]
 }
 
+/** Along-wall interval where the other wall's body meets either face of the host. */
+function getDoorJunctionInterval(wall: Wall, other: Wall, direction: Point, length: number) {
+  const otherDirection = getWallDirection(other)
+  if (Math.abs(direction.x * otherDirection.y - direction.y * otherDirection.x) < 1e-5) return null
+
+  const normal = { x: -direction.y, y: direction.x }
+  const reach = wall.thickness / 2 + DOOR_JUNCTION_TOLERANCE_METERS
+  const corners = getWallPolygon({ wall: other, startExtension: 0, endExtension: 0 }).map(point => {
+    const delta = { x: point.x - wall.start.x, y: point.y - wall.start.y }
+    return { along: dot(delta, direction), across: dot(delta, normal) }
+  })
+  const offsets = corners.flatMap((corner, index) => {
+    const next = corners[(index + 1) % corners.length]
+    const clip = [-reach, reach].flatMap(face => {
+      if ((corner.across < face) === (next.across < face)) return []
+      const t = (face - corner.across) / (next.across - corner.across)
+      return [corner.along + (next.along - corner.along) * t]
+    })
+    return Math.abs(corner.across) <= reach ? [corner.along, ...clip] : clip
+  })
+  const start = Math.max(0, Math.min(...offsets))
+  const end = Math.min(length, Math.max(...offsets))
+  return end - start > 1e-6 ? { start, end } : null
+}
+
+export function getDoorWallOffset(
+  wall: Wall, walls: readonly Wall[], definition: ModelDefinition, offset: number,
+  { model, fromOffset }: { model?: OpeningDimensions; fromOffset?: number } = {},
+) {
+  const length = getWallLength(wall)
+  if (length < 1e-6 || !Number.isFinite(offset)) return null
+  const openings = getRawModelOpenings(model ?? { id: definition.id, modelId: definition.id, scale: 1 }, wall, definition, 0)
+  const openingStart = Math.min(...openings.map(opening => opening.center - opening.width / 2))
+  const openingEnd = Math.max(...openings.map(opening => opening.center + opening.width / 2))
+  const direction = getWallDirection(wall)
+  const junctions = walls.flatMap(other => {
+    if (other.id === wall.id || getWallLength(other) < 1e-6) return []
+    const interval = getDoorJunctionInterval(wall, other, direction, length)
+    return interval ? [interval] : []
+  }).sort((a, b) => a.start - b.start)
+
+  const ranges: { min: number; max: number }[] = []
+  const sourceCenter = fromOffset === undefined ? undefined : fromOffset + (openingStart + openingEnd) / 2
+  let start = 0
+  for (const junction of [...junctions, { start: length, end: length }]) {
+    const min = Math.max(0, start - openingStart)
+    const max = Math.min(length, junction.start - openingEnd)
+    if (sourceCenter !== undefined && sourceCenter >= start && sourceCenter <= junction.start) {
+      return min <= max ? clamp(offset, min, max) : null
+    }
+    if (min <= max && junction.start >= start) ranges.push({ min, max })
+    start = Math.max(start, junction.end)
+  }
+  if (fromOffset === undefined) {
+    const fit = ranges.find(({ min, max }) => offset >= min - 1e-6 && offset <= max + 1e-6)
+    return fit ? clamp(offset, fit.min, fit.max) : null
+  }
+
+  // A saved door centred on a junction can move into the closest span that fits.
+  let nearest: { min: number; max: number } | undefined
+  let nearestDistance = Infinity
+  for (const range of ranges) {
+    const gap = Math.abs(fromOffset - clamp(fromOffset, range.min, range.max))
+    if (gap < nearestDistance) {
+      nearest = range
+      nearestDistance = gap
+    }
+  }
+  return nearest ? clamp(offset, nearest.min, nearest.max) : null
+}
+
+export function getDoorDragMount(model: PlacedModel, definition: ModelDefinition, wall: Wall, walls: Wall[], point: Point) {
+  const wallAttachment = model.wallAttachment!
+  const offset = getDoorWallOffset(wall, walls, definition, getRawProjectionDistanceOnWall(point, wall), {
+    model, fromOffset: wallAttachment.offset,
+  })
+  if (offset === null) return { position: model.position, rotation: model.rotation, wallAttachment }
+  return {
+    position: getPointAlongWall(wall, offset),
+    rotation: model.rotation,
+    wallAttachment: { ...wallAttachment, offset },
+  }
+}
+
+export function doorPlacementFits(definition: ModelDefinition, walls: Wall[], attachment: PlacedModel['wallAttachment'], model?: OpeningDimensions) {
+  if (!isPlanDoor(definition)) return true
+  const wall = attachment && walls.find(candidate => candidate.id === attachment.wallId)
+  return !!wall && !!attachment && getDoorWallOffset(wall, walls, definition, attachment.offset, { model }) !== null
+}
+
+export function constrainDoorUpdate(model: PlacedModel, definition: ModelDefinition, walls: Wall[], updates: Partial<PlacedModel>) {
+  const next = { ...model, ...updates }
+  const original = model.wallAttachment
+  const host = original && walls.find(wall => wall.id === original.wallId)
+  if (host && original && (updates.position || updates.wallAttachment)) {
+    const requested = updates.wallAttachment?.wallId === host.id
+      ? updates.wallAttachment.offset
+      : getRawProjectionDistanceOnWall(updates.position ?? model.position, host)
+    const offset = getDoorWallOffset(host, walls, definition, requested, { model: next, fromOffset: original.offset })
+    return offset === null ? null : {
+      ...updates,
+      position: getPointAlongWall(host, offset),
+      wallAttachment: { ...original, offset },
+    }
+  }
+
+  if (doorPlacementFits(definition, walls, next.wallAttachment, next)) return updates
+  return null
+}
+
 function clipOpeningToWall(
   opening: WallOpening,
   sourceWall: Wall,
@@ -379,7 +710,9 @@ function getDistributedModelOpenings(
   walls: Wall[],
   modelsById: ModelsById,
 ) {
-  return getRawModelOpenings(model, wall, modelsById).flatMap((opening) =>
+  const definition = modelsById.get(model.modelId)
+  if (!definition?.wallMount || !model.wallAttachment) return []
+  return getRawModelOpenings(model, wall, definition, getModelOffsetOnWall(model, wall)).flatMap((opening) =>
     walls
       .map((candidateWall) => clipOpeningToWall(opening, wall, candidateWall))
       .filter((candidateOpening): candidateOpening is DistributedModelOpening =>
@@ -558,9 +891,17 @@ export function normalizeFloor(
     models: Array.isArray(floor.models)
       ? floor.models.map((model) => {
           const definition = modelsById.get(model.modelId)
+          const regions = definition?.materialRegions
+          const migrateArtwork = (definition?.pictureFrameDesign || definition?.objectType === 'decor') &&
+            regions?.some(region => region.id === 'hd_image') &&
+            !regions.some(region => region.id === 'hd_canvas')
 
-          return {
+          const normalized = {
             ...model,
+            ...(migrateArtwork ? {
+              materialOverrides: migrateArtworkMaterial(model.materialOverrides),
+              materialTextureTransforms: migrateArtworkMaterial(model.materialTextureTransforms),
+            } : {}),
             flipped: model.flipped === true,
             height:
               definition?.isLight &&
@@ -638,6 +979,7 @@ export function normalizeFloor(
                 ? model.depthScale
                 : 1,
           }
+          return definition?.kitchenUnitDesign ? withKitchenUnitBackOrigin(normalized, definition.kitchenUnitDesign) : normalized
         })
       : [],
     roofs: Array.isArray(floor.roofs)
@@ -781,7 +1123,7 @@ export function createPlacedModel({
     ? getWallMountForPoint(planCenter, walls)
     : null
 
-  return {
+  const model: PlacedModel = {
     dormerWindowOpenings: definition?.roofMount === 'dormer' ? [] : undefined,
     dormerHeight: definition?.roofMount === 'dormer'
       ? createDormerStructuralAssembly({ definition, ownerId: id }).wallHeight : undefined,
@@ -803,11 +1145,13 @@ export function createPlacedModel({
     depthScale: 1,
     wallAttachment: wallMount?.wallAttachment,
   }
+  return definition?.kitchenUnitDesign ? withKitchenUnitBackOrigin(model, definition.kitchenUnitDesign) : model
 }
 
 export function updateWallAttachedModels(
   models: PlacedModel[],
   wall: Wall,
+  context?: { walls: Wall[]; definitions: ModelsById },
 ): PlacedModel[] {
   const wallLength = getWallLength(wall)
   const wallAngle = getWallAngle(wall)
@@ -822,6 +1166,12 @@ export function updateWallAttachedModels(
   return models.map((model) => {
     if (model.wallAttachment?.wallId !== wall.id) {
       return model
+    }
+
+    const definition = context?.definitions.get(model.modelId)
+    if (definition?.kitchenUnitDesign?.unitType === 'wall') {
+      const mount = fitWallMountedObject(definition, wall, model.wallAttachment, model, context?.walls)
+      if (mount) return { ...model, ...mount }
     }
 
     const offset = Math.max(

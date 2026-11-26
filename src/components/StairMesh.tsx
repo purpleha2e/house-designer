@@ -1,20 +1,24 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, type ReactNode } from 'react'
 import { Mesh, type Group, type MeshStandardMaterial, type Object3D } from 'three'
 import { createStairGeometry, disposeStairGeometry, stairGeometryKey } from '../stairGeometry'
-import { getStairFinish, type StairDesign, type StairPart } from '../stairDesign'
+import { getStairFinish, type StairDesign, type StairPart, type StairRailPoint } from '../stairDesign'
 import { PbrEnvironmentContext } from '../pbrEnvironmentContext'
 
 export function StairMesh({ design, active = true, castsShadow = true, wireframe = false, onObject, materialRevision = '',
-  upperFloorHeight = design.totalRise, guardrailOnly = false, children }: {
+  upperFloorHeight = design.totalRise, guardrailOnly = false, openingGuardrails, children }: {
   design: StairDesign; active?: boolean; castsShadow?: boolean; wireframe?: boolean;
   onObject?: (object: Object3D) => () => void; materialRevision?: string; upperFloorHeight?: number; guardrailOnly?: boolean;
+  openingGuardrails?: StairRailPoint[][];
   children?: (group: Group) => ReactNode
 }) {
   const environment = useContext(PbrEnvironmentContext)
   const key = stairGeometryKey(design)
   // Finish changes retain the generated geometry and GPU/acceleration buffers.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const geometry = useMemo(() => createStairGeometry(design, { upperFloorHeight, guardrailOnly }), [key, upperFloorHeight, guardrailOnly])
+  const geometry = useMemo(
+    () => createStairGeometry(design, { upperFloorHeight, guardrailOnly, openingGuardrails }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key, upperFloorHeight, guardrailOnly, openingGuardrails],
+  )
   const finishesKey = JSON.stringify(design.finishes)
   const finishes = useMemo<StairDesign['finishes']>(() => JSON.parse(finishesKey), [finishesKey])
   const object = useMemo(() => {

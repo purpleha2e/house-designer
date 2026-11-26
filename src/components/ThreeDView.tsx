@@ -31,10 +31,15 @@ import { createSelectionHighlightMaterial, updateSelectionHighlightMaterial } fr
 import { isSelectionOnlyPublication } from '../selectionPublication'
 import { GroundImage3D } from './GroundImage3D'
 import { WindowMesh } from './WindowMesh'
+import { PictureFrameMesh } from './PictureFrameMesh'
+import { KitchenUnitMesh } from './KitchenUnitMesh'
+import { getKitchenUnitSize } from '../kitchenUnitDesign'
 import { StairMesh } from './StairMesh'
 import { parametricStairMaterialRegions } from '../stairLibrary'
-import { getStairFinish, type StairDesign } from '../stairDesign'
+import { getStairFinish, type StairDesign, type StairRailPoint } from '../stairDesign'
+import { getOpenStairwellGuardrails, usesAutomaticStairwellGuardrails } from '../stairwellGuardrails'
 import { getSpatialDragDelta, getTransformRotation } from '../transformModifiers'
+import { constrainModelDrag, MODEL_CONTACT_EPSILON, planAabbsOverlap, translatePlanBounds, type PlanAabb } from '../modelDragCollision'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import { RoomExposure } from './RoomExposure'
@@ -46,6 +51,7 @@ import { DesignLighting } from './DesignLighting'
 import { openHouseLightingLab } from '../lightingLab/houseBridge'
 import type { EffectComposer as EffectComposerImpl } from 'postprocessing'
 import { SceneRenderer } from './SceneRenderer'
+import { getFloorSurfaceBatchKey } from '../floorDisplayBatching'
 import { AmbientOcclusionToggle } from './AmbientOcclusionToggle'
 import { WallOpeningPreview } from './WallOpeningPreview'
 import { applyWallOpeningPreviewShader } from '../wallOpeningPreview'
@@ -155,6 +161,7 @@ import {
 import type {
   FloorLevel,
   PlacedModel,
+  MaterialTextureTransform,
   Point,
   RoofStructure,
   SelectableSurface,
@@ -217,7 +224,11 @@ import {
   type ModelDefinition,
   type ModelMaterialRegion,
 } from '../models/modelLibrary'
-import type { ModelPlacement } from '../modelPlacement'
+import { canMountObjectOnWall, ceilingMountFits, doorPlacementFits, fitWallMountedObject, getCeilingMountArea, getDoorWallOffset,
+  getWallFaceHit, getWallMountedObjectDisplayPoint, getWallMountedObjectPlacement, getWallMountedObjectPlacementAlongRay, isWallMountedDecoration,
+  resolveWallCabinetPlacement,
+  type CeilingMountArea, type ModelPlacement } from '../modelPlacement'
+import { isPlanDoor } from '../doorPlan'
 import {
   createDormerStructuralAssembly,
   getAttachedDormerPlacement,
@@ -230,7 +241,7 @@ import type { SolidPlane } from '../convexSolid'
 import { createDormerGeometries } from '../dormerGeometry'
 import { prepareDormerInteriors, type DormerWallContact, type DormerFloorRecess } from '../dormerInterior'
 import { getDormerCeilingAssignment, getDormerWallAssignment } from '../dormerMaterials'
-import { getModelMaterialOverrideId } from '../modelMaterialOverrides'
+import { getModelMaterialOverrideId, getModelMaterialTextureTransform } from '../modelMaterialOverrides'
 import {
   createBoxProjectedUvGeometry,
   hasUsableTextureUvs,
@@ -927,13 +938,6 @@ type ModelHorizontalBounds = {
   maxZ: number
   minX: number
   minZ: number
-}
-
-type PlanAabb = {
-  maxX: number
-  maxY: number
-  minX: number
-  minY: number
 }
 
 type ObjectTransformSnapshot = {
@@ -2777,6 +2781,7 @@ const DormerWallJunctionContext = createContext<ReadonlyMap<string, SolidPlane[]
 const DormerWallContactsContext = createContext<ReadonlyMap<string, DormerWallContact[]>>(new Map())
 const DormerBaseElevationsContext = createContext<ReadonlyMap<string, number>>(new Map())
 const StoreyGeometryContext = createContext<ReadonlyMap<string, StoreyGeometry>>(new Map())
+const CeilingMountContext = createContext<ReadonlyMap<string, CeilingMountArea>>(new Map())
 const StairWallCutContext = createContext<ReadonlyMap<string, StairWallCutFace[]>>(new Map())
 const RoofGableContext = createContext<RoofGable[]>([])
 const GableClipContext = createContext(new Map<string, { gableWallIds: string[]; gableCeilingFaces: [number,number,number][][] }>())
@@ -11021,8 +11026,7 @@ function RoomFloorSurface({
   )
   const floorBatchData = useMemo(() => ({
     houseDesignerRole: material ? 'room-floor-finish' : 'room-floor-base',
-    floorSurfaceBatchKey: JSON.stringify(material ? ['finish', elevation, material.id, material.pbr,
-      assignment?.customColor ?? null, assignment?.textureScale ?? 1, assignment?.textureRotation ?? 0] : ['base', elevation]),
+    floorSurfaceBatchKey: getFloorSurfaceBatchKey(elevation, material, assignment),
   }), [elevation, material, assignment])
 
   useHorizontalSurfaceVisibility(meshRef, elevation, 'above', polygon)
@@ -11911,19 +11915,6 @@ function getPlanAabbFromPoints(points: Point[]): PlanAabb {
   )
 }
 
-function planAabbsOverlap(
-  firstBounds: PlanAabb,
-  secondBounds: PlanAabb,
-  tolerance = 0,
-) {
-  return (
-    firstBounds.minX < secondBounds.maxX - tolerance &&
-    firstBounds.maxX > secondBounds.minX + tolerance &&
-    firstBounds.minY < secondBounds.maxY - tolerance &&
-    firstBounds.maxY > secondBounds.minY + tolerance
-  )
-}
-
 function getPlanAabbWidth(bounds: PlanAabb) {
   return bounds.maxX - bounds.minX
 }
@@ -12495,10 +12486,11 @@ function liveModelIndex(floors: FloorLevel[]) {
   return index
 }
 
-function LiveModelTransform({ object, model, position, rotation, scale, floorElevation, height }: {
+function LiveModelTransform({ object, model, position, rotation, scale, floorElevation, height, wallPlacement }: {
   object: MutableRefObject<Object3D>; model: PlacedModel
   position: [number, number, number]; rotation: number; scale: [number, number, number]
   floorElevation: number; height?: { key: 'height' | 'wallOpeningBottom'; fallback: number }
+  wallPlacement?: { walls: Wall[]; back: number }
 }) {
   const previewRef = useContext(ModelTransformPreviewContext)
   const liveFloors = useContext(LiveGeometryFloorsContext)
@@ -12524,10 +12516,16 @@ function LiveModelTransform({ object, model, position, rotation, scale, floorEle
     if (preview?.modelId === model.id) {
       if (lastPreviewRef.current === preview) return
       const updates = preview.updates
-      group.position.set(position[0] + (updates.position ? updates.position.x - model.position.x : 0),
-        position[1] + (live ? live.elevation - floorElevation : 0) +
-          (height && updates[height.key] !== undefined ? updates[height.key]! - (model[height.key] ?? height.fallback) : 0),
-        position[2] + (updates.position ? updates.position.y - model.position.y : 0))
+      const attachment = updates.wallAttachment ?? model.wallAttachment
+      const wall = attachment && wallPlacement?.walls.find(item => item.id === attachment.wallId)
+      const mountedPosition = wallPlacement && attachment && wall
+        ? getWallMountedObjectDisplayPoint(wall, attachment, wallPlacement.back) : null
+      const y = height && updates[height.key] !== undefined
+        ? position[1] + updates[height.key]! - (wallPlacement ? height.fallback : model[height.key] ?? height.fallback)
+        : position[1]
+      group.position.set(mountedPosition?.x ?? (position[0] + (updates.position ? updates.position.x - model.position.x : 0)),
+        y + (live ? live.elevation - floorElevation : 0),
+        mountedPosition?.y ?? (position[2] + (updates.position ? updates.position.y - model.position.y : 0)))
       group.rotation.y = updates.rotation === undefined ? rotation : -updates.rotation
       const uniformScale = updates.scale ?? model.scale ?? 1
       group.scale.set(uniformScale * (updates.widthScale ?? model.widthScale ?? 1), uniformScale,
@@ -12607,10 +12605,12 @@ function ModelMesh({
   const dormerBaseElevations = useContext(DormerBaseElevationsContext)
   const mountedModelBatching = useContext(ImportedModelBatchingContext)
   const mountedPreviewRef = useContext(ModelTransformPreviewContext)
+  const ceilingMountArea = useContext(CeilingMountContext).get(floorId)
   const groupRef = useRef<Object3D>(null!)
   const transformModifierRef = useRef({ ctrlKey: false, shiftKey: false })
   const transformStartRef = useRef<ObjectTransformSnapshot | null>(null)
   const lastValidTransformRef = useRef<ObjectTransformSnapshot | null>(null)
+  const wallObjectDragRef = useRef<ReturnType<typeof getWallMountedObjectPlacement>>(null)
   const [importedLocalBounds, setImportedLocalBounds] =
     useState<ModelHorizontalBounds | null>(null)
   const modelDefinition = modelsById.get(model.modelId)
@@ -12649,9 +12649,22 @@ function ModelMesh({
     ? getDormerCeilingAssignment(surfaceAssignments, floorId, attachedRoof.id) : undefined
   const dormerWallAssignment = modelDefinition.roofMount === 'dormer'
     ? getDormerWallAssignment(surfaceAssignments, model, dormerWallContacts.get(model.id)) : undefined
+  const wallMountWall = model.wallAttachment?.wallId
+    ? dormerWindowHost?.wall ?? walls.find((wall) => wall.id === model.wallAttachment?.wallId)
+    : null
+  const isWallMountedObject = isWallMountedDecoration(modelDefinition, model)
+  const supportsWallMount = canMountObjectOnWall(modelDefinition)
+  const isCeilingMountedObject = modelDefinition.placement === 'ceiling-mounted'
+  const objectMount = isWallMountedObject && wallMountWall && model.wallAttachment
+    ? fitWallMountedObject(modelDefinition, wallMountWall, model.wallAttachment, model, walls) : null
+  const wallObjectBounds = importedLocalBounds ?? (modelDefinition.normalizeToDimensions ? undefined : modelDefinition.localBounds)
+  const wallObjectBack = (wallObjectBounds ? model.flipped ? -wallObjectBounds.maxZ : wallObjectBounds.minZ : -modelDefinition.depth / 2) *
+    (model.scale ?? 1) * (model.depthScale ?? 1)
   const verticalOffset =
-    modelDefinition.isLight
+    isCeilingMountedObject ? roomHeight - CEILING_VERTICAL_OVERLAP_METERS
+    : modelDefinition.isLight
       ? model.height ?? modelDefinition.height
+      : objectMount ? objectMount.height
       : modelDefinition.wallMount === 'window'
         ? model.wallOpeningBottom ?? WINDOW_SILL_HEIGHT_METERS
         : 0
@@ -12667,9 +12680,6 @@ function ModelMesh({
   const dormerWallBaseY = dormerPlacement
     ? ((dormerBaseElevations.get(model.id) ?? elevation) - floorSnapY) / Math.max(Math.abs(model.scale ?? 1), 0.001)
     : undefined
-  const wallMountWall = model.wallAttachment?.wallId
-    ? dormerWindowHost?.wall ?? walls.find((wall) => wall.id === model.wallAttachment?.wallId)
-    : null
   const scaledModelHeight = modelDefinition.height * (model.scale ?? 1)
   const maxWindowBottom = wallMountWall
     ? Math.max(wallMountWall.height - Math.min(Math.max(scaledModelHeight, 0.3), wallMountWall.height), 0)
@@ -12686,11 +12696,12 @@ function ModelMesh({
       ? getExteriorWallSide(wallMountWall, rooms)
       : model.wallAttachment?.side ?? 1
   const wallMountedDisplayRotation =
-    isEditableWallMountedOpening && wallMountWall
+    objectMount ? objectMount.rotation : isEditableWallMountedOpening && wallMountWall
       ? getWallMountedModelRotation(wallMountWall, wallMountedDisplaySide)
       : model.rotation
   const displayPosition = dormerPlacement?.position ??
-    (isEditableWallMountedOpening && wallMountWall && model.wallAttachment
+    (objectMount && wallMountWall ? getWallMountedObjectDisplayPoint(wallMountWall, objectMount.wallAttachment, wallObjectBack)
+      : isEditableWallMountedOpening && wallMountWall && model.wallAttachment
       ? getWallMountedModelDisplayPosition({
           definition: modelDefinition,
           importedLocalBounds,
@@ -12727,6 +12738,12 @@ function ModelMesh({
   const registerParametricStair = useCallback((object: Object3D) => onRegisterPickTarget({
     blocksCollision: true, floorId, kind: 'model', modelId: model.id, object,
   }), [floorId, model.id, onRegisterPickTarget])
+  const registerPictureFrame = useCallback((object: Object3D) => registerMountedPickTarget({
+    blocksCollision: false, floorId, kind: 'model', modelId: model.id, object,
+  }), [floorId, model.id, registerMountedPickTarget])
+  const registerKitchenUnit = useCallback((object: Object3D) => registerMountedPickTarget({
+    blocksCollision: true, floorId, kind: 'model', modelId: model.id, object,
+  }), [floorId, model.id, registerMountedPickTarget])
   const snapObjectToFloor = () => {
     const object = groupRef.current
 
@@ -12743,7 +12760,7 @@ function ModelMesh({
     Math.max(0.2, Math.abs(object.scale.x) / Math.max(uniformScale, 0.0001))
   const getObjectDepthScale = (object: Object3D, uniformScale: number) =>
     Math.max(0.2, Math.abs(object.scale.z) / Math.max(uniformScale, 0.0001))
-  const importedForwardAngle = modelDefinition.sourceUrl ? -Math.PI / 2 : null
+  const importedForwardAngle = modelDefinition.sourceUrl || (modelDefinition.kitchenUnitDesign && model.flipped) ? -Math.PI / 2 : null
   const getObjectTransformSnapshot = (object: Object3D): ObjectTransformSnapshot => ({
     position: object.position.clone(),
     rotationY: object.rotation.y,
@@ -12818,129 +12835,61 @@ function ModelMesh({
       clearModifierKeys()
     }
   }, [isActive, isSelected])
-  const objectCollides = ({
-    ignoreWalls = false,
-    ignoredWallId,
-    tolerance = 0,
-  }: {
-    ignoreWalls?: boolean
-    ignoredWallId?: string
-    tolerance?: number
-  } = {}) => {
-    const object = groupRef.current
+  const resolveFloorObjectTransform = (object: Object3D, ignoredWallId: string | undefined, isStairs: boolean) => {
+    const collisionTarget =
+      pickTargetsRef.current.find(
+        (target) => target.kind === 'model' && target.modelId === model.id,
+      )
+        ?.object ?? object
+    object.updateWorldMatrix(true, true)
+    const objectBox = new Box3().setFromObject(collisionTarget)
+    let objectBounds = getPlanAabbFromBox(objectBox)
+    const modelBounds: PlanAabb[] = []
+    for (const target of pickTargetsRef.current) {
+      if (!target.blocksCollision || target.kind !== 'model' || target.modelId === model.id || target.floorId !== floorId) continue
+      const box = new Box3().setFromObject(target.object)
+      if (box.min.y < objectBox.max.y - MODEL_CONTACT_EPSILON && box.max.y > objectBox.min.y + MODEL_CONTACT_EPSILON) {
+        modelBounds.push(getPlanAabbFromBox(box))
+      }
+    }
+    const wallBounds = isStairs ? [] : walls.filter(wall => wall.id !== ignoredWallId)
+      .map(wall => getPlanAabbFromPoints(getWallPolygon({ wall, startExtension: 0, endExtension: 0 })))
+    const collides = (bounds: PlanAabb) => modelBounds.some(other => planAabbsOverlap(bounds, other)) ||
+      wallBounds.some(other => planAabbsOverlap(bounds, other))
 
-    if (!object || modelDefinition.isLight) {
+    const previous = lastValidTransformRef.current
+    if (transformMode === 'translate' && previous) {
+      const delta = { x: object.position.x - previous.position.x, y: object.position.z - previous.position.z }
+      const startBounds = translatePlanBounds(objectBounds, { x: -delta.x, y: -delta.y })
+      const move = constrainModelDrag(startBounds, delta, modelBounds, !transformModifierRef.current.shiftKey)
+      object.position.x = previous.position.x + move.x
+      object.position.z = previous.position.z + move.y
+      objectBounds = translatePlanBounds(startBounds, move)
+    }
+
+    if (!transformModifierRef.current.shiftKey && !isStairs && !modelDefinition.wallMount) {
+      let bestSnap: ReturnType<typeof getPlanAabbHorizontalSnapDelta> = null
+      for (const target of modelBounds) {
+        const snap = getPlanAabbHorizontalSnapDelta(objectBounds, target)
+        if (!snap || (bestSnap && snap.distance >= bestSnap.distance)) continue
+        if (!collides(translatePlanBounds(objectBounds, { x: snap.dx, y: snap.dz }))) bestSnap = snap
+      }
+      if (bestSnap) {
+        object.position.x += bestSnap.dx
+        object.position.z += bestSnap.dz
+        object.updateWorldMatrix(true, true)
+        return true
+      }
+    }
+
+    if (collides(objectBounds)) {
+      if (previous) restoreObjectTransform(object, previous)
       return false
     }
-
     object.updateWorldMatrix(true, true)
-
-    const collisionTarget =
-      pickTargetsRef.current.find(
-        (target) => target.kind === 'model' && target.modelId === model.id,
-      )
-        ?.object ?? object
-    collisionTarget.updateWorldMatrix(true, false)
-
-    const objectBox = new Box3().setFromObject(collisionTarget)
-    const objectBounds = getPlanAabbFromBox(objectBox)
-    const collidesWithWall = !ignoreWalls && walls.some((wall) => {
-      if (wall.id === ignoredWallId) {
-        return false
-      }
-
-      return planAabbsOverlap(
-        objectBounds,
-        getPlanAabbFromPoints(getWallPolygon({ wall, startExtension: 0, endExtension: 0 })),
-        tolerance,
-      )
-    })
-
-    if (collidesWithWall) {
-      return true
-    }
-
-    return pickTargetsRef.current.some((target) => {
-      if (
-        !target.blocksCollision ||
-        target.kind !== 'model' ||
-        target.modelId === model.id ||
-        target.floorId !== floorId
-      ) {
-        return false
-      }
-
-      target.object.updateWorldMatrix(true, false)
-
-      return planAabbsOverlap(
-        objectBounds,
-        getPlanAabbFromBox(new Box3().setFromObject(target.object)),
-        tolerance,
-      )
-    })
+    return true
   }
-  const applyObjectEdgeSnap = () => {
-    const object = groupRef.current
-
-    if (!object || modelDefinition.isLight || modelDefinition.wallMount) {
-      return
-    }
-
-    const collisionTarget =
-      pickTargetsRef.current.find(
-        (target) => target.kind === 'model' && target.modelId === model.id,
-      )
-        ?.object ?? object
-
-    object.updateWorldMatrix(true, true)
-    collisionTarget.updateWorldMatrix(true, false)
-
-    const objectBounds = getPlanAabbFromBox(new Box3().setFromObject(collisionTarget))
-    let bestSnap: {
-      distance: number
-      dx: number
-      dz: number
-      targetModelId: string
-    } | null = null
-
-    for (const target of pickTargetsRef.current) {
-      if (
-        !target.blocksCollision ||
-        target.kind !== 'model' ||
-        target.modelId === model.id ||
-        target.floorId !== floorId
-      ) {
-        continue
-      }
-
-      target.object.updateWorldMatrix(true, false)
-
-      const snap = getPlanAabbHorizontalSnapDelta(
-        objectBounds,
-        getPlanAabbFromBox(new Box3().setFromObject(target.object)),
-      )
-
-      if (!snap || (bestSnap && snap.distance >= bestSnap.distance)) {
-        continue
-      }
-
-      bestSnap = {
-        ...snap,
-        targetModelId: target.modelId,
-      }
-    }
-
-    if (!bestSnap) {
-      return null
-    }
-
-    object.position.x += bestSnap.dx
-    object.position.z += bestSnap.dz
-    object.updateWorldMatrix(true, true)
-
-    return bestSnap
-  }
-  const applyObjectSnaps = (): Partial<PlacedModel> | null => {
+  const applyObjectSnaps = (committing = false): Partial<PlacedModel> | null => {
     const object = groupRef.current
 
     if (!object) {
@@ -12950,11 +12899,45 @@ function ModelMesh({
     if (transformMode === 'translate' && transformStartRef.current) {
       const start = transformStartRef.current.position
       const delta = getSpatialDragDelta({ x: object.position.x - start.x,
-        y: modelDefinition.isLight || isVerticallyEditableWindow ? object.position.y - start.y : 0,
+        y: modelDefinition.isLight || isVerticallyEditableWindow || isWallMountedObject ? object.position.y - start.y : 0,
         z: object.position.z - start.z }, transformModifierRef.current)
       object.position.set(start.x + delta.x, start.y + delta.y, start.z + delta.z)
     } else if (transformMode === 'rotate') {
       object.rotation.y = getTransformRotation(object.rotation.y, transformModifierRef.current)
+    }
+
+    if (isWallMountedObject) {
+      if (!committing) {
+        const candidate = getWallMountedObjectPlacement(modelDefinition, walls, { x: object.position.x, y: object.position.z },
+          { ...model, height: object.position.y - elevation })
+        const { ctrlKey, shiftKey } = transformModifierRef.current
+        const placement = ctrlKey ? candidate : resolveWallCabinetPlacement(modelDefinition, { walls, models }, modelsById, candidate,
+          model, { from: wallObjectDragRef.current ?? objectMount, snap: shiftKey ? undefined : 'both', slide: !shiftKey })
+        if (placement) wallObjectDragRef.current = placement
+      }
+      const placement = wallObjectDragRef.current
+      const wall = placement && walls.find(wall => wall.id === placement.wallAttachment.wallId)
+      if (!placement || !wall) {
+        if (lastValidTransformRef.current) restoreObjectTransform(object, lastValidTransformRef.current)
+        return null
+      }
+      const display = getWallMountedObjectDisplayPoint(wall, placement.wallAttachment, wallObjectBack)
+      object.position.set(display.x, elevation + placement.height, display.y)
+      object.rotation.y = -placement.rotation
+      object.updateWorldMatrix(true, true)
+      return { ...placement, scale: model.scale, widthScale: model.widthScale, depthScale: model.depthScale }
+    }
+
+    if (isCeilingMountedObject) {
+      const position = { x: object.position.x, y: object.position.z }
+      if (!ceilingMountFits(position, ceilingMountArea)) {
+        if (lastValidTransformRef.current) restoreObjectTransform(object, lastValidTransformRef.current)
+        return null
+      }
+      object.position.y = floorSnapY
+      object.updateWorldMatrix(true, true)
+      updateLastValidTransform()
+      return { position, rotation: -object.rotation.y, scale: model.scale, widthScale: model.widthScale, depthScale: model.depthScale }
     }
 
     if (model.dormerAttachment) {
@@ -13024,7 +13007,15 @@ function ModelMesh({
               wall,
             })
           : steppedOffset
-      const nextOffset = Math.max(minOffset, Math.min(maxOffset, snappedOffset))
+      // The preview can sit exactly against a junction between two grid steps.
+      const nextOffset = wall && isPlanDoor(modelDefinition)
+        ? getDoorWallOffset(wall, walls, modelDefinition, committing ? rawOffset : snappedOffset,
+          { model, fromOffset: model.wallAttachment?.offset })
+        : Math.max(minOffset, Math.min(maxOffset, snappedOffset))
+      if (nextOffset === null) {
+        if (lastValidTransformRef.current) restoreObjectTransform(object, lastValidTransformRef.current)
+        return null
+      }
       const displayPosition = wall
         ? getWallMountedModelDisplayPosition({
             definition: modelDefinition,
@@ -13070,7 +13061,8 @@ function ModelMesh({
 
     snapObjectToFloor()
 
-    const snappingDisabled = transformModifierRef.current.ctrlKey
+    // Translation preview has already found a valid position. Commit that same pose.
+    const snappingDisabled = transformModifierRef.current.ctrlKey || (committing && transformMode === 'translate')
     const automaticSnappingDisabled = snappingDisabled || transformModifierRef.current.shiftKey
     const uniformScale = getObjectUniformScale(object)
     const widthScale = getObjectWidthScale(object, uniformScale)
@@ -13112,25 +13104,7 @@ function ModelMesh({
       object.rotation.y = -wallSnap.rotation
     }
 
-    if (!automaticSnappingDisabled && !isStairs) {
-      applyObjectEdgeSnap()
-    }
-
-    if (
-      !snappingDisabled &&
-      objectCollides({
-        ignoreWalls: isStairs,
-        ignoredWallId: wallSnap?.wallId,
-      })
-    ) {
-      const lastValidTransform = lastValidTransformRef.current
-
-      if (lastValidTransform) {
-        restoreObjectTransform(object, lastValidTransform)
-      }
-
-      return null
-    }
+    if (!snappingDisabled && !modelDefinition.isLight && !resolveFloorObjectTransform(object, wallSnap?.wallId, isStairs)) return null
 
     updateLastValidTransform()
 
@@ -13156,7 +13130,7 @@ function ModelMesh({
     // an existing wall rotation or create an undo entry.
     if (start && object && object.position.equals(start.position) && object.scale.equals(start.scale) &&
       object.rotation.y === start.rotationY) return
-    const snappedTransform = applyObjectSnaps()
+    const snappedTransform = applyObjectSnaps(true)
 
     if (!snappedTransform) {
       return
@@ -13180,6 +13154,7 @@ function ModelMesh({
   const localModelTransform = (
     <group
       name={`model-local-transform-${model.id}`}
+      position={[0, isCeilingMountedObject && !modelDefinition.sourceUrl && !modelDefinition.isLight ? -modelDefinition.height : 0, 0]}
       rotation={[0, model.flipped ? Math.PI : 0, 0]}
       scale={[model.mirrored ? -1 : 1, 1, 1]}
     >
@@ -13211,6 +13186,7 @@ function ModelMesh({
           ceilingAssignment={dormerCeilingAssignment}
           interiorWallAssignment={dormerWallAssignment}
           exteriorMaterialId={model.materialOverrides?.['dormer-exterior']}
+          exteriorTextureTransform={getModelMaterialTextureTransform(model.materialTextureTransforms, 'dormer-exterior')}
           dormerWidth={model.dormerWidth}
           dormerHeight={model.dormerHeight}
           windowOpenings={model.dormerWindowOpenings}
@@ -13225,6 +13201,7 @@ function ModelMesh({
       ) : modelDefinition.stairDesign ? (
         <StairContent design={modelDefinition.stairDesign} active={isActive} castsShadow={castsShadow}
           wireframe={wireframe} materialOverrides={model.materialOverrides}
+          materialTextureTransforms={model.materialTextureTransforms}
           upperFloorHeight={modelDefinition.stairDesign.upperGuardrail && stairUpperFloorElevation !== undefined
             ? (stairUpperFloorElevation - elevation) / (model.scale ?? 1) : undefined}
           onObject={registerParametricStair} />
@@ -13232,6 +13209,10 @@ function ModelMesh({
         <WindowMesh design={modelDefinition.windowDesign} scale={model.scale ?? 1} widthScale={model.widthScale ?? 1}
           depthScale={model.depthScale ?? 1} wireframe={wireframe} active={isActive} castsShadow={shadowsEnabled}
           onObject={registerMountedWindow} />
+      ) : modelDefinition.pictureFrameDesign ? (
+        <PlacedPictureFrame definition={modelDefinition} model={model} castsShadow={castsShadow} onObject={registerPictureFrame} />
+      ) : modelDefinition.kitchenUnitDesign ? (
+        <PlacedKitchenUnit definition={modelDefinition} model={model} castsShadow={castsShadow} onObject={registerKitchenUnit} />
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
           batchable={
@@ -13247,7 +13228,10 @@ function ModelMesh({
           blocksCollision={!modelDefinition.wallMount}
           materialOverrides={model.materialOverrides}
           materialRegions={modelDefinition.materialRegions}
+          materialTextureTransforms={model.materialTextureTransforms}
           modelId={model.id}
+          mountToCeiling={isCeilingMountedObject}
+          mountToWall={isWallMountedObject}
           normalizeToDimensions={Boolean(model.dormerAttachment || modelDefinition.normalizeToDimensions)}
           normalizationMeshName={modelDefinition.normalizationMeshName}
           targetDepth={modelDefinition.depth}
@@ -13292,8 +13276,10 @@ function ModelMesh({
       renderOrder={isActive ? 3 : 1}
     >
       <LiveModelTransform object={groupRef} model={model}
-        floorElevation={elevation} height={modelDefinition.isLight ? { key: 'height', fallback: modelDefinition.height }
+        floorElevation={elevation} height={supportsWallMount ? { key: 'height', fallback: verticalOffset }
+          : modelDefinition.isLight ? { key: 'height', fallback: modelDefinition.height }
           : modelDefinition.wallMount === 'window' ? { key: 'wallOpeningBottom', fallback: WINDOW_SILL_HEIGHT_METERS } : undefined}
+        wallPlacement={supportsWallMount ? { walls, back: wallObjectBack } : undefined}
         position={[displayPosition.x, floorSnapY, displayPosition.y]} rotation={-displayRotation}
         scale={[(model.scale ?? 1) * (model.widthScale ?? 1), model.scale ?? 1,
           (model.scale ?? 1) * (model.depthScale ?? 1)]} />
@@ -13302,7 +13288,7 @@ function ModelMesh({
     </group>
   )
 
-  if (isSelected && isActive && transformEnabled && (!model.dormerAttachment || transformMode !== 'rotate') &&
+  if (isSelected && isActive && transformEnabled && (!(model.dormerAttachment || isWallMountedObject) || transformMode !== 'rotate') &&
     (!modelDefinition.roofMount || (modelDefinition.roofMount === 'dormer' && transformMode === 'translate'))) {
     const opening = wallMountWall?.openings?.find(item => item.id === model.id || item.id.startsWith(`${model.id}:`))
     const openingMetrics = wallMountWall ? getWallModelOpeningMetrics(model, wallMountWall) : null
@@ -13318,6 +13304,10 @@ function ModelMesh({
             elevation={elevation} ceiling={Math.min(roomHeight, wallMountWall.height)}
             onChange={({ center, bottom }) => {
               const offset = center - openingMetrics.centerOffset
+              if (modelDefinition.wallMount === 'patio-door') {
+                const allowed = getDoorWallOffset(wallMountWall, walls, modelDefinition, offset, { model, fromOffset: model.wallAttachment?.offset })
+                if (allowed === null || Math.abs(allowed - offset) > 1e-6) throw new Error('The door must stay clear of the wall junction.')
+              }
               const updates: Partial<PlacedModel> = {
                 position: getPointAtWallOffset(wallMountWall, offset),
                 wallAttachment: { ...model.wallAttachment!, offset },
@@ -13339,13 +13329,15 @@ function ModelMesh({
             transformMode === 'translate'
           }
           showY={
-            modelDefinition.roofMount === 'dormer' ? false : model.dormerAttachment ? true : isVerticallyEditableWindow ? transformMode === 'translate' : true
+            modelDefinition.roofMount === 'dormer' ? false : isCeilingMountedObject ? transformMode === 'rotate'
+              : isVerticallyEditableWindow ? transformMode === 'translate' : true
           }
           showZ={
             transformMode === 'translate'
           }
           onMouseDown={() => {
             transformStartRef.current = getObjectTransformSnapshot(groupRef.current)
+            wallObjectDragRef.current = null
             updateLastValidTransform()
             onTransformActiveChange(true)
           }}
@@ -13363,6 +13355,7 @@ function ModelMesh({
           }}
           onMouseUp={() => {
             commitObjectTransform()
+            wallObjectDragRef.current = null
             transformStartRef.current = null
             onTransformActiveChange(false)
           }}
@@ -14101,6 +14094,7 @@ function ImportedModelMaterialOverride({
   materialId,
   region,
   scene,
+  textureRotation,
   textureScale,
 }: {
   environmentIntensity: number
@@ -14108,6 +14102,7 @@ function ImportedModelMaterialOverride({
   materialId: string
   region: ModelMaterialRegion
   scene: Object3D
+  textureRotation?: number
   textureScale?: number
 }) {
   const invalidate = useThree((state) => state.invalidate)
@@ -14117,10 +14112,11 @@ function ImportedModelMaterialOverride({
     () => ({
       id: `model-material-${region.id}`,
       materialId,
+      textureRotation,
       textureScale,
       target: { floorId: 'model-material', type: 'floor' },
     }),
-    [materialId, region.id, textureScale],
+    [materialId, region.id, textureRotation, textureScale],
   )
   const textures = useSurfaceMaterialTextures(
     surfaceMaterial,
@@ -14214,10 +14210,58 @@ function ImportedModelMaterialOverride({
   return null
 }
 
+export function ParametricModelMaterials({ root, regions, materials, transforms }: {
+  root: Object3D
+  regions?: ModelMaterialRegion[]
+  materials?: Record<string, string>
+  transforms?: PlacedModel['materialTextureTransforms']
+}) {
+  const environment = useContext(PbrEnvironmentContext)
+  if (basicSceneDiagnostic && !opaqueMaterialDiagnostic) return null
+  return <>{regions?.map(region => {
+    const materialId = materials?.[region.id]
+    return materialId ? <ImportedModelMaterialOverride key={region.id} scene={root} region={region}
+      materialId={materialId} environmentMap={environment.map} environmentIntensity={environment.intensity}
+      {...getModelMaterialTextureTransform(transforms, region.id)} /> : null
+  })}</>
+}
+
+type PlacedParametricObjectProps = {
+  definition: ModelDefinition
+  model: PlacedModel
+  castsShadow: boolean
+  onObject: (object: Object3D) => () => void
+}
+
+function PlacedPictureFrame({ definition, model, castsShadow, onObject }: PlacedParametricObjectProps) {
+  return <PictureFrameMesh key={JSON.stringify(model.materialOverrides ?? {})} design={definition.pictureFrameDesign!}
+    castsShadow={castsShadow} onObject={onObject}>
+    {root => <ParametricModelMaterials root={root} regions={definition.materialRegions}
+      materials={model.materialOverrides} transforms={model.materialTextureTransforms} />}
+  </PictureFrameMesh>
+}
+
+function PlacedKitchenUnit({ definition, model, castsShadow, onObject }: PlacedParametricObjectProps) {
+  const design = definition.kitchenUnitDesign!
+  const worktop = design.worktopMaterialId
+  const materials = { ...(worktop && { hd_worktop: worktop }), ...model.materialOverrides }
+  // Published tours may keep legacy placement coordinates to retain their baked lighting.
+  const offset = model.kitchenUnitOrigin === 'back' ? 0 : -getKitchenUnitSize(design).depth / 2
+  return <group position={[0, 0, offset]}>
+    <KitchenUnitMesh key={JSON.stringify(materials)} design={design} castsShadow={castsShadow} onObject={onObject}
+      overriddenHandles={Boolean(model.materialOverrides?.hd_handles)}>
+      {root => <ParametricModelMaterials root={root} regions={definition.materialRegions}
+        materials={materials} transforms={model.materialTextureTransforms} />}
+    </KitchenUnitMesh>
+  </group>
+}
+
 /** Shares the existing PBR texture/variation and GI path with imported objects. */
-export function StairContent({ design, materialOverrides, ...props }: {
-  design: StairDesign; materialOverrides?: Record<string, string>; active?: boolean; castsShadow?: boolean;
-  wireframe?: boolean; upperFloorHeight?: number; guardrailOnly?: boolean; onObject?: (object: Object3D) => () => void
+export function StairContent({ design, materialOverrides, materialTextureTransforms, ...props }: {
+  design: StairDesign; materialOverrides?: Record<string, string>; materialTextureTransforms?: PlacedModel['materialTextureTransforms'];
+  active?: boolean; castsShadow?: boolean;
+  wireframe?: boolean; upperFloorHeight?: number; guardrailOnly?: boolean; openingGuardrails?: StairRailPoint[][];
+  onObject?: (object: Object3D) => () => void
 }) {
   const environment = useContext(PbrEnvironmentContext)
   const overrides = Object.fromEntries(parametricStairMaterialRegions.map(region => {
@@ -14229,7 +14273,8 @@ export function StairContent({ design, materialOverrides, ...props }: {
     {root => parametricStairMaterialRegions.map(region => overrides[region.id] ? <Suspense fallback={null} key={`${root.uuid}:${region.id}:${revision}`}>
       <ImportedModelMaterialOverride environmentIntensity={environment.intensity} environmentMap={environment.map}
         materialId={overrides[region.id]} region={region} scene={root}
-        textureScale={getStairFinish(design, region.id.slice(7) as keyof StairDesign['finishes']).textureScale} />
+        textureScale={getStairFinish(design, region.id.slice(7) as keyof StairDesign['finishes']).textureScale}
+        {...getModelMaterialTextureTransform(materialTextureTransforms, region.id)} />
     </Suspense> : null)}
   </StairMesh>
 }
@@ -14244,11 +14289,40 @@ function UpperFloorStairGuardrails({ lower, elevation, castsShadow, wireframe }:
     return <group key={model.id} position={[model.position.x, lower.elevation, model.position.y]}
       rotation={[0, -model.rotation, 0]} scale={[scale * (model.widthScale ?? 1), scale, scale * (model.depthScale ?? 1)]}>
       <group rotation={[0, model.flipped ? Math.PI : 0, 0]} scale={[model.mirrored ? -1 : 1, 1, 1]}>
-        <StairContent design={design} materialOverrides={model.materialOverrides} upperFloorHeight={(elevation - lower.elevation) / scale}
+        <StairContent design={design} materialOverrides={model.materialOverrides} materialTextureTransforms={model.materialTextureTransforms}
+          upperFloorHeight={(elevation - lower.elevation) / scale}
           guardrailOnly castsShadow={castsShadow} wireframe={wireframe} />
       </group>
     </group>
   })
+}
+
+function OpenStairwellGuardrails({ lower, upper, walls, modelAssetVersion, castsShadow, wireframe }: {
+  lower: FloorLevel; upper: FloorLevel; walls: Wall[]; modelAssetVersion: number; castsShadow: boolean; wireframe: boolean
+}) {
+  const stairwells = useMemo(() => {
+    void modelAssetVersion
+    const stairs = lower.models.flatMap(model => {
+      const definition = modelsById.get(model.modelId)
+      const design = definition?.stairDesign
+      if (!definition || !design || !usesAutomaticStairwellGuardrails(definition) ||
+          Math.abs(lower.elevation + definition.height * (model.scale || 1) - upper.elevation) > .1) return []
+      return [{ model, definition, design }]
+    })
+    if (!stairs.length) return []
+    const footprints = getFloorSlabFootprints(upper, lower)
+    return stairs.flatMap(({ model, definition, design }) => {
+      const openings = getStairSlabOpenings(lower, upper, [{ ...lower, models: [model] }], modelsById)
+      const paths = getOpenStairwellGuardrails(model, definition, openings, footprints, walls)
+      return paths.length ? [{ model, design, paths }] : []
+    })
+  }, [lower, upper, walls, modelAssetVersion])
+  if (!stairwells.length) return null
+  return <group name="open-stairwell-guardrails" position={[0, upper.elevation, 0]}>
+    {stairwells.map(({ model, design, paths }) => <StairContent key={model.id} design={design}
+      materialOverrides={model.materialOverrides} materialTextureTransforms={model.materialTextureTransforms}
+      openingGuardrails={paths} guardrailOnly castsShadow={castsShadow} wireframe={wireframe} />)}
+  </group>
 }
 
 function ImportedModelContent({
@@ -14262,7 +14336,10 @@ function ImportedModelContent({
   isSelected,
   materialOverrides,
   materialRegions,
+  materialTextureTransforms,
   modelId,
+  mountToCeiling = false,
+  mountToWall = false,
   normalizeToDimensions,
   normalizationMeshName,
   onBoundsChange,
@@ -14283,7 +14360,10 @@ function ImportedModelContent({
   isSelected: boolean
   materialOverrides?: Record<string, string>
   materialRegions?: ModelMaterialRegion[]
+  materialTextureTransforms?: PlacedModel['materialTextureTransforms']
   modelId: string
+  mountToCeiling?: boolean
+  mountToWall?: boolean
   normalizeToDimensions: boolean
   normalizationMeshName?: string
   onBoundsChange: (bounds: ModelHorizontalBounds) => void
@@ -14422,11 +14502,19 @@ function ImportedModelContent({
     }
   }, [normalizationMeshName, scene])
   const normalizedTransform = useMemo(() => {
-    return getImportedModelTransform(bounds.box, new Vector3(targetWidth, targetHeight, targetDepth),
-      normalizeToDimensions, bounds.frameBox)
+    const transform = getImportedModelTransform(bounds.box, new Vector3(targetWidth, targetHeight, targetDepth),
+      normalizeToDimensions, bounds.frameBox, mountToWall)
+    if (mountToCeiling) {
+      const top = transform.center.y + transform.size.y / 2
+      transform.offset.y -= top
+      transform.center.y -= top
+    }
+    return transform
   }, [
     bounds.box,
     bounds.frameBox,
+    mountToCeiling,
+    mountToWall,
     normalizeToDimensions,
     targetDepth,
     targetHeight,
@@ -14438,7 +14526,7 @@ function ImportedModelContent({
   useEffect(() => { rememberModelAssetBounds(sourceUrl, bounds.box) }, [sourceUrl, bounds.box])
 
   useEffect(() => {
-    if (!normalizeToDimensions) {
+    if (!normalizeToDimensions && !mountToWall) {
       onBoundsChange({
         maxX: bounds.box.max.x,
         maxZ: bounds.box.max.z,
@@ -14460,6 +14548,7 @@ function ImportedModelContent({
     bounds.box.min.x,
     bounds.box.min.z,
     normalizeToDimensions,
+    mountToWall,
     normalizedTransform,
     onBoundsChange,
   ])
@@ -14633,6 +14722,7 @@ function ImportedModelContent({
             materialId={materialId}
             region={region}
             scene={scene}
+            {...getModelMaterialTextureTransform(materialTextureTransforms, region.id)}
           />
         ) : null
       })}
@@ -18222,7 +18312,10 @@ function ModelPicker({
   onSelectModel,
   onSelectRoof,
   onSelectSurface,
+  onTransformActiveChange,
+  onUpdateModel,
   pickTargetsRef,
+  wallDecoration,
 }: {
   active: boolean
   isTransformingRef: MutableRefObject<boolean>
@@ -18231,14 +18324,48 @@ function ModelPicker({
   onSelectModel: ThreeDViewProps['onSelectModel']
   onSelectRoof: ThreeDViewProps['onSelectRoof']
   onSelectSurface: ThreeDViewProps['onSelectSurface']
+  onTransformActiveChange: (active: boolean) => void
+  onUpdateModel: ThreeDViewProps['onUpdateModel']
   pickTargetsRef: MutableRefObject<PickTarget[]>
+  wallDecoration?: { floor: FloorLevel; model: PlacedModel; definition: ModelDefinition }
 }) {
-  const { camera, gl, scene } = useThree()
+  const { camera, gl, invalidate, scene } = useThree()
+  const previewRef = useContext(ModelTransformPreviewContext)
   const pickGestureRef = useRef<(PickGesture & { button: number }) | null>(null)
 
   useEffect(() => {
     const element = gl.domElement
     let pickGeneration = 0
+    let wallDrag: { pointerId: number; grab: { alongWall: number; height: number }; start: NonNullable<ReturnType<typeof fitWallMountedObject>>;
+      update?: NonNullable<ReturnType<typeof fitWallMountedObject>> } | null = null
+    const raycaster = new Raycaster()
+    const pointer = new Vector2()
+
+    const getPointerRay = (event: PointerEvent) => {
+      const bounds = element.getBoundingClientRect()
+      if (!bounds.width || !bounds.height || event.clientX < bounds.left || event.clientX > bounds.right ||
+        event.clientY < bounds.top || event.clientY > bounds.bottom) return null
+      pointer.set(2 * (event.clientX - bounds.left) / bounds.width - 1, 1 - 2 * (event.clientY - bounds.top) / bounds.height)
+      raycaster.setFromCamera(pointer, camera)
+      return raycaster.ray
+    }
+
+    const endWallDrag = (commit: boolean) => {
+      const drag = wallDrag
+      wallDrag = null
+      if (!drag?.update || !wallDecoration) return false
+      const { model } = wallDecoration
+      if (element.hasPointerCapture(drag.pointerId)) element.releasePointerCapture(drag.pointerId)
+      if (commit) {
+        if (previewRef) previewRef.current = { modelId: model.id, updates: drag.update, committed: true }
+        onUpdateModel(model.id, drag.update)
+      } else if (previewRef?.current?.modelId === model.id) {
+        previewRef.current = null
+      }
+      onTransformActiveChange(false)
+      invalidate()
+      return true
+    }
 
     const handlePointerDown = (event: PointerEvent) => {
       if (
@@ -18259,6 +18386,27 @@ function ModelPicker({
         x: event.clientX,
         y: event.clientY,
       }
+      if (event.button !== 0 || !wallDecoration || !previewRef) return
+
+      const { floor, model, definition } = wallDecoration
+      const attachment = model.wallAttachment
+      const wall = attachment && floor.walls.find(item => item.id === attachment.wallId)
+      const ray = wall && getPointerRay(event)
+      const faceWalls = definition.kitchenUnitDesign?.unitType === 'wall' ? floor.walls : undefined
+      const hit = ray && wall && getWallFaceHit(ray, wall, floor.elevation, faceWalls)
+      const mount = wall && attachment && fitWallMountedObject(definition, wall, attachment, model, floor.walls)
+      if (!hit || !mount || hit.attachment.side !== mount.wallAttachment.side) return
+
+      const object = pickTargetsRef.current.find(target => target.kind === 'model' && target.modelId === model.id)?.object
+      if (!object || !raycaster.intersectObject(object, true).length) return
+      const picked = performGeometryPickFallback({ camera, clientX: event.clientX, clientY: event.clientY,
+        element, pickTarget: pickTargetsRef })
+      if (picked?.kind !== 'model' || picked.modelId !== model.id) return
+
+      wallDrag = { pointerId: event.pointerId, start: mount, grab: {
+        alongWall: (hit.attachment.offset - mount.wallAttachment.offset) * mount.wallAttachment.side,
+        height: hit.height - mount.height,
+      } }
     }
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -18268,13 +18416,48 @@ function ModelPicker({
       if (Math.abs(event.clientX - gesture.x) > tolerance || Math.abs(event.clientY - gesture.y) > tolerance) {
         gesture.moved = true
       }
+
+      if (!wallDrag || !wallDecoration || !previewRef || wallDrag.pointerId !== event.pointerId) return
+      if (!wallDrag.update && isTransformingRef.current) {
+        // The native Move arrow has already claimed this gesture.
+        wallDrag = null
+        return
+      }
+      if (!wallDrag.update && Math.max(Math.abs(event.clientX - gesture.x), Math.abs(event.clientY - gesture.y)) <= PICK_CLICK_TOLERANCE_PIXELS) return
+      const ray = getPointerRay(event)
+      const { floor, definition, model } = wallDecoration
+      const candidate = ray && getWallMountedObjectPlacementAlongRay(ray, floor, definition, model, wallDrag.grab)
+      const placement = event.ctrlKey ? candidate : resolveWallCabinetPlacement(definition, floor, modelsById, candidate, model,
+        { from: wallDrag.update ?? wallDrag.start, snap: event.shiftKey ? undefined : 'both', slide: !event.shiftKey })
+      if (!placement) return
+      if (!wallDrag.update) {
+        element.setPointerCapture(event.pointerId)
+        onTransformActiveChange(true)
+      }
+      const { height, position, rotation, wallAttachment } = placement
+      wallDrag.update = { height, position, rotation, wallAttachment }
+      previewRef.current = { modelId: model.id, updates: wallDrag.update }
+      invalidate()
     }
-    const handlePointerCancel = () => { pickGeneration++; pickGestureRef.current = null }
+    const handlePointerCancel = () => {
+      pickGeneration++
+      pickGestureRef.current = null
+      endWallDrag(false)
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !wallDrag?.update) return
+      event.preventDefault()
+      handlePointerCancel()
+    }
+    const handleLostPointerCapture = (event: PointerEvent) => {
+      if (wallDrag?.pointerId === event.pointerId) handlePointerCancel()
+    }
     const handlePointerUp = async (event: PointerEvent) => {
       const pickGesture = pickGestureRef.current
       if (!pickGesture || pickGesture.pointerId !== event.pointerId || pickGesture.button !== event.button) return
 
       pickGestureRef.current = null
+      if (wallDrag?.pointerId === event.pointerId && endWallDrag(true)) return
       const contextClick = pickGesture.button === 2
 
       if (
@@ -18398,16 +18581,24 @@ function ModelPicker({
     element.addEventListener('pointermove', handlePointerMove, true)
     element.addEventListener('pointercancel', handlePointerCancel, true)
     element.addEventListener('pointerup', handlePointerUp, true)
+    element.addEventListener('lostpointercapture', handleLostPointerCapture)
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('blur', handlePointerCancel)
 
     return () => {
       pickGeneration++
+      endWallDrag(false)
       element.removeEventListener('pointerdown', handlePointerDown, true)
       element.removeEventListener('pointermove', handlePointerMove, true)
       element.removeEventListener('pointercancel', handlePointerCancel, true)
       element.removeEventListener('pointerup', handlePointerUp, true)
+      element.removeEventListener('lostpointercapture', handleLostPointerCapture)
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('blur', handlePointerCancel)
     }
   }, [
     camera,
+    invalidate,
     gl.domElement,
     gl,
     scene,
@@ -18418,7 +18609,11 @@ function ModelPicker({
     onSelectModel,
     onSelectRoof,
     onSelectSurface,
+    onTransformActiveChange,
+    onUpdateModel,
     pickTargetsRef,
+    previewRef,
+    wallDecoration,
   ])
 
   return null
@@ -18442,6 +18637,7 @@ function DormerWindowContent({
   ceilingAssignment,
   interiorWallAssignment,
   exteriorMaterialId,
+  exteriorTextureTransform,
   dormerWidth,
   dormerHeight,
   windowOpenings,
@@ -18470,6 +18666,7 @@ function DormerWindowContent({
   ceilingAssignment?: SurfaceMaterialAssignment
   interiorWallAssignment?: SurfaceMaterialAssignment
   exteriorMaterialId?: string
+  exteriorTextureTransform?: MaterialTextureTransform
   dormerWidth?: number
   dormerHeight?: number
   windowOpenings?: Wall['openings']
@@ -18491,6 +18688,7 @@ function DormerWindowContent({
   const exteriorMaterial = exteriorMaterialId ? surfaceMaterialsById.get(exteriorMaterialId) : undefined
   const exteriorAssignment: SurfaceMaterialAssignment | undefined = exteriorMaterialId ? {
     id: `${modelId}:exterior`, materialId: exteriorMaterialId,
+    ...exteriorTextureTransform,
     target: { type: 'wall-face', wallId: `${modelId}:exterior`, side: 'both' },
   } : undefined
   const windowDepth = Math.max(0.06, Math.min(windowDefinition?.depth ?? 0.075, 0.14))
@@ -18730,6 +18928,7 @@ function DormerWindowContent({
 
 type OpeningPlacementCandidate = ModelPlacement & {
   elevation: number
+  ceilingPreviewBottom?: number
 }
 
 type OpeningPlacementPreview = {
@@ -18779,7 +18978,9 @@ function OpeningPlacementVisual({
   }
   const displayPosition = dormerPlacement?.position ??
     (candidate && wall && candidate.wallAttachment
-    ? getWallMountedModelDisplayPosition({
+    ? definition.placement === 'wall-mounted'
+      ? getWallMountedObjectDisplayPoint(wall, candidate.wallAttachment, -definition.depth / 2)
+      : getWallMountedModelDisplayPosition({
         definition,
         importedLocalBounds: null,
         model: previewModel,
@@ -18798,14 +18999,14 @@ function OpeningPlacementVisual({
   const verticalPosition = dormerPlacement
     ? floorElevation + (attachedRoof?.heightOffset ?? 0) + dormerPlacement.surfaceHeight
     : candidate
-      ? floorElevation + openingBottom
+      ? floorElevation + (candidate.ceilingPreviewBottom ?? candidate.height ?? openingBottom)
     : Math.max(floorElevation, preview.cursorPosition[1] - definition.height / 2)
   const fallback = (
     <mesh position={[0, definition.height / 2, 0]}>
       <boxGeometry args={[
         Math.max(definition.width, 0.2),
         Math.max(definition.height, 0.2),
-        Math.max(definition.depth, 0.08),
+        Math.max(definition.depth, definition.placement === 'wall-mounted' ? 0.005 : 0.08),
       ]} />
       <meshBasicMaterial
         color={candidate ? '#38bdf8' : '#f97316'}
@@ -18848,7 +19049,7 @@ function OpeningPlacementVisual({
         size={[
           Math.max(definition.width, 0.2),
           Math.max(definition.height, 0.2),
-          Math.max(definition.depth, 0.08),
+          Math.max(definition.depth, definition.placement === 'wall-mounted' ? 0.005 : 0.08),
         ]}
       />
     </group>
@@ -18871,8 +19072,8 @@ function OpeningPlacementController({
   pickTargetsRef: MutableRefObject<PickTarget[]>
 }) {
   const { camera, gl, invalidate } = useThree()
+  const ceilingMountAreas = useContext(CeilingMountContext)
   const [preview, setPreview] = useState<OpeningPlacementPreview | null>(null)
-  const candidateRef = useRef<OpeningPlacementCandidate | null>(null)
   const gestureRef = useRef<PickGesture | null>(null)
 
   useEffect(() => {
@@ -18900,6 +19101,31 @@ function OpeningPlacementController({
       raycaster.setFromCamera(pointer, camera)
 
       let closest: (OpeningPlacementCandidate & { distance: number }) | null = null
+
+      if (definition.placement === 'ceiling-mounted') {
+        for (const floor of floors) {
+          const ceiling = floor.roomHeight - CEILING_VERTICAL_OVERLAP_METERS
+          plane.set(floorPlane.normal, -(floor.elevation + ceiling))
+          if (!raycaster.ray.intersectPlane(plane, hitPoint)) continue
+          const position = { x: hitPoint.x, y: hitPoint.z }
+          if (!ceilingMountFits(position, ceilingMountAreas.get(floor.id))) continue
+          const distance = raycaster.ray.origin.distanceTo(hitPoint)
+          if (!closest || distance < closest.distance) closest = { position, rotation: 0, floorId: floor.id, elevation: floor.elevation,
+            ceilingPreviewBottom: ceiling - definition.height, distance }
+        }
+        return closest
+      }
+
+      if (definition.placement === 'wall-mounted') {
+        for (const floor of floors) {
+          const hit = getWallMountedObjectPlacementAlongRay(raycaster.ray, floor, definition)
+          if (hit && (!closest || hit.distance < closest.distance)) {
+            const placement = resolveWallCabinetPlacement(definition, floor, modelsById, hit, {}, { snap: 'both' })
+            if (placement) closest = { ...placement, distance: hit.distance, floorId: floor.id, elevation: floor.elevation }
+          }
+        }
+        return closest
+      }
 
       if (definition.roofMount === 'dormer') {
         for (const target of pickTargetsRef.current) {
@@ -18945,10 +19171,7 @@ function OpeningPlacementController({
         }
       }
 
-      const halfOpeningWidth = Math.max(
-        definition.openingWidth ?? definition.width,
-        0.2,
-      ) / 2
+      const halfOpeningWidth = Math.max(definition.openingWidth ?? definition.width, 0.2) / 2
 
       for (const floor of floors) {
         for (const wall of floor.walls) {
@@ -18994,6 +19217,8 @@ function OpeningPlacementController({
               (raycaster.ray.origin.z - wall.start.y) * normal.z < 0
               ? -1
               : 1
+          const wallAttachment = { offset, side, wallId: wall.id }
+          if (!doorPlacementFits(definition, floor.walls, wallAttachment)) continue
           const rotation = Math.atan2(dz, dx) + (side < 0 ? Math.PI : 0)
           const nextCandidate: OpeningPlacementCandidate & { distance: number } = {
             distance,
@@ -19007,11 +19232,7 @@ function OpeningPlacementController({
             wallOpeningBottom: definition.wallMount === 'window'
               ? openingBottom
               : undefined,
-            wallAttachment: {
-              offset,
-              side,
-              wallId: wall.id,
-            },
+            wallAttachment,
           }
 
           if (!closest || distance < closest.distance) closest = nextCandidate
@@ -19022,6 +19243,7 @@ function OpeningPlacementController({
       return {
         elevation: closest.elevation,
         floorId: closest.floorId,
+        height: closest.height,
         position: closest.position,
         roofAttachment: closest.roofAttachment,
         rotation: closest.rotation,
@@ -19056,7 +19278,6 @@ function OpeningPlacementController({
         raycaster.ray.intersectPlane(floorPlane, new Vector3()) ??
         raycaster.ray.at(5, new Vector3())
 
-      candidateRef.current = nextCandidate
       setPreview({
         candidate: nextCandidate,
         cursorPosition: [cursorPoint.x, cursorPoint.y, cursorPoint.z],
@@ -19064,7 +19285,6 @@ function OpeningPlacementController({
       invalidate()
     }
     const clearCandidate = () => {
-      candidateRef.current = null
       setPreview(null)
       invalidate()
     }
@@ -19085,13 +19305,13 @@ function OpeningPlacementController({
         !gesture ||
         gesture.pointerId !== event.pointerId ||
         Math.abs(event.clientX - gesture.x) > PICK_CLICK_TOLERANCE_PIXELS ||
-        Math.abs(event.clientY - gesture.y) > PICK_CLICK_TOLERANCE_PIXELS ||
-        !candidateRef.current
+        Math.abs(event.clientY - gesture.y) > PICK_CLICK_TOLERANCE_PIXELS
       ) {
         return
       }
 
-      onPlaceModel(candidateRef.current)
+      const candidate = findCandidate(event.clientX, event.clientY)
+      if (candidate) onPlaceModel(candidate)
     }
 
     element.addEventListener('pointermove', updateCandidate, true)
@@ -19105,7 +19325,7 @@ function OpeningPlacementController({
       element.removeEventListener('pointerdown', handlePointerDown, true)
       element.removeEventListener('pointerup', handlePointerUp, true)
     }
-  }, [camera, definition, floors, gl.domElement, invalidate, onPlaceModel, pickTargetsRef])
+  }, [camera, ceilingMountAreas, definition, floors, gl.domElement, invalidate, onPlaceModel, pickTargetsRef])
 
   if (!preview) return null
 
@@ -19738,6 +19958,16 @@ function ThreeDScene({
     () => showAllFloorsInScene ? floors : activeFloor ? [activeFloor] : [],
     [activeFloor, floors, showAllFloorsInScene],
   )
+  const selectedWallDecoration = useMemo(() => {
+    if (transformMode !== 'translate' || !selectedModelId) return undefined
+    for (const floor of modelPlacementFloors) {
+      const model = floor.models.find(item => item.id === selectedModelId)
+      if (!model?.wallAttachment) continue
+      const definition = modelsById.get(model.modelId)
+      if (definition && isWallMountedDecoration(definition, model)) return { floor, model, definition }
+    }
+    return undefined
+  }, [modelAssetVersion, modelPlacementFloors, selectedModelId, transformMode])
   const cameraFov = getCameraFov(aspectRatioMode)
   const headHeightY = (activeFloor?.elevation ?? 0) + WALK_HEAD_HEIGHT_METERS
   const floorsByElevation = useMemo(
@@ -20188,6 +20418,10 @@ function ThreeDScene({
     )
     return [floor.id, { upperFloor, ceilingRoomSignatures, hasHorizontalCeiling, floorStairOpenings, floorOpenings, ceilingOpenings, ceilingRoofCutouts, slabRoofCutouts }] as const
   })), [visibleRenderedFloors, floorsByElevation, floors, wallClippingRoofs, buildingRoomVolumes.cuts, modelAssetVersion])
+  const ceilingMountAreas = useMemo(() => new Map(visibleRenderedFloors.flatMap(({ floor, rooms }) =>
+    placementModel?.placement === 'ceiling-mounted' || floor.models.some(model => modelsById.get(model.modelId)?.placement === 'ceiling-mounted')
+      ? [[floor.id, getCeilingMountArea(floor, floors, rooms, modelsById)] as const] : [])),
+  [floors, modelAssetVersion, placementModel?.placement, visibleRenderedFloors])
   const floorTops = useMemo(() => {
     const tops = new Map<string, ReturnType<typeof prepareFloorTopSurfaces>>()
     if (renderOptions.roofsOnly) return tops
@@ -21864,6 +22098,8 @@ function ThreeDScene({
             <span>
               {placementModel.roofMount === 'dormer'
                 ? 'Hover over an up-and-over or hip roof, then click to install · Esc to cancel'
+                : placementModel.placement === 'wall-mounted' ? 'Click the wall at the height you want · Esc to cancel'
+                : placementModel.placement === 'ceiling-mounted' ? 'Click a flat ceiling · Esc to cancel'
                 : 'Hover over a wall, then click to install · Esc to cancel'}
             </span>
             <button type="button" onClick={onCancelModelPlacement}>Cancel</button>
@@ -21918,6 +22154,7 @@ function ThreeDScene({
         <DormerWallContactsContext.Provider value={dormerInteriors.wallContacts}>
         <DormerBaseElevationsContext.Provider value={dormerInteriors.baseElevations}>
         <StoreyGeometryContext.Provider value={storeyGeometry}>
+        <CeilingMountContext.Provider value={ceilingMountAreas}>
         <StairWallCutContext.Provider value={stairWallCuts}>
         <RoofGableContext.Provider value={roofGables}>
         <GableClipContext.Provider value={preparedGables.clipData}>
@@ -21969,7 +22206,10 @@ function ThreeDScene({
               onSelectModel={onSelectModel}
               onSelectRoof={onSelectRoof}
               onSelectSurface={onSelectSurface}
+              onTransformActiveChange={setTransformingModel}
+              onUpdateModel={onUpdateModel}
               pickTargetsRef={pickTargetsRef}
+              wallDecoration={selectedWallDecoration}
             />
             ) : null}
             {!readOnly && placementModel ? (
@@ -22239,6 +22479,14 @@ function ThreeDScene({
 
             {buildingScene}
 
+            {!renderOptions.roofsOnly && floorsByElevation.map((upper, index) => {
+              const lower = floorsByElevation[index - 1]
+              const data = renderedFloorsById.get(upper.id)
+              return lower && data && (showAllFloorsInScene || activeFloorId === upper.id) ?
+                <OpenStairwellGuardrails key={upper.id} lower={lower} upper={upper} walls={data.geometryContextWalls}
+                  modelAssetVersion={modelAssetVersion} castsShadow={renderOptions.shadows} wireframe={renderOptions.wireframe} /> : null
+            })}
+
             {!showAllFloorsInScene && !renderOptions.roofsOnly && activeFloor && floorBelowActive ? (
               <UpperFloorStairGuardrails lower={floorBelowActive} elevation={activeFloor.elevation}
                 castsShadow={renderOptions.shadows} wireframe={renderOptions.wireframe} />
@@ -22325,6 +22573,7 @@ function ThreeDScene({
         </GableClipContext.Provider>
         </RoofGableContext.Provider>
         </StairWallCutContext.Provider>
+        </CeilingMountContext.Provider>
         </StoreyGeometryContext.Provider>
         </DormerBaseElevationsContext.Provider>
         </DormerWallContactsContext.Provider>

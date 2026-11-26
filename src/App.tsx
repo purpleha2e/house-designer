@@ -1,7 +1,7 @@
 import { replaceRoofMaterialAssignment, roofSurfaceTargetsMatch } from './roofMaterialAssignments'
 import { browserProjectSaveFile, writeProjectFile, type ProjectFileHandle } from './projectDeviceSave'
 import { getSelectionContextFloor } from './surfaceSelection'
-import { retainProjectModels } from './models/projectModelCatalog'
+import { mergeProjectModelDefinitions, retainProjectModels } from './models/projectModelCatalog'
 import { readRecentProject, rememberRecentProject, useRecentProjects, type LoadedProjectFile } from './recentProjects'
 import { ProjectLoadConfirmation } from './components/ProjectLoadConfirmation'
 import { indirectProjectKey, indirectContentKey, indirectAssetIdentity, savedIndirectLightingMatches, type SavedIndirectLighting } from './indirectLightingPersistence'
@@ -30,7 +30,10 @@ import {
   type RoofCreateOptions,
   type RoofPlacementPreview,
 } from './components/FloorplanCanvas'
-import { LeftToolRail, EditToolbar } from './components/LeftToolRail'
+import { LeftToolRail, EditToolbar, type RailPanel } from './components/LeftToolRail'
+import { DesignAssistant } from './components/DesignAssistant'
+import { makeSceneSource } from './assistant/scene'
+import { materializeProposalFloors, type DesignOption, type DesignProposal, type FloorEdits } from './assistant/proposal'
 import { ManufacturerPortal } from './components/ManufacturerPortal'
 import { MaterialEditor } from './components/MaterialEditor'
 import { AccountDialog } from './components/AccountDialog'
@@ -39,6 +42,15 @@ import { collectLocalMaterialDefinitions, loadLocalMaterials, saveLocalMaterial,
 import { ModelSelector } from './components/ModelSelector'
 import { WindowBuilder } from './components/WindowBuilder'
 import { StairBuilder } from './components/StairBuilder'
+import { ObjectBuilder } from './components/ObjectBuilder'
+import { PictureFrameBuilder } from './components/PictureFrameBuilder'
+import { KitchenUnitBuilder } from './components/KitchenUnitBuilder'
+import { validatePictureFrameDesign } from './pictureFrameDesign'
+import { validateKitchenUnitDesign } from './kitchenUnitDesign'
+import { loadPictureFrameLibrary, registerPictureFrameModels, removePictureFramesFromLibrary,
+  savePictureFrameToLibrary } from './pictureFrameLibrary'
+import { loadKitchenUnitLibrary, registerKitchenUnitModels, removeKitchenUnitsFromLibrary,
+  saveKitchenUnitToLibrary } from './kitchenUnitLibrary'
 import { loadStairLibrary, registerStairModels, removeStairsFromLibrary, saveStairToLibrary } from './stairLibrary'
 import { stairGeometryKey } from './stairGeometry'
 import { validateStairDesign } from './stairDesign'
@@ -80,11 +92,14 @@ import {
 } from './models/modelLibrary'
 import {
   isOpeningModel,
+  type ModelLibraryRoot,
   type ModelLibrarySection,
 } from './models/modelLibrarySections'
 import { loadPortalCatalog } from './portalCatalog'
 import {
   buildWallTopology,
+  preserveRoomMetadataAfterWallMove,
+  wallEditCollapsesGeometry,
   WALL_TOPOLOGY_VERSION,
   type DetectedRoom,
 } from './wallTopology'
@@ -93,6 +108,7 @@ import { createCeilingLoftFloor, getAddLoftFloorDisabledReason } from './loftFlo
 import { createDormerWindow, syncDormerWindows, updateDormerWindow } from './dormerWindows'
 import { DEFAULT_EXTERNAL_WALL_THICKNESS_METERS, MAX_WALL_HEIGHT_METERS } from './wallGeometry'
 import { remapSplitWallFinishes, splitFloorWall } from './wallSplit'
+import { getWallJoinChain, joinFloorWalls, preserveJoinedWallRooms, remapJoinedWallFinishes } from './wallJoin'
 import {
   ALL_FLOORS_VIEW_ID,
   normalizeExposureStops,
@@ -100,13 +116,21 @@ import {
   normalizeSavedTwoDViewState,
 } from './projectViewState'
 import {
+  constrainDoorUpdate,
   createPlacedModel,
+  doorPlacementFits,
+  getDoorWallOffset,
   getWallMountForPoint,
+  fitWallMountedObject,
+  getWallMountedObjectPlacement,
+  isWallMountedDecoration,
   normalizeFloor,
+  resolveWallCabinetPlacement,
   syncWallOpenings,
   updateWallAttachedModels,
   type ModelPlacement,
 } from './modelPlacement'
+import { isPlanDoor } from './doorPlan'
 import {
   findDormerPlacement,
   getAttachedDormerPlacement,
@@ -338,7 +362,9 @@ function isSavedProject(value: unknown): value is SavedProject {
     project.floors.length > 0 &&
     (project.wallKind === 'external' || project.wallKind === 'internal') &&
     (!Array.isArray(project.modelDefinitions) || project.modelDefinitions.every(model =>
-      !model?.stairDesign || !validateStairDesign(model.stairDesign)))
+      (!model?.stairDesign || !validateStairDesign(model.stairDesign)) &&
+      (!model?.pictureFrameDesign || !validatePictureFrameDesign(model.pictureFrameDesign)) &&
+      (!model?.kitchenUnitDesign || !validateKitchenUnitDesign(model.kitchenUnitDesign))))
   )
 }
 
@@ -424,13 +450,15 @@ function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
   const modelIds = new Set(
     floors.flatMap((floor) => (floor.models ?? []).map((model) => model.modelId)),
   )
-  modelLibrary.filter(model => model.windowDesign || model.stairDesign).forEach(model => modelIds.add(model.id))
+  modelLibrary.filter(model => model.windowDesign || model.stairDesign || model.pictureFrameDesign || model.kitchenUnitDesign)
+    .forEach(model => modelIds.add(model.id))
 
   return Array.from(modelIds)
     .flatMap((modelId) => {
       const definition = modelsById.get(modelId)
 
-      return definition && (modelId.startsWith('portal-model-') || definition.windowDesign || definition.stairDesign)
+      return definition && (modelId.startsWith('portal-model-') || definition.windowDesign ||
+        definition.stairDesign || definition.pictureFrameDesign || definition.kitchenUnitDesign)
         ? [definition]
         : []
     })
@@ -648,9 +676,14 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   )
   const [newWallHeight, setNewWallHeight] = useState(DEFAULT_ROOM_HEIGHT)
   const [wallTool, setWallTool] = useState<'add' | 'split' | null>(null)
+  const [railPanel, setRailPanel] = useState<RailPanel | null>(null)
   const isAddingWall = wallTool === 'add'
   const isSplittingWall = wallTool === 'split'
   const exitWallTool = useCallback(() => setWallTool(null), [])
+  const stopAddingWalls = useCallback(() => {
+    setWallTool(null)
+    setRailPanel('wall')
+  }, [])
   const [isRoofMode, setIsRoofMode] = useState(false)
   const [projectFileName, setProjectFileName] = useState(initialProjectSource === undefined ? PROJECT_FILE_NAME : 'colin_house_v2.json')
   //const [projectFileName, setProjectFileName] = useState('sharrose_road_2.json')
@@ -691,8 +724,11 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
   const [windowBuilder, setWindowBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
   const [stairBuilder, setStairBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
-  const [modelSelectorSection, setModelSelectorSection] =
-    useState<ModelLibrarySection>('objects')
+  const [objectBuilderOpen, setObjectBuilderOpen] = useState(false)
+  const [pictureFrameBuilder, setPictureFrameBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
+  const [kitchenUnitBuilder, setKitchenUnitBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
+  const [modelSelectorLocation, setModelSelectorLocation] =
+    useState<{ root: ModelLibraryRoot; section: ModelLibrarySection }>({ root: 'public', section: 'objects' })
   const [pendingModelId, setPendingModelId] = useState<string | null>(null)
   const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
   const [isMaterialEditorOpen, setIsMaterialEditorOpen] = useState(false)
@@ -704,12 +740,16 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   const [isEngineConsoleOpen, setIsEngineConsoleOpen] = useState(false)
   const [clipboardItem, setClipboardItem] = useState<ClipboardItem | null>(null)
   const [historyVersion, setHistoryVersion] = useState(0)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [assistantPreview, setAssistantPreview] = useState<{ proposal: DesignProposal; previewFloors: FloorLevel[]; floors: FloorLevel[]; revision: string;
+    stair?: FloorEdits['stair']; overlays?: FloorEdits['overlays'] } | null>(null)
   const [modelAssetVersion, setModelAssetVersion] = useState(0)
   const [sceneRevision, setSceneRevision] = useState(0)
   const [availableMaterials, setAvailableMaterials] = useState(
     () => [...surfaceMaterialCatalog],
   )
   const [availableModels, setAvailableModels] = useState(() => [...modelLibrary])
+  const portalModelsRef = useRef<ModelDefinition[]>([])
   const [surfaceAssignments, setSurfaceAssignments] = useState<
     SurfaceMaterialAssignment[]
   >(initialProject.surfaceAssignments)
@@ -758,6 +798,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         `[HouseDesigner] Loaded portal catalog: ${catalog.models.length} models, ${catalog.materials.length} materials`,
       )
       registerRuntimeSurfaceMaterials(catalog.materials)
+      portalModelsRef.current = catalog.models
       registerRuntimeModels(retainProjectModels(catalog.models, currentFloorsRef.current, modelsById, preserveSavedDefinitions))
       setAvailableMaterials([...surfaceMaterialCatalog])
       setAvailableModels([...modelLibrary])
@@ -802,6 +843,26 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       registerStairModels(stairs.filter(model => !modelsById.has(model.id)))
       setAvailableModels([...modelLibrary])
     }).catch(error => console.warn('Could not read My stairs:', error))
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void loadPictureFrameLibrary().then(frames => {
+      if (cancelled) return
+      registerPictureFrameModels(frames.filter(model => !modelsById.has(model.id)))
+      setAvailableModels([...modelLibrary])
+    }).catch(error => console.warn('Could not read saved picture frames:', error))
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void loadKitchenUnitLibrary().then(units => {
+      if (cancelled) return
+      registerKitchenUnitModels(units.filter(model => !modelsById.has(model.id)))
+      setAvailableModels([...modelLibrary])
+    }).catch(error => console.warn('Could not read saved kitchen units:', error))
     return () => { cancelled = true }
   }, [])
 
@@ -884,9 +945,16 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       void removeWindowsFromLibrary(removedWindows).catch(error => console.warn('Could not undo local window:', error))
       const removedStairs = modelLibrary.filter(model => model.stairDesign && !restoredIds.has(model.id)).map(model => model.id)
       void removeStairsFromLibrary(removedStairs).catch(error => console.warn('Could not undo local stairs:', error))
-      registerRuntimeModels(snapshot.modelDefinitions.filter(model => !model.windowDesign && !model.stairDesign))
+      const removedFrames = modelLibrary.filter(model => model.pictureFrameDesign && !restoredIds.has(model.id)).map(model => model.id)
+      void removePictureFramesFromLibrary(removedFrames).catch(error => console.warn('Could not undo local picture frames:', error))
+      const removedUnits = modelLibrary.filter(model => model.kitchenUnitDesign && !restoredIds.has(model.id)).map(model => model.id)
+      void removeKitchenUnitsFromLibrary(removedUnits).catch(error => console.warn('Could not undo local kitchen units:', error))
+      registerRuntimeModels(mergeProjectModelDefinitions(portalModelsRef.current,
+        snapshot.modelDefinitions.filter(model => !model.windowDesign && !model.stairDesign && !model.pictureFrameDesign && !model.kitchenUnitDesign)))
       registerWindowModels(snapshot.modelDefinitions.filter(model => model.windowDesign), true)
       registerStairModels(snapshot.modelDefinitions.filter(model => model.stairDesign), true)
+      registerPictureFrameModels(snapshot.modelDefinitions.filter(model => model.pictureFrameDesign), true)
+      registerKitchenUnitModels(snapshot.modelDefinitions.filter(model => model.kitchenUnitDesign), true)
       setAvailableModels([...modelLibrary])
       setSceneRevision(revision => revision + 1)
       for (const model of snapshot.modelDefinitions.filter(model => model.windowDesign)) {
@@ -894,6 +962,12 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       }
       for (const model of snapshot.modelDefinitions.filter(model => model.stairDesign)) {
         void saveStairToLibrary(model).catch(error => console.warn('Could not restore local stairs:', error))
+      }
+      for (const model of snapshot.modelDefinitions.filter(model => model.pictureFrameDesign)) {
+        void savePictureFrameToLibrary(model).catch(error => console.warn('Could not restore local picture frames:', error))
+      }
+      for (const model of snapshot.modelDefinitions.filter(model => model.kitchenUnitDesign)) {
+        void saveKitchenUnitToLibrary(model).catch(error => console.warn('Could not restore local kitchen units:', error))
       }
     }
     localLightControl.restore(snapshot.floors.flatMap(floor => floor.models.filter(model => modelsById.get(model.modelId)?.isLight)
@@ -1084,37 +1158,33 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   const addWall = (wall: Pick<Wall, 'start' | 'end'>) => {
     const targetFloor =
       floors.find((floor) => floor.id === activeFloorId) ?? floors[0]
+    const id = createId()
+    const nextWall: Wall = {
+      ...wall,
+      id,
+      kind: wallKind,
+      allowRoofClipHeight: targetFloor.floorFootprints?.length ? true : undefined,
+      thickness: wallKind === 'external' ? DEFAULT_THICKNESS : internalWallThickness,
+      height: Math.min(newWallHeight, MAX_WALL_HEIGHT_METERS),
+    }
 
     if (
       !wallHasValidGeometry(wall) ||
-      wallDuplicatesExistingSegment(wall, targetFloor.walls)
+      wallDuplicatesExistingSegment(wall, targetFloor.walls) ||
+      wallEditCollapsesGeometry(targetFloor.walls, [...targetFloor.walls, nextWall])
     ) {
       console.warn('[HouseDesigner] Ignored invalid wall geometry.', wall)
       return
     }
 
     recordHistory()
-    const id = createId()
 
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
         floor.id === activeFloorId
           ? {
               ...floor,
-              walls: [
-                ...floor.walls,
-                {
-                  ...wall,
-                  id,
-                  kind: wallKind,
-                  allowRoofClipHeight: floor.floorFootprints?.length ? true : undefined,
-                  thickness:
-                    wallKind === 'external'
-                      ? DEFAULT_THICKNESS
-                      : internalWallThickness,
-                  height: Math.min(newWallHeight, MAX_WALL_HEIGHT_METERS),
-                },
-              ],
+              walls: [...floor.walls, nextWall],
             }
           : floor,
       ),
@@ -1130,7 +1200,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   const splitWall = (wallId: string, offset: number) => {
     const floor = floors.find(candidate => candidate.id === activeFloorId) ?? floors[0]
     const split = splitFloorWall(floor, wallId, offset, createId())
-    if (!split) return
+    if (!split || wallEditCollapsesGeometry(floor.walls, split.floor.walls)) return
 
     const nextFloor = syncWallOpenings(split.floor, modelsById)
     const nextAssignments = remapSplitWallFinishes(surfaceAssignments, split, nextFloor, createId)
@@ -1144,6 +1214,26 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setSelectedModelIds([])
     setSelectedRoofId(null)
     setSelectedSurface(null)
+  }
+
+  const joinWalls = (wallIds: string[]) => {
+    const floor = floors.find(candidate => candidate.id === activeFloorId) ?? floors[0]
+    const chain = getWallJoinChain(floor.walls, wallIds, buildWallTopology(floor.walls, { detectRooms: false }))
+    if (!chain) return
+
+    const result = joinFloorWalls(floor, chain, createId())
+    if (!wallHasValidGeometry(result.joined) ||
+      wallDuplicatesExistingSegment(result.joined, result.floor.walls, result.joined.id) ||
+      wallEditCollapsesGeometry(floor.walls, result.floor.walls)) return
+
+    const nextModels = updateWallAttachedModels(result.floor.models, result.joined, { walls: result.floor.walls, definitions: modelsById })
+    const nextFloor = syncWallOpenings({ ...result.floor, models: nextModels }, modelsById)
+    const nextAssignments = remapJoinedWallFinishes(surfaceAssignments, result, nextFloor)
+    const preserved = preserveJoinedWallRooms(floor, nextFloor, nextAssignments)
+    recordHistory()
+    setFloors(current => current.map(candidate => candidate.id === floor.id ? preserved.floor : candidate))
+    setSurfaceAssignments(preserved.assignments)
+    selectWall(result.joined.id)
   }
 
   const deleteWall = (wallId: string) => {
@@ -1482,7 +1572,6 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   }
 
   const addModel = (modelId: string, placement?: ModelPlacement) => {
-    recordHistory()
     const activeFloorForPlacement =
       floors.find((floor) => floor.id === (placement?.floorId ?? activeFloorId)) ?? floors[0]
     const baseModel = createPlacedModel({
@@ -1495,12 +1584,17 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       ? {
           ...baseModel,
           position: placement.position,
+          height: placement.height ?? baseModel.height,
           roofAttachment: placement.roofAttachment,
           rotation: placement.rotation,
           wallAttachment: placement.wallAttachment,
           wallOpeningBottom: placement.wallOpeningBottom,
         }
       : baseModel
+    const definition = modelsById.get(modelId)
+    if (definition && ((definition.placement === 'wall-mounted' && !model.wallAttachment) ||
+      !doorPlacementFits(definition, activeFloorForPlacement.walls, model.wallAttachment, model))) return
+    recordHistory()
     const targetFloorId = activeFloorForPlacement.id
 
     setFloors((currentFloors) =>
@@ -1537,7 +1631,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       return
     }
 
-    if (definition && isOpeningModel(definition)) {
+    if (definition && (isOpeningModel(definition) || definition.placement === 'wall-mounted' || definition.placement === 'ceiling-mounted')) {
       setPendingModelId(modelId)
       setWallTool(null)
       setIsRoofMode(false)
@@ -1556,7 +1650,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     const floor = floors.find(floor => floor.models.some(model => model.id === dormerId))
     if (!floor) return
     const existing = floor.models.find(model => model.dormerAttachment?.dormerId === dormerId)
-    const window = existing ? updateDormerWindow(floor, existing, { modelId, materialOverrides: undefined }, modelsById)
+    const window = existing ? updateDormerWindow(floor, existing, { modelId, materialOverrides: undefined, materialTextureTransforms: undefined }, modelsById)
       : createDormerWindow(floor, dormerId, modelId, createId(), modelsById)
     if (!window) return
     recordHistory()
@@ -1657,6 +1751,16 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   }
 
   const updateModel = (modelId: string, updates: Partial<PlacedModel>) => {
+    if (['position', 'wallAttachment', 'scale', 'widthScale', 'modelId'].some(key => key in updates)) {
+      const floor = floors.find(candidate => candidate.models.some(model => model.id === modelId))
+      const model = floor?.models.find(candidate => candidate.id === modelId)
+      const definition = model && modelsById.get(updates.modelId ?? model.modelId)
+      if (floor && model && definition && isPlanDoor(definition)) {
+        const constrained = constrainDoorUpdate(model, definition, floor.walls, updates)
+        if (!constrained) return
+        updates = constrained
+      }
+    }
     if (['position', 'rotation', 'scale', 'widthScale', 'depthScale', 'wallAttachment', 'wallOpeningBottom', 'height'].some(key => key in updates)) {
       modelTransformPreviewRef.current = { modelId, updates, committed: true }
     }
@@ -1691,6 +1795,11 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
                 depth: windowDesign.depth * (nextModel.scale ?? 1) * (nextModel.depthScale ?? 1) })) return model
               if (model.dormerAttachment) return updateDormerWindow(floor, model, updates, modelsById)
               const definition = modelsById.get(model.modelId)
+              if (definition && nextModel.wallAttachment && isWallMountedDecoration(definition, nextModel)) {
+                const wall = floor.walls.find(wall => wall.id === nextModel.wallAttachment?.wallId)
+                const mount = wall && fitWallMountedObject(definition, wall, nextModel.wallAttachment, nextModel, floor.walls)
+                return mount ? { ...nextModel, ...mount } : model
+              }
               const wallMount =
                 definition?.wallMount && updates.position && !updates.wallAttachment
                   ? getWallMountForPoint(updates.position, floor.walls)
@@ -1746,7 +1855,11 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         (!Number.isFinite(updates.height) ||
           updates.height <= 0 ||
           updates.height > MAX_WALL_HEIGHT_METERS)) ||
-      wallDuplicatesExistingSegment(nextWall, targetFloor.walls, wallId)
+      wallDuplicatesExistingSegment(nextWall, targetFloor.walls, wallId) ||
+      ((updates.start !== undefined || updates.end !== undefined) && wallEditCollapsesGeometry(
+        targetFloor.walls,
+        targetFloor.walls.map(wall => wall.id === wallId ? nextWall : wall),
+      ))
     ) {
       console.warn('[HouseDesigner] Ignored invalid wall update.', {
         previousWall,
@@ -1772,16 +1885,19 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           ...previousWall,
           ...updates,
         }
-        const nextModels = updateWallAttachedModels(floor.models ?? [], nextWall)
-
-        return syncWallOpenings(
+        const walls = floor.walls.map((wall) => (wall.id === wallId ? nextWall : wall))
+        const nextModels = updateWallAttachedModels(floor.models ?? [], nextWall, { walls, definitions: modelsById })
+        const updatedFloor = syncWallOpenings(
           {
             ...floor,
             models: nextModels,
-            walls: floor.walls.map((wall) => (wall.id === wallId ? nextWall : wall)),
+            walls,
           },
           modelsById,
         )
+        return updates.start !== undefined || updates.end !== undefined || updates.thickness !== undefined
+          ? preserveRoomMetadataAfterWallMove(floor, updatedFloor)
+          : updatedFloor
       }),
     )
   }
@@ -1818,7 +1934,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       )
     })
 
-    if (invalidWall) {
+    if (invalidWall || wallEditCollapsesGeometry(targetFloor.walls, nextWalls)) {
       console.warn('[HouseDesigner] Ignored invalid wall batch update.', {
         invalidWall,
         wallUpdates,
@@ -1835,9 +1951,6 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           return floor
         }
 
-        const updatesByWallId = new Map(
-          wallUpdates.map(({ wallId, updates }) => [wallId, updates]),
-        )
         const nextWalls = floor.walls.map((wall) => {
           const updates = updatesByWallId.get(wall.id)
 
@@ -1846,12 +1959,12 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         const nextModels = nextWalls.reduce(
           (models, wall) =>
             updatesByWallId.has(wall.id)
-              ? updateWallAttachedModels(models, wall)
+              ? updateWallAttachedModels(models, wall, { walls: nextWalls, definitions: modelsById })
               : models,
           floor.models ?? [],
         )
 
-        return syncWallOpenings(
+        const updatedFloor = syncWallOpenings(
           {
             ...floor,
             models: nextModels,
@@ -1859,6 +1972,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           },
           modelsById,
         )
+        return preserveRoomMetadataAfterWallMove(floor, updatedFloor)
       }),
     )
   }
@@ -2247,6 +2361,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           setSaveDestination({ kind: 'device', handle: deviceHandle })
           setProjectFileName(savedName)
         }
+        await rememberRecentProject({ fileName: savedName, contents })
+          .catch(error => console.warn('Could not update recent models after saving:', error))
       } else if (destination === 'cloud' || saveDestination?.kind === 'cloud') {
         const session = await workspaceClient.session()
         if (!session.user) {
@@ -2335,7 +2451,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       }
 
       if (Array.isArray(parsedProject.modelDefinitions)) {
-        registerRuntimeModels(parsedProject.modelDefinitions)
+        registerRuntimeModels(mergeProjectModelDefinitions(portalModelsRef.current, parsedProject.modelDefinitions))
         setAvailableModels([...modelLibrary])
       }
 
@@ -2649,7 +2765,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   const canCopy = Boolean(selectedModel || selectedWall)
   const canPaste = Boolean(clipboardItem)
 
-  const getModelPlanHalfWidth = (
+  const getModelPlanHorizontalBounds = (
     model: PlacedModel,
     definition: ModelDefinition,
   ) => {
@@ -2658,10 +2774,10 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     const depth = definition.depth * scale * (model.depthScale ?? 1)
     const rotation = model.rotation ?? 0
 
-    return (
-      Math.abs(Math.cos(rotation)) * width / 2 +
-      Math.abs(Math.sin(rotation)) * depth / 2
-    )
+    const halfWidth = Math.abs(Math.cos(rotation)) * width / 2 + Math.abs(Math.sin(rotation)) * depth / 2
+    const originToCentre = model.kitchenUnitOrigin === 'back' ? depth / 2 * (model.flipped ? -1 : 1) : 0
+    const centreX = model.position.x - Math.sin(rotation) * originToCentre
+    return { left: centreX - halfWidth, right: centreX + halfWidth }
   }
 
   const getModelVerticalBounds = (
@@ -2708,7 +2824,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           return floor
         }
 
-        const referenceHalfWidth = getModelPlanHalfWidth(
+        const referenceBounds = getModelPlanHorizontalBounds(
           referenceModel,
           referenceDefinition,
         )
@@ -2716,8 +2832,6 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           referenceModel,
           referenceDefinition,
         )
-        const referenceLeft = referenceModel.position.x - referenceHalfWidth
-        const referenceRight = referenceModel.position.x + referenceHalfWidth
         const selectedIdSet = new Set(selectedModelIds.slice(1))
         const nextModels = models.map((model) => {
           if (!selectedIdSet.has(model.id)) {
@@ -2731,13 +2845,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           }
 
           if (direction === 'left' || direction === 'right') {
-            const halfWidth = getModelPlanHalfWidth(model, definition)
-            const currentEdge =
-              direction === 'left'
-                ? model.position.x - halfWidth
-                : model.position.x + halfWidth
-            const targetEdge =
-              direction === 'left' ? referenceLeft : referenceRight
+            const currentEdge = getModelPlanHorizontalBounds(model, definition)[direction]
+            const targetEdge = referenceBounds[direction]
             const deltaX = targetEdge - currentEdge
 
             if (Math.abs(deltaX) <= 0.000001) {
@@ -2763,10 +2872,14 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
                 return model
               }
 
-              const nextOffset = Math.max(
+              const requested = model.wallAttachment.offset + deltaX / wallUnitX
+              const nextOffset = isPlanDoor(definition)
+                ? getDoorWallOffset(wall, floor.walls, definition, requested, { model, fromOffset: model.wallAttachment.offset })
+                : Math.max(
                 0,
-                Math.min(wallLength, model.wallAttachment.offset + deltaX / wallUnitX),
+                Math.min(wallLength, requested),
               )
+              if (nextOffset === null) return model
               const nextPosition = {
                 x: wall.start.x + (wall.end.x - wall.start.x) * (nextOffset / wallLength),
                 y: wall.start.y + (wall.end.y - wall.start.y) * (nextOffset / wallLength),
@@ -2865,8 +2978,6 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       return
     }
 
-    recordHistory()
-
     if (clipboardItem.type === 'wall') {
       const id = createId()
       const wallToPaste: Wall = {
@@ -2882,7 +2993,9 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         },
         openings: undefined,
       }
+      if (wallEditCollapsesGeometry(activeFloor.walls, [...activeFloor.walls, wallToPaste])) return
 
+      recordHistory()
       setFloors((currentFloors) =>
         currentFloors.map((floor) =>
           floor.id === activeFloorId
@@ -2909,8 +3022,19 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       x: clipboardItem.model.position.x + 0.35,
       y: clipboardItem.model.position.y + 0.35,
     }
-    const wallMount =
-      definition?.wallMount ? getWallMountForPoint(pastedPosition, activeFloor.walls) : null
+    const wallObject = definition && isWallMountedDecoration(definition, clipboardItem.model)
+    const originalAttachment = clipboardItem.model.wallAttachment
+    const originalWall = activeFloor.walls.find(wall => wall.id === originalAttachment?.wallId)
+    const proposedWallMount = wallObject ? getWallMountedObjectPlacement(definition, activeFloor.walls, pastedPosition, clipboardItem.model) ??
+      (originalWall && originalAttachment ? fitWallMountedObject(definition, originalWall,
+        { ...originalAttachment, offset: originalAttachment.offset + 0.35 }, clipboardItem.model, activeFloor.walls) : null)
+      : null
+    const wallMount: Omit<ModelPlacement, 'floorId'> | null = wallObject
+      ? resolveWallCabinetPlacement(definition, activeFloor, modelsById, proposedWallMount, { ...clipboardItem.model, id }) ??
+        resolveWallCabinetPlacement(definition, activeFloor, modelsById, proposedWallMount, { ...clipboardItem.model, id },
+          { snap: 'horizontal', snapDistance: Infinity })
+      : definition?.wallMount ? getWallMountForPoint(pastedPosition, activeFloor.walls) : null
+    if (wallObject && !wallMount) return
     const dormerPlacement = definition?.roofMount === 'dormer'
       ? findDormerPlacement(
           activeFloor.roofs ?? [],
@@ -2922,12 +3046,15 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     const modelToPaste: PlacedModel = {
       ...clipboardItem.model,
       id,
+      height: wallMount?.height ?? clipboardItem.model.height,
       position: dormerPlacement?.position ?? wallMount?.position ?? pastedPosition,
       roofAttachment: dormerPlacement?.roofAttachment,
       rotation:
         dormerPlacement?.rotation ?? wallMount?.rotation ?? clipboardItem.model.rotation,
       wallAttachment: wallMount?.wallAttachment,
     }
+    if (definition && !doorPlacementFits(definition, activeFloor.walls, modelToPaste.wallAttachment, modelToPaste)) return
+    recordHistory()
 
     setFloors((currentFloors) =>
       currentFloors.map((floor) =>
@@ -3063,6 +3190,63 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     setRoofPlacementPreview(null)
   }
 
+  const assistantProjectId = `${projectLoadRevision}:${initialProject.floors[0].id}`
+  const assistantRevision = `${projectLoadRevision}:${historyVersion}:${modelAssetVersion}:${internalWallThickness}`
+  const currentAssistantPreview = assistantPreview?.floors === floors && assistantPreview.revision === assistantRevision ? assistantPreview : null
+  const modelPreviewFloors = useMemo(() => {
+    if (currentAssistantPreview?.proposal.method !== 'model-variants') return floors
+    const replacements = new Map(currentAssistantPreview.previewFloors.map(floor => [floor.id, floor]))
+    return floors.map(floor => replacements.get(floor.id) ?? floor)
+  }, [currentAssistantPreview, floors])
+  const captureAssistantSource = () => makeSceneSource({
+    floors, models: modelsById, projectId: assistantProjectId, revision: assistantRevision,
+    wallMaterials: surfaceAssignments.flatMap(assignment => assignment.target.type === 'wall-face' || assignment.target.type === 'wall-surface-fragment'
+      ? [{ wallId: assignment.target.wallId, materialId: assignment.materialId }] : []),
+    selection: { floorId: activeFloor.id, roomSignature: selectedRoomSignature, wallIds: selectedWallIds,
+      modelIds: selectedModelIds, roofId: selectedRoofId }, partitionThickness: internalWallThickness,
+  })
+
+  const previewAssistantLayout = (option: DesignOption | null, sourceFloors: FloorLevel[], revision: string) => {
+    if (sourceFloors !== floors || currentFloorsRef.current !== floors || projectGeneration.current !== projectLoadRevision || revision !== assistantRevision) return
+    if (!option) { setAssistantPreview(null); return }
+    const { proposal, edits } = option
+    const nextFloors = materializeProposalFloors(floors, proposal.floorId, edits)
+    if (!nextFloors) return
+    const previewFloors = nextFloors.filter((floor, index) => floor !== floors[index])
+    setAssistantPreview({ proposal, previewFloors, floors, revision, stair: edits.stair, overlays: edits.overlays })
+    if (activeFloorId !== proposal.floorId) selectEditingFloor(proposal.floorId)
+    if (isRoofMode) setIsRoofMode(false)
+  }
+
+  const applyAssistantLayout = (proposal: DesignProposal, edits: FloorEdits, sourceFloors: FloorLevel[]) => {
+    if (sourceFloors !== floors || currentFloorsRef.current !== floors || projectGeneration.current !== projectLoadRevision ||
+      proposal.projectId !== assistantProjectId || proposal.sourceRevision !== assistantRevision) return false
+    const nextFloors = materializeProposalFloors(floors, proposal.floorId, edits)
+    if (!nextFloors) return false
+    const removedWalls = new Set([edits, ...(edits.additionalFloors ?? []).map(item => item.edits)].flatMap(change => change.removedWallIds ?? []))
+    const removedOpenings = new Map(nextFloors.flatMap((next, index) => {
+      if (next === floors[index]) return []
+      const kept = new Set(next.walls.flatMap(wall => wall.openings?.map(opening => opening.id) ?? []))
+      const removed = floors[index].walls.flatMap(wall => wall.openings?.filter(opening => !kept.has(opening.id)).map(opening => opening.id) ?? [])
+      return removed.length ? [[next.id, new Set(removed)] as const] : []
+    }))
+    recordHistory()
+    if (edits.stair) {
+      registerStairModels([edits.stair.definition])
+      setAvailableModels([...modelLibrary])
+      setSceneRevision(value => value + 1)
+    }
+    setFloors(nextFloors)
+    if (removedWalls.size || removedOpenings.size) setSurfaceAssignments(assignments => assignments.filter(({ target: surface }) =>
+      !('wallId' in surface && removedWalls.has(surface.wallId)) &&
+      !(surface.type === 'portal-floor' && removedOpenings.get(surface.floorId)?.has(surface.openingId))))
+    if (!edits.additionalFloors?.some(floor => floor.floorId === activeFloorId)) selectEditingFloor(proposal.floorId)
+    setAssistantPreview(null)
+    setIsRoofMode(false)
+    setPendingModelId(null)
+    return true
+  }
+
   const selectSurfaceFromThreeD = (surface: SelectableSurface, keepSelected = false) => {
     if (selectableSurfacesMatch(selectedSurface, surface)) {
       if (!keepSelected) clearThreeDSelection()
@@ -3132,7 +3316,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (isMaterialEditorOpen || isAccountOpen || loadConfirmation || isTextEntryElement(event.target)) {
+      if (event.defaultPrevented || isMaterialEditorOpen || isAccountOpen || loadConfirmation ||
+          isTextEntryElement(event.target) || event.target instanceof Element && event.target.closest('.design-assistant')) {
         return
       }
 
@@ -3167,6 +3352,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       }
 
       if (key === 'c') {
+        if (window.getSelection()?.isCollapsed === false) return
         event.preventDefault()
         copySelection()
         return
@@ -3251,7 +3437,9 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         isSplittingWall={isSplittingWall}
         isRoofMode={isRoofMode}
         materials={availableMaterials}
+        openPanel={isAddingWall && railPanel === 'wall' ? null : railPanel}
         onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
+        onPanelChange={setRailPanel}
         selectedSurface={selectedSurface}
         selectedModelCount={selectedModelIds.length}
         selectedWallHeight={selectedSurfaceWall?.height ?? null}
@@ -3266,7 +3454,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         onApplyMaterial={applyMaterialToSelectedSurface}
         onDeleteFloor={deleteActiveFloor}
         onOpenModelSelector={(section) => {
-          setModelSelectorSection(section)
+          setModelSelectorLocation({ root: 'public', section })
           setIsModelSelectorOpen(true)
         }}
         onRoofModeChange={(nextIsRoofMode) => {
@@ -3307,6 +3495,10 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         } as CSSProperties}
       >
         <FloorplanCanvas
+          assistantPreview={currentAssistantPreview}
+          assistantPanel={<DesignAssistant key={projectLoadRevision} open={assistantOpen} onClose={() => setAssistantOpen(false)}
+            floors={floors} revision={assistantRevision} captureSource={captureAssistantSource}
+            onPreview={previewAssistantLayout} onApply={applyAssistantLayout} />}
           showImages={showImages}
           onShowImagesChange={setShowImages}
           projectMenu={onClose => (
@@ -3322,7 +3514,9 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
               onNewProject={newProject}
               onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
               onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
+              onOpenObjectBuilder={() => setObjectBuilderOpen(true)}
               onOpenAccount={() => setIsAccountOpen(true)}
+              onOpenDesignAssistant={() => setAssistantOpen(true)}
               onSaveProject={() => { void saveProject() }}
               onSaveToDevice={() => { void saveProject('device') }}
               onDownloadCopy={() => { void saveProject('download') }}
@@ -3358,12 +3552,14 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           wallKind={wallKind}
           onAddWall={addWall}
           onSplitWall={splitWall}
+          onJoinWalls={joinWalls}
           onAddRoof={addRoof}
           onCancelModelPlacement={() => setPendingModelId(null)}
           onDeleteModel={deleteModel}
           onDeleteRoof={deleteRoof}
           onDeleteWall={deleteWall}
           onExitAddWall={exitWallTool}
+          onStopAddingWalls={stopAddingWalls}
           onStartMeasuring={() => setIsRoofMode(false)}
           onOpenProperties={openProperties}
           onViewportChange={updateFloorplanViewport}
@@ -3501,7 +3697,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           onFloorViewChange={setSelectedFloorViewId}
           cameraRestoreRevision={cameraRestoreRequest.revision}
           cameraViewState={cameraRestoreRequest.state}
-          floors={floors}
+          floors={modelPreviewFloors}
           isEngineConsoleOpen={isEngineConsoleOpen}
           lightDirection={sunPosition}
           modelAssetVersion={modelAssetVersion}
@@ -3541,7 +3737,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       </section>
       {isModelSelectorOpen ? (
         <ModelSelector
-          initialSection={modelSelectorSection}
+          initialRoot={modelSelectorLocation.root}
+          initialSection={modelSelectorLocation.section}
           models={availableModels}
           onClose={() => setIsModelSelectorOpen(false)}
           onRefreshModels={refreshModelAssets}
@@ -3550,15 +3747,82 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           onEditWindow={definition => { setIsModelSelectorOpen(false); setWindowBuilder({ definition }) }}
           onBuildStairs={() => { setIsModelSelectorOpen(false); setStairBuilder({ definition: null }) }}
           onEditStairs={definition => { setIsModelSelectorOpen(false); setStairBuilder({ definition }) }}
+          onEditPictureFrame={definition => { setIsModelSelectorOpen(false); setPictureFrameBuilder({ definition }) }}
+          onEditKitchenUnit={definition => { setIsModelSelectorOpen(false); setKitchenUnitBuilder({ definition }) }}
         />
       ) : null}
-      {!windowBuilder && !stairBuilder && selectedModelId && (() => {
+      {objectBuilderOpen && <ObjectBuilder onClose={() => setObjectBuilderOpen(false)} onChoose={type => {
+        setObjectBuilderOpen(false)
+        if (type === 'stairs') setStairBuilder({ definition: null })
+        if (type === 'windows') setWindowBuilder({ definition: null })
+        if (type === 'picture-frame') setPictureFrameBuilder({ definition: null })
+        if (type === 'kitchen-unit') setKitchenUnitBuilder({ definition: null })
+      }} />}
+      {!windowBuilder && !stairBuilder && !pictureFrameBuilder && !kitchenUnitBuilder && selectedModelId && (() => {
         const instance = floors.flatMap(floor => floor.models ?? []).find(model => model.id === selectedModelId)
         const definition = instance && modelsById.get(instance.modelId)
         return definition?.stairDesign ? <button type="button" className="window-variety-edit"
           onClick={() => setStairBuilder({ definition })}>Edit stair variety</button> : definition?.windowDesign ? <button type="button" className="window-variety-edit"
-          onClick={() => setWindowBuilder({ definition })}>Edit window variety</button> : null
+          onClick={() => setWindowBuilder({ definition })}>Edit window variety</button> : definition?.pictureFrameDesign
+          ? <button type="button" className="window-variety-edit" onClick={() => setPictureFrameBuilder({ definition })}>Edit picture frame</button>
+          : definition?.kitchenUnitDesign
+            ? <button type="button" className="window-variety-edit" onClick={() => setKitchenUnitBuilder({ definition })}>Edit kitchen unit</button> : null
       })()}
+      {pictureFrameBuilder && <PictureFrameBuilder definition={pictureFrameBuilder.definition}
+        onClose={() => setPictureFrameBuilder(null)} onSave={async (definition, place) => {
+          for (const floor of floors) for (const model of floor.models) {
+            if (model.modelId !== definition.id || !model.wallAttachment) continue
+            const wall = floor.walls.find(wall => wall.id === model.wallAttachment?.wallId)
+            if (wall && !fitWallMountedObject(definition, wall, model.wallAttachment, model)) {
+              throw new Error(`The frame is too large for its wall on ${floor.name}.`)
+            }
+          }
+          await savePictureFrameToLibrary(definition)
+          recordHistory()
+          registerPictureFrameModels([definition])
+          setAvailableModels([...modelLibrary])
+          setFloors(current => current.map(floor => floor.models.some(model => model.modelId === definition.id)
+            ? { ...floor, models: floor.models.map(model => {
+              if (model.modelId !== definition.id || !model.wallAttachment) return model
+              const wall = floor.walls.find(wall => wall.id === model.wallAttachment?.wallId)
+              const mount = wall && fitWallMountedObject(definition, wall, model.wallAttachment, model)
+              return mount ? { ...model, ...mount } : model
+            }) } : floor))
+          setSceneRevision(revision => revision + 1)
+          setPictureFrameBuilder(null)
+          if (place) chooseModel(definition.id)
+          else { setModelSelectorLocation({ root: 'mine', section: 'objects' }); setIsModelSelectorOpen(true) }
+        }} />}
+      {kitchenUnitBuilder && <KitchenUnitBuilder definition={kitchenUnitBuilder.definition} materials={availableMaterials} models={availableModels}
+        onClose={() => setKitchenUnitBuilder(null)} onSave={async (definition, place) => {
+          const refitUnit = (floor: FloorLevel, model: PlacedModel) => {
+            if (model.modelId !== definition.id || !model.wallAttachment) return undefined
+            const wall = floor.walls.find(wall => wall.id === model.wallAttachment?.wallId)
+            return wall ? fitWallMountedObject(definition, wall, model.wallAttachment, model, floor.walls) : undefined
+          }
+          if (definition.placement === 'wall-mounted') {
+            for (const floor of floors) {
+              if (floor.models.some(model => refitUnit(floor, model) === null)) {
+                throw new Error(`The cabinet is too large for its wall on ${floor.name}.`)
+              }
+            }
+          }
+          await saveKitchenUnitToLibrary(definition)
+          recordHistory()
+          registerKitchenUnitModels([definition])
+          setAvailableModels([...modelLibrary])
+          if (kitchenUnitBuilder.definition?.id === definition.id) {
+            setFloors(current => current.map(floor => floor.models.some(model => model.modelId === definition.id)
+              ? { ...floor, models: floor.models.map(model => {
+                const mount = definition.placement === 'wall-mounted' && refitUnit(floor, model)
+                return mount ? { ...model, ...mount } : model
+              }) } : floor))
+            setSceneRevision(revision => revision + 1)
+          }
+          setKitchenUnitBuilder(null)
+          if (place) chooseModel(definition.id)
+          else { setModelSelectorLocation({ root: 'mine', section: 'objects' }); setIsModelSelectorOpen(true) }
+        }} />}
       {stairBuilder ? <StairBuilder definition={stairBuilder.definition}
         instanceCount={floors.flatMap(floor => floor.models ?? []).filter(model => model.modelId === stairBuilder.definition?.id).length}
         floorRise={(() => {
@@ -3579,7 +3843,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           if (geometryChanged) setSceneRevision(revision => revision + 1)
           setStairBuilder(null)
           if (place) chooseModel(definition.id)
-          else { setModelSelectorSection('objects'); setIsModelSelectorOpen(true) }
+          else { setModelSelectorLocation({ root: 'mine', section: 'objects' }); setIsModelSelectorOpen(true) }
         }} /> : null}
       {windowBuilder ? <WindowBuilder definition={windowBuilder.definition}
         instanceCount={floors.flatMap(floor => floor.models ?? []).filter(model => model.modelId === windowBuilder.definition?.id).length}
@@ -3603,7 +3867,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           setSceneRevision(revision => revision + 1)
           setWindowBuilder(null)
           if (place) chooseModel(definition.id)
-          else { setModelSelectorSection('openings'); setIsModelSelectorOpen(true) }
+          else { setModelSelectorLocation({ root: 'mine', section: 'openings' }); setIsModelSelectorOpen(true) }
         }} /> : null}
     </main>
   )

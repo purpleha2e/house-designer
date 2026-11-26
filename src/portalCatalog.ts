@@ -1,7 +1,7 @@
 import type { SurfaceCategory, SurfaceFinish, SurfaceMaterialProduct } from './types'
 import { materialVariationFromMetadata } from './materials/proceduralVariation.ts'
 import type { ModelDefinition, ModelObjectType } from './models/modelLibrary'
-import { discoverHdMaterialRegions } from './modelMaterialOverrides.ts'
+import { discoverHdMaterialRegions, normalizeArtworkMaterialRegions } from './modelMaterialOverrides.ts'
 
 type PortalCatalogFile = {
   fieldName: string
@@ -223,11 +223,12 @@ function portalMaterialToSurfaceMaterial(
     productName: asset.metadata.productName || 'Uploaded material',
     productUrl: asset.metadata.productUrl || undefined,
     sku: asset.metadata.sku || undefined,
-    tags: asset.metadata.tags
-      ?.split(',')
-      .map((tag) => tag.trim())
-      .filter(Boolean),
+    tags: readPortalTags(asset.metadata.tags),
   }
+}
+
+function readPortalTags(tags: string | undefined) {
+  return tags?.split(',').map(tag => tag.trim()).filter(Boolean)
 }
 
 function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
@@ -254,7 +255,7 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
     asset.metadata.modelBehavior || objectType,
   )
   const inferredDimensions = asset.inferredDimensions
-  const taggedRegions = asset.materialNames ? discoverHdMaterialRegions(asset.materialNames) : undefined
+  const taggedRegions = asset.materialNames ? normalizeArtworkMaterialRegions(discoverHdMaterialRegions(asset.materialNames), objectType) : undefined
   const hasLocalBounds = [
     inferredDimensions?.maxX,
     inferredDimensions?.maxZ,
@@ -288,9 +289,12 @@ function portalAssetToModel(asset: PortalCatalogAsset): ModelDefinition | null {
     materialRegions: objectType === 'stairs' && !taggedRegions?.length ? undefined : taggedRegions,
     objectType,
     openingWidth: parsePositiveNumber(asset.metadata.openingWidth),
+    placement: !wallMount && (asset.metadata.placement === 'wall-mounted' || asset.metadata.placement === 'ceiling-mounted' || asset.metadata.placement === 'floor')
+      ? asset.metadata.placement : undefined,
     previewUrl: findOriginalFile(asset, 'preview'),
     shape: 'box',
     sourceUrl: modelUrl,
+    tags: readPortalTags(asset.metadata.tags),
     wallMount,
     width: metadataWidth ?? asset.inferredDimensions?.width ?? 1,
   }

@@ -1,5 +1,24 @@
 import { BufferGeometry, FloatType, Mesh, MeshStandardMaterial, Object3D, Scene } from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import type { SurfaceMaterialAssignment, SurfaceMaterialPbr, SurfaceMaterialProduct } from './types.ts'
+
+const materialRevisions = new WeakMap<SurfaceMaterialPbr, number>()
+let nextMaterialRevision = 0
+
+export function getFloorSurfaceBatchKey(elevation: number, material?: SurfaceMaterialProduct,
+  assignment?: Pick<SurfaceMaterialAssignment, 'customColor' | 'textureScale' | 'textureRotation'>) {
+  if (!material) return JSON.stringify(['base', elevation])
+
+  // The catalogue replaces PBR records on edit. Use the record's identity to
+  // distinguish revisions without putting embedded texture data in each draw key.
+  let revision = materialRevisions.get(material.pbr)
+  if (revision === undefined) {
+    revision = ++nextMaterialRevision
+    materialRevisions.set(material.pbr, revision)
+  }
+  return JSON.stringify(['finish', elevation, material.id, revision,
+    assignment?.customColor ?? null, assignment?.textureScale ?? 1, assignment?.textureRotation ?? 0])
+}
 
 type Entry = { source: Mesh; geometry: BufferGeometry; attributes: string; indexVersion: number; matrix: number[] }
 type Batch = { mesh: Mesh; entries: Entry[] }

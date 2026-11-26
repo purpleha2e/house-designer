@@ -24,14 +24,28 @@ const fixture = { activeFloorId: floor.id, wallKind: 'external', floors: [floor]
 const wait = expression => browser.wait(expression, 20000)
 const button = label => `[...document.querySelectorAll('button')].find(button => button.textContent.trim()===${JSON.stringify(label)})`
 const guide = `recoveryKonva.stages[0].findOne('.wall-split-guide')`
+const splitInput = `document.querySelector('[aria-label="Split distance"]')`
+const splitStatus = `document.querySelector('.floorplan-wall-hint [role="status"]')`
 const clickButton = expression => browser.evaluate(`(${expression}).click()`)
 const position = (x, y) => browser.evaluate(`(()=>{const s=recoveryKonva.stages[0],r=s.container().getBoundingClientRect();return {
   x:r.x+s.x()+${x}*60*s.scaleX(),y:r.y+s.y()+${y}*60*s.scaleY()}})()`)
 const move = async (x, y) => browser.call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...await position(x, y) })
-async function clickPlan(x, y) {
+async function clickPlan(x, y, { button = 'left', modifiers = 0 } = {}) {
   const point = await position(x, y)
-  await browser.call('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', buttons: 1, clickCount: 1, ...point })
-  await browser.call('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', buttons: 0, clickCount: 1, ...point })
+  await browser.call('Input.dispatchMouseEvent', { type: 'mouseMoved', ...point })
+  await browser.call('Input.dispatchMouseEvent', { type: 'mousePressed', button, buttons: button === 'right' ? 2 : 1, modifiers, clickCount: 1, ...point })
+  await browser.call('Input.dispatchMouseEvent', { type: 'mouseReleased', button, buttons: 0, modifiers, clickCount: 1, ...point })
+}
+async function pressKey(key, windowsVirtualKeyCode, text) {
+  await browser.call('Input.dispatchKeyEvent', { type: 'keyDown', key, windowsVirtualKeyCode, text })
+  await browser.call('Input.dispatchKeyEvent', { type: 'keyUp', key, windowsVirtualKeyCode })
+}
+async function typeDistance(value) {
+  const [first, ...rest] = value
+  await pressKey(first, first.charCodeAt(0), first)
+  await wait(`document.activeElement===${splitInput} && ${splitInput}?.value===${JSON.stringify(first)}`)
+  await browser.call('Input.insertText', { text: rest.join('') })
+  await wait(`${splitInput}?.value===${JSON.stringify(value)}`)
 }
 async function startSplit() {
   await clickButton('document.querySelector(\'[aria-label="Wall tools"]\')')
@@ -59,26 +73,48 @@ try {
     const f=editorProps('FloorplanCanvas')?.activeFloor;return f?.id==='ground' && f.rooms.length===1 && f.walls[0].openings?.length===2})()`)
   const before = await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`)
 
+  await browser.evaluate(`(async()=>{
+    const plan = editorProps('FloorplanCanvas');
+    const endpoints = { start: { x: 1, y: 1 }, end: { x: 1.19, y: 1 } };
+    plan.onAddWall(endpoints);
+    plan.onUpdateWall('wall-0', endpoints);
+    plan.onUpdateWalls([{ wallId: 'wall-0', updates: endpoints }]);
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  })()`)
+  assert.deepEqual(await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`), before,
+    'Adding or resizing a wall cannot commit a segment whose endpoints snap together')
+
   await startSplit()
-  await move(8.5, 1)
-  await wait(`${guide}?.findOne('Text')?.text()==='0.50 m'`)
+  await move(8.5, 1.08)
+  await wait(`${guide}?.findOne('Text')?.text()==='0.35 m'`)
+  await move(8.5, .92)
+  await wait(`${guide}?.findOne('Text')?.text()==='0.65 m'`)
   await move(6, 1)
-  await wait(`document.querySelector('.floorplan-wall-hint [role="status"]').textContent.includes('opening')`)
+  await wait(`${splitStatus}.textContent.includes('opening')`)
   await clickPlan(6, 1)
   assert.equal(await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor.walls.length`), 4)
-  await browser.call('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
-  await browser.call('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 })
+  await move(4, 1.08)
+  await wait(`${guide}?.findOne('Text')?.text()==='2.85 m'`)
+  await typeDistance('4.85')
+  await wait(`${splitInput}?.getAttribute('aria-invalid')==='true' && ${splitStatus}.textContent.includes('opening')`)
+  await pressKey('Enter', 13)
+  assert.equal(await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor.walls.length`), 4)
+  await pressKey('Escape', 27)
+  await wait(`!${splitInput} && editorProps('FloorplanCanvas').isSplittingWall`)
+  await pressKey('Escape', 27)
   await wait(`!editorProps('FloorplanCanvas').isSplittingWall && !${guide}`)
 
   await startSplit()
-  await move(4, 1)
-  await wait(`${guide}?.findOne('Text')?.text()==='3.00 m'`)
-  await clickPlan(4, 1)
+  await move(4.3, .92)
+  await wait(`${guide}?.findOne('Text')?.text()==='3.45 m'`)
+  await typeDistance('3.15')
+  await wait(`${guide}?.findOne('Text')?.text()==='3.15 m' && ${splitInput}?.getAttribute('aria-invalid')==='false'`)
+  await pressKey('Enter', 13)
   await wait(`editorProps('FloorplanCanvas').activeFloor.walls.length===5`)
   const after = await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`)
   const [first, second] = after.walls
   assert.equal(first.id, 'wall-0')
-  assert.ok(Math.abs(first.end.x - 4) < .01)
+  assert.ok(Math.abs(first.end.x - 4) < 1e-6)
   assert.deepEqual(first.end, second.start)
   assert.deepEqual(second.end, before.walls[0].end)
   assert.equal(second.height, 2.6)
@@ -105,8 +141,48 @@ try {
   await clickButton(`document.querySelector('[aria-label="Redo"]')`)
   await wait(`editorProps('FloorplanCanvas').activeFloor.walls[1]?.id===${JSON.stringify(second.id)}`)
   assert.deepEqual(await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`), after)
+
+  await startSplit()
+  await clickPlan(8.5, 1.08)
+  await wait(`editorProps('FloorplanCanvas').activeFloor.walls.length===6`)
+  await pressKey('Escape', 27)
+  await wait(`!editorProps('FloorplanCanvas').isSplittingWall`)
+  const beforeJoin = await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`)
+  const joinIds = beforeJoin.walls.slice(0, 3).map(wall => wall.id)
+
+  await clickPlan(2.2, 1)
+  await clickPlan(4.7, 1, { modifiers: 2 })
+  await clickPlan(8.8, 1, { modifiers: 2 })
+  await wait(`editorProps('FloorplanCanvas').selectedWallIds.length===3`)
+  await clickPlan(2.2, 1, { button: 'right' })
+  await wait(`!!(${button('Join walls')})`)
+  assert.deepEqual(await browser.evaluate(`editorProps('FloorplanCanvas').selectedWallIds`), joinIds,
+    'Right-clicking any wall in the chain keeps the multiselection')
+  await clickButton(button('Join walls'))
+  await wait(`editorProps('FloorplanCanvas').activeFloor.walls.length===4`)
+  const joinedFloor = await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`)
+  const [joined] = joinedFloor.walls
+  assert.ok(joinedFloor.walls.every(wall => !joinIds.includes(wall.id)))
+  assert.deepEqual(joined.start, before.walls[0].start)
+  assert.deepEqual(joined.end, before.walls[0].end)
+  assert.deepEqual(joined.openings, before.walls[0].openings)
+  assert.deepEqual(joinedFloor.models[0].position, before.models[0].position)
+  assert.deepEqual(joinedFloor.models[0].wallAttachment, { ...before.models[0].wallAttachment, wallId: joined.id })
+  assert.deepEqual(await browser.evaluate(`editorProps('FloorplanCanvas').selectedWallIds`), [joined.id])
+  const joinedAssignments = await browser.evaluate(`editorProps('ThreeDView').surfaceAssignments`)
+  assert.ok(joinedAssignments.every(assignment => assignment.target.wallId === joined.id))
+  assert.equal(joinedAssignments.filter(assignment => assignment.target.type === 'wall-face').length, 1)
+  assert.ok(joinedAssignments.some(assignment => assignment.target.fragmentId === `perimeter-wall:${joined.id}:1:side:2:5:0:2.6`))
+  assert.equal(joinedAssignments.find(assignment => assignment.id === 'portal-finish').target.openingId, 'threshold')
+
+  await clickButton(`document.querySelector('[aria-label="Undo"]')`)
+  await wait(`editorProps('FloorplanCanvas').activeFloor.walls.length===6`)
+  assert.deepEqual(await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`), beforeJoin)
+  await clickButton(`document.querySelector('[aria-label="Redo"]')`)
+  await wait(`editorProps('FloorplanCanvas').activeFloor.walls[0]?.id===${JSON.stringify(joined.id)}`)
+  assert.deepEqual(await browser.evaluate(`editorProps('FloorplanCanvas').activeFloor`), joinedFloor)
   assert.deepEqual(browser.errors, [])
-  console.log('Passed Split wall tool, nearest-end ruler, opening guard, attachments, finishes and undo/redo')
+  console.log('Passed wall split and multi-wall join, including ruler input, openings, finishes and undo/redo')
 } finally {
   browser.close()
 }

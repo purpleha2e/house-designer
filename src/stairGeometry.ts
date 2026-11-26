@@ -40,7 +40,9 @@ function contains(p: StairPoint, polygon: StairPoint[]) {
 }
 
 /** One draw mesh per material, irrespective of the number of treads/spindles. */
-export function createStairGeometry(design: StairDesign, { upperFloorHeight = design.totalRise, guardrailOnly = false } = {}) {
+export function createStairGeometry(design: StairDesign, { upperFloorHeight = design.totalRise, guardrailOnly = false, openingGuardrails }: {
+  upperFloorHeight?: number; guardrailOnly?: boolean; openingGuardrails?: StairRailPoint[][]
+} = {}) {
   const layout = getStairLayout(design), group = new Group()
   group.name = guardrailOnly ? 'stairwell-guardrails' : 'parametric-stairs'
   group.userData.stairDesign = design
@@ -154,12 +156,12 @@ export function createStairGeometry(design: StairDesign, { upperFloorHeight = de
         return heights.length ? Math.max(...heights) : p.y
       })
     }
-    const guardrailPosts = guardrails.side.slice(1)
-    for (const point of guardrails.oppositeEnd) {
+    const guardrailPosts = openingGuardrails ? [] : guardrails.side.slice(1)
+    for (const point of openingGuardrails ? openingGuardrails.flat() : guardrails.oppositeEnd) {
       if (!guardrailPosts.some(post => Math.hypot(post.x - point.x, post.z - point.z) < 1e-7)) guardrailPosts.push(point)
     }
     for (const post of guardrailPosts) addPost(post, post.y, post.y)
-    for (const path of [guardrails.side, guardrails.oppositeEnd]) {
+    for (const path of openingGuardrails ?? [guardrails.side, guardrails.oppositeEnd]) {
       addHandrail(path)
       addSpindles(path, path, p => p.y)
     }

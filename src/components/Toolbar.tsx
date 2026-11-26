@@ -8,7 +8,9 @@ type ToolbarProps = {
   onNewProject: () => void
   onOpenManufacturerPortal: () => void
   onOpenMaterialEditor: () => void
+  onOpenObjectBuilder?: () => void
   onOpenAccount?: () => void
+  onOpenDesignAssistant?: () => void
   onSaveProject: () => void
   onSaveToDevice: () => void
   onDownloadCopy?: () => void
@@ -28,7 +30,9 @@ export function Toolbar({
   onNewProject,
   onOpenManufacturerPortal,
   onOpenMaterialEditor,
+  onOpenObjectBuilder,
   onOpenAccount,
+  onOpenDesignAssistant,
   onSaveProject,
   onSaveToDevice,
   onDownloadCopy,
@@ -43,6 +47,7 @@ export function Toolbar({
         <h1>House Designer</h1>
       </div>
       {onOpenAccount && <button type="button" onClick={() => { onOpenAccount(); onClose() }}>Account &amp; workspace</button>}
+      {onOpenDesignAssistant && <button type="button" onClick={() => { onOpenDesignAssistant(); onClose() }}>AI Design Assistant</button>}
       <button
         type="button"
         onClick={() => {
@@ -84,6 +89,7 @@ export function Toolbar({
       <button type="button" disabled={isSaving} onClick={() => { onSaveToCloud(); onClose() }}>Save to cloud</button>
       <button type="button" disabled={isSaving} onClick={() => { onSaveToDevice(); onClose() }}>Save to device</button>
       {onDownloadCopy && <button type="button" disabled={isSaving} onClick={() => { onDownloadCopy(); onClose() }}>Download copy</button>}
+      {onOpenObjectBuilder && <button type="button" onClick={() => { onOpenObjectBuilder(); onClose() }}>Object builder</button>}
       <button
         type="button"
         onClick={() => {

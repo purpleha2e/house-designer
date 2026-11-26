@@ -1,21 +1,24 @@
 import type { PlacedModel } from './types'
 import type { HandleBounds } from './objectHandles'
 import type { ModelAssetBounds } from './modelAssetBounds'
+import { getKitchenUnitBounds, type KitchenUnitDesign } from './kitchenUnitDesign.ts'
 
 /** The plan and properties use the same asset-space dimensions on every floor. */
 export function getModelTransformBounds(definition: {
   width: number; depth: number; sourceUrl?: string; normalizeToDimensions?: boolean
-  wallMount?: string; roofMount?: string
-}, asset?: ModelAssetBounds): HandleBounds {
+  wallMount?: string; roofMount?: string; kitchenUnitDesign?: KitchenUnitDesign
+}, asset?: ModelAssetBounds, centerOnWall = false): HandleBounds {
+  if (definition.kitchenUnitDesign) return getKitchenUnitBounds(definition.kitchenUnitDesign)
   const nativeDepth = definition.wallMount === 'window' && asset
     ? Math.max(asset.maxZ - asset.minZ, 0.0001) : asset?.depth ?? definition.depth
   const scaleX = definition.sourceUrl && definition.normalizeToDimensions
     ? definition.width / Math.max(asset?.width ?? definition.width, 0.0001) : 1
   const scaleZ = definition.sourceUrl && definition.normalizeToDimensions
     ? definition.depth / Math.max(nativeDepth, 0.0001) : 1
+  const centerX = centerOnWall && asset ? (asset.minX + asset.maxX) / 2 : 0
   return {
-    minX: definition.sourceUrl && asset ? asset.minX * scaleX : -definition.width / 2,
-    maxX: definition.sourceUrl && asset ? asset.maxX * scaleX : definition.width / 2,
+    minX: definition.sourceUrl && asset ? (asset.minX - centerX) * scaleX : -definition.width / 2,
+    maxX: definition.sourceUrl && asset ? (asset.maxX - centerX) * scaleX : definition.width / 2,
     minZ: definition.sourceUrl && asset ? asset.minZ * scaleZ : definition.roofMount === 'dormer' ? -definition.depth : -definition.depth / 2,
     maxZ: definition.sourceUrl && asset ? asset.maxZ * scaleZ : definition.roofMount === 'dormer' ? 0 : definition.depth / 2,
   }
@@ -54,7 +57,7 @@ export function updateModelTransformField(model: PlacedModel, bounds: HandleBoun
   }
   const centerX = (bounds.minX + bounds.maxX) / 2 *
     (model.flipped ? -1 : 1) * (model.mirrored ? -1 : 1)
-  const centerZ = (bounds.minZ + bounds.maxZ) / 2 * (model.flipped ? -1 : 1)
+  const centerZ = model.kitchenUnitOrigin === 'back' ? 0 : (bounds.minZ + bounds.maxZ) / 2 * (model.flipped ? -1 : 1)
   const cos = Math.cos(model.rotation), sin = Math.sin(model.rotation)
   const nextCos = Math.cos(rotation), nextSin = Math.sin(rotation)
   return {

@@ -4,6 +4,7 @@ import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { readModelMaterialNames, modelMaterialNamesFromJson } from '../server/model-material-names.mjs'
+import { bundledModelMaterials } from '../scripts/bundled-model-materials.mjs'
 
 const json={asset:{version:'2.0'},materials:[{name:'hd_frame'},{name:'unused_hd_part'},{name:'fixed'},{name:'hd_frame'},{name:'hd_quilt'}],
   meshes:[{primitives:[{material:4},{material:0},{material:2},{material:3}]}]}
@@ -21,4 +22,19 @@ test('reads assigned names from GLB JSON without requiring geometry or texture d
 })
 test('unused and unnamed materials do not become slots',()=>{
   assert.deepEqual(modelMaterialNamesFromJson({materials:[{name:'hd_unused'},{}],meshes:[]}),[])
+})
+
+test('the bundled model catalogue exposes only assigned hd_ slots', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'hd-bundled-slots-'))
+  t.after(() => rm(directory, { recursive: true, force: true }))
+  const path = join(directory, 'sofa.gltf')
+  await writeFile(path, JSON.stringify(json))
+  const plugin = bundledModelMaterials(directory)
+  plugin.configResolved({ command: 'build' })
+  const watched = new Set()
+  const moduleId = plugin.resolveId('virtual:bundled-model-materials')
+  const code = await plugin.load.call({ addWatchFile: path => watched.add(path) }, moduleId)
+  const manifest = await import(`data:text/javascript,${encodeURIComponent(code)}`)
+  assert.deepEqual(manifest.default, { 'sofa.gltf': ['hd_frame', 'hd_quilt'] })
+  assert.ok(watched.has(path))
 })

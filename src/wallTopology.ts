@@ -1,5 +1,5 @@
 import * as polygonClipping from 'polygon-clipping'
-import type { Point, Wall } from './types'
+import type { FloorLevel, Point, Room, Wall } from './types'
 import { getRenderedWalls, getWallPolygon, type RenderedWall } from './wallGeometry.ts'
 
 export const EXTERNAL_WALL_NODE_MERGE_METERS = 0.25
@@ -15,6 +15,8 @@ const polygonClippingRuntime = polygonClipping as typeof polygonClipping & {
 }
 const polygonUnion =
   polygonClippingRuntime.union ?? polygonClippingRuntime.default?.union
+const polygonIntersection =
+  polygonClippingRuntime.intersection ?? polygonClippingRuntime.default!.intersection
 
 export type WallEndpoint = 'start' | 'end'
 
@@ -674,10 +676,7 @@ function getTopologySnappedWalls(
   }))
 }
 
-export function buildWallTopology(
-  walls: Wall[],
-  { detectRooms = true, floorFootprints = [] }: { detectRooms?: boolean; floorFootprints?: Point[][] } = {},
-): WallTopology {
+function buildWallNodes(walls: Wall[]) {
   const nodes: WallNode[] = []
   const nodesByEndpoint = new Map<string, WallNode>()
 
@@ -702,6 +701,30 @@ export function buildWallTopology(
     }
   }
 
+  return { nodes, nodesByEndpoint }
+}
+
+function getCollapsedWallIds(walls: Wall[]) {
+  const { nodesByEndpoint } = buildWallNodes(walls)
+  return new Set(walls.filter(wall =>
+    nodesByEndpoint.get(getEndpointKey(wall.id, 'start')) === nodesByEndpoint.get(getEndpointKey(wall.id, 'end')),
+  ).map(wall => wall.id))
+}
+
+export function wallEditCollapsesGeometry(previousWalls: Wall[], nextWalls: Wall[]) {
+  const nextCollapsedIds = getCollapsedWallIds(nextWalls)
+  if (!nextCollapsedIds.size) return false
+
+  // Existing collapsed walls in a saved floor should not block unrelated edits.
+  const previousCollapsedIds = getCollapsedWallIds(previousWalls)
+  return [...nextCollapsedIds].some(id => !previousCollapsedIds.has(id))
+}
+
+export function buildWallTopology(
+  walls: Wall[],
+  { detectRooms = true, floorFootprints = [] }: { detectRooms?: boolean; floorFootprints?: Point[][] } = {},
+): WallTopology {
+  const { nodes, nodesByEndpoint } = buildWallNodes(walls)
   const topologyWalls = getTopologySnappedWalls(walls, nodesByEndpoint)
   const renderedWalls = getRenderedWalls(topologyWalls)
   const renderedWallsById = new Map(
@@ -741,4 +764,105 @@ export function getOtherNodeConnections(
       (connection) => connection.wall.id !== wall.id,
     ) ?? []
   )
+}
+
+export function matchChangedRoomSignatures(before: DetectedRoom[], after: DetectedRoom[]) {
+  const beforeSignatures = new Set(before.map(room => room.signature))
+  const afterSignatures = new Set(after.map(room => room.signature))
+  const toClippingPolygon = (room: DetectedRoom): ClippingPolygon => [
+    room.polygon.map(({ x, y }) => [x, y]),
+  ]
+  const ringArea = (ring: ClippingRing) => Math.abs(getSignedArea(getOpenRingPoints(ring)))
+  const oldRooms = before.filter(room => !afterSignatures.has(room.signature))
+  const newRooms = after.filter(room => !beforeSignatures.has(room.signature))
+  const matches = oldRooms.flatMap(oldRoom => newRooms.flatMap(newRoom => {
+    const maxArea = Math.max(oldRoom.area, newRoom.area)
+    if (Math.min(oldRoom.area, newRoom.area) <= maxArea / 2) return []
+    const overlap = polygonIntersection(toClippingPolygon(oldRoom), toClippingPolygon(newRoom))
+      .reduce((sum, [outline, ...holes]) => sum + ringArea(outline) - holes.reduce((area, hole) => area + ringArea(hole), 0), 0)
+    return overlap > maxArea / 2 ? [{ oldRoom, newRoom, score: overlap / maxArea }] : []
+  })).sort((a, b) => b.score - a.score)
+
+  const remapped = new Map<string, string>()
+  const claimed = new Set<string>()
+  for (const { oldRoom, newRoom } of matches) {
+    if (remapped.has(oldRoom.signature) || claimed.has(newRoom.signature)) continue
+    remapped.set(oldRoom.signature, newRoom.signature)
+    claimed.add(newRoom.signature)
+  }
+  return remapped
+}
+
+// Match the actual wall faces along a room outline, even if a large wall move
+// leaves little overlap between the old and new room polygons.
+function getRoomBoundaryKey(room: DetectedRoom, wallFaces: ReturnType<typeof getPolygonEdges>) {
+  const tolerance = 1e-5
+  const boundary = wallFaces.filter(face => room.polygon.some((start, index) => {
+    const end = room.polygon[(index + 1) % room.polygon.length]
+    const from = getProjectionOnSegment(start, face.start, face.end)
+    const to = getProjectionOnSegment(end, face.start, face.end)
+    const length = distance(face.start, face.end)
+    const overlap = Math.abs(from.t - to.t) * length
+    if (overlap <= tolerance) return false
+
+    const pointOnFaceLine = (t: number) => ({
+      x: face.start.x + (face.end.x - face.start.x) * t,
+      y: face.start.y + (face.end.y - face.start.y) * t,
+    })
+    return distance(start, pointOnFaceLine(from.rawT)) <= tolerance &&
+      distance(end, pointOnFaceLine(to.rawT)) <= tolerance
+  }))
+  return boundary.length ? JSON.stringify(boundary.map(face => [face.wallId, face.side]).sort()) : ''
+}
+
+function groupRoomsByBoundary(topology: WallTopology, excludedSignatures: Set<string>) {
+  const wallFaces = [...topology.wallPolygonsById].flatMap(([wallId, polygon]) =>
+    getPolygonEdges(polygon, wallId).filter(edge => edge.side !== null))
+  const roomsByBoundary = new Map<string, DetectedRoom[]>()
+  for (const room of topology.rooms) {
+    if (excludedSignatures.has(room.signature)) continue
+    const key = getRoomBoundaryKey(room, wallFaces)
+    if (key) roomsByBoundary.set(key, [...(roomsByBoundary.get(key) ?? []), room])
+  }
+  return roomsByBoundary
+}
+
+export function remapRoomMetadata(rooms: Room[], signatures: ReadonlyMap<string, string>) {
+  return rooms.map(room => {
+    const signature = signatures.get(room.signature)
+    return signature ? { ...room, signature } : room
+  })
+}
+
+export function preserveRoomMetadataAfterWallMove(before: FloorLevel, after: FloorLevel): FloorLevel {
+  if (!before.rooms?.length) return after
+
+  const oldTopology = buildWallTopology(before.walls, { floorFootprints: before.floorFootprints })
+  const newTopology = buildWallTopology(after.walls, { floorFootprints: after.floorFootprints })
+  if (oldTopology.rooms.length !== newTopology.rooms.length) return after
+
+  const oldSignatures = new Set(oldTopology.rooms.map(room => room.signature))
+  const newSignatures = new Set(newTopology.rooms.map(room => room.signature))
+  if (oldTopology.rooms.every(room => newSignatures.has(room.signature))) return after
+
+  const oldBoundaries = groupRoomsByBoundary(oldTopology, newSignatures)
+  const newBoundaries = groupRoomsByBoundary(newTopology, oldSignatures)
+  const signatures = new Map<string, string>()
+  for (const [key, oldRooms] of oldBoundaries) {
+    const newRooms = newBoundaries.get(key)
+    if (oldRooms.length === 1 && newRooms?.length === 1) {
+      signatures.set(oldRooms[0].signature, newRooms[0].signature)
+    }
+  }
+
+  const claimedSignatures = new Set(signatures.values())
+  const overlapMatches = matchChangedRoomSignatures(
+    oldTopology.rooms.filter(room => !signatures.has(room.signature)),
+    newTopology.rooms.filter(room => !claimedSignatures.has(room.signature)),
+  )
+  for (const [oldSignature, newSignature] of overlapMatches) {
+    signatures.set(oldSignature, newSignature)
+  }
+
+  return signatures.size ? { ...after, rooms: remapRoomMetadata(after.rooms, signatures) } : after
 }

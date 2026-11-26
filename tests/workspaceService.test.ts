@@ -83,6 +83,32 @@ async function fixture(options: Partial<Parameters<typeof createWorkspaceService
   }
 }
 
+test('the design agent streams a complete response when Node reports watched worker imports', async () => {
+  const f = await fixture()
+  const previous = process.env.WATCH_REPORT_DEPENDENCIES
+  process.env.WATCH_REPORT_DEPENDENCIES = '1'
+  try {
+    const corners = [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 11 }, { x: 0, y: 11 }]
+    const floor = { id: 'ground', name: 'Ground floor', elevation: 0, roomHeight: 2.45, slabThickness: 0.25,
+      models: [], rooms: [], walls: corners.map((start, index) => ({ id: `wall-${index}`, kind: 'external',
+        start, end: corners[(index + 1) % corners.length], thickness: 0.3, height: 2.45 })) }
+    const response = await f.api('/assistant/agent', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'demo', prompt: 'Design three bedrooms and a bathroom here.', history: [], previous: null, source: {
+        projectId: 'watch-test', revision: 'one', partitionThickness: 0.15, floors: [floor], models: [],
+        selection: { floorId: floor.id, wallIds: [], modelIds: [], roomSignature: null, roofId: null },
+      } }) })
+    assert.equal(response.status, 200)
+    const events = (await response.text()).trim().split('\n').map(line => JSON.parse(line))
+    assert.equal(events[0]?.type, 'phase')
+    assert.ok(events.slice(0, -1).every(event => event.type === 'phase'))
+    assert.equal(events.at(-1)?.type, 'result')
+  } finally {
+    if (previous === undefined) delete process.env.WATCH_REPORT_DEPENDENCIES
+    else process.env.WATCH_REPORT_DEPENDENCIES = previous
+    await f.cleanup()
+  }
+})
+
 test('registration creates a persistent private workspace and an HttpOnly server session', async () => {
   const f = await fixture()
   try {

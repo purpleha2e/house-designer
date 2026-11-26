@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { loadPortalCatalog, createRuntimePortalCatalog } from '../src/portalCatalog.ts'
+import { getModelLibrarySection, matchesModelTags, normalizeModelTag } from '../src/models/modelLibrarySections.ts'
 
 test('tagged slots become editable regions for furniture, doors, windows and stairs', () => {
   const names=['hd_frame','hd_drawer_fronts','original_fixed_finish']
@@ -27,6 +28,39 @@ test('portal catalogue carries explicit door leaf counts and ignores invalid cou
   }), { headers: { 'content-type': 'application/json' } })) as typeof fetch
   const catalog = await loadPortalCatalog()
   assert.deepEqual(catalog.models.map(model => model.doorLeafCount), [1, 2, undefined, undefined])
+})
+
+test('model filters combine authored portal tags with model names and types', () => {
+  const catalog = createRuntimePortalCatalog({ manufacturers: [{ assets: [{
+    assetKind: 'model', id: 'side-table', category: 'Furniture', collection: '', manufacturer: { name: 'Test', slug: 'test' },
+    files: [{ fieldName: 'model', url: '/side-table.glb' }],
+    metadata: { productName: 'Penny Side Table', tags: ' Scandinavian , pale-oak,,', objectType: 'furniture' },
+  }] }] })
+  const [model] = catalog.models
+  assert.deepEqual(model.tags, ['Scandinavian', 'pale-oak'])
+  assert.equal(matchesModelTags(model, ['SIDE TABLE', 'pale Oak', 'furniture'].map(normalizeModelTag)), true)
+  assert.equal(matchesModelTags(model, ['scandinavian', 'farmhouse']), false)
+})
+
+test('a portal model can mount on walls and remain a decoration in the object library', () => {
+  const catalog = createRuntimePortalCatalog({ manufacturers: [{ assets: [{
+    assetKind: 'model', id: 'frame', category: '', collection: '', manufacturer: { name: 'Test', slug: 'test' },
+    files: [{ fieldName: 'model', url: '/frame.glb' }],
+    metadata: { productName: 'Picture frame', objectType: 'decor', placement: 'wall-mounted' },
+  }] }] })
+  assert.equal(catalog.models[0].placement, 'wall-mounted')
+  assert.equal(catalog.models[0].wallMount, undefined)
+  assert.equal(getModelLibrarySection(catalog.models[0]), 'objects')
+})
+
+test('an uploaded light fixture can use ceiling placement', () => {
+  const catalog = createRuntimePortalCatalog({ manufacturers: [{ assets: [{
+    assetKind: 'model', id: 'pendant', category: '', collection: '', manufacturer: { name: 'Test', slug: 'test' },
+    files: [{ fieldName: 'model', url: '/pendant.glb' }],
+    metadata: { productName: 'Pendant', objectType: 'lighting', placement: 'ceiling-mounted' },
+  }] }] })
+  assert.equal(catalog.models[0].placement, 'ceiling-mounted')
+  assert.equal(getModelLibrarySection(catalog.models[0]), 'objects')
 })
 
 test('portal catalogue loading retries a transient startup failure', async (context) => {

@@ -3,6 +3,9 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createWorkspaceStore, WorkspaceError, type PrivateAsset, type WorkspaceStore } from './workspace-store.ts'
 import { validateLocalMaterial } from '../src/materials/localMaterials.ts'
+import { createOpenAiAssistant, validAssistantInput, type ServerAssistantProvider } from './design-assistant.ts'
+import { parseAgentRequest } from './design-agent-input.ts'
+import { agentSettingsFromEnvironment, streamDesignAgent, type AgentSettings } from './design-agent-service.ts'
 
 const prefix = '/api/workspace'
 const cookieName = 'hd_workspace_session'
@@ -69,11 +72,12 @@ function validateUpload(url: URL, contents: Buffer) {
 /** Loopback-only development service. Hosted sign-in will use a managed
  * identity provider; local development accounts are never production users. */
 export async function createWorkspaceService({ directory, quotaBytes, maxUploadBytes = 100 * 1024 * 1024,
-  allowedOrigins = defaultOrigins, now = Date.now, sessionMilliseconds, objects, store: suppliedStore,
-}: Parameters<typeof createWorkspaceStore>[0] & { maxUploadBytes?: number; allowedOrigins?: string[]; store?: WorkspaceStore }) {
+  allowedOrigins = defaultOrigins, now = Date.now, sessionMilliseconds, objects, store: suppliedStore, assistant, agent = {},
+}: Parameters<typeof createWorkspaceStore>[0] & { maxUploadBytes?: number; allowedOrigins?: string[]; store?: WorkspaceStore; assistant?: ServerAssistantProvider; agent?: AgentSettings }) {
   if (!Number.isSafeInteger(maxUploadBytes) || maxUploadBytes <= 0 || maxUploadBytes > 250 * 1024 * 1024) throw Error('Invalid upload limit')
   const store = suppliedStore ?? await createWorkspaceStore({ directory, quotaBytes, now, sessionMilliseconds, objects })
   const attempts = new Map<string, { count: number; reset: number }>()
+  let assistantRequests = 0
   const server = createServer(async (request, response) => {
     response.setHeader('Cache-Control', 'no-store')
     response.setHeader('X-Content-Type-Options', 'nosniff')
@@ -88,6 +92,38 @@ export async function createWorkspaceService({ directory, quotaBytes, maxUploadB
       }
       if (method === 'GET' && path === `${prefix}/health`) {
         json(response, 200, { ok: true, mode: 'local-development' }); return
+      }
+      if (path === `${prefix}/assistant/agent`) {
+        if (method === 'GET') { json(response, 200, { demo: true, live: !!agent.credentials }); return }
+        if (method !== 'POST') throw new WorkspaceError(404, 'The design agent endpoint was not found.')
+        if (!request.headers.origin || !allowedOrigins.includes(request.headers.origin) ||
+            !request.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+          throw new WorkspaceError(403, 'Use the local editor to access the design agent.')
+        }
+        const input = parseAgentRequest(parseJson(await body(request, 390_000)))
+        if (!input) throw new WorkspaceError(400, 'This design request or its architectural context exceeded the supported dimensions or format.')
+        if (input.mode === 'live' && !agent.credentials) throw new WorkspaceError(503, 'Live AI is unavailable. Configure a model and a server API key or choose the local demonstration.')
+        if (assistantRequests >= 2) throw new WorkspaceError(429, 'The assistant is busy. Try again shortly.')
+        assistantRequests++
+        try { await streamDesignAgent(response, input, agent) }
+        finally { assistantRequests-- }
+        return
+      }
+      if (path === `${prefix}/assistant`) {
+        if (method === 'GET') { json(response, 200, { available: !!assistant }); return }
+        if (method !== 'POST' || !assistant) throw new WorkspaceError(404, 'The live assistant is not configured.')
+        if (!request.headers.origin || !allowedOrigins.includes(request.headers.origin) ||
+            !request.headers['content-type']?.toLowerCase().startsWith('application/json')) {
+          throw new WorkspaceError(403, 'Use the local editor to access the live assistant.')
+        }
+        const input = parseJson(await body(request, 24_000))
+        if (!validAssistantInput(input)) throw new WorkspaceError(400, 'The assistant request exceeded its supported context or format.')
+        if (assistantRequests >= 2) throw new WorkspaceError(429, 'The live assistant is busy. Try again in a moment.')
+        assistantRequests++
+        try { json(response, 200, await assistant.interpret(input)) }
+        catch (error) { throw new WorkspaceError(502, error instanceof Error ? error.message : 'The live assistant is unavailable.') }
+        finally { assistantRequests-- }
+        return
       }
       const token = cookieToken(request)
       if (method === 'POST' && [prefix + '/auth/register', prefix + '/auth/login'].includes(path)) {
@@ -161,6 +197,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     quotaBytes: Number(process.env.WORKSPACE_QUOTA_BYTES ?? 100 * 1024 * 1024),
     maxUploadBytes: Number(process.env.WORKSPACE_MAX_UPLOAD_BYTES ?? 100 * 1024 * 1024),
     allowedOrigins: process.env.WORKSPACE_ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()).filter(Boolean),
+    assistant: process.env.OPENAI_API_KEY && process.env.HOUSE_DESIGNER_OPENAI_MODEL
+      ? createOpenAiAssistant(process.env.OPENAI_API_KEY, process.env.HOUSE_DESIGNER_OPENAI_MODEL) : undefined,
+    agent: agentSettingsFromEnvironment(process.env),
   })
   service.server.listen(port, '127.0.0.1', () => console.log(`Local account/workspace service: http://127.0.0.1:${port}\nDevelopment accounts and private files stay in ${resolve(process.env.WORKSPACE_DATA_DIR ?? '.workspace-data')}`))
   service.server.once('error', error => { console.error(error.message); service.store.close(); process.exitCode = 1 })

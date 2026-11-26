@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { bundledModelMaterials } from './scripts/bundled-model-materials.mjs'
 
 const useHttps = process.env.VITE_HTTPS === '1'
 const localCertDir = resolve(import.meta.dirname, '.local-certs')
@@ -19,7 +20,7 @@ const serverProxy = {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), bundledModelMaterials(resolve(import.meta.dirname, 'src/models/assets'))],
   build: {
     rolldownOptions: {
       input: { main: resolve(import.meta.dirname, 'index.html'), lightingLab: resolve(import.meta.dirname, 'lighting-lab/index.html') },

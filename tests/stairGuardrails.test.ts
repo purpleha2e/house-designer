@@ -5,6 +5,12 @@ import { createStairDesign, getStairLayout, validateStairDesign, type StairDesig
 import { createStairGeometry, disposeStairGeometry } from '../src/stairGeometry.ts'
 import { getStairGuardrailOpening, getStairGuardrailPaths } from '../src/stairGuardrails.ts'
 import { getStairRailPath } from '../src/stairRailings.ts'
+import { stairDefinition } from '../src/stairDefinition.ts'
+import { getStairLandingPosition } from '../src/stairLandings.ts'
+import { getStairSlabOpenings } from '../src/stairSlabOpenings.ts'
+import { getOpenStairwellGuardrails, usesAutomaticStairwellGuardrails } from '../src/stairwellGuardrails.ts'
+import { bounds, pointInPolygon } from '../src/assistant/planGeometry.ts'
+import type { FloorLevel, PlacedModel, Wall } from '../src/types.ts'
 
 test('the return joins the top newel and stays level on the floor above a short flight', () => {
   const original: StairDesign = { ...createStairDesign(2.4), width: .8,
@@ -76,4 +82,58 @@ test('the side and far-end guardrails are independent', () => {
   assert.equal(getStairGuardrailPaths(design, getStairLayout(design)).side.length, 0)
   assert.match(validateStairDesign({ ...endOnly, upperGuardrail: { side: 'left', setback: .1 } })!, /chosen side/)
   assert.match(validateStairDesign({ ...leftOnly, upperGuardrail: { side: 'left', setback: .01 } })!, /setback/)
+})
+
+function openWell(layout: StairDesign['layout'], transform: Partial<PlacedModel> = {}) {
+  const design = { ...createStairDesign(), layout }
+  const definition = stairDefinition('agent-123-2-stair-variety', 'Assistant staircase', design)
+  const stair: PlacedModel = { id: 'stair', modelId: definition.id, position: { x: 0, y: 0 }, rotation: 0, scale: 1, ...transform }
+  const lower: FloorLevel = { id: 'down', name: 'Down', elevation: 0, roomHeight: 2.45, slabThickness: .25, models: [stair], walls: [], rooms: [] }
+  const upper = { ...lower, id: 'up', elevation: 2.7, models: [] }
+  const footprints = [[{ x: -10, y: -10 }, { x: 10, y: -10 }, { x: 10, y: 10 }, { x: -10, y: 10 }]]
+  const openings = getStairSlabOpenings(lower, upper, [lower], new Map([[definition.id, definition]]))
+  const rails = (walls: Wall[] = []) => getOpenStairwellGuardrails(stair, definition, openings, footprints, walls)
+  return { design, definition, stair, openings, rails }
+}
+
+test('an open U stair has a level upper guard around the aperture with a gap only at its arriving flight', () => {
+  const { design, definition, stair, openings, rails } = openWell('u')
+  assert.equal(usesAutomaticStairwellGuardrails(definition), true)
+  assert.equal(usesAutomaticStairwellGuardrails({ ...definition, id: 'my-manual-stair' }), false)
+  const [path, ...rest] = rails()
+  assert.equal(rest.length, 0, 'returns should form one connected guard')
+  const limits = bounds(openings[0])
+  const exit = getStairLandingPosition(stair, definition, 'upper')
+  assert.ok(path.every(point => point.y === 0 && !pointInPolygon({ x: point.x, y: point.z }, openings[0])))
+  assert.ok(path.some(point => point.z < limits.minY && point.x < exit.x - design.width / 2),
+    'guard the opening above the lower flight')
+  assert.ok(path.slice(1).every((end, i) => {
+    const start = path[i]
+    return !(start.z < exit.y && end.z < exit.y && Math.min(start.x, end.x) < exit.x && Math.max(start.x, end.x) > exit.x)
+  }), 'leave the top of the upper flight open')
+  const mesh = createStairGeometry(design, { guardrailOnly: true, openingGuardrails: [path] })
+  try {
+    assert.equal(mesh.getObjectByName('stair-treads'), undefined)
+    assert.ok(Math.abs((mesh.getObjectByName('stair-posts') as Mesh).geometry.boundingBox!.min.y) < 1e-6)
+  } finally { disposeStairGeometry(mesh) }
+})
+
+test('open-edge guarding skips the part protected by a wall and follows all parts of a flipped L-shaped cutout', () => {
+  const { openings, rails } = openWell('straight')
+  const { minX, minY } = bounds(openings[0])
+  const wall: Wall = { id: 'guard-wall', kind: 'internal', height: 2.4, thickness: .15,
+    start: { x: minX - .075, y: minY }, end: { x: minX - .075, y: 0 } }
+  const leftRuns = rails([wall]).flatMap(path => path.slice(1).flatMap((end, i) => {
+    const start = path[i]
+    return start.x < minX && end.x < minX ? [(start.z + end.z) / 2] : []
+  }))
+  assert.ok(leftRuns.some(y => y > 0.2), 'keep the exposed portion')
+  assert.ok(leftRuns.every(y => y < minY || y > 0), 'guardrail stops where the wall takes over')
+
+  const mirrored = openWell('l', { position: { x: 3, y: 2 }, rotation: Math.PI / 2, mirrored: true, flipped: true })
+  assert.equal(mirrored.openings.length, 3)
+  const paths = mirrored.rails()
+  assert.equal(paths.length, 1, 'internal seams between the cutout fragments are joined')
+  assert.ok(paths[0].length >= 6)
+  assert.ok(paths[0].every(({ x, z }) => !mirrored.openings.some(opening => pointInPolygon({ x, y: z }, opening))))
 })

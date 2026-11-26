@@ -25,8 +25,8 @@ export type WallSplitTarget = {
   blocker: 'opening' | 'end' | null
 }
 
-export function getWallSplitTarget(walls: Wall[], pointer: Point, tolerance: number): WallSplitTarget | null {
-  let hit: WallSplitTarget | null = null
+export function getWallSplitTarget(walls: Wall[], pointer: Point, tolerance: number) {
+  let hit: { wall: Wall; offset: number; side: -1 | 1 | null } | null = null
   let nearest = Infinity
   for (const wall of walls) {
     const dx = wall.end.x - wall.start.x
@@ -40,18 +40,67 @@ export function getWallSplitTarget(walls: Wall[], pointer: Point, tolerance: num
     const hostHalfThickness = wall.thickness / 2
     if (gap > hostHalfThickness + tolerance || gap >= nearest) continue
     nearest = gap
-    const fromStart = offset <= length / 2
-    const sign = (pointer.x - point.x) * -axis.y + (pointer.y - point.y) * axis.x < -EPSILON ? -1 : 1
-    hit = {
-      wallId: wall.id, offset, point, hostHalfThickness,
-      reference: fromStart ? wall.start : wall.end,
-      direction: fromStart ? axis : { x: -axis.x, y: -axis.y },
-      normal: { x: -axis.y * sign, y: axis.x * sign },
-      distance: fromStart ? offset : length - offset,
-      blocker: getSplitBlocker(wall, length, offset),
-    }
+    const across = (pointer.x - point.x) * -axis.y + (pointer.y - point.y) * axis.x
+    hit = { wall, offset, side: across < -EPSILON ? -1 : across > EPSILON ? 1 : null }
   }
   return hit
+}
+
+export function getWallSplitGuide(
+  wall: Wall,
+  offset: number,
+  side: -1 | 1,
+  faceRanges: { faceStart: Point; faceEnd: Point }[],
+): WallSplitTarget {
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+  const axis = { x: dx / length, y: dy / length }
+  const projectOntoWall = (point: Point) => (point.x - wall.start.x) * axis.x + (point.y - wall.start.y) * axis.y
+  const pointAt = (along: number) => ({ x: wall.start.x + axis.x * along, y: wall.start.y + axis.y * along })
+  // An interior face can have several clear spans separated by intersecting walls.
+  let start = 0
+  let end = length
+  let nearest = Infinity
+  for (const { faceStart, faceEnd } of faceRanges) {
+    const a = projectOntoWall(faceStart)
+    const b = projectOntoWall(faceEnd)
+    const rangeStart = Math.min(a, b)
+    const rangeEnd = Math.max(a, b)
+    const gap = Math.max(rangeStart - offset, offset - rangeEnd, 0)
+    if (gap >= nearest) continue
+    nearest = gap
+    start = rangeStart
+    end = rangeEnd
+  }
+  const fromStart = Math.abs(offset - start) <= Math.abs(offset - end)
+  const referenceOffset = fromStart ? start : end
+  const forward = offset === referenceOffset ? fromStart : offset > referenceOffset
+  return {
+    wallId: wall.id, offset, point: pointAt(offset),
+    reference: pointAt(referenceOffset),
+    direction: forward ? axis : { x: -axis.x, y: -axis.y },
+    normal: { x: -axis.y * side, y: axis.x * side },
+    hostHalfThickness: wall.thickness / 2,
+    distance: Math.abs(offset - referenceOffset),
+    blocker: getSplitBlocker(wall, length, offset),
+  }
+}
+
+export function getWallSplitAtDistance(wall: Wall, guide: WallSplitTarget, value: string): WallSplitTarget | null {
+  const text = value.trim().replace(',', '.')
+  if (!/^\d+(?:\.\d*)?$|^\.\d+$/.test(text)) return null
+  const distance = Number(text)
+  const dx = wall.end.x - wall.start.x
+  const dy = wall.end.y - wall.start.y
+  const length = Math.hypot(dx, dy)
+  const point = {
+    x: guide.reference.x + guide.direction.x * distance,
+    y: guide.reference.y + guide.direction.y * distance,
+  }
+  const offset = ((point.x - wall.start.x) * dx + (point.y - wall.start.y) * dy) / length
+  if (!Number.isFinite(offset) || offset < 0 || offset > length) return null
+  return { ...guide, point, offset, distance, blocker: getSplitBlocker(wall, length, offset) }
 }
 
 export function splitFloorWall(floor: FloorLevel, wallId: string, offset: number, newId: string) {

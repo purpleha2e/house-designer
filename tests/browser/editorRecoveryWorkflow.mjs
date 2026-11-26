@@ -72,7 +72,7 @@ try {
     await b.wait(`recoveryProps('FloorplanCanvas')?.activeFloor.walls.length===1`, 5000)
     await shot('new-initial')
     await click('[aria-label="Wall tools"]'); await click('button', 'Add wall')
-    await click('[aria-label="Wall tools"]')
+    await b.wait(`!document.querySelector('.left-tool-flyout[aria-label="wall tools"]') && !!document.querySelector('.floorplan-stop-adding-walls')`)
     // New supplies one floor and its first wall. Draw six more through pointer input.
     for (const [i, points] of [ [[6.5,1.5],[6.5,6.5]], [[6.5,6.5],[1.5,6.5]], [[1.5,6.5],[1.5,1.5]], [[1.5,4],[6.5,4]], [[4,1.5],[4,4]], [[4,4],[4,6.5]] ].entries()) {
       await mouse(await planPoint(...points[0])); await pause(40)
@@ -81,7 +81,9 @@ try {
       await b.wait(`recoveryProps('FloorplanCanvas').activeFloor.walls.length===${i+2}`, 4000)
       report.steps.push({ action: `wall ${i+2} plan`, at, observed: await b.evaluate('performance.now()') })
     }
-    await click('[aria-label="Wall tools"]'); await click('button', 'Stop adding walls'); await click('[aria-label="Wall tools"]'); await shot('seven-walls-initial')
+    await click('.floorplan-stop-adding-walls', 'Stop adding walls')
+    await b.wait(`!!document.querySelector('.left-tool-flyout[aria-label="wall tools"]') && !document.querySelector('.floorplan-stop-adding-walls')`)
+    await click('[aria-label="Wall tools"]'); await shot('seven-walls-initial')
     await observe(12); await shot('seven-walls-preparing')
     await click('[aria-label="Add windows or doors"]')
     report.openings = await b.evaluate(`[...document.querySelectorAll('.model-option')].map(e=>e.textContent)`)

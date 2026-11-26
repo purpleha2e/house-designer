@@ -3,7 +3,23 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { lightingBrowser } from './lightingHarness.mjs'
 
-const browser = await lightingBrowser()
+let onPageLoaded
+const browser = await lightingBrowser({ onEvent: event => {
+  if (event.method === 'Page.loadEventFired') onPageLoaded?.()
+} })
+async function reloadPage() {
+  let timer
+  const loaded = new Promise((resolve, reject) => {
+    onPageLoaded = resolve
+    timer = setTimeout(() => reject(new Error('The page did not finish reloading')), 15000)
+  })
+  try {
+    await Promise.all([browser.call('Page.reload'), loaded])
+  } finally {
+    clearTimeout(timer)
+    onPageLoaded = undefined
+  }
+}
 const url = `http://127.0.0.1:${process.argv[2] ?? 5186}/`
 const output = 'tmp/recent-projects-regression'
 mkdirSync(output, { recursive: true })
@@ -72,9 +88,8 @@ try {
       await recent.rememberRecentProject({fileName:name+'.json',contents,handle});}
   })()`)
   // Stored file handles survive a refresh and read fresh disk contents.
-  await browser.evaluate('window.beforeRecentReload=true')
-  await browser.call('Page.reload')
-  await browser.wait(`!window.beforeRecentReload && !!document.querySelector('[aria-label="Project menu"]')`)
+  await reloadPage()
+  await ready()
   await openMenu()
   await browser.wait(`document.querySelectorAll('.project-menu-recent button').length===3`)
   assert.deepEqual(await names(), ['Gamma.json', 'Delta.json', 'Beta.json'])
@@ -128,8 +143,31 @@ try {
   await browser.wait(`!document.querySelector('.project-menu-recent')`)
   await openMenu()
   assert.deepEqual(await names(), ['Portable.json', 'Beta.json', 'Gamma.json'])
+
+  // Saving a normally loaded file replaces the cached Recent entry with the saved bytes.
+  const ceilingSelect = `[...document.querySelectorAll('.flyout-select')].find(label=>label.textContent.includes('Ceiling under roof'))?.querySelector('select')`
+  const openFloorTools = async () => {
+    await browser.evaluate(`if (!(${ceilingSelect})) document.querySelector('[aria-label="Floor tools"]').click()`)
+    await browser.wait(`!!(${ceilingSelect})`, 10000)
+  }
+  await browser.evaluate(`document.querySelector('[aria-label="Project menu"]').click();
+    window.showSaveFilePicker=()=>handleFor('Portable.json',JSON.stringify(makeProject('Portable')))`)
+  await openFloorTools()
+  await browser.evaluate(`(()=>{const select=${ceilingSelect};select.value='open';select.dispatchEvent(new Event('change',{bubbles:true}))})()`)
+  await openMenu()
+  await browser.evaluate(`[...document.querySelectorAll('.project-menu-dropdown button')].find(b=>b.textContent==='Save').click()`)
+  await browser.wait(`document.querySelector('.project-load-feedback')?.textContent.includes('Saved Portable.json')`, 15000)
+  await reloadPage()
+  await ready()
+  await openMenu()
+  await browser.wait(`document.querySelector('.project-menu-recent button')?.textContent==='Portable.json'`)
+  await browser.evaluate(`document.querySelector('.project-menu-recent button').click()`)
+  await browser.wait(`document.querySelector('.viewport-caption')?.textContent.includes('Portable')`)
+  await openFloorTools()
+  await browser.wait(`(${ceilingSelect})?.value==='open'`, 10000)
+
   const screenshot = await browser.call('Page.captureScreenshot', { format: 'png' })
   writeFileSync(`${output}/menu.png`, Buffer.from(screenshot.data, 'base64'))
   assert.deepEqual(browser.errors, [])
-  console.log('PASS Recent: startup camera changes, dirty-edit cancellation and undo, three entries, deduplication, reopening, persistence, fresh file contents, invalid/missing files and stored copies')
+  console.log('PASS Recent: startup camera changes, dirty-edit cancellation and undo, three entries, deduplication, reopening, persistence, completed device saves, fresh file contents, invalid/missing files and stored copies')
 } finally { browser.close() }

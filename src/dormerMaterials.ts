@@ -1,5 +1,6 @@
 import type { DormerWallContact } from './dormerInterior.ts'
 import type { PlacedModel, SurfaceMaterialAssignment } from './types.ts'
+import { getModelMaterialTextureTransform } from './modelMaterialOverrides.ts'
 
 export const DORMER_INTERIOR_MATERIAL_REGION = 'dormer-interior'
 
@@ -30,6 +31,7 @@ export function getDormerWallAssignment(
   const materialId = model.materialOverrides?.[DORMER_INTERIOR_MATERIAL_REGION]
   return materialId ? {
     id: `${model.id}:interior`, materialId,
+    ...getModelMaterialTextureTransform(model.materialTextureTransforms, DORMER_INTERIOR_MATERIAL_REGION),
     target: { type: 'wall-face', wallId: `${model.id}:interior`, side: 'both' },
   } : undefined
 }

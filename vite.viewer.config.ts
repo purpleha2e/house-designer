@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'node:path'
+import { bundledModelMaterials } from './scripts/bundled-model-materials.mjs'
 
 const workspace = import.meta.dirname
 
@@ -9,7 +10,7 @@ const workspace = import.meta.dirname
 export default defineConfig({
   root: resolve(workspace, 'viewer'),
   base: './',
-  plugins: [react()],
+  plugins: [react(), bundledModelMaterials(resolve(workspace, 'src/models/assets'))],
   publicDir: resolve(workspace, '.viewer-data/public'),
   build: { outDir: resolve(workspace, 'dist-viewer'), emptyOutDir: true },
   server: { fs: { allow: [workspace] } },

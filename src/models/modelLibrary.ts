@@ -1,5 +1,9 @@
 import type { WindowDesign } from '../windowDesign'
+import { getPictureFrameMaterialRegions, type PictureFrameDesign } from '../pictureFrameDesign'
+import { getKitchenUnitBounds, getKitchenUnitMaterialRegions, type KitchenUnitDesign } from '../kitchenUnitDesign'
 import { parametricStairMaterialRegions, type StairDesign } from '../stairDesign'
+import { discoverHdMaterialRegions, normalizeArtworkMaterialRegions } from '../modelMaterialOverrides'
+import bundledMaterialNames from 'virtual:bundled-model-materials'
 
 export type ModelObjectType =
   | 'appliance'
@@ -51,6 +55,8 @@ export type ModelDefinition = {
   /** Number of hinged leaves shown in the floor plan, independent of width. */
   doorLeafCount?: 1 | 2
   windowDesign?: WindowDesign
+  pictureFrameDesign?: PictureFrameDesign
+  kitchenUnitDesign?: KitchenUnitDesign
   stairDesign?: StairDesign
   stairFootprint?: { x: number; y: number }[][]
   stairLandingDirections?: { lower: { x: number; y: number }; upper: { x: number; y: number } }
@@ -70,6 +76,7 @@ export type ModelDefinition = {
   materialRegions?: ModelMaterialRegion[]
   openingCenterOffset?: number
   openingWidth?: number
+  placement?: 'floor' | 'wall-mounted' | 'ceiling-mounted'
   previewUrl?: string
   normalizeToDimensions?: boolean
   /** Fixed frame node used to resize open doors without flattening their leaf. */
@@ -79,6 +86,7 @@ export type ModelDefinition = {
   roofMount?: 'dormer'
   wallMount?: 'exterior-door' | 'interior-door' | 'patio-door' | 'window'
   sourceUrl?: string
+  tags?: string[]
   shape: 'box' | 'light' | 'round'
   width: number
   depth: number
@@ -105,10 +113,22 @@ function getModelId(fileName: string) {
     .toLowerCase()
 }
 
+const bundledObjectGroups = [
+  { category: 'Furniture', objectType: 'furniture', ids: ['bedside-table', 'cabinet', 'computer-desk', 'corner-cupboard', 'corner-sofa', 'cupboard', 'high-tv-shelf', 'king-bed', 'low-tv-cabinet', 'montybed', 'office-chair', 'sofa', 'stool', 'wardrobe'] },
+  { category: 'Kitchen', objectType: 'kitchen', ids: ['base-cabinet-marble-cream-800mm', 'island', 'island-marble', 'kitchen-table-1', 'sink-unit', 'waterfall-shaker-island-blender'] },
+  { category: 'Appliances', objectType: 'appliance', ids: ['double-fridge', 'double-fridge-2', 'kitchen-range', 'oven-hob', 'washer-dryer-stack', 'washer-dryer-stack-mid', 'washer-mid', 'widescreen-tv'] },
+  { category: 'Bathroom', objectType: 'bathroom', ids: ['bath', 'pedestal-basin', 'pedestal-basin-gold-taps', 'shower', 'toilet'] },
+] as const
+
+const bundledObjectMetadata = new Map<string, Pick<ModelDefinition, 'category' | 'objectType'>>(
+  bundledObjectGroups.flatMap(({ category, objectType, ids }) => ids.map(id => [id, { category, objectType }] as const)),
+)
+
 const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
   'waterfall-shaker-island': {
     name: 'Ivory Waterfall Shaker Island',
     category: 'Kitchen', objectType: 'kitchen', color: '#666b65',
+    tags: ['shaker', 'ivory', 'stone worktop'],
     width: 2.4, depth: 1.05, height: 1.422768,
     localBounds: { minX: -1.2, maxX: 1.2, minZ: -0.525, maxZ: 0.525 },
     previewUrl: new URL('./assets/waterfall_shaker_island.png', import.meta.url).href,
@@ -149,6 +169,13 @@ const modelDefinitionOverrides: Record<string, Partial<ModelDefinition>> = {
     height: 2.124037,
     openingWidth: 0.975141,
     width: 0.975141,
+  },
+  'panel-interior-double-doors-full-open-low-detail': {
+    doorLeafCount: 2,
+    width: 1.752757,
+    depth: 0.888928,
+    // The clear span between the jambs is 1.539 m. Allow a small fit tolerance.
+    openingWidth: 1.55,
   },
   'simple-stairs': {
     depth: 2.640001,
@@ -243,10 +270,16 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
           : 1,
     }
 
-    return {
+    const definition = {
       ...baseDefinition,
+      ...bundledObjectMetadata.get(baseDefinition.id),
       ...modelDefinitionOverrides[baseDefinition.id],
     }
+    const authored = definition.materialRegions ?? []
+    const discovered = discoverHdMaterialRegions(bundledMaterialNames[fileName] ?? []).filter(region =>
+      !authored.some(existing => existing.id === region.id || existing.sourceMaterialNames.includes(region.id)),
+    )
+    return discovered.length ? { ...definition, materialRegions: [...authored, ...discovered] } : definition
   },
 )
 
@@ -376,10 +409,12 @@ export function registerRuntimeModels(models: ModelDefinition[]) {
     return {
       ...existingModel,
       ...model,
+      ...(model.kitchenUnitDesign && { localBounds: getKitchenUnitBounds(model.kitchenUnitDesign) }),
       materialRegions:
-        model.stairDesign ? parametricStairMaterialRegions : model.materialRegions ??
-        existingModel?.materialRegions ??
-        (model.objectType === 'stairs' ? stairMaterialRegions : undefined),
+        model.stairDesign ? parametricStairMaterialRegions : model.pictureFrameDesign ? getPictureFrameMaterialRegions(model.pictureFrameDesign) :
+        model.kitchenUnitDesign ? getKitchenUnitMaterialRegions(model.kitchenUnitDesign) :
+        normalizeArtworkMaterialRegions(model.materialRegions ?? existingModel?.materialRegions ??
+          (model.objectType === 'stairs' ? stairMaterialRegions : undefined), model.objectType ?? existingModel?.objectType),
     }
   })
   const mergedModelIds = new Set(mergedModels.map((model) => model.id))

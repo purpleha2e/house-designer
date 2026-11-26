@@ -1,0 +1,17 @@
+{
+  "id": "local-material-18c2fc24-b4f3-4b40-8acb-d3324bb4b4c9",
+  "manufacturer": "My materials",
+  "folder": "Paint",
+  "productName": "Matt's Kitchen",
+  "category": "wall-covering",
+  "collection": "Local library",
+  "pbr": {
+    "baseColor": "#a9aaa7",
+    "roughness": 0.69,
+    "metalness": 0,
+    "normalStrength": 1,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1,
+    "imageBasedLighting": true
+  }
+}

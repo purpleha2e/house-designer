@@ -11,7 +11,7 @@ import type {
 } from '../types'
 import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
 
-type RailPanel = 'align' | 'floor' | 'materials' | 'wall'
+export type RailPanel = 'align' | 'floor' | 'materials' | 'wall'
 type WallMaterialMode = 'full' | 'lower'
 type ModelAlignDirection = 'bottom' | 'left' | 'right' | 'top'
 
@@ -54,6 +54,7 @@ type LeftToolRailProps = {
   isSplittingWall: boolean
   isRoofMode: boolean
   materials: SurfaceMaterialProduct[]
+  openPanel: RailPanel | null
   selectedSurface: SelectableSurface | null
   selectedModelCount: number
   selectedWallHeight: number | null
@@ -78,6 +79,7 @@ type LeftToolRailProps = {
   onInternalWallThicknessChange: (thickness: number) => void
   onOpenModelSelector: (section: ModelLibrarySection) => void
   onOpenMaterialEditor?: () => void
+  onPanelChange: (panel: RailPanel | null) => void
   onRoofModeChange: (isRoofMode: boolean) => void
   onSelectFloor: (floorId: string) => void
   onSlabThicknessChange: (thickness: number) => void
@@ -278,6 +280,7 @@ export function LeftToolRail({
   isSplittingWall,
   isRoofMode,
   materials,
+  openPanel,
   selectedSurface,
   selectedModelCount,
   selectedWallHeight,
@@ -293,6 +296,7 @@ export function LeftToolRail({
   onInternalWallThicknessChange,
   onOpenModelSelector,
   onOpenMaterialEditor,
+  onPanelChange,
   onRoofModeChange,
   onSelectFloor,
   onSlabThicknessChange,
@@ -302,7 +306,6 @@ export function LeftToolRail({
   onWallHeightChange,
   onWallKindChange,
 }: LeftToolRailProps) {
-  const [openPanel, setOpenPanel] = useState<RailPanel | null>(null)
   const materialFolders = useMaterialFolders()
   const [selectedMaterialId, setSelectedMaterialId] = useState('')
   const [wallMaterialMode, setWallMaterialMode] =
@@ -403,7 +406,7 @@ export function LeftToolRail({
   }
   const togglePanel = (panel: RailPanel) => {
     onRoofModeChange(false)
-    setOpenPanel((currentPanel) => (currentPanel === panel ? null : panel))
+    onPanelChange(openPanel === panel ? null : panel)
   }
   const selectedMaterialIsVisible = materials.some(
     (material) => material.id === selectedMaterialId,
@@ -473,7 +476,12 @@ export function LeftToolRail({
         <IconButton
           active={isAddingWall || isSplittingWall || openPanel === 'wall'}
           label="Wall tools"
-          onClick={() => togglePanel('wall')}
+          onClick={() => {
+            if (isAddingWall) {
+              onToggleAddWall()
+              onPanelChange('wall')
+            } else togglePanel('wall')
+          }}
         >
           <WallIcon />
         </IconButton>
@@ -488,7 +496,7 @@ export function LeftToolRail({
           active={isRoofMode}
           label="Roof tools"
           onClick={() => {
-            setOpenPanel(null)
+            onPanelChange(null)
             onRoofModeChange(!isRoofMode)
           }}
         >
@@ -523,18 +531,12 @@ export function LeftToolRail({
             <>
               <header>
                 <h2>Walls</h2>
-                <p>{isAddingWall ? 'Click start, click end' : isSplittingWall ? 'Click an existing wall to split it' : 'Choose wall type'}</p>
+                <p>{isSplittingWall ? 'Click an existing wall to split it' : 'Choose wall type'}</p>
               </header>
-              <button
-                type="button"
-                className={isAddingWall ? 'active' : ''}
-                onClick={onToggleAddWall}
-              >
-                {isAddingWall ? 'Stop adding walls' : 'Add wall'}
-              </button>
+              <button type="button" onClick={onToggleAddWall}>Add wall</button>
               <button type="button" className={isSplittingWall ? 'active' : ''} aria-pressed={isSplittingWall}
                 disabled={!floors.some(floor => floor.id === activeFloorId && floor.walls.length > 0)}
-                onClick={() => { onToggleSplitWall(); setOpenPanel(null) }}>
+                onClick={() => { onToggleSplitWall(); onPanelChange(null) }}>
                 Split wall
               </button>
               <div className="flyout-segmented-control" aria-label="Wall type">

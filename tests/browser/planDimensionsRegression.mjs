@@ -82,6 +82,47 @@ try {
   assert.ok(outside.labels.includes(7), 'Overall perimeter width remains 7.00 m')
   assert.ok(outside.lines.every(line => !isInside(line)))
 
+  await setOption('Internal dimensions', true)
+  await replaceWalls([
+    wall('visible-wall', 2, 4, 5, 4),
+    wall('short-partition', 2, 2, 2.13, 2, 'internal', .15),
+    wall('collapsed-top', 7.13, 1, 7, 1),
+    wall('collapsed-middle', 7, 5, 7.19, 5),
+    wall('collapsed-bottom', 7, 9, 7.08, 9),
+  ])
+  await browser.wait("handleFloor.walls.some(wall=>wall.id==='collapsed-bottom')")
+  assert.deepEqual((await read()).labels, [.13, .13, 3, 3],
+    'Only walls with a rendered length have dimensions, including a short visible partition')
+  await setOption('Internal dimensions', false)
+
+  const angledWalls = [wall('horizontal', 1, 1, 5, 1), wall('diagonal', 5, 1, 8, 4, 'external', .2)]
+  const sharedTicksAt = (lines, x, y) => lines.flatMap(([x1, y1, x2, y2]) => [[x1, y1], [x2, y2]])
+    .filter(([tickX, tickY]) => Math.hypot(tickX / 60 - x, tickY / 60 - y) < 1e-6).length
+  for (const reversed of [false, true]) {
+    await replaceWalls(reversed ? angledWalls.map(w => ({ ...w, start: w.end, end: w.start })) : angledWalls)
+    await browser.wait(`handleFloor.walls.length===2 && handleFloor.walls[0].start.x===${reversed ? 5 : 1}`)
+    const angle = await read()
+    assert.equal(sharedTicksAt(angle.lines, 5 - .43 + .38 * Math.SQRT2, .57), 2,
+      'The two exterior rulers share the intersection of their offset lines at an angled corner')
+    assert.deepEqual(angle.labels, [3.99, 4.35], 'The labels measure to the rendered mitre across different wall thicknesses')
+  }
+
+  await replaceWalls([angledWalls[0], wall('acute-return', 5, 1, 5 - 2 * Math.sqrt(3), 3)])
+  await browser.wait("handleFloor.walls.some(wall=>wall.id==='acute-return')")
+  const bevel = await read()
+  assert.deepEqual(bevel.labels, [4.37, 4.37], 'The acute corner is measured to the rendered bevel')
+  assert.ok(bevel.lines.flatMap(([x1, , x2]) => [x1, x2]).every(x => x / 60 < 5.6),
+    'A bevel does not send the rulers out to a distant virtual mitre')
+
+  await setOption('External dimensions', false)
+  await setOption('Internal dimensions', true)
+  await replaceWalls([...angledWalls, wall('right', 8, 4, 8, 8), wall('bottom', 8, 8, 1, 8), wall('left', 1, 8, 1, 1)])
+  await expectCount(5)
+  assert.equal(sharedTicksAt((await read()).lines, 5 + .43 - .38 * Math.SQRT2, 1.43), 2,
+    'The inside rulers of a room also share the offset corner tick')
+  await setOption('Internal dimensions', false)
+  await setOption('External dimensions', true)
+
   const splitPerimeter = [
     wall('upper-left', 1, 1, 1, 3.69), wall('lower-left', 1, 7, 1, 3.69),
     ...perimeter.slice(1, 3), wall('top', 1, 1, 7.7, 1),
@@ -102,6 +143,26 @@ try {
       'Exterior dimensions share the joint centre, including at an inside return and after snapping a saved endpoint')
     assert.ok(labels.includes(2.84) && labels.includes(3.46), 'Each wall keeps its own measured length')
   }
+
+  await setOption('Internal dimensions', true)
+  for (const [offset, insideCount] of [[.0216, 1], [.25, 2]]) {
+    await replaceWalls([
+      wall('upper-left', 1, 1, 1 + offset, 4.99), wall('lower-left', 1 + offset, 8, 1 + offset, 4.99),
+      wall('upper-right', 11, 1, 11, 4.99), wall('lower-right', 11, 8, 11, 4.99),
+      wall('top', 1, 1, 11, 1), wall('bottom', 1 + offset, 8, 11, 8),
+    ])
+    await expectCount(9 + insideCount)
+    const left = (await read()).lines.filter(([x1, y1, x2, y2]) =>
+      Math.max(x1, x2) / 60 < 2 && Math.abs(y1 - y2) / 60 > 2)
+    assert.equal(left.filter(([x1, , x2]) => Math.max(x1, x2) / 60 < 1).length, 2)
+    const insideLeft = left.filter(([x1, , x2]) => Math.min(x1, x2) / 60 > 1)
+    assert.equal(insideLeft.length, insideCount, 'The inside ruler spans slight bends and ends at distinct corners')
+    if (insideCount === 1) {
+      const [, y1, , y2] = insideLeft[0]
+      assert.ok(Math.abs(Math.abs(y1 - y2) / 60 - 6.7) < 1e-6, 'The inside ruler spans the full clear depth')
+    }
+  }
+  await setOption('Internal dimensions', false)
 
   // The left exterior changes heading slightly at the join. The upper room's
   // bottom face is shared by walls of different thicknesses on the same line.
@@ -218,7 +279,7 @@ try {
   assert.ok(Math.abs(teeOffset - .325) < .03, 'A nearby T-junction is measured from its face')
 
   assert.deepEqual(browser.errors, [])
-  console.log('Passed shared exterior ticks, inside dimensions, live wall-start guides and separate offset and length editing')
+  console.log('Passed angled ruler corners, shared exterior ticks, inside dimensions, collapsed walls and wall-start editing')
 } finally {
   browser.close()
 }

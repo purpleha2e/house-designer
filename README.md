@@ -2,6 +2,8 @@
 
 For reusable 3D-only read-only house tours, see [House viewer](docs/house-viewer.md).
 For the local account and private storage foundation, see [Accounts and workspaces](docs/accounts-and-workspaces.md).
+
+Use **Project menu → AI Design Assistant** to plan an upstairs layout or ask the live agent to redesign an existing floor with changes to partitions, doors and windows. The local planner and agent demonstration work without an API key. See [AI Design Assistant](DESIGN_ASSISTANT.md) for supported layouts and live agent setup.
 For the opt-in opposing-view lighting experiment and measurements, see [Experimental fast GI](docs/fast-gi.md).
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.

@@ -101,11 +101,11 @@ export function getStairSlabOpenings(
       }
 
       const design = definition.stairDesign
+      const rotation = model.rotation + (isOnLowerFloor && design && model.flipped ? Math.PI : 0)
       const opening = isOnLowerFloor && upperFloor && design?.upperGuardrail
         ? getStairGuardrailOpening(design, getStairLayout(design))
         : null
       if (opening) {
-        const rotation = model.rotation + (model.flipped ? Math.PI : 0)
         const cosine = Math.cos(rotation), sine = Math.sin(rotation)
         const polygon = opening.polygon.map(point => {
           const x = point.x * scale * widthScale * (model.mirrored ? -1 : 1)
@@ -116,7 +116,7 @@ export function getStairSlabOpenings(
       }
 
       if (definition.stairFootprint?.length) {
-        const cosine = Math.cos(model.rotation), sine = Math.sin(model.rotation)
+        const cosine = Math.cos(rotation), sine = Math.sin(rotation)
         return definition.stairFootprint.flatMap(polygon => fitStairOpeningFootprints(polygon.map(point => {
           const x = point.x * scale * widthScale * (model.mirrored ? -1 : 1), z = point.y * scale * depthScale
           return { x: model.position.x + x * cosine - z * sine, y: model.position.y + x * sine + z * cosine }
@@ -125,7 +125,7 @@ export function getStairSlabOpenings(
 
       return fitStairOpeningFootprints(getStairOpeningPolygon(
           model.position,
-          model.rotation,
+          rotation,
           definition.width,
           definition.depth,
           scale,

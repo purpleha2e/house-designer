@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { Group, Mesh, MeshStandardMaterial, PlaneGeometry, Scene, Shape, ShapeGeometry, Vector3 } from 'three'
-import { FloorDisplayBatching } from '../src/floorDisplayBatching.ts'
+import { FloorDisplayBatching, getFloorSurfaceBatchKey } from '../src/floorDisplayBatching.ts'
+import type { SurfaceMaterialProduct } from '../src/types.ts'
 
 function floor(scene: Scene, x: number, key = 'wood:floor0', base = false) {
   const mesh = new Mesh(new PlaneGeometry(2, 2), new MeshStandardMaterial())
@@ -12,6 +13,23 @@ function floor(scene: Scene, x: number, key = 'wood:floor0', base = false) {
   return mesh
 }
 const visible = (scene: Scene) => { const meshes: Mesh[] = []; scene.traverseVisible(o => { if (o instanceof Mesh) meshes.push(o) }); return meshes }
+
+test('floor batch keys stay compact with embedded maps and distinguish finish revisions and overrides', () => {
+  const material: SurfaceMaterialProduct = {
+    id: 'local-oak', productName: 'Oak', manufacturer: 'My materials', category: 'flooring',
+    pbr: { baseColorTextureUrl: `data:image/png;base64,${'A'.repeat(1024 * 1024)}` },
+  }
+  const key = getFloorSurfaceBatchKey(0, material)
+  assert.ok(key.length < 128)
+  assert.deepEqual(JSON.parse(key).slice(0, 3), ['finish', 0, material.id])
+  assert.equal(getFloorSurfaceBatchKey(0, material, { textureScale: 1, textureRotation: 0 }), key)
+  assert.notEqual(getFloorSurfaceBatchKey(3, material), key)
+  assert.notEqual(getFloorSurfaceBatchKey(0, material, { textureScale: 2 }), key)
+  assert.notEqual(getFloorSurfaceBatchKey(0, material, { textureRotation: 90 }), key)
+  assert.notEqual(getFloorSurfaceBatchKey(0, material, { customColor: '#777777' }), key)
+  assert.notEqual(getFloorSurfaceBatchKey(0, { ...material, pbr: { ...material.pbr, roughness: .7 } }), key)
+})
+
 function worldVertices(mesh: Mesh) {
   mesh.updateWorldMatrix(true, false)
   const g = mesh.geometry, result: number[][] = []

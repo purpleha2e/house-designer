@@ -1111,6 +1111,7 @@ async function handleUpload(request, response) {
       modelBehavior: fields.modelBehavior ?? '',
       objectType: fields.objectType ?? '',
       openingWidth: fields.openingWidth ?? '',
+      placement: ['floor', 'wall-mounted', 'ceiling-mounted'].includes(fields.placement) ? fields.placement : '',
       productName: fields.productName ?? '',
       productUrl: fields.productUrl ?? '',
       realWorldHeightMeters: fields.realWorldHeightMeters ?? '',
@@ -1292,6 +1293,7 @@ async function handleUpdateAsset(request, response, pathname) {
   metadata.category = fields.category ?? ''
   metadata.collection = fields.collection ?? ''
   metadata.files = [...retainedFiles, ...storedFiles]
+  const placement = getMultipartField(fields, 'placement', metadata.metadata?.placement)
   metadata.metadata = {
     ...metadata.metadata,
     ...getMaterialVariationMetadata(fields, metadata.metadata),
@@ -1315,6 +1317,7 @@ async function handleUpdateAsset(request, response, pathname) {
     modelBehavior: fields.modelBehavior ?? '',
     objectType: fields.objectType ?? '',
     openingWidth: fields.openingWidth ?? '',
+    placement: ['floor', 'wall-mounted', 'ceiling-mounted'].includes(placement) ? placement : '',
     productName: fields.productName ?? '',
     productUrl: fields.productUrl ?? '',
     realWorldHeightMeters: fields.realWorldHeightMeters ?? '',

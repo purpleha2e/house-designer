@@ -77,10 +77,11 @@ export function GroundImageControls({ image, editing, center, maxSize, onChange,
   </div>
 }
 
-export function GroundImageLayer({ image, editing, zoom, onChange }: {
+export function GroundImageLayer({ image, editing, zoom, opacityMultiplier = 1, onChange }: {
   image: GroundImage
   editing: boolean
   zoom: number
+  opacityMultiplier?: number
   onChange: (image: GroundImage) => void
 }) {
   const [bitmap, setBitmap] = useState<HTMLImageElement | null>(null)
@@ -109,7 +110,7 @@ export function GroundImageLayer({ image, editing, zoom, onChange }: {
   return <Layer listening={editing}>
     <CanvasImage ref={node} name="ground-image" image={bitmap} x={image.position.x * PIXELS_PER_METRE}
       y={image.position.y * PIXELS_PER_METRE} width={image.width * PIXELS_PER_METRE}
-      height={image.length * PIXELS_PER_METRE} opacity={image.opacity} draggable={editing}
+      height={image.length * PIXELS_PER_METRE} opacity={image.opacity * opacityMultiplier} draggable={editing}
       onPointerDown={event => { event.cancelBubble = true }}
       onDragStart={event => { event.cancelBubble = true }}
       onDragMove={event => {

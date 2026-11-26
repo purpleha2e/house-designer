@@ -1044,6 +1044,28 @@ function buildWallBodySidePoints(
   }
 }
 
+function buildWallBodySidePointsById(walls: Wall[], graph: WallGraph, chamferThreshold: number) {
+  const targets = buildEndpointTargetsByKey(walls, graph)
+  return new Map(walls.map(wall => [wall.id, buildWallBodySidePoints(wall, targets, chamferThreshold)]))
+}
+
+const mountingFacePoints = new WeakMap<Wall[], Map<string, WallBodySidePoints>>()
+
+/** The rendered face can reach past the centreline end or stop short of it at a join. */
+export function getWallBodyFaceRange(walls: Wall[], wall: Wall, side: WallSide) {
+  let points = mountingFacePoints.get(walls)
+  if (!points) {
+    const validWalls = walls.filter(wall => wallLength(wall) >= MIN_WALL_LENGTH)
+    points = buildWallBodySidePointsById(validWalls, buildWallGraph(validWalls), DEFAULT_CHAMFER_THRESHOLD)
+    mountingFacePoints.set(walls, points)
+  }
+  const ends = points.get(wall.id)
+  if (!ends) return { start: 0, end: wallLength(wall) }
+  const along = getWallDirection(wall)
+  const offset = (point: Point) => (point.x - wall.start.x) * along.x + (point.y - wall.start.y) * along.y
+  return { start: offset(ends.start[side]), end: offset(ends.end[side]) }
+}
+
 function buildWallBodyPolygon(
   wall: Wall,
   sidePoints: WallBodySidePoints,
@@ -1313,7 +1335,6 @@ export function buildWallBodyPerimeters(
 ): WallBodyPerimeterPlan {
   const validWalls = walls.filter((wall) => wallLength(wall) >= MIN_WALL_LENGTH)
   const graph = buildWallGraph(validWalls, options)
-  const targetsByEndpointKey = buildEndpointTargetsByKey(validWalls, graph)
   const chamferThreshold = options.chamferThreshold ?? DEFAULT_CHAMFER_THRESHOLD
   const diagnostics: WallBodyPerimeterDiagnostic[] = walls
     .filter((wall) => wallLength(wall) < MIN_WALL_LENGTH)
@@ -1322,31 +1343,9 @@ export function buildWallBodyPerimeters(
       componentId: wall.id,
       wallIds: [wall.id],
     }))
-  const sidePointsByWallId = new Map(
-    validWalls.map((wall) => [
-      wall.id,
-      buildWallBodySidePoints(
-        wall,
-        targetsByEndpointKey,
-        chamferThreshold,
-      ),
-    ]),
-  )
+  const sidePointsByWallId = buildWallBodySidePointsById(validWalls, graph, chamferThreshold)
   const wallBodies = validWalls.flatMap((wall) => {
-    const sidePoints = sidePointsByWallId.get(wall.id)
-    const body = sidePoints
-      ? buildWallBodyPolygon(
-          wall,
-          sidePoints,
-        )
-      : buildWallBodyPolygon(
-          wall,
-          buildWallBodySidePoints(
-            wall,
-            targetsByEndpointKey,
-            chamferThreshold,
-          ),
-        )
+    const body = buildWallBodyPolygon(wall, sidePointsByWallId.get(wall.id)!)
 
     if (body.points.length < 3 || Math.abs(signedArea(body.points)) <= POINT_EPSILON) {
       diagnostics.push({

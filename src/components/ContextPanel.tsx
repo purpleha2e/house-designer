@@ -19,7 +19,10 @@ import { MAX_WALL_HEIGHT_METERS } from '../wallGeometry'
 import { roofSurfaceTargetsMatch } from '../roofMaterialAssignments'
 import { updateModelTransformField } from '../modelTransformFields'
 import { MaterialChoice } from './MaterialChoice'
+import { getModelMaterialTextureTransform } from '../modelMaterialOverrides'
+import { canMountObjectOnWall, fitWallMountedObject, getWallMountedObjectPlacement, isWallMountedDecoration, resolveWallCabinetPlacement } from '../modelPlacement'
 import { getStairFinish, stairParts } from '../stairDesign'
+import { getKitchenHandleFinish } from '../kitchenUnitDesign'
 
 type ContextPanelProps = {
   lightControl?: LocalLightControl
@@ -364,13 +367,41 @@ export function ContextPanel({
       delete materialOverrides[regionId]
     }
 
-    onUpdateModel(selectedModel.model.id, {
+    const updates: Partial<PlacedModel> = {
       materialOverrides:
         Object.keys(materialOverrides).length > 0
           ? materialOverrides
           : undefined,
-    })
+    }
+    if (!materialId && Object.hasOwn(selectedModel.model.materialTextureTransforms ?? {}, regionId)) {
+      const transforms = { ...selectedModel.model.materialTextureTransforms }
+      delete transforms[regionId]
+      updates.materialTextureTransforms = Object.keys(transforms).length ? transforms : undefined
+    }
+    onUpdateModel(selectedModel.model.id, updates)
   }
+
+  const renderModelMaterial = (regionId: string, label: string, original?: Parameters<typeof MaterialChoice>[0]['original']) => {
+    if (!selectedModel) return null
+    const { model } = selectedModel
+    const transform = getModelMaterialTextureTransform(model.materialTextureTransforms, regionId)
+    return <MaterialChoice key={`${model.id}:${regionId}`} label={label} value={model.materialOverrides?.[regionId] ?? ''}
+      materials={surfaceMaterials} original={original} textureTransform={transform}
+      onChange={id => updateModelMaterialOverride(regionId, id)}
+      onTextureChange={(field, value) => onUpdateModel(model.id, {
+        materialTextureTransforms: { ...model.materialTextureTransforms, [regionId]: { ...transform, [field]: value } },
+      })} />
+  }
+
+  const objectAttachment = selectedModel && isWallMountedDecoration(selectedModel.definition, selectedModel.model)
+    ? selectedModel.model.wallAttachment : undefined
+  const objectWall = objectAttachment && activeFloor.walls.find(wall => wall.id === objectAttachment.wallId)
+  const mountedObject = selectedModel && objectWall && objectAttachment ?
+    fitWallMountedObject(selectedModel.definition, objectWall, objectAttachment, selectedModel.model, activeFloor.walls) : null
+  const canMountSelectedObject = selectedModel && !mountedObject && canMountObjectOnWall(selectedModel.definition)
+  const nearestWallMount = canMountSelectedObject && selectedModel
+    ? getWallMountedObjectPlacement(selectedModel.definition, activeFloor.walls, selectedModel.model.position,
+      { ...selectedModel.model, height: objectAttachment ? selectedModel.model.height : undefined }, Infinity) : null
 
   return (
     <aside className="context-panel" aria-label="Properties">
@@ -489,15 +520,37 @@ export function ContextPanel({
         ) : null}
         {selectedModel?.definition.materialRegions?.map(region => {
           const part = stairParts.find(part => region.id === `stairs_${part}`)
+          const kitchen = selectedModel.definition.kitchenUnitDesign
           const original = part && selectedModel.definition.stairDesign
-            ? getStairFinish(selectedModel.definition.stairDesign, part) : undefined
+            ? getStairFinish(selectedModel.definition.stairDesign, part)
+            : kitchen && region.id === 'hd_worktop' ? { materialId: kitchen.worktopMaterialId, color: kitchen.worktopColor }
+              : kitchen && region.id === 'hd_handles' ? getKitchenHandleFinish(kitchen) : undefined
           return <div className="context-field context-model-material" key={`${selectedModel.model.id}:${region.id}`}>
             <dt>{region.label}</dt>
-            <dd><MaterialChoice label={region.label} value={selectedModel.model.materialOverrides?.[region.id] ?? ''}
-              materials={surfaceMaterials} original={original} onChange={id => updateModelMaterialOverride(region.id, id)} /></dd>
+            <dd>{renderModelMaterial(region.id, region.label, original)}</dd>
           </div>
         })}
         {transformControls && <div className="context-transform"><dt>Transform</dt><dd>{transformControls}</dd></div>}
+        {canMountSelectedObject && selectedModel && <div className="context-actions">
+          <dt>Placement</dt>
+          <dd>{nearestWallMount
+            ? <button type="button" onClick={() => onUpdateModel(selectedModel.model.id, nearestWallMount)}>Mount on nearest wall</button>
+            : 'No wall large enough for this object'}</dd>
+        </div>}
+        {selectedModel && objectWall && objectAttachment && mountedObject && <div className="context-field">
+          <dt>Height above floor</dt>
+          <dd><input key={`${selectedModel.model.id}:${mountedObject.height}`} aria-label="Height above floor" type="number" min="0" step="0.01"
+            defaultValue={Number(mountedObject.height.toFixed(3))} onBlur={event => {
+              const height = event.currentTarget.valueAsNumber
+              const candidate = Number.isFinite(height) ? fitWallMountedObject(selectedModel.definition, objectWall, objectAttachment,
+                { ...selectedModel.model, height }, activeFloor.walls)
+                : null
+              const next = resolveWallCabinetPlacement(selectedModel.definition, activeFloor, modelsById, candidate, selectedModel.model,
+                { from: mountedObject })
+              event.currentTarget.value = formatMetresInputValue(next ? next.height : mountedObject.height)
+              if (next && Math.abs(next.height - mountedObject.height) >= 0.001) onUpdateModel(selectedModel.model.id, next)
+            }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} /><span>m</span></dd>
+        </div>}
         <div>
           <dt>Floor elev.</dt>
           <dd>{activeFloor.elevation.toFixed(2)} m</dd>
@@ -803,7 +856,7 @@ export function ContextPanel({
                       onUpdateModel(current.id, { modelId: definition.id, scale,
                         widthScale: previous.width * current.scale * (current.widthScale ?? 1) / (definition.width * scale),
                         depthScale: previous.depth * current.scale * (current.depthScale ?? 1) / (definition.depth * scale),
-                        materialOverrides: undefined })
+                        materialOverrides: undefined, materialTextureTransforms: undefined })
                     }}
                   >
                     {dormerWindowModels.map((definition) => (
@@ -845,9 +898,7 @@ export function ContextPanel({
               <>
                 <div className="context-field">
                   <dt>Exterior walls</dt>
-                  <dd><MaterialChoice key={selectedModel.model.id} label="Dormer exterior wall"
-                    value={selectedModel.model.materialOverrides?.['dormer-exterior'] ?? ''} materials={surfaceMaterials}
-                    original={{ label: 'Default external wall' }} onChange={id => updateModelMaterialOverride('dormer-exterior', id)} /></dd>
+                  <dd>{renderModelMaterial('dormer-exterior', 'Dormer exterior wall', { label: 'Default external wall' })}</dd>
                 </div>
                 <div className="context-field">
                   <dt>Interior ceiling</dt>
@@ -860,9 +911,7 @@ export function ContextPanel({
                       <span>Matches intersecting wall: {dormerWallMaterial
                         ? getSurfaceMaterialLabel(dormerWallMaterial) : 'Default internal wall'}</span>
                     ) : (
-                      <MaterialChoice key={selectedModel.model.id} label="Dormer interior wall"
-                        value={selectedModel.model.materialOverrides?.[DORMER_INTERIOR_MATERIAL_REGION] ?? ''} materials={surfaceMaterials}
-                        original={{ label: 'Default internal wall' }} onChange={id => updateModelMaterialOverride(DORMER_INTERIOR_MATERIAL_REGION, id)} />
+                      renderModelMaterial(DORMER_INTERIOR_MATERIAL_REGION, 'Dormer interior wall', { label: 'Default internal wall' })
                     )}
                   </dd>
                 </div>

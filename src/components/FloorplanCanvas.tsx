@@ -6,6 +6,7 @@ import { ViewportContextMenu } from './ViewportContextMenu'
 import { PlanRuler } from './PlanRuler'
 import { StairPlanSymbol } from './StairPlanSymbol'
 import { DoorPlanSymbol } from './DoorPlanSymbol'
+import type { DesignProposal } from '../assistant/proposal'
 import { getDoorLeafCount, isPlanDoor } from '../doorPlan'
 import { useToolbarMenu } from './useToolbarMenu'
 /* eslint-disable react-hooks/set-state-in-effect */
@@ -44,7 +45,8 @@ import { ObjectTransformPanel } from './ObjectTransformPanel'
 import { GroundImageControls, GroundImageLayer } from './GroundImage'
 import { getWallDragDelta } from '../wallDragModifiers'
 import { getWallStartAtOffset, getWallStartGuide, parseWallStartOffset, type WallStartGuide } from '../wallStartGuide'
-import { getWallSplitTarget, type WallSplitTarget } from '../wallSplit'
+import { getWallSplitAtDistance, getWallSplitGuide, getWallSplitTarget, type WallSplitTarget } from '../wallSplit'
+import { getWallJoinChain } from '../wallJoin'
 import { snapWallTranslationToReferences } from '../wallReferenceSnap'
 import { getTransformDragDelta, getTransformRotation } from '../transformModifiers'
 import type { KonvaEventObject } from 'konva/lib/Node'
@@ -73,7 +75,16 @@ import {
   type ModelDefinition,
 } from '../models/modelLibrary'
 import {
+  ceilingMountFits,
+  doorPlacementFits,
+  getCeilingMountArea,
+  getDoorDragMount,
+  getWallMountedObjectDisplayPoint,
+  fitWallMountedObject,
+  getWallMountedObjectPlacement,
+  resolveWallCabinetPlacement,
   getWallMountForPoint as getPlacementWallMount,
+  isWallMountedDecoration,
   type ModelPlacement,
 } from '../modelPlacement'
 import { findDormerPlacement } from '../dormerPlacement'
@@ -108,7 +119,8 @@ const WALL_JOIN_EPSILON_METERS = 0.03
 const ALIGNMENT_GUIDE_TOLERANCE_METERS = 0.5
 const WALL_DIRECTION_SNAP_TOLERANCE_METERS = 0.04
 const DIMENSION_OFFSET_METERS = 0.28
-const EXTERIOR_JOIN_MIN_DOT = Math.cos(Math.PI / 180)
+const STRAIGHT_DIMENSION_JOIN_MIN_DOT = Math.cos(Math.PI / 180)
+const RIGHT_ANGLE_DIMENSION_JOIN_MAX_DOT = Math.sin(Math.PI / 180)
 const DIMENSION_CHEVRON_LENGTH_METERS = 0.09
 const DIMENSION_CHEVRON_MAX_SCREEN_PIXELS = 9
 const DIMENSION_CHEVRON_ANGLE_RADIANS = Math.PI / 5
@@ -145,6 +157,11 @@ type FloorplanCanvasProps = {
   onSelectFloor?: (floorId: string) => void
   projectMenu?: (onClose: () => void) => ReactNode
   editControls?: ReactNode
+  assistantPanel?: ReactNode
+  assistantPreview?: { proposal: DesignProposal; previewFloors: FloorLevel[];
+    overlays?: Record<string, Pick<DesignProposal, 'operations' | 'rooms' | 'preserved'>>; stair?: {
+    definition: ModelDefinition; upperFloorId: string; openings: Point[][]
+  } } | null
   onGroundImageChange?: (image: GroundImage | undefined) => void
   showImages?: boolean
   onShowImagesChange?: (visible: boolean) => void
@@ -170,12 +187,14 @@ type FloorplanCanvasProps = {
   wallKind: WallKind
   onAddWall: (wall: { start: Point; end: Point }) => void
   onSplitWall?: (wallId: string, offset: number) => void
+  onJoinWalls?: (wallIds: string[]) => void
   onAddRoof: (options: RoofCreateOptions) => void
   onCancelModelPlacement: () => void
   onDeleteModel: (modelId: string) => void
   onDeleteRoof: (roofId: string) => void
   onDeleteWall: (wallId: string) => void
   onExitAddWall: () => void
+  onStopAddingWalls?: () => void
   onStartMeasuring?: () => void
   onOpenProperties?: () => void
   onViewportChange: (
@@ -250,6 +269,8 @@ type ModelMoveDragState = {
   axis: 'x' | 'y' | null
   modelId: string
   startPosition: Point
+  wallObjectPlacement?: NonNullable<ReturnType<typeof getWallMountedObjectPlacement>>
+  ceilingPosition?: Point
 }
 
 type ModelRotateDragState = {
@@ -383,6 +404,7 @@ type DimensionGuide = {
   tickMode: 'cross' | 'internal'
   text: string
   rotation: number
+  side?: -1 | 1
 }
 
 type DimensionCandidate = DimensionGuide & {
@@ -1280,6 +1302,76 @@ function getExternalDimensionSide(wall: Wall, walls: Wall[]): -1 | 1 {
   return centerSide < 0 ? 1 : -1
 }
 
+function isObliqueDimensionJoin(first: Point, second: Point) {
+  const alignment = Math.abs(dot(first, second))
+  return alignment > RIGHT_ANGLE_DIMENSION_JOIN_MAX_DOT && alignment < STRAIGHT_DIMENSION_JOIN_MIN_DOT
+}
+
+function intersectOffsetRulers(point: Point, direction: Point, normal: Point, offset: number, otherNormal: Point, otherOffset: number) {
+  const along = (otherOffset - offset * dot(normal, otherNormal)) / dot(direction, otherNormal)
+  return {
+    x: point.x + normal.x * offset + direction.x * along,
+    y: point.y + normal.y * offset + direction.y * along,
+  }
+}
+
+function getRenderedFaceEndpoint(wall: Wall, endpoint: 'start' | 'end', direction: Point, normal: Point, body: Point[]) {
+  const from = wall[endpoint]
+  const halfThickness = wall.thickness / 2
+  const along = body.flatMap(point => {
+    const delta = { x: point.x - from.x, y: point.y - from.y }
+    return Math.abs(dot(delta, normal) - halfThickness) < 1e-6 ? [dot(delta, direction)] : []
+  })
+  if (along.length < 2) return null
+  const offset = endpoint === 'start' ? Math.min(...along) : Math.max(...along)
+  return {
+    extension: endpoint === 'start' ? -offset : offset,
+    point: {
+      x: from.x + direction.x * offset + normal.x * halfThickness,
+      y: from.y + direction.y * offset + normal.y * halfThickness,
+    },
+  }
+}
+
+type ExternalDimensionEndpoint = { extension: number; continuation?: Point; rulerPoint?: Point }
+
+function getAngledExteriorDimensionEndpoint(
+  wall: Wall,
+  endpoint: 'start' | 'end',
+  side: -1 | 1,
+  direction: Point,
+  normal: Point,
+  walls: Wall[],
+  topology: WallTopology,
+  wallBodies: ReadonlyMap<string, Point[]> | undefined,
+): ExternalDimensionEndpoint | null {
+  const body = wallBodies?.get(wall.id)
+  if (!wallBodies || !body) return null
+
+  const neighbours = getOtherNodeConnections(topology, wall, endpoint).filter(connection => wallBodies.has(connection.wall.id))
+  if (neighbours.length !== 1 || neighbours[0].wall.kind === 'internal') return null
+
+  const neighbour = neighbours[0]
+  const adjacent = topology.renderedWallsById.get(neighbour.wall.id)?.wall ?? neighbour.wall
+  const adjacentDirection = normalize(adjacent.end.x - adjacent.start.x, adjacent.end.y - adjacent.start.y)
+  if (!isObliqueDimensionJoin(direction, adjacentDirection)) return null
+
+  const adjacentSide = endpoint === neighbour.endpoint ? -side : side
+  if (getExternalDimensionSide(neighbour.wall, walls) !== adjacentSide) return null
+  const adjacentNormal = { x: -adjacentDirection.y * adjacentSide, y: adjacentDirection.x * adjacentSide }
+  const face = getRenderedFaceEndpoint(wall, endpoint, direction, normal, body)
+  const adjacentBody = wallBodies.get(adjacent.id)
+  if (!face || !adjacentBody) return null
+
+  const adjacentFace = getRenderedFaceEndpoint(adjacent, neighbour.endpoint, adjacentDirection, adjacentNormal, adjacentBody)
+  // A clipped acute corner has two distinct face endpoints. Put each tick across from its own end.
+  const rulerPoint = adjacentFace && distance(face.point, adjacentFace.point) < 1e-6
+    ? intersectOffsetRulers(wall[endpoint], direction, normal, wall.thickness / 2 + DIMENSION_OFFSET_METERS,
+      adjacentNormal, adjacent.thickness / 2 + DIMENSION_OFFSET_METERS)
+    : undefined
+  return { extension: face.extension, rulerPoint }
+}
+
 function getExternalDimensionEndpoint(
   wall: Wall,
   endpoint: 'start' | 'end',
@@ -1287,7 +1379,7 @@ function getExternalDimensionEndpoint(
   renderedExtension: number,
   walls: Wall[],
   topology: WallTopology,
-): { extension: number; continuation?: Point } {
+): ExternalDimensionEndpoint {
   const dx = wall.end.x - wall.start.x
   const dy = wall.end.y - wall.start.y
   const length = Math.hypot(dx, dy)
@@ -1312,7 +1404,7 @@ function getExternalDimensionEndpoint(
   })
   const outwardSign = endpoint === 'start' ? -1 : 1
   const straightContinuation = joinedExteriorWalls.find(({ direction }) =>
-    outwardSign * (unit.x * direction.x + unit.y * direction.y) >= EXTERIOR_JOIN_MIN_DOT,
+    outwardSign * (unit.x * direction.x + unit.y * direction.y) >= STRAIGHT_DIMENSION_JOIN_MIN_DOT,
   )
   // The rendered wall bodies can overlap at a join. The rulers share its centre.
   let offset = straightContinuation ? 0 : renderedExtension
@@ -1629,7 +1721,10 @@ function getDimensionGuides(
   wall: Wall,
   walls: Wall[],
   topology: WallTopology,
-  { externalDimensions, internalDimensions }: Pick<FloorplanRenderOptions, 'externalDimensions' | 'internalDimensions'> = {
+  { externalDimensions, internalDimensions, includeDiagonalInterior = false, wallBodies }:
+    Pick<FloorplanRenderOptions, 'externalDimensions' | 'internalDimensions'> & {
+      includeDiagonalInterior?: boolean; wallBodies?: ReadonlyMap<string, Point[]>
+    } = {
     externalDimensions: true,
     internalDimensions: true,
   },
@@ -1639,6 +1734,12 @@ function getDimensionGuides(
   const centerlineLength = Math.hypot(dx, dy)
 
   if (centerlineLength === 0 || (!externalDimensions && !internalDimensions)) {
+    return []
+  }
+
+  const renderedWall = topology.renderedWallsById.get(wall.id)
+  // Both endpoints of a short saved wall can snap to the same node.
+  if (renderedWall && distance(renderedWall.wall.start, renderedWall.wall.end) === 0) {
     return []
   }
 
@@ -1653,27 +1754,14 @@ function getDimensionGuides(
 
   if (outside !== null && externalDimensions) {
     const side = outside
-    const renderedWall = topology.renderedWallsById.get(wall.id)
-    const exteriorWall = renderedWall && distance(renderedWall.wall.start, renderedWall.wall.end) > 0
-      ? renderedWall.wall
-      : wall
+    const exteriorWall = renderedWall?.wall ?? wall
     const exteriorUnit = normalize(exteriorWall.end.x - exteriorWall.start.x, exteriorWall.end.y - exteriorWall.start.y)
-    const startJoin = getExternalDimensionEndpoint(
-      exteriorWall,
-      'start',
-      side,
-      renderedWall?.startExtension ?? 0,
-      walls,
-      topology,
-    )
-    const endJoin = getExternalDimensionEndpoint(
-      exteriorWall,
-      'end',
-      side,
-      renderedWall?.endExtension ?? 0,
-      walls,
-      topology,
-    )
+    const exteriorNormal = { x: -exteriorUnit.y * side, y: exteriorUnit.x * side }
+    const getJoin = (endpoint: 'start' | 'end', extension: number) => getAngledExteriorDimensionEndpoint(
+      exteriorWall, endpoint, side, exteriorUnit, exteriorNormal, walls, topology, wallBodies,
+    ) ?? getExternalDimensionEndpoint(exteriorWall, endpoint, side, extension, walls, topology)
+    const startJoin = getJoin('start', renderedWall?.startExtension ?? 0)
+    const endJoin = getJoin('end', renderedWall?.endExtension ?? 0)
     const measuredSegment = {
       start: {
         x: exteriorWall.start.x - exteriorUnit.x * startJoin.extension,
@@ -1684,7 +1772,6 @@ function getDimensionGuides(
         y: exteriorWall.end.y + exteriorUnit.y * endJoin.extension,
       },
     }
-    const exteriorNormal = { x: -exteriorUnit.y * side, y: exteriorUnit.x * side }
     const rulerPoint = (point: Point, continuation?: Point) => {
       if (!continuation) return { x: point.x + exteriorNormal.x * offset, y: point.y + exteriorNormal.y * offset }
       // Intersect the offset lines so both rulers use the same tick at a slight bend.
@@ -1697,8 +1784,8 @@ function getDimensionGuides(
         y: point.y + (exteriorNormal.y + adjacentNormal.y * sign) * scale,
       }
     }
-    const start = rulerPoint(measuredSegment.start, startJoin.continuation)
-    const end = rulerPoint(measuredSegment.end, endJoin.continuation)
+    const start = startJoin.rulerPoint ?? rulerPoint(measuredSegment.start, startJoin.continuation)
+    const end = endJoin.rulerPoint ?? rulerPoint(measuredSegment.end, endJoin.continuation)
     const measuredLength = distance(measuredSegment.start, measuredSegment.end)
 
     guides.push({
@@ -1711,12 +1798,13 @@ function getDimensionGuides(
         y: (start.y + end.y) / 2,
       },
       tickMode: 'cross',
+      side,
       text: `${measuredLength.toFixed(2)} m`,
       rotation: (Math.atan2(exteriorUnit.y, exteriorUnit.x) * 180) / Math.PI,
     })
   }
 
-  if (!internalDimensions || isDiagonalWall) {
+  if (!internalDimensions || (isDiagonalWall && !includeDiagonalInterior)) {
     return guides
   }
 
@@ -1729,7 +1817,6 @@ function getDimensionGuides(
     blockers: getFaceBlockers(wall, side, walls, topology),
   }))
   const candidates = sides.flatMap<DimensionCandidate>(({ side, blockers }) => {
-    const renderedWall = topology.renderedWallsById.get(wall.id)
     const startContinuation = getInternalDimensionEndpointOffset(
       wall,
       'start',
@@ -1809,7 +1896,7 @@ function getInteriorFaceRange(guide: DimensionGuide, other: DimensionGuide, tole
   const inward = { x: guide.start.x - faceStart.x, y: guide.start.y - faceStart.y }
   const otherInward = { x: other.start.x - other.faceStart.x, y: other.start.y - other.faceStart.y }
   const facing = inward.x * otherInward.x + inward.y * otherInward.y
-  if (facing < DIMENSION_OFFSET_METERS ** 2 * EXTERIOR_JOIN_MIN_DOT) return null
+  if (facing < DIMENSION_OFFSET_METERS ** 2 * STRAIGHT_DIMENSION_JOIN_MIN_DOT) return null
 
   const start = { x: other.faceStart.x - faceStart.x, y: other.faceStart.y - faceStart.y }
   const end = { x: other.faceEnd.x - faceStart.x, y: other.faceEnd.y - faceStart.y }
@@ -1827,17 +1914,49 @@ function sliceInteriorDimension(guide: DimensionGuide, start: number, end: numbe
   return createInteriorDimensionGuide(pointAt(start), pointAt(end), inward)
 }
 
-function getInteriorDimensionGuides(wallGuides: DimensionGuide[], roomBoundaries: Point[][]) {
-  // The wall union has already removed intermediate vertices along continuous room faces.
-  const roomGuides = roomBoundaries.flatMap(polygon => {
-    const side = Math.sign(getSignedArea(polygon))
-    return polygon.flatMap((start, index) => {
-      const end = polygon[(index + 1) % polygon.length]
-      if (distance(start, end) < MIN_WALL_LENGTH_METERS) return []
-      const along = normalize(end.x - start.x, end.y - start.y)
-      return [createInteriorDimensionGuide(start, end, { x: -along.y * side, y: along.x * side })]
-    })
+function getRoomDimensionCorners(boundary: Point[]) {
+  const corners = [...boundary]
+  for (let index = corners.length - 1; index >= 0 && corners.length > 3; index--) {
+    const start = corners[(index + corners.length - 1) % corners.length]
+    const join = corners[index]
+    const end = corners[(index + 1) % corners.length]
+    const before = normalize(join.x - start.x, join.y - start.y)
+    const after = normalize(end.x - join.x, end.y - join.y)
+    if (dot(before, after) < STRAIGHT_DIMENSION_JOIN_MIN_DOT) continue
+    const projection = getProjectionOnSegment(join, start, end)
+    if (distance(join, projection.point) <= WALL_JOIN_EPSILON_METERS) corners.splice(index, 1)
+  }
+  return corners
+}
+
+function getRoomBoundaryGuides(polygon: Point[], alignCorners = false) {
+  const side = Math.sign(getSignedArea(polygon))
+  const along = polygon.map((point, index) => {
+    const next = polygon[(index + 1) % polygon.length]
+    return normalize(next.x - point.x, next.y - point.y)
   })
+  const normals = along.map(direction => ({ x: -direction.y * side, y: direction.x * side }))
+  const corners = alignCorners ? polygon.map((point, index) => {
+    const previous = (index + polygon.length - 1) % polygon.length
+    if (!isObliqueDimensionJoin(along[previous], along[index])) return null
+    return intersectOffsetRulers(point, along[index], normals[index], DIMENSION_OFFSET_METERS,
+      normals[previous], DIMENSION_OFFSET_METERS)
+  }) : []
+  return polygon.flatMap((start, index) => {
+    const next = (index + 1) % polygon.length
+    const end = polygon[next]
+    if (distance(start, end) < MIN_WALL_LENGTH_METERS) return []
+    const guide = createInteriorDimensionGuide(start, end, normals[index])
+    const rulerStart = corners[index] ?? guide.start
+    const rulerEnd = corners[next] ?? guide.end
+    if (dot({ x: rulerEnd.x - rulerStart.x, y: rulerEnd.y - rulerStart.y }, along[index]) <= 0) return [guide]
+    return [{ ...guide, start: rulerStart, end: rulerEnd,
+      labelPoint: { x: (rulerStart.x + rulerEnd.x) / 2, y: (rulerStart.y + rulerEnd.y) / 2 } }]
+  })
+}
+
+function getInteriorDimensionGuides(wallGuides: DimensionGuide[], roomBoundaries: Point[][]) {
+  const roomGuides = roomBoundaries.flatMap(boundary => getRoomBoundaryGuides(boundary))
 
   // Retain measurements along open walls in the same plan, outside the room edges.
   const openGuides = wallGuides.flatMap(guide => {
@@ -1867,7 +1986,8 @@ function getInteriorDimensionGuides(wallGuides: DimensionGuide[], roomBoundaries
     }
     merged.push(guide)
   }
-  return [...roomGuides, ...merged]
+  const roomDimensions = roomBoundaries.flatMap(boundary => getRoomBoundaryGuides(getRoomDimensionCorners(boundary), true))
+  return [...roomDimensions, ...merged]
 }
 
 function snapToWallDirection(start: Point, end: Point): Point {
@@ -3231,10 +3351,102 @@ function applyAlignmentGuide(point: Point, guide: AlignmentGuide | null): Point 
   return guide?.projection ?? point
 }
 
+function AssistantPlanOverlay({ proposal, floor, scale, originalWalls, stair }: {
+  proposal: DesignProposal; floor: FloorLevel; scale: number; originalWalls: Wall[]; stair?: ModelDefinition
+}) {
+  const points = (outline: Point[]) => outline.flatMap(point => {
+    const canvas = toCanvasPoint(point)
+    return [canvas.x, canvas.y]
+  })
+  const extension = proposal.method === 'extension'
+  const topology = useMemo(() => buildWallTopology(floor.walls, { detectRooms: extension, floorFootprints: floor.floorFootprints }), [floor.walls, floor.floorFootprints, extension])
+  const models = new Map(floor.models.map(model => [model.id, model]))
+  const partitions = new Set(proposal.operations.flatMap(operation => operation.type === 'create-partition' ? [operation.id]
+    : operation.type === 'move-partition' ? [operation.wallId] : []))
+  const removedWalls = new Set(proposal.operations.flatMap(operation =>
+    operation.type === 'move-partition' || operation.type === 'remove-partition' ? [operation.wallId] : []))
+  const newDoors = new Set(proposal.operations.flatMap(operation => operation.type === 'create-doorway' ? [operation.id] : []))
+  const replacedModels = new Set(proposal.operations.flatMap(operation => operation.type === 'replace-model-variant' && operation.floorId === floor.id
+    ? [operation.instanceId] : []))
+  const extensionSignatures = new Set(extension ? floor.rooms.filter(room => room.id.startsWith(`${proposal.id}-`)).map(room => room.signature) : [])
+  if (extension || proposal.extensionBasis) {
+    const originals = new Set(originalWalls.map(wall => wall.id))
+    const openings = new Set(originalWalls.flatMap(wall => wall.openings?.map(opening => opening.id) ?? []))
+    floor.walls.forEach(wall => {
+      if (!originals.has(wall.id)) partitions.add(wall.id)
+      wall.openings?.forEach(opening => { if (opening.bottom <= 0.05 && !openings.has(opening.id)) newDoors.add(opening.id) })
+    })
+  }
+  const newWindows = new Set(proposal.operations.flatMap(operation => operation.type === 'create-window' ? [operation.id] : []))
+  const openingIds = new Set(floor.walls.flatMap(wall => (wall.openings ?? []).map(opening => opening.id)))
+  const stairDesign = stair?.stairDesign
+
+  return <Layer listening={false} name="assistant-layout-preview">
+    {topology.rooms.filter(room => extensionSignatures.has(room.signature)).map(room => <Line key={room.id}
+      name="assistant-extension-area" points={points(room.polygon)} closed fill="#93c5fd66" />)}
+    {stairDesign && proposal.operations.flatMap(operation => {
+      if (operation.type !== 'add-stair') return []
+      const point = toCanvasPoint(operation.position)
+      return [<Group key={operation.id} name="assistant-staircase" x={point.x} y={point.y} rotation={operation.rotation * 180 / Math.PI}>
+        <StairPlanSymbol design={stairDesign} scaleX={METERS_TO_PIXELS} scaleY={METERS_TO_PIXELS} selected />
+      </Group>]
+    })}
+    {proposal.rooms.map(room => <Line key={room.id} points={points(room.polygon)} closed
+      fill={room.function === 'landing' ? '#8fd0c666' : room.function === 'bathroom' ? '#a9c6eb66' : '#c2d9f566'} />)}
+    {proposal.preserved.stairOpenings.map((opening, index) => <Line key={index} points={points(opening)} closed
+      fill="#dce5ec" stroke="#475569" strokeWidth={1.5} strokeScaleEnabled={false} dash={[3, 3]} />)}
+    {[...topology.wallPolygonsById].map(([wallId, polygon]) => <Line key={wallId}
+      name={partitions.has(wallId) ? 'assistant-partition' : 'assistant-retained-wall'}
+      points={points(polygon)} closed fill={partitions.has(wallId) ? '#2563eb' : '#64748b'} />)}
+    {[...topology.renderedWallsById.values()].flatMap(({ wall }) => {
+      const angle = getWallAngle(wall)
+      return (wall.openings ?? []).map(opening => {
+        const position = toCanvasPoint({ x: wall.start.x + Math.cos(angle) * opening.center, y: wall.start.y + Math.sin(angle) * opening.center })
+        const owner = models.get(opening.id) ?? models.get(opening.id.split(':')[0])
+        const definition = modelsById.get(opening.modelId)
+        const width = opening.width * METERS_TO_PIXELS
+        const depth = wall.thickness * METERS_TO_PIXELS
+        const newDoor = newDoors.has(opening.id) || !!owner && replacedModels.has(owner.id)
+        if (newDoor || owner && definition && isPlanDoor(definition) && opening.bottom <= 0.05) {
+          return <Group key={`${wall.id}-${opening.id}`} name={newDoor ? 'assistant-doorway' : 'assistant-retained-doorway'}
+            x={position.x} y={position.y} rotation={(owner?.rotation ?? angle) * 180 / Math.PI + (owner?.flipped ? 180 : 0)}
+            scaleX={owner?.mirrored ? -1 : 1}>
+            <DoorPlanSymbol width={width} wallThickness={depth} leafCount={definition ? getDoorLeafCount(definition) : 1} selected={newDoor} />
+          </Group>
+        }
+        const newWindow = newWindows.has(opening.id)
+        return <Group key={`${wall.id}-${opening.id}`} x={position.x} y={position.y} rotation={angle * 180 / Math.PI}>
+          <Rect x={-width / 2} y={-depth / 2} width={width} height={depth} fill="#f8fafc" />
+          <Line name={newWindow ? 'assistant-window' : 'assistant-retained-opening'} points={[-width / 2, 0, width / 2, 0]}
+            stroke={newWindow ? '#007d8a' : '#64748b'} strokeWidth={newWindow ? 3 : 1} strokeScaleEnabled={false} />
+        </Group>
+      })
+    })}
+    {originalWalls.filter(wall => removedWalls.has(wall.id)).map(wall =>
+      <Line key={wall.id} name="assistant-removed-partition" points={points([wall.start, wall.end])}
+        stroke="#b91c1c" strokeWidth={2} strokeScaleEnabled={false} dash={[5, 4]} />)}
+    {originalWalls.flatMap(wall => (wall.openings ?? []).filter(opening => !openingIds.has(opening.id)).map(opening => {
+      const angle = getWallAngle(wall)
+      const along = (offset: number) => ({ x: wall.start.x + Math.cos(angle) * offset, y: wall.start.y + Math.sin(angle) * offset })
+      return <Line key={`${wall.id}-${opening.id}`} name="assistant-closed-opening"
+        points={points([along(opening.center - opening.width / 2), along(opening.center + opening.width / 2)])}
+        stroke="#b91c1c" strokeWidth={2.5} strokeScaleEnabled={false} dash={[4, 3]} />
+    }))}
+    {proposal.rooms.map(room => {
+      const label = toCanvasPoint(room.labelPoint)
+      return <Text key={room.id} x={label.x} y={label.y} width={110 / scale} offsetX={55 / scale} offsetY={13 / scale}
+        align="center" fontSize={12 / scale} lineHeight={1.15} fontStyle="bold" fill="#123f73"
+        text={`${room.name}\n${room.area.toFixed(1)} m²`} />
+    })}
+  </Layer>
+}
+
 export function FloorplanCanvas({
   onSelectFloor,
   projectMenu,
   editControls,
+  assistantPanel,
+  assistantPreview,
   onGroundImageChange,
   showImages = true,
   onShowImagesChange,
@@ -3259,12 +3471,14 @@ export function FloorplanCanvas({
   wallKind,
   onAddWall,
   onSplitWall,
+  onJoinWalls,
   onAddRoof,
   onCancelModelPlacement,
   onDeleteModel,
   onDeleteRoof,
   onDeleteWall,
   onExitAddWall,
+  onStopAddingWalls,
   onStartMeasuring,
   onOpenProperties,
   onViewportChange,
@@ -3297,6 +3511,14 @@ export function FloorplanCanvas({
   const [groundImageEditing, setGroundImageEditing] = useState(false)
   useEffect(() => { setGroundImageEditing(false) }, [activeFloor.id, isRoofMode])
   useEffect(() => { if (!showImages) setGroundImageEditing(false) }, [showImages])
+  const previewFloor = !isRoofMode && !groundImageEditing ? assistantPreview?.previewFloors.find(floor => floor.id === activeFloor.id) : null
+  const planPreview = useMemo(() => previewFloor && assistantPreview ? { ...assistantPreview, floor: previewFloor } : null, [assistantPreview, previewFloor])
+  const previewFloorChoices = assistantPreview && onSelectFloor && !isRoofMode && !groundImageEditing && !isAddingWall && !isSplittingWall
+    ? floors.filter(floor => floor.id === assistantPreview.stair?.upperFloorId ||
+      assistantPreview.previewFloors.some(preview => preview.id === floor.id)) : []
+  const proposedStairOpening = !isRoofMode && !groundImageEditing && assistantPreview?.stair?.upperFloorId === activeFloor.id
+    ? assistantPreview.stair.openings : []
+  const existingPlanOpacity = isRoofMode ? 0.28 : planPreview ? 0.18 : 1
   const walls = activeFloor.walls
   const roofs = activeFloor.roofs ?? []
   const referenceFloors = useMemo(
@@ -3344,6 +3566,23 @@ export function FloorplanCanvas({
     ...(initialViewport ?? DEFAULT_FLOORPLAN_VIEWPORT),
   }))
   const skipNextViewportReportRef = useRef(true)
+  const fittedDraftFloor = useRef<string | null>(null)
+  const fitDraft = useCallback(() => {
+    if (!planPreview?.floor.walls.length) return
+    const host = containerRef.current
+    const panel = host?.parentElement?.querySelector('.design-assistant')
+    const clearWidth = host && panel ? panel.getBoundingClientRect().left - host.getBoundingClientRect().left : size.width
+    const width = clearWidth >= 180 ? Math.min(clearWidth, size.width) : size.width
+    const height = size.height
+    const points = planPreview.floor.walls.flatMap(wall => [toCanvasPoint(wall.start), toCanvasPoint(wall.end)])
+    const left = Math.min(...points.map(point => point.x)), right = Math.max(...points.map(point => point.x))
+    const top = Math.min(...points.map(point => point.y)), bottom = Math.max(...points.map(point => point.y))
+    const padding = 32
+    const scale = Math.min(1.25, Math.max(0.1, Math.min(
+      (width - padding * 2) / Math.max(1, right - left), (height - padding * 2) / Math.max(1, bottom - top),
+    )))
+    setViewport({ x: (width - (left + right) * scale) / 2, y: (height - (top + bottom) * scale) / 2, scale })
+  }, [planPreview, size])
 
   useEffect(() => {
     skipNextViewportReportRef.current = true
@@ -3352,6 +3591,14 @@ export function FloorplanCanvas({
     // prop also changes when this component reports ordinary pan/zoom updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingFloor.id, viewportRestoreRevision])
+
+  useEffect(() => {
+    if (!planPreview) { fittedDraftFloor.current = null; return }
+    const fitKey = planPreview.proposal.method === 'extension' ? `${planPreview.floor.id}:${planPreview.proposal.id}` : planPreview.floor.id
+    if (fittedDraftFloor.current === fitKey) return
+    fittedDraftFloor.current = fitKey
+    fitDraft()
+  }, [fitDraft, planPreview])
 
   useEffect(() => {
     if (skipNextViewportReportRef.current) {
@@ -3412,6 +3659,7 @@ export function FloorplanCanvas({
     useState<AlignmentGuide | null>(null)
   const [hoverWallStartGuide, setHoverWallStartGuide] = useState<WallStartGuide | null>(null)
   const [hoverWallSplit, setHoverWallSplit] = useState<WallSplitTarget | null>(null)
+  const [wallSplitEdit, setWallSplitEdit] = useState<{ guide: WallSplitTarget; value: string } | null>(null)
   const [draftWallStartGuide, setDraftWallStartGuide] = useState<WallStartGuide | null>(null)
   const [wallStartOffsetEdit, setWallStartOffsetEdit] =
     useState<{ guide: WallStartGuide; value: string } | null>(null)
@@ -3441,6 +3689,10 @@ export function FloorplanCanvas({
   const [modelPlacementPreview, setModelPlacementPreview] = useState<
     Omit<ModelPlacement, 'floorId'> | null
   >(null)
+  const ceilingMountArea = useMemo(() => placementModel?.placement === 'ceiling-mounted' ||
+    activeFloor.models.some(model => modelsById.get(model.modelId)?.placement === 'ceiling-mounted')
+    ? getCeilingMountArea(activeFloor, floors, wallTopology.rooms, modelsById) : undefined,
+  [activeFloor, floors, modelAssetVersion, placementModel?.placement, wallTopology.rooms])
   const [roofPlacementPitchDegrees, setRoofPlacementPitchDegrees] = useState(35)
   const [roofPlacementThickness, setRoofPlacementThickness] = useState(DEFAULT_ROOF_THICKNESS_METERS)
   const [roofPlacementClipsGeometry, setRoofPlacementClipsGeometry] = useState(true)
@@ -3487,6 +3739,7 @@ export function FloorplanCanvas({
   )
   const lengthInputRef = useRef<HTMLInputElement>(null)
   const wallStartOffsetInputRef = useRef<HTMLInputElement>(null)
+  const wallSplitInputRef = useRef<HTMLInputElement>(null)
   const stageRef = useRef<KonvaStage | null>(null)
   const middlePanRef = useRef<PanState | null>(null)
   const stagePanRef = useRef<StagePanState | null>(null)
@@ -3784,7 +4037,30 @@ export function FloorplanCanvas({
 
   useEffect(() => {
     setHoverWallSplit(null)
+    setWallSplitEdit(null)
   }, [isSplittingWall, activeFloor.id, viewportRestoreRevision, walls])
+
+  const isEditingWallSplit = wallSplitEdit !== null
+  useLayoutEffect(() => {
+    if (!isEditingWallSplit) return
+    const input = wallSplitInputRef.current
+    input?.focus()
+    input?.setSelectionRange(input.value.length, input.value.length)
+  }, [isEditingWallSplit])
+
+  useLayoutEffect(() => {
+    if (!isSplittingWall || !hoverWallSplit || isEditingWallSplit) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey ||
+        !/^[0-9.,]$/.test(event.key) ||
+        (event.target instanceof HTMLElement && (event.target.isContentEditable ||
+          event.target.matches('input, textarea, select')))) return
+      event.preventDefault()
+      setWallSplitEdit({ guide: hoverWallSplit, value: event.key })
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isSplittingWall, hoverWallSplit, isEditingWallSplit])
 
   useEffect(() => {
     if (isSplittingWall) {
@@ -3867,13 +4143,17 @@ export function FloorplanCanvas({
         setWallStartOffsetEdit(null)
         return
       }
+      if (isEditingWallSplit) {
+        setWallSplitEdit(null)
+        return
+      }
       resetDraftWall()
       onExitAddWall()
     }
 
     window.addEventListener('keydown', handleEscape)
     return () => window.removeEventListener('keydown', handleEscape)
-  }, [isAddingWall, isSplittingWall, isEditingWallStartOffset, onExitAddWall])
+  }, [isAddingWall, isSplittingWall, isEditingWallSplit, isEditingWallStartOffset, onExitAddWall])
 
   useEffect(() => {
     if (!isAddingWall || (!draftWall && !hoverWallStartGuide)) {
@@ -4177,6 +4457,14 @@ export function FloorplanCanvas({
     return getWallStartGuide(host, target.point, side, draftWallThickness, wallTopology.wallPolygonsById)
   }
 
+  const getSplitGuide = (point: Point) => {
+    const hit = getWallSplitTarget(walls, point, 8 / (METERS_TO_PIXELS * viewport.scale))
+    if (!hit) return null
+    const { wall, offset } = hit
+    const side = hit.side ?? (wall.kind === 'external' && getExternalDimensionSide(wall, walls) === 1 ? -1 : 1)
+    return getWallSplitGuide(wall, offset, side, splitDimensionGuides(wall).filter(guide => guide.side === side))
+  }
+
   const wallEndpointSnapIsValid = ({
     activeWalls,
     endpoint,
@@ -4455,7 +4743,7 @@ export function FloorplanCanvas({
         if (selectedRoomSignature !== targetId) onSelectRoom(targetId)
         break
       case 'wall':
-        if (selectedWallId !== targetId) onSelectWall(targetId)
+        if (selectedWallId !== targetId && !selectedWallIds.includes(targetId)) onSelectWall(targetId)
         break
     }
     setContextMenu({
@@ -4465,7 +4753,7 @@ export function FloorplanCanvas({
       y: event.evt.clientY - containerBounds.top,
     })
   }, [groundImageEditing, isAddingWall, isSplittingWall, isMeasuring, onOpenProperties, onSelectModel, onSelectRoof, onSelectRoom,
-    onSelectWall, placementModel, selectedModelId, selectedRoofId, selectedRoomSignature, selectedWallId])
+    onSelectWall, placementModel, selectedModelId, selectedRoofId, selectedRoomSignature, selectedWallId, selectedWallIds])
 
   const setCompositorPanOffset = (offsetX: number, offsetY: number) => {
     const content = stageRef.current?.getContent()
@@ -4510,6 +4798,20 @@ export function FloorplanCanvas({
     setIsMiddlePanning(false)
   }
 
+  const getModelPlacementAtPoint = (point: Point | null): Omit<ModelPlacement, 'floorId'> | null => {
+    if (!placementModel || !point) return null
+    if (placementModel.placement === 'ceiling-mounted') return ceilingMountFits(point, ceilingMountArea) ? { position: point, rotation: 0 } : null
+    if (placementModel.placement === 'wall-mounted') {
+      const mount = getWallMountedObjectPlacement(placementModel, activeFloor.walls, point)
+      return resolveWallCabinetPlacement(placementModel, activeFloor, modelsById, mount, {}, { snap: 'horizontal' })
+    }
+    const mount = placementModel.roofMount === 'dormer'
+      ? findDormerPlacement(activeFloor.roofs ?? [], point, placementModel.width, placementModel.depth)?.placement ?? null
+      : getPlacementWallMount(point, activeFloor.walls)
+    const attachment = mount && 'wallAttachment' in mount ? mount.wallAttachment : undefined
+    return mount && doorPlacementFits(placementModel, activeFloor.walls, attachment) ? mount : null
+  }
+
   const handlePointerDown = (event: KonvaEventObject<PointerEvent>) => {
     commitWheelZoom()
     closeContextMenu()
@@ -4541,16 +4843,18 @@ export function FloorplanCanvas({
     if (groundImageEditing) return
 
     if (isSplittingWall) {
+      if (wallSplitEdit) return
       const point = getPointerPoint(event)
-      const target = point && getWallSplitTarget(walls, point, 8 / (METERS_TO_PIXELS * viewport.scale))
+      const target = point && getSplitGuide(point)
       if (target && !target.blocker) onSplitWall?.(target.wallId, target.offset)
       return
     }
 
     if (placementModel) {
-      if (modelPlacementPreview) {
+      const placement = getModelPlacementAtPoint(getPointerPoint(event))
+      if (placement) {
         onPlaceModel({
-          ...modelPlacementPreview,
+          ...placement,
           floorId: activeFloor.id,
         })
       }
@@ -4646,25 +4950,14 @@ export function FloorplanCanvas({
     if (isMeasuring) return
 
     if (isSplittingWall) {
+      if (wallSplitEdit) return
       const point = getPointerPoint(event)
-      setHoverWallSplit(point && getWallSplitTarget(walls, point, 8 / (METERS_TO_PIXELS * viewport.scale)))
+      setHoverWallSplit(point && getSplitGuide(point))
       return
     }
 
     if (placementModel) {
-      const point = getPointerPoint(event)
-      const wallMount = point
-        ? placementModel.roofMount === 'dormer'
-          ? findDormerPlacement(
-              activeFloor.roofs ?? [],
-              point,
-              placementModel.width,
-              placementModel.depth,
-            )?.placement ?? null
-          : getPlacementWallMount(point, activeFloor.walls)
-        : null
-
-      setModelPlacementPreview(wallMount)
+      setModelPlacementPreview(getModelPlacementAtPoint(getPointerPoint(event)))
       setHoverSnapTarget(null)
       setHoverAlignmentGuide(null)
       setHoverRoofPlacementPoint(null)
@@ -4797,7 +5090,8 @@ export function FloorplanCanvas({
   const zoomAroundPoint = (point: Point, nextScale: number) => {
     commitWheelZoom()
     setViewport((currentViewport) => {
-      const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextScale))
+      const minimum = planPreview ? 0.1 : Math.min(MIN_ZOOM, currentViewport.scale)
+      const scale = Math.min(MAX_ZOOM, Math.max(minimum, nextScale))
       const logicalPoint = {
         x: (point.x - currentViewport.x) / currentViewport.scale,
         y: (point.y - currentViewport.y) / currentViewport.scale,
@@ -4834,7 +5128,7 @@ export function FloorplanCanvas({
     const scale = Math.min(
       MAX_ZOOM,
       Math.max(
-        MIN_ZOOM,
+        planPreview ? 0.1 : Math.min(MIN_ZOOM, currentViewport.scale),
         event.evt.deltaY > 0
           ? currentViewport.scale / ZOOM_STEP
           : currentViewport.scale * ZOOM_STEP,
@@ -4951,6 +5245,18 @@ export function FloorplanCanvas({
     () => new Map(wallPlan.wallBodies.map(({ wallId, points }) => [wallId, points])),
     [wallPlan],
   )
+  const splitDimensionGuides = useMemo(() => {
+    const guides = new Map<string, DimensionGuide[]>()
+    return (wall: Wall) => {
+      const cached = guides.get(wall.id)
+      if (cached) return cached
+      const ranges = getDimensionGuides(wall, walls, wallTopology, {
+        externalDimensions: true, internalDimensions: true, includeDiagonalInterior: true, wallBodies: wallPlanPolygonsById,
+      })
+      guides.set(wall.id, ranges)
+      return ranges
+    }
+  }, [walls, wallTopology, wallPlanPolygonsById])
   const dimensionWalls = useMemo(
     () => wallDragPreview
       ? previewWalls.filter((wall) => Boolean(wallDragPreview.walls[wall.id]))
@@ -4970,10 +5276,15 @@ export function FloorplanCanvas({
   const startGuide = isAddingWall
     ? wallStartOffsetEdit?.guide ?? (draftWall ? null : hoverWallStartGuide)
     : null
-  const splitGuide = isSplittingWall ? hoverWallSplit : null
+  const splitWall = wallSplitEdit && walls.find(wall => wall.id === wallSplitEdit.guide.wallId)
+  const typedSplit = splitWall && wallSplitEdit
+    ? getWallSplitAtDistance(splitWall, wallSplitEdit.guide, wallSplitEdit.value)
+    : null
+  const splitGuide = isSplittingWall ? typedSplit ?? wallSplitEdit?.guide ?? hoverWallSplit : null
+  const splitBlocker = (wallSplitEdit ? typedSplit : splitGuide)?.blocker
   const rulerGuide = startGuide ?? splitGuide
   const rulerDistance = startOffset ?? rulerGuide?.distance ?? 0
-  const rulerColour = splitGuide?.blocker ? '#b91c1c' : '#2563eb'
+  const rulerColour = splitGuide?.blocker || (wallSplitEdit && !typedSplit) ? '#b91c1c' : '#2563eb'
   const startGuideDisplay = rulerGuide ? (() => {
     const pushOff = rulerGuide.hostHalfThickness + .13
     const reference = toCanvasPoint({
@@ -5219,10 +5530,14 @@ export function FloorplanCanvas({
       </Group>
     </Group>
   })
-  // Lights are small editing targets: keep them above furniture regardless of
-  // the order the objects were added to the house.
+  // Keep wall cabinets visible above base units, and keep lights easy to select.
+  const footprintOrder = (model: PlacedModel) => {
+    const definition = modelsById.get(model.modelId)
+    if (definition?.isLight) return 2
+    return Number(definition?.kitchenUnitDesign?.unitType === 'wall')
+  }
   const modelFootprints = (activeFloor.models ?? []).toSorted((first, second) =>
-    Number(Boolean(modelsById.get(first.modelId)?.isLight)) - Number(Boolean(modelsById.get(second.modelId)?.isLight)),
+    footprintOrder(first) - footprintOrder(second),
   ).flatMap((storedModel) => {
     const model = modelTransformPreview?.modelId === storedModel.id
       ? { ...storedModel, ...modelTransformPreview.updates }
@@ -5233,10 +5548,10 @@ export function FloorplanCanvas({
       return []
     }
 
-    const center = toCanvasPoint(model.position)
     const modelBounds = modelBoundsById[modelDefinition.id]
     const planDoor = isPlanDoor(modelDefinition)
     const planWindow = modelDefinition.wallMount === 'window'
+    const wallCabinet = modelDefinition.kitchenUnitDesign?.unitType === 'wall'
 
     if (modelDefinition.sourceUrl && !modelBounds && !planDoor) {
       return []
@@ -5245,8 +5560,9 @@ export function FloorplanCanvas({
     const modelScale = model.scale ?? 1
     const modelWidthScale = model.widthScale ?? 1
     const modelDepthScale = model.depthScale ?? 1
+    const isWallMountedObject = isWallMountedDecoration(modelDefinition, model)
     const { minX: boundsMinX, maxX: boundsMaxX, minZ: boundsMinZ, maxZ: boundsMaxZ } =
-      getModelTransformBounds(modelDefinition, modelBounds)
+      getModelTransformBounds(modelDefinition, modelBounds, isWallMountedObject)
     const baseWidth = Math.max(boundsMaxX - boundsMinX, 0.1)
     const baseDepth = Math.max(boundsMaxZ - boundsMinZ, planWindow ? 0.001 : 0.1)
     const width = baseWidth * modelScale * modelWidthScale * METERS_TO_PIXELS
@@ -5256,14 +5572,23 @@ export function FloorplanCanvas({
     const footprintY =
       boundsMinZ * modelScale * modelDepthScale * METERS_TO_PIXELS
     const rotation = (model.rotation * 180) / Math.PI
-    const isWallMountedModel = Boolean(modelDefinition.wallMount)
+    const isCeilingMountedObject = modelDefinition.placement === 'ceiling-mounted'
+    const wallObjectDisplayPoint = (placement: Pick<PlacedModel, 'position' | 'wallAttachment'>) => {
+      const attachment = placement.wallAttachment
+      const wall = attachment && activeFloor.walls.find(wall => wall.id === attachment.wallId)
+      return wall && attachment ? getWallMountedObjectDisplayPoint(wall, attachment,
+        (model.flipped ? -boundsMaxZ : boundsMinZ) * modelScale * modelDepthScale) : placement.position
+    }
+    const displayPosition = isWallMountedObject ? wallObjectDisplayPoint(model) : model.position
+    const center = toCanvasPoint(displayPosition)
+    const isWallMountedModel = Boolean(modelDefinition.wallMount) || isWallMountedObject
     const isRoofMountedModel = Boolean(modelDefinition.roofMount)
     const hasCombinedHandles = !isWallMountedModel && !isRoofMountedModel && !modelDefinition.isLight
     if (model.id === selectedModelId && (hasCombinedHandles || modelDefinition.wallMount === 'window')) {
       transformPanelModels.push({ model, bounds: { minX: boundsMinX, maxX: boundsMaxX, minZ: boundsMinZ, maxZ: boundsMaxZ },
         baseHeight: modelDefinition.height, window: modelDefinition.wallMount === 'window' })
     }
-    const handleCenterLocal = hasCombinedHandles ? {
+    const handleCenterLocal = hasCombinedHandles && !modelDefinition.kitchenUnitDesign ? {
       x: (boundsMinX + boundsMaxX) / 2 * modelScale * modelWidthScale *
         (model.flipped ? -1 : 1) * (model.mirrored ? -1 : 1),
       y: (boundsMinZ + boundsMaxZ) / 2 * modelScale * modelDepthScale * (model.flipped ? -1 : 1),
@@ -5289,6 +5614,9 @@ export function FloorplanCanvas({
       -(modelDefinition.openingWidth ?? modelDefinition.width) * modelScale * modelWidthScale / 2
     const doorMax = doorOpeningEnds.length ? Math.max(...doorOpeningEnds) : -doorMin
     const doorWall = planDoor ? activeFloor.walls.find(wall => wall.id === model.wallAttachment?.wallId) : undefined
+    const getDragWallMount = (point: Point) => doorWall && model.wallAttachment
+      ? getDoorDragMount(model, modelDefinition, doorWall, activeFloor.walls, point)
+      : isWallMountedModel ? getWallMountForPoint(point, activeFloor.walls) : null
     const gizmoScale = 1 / viewport.scale
     const getStairSnap = (
       position: Point,
@@ -5421,6 +5749,7 @@ export function FloorplanCanvas({
         y={center.y}
         rotation={rotation}
         draggable={
+          isSelectedModel &&
           !isAddingWall &&
           !isSplittingWall &&
           !placementModel &&
@@ -5428,6 +5757,12 @@ export function FloorplanCanvas({
           transformMode === 'translate'
         }
         listening={!isAddingWall && !isSplittingWall && !placementModel}
+        onMouseDown={(event) => {
+          if (event.evt.button === 0 && !isSelectedModel) event.cancelBubble = true
+        }}
+        onTouchStart={(event) => {
+          if (!isSelectedModel) event.cancelBubble = true
+        }}
         onClick={(event) => {
           event.cancelBubble = true
           if (event.evt.button !== 0) return
@@ -5462,9 +5797,28 @@ export function FloorplanCanvas({
                 y: dragState.startPosition.y + delta.y,
               }
             : rawPosition
-          const wallMount = isWallMountedModel
-            ? getWallMountForPoint(pointerPosition, activeFloor.walls)
-            : null
+          if (isCeilingMountedObject && dragState) {
+            if (ceilingMountFits(pointerPosition, ceilingMountArea)) dragState.ceilingPosition = pointerPosition
+            const position = dragState.ceilingPosition ?? model.position
+            event.target.position(toCanvasPoint(position))
+            if (modelTransformPreviewRef) modelTransformPreviewRef.current = { modelId: model.id, updates: { position } }
+            return
+          }
+          if (isWallMountedObject && dragState) {
+            const mount = getWallMountedObjectPlacement(modelDefinition, activeFloor.walls, pointerPosition, model)
+            const host = activeFloor.walls.find(wall => wall.id === model.wallAttachment?.wallId)
+            const from = dragState.wallObjectPlacement ?? (host && model.wallAttachment
+              ? fitWallMountedObject(modelDefinition, host, model.wallAttachment, model, activeFloor.walls) : null)
+            const placement = event.evt.ctrlKey ? mount : resolveWallCabinetPlacement(modelDefinition, activeFloor, modelsById, mount, model,
+              { from, snap: event.evt.shiftKey ? undefined : 'horizontal' })
+            if (placement) dragState.wallObjectPlacement = placement
+            const preview = dragState.wallObjectPlacement
+            event.target.position(toCanvasPoint(preview ? wallObjectDisplayPoint(preview) : displayPosition))
+            event.target.rotation((preview?.rotation ?? model.rotation) * 180 / Math.PI)
+            if (preview && modelTransformPreviewRef) modelTransformPreviewRef.current = { modelId: model.id, updates: preview }
+            return
+          }
+          const wallMount = getDragWallMount(pointerPosition)
           const stairSnap = event.evt.ctrlKey || event.evt.shiftKey ? null : getStairSnap(pointerPosition)
 
           if (wallMount) {
@@ -5479,6 +5833,7 @@ export function FloorplanCanvas({
             modelTransformPreviewRef.current = { modelId: model.id, updates: {
               position: wallMount?.position ?? stairSnap?.position ?? pointerPosition,
               rotation: wallMount?.rotation ?? model.rotation,
+              ...(doorWall && wallMount ? { wallAttachment: wallMount.wallAttachment } : {}),
             } }
           }
         }}
@@ -5488,21 +5843,28 @@ export function FloorplanCanvas({
           modelMoveDragRef.current = {
             axis: modelMoveAxisRef.current,
             modelId: model.id,
-            startPosition: { ...model.position },
-          }
-          if (!selectedModelIds.includes(model.id)) {
-            onSelectModel(model.id)
+            startPosition: { ...displayPosition },
           }
         }}
         onDragEnd={(event) => {
           event.cancelBubble = true
+          if (isWallMountedObject || isCeilingMountedObject) {
+            const drag = modelMoveDragRef.current
+            const updates = isWallMountedObject ? drag?.wallObjectPlacement : drag?.ceilingPosition && { position: drag.ceilingPosition }
+            if (updates) {
+              onUpdateModel(model.id, updates)
+              if (modelTransformPreviewRef) modelTransformPreviewRef.current = { modelId: model.id, updates, committed: true }
+            }
+            modelMoveDragRef.current = null
+            modelMoveAxisRef.current = null
+            setIsDraggingModel(false)
+            return
+          }
           const pointerPosition = toPlanPoint({
             x: event.target.x(),
             y: event.target.y(),
           })
-          const wallMount = isWallMountedModel
-            ? getWallMountForPoint(pointerPosition, activeFloor.walls)
-            : null
+          const wallMount = getDragWallMount(pointerPosition)
           const stairSnap = event.evt.ctrlKey || event.evt.shiftKey ? null : getStairSnap(pointerPosition)
           const nextPosition =
             wallMount?.position ?? stairSnap?.position ?? pointerPosition
@@ -5572,17 +5934,18 @@ export function FloorplanCanvas({
             />
           ) : (
             <Rect
-              x={0}
-              y={0}
+              name={modelDefinition.kitchenUnitDesign ? 'kitchen-unit-footprint' : undefined}
+              x={modelDefinition.kitchenUnitDesign ? footprintX : -width / 2}
+              y={modelDefinition.kitchenUnitDesign ? footprintY : -height / 2}
               width={width}
               height={height}
-              offsetX={width / 2}
-              offsetY={height / 2}
-              fill={modelDefinition.color}
+              fill={wallCabinet ? undefined : modelDefinition.color}
               opacity={0.72}
               stroke={isSelectedModel ? '#2563eb' : '#0f172a'}
               strokeWidth={isSelectedModel ? 3 : 1}
               strokeScaleEnabled={false}
+              dash={wallCabinet ? [5, 3] : undefined}
+              hitStrokeWidth={wallCabinet ? 14 : 'auto'}
               cornerRadius={4}
             />
           )}
@@ -5938,6 +6301,7 @@ export function FloorplanCanvas({
     const wallGuides = dimensionWalls.flatMap(wall => getDimensionGuides(wall, previewWalls, previewWallTopology, {
       externalDimensions,
       internalDimensions,
+      wallBodies: wallPlanPolygonsById,
     }))
     if (!internalDimensions) return wallGuides
     const exterior = wallGuides.filter(guide => guide.tickMode === 'cross')
@@ -5946,7 +6310,8 @@ export function FloorplanCanvas({
       wallDragPreview ? [] : wallPlanPerimeters.flatMap(perimeter => perimeter.holes),
     )
     return [...exterior, ...interior]
-  }, [externalDimensions, internalDimensions, dimensionWalls, previewWallTopology, previewWalls, wallDragPreview, wallPlanPerimeters])
+  }, [externalDimensions, internalDimensions, dimensionWalls, previewWallTopology, previewWalls, wallDragPreview,
+    wallPlanPerimeters, wallPlanPolygonsById])
 
   const dimensionRulers = useMemo(
     () => planDimensionGuides.map((guide, index) => {
@@ -6567,6 +6932,7 @@ export function FloorplanCanvas({
         <ObjectTransformPanel key={transformPanelModels[0].model.id}
           values={getModelTransformValues(transformPanelModels[0].model, transformPanelModels[0].bounds, transformPanelModels[0].baseHeight)}
           window={transformPanelModels[0].window}
+          wallMounted={modelsById.get(transformPanelModels[0].model.modelId)?.placement === 'wall-mounted'}
           disabled={isDraggingModel}
           side={viewport.x + transformPanelModels[0].model.position.x * METERS_TO_PIXELS * viewport.scale > size.width / 2 ? 'left' : 'right'}
           onCommit={(field, value) => {
@@ -6580,6 +6946,7 @@ export function FloorplanCanvas({
 
   return (
     <section className="editor-pane">
+      {assistantPanel}
       {typeof children !== 'function' ? transformControls : null}
       <div className="pane-header viewport-toolbar floorplan-toolbar" ref={floorplanMenuRef} aria-label="2D toolbar">
         <div className="render-options viewport-menu-anchor">
@@ -6695,7 +7062,7 @@ export function FloorplanCanvas({
       </div>
       {isAddingWall && <div className="floorplan-tool-hint floorplan-wall-hint">
         <span role="status">{draftWall
-          ? 'Ctrl: fine movement / Shift: 45-degree direction'
+          ? 'CTRL: fine movement / Start typing for manual input'
           : hoverWallStartGuide ? 'Click to start, or type a distance from the nearest wall' : 'Click to start wall'}</span>
         {draftWallStartGuide && !wallStartOffsetEdit && <button type="button" onClick={() =>
           setWallStartOffsetEdit({ guide: draftWallStartGuide, value: draftWallStartGuide.distance.toFixed(3) })}>
@@ -6703,10 +7070,14 @@ export function FloorplanCanvas({
         </button>}
       </div>}
       {isSplittingWall && <div className="floorplan-tool-hint floorplan-wall-hint">
-        <span role="status">{splitGuide?.blocker === 'opening'
+        <button type="button" style={{ margin: '0 8px 0 0' }} onClick={onExitAddWall}>Exit split</button>
+        <span role="status">{splitBlocker === 'opening'
           ? 'Choose a spot clear of the opening'
-          : splitGuide?.blocker === 'end' ? 'Move further from the wall end' : 'Click a wall to split it'}</span>
-        <button type="button" onClick={onExitAddWall}>Exit split</button>
+          : splitBlocker === 'end' ? 'Move further from the wall end'
+          : wallSplitEdit && !typedSplit ? 'Enter a distance along this wall'
+          : wallSplitEdit ? 'Press Enter to split the wall'
+          : splitGuide ? 'Click to split, or type a distance and press Enter'
+          : 'Hover over a wall to choose where to split'}</span>
       </div>}
       {isMeasuring && <div className="floorplan-tool-hint" role="status" style={{ maxWidth: 'calc(100% - 64px)' }}>
         Ruler: click start and end · Ctrl: 45° lock · Esc: exit
@@ -6716,12 +7087,25 @@ export function FloorplanCanvas({
         ref={containerRef}
         className={`canvas-host${isMiddlePanning ? ' panning' : ''}${placementModel || isMeasuring || isSplittingWall ? ' placing-opening' : ''}`}
       >
+        {walls.length === 0 && !activeFloor.floorFootprints?.length && activeFloor.models.length === 0 &&
+          !activeFloor.roofs?.length && !draftWall && !isRoofMode && !placementModel && (
+            <p className="floorplan-empty-hint">
+              {isAddingWall
+                ? 'Click a start point, then click an end point. Esc to stop.'
+                : 'To draw walls, choose Add wall, then click a start and end point.'}
+            </p>
+          )}
+        {isAddingWall && <button type="button" className="floorplan-stop-adding-walls" onClick={onStopAddingWalls ?? onExitAddWall}>
+          Stop adding walls
+        </button>}
         {placementModel ? (
           <div className="model-placement-hint" role="status">
             <strong>Place {placementModel.name}</strong>
             <span>
               {placementModel.roofMount === 'dormer'
                 ? 'Hover over an up-and-over or hip roof, then click to install · Esc to cancel'
+                : placementModel.placement === 'wall-mounted' ? 'Click the side of the wall you want to use · Esc to cancel'
+                : placementModel.placement === 'ceiling-mounted' ? 'Click inside a room with a flat ceiling · Esc to cancel'
                 : 'Hover over a wall, then click to install · Esc to cancel'}
             </span>
             <button type="button" onClick={onCancelModelPlacement}>Cancel</button>
@@ -6831,7 +7215,7 @@ export function FloorplanCanvas({
             ))}
           </Layer>
 
-          <Layer opacity={isRoofMode ? 0.28 : 1} listening={!isRoofMode && !groundImageEditing}>
+          <Layer name="existing-plan-rooms" opacity={existingPlanOpacity} listening={!isRoofMode && !groundImageEditing}>
             {activeFloor.floorFootprints?.map((ring, index) => (
               <Line key={`floor-boundary-${index}`} closed
                 points={ring.flatMap(point => {
@@ -6845,10 +7229,10 @@ export function FloorplanCanvas({
           </Layer>
 
           {showImages && activeFloor.groundImage && !groundImageEditing && <GroundImageLayer key={`ground-${activeFloor.id}`}
-            image={activeFloor.groundImage} editing={false} zoom={viewport.scale}
+            image={activeFloor.groundImage} editing={false} zoom={viewport.scale} opacityMultiplier={planPreview ? existingPlanOpacity : 1}
             onChange={image => onGroundImageChange?.(image)} />}
 
-          <Layer opacity={isRoofMode ? 0.28 : 1} listening={!isRoofMode && !groundImageEditing}>
+          <Layer name="existing-plan-geometry" opacity={existingPlanOpacity} listening={!isRoofMode && !groundImageEditing}>
 
             {referenceFloors.flatMap((floor) =>
               getRenderedWalls(floor.walls).map((renderedWall) => {
@@ -7315,7 +7699,11 @@ export function FloorplanCanvas({
             {stairwellGuardrails}
 
             {placementModel && modelPlacementPreview ? (() => {
-              const center = toCanvasPoint(modelPlacementPreview.position)
+              const attachment = modelPlacementPreview.wallAttachment
+              const wall = attachment && activeFloor.walls.find(wall => wall.id === attachment.wallId)
+              const center = toCanvasPoint(placementModel.placement === 'wall-mounted' && wall && attachment
+                ? getWallMountedObjectDisplayPoint(wall, attachment, -placementModel.depth / 2)
+                : modelPlacementPreview.position)
               const width = Math.max(placementModel.width, 0.2) * METERS_TO_PIXELS
               const depth = Math.max(placementModel.depth, placementModel.wallMount === 'window' ? 0.001 : 0.16) * METERS_TO_PIXELS
 
@@ -7530,22 +7918,6 @@ export function FloorplanCanvas({
               </>
             ) : null}
 
-            {walls.length === 0 &&
-            !activeFloor.floorFootprints?.length &&
-            activeFloor.models.length === 0 &&
-            !activeFloor.roofs?.length &&
-            !draftWall && !isRoofMode && !placementModel ? (
-              <Text
-                x={24}
-                y={24}
-                text={isAddingWall
-                  ? 'Click a start point, then click an end point. Esc to stop.'
-                  : 'To draw walls, choose Add wall, then click a start and end point.'}
-                fill="#64748b"
-                fontSize={15}
-                listening={false}
-              />
-            ) : null}
             {placementModel ? (
               <Rect
                 x={visibleBounds.left}
@@ -7735,12 +8107,25 @@ export function FloorplanCanvas({
             </Layer>
           ) : null}
           {!isRoofMode && selectedRoofId ? <Layer listening={false}>{roofFootprints}</Layer> : null}
+          {planPreview ? <AssistantPlanOverlay proposal={{ ...planPreview.proposal, ...planPreview.overlays?.[activeFloor.id] }} floor={planPreview.floor}
+            scale={viewport.scale} originalWalls={walls} stair={planPreview.stair?.definition} /> : null}
+          {!!proposedStairOpening.length && <Layer listening={false} name="assistant-stair-opening">
+            {proposedStairOpening.map((outline, index) => <Line key={index} closed points={outline.flatMap(point => {
+              const canvas = toCanvasPoint(point)
+              return [canvas.x, canvas.y]
+            })} fill="#93c5fd55" stroke="#2563eb" strokeWidth={2} strokeScaleEnabled={false} dash={[5, 4]} />)}
+          </Layer>}
           {showImages && activeFloor.groundImage && groundImageEditing && <GroundImageLayer key={`editing-ground-${activeFloor.id}`}
             image={activeFloor.groundImage} editing zoom={viewport.scale}
             onChange={image => onGroundImageChange?.(image)} />}
           {isMeasuring && <PlanRuler perimeters={wallPlanPerimeters} viewport={viewport} size={size}
             onExit={() => setIsMeasuring(false)} />}
         </Stage>
+        {planPreview && <button type="button" className="assistant-fit-draft" onClick={fitDraft}>Fit draft</button>}
+        {previewFloorChoices.length > 1 && <div className="assistant-preview-floors" role="group" aria-label="Preview floor">
+          {previewFloorChoices.map(floor => <button key={floor.id} type="button" aria-pressed={activeFloor.id === floor.id}
+            onClick={() => onSelectFloor?.(floor.id)}>{floor.name}</button>)}
+        </div>}
 
         {!isRoofMode && selectedRoof ? (
           <div className="roof-placement-panel roof-settings-panel" aria-label="Selected roof settings">
@@ -7978,6 +8363,34 @@ export function FloorplanCanvas({
           </div>
         ) : null}
 
+        {isSplittingWall && wallSplitEdit && startGuideDisplay ? (
+          <div className="draft-length-panel wall-start-offset-panel"
+            style={{
+              left: clamp(startGuideDisplay.label.x * viewport.scale + viewport.x, 106, Math.max(106, size.width - 106)),
+              top: clamp(startGuideDisplay.label.y * viewport.scale + viewport.y - 42, 42, Math.max(42, size.height - 42)),
+            }}>
+            <label>
+              <span>Split distance</span>
+              <input ref={wallSplitInputRef} aria-label="Split distance" aria-invalid={!typedSplit || !!typedSplit.blocker}
+                value={wallSplitEdit.value} inputMode="decimal"
+                onChange={event => {
+                  const value = event.target.value
+                  setWallSplitEdit(current => current && { ...current, value })
+                }}
+                onBlur={() => setWallSplitEdit(null)}
+                onKeyDown={event => {
+                  if (event.key !== 'Enter' && event.key !== 'Escape') return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  if (event.key === 'Escape') setWallSplitEdit(null)
+                  else if (typedSplit && !typedSplit.blocker) onSplitWall?.(typedSplit.wallId, typedSplit.offset)
+                }}
+              />
+              <span>m</span>
+            </label>
+          </div>
+        ) : null}
+
         {!wallStartOffsetEdit && (draftLengthInput !== null || draftAngleInput !== null) &&
         draftLengthPanelPosition ? (
           <div
@@ -8081,6 +8494,11 @@ export function FloorplanCanvas({
               onOpenProperties()
               closeContextMenu()
             }}>Properties</button>}
+            {onJoinWalls && contextMenu.targetType === 'wall' && selectedWallIds.includes(contextMenu.targetId) &&
+              getWallJoinChain(walls, selectedWallIds, wallTopology) && <button type="button" onClick={() => {
+                onJoinWalls(selectedWallIds)
+                closeContextMenu()
+              }}>Join walls</button>}
             {contextMenu.targetType !== 'room' && <button
               type="button" className="context-danger-action"
               onClick={() => {
