@@ -10,11 +10,13 @@ import { ViewerCameraControls } from '../viewer/ViewerCameraControls'
 import { ViewerAdaptiveResolution } from '../viewer/ViewerAdaptiveResolution'
 import { GamepadCameraControls } from './GamepadCameraControls'
 import { ViewerStairs } from '../viewer/ViewerStairs'
+import { createStairOcclusionQuery } from '../viewer/viewerStairOcclusion'
 import type { ViewerNavigationMode } from '../viewer/viewerNavigation'
 import { resolveBuildingRoofs, resolveLinkedRoofFloors, serializeRoofGeometryInput, getRoofRidgeHeight, getRoofWorldPointFromLocal, getRoofRenderPosition, getRoofSupportBoundsInRoofSpace, getRoofWithExternalWallSupportExtents, getWallSideAwayFromRoof, type BuildingRoof as WallClippingRoof } from '../roofBuildingGeometry'
 /* eslint-disable react-hooks/immutability */
 import {
   Edges,
+  Html,
   TransformControls,
   useGLTF,
   useProgress,
@@ -33,6 +35,8 @@ import { GroundImage3D } from './GroundImage3D'
 import { WindowMesh } from './WindowMesh'
 import { PictureFrameMesh } from './PictureFrameMesh'
 import { KitchenUnitMesh } from './KitchenUnitMesh'
+import { DoorMesh } from './DoorMesh'
+import { getDoorHandleHeight, getDoorMaterialIds, normalizeDoorAngles, type DoorDesign } from '../doorDesign'
 import { getKitchenUnitSize } from '../kitchenUnitDesign'
 import { StairMesh } from './StairMesh'
 import { parametricStairMaterialRegions } from '../stairLibrary'
@@ -13213,6 +13217,9 @@ function ModelMesh({
         <PlacedPictureFrame definition={modelDefinition} model={model} castsShadow={castsShadow} onObject={registerPictureFrame} />
       ) : modelDefinition.kitchenUnitDesign ? (
         <PlacedKitchenUnit definition={modelDefinition} model={model} castsShadow={castsShadow} onObject={registerKitchenUnit} />
+      ) : modelDefinition.doorDesign ? (
+        <PlacedDoor definition={modelDefinition} model={model} wallThickness={wallMountWall?.thickness ?? .1}
+          castsShadow={castsShadow} onObject={registerMountedWindow} />
       ) : modelDefinition.sourceUrl ? (
         <ImportedModelContent
           batchable={
@@ -14231,6 +14238,19 @@ type PlacedParametricObjectProps = {
   model: PlacedModel
   castsShadow: boolean
   onObject: (object: Object3D) => () => void
+}
+
+function PlacedDoor({ definition, model, wallThickness, castsShadow, onObject }: PlacedParametricObjectProps & { wallThickness: number }) {
+  const design = definition.doorDesign!
+  const materials = getDoorMaterialIds(design, model.materialOverrides)
+  const leafMapping = design.frameMaterialId === undefined && !model.materialOverrides?.hd_frame
+    ? model.materialTextureTransforms?.hd_oak : undefined
+  const transforms = leafMapping ? { hd_frame: leafMapping, ...model.materialTextureTransforms } : model.materialTextureTransforms
+  return <DoorMesh key={JSON.stringify(materials)} design={design} wallThickness={wallThickness}
+    depthScale={Math.max(.001, (model.scale ?? 1) * (model.depthScale ?? 1))}
+    angles={model.doorLeafAngles} castsShadow={castsShadow} onObject={onObject}>
+    {root => <ParametricModelMaterials root={root} regions={definition.materialRegions} materials={materials} transforms={transforms} />}
+  </DoorMesh>
 }
 
 function PlacedPictureFrame({ definition, model, castsShadow, onObject }: PlacedParametricObjectProps) {
@@ -18304,6 +18324,82 @@ function downloadColorPickBuffer({
   }
 }
 
+type NearbyDoor = { model: PlacedModel; design: DoorDesign; elevation: number; name: string }
+
+function NearbyDoorControl({ doors, pickTargetsRef, onUpdateModel }: {
+  doors: NearbyDoor[]
+  pickTargetsRef: MutableRefObject<PickTarget[]>
+  onUpdateModel: ThreeDViewProps['onUpdateModel']
+}) {
+  const scene = useThree(state => state.scene)
+  const blocked = useMemo(() => createStairOcclusionQuery(scene), [scene])
+  const anchor = useMemo(() => new Object3D(), [])
+  const { eye, point, projected, ray } = useMemo(() => ({
+    eye: new Vector3(), point: new Vector3(), projected: new Vector3(), ray: new Raycaster(),
+  }), [])
+  const [doorId, setDoorId] = useState<string | null>(null)
+  const nextCheck = useRef(0)
+
+  useFrame(({ camera, clock }) => {
+    if (clock.elapsedTime < nextCheck.current) return
+    nextCheck.current = clock.elapsedTime + .12
+    camera.getWorldPosition(eye)
+    ray.camera = camera
+    ray.layers.mask = camera.layers.mask
+    let nearest = 2.25 ** 2
+    let nextId: string | null = null
+
+    for (const { model, design, elevation } of doors) {
+      const height = Math.min(design.height - .2, getDoorHandleHeight(design) + .18)
+      point.set(model.position.x, elevation + height * (model.scale ?? 1), model.position.y)
+      const distance = eye.distanceToSquared(point)
+      if (distance > nearest) continue
+
+      const target = pickTargetsRef.current.find(candidate => candidate.kind === 'model' && candidate.modelId === model.id)
+      const door = target?.object
+      const frame = door?.getObjectByName('door-frame')
+      if (!door || !(frame instanceof Mesh)) continue
+      if (!frame.geometry.boundingBox) frame.geometry.computeBoundingBox()
+      const bounds = frame.geometry.boundingBox!
+      const towardCamera = door.worldToLocal(point.copy(eye)).z >= 0
+      const depth = towardCamera ? bounds.max.z + .045 : bounds.min.z - .045
+      door.localToWorld(point.set(0, height, depth))
+      projected.copy(point).project(camera)
+      if (Math.abs(projected.x) > .92 || Math.abs(projected.y) > .9 || Math.abs(projected.z) > 1) continue
+      ray.set(eye, projected.copy(point).sub(eye).normalize())
+      if (blocked(ray, eye.distanceTo(point), object => object === door || !object.visible ||
+        object.userData.selectionDecoration || isProximityFadedObject(object))) continue
+
+      nearest = distance
+      nextId = model.id
+      anchor.position.copy(point)
+    }
+    if (doorId !== nextId) setDoorId(nextId)
+  })
+
+  const door = doors.find(({ model }) => model.id === doorId)
+  if (!door) return null
+  const { model, design, name } = door
+  const angles = normalizeDoorAngles(model.doorLeafAngles)
+  return <primitive object={anchor}>
+    <Html center zIndexRange={[3, 0]}>
+      <div className="nearby-door-control" role="group" aria-label={name} onPointerDown={event => event.stopPropagation()}>
+        {([0, 1] as const).slice(0, design.leafCount).map(index => {
+          const close = angles[index] > 2
+          const action = close ? 'Close' : 'Open'
+          const leaf = design.leafCount === 2 ? (index === 0 ? ' left leaf' : ' right leaf') : ' door'
+          return <button key={index} type="button" onClick={event => {
+            event.stopPropagation()
+            const next = normalizeDoorAngles(model.doorLeafAngles)
+            next[index] = close ? 0 : 90
+            onUpdateModel(model.id, { doorLeafAngles: next })
+          }}>{action}{leaf}</button>
+        })}
+      </div>
+    </Html>
+  </primitive>
+}
+
 function ModelPicker({
   active,
   isTransformingRef,
@@ -19968,6 +20064,13 @@ function ThreeDScene({
     }
     return undefined
   }, [modelAssetVersion, modelPlacementFloors, selectedModelId, transformMode])
+  const nearbyDoors = useMemo(() => {
+    void modelAssetVersion
+    return modelPlacementFloors.flatMap(floor => floor.models.flatMap(model => {
+      const definition = modelsById.get(model.modelId)
+      return definition?.doorDesign ? [{ model, design: definition.doorDesign, name: definition.name, elevation: floor.elevation }] : []
+    }))
+  }, [modelAssetVersion, modelPlacementFloors])
   const cameraFov = getCameraFov(aspectRatioMode)
   const headHeightY = (activeFloor?.elevation ?? 0) + WALK_HEAD_HEIGHT_METERS
   const floorsByElevation = useMemo(
@@ -22211,6 +22314,10 @@ function ThreeDScene({
               pickTargetsRef={pickTargetsRef}
               wallDecoration={selectedWallDecoration}
             />
+            ) : null}
+            {!readOnly && !placementModel && !isXrPresenting && !suspended && !isTransformingModel &&
+              !renderOptions.roofsOnly && !initialScenePreparationPending && nearbyDoors.length > 0 ? (
+              <NearbyDoorControl doors={nearbyDoors} pickTargetsRef={pickTargetsRef} onUpdateModel={onUpdateModel} />
             ) : null}
             {!readOnly && placementModel ? (
               <OpeningPlacementController

@@ -5,10 +5,23 @@ The separate Node.js account/private-workspace service is described in
 starts both services and the editor. Its local development accounts are separate
 from manufacturer portal accounts.
 
-The app's **Material editor** is separate from this portal: it requires no login
-and saves to the browser's local IndexedDB library. Used local materials and
-their texture image data are embedded in saved houses and included by the tour
-builder. See [the material editor guide](../docs/material-editor.md).
+Use **Project menu → Material browser** to organise personal materials and
+preview read-only public materials. **Save as my copy** makes a personal material
+you can edit. Personal materials are stored in the browser and their images
+travel with houses that use them.
+
+Sign in as an administrator under **Project menu → Assets** to see
+**Public Materials** in the project menu. There you can create and publish new
+materials, import a `.material.json` file with **Import & publish**, create, rename
+or move folders, delete empty folders, and move, remove or restore public
+materials. Removing a material preserves its finish in houses that already use it.
+Select an existing material in **Public Materials**, edit its details, surface
+settings or texture maps, and choose **Save changes**. The material keeps its ID
+and folder, so houses that use it pick up the saved finish.
+Select a folder in the catalogue tree to set the destination for **New folder**,
+new materials and imported materials. Publishing shows the current destination.
+When publishing, choose existing catalogue labels or enter new ones. Collection
+suggestions follow the selected brand.
 
 Local development server for manufacturer/admin asset uploads.
 
@@ -27,7 +40,15 @@ npm run dev
 
 The server stores uploaded originals and metadata in `manufacturer-assets/`, which is intentionally ignored by git.
 
-Default House Designer admin:
+Use **Object browser → Manage public catalogue** to move objects between folders or
+remove them from the browser. Removal preserves models already placed in houses.
+Use **Upload public model** for new GLB assets. Manufacturer uploads are drafts
+until an administrator publishes them in the portal.
+
+Set `ASSET_PORTAL_ADMIN_PASSWORD` on the portal server before exposing it to users.
+It sets the initial admin password and replaces an existing default password.
+The development account below is available locally. Production mode rejects its
+default password.
 
 ```text
 admin@housedesigner.local / admin

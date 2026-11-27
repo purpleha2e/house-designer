@@ -68,7 +68,7 @@ try {
   await evaluate(`window.fixture=${JSON.stringify({ activeFloorId: 'ground', wallKind: 'external', floors: [floor, { ...floor, id: 'upper', name: 'Upper', elevation: 2.9 }] })};window.alert=msg=>{throw Error(msg)};${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([JSON.stringify(window.fixture)],'stairs.house.json')}];${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async value=>{window.savedStairProject=JSON.parse(value)},close:async()=>{}})})`)
   await menu('Load'); await until(`document.body.textContent.includes('stairs / Ground')`)
   const initialStairIds = await evaluate(`(async()=>{const {modelLibrary}=await import('/src/models/modelLibrary.ts');return modelLibrary.filter(m=>m.stairDesign).map(m=>m.id)})()`)
-  await aria('Add object'); await click('Build stairs')
+  await aria('Add object'); await click('+ New object'); await click('Build stairs')
   await until(`!!document.querySelector('.stair-builder canvas')`)
   assert.equal(await evaluate(`document.querySelector('.stair-builder option[value="handrails"]').textContent`), 'Banister / handrails')
   assert.ok(await evaluate(`document.querySelector('.stair-builder').textContent.includes('Fit floor-to-floor · 2900 mm')`))

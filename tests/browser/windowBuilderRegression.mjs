@@ -35,7 +35,7 @@ try {
   const fixture={activeFloorId:'ground',wallKind:'external',floors:[{id:'ground',name:'Ground',elevation:0,roomHeight:3,slabThickness:.2,rooms:[],walls:[],models:[],roofs:[]}]}
   await evaluate(`window.fixture=${JSON.stringify(fixture)};window.alert=msg=>{window.lastAlert=msg};${projectFileInputFixtureSource}window.projectFileFixture=async()=>[{getFile:async()=>new File([JSON.stringify(window.fixture)],'windows.house.json')}];${projectDownloadFixtureSource}window.projectDownloadFixture=async()=>({createWritable:async()=>({write:async value=>{window.savedWindowProject=JSON.parse(value)},close:async()=>{}})})`)
   await menu('Load')
-  await aria('Add windows or doors');await click('Build a window')
+  await aria('Add windows or doors');await click('+ New object');await click('Build a window')
   await waitFor(`!!document.querySelector('.window-builder')`)
   await field('Variety name','Two pane top lights')
   await click('2 panes');await click('Add 300 mm top openings')

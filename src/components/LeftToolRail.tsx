@@ -699,7 +699,7 @@ export function LeftToolRail({
                 <h2>Materials</h2>
                 <p>{selectedSurfaceLabel}</p>
               </header>
-              {onOpenMaterialEditor && <button type="button" onClick={onOpenMaterialEditor}>Open material editor</button>}
+              {onOpenMaterialEditor && <button type="button" onClick={onOpenMaterialEditor}>Open material browser</button>}
               <MaterialLibraryTree materials={materials} folders={materialFolders} selectedId={materialToApply}
                 onSelect={material => setSelectedMaterialId(material.id)} />
               <p className="material-picker-selection">Selected: {materials.find(material => material.id === materialToApply)?.productName ?? 'Choose a material'}</p>

@@ -4,7 +4,8 @@
 .material-tree ul ul { padding-left: 12px; border-left: 1px solid #e0e6ee; margin-left: 8px; }
 .material-tree li { min-width: 0; }
 .material-tree .material-folder-row { display: flex; align-items: center; gap: 0; border-radius: 5px; }
-.material-tree .material-folder-row.is-selected { background: #e7effd; }
+.material-tree .material-folder-row.is-selected { background: #dceaff; box-shadow: inset 0 0 0 1px #93b9f7; }
+.material-tree .material-folder-label[aria-pressed="true"] { color: #173c8f; }
 .material-tree button { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 4px 5px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #334155; font: 12px/1.4 system-ui, sans-serif; text-align: left; cursor: pointer; box-shadow: none; }
 .material-tree button:hover { background: #eaf0f8; border-color: transparent; }
 .material-tree button:focus-visible { outline: 2px solid #60a5fa; outline-offset: -2px; }

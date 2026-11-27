@@ -1,0 +1,17 @@
+{
+  "id": "local-material-602c1772-9ba8-4202-bffe-47ed60daa116",
+  "manufacturer": "My materials",
+  "folder": "Paint",
+  "productName": "Satin White",
+  "category": "wall-covering",
+  "collection": "Local library",
+  "pbr": {
+    "baseColor": "#ffffff",
+    "roughness": 0.27,
+    "metalness": 0,
+    "normalStrength": 1,
+    "realWorldWidthMeters": 1,
+    "realWorldHeightMeters": 1,
+    "imageBasedLighting": true
+  }
+}

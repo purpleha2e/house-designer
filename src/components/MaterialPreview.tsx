@@ -5,6 +5,7 @@ import { ACESFilmicToneMapping, MeshStandardMaterial, NoColorSpace, PMREMGenerat
   SRGBColorSpace, TextureLoader, type Texture } from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import type { SurfaceMaterialProduct } from '../types'
+import { SurfaceKtx2Loader } from '../materials/surfaceKtx2Loader'
 
 export type MaterialPreviewShape = 'sphere' | 'tile' | 'corner'
 export type MaterialPreviewLighting = 'studio' | 'daylight' | 'grazing'
@@ -33,21 +34,24 @@ function configureSurface(surface: MeshStandardMaterial, pbr: SurfaceMaterialPro
   if (changed) surface.needsUpdate = true
 }
 
-function useMap(url: string | undefined, colour: boolean, repeatX: number, repeatY: number, rotation: number) {
+function useMap(ktx: SurfaceKtx2Loader, url: string | undefined, colour: boolean, repeatX: number, repeatY: number, rotation: number) {
   const invalidate = useThree(state => state.invalidate)
   const [loaded, setLoaded] = useState<{ url: string; texture: Texture }>()
   useEffect(() => {
     if (!url) return
     let cancelled = false
-    const texture = new TextureLoader().load(url, next => {
-      if (cancelled) return
+    let texture: Texture | undefined
+    const loader = /\.ktx2(?:[?#]|$)/i.test(url) ? ktx : new TextureLoader()
+    void loader.loadAsync(url).then(next => {
+      if (cancelled) { next.dispose(); return }
+      texture = next
       next.colorSpace = colour ? SRGBColorSpace : NoColorSpace
       next.wrapS = next.wrapT = RepeatWrapping
       next.needsUpdate = true
       setLoaded({ url, texture: next }); invalidate()
-    })
-    return () => { cancelled = true; texture.dispose() }
-  }, [url, colour, invalidate])
+    }).catch(() => { if (!cancelled) invalidate() })
+    return () => { cancelled = true; texture?.dispose() }
+  }, [ktx, url, colour, invalidate])
   const texture = loaded && loaded.url === url ? loaded.texture : null
   useLayoutEffect(() => {
     if (!texture) return
@@ -60,6 +64,8 @@ function PreviewSurface({ material, shape, lighting }: {
   material: SurfaceMaterialProduct; shape: MaterialPreviewShape; lighting: MaterialPreviewLighting
 }) {
   const { gl, invalidate } = useThree()
+  const ktx = useMemo(() => new SurfaceKtx2Loader().setWorkerLimit(1).detectSupport(gl), [gl])
+  useEffect(() => () => { ktx.dispose() }, [ktx])
   const [environment, setEnvironment] = useState<Texture | null>(null)
   useEffect(() => {
     let target: ReturnType<PMREMGenerator['fromScene']> | undefined
@@ -74,12 +80,12 @@ function PreviewSurface({ material, shape, lighting }: {
   // Flat samples span one metre; sphere UVs span its circumference and half-circumference.
   const repeatX = (shape === 'sphere' ? Math.PI : 1) * (pbr.repeatX ?? 1) / Math.max(.001, pbr.realWorldWidthMeters ?? 1)
   const repeatY = (shape === 'sphere' ? Math.PI / 2 : 1) * (pbr.repeatY ?? 1) / Math.max(.001, pbr.realWorldHeightMeters ?? 1)
-  const map = useMap(pbr.baseColorTextureUrl, true, repeatX, repeatY, pbr.rotation ?? 0)
-  const normalMap = useMap(pbr.normalTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
-  const roughnessMap = useMap(pbr.roughnessTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
-  const metalnessMap = useMap(pbr.metalnessTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
-  const aoMap = useMap(pbr.ambientOcclusionTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
-  const displacementMap = useMap(pbr.displacementTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
+  const map = useMap(ktx, pbr.baseColorTextureUrl, true, repeatX, repeatY, pbr.rotation ?? 0)
+  const normalMap = useMap(ktx, pbr.normalTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
+  const roughnessMap = useMap(ktx, pbr.roughnessTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
+  const metalnessMap = useMap(ktx, pbr.metalnessTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
+  const aoMap = useMap(ktx, pbr.ambientOcclusionTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
+  const displacementMap = useMap(ktx, pbr.displacementTextureUrl, false, repeatX, repeatY, pbr.rotation ?? 0)
   const surface = useMemo(() => new MeshStandardMaterial(), [])
   useEffect(() => () => surface.dispose(), [surface])
   useLayoutEffect(() => {

@@ -1,8 +1,6 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import './ObjectBuilder.css'
 
-export type ObjectBuilderType = 'stairs' | 'windows' | 'picture-frame' | 'kitchen-unit'
-
 export function BuilderDialog({ title, onClose, expanded, busy, children }: {
   title: string
   onClose: () => void
@@ -28,26 +26,4 @@ export function BuilderDialog({ title, onClose, expanded, busy, children }: {
     </header>
     {children}
   </dialog>
-}
-
-export function ObjectBuilder({ onClose, onChoose }: {
-  onClose: () => void
-  onChoose: (type: ObjectBuilderType) => void
-}) {
-  return <BuilderDialog title="Object builder" onClose={onClose}>
-    <div className="object-builder-options">
-      <button type="button" onClick={() => onChoose('stairs')}>
-        <strong>Stairs</strong><span>Choose a layout and set the rise, width and finishes.</span>
-      </button>
-      <button type="button" onClick={() => onChoose('windows')}>
-        <strong>Windows</strong><span>Set the frame dimensions and arrange fixed or opening panes.</span>
-      </button>
-      <button type="button" onClick={() => onChoose('picture-frame')}>
-        <strong>Picture frames</strong><span>Set the picture proportions, moulding and slip.</span>
-      </button>
-      <button type="button" onClick={() => onChoose('kitchen-unit')}>
-        <strong>Kitchen units</strong><span>Build base and wall cabinets with custom doors and drawers.</span>
-      </button>
-    </div>
-  </BuilderDialog>
 }

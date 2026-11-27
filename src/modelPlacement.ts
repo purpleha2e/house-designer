@@ -1,4 +1,4 @@
-import type { FloorLevel, PlacedModel, Point, RoofAttachment, RoofEndChamfer, Wall, WallAttachment, WallOpening } from './types'
+import type { FloorLevel, PlacedModel, Point, RoofAttachment, RoofEndChamfer, ThreeDViewCameraState, Wall, WallAttachment, WallOpening } from './types'
 import { normalizeRoofEndConnection } from './roofJunctions.ts'
 import { normalizeRoofHeightAlignment } from './roofHeightAlignment.ts'
 import { normalizeBayOutline } from './bayRoof.ts'
@@ -13,10 +13,11 @@ import { getStairSlabOpenings } from './stairSlabOpenings.ts'
 import { pointInPolygon } from './assistant/planGeometry.ts'
 import { migrateArtworkMaterial } from './modelMaterialOverrides.ts'
 import { withKitchenUnitBackOrigin } from './kitchenUnitDesign.ts'
+import { normalizeDoorAngles } from './doorDesign.ts'
 import { constrainModelDrag, getFootprintOffsetOverlap, MODEL_CONTACT_EPSILON, planAabbsOverlap, type OrientedFootprint,
   type PlanAabb } from './modelDragCollision.ts'
 import { getWallBodyFaceRange } from './wallEngine/wallBodyPerimeter.ts'
-import type { Ray } from 'three'
+import { Quaternion, Vector3, type Ray } from 'three'
 
 export type ModelPlacement = Pick<
   PlacedModel,
@@ -29,6 +30,7 @@ const WINDOW_SILL_HEIGHT_METERS = 0.9
 const PATIO_DOOR_WIDTH_METERS = 1.62
 const PATIO_SIDE_LIGHT_BOTTOM_METERS = 1.02
 const DOOR_JUNCTION_TOLERANCE_METERS = 0.03
+const DEFAULT_LIGHT_HEIGHT = 1.8
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -104,6 +106,23 @@ export function getPlanCenter(walls: Wall[]): Point {
     x: points.reduce((total, point) => total + point.x, 0) / points.length,
     y: points.reduce((total, point) => total + point.y, 0) / points.length,
   }
+}
+
+export function getModelPositionInView(camera: ThreeDViewCameraState, floorElevation: number,
+  definition: Pick<ModelDefinition, 'height' | 'width' | 'depth' | 'isLight'>): Point {
+  const { x, y, z, w } = camera.quaternion
+  const forward = new Vector3(0, 0, -1).applyQuaternion(new Quaternion(x, y, z, w).normalize())
+  const centreHeight = floorElevation + (definition.isLight ? DEFAULT_LIGHT_HEIGHT : definition.height / 2)
+  const heightDelta = centreHeight - camera.position.y
+  const intersection = heightDelta / forward.y
+  if (intersection > 0 && intersection <= Math.max(5, Math.abs(heightDelta) * 6)) {
+    return { x: camera.position.x + forward.x * intersection, y: camera.position.z + forward.z * intersection }
+  }
+
+  // An eye-level or upward view can miss the plane or meet it very far away.
+  const horizontalLength = Math.hypot(forward.x, forward.z)
+  const distance = horizontalLength > 1e-6 ? Math.max(3, definition.width, definition.depth) / horizontalLength : 0
+  return { x: camera.position.x + forward.x * distance, y: camera.position.z + forward.z * distance }
 }
 
 function getProjectionOnWall(point: Point, wall: Wall) {
@@ -587,6 +606,7 @@ export function getDoorWallOffset(
 ) {
   const length = getWallLength(wall)
   if (length < 1e-6 || !Number.isFinite(offset)) return null
+  if (definition.doorDesign && definition.height * (model?.scale ?? 1) > wall.height + MODEL_CONTACT_EPSILON) return null
   const openings = getRawModelOpenings(model ?? { id: definition.id, modelId: definition.id, scale: 1 }, wall, definition, 0)
   const openingStart = Math.min(...openings.map(opening => opening.center - opening.width / 2))
   const openingEnd = Math.max(...openings.map(opening => opening.center + opening.width / 2))
@@ -898,6 +918,7 @@ export function normalizeFloor(
 
           const normalized = {
             ...model,
+            ...(definition?.doorDesign && model.doorLeafAngles !== undefined ? { doorLeafAngles: normalizeDoorAngles(model.doorLeafAngles) } : {}),
             ...(migrateArtwork ? {
               materialOverrides: migrateArtworkMaterial(model.materialOverrides),
               materialTextureTransforms: migrateArtworkMaterial(model.materialTextureTransforms),
@@ -1110,17 +1131,19 @@ export function createPlacedModel({
   id,
   modelId,
   modelsById,
+  position,
   walls,
 }: {
   id: string
   modelId: string
   modelsById: ModelsById
+  position?: Point
   walls: Wall[]
 }): PlacedModel {
   const definition = modelsById.get(modelId)
-  const planCenter = getPlanCenter(walls)
+  const spawnPoint = position ?? getPlanCenter(walls)
   const wallMount = definition?.wallMount
-    ? getWallMountForPoint(planCenter, walls)
+    ? getWallMountForPoint(spawnPoint, walls)
     : null
 
   const model: PlacedModel = {
@@ -1128,7 +1151,7 @@ export function createPlacedModel({
     dormerHeight: definition?.roofMount === 'dormer'
       ? createDormerStructuralAssembly({ definition, ownerId: id }).wallHeight : undefined,
     flipped: false,
-    height: definition?.isLight ? 1.8 : undefined,
+    height: definition?.isLight ? DEFAULT_LIGHT_HEIGHT : undefined,
     id,
     lightColor: definition?.isLight ? definition.lightColor : undefined,
     lightDistance: definition?.isLight ? definition.lightDistance : undefined,
@@ -1138,7 +1161,7 @@ export function createPlacedModel({
     lightSpread: definition?.lightKind === 'spot' ? definition.lightSpread : undefined,
     mirrored: false,
     modelId,
-    position: wallMount?.position ?? planCenter,
+    position: wallMount?.position ?? spawnPoint,
     rotation: wallMount?.rotation ?? 0,
     scale: 1,
     widthScale: 1,

@@ -6,6 +6,7 @@ import { ViewportContextMenu } from './ViewportContextMenu'
 import { PlanRuler } from './PlanRuler'
 import { StairPlanSymbol } from './StairPlanSymbol'
 import { DoorPlanSymbol } from './DoorPlanSymbol'
+import { getDoorHingeSide, normalizeDoorAngles } from '../doorDesign'
 import type { DesignProposal } from '../assistant/proposal'
 import { getDoorLeafCount, isPlanDoor } from '../doorPlan'
 import { useToolbarMenu } from './useToolbarMenu'
@@ -5892,7 +5893,10 @@ export function FloorplanCanvas({
           <Group rotation={model.flipped ? 180 : 0} scaleX={model.mirrored ? -1 : 1}>
             <DoorPlanSymbol width={(doorMax - doorMin) * METERS_TO_PIXELS}
               wallThickness={(doorWall?.thickness ?? 0.13) * METERS_TO_PIXELS}
-              leafCount={getDoorLeafCount(modelDefinition)} selected={isSelectedModel} />
+              leafCount={getDoorLeafCount(modelDefinition)} selected={isSelectedModel}
+              {...(modelDefinition.doorDesign && { angles: normalizeDoorAngles(model.doorLeafAngles),
+                hingeSide: getDoorHingeSide(modelDefinition.doorDesign, 0),
+                swingDirection: modelDefinition.doorDesign.swing === 'front' ? 1 : -1 })} />
           </Group>
         </Group> : <Group
           rotation={model.flipped ? 180 : 0}

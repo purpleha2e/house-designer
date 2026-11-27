@@ -1,5 +1,5 @@
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { encodeToKTX2 } from 'ktx2-encoder'
@@ -145,7 +145,8 @@ async function processMaterialAsset(metadata, assetDir) {
     }
 
     const sourcePath = join(assetDir, sourceFileName)
-    const outputName = `${slugify(file.fieldName)}.ktx2`
+    const stem = sourceFileName.slice(0, -extname(sourceFileName).length)
+    const outputName = `${/^[a-z-]+-[a-f\d]{32}$/.test(stem) ? stem : slugify(file.fieldName)}.ktx2`
     const outputPath = join(processedDir, outputName)
 
     try {

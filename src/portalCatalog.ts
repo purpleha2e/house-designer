@@ -1,7 +1,12 @@
-import type { SurfaceCategory, SurfaceFinish, SurfaceMaterialProduct } from './types'
+import type { SurfaceFinish, SurfaceMaterialProduct } from './types'
 import { materialVariationFromMetadata } from './materials/proceduralVariation.ts'
 import type { ModelDefinition, ModelObjectType } from './models/modelLibrary'
 import { discoverHdMaterialRegions, normalizeArtworkMaterialRegions } from './modelMaterialOverrides.ts'
+import { readObjectCatalogue, type ObjectCatalogue } from './models/objectCatalogue.ts'
+import { materialMapSlots } from './materials/localMaterials.ts'
+import { readMaterialCatalogueLayout, type MaterialCatalogueLayout } from './materials/materialCatalogueLayout.ts'
+import { normalizeMaterialFolder } from './materials/materialFolderPath.ts'
+import { normalizeMaterialLabel, parseSurfaceCategory } from './materials/materialCatalogueMetadata.ts'
 
 type PortalCatalogFile = {
   fieldName: string
@@ -10,6 +15,7 @@ type PortalCatalogFile = {
 
 type PortalCatalogAsset = {
   assetKind: 'material' | 'model'
+  bundledMaterialId?: string
   category: string
   collection: string
   conversion?: {
@@ -41,21 +47,17 @@ type PortalCatalogGroup = {
 
 type PortalCatalogResponse = {
   manufacturers: PortalCatalogGroup[]
+  catalogueLayout?: unknown
+  materialCatalogue?: unknown
 }
 
 export type RuntimePortalCatalog = {
   materials: SurfaceMaterialProduct[]
   models: ModelDefinition[]
+  catalogueLayout?: ObjectCatalogue
+  materialCatalogue?: MaterialCatalogueLayout
 }
 
-const surfaceCategories = new Set<SurfaceCategory>([
-  'ceiling',
-  'flooring',
-  'paint',
-  'tile',
-  'wall-covering',
-  'worktop',
-])
 const surfaceFinishes = new Set<SurfaceFinish>([
   'eggshell',
   'gloss',
@@ -104,22 +106,6 @@ function normalizeToken(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, '-')
 }
 
-function normalizeSurfaceCategory(value: string): SurfaceCategory {
-  const normalized = normalizeToken(value)
-
-  if (normalized === 'tiles') {
-    return 'tile'
-  }
-
-  if (normalized === 'wallpaper') {
-    return 'wall-covering'
-  }
-
-  return surfaceCategories.has(normalized as SurfaceCategory)
-    ? (normalized as SurfaceCategory)
-    : 'wall-covering'
-}
-
 function normalizeSurfaceFinish(value: string) {
   const normalized = normalizeToken(value)
 
@@ -140,6 +126,12 @@ function parseUnitNumber(value: string | undefined) {
   return Number.isFinite(parsedValue)
     ? Math.min(1, Math.max(0, parsedValue))
     : undefined
+}
+
+function parseMappingNumber(value: string | undefined, min: number, max = Infinity) {
+  if (!value?.trim()) return undefined
+  const number = Number(value)
+  return Number.isFinite(number) && number >= min && number <= max ? number : undefined
 }
 
 function parseHexColor(value: string | undefined) {
@@ -177,48 +169,62 @@ function findProcessedFile(asset: PortalCatalogAsset, fieldName: string) {
 function portalMaterialToSurfaceMaterial(
   asset: PortalCatalogAsset,
 ): SurfaceMaterialProduct | null {
-  const baseColorTextureUrl = findProcessedFile(asset, 'baseColor')
+  const originalTextureUrls = Object.fromEntries(materialMapSlots.flatMap(({ key, field }) => {
+    const url = findOriginalFile(asset, field)
+    return url ? [[key, url]] : []
+  })) as SurfaceMaterialProduct['originalTextureUrls']
+  const pbrTextures = Object.fromEntries(materialMapSlots.map(({ key, field }) => {
+    const original = originalTextureUrls?.[key]
+    const raster = original && /\.(png|jpe?g|webp|bmp|avif|gif)(?:[?#]|$)/i.test(original) ? original : undefined
+    const processed = ['complete', 'partial'].includes(asset.conversion?.status ?? '') ? findProcessedFile(asset, field) : undefined
+    return [key, processed ?? raster]
+  })) as Partial<SurfaceMaterialProduct['pbr']>
   const baseColor = parseHexColor(asset.metadata.baseColor)
 
-  if (!baseColorTextureUrl && !baseColor) {
+  if (!pbrTextures.baseColorTextureUrl && !baseColor) {
     return null
   }
 
-  if (baseColorTextureUrl && asset.conversion?.status !== 'complete') {
-    return null
-  }
-
-  const category = normalizeSurfaceCategory(
-    asset.metadata.category || asset.category || '',
-  )
+  const authoredCategory = normalizeMaterialLabel(asset.metadata.category || asset.category)
+  const legacyCategory = parseSurfaceCategory(authoredCategory)
+  const surfaceCategory = parseSurfaceCategory(asset.metadata.surfaceCategory)
+  const category = legacyCategory ?? surfaceCategory ?? 'wall-covering'
+  const catalogueCategory = authoredCategory && (surfaceCategory || !legacyCategory) ? authoredCategory : undefined
   const finish = normalizeSurfaceFinish(asset.metadata.finish ?? '')
   const roughness = parseUnitNumber(asset.metadata.roughness)
+  let catalogueFolder: string | undefined
+  if (typeof asset.metadata.catalogueFolder === 'string') {
+    try { catalogueFolder = normalizeMaterialFolder(asset.metadata.catalogueFolder) } catch { /* Use the default hierarchy. */ }
+  }
 
   return {
     category,
-    collection: asset.metadata.collection || asset.collection || 'Portal uploads',
+    ...(catalogueCategory && { catalogueCategory }),
+    ...(catalogueFolder !== undefined && { catalogueFolder }),
+    collection: normalizeMaterialLabel(asset.metadata.collection || asset.collection) || (surfaceCategory ? undefined : 'Portal uploads'),
     colourFamily: asset.metadata.colourFamily || undefined,
     finish,
-    id: `portal-material-${asset.id}`,
-    manufacturer: asset.manufacturer.name,
+    id: asset.bundledMaterialId ?? `portal-material-${asset.id}`,
+    manufacturer: normalizeMaterialLabel(asset.metadata.brand) || asset.manufacturer.name,
     materialType: asset.metadata.materialType || category,
+    ...(originalTextureUrls && Object.keys(originalTextureUrls).length > 0 && { originalTextureUrls }),
     pbr: {
+      ...pbrTextures,
       proceduralVariation: materialVariationFromMetadata(asset.metadata),
-      ambientOcclusionTextureUrl: findProcessedFile(asset, 'ambientOcclusion'),
       baseColor,
-      baseColorTextureUrl,
-      displacementScale: 0.003,
-      displacementTextureUrl: findProcessedFile(asset, 'displacement'),
+      displacementScale: parseMappingNumber(asset.metadata.displacementScale, 0, .05) ?? .003,
       imageBasedLighting: asset.metadata.imageBasedLighting === 'true',
       metalness: parseUnitNumber(asset.metadata.metalness) ?? 0,
-      metalnessTextureUrl: findProcessedFile(asset, 'metalness'),
-      normalTextureUrl: findProcessedFile(asset, 'normal'),
+      normalStrength: parseMappingNumber(asset.metadata.normalStrength, 0, 3),
+      normalFlipY: asset.metadata.normalFlipY === 'true',
       realWorldHeightMeters: parsePositiveNumber(
         asset.metadata.realWorldHeightMeters,
       ),
       realWorldWidthMeters: parsePositiveNumber(asset.metadata.realWorldWidthMeters),
+      repeatX: parsePositiveNumber(asset.metadata.repeatX),
+      repeatY: parsePositiveNumber(asset.metadata.repeatY),
+      rotation: parseMappingNumber(asset.metadata.rotation, -Infinity),
       roughness: roughness ?? 0.7,
-      roughnessTextureUrl: findProcessedFile(asset, 'roughness'),
     },
     productName: asset.metadata.productName || 'Uploaded material',
     productUrl: asset.metadata.productUrl || undefined,
@@ -347,5 +353,7 @@ export function createRuntimePortalCatalog(data: PortalCatalogResponse): Runtime
     .map(portalAssetToModel)
     .filter((model): model is ModelDefinition => Boolean(model))
 
-  return { materials, models }
+  return { materials, models,
+    ...(data.catalogueLayout === undefined ? {} : { catalogueLayout: readObjectCatalogue(data.catalogueLayout) }),
+    ...(data.materialCatalogue === undefined ? {} : { materialCatalogue: readMaterialCatalogueLayout(data.materialCatalogue) }) }
 }

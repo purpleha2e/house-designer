@@ -1,8 +1,8 @@
 {
   "id": "local-material-e43c8d99-7db7-4c12-8399-780f64432df9",
   "manufacturer": "My materials",
-  "folder": "Floors",
-  "productName": "Light Oak Planks",
+  "folder": "Floors/Planks/Denali",
+  "productName": "The Keys European Oak - Siesta Key",
   "category": "wall-covering",
   "collection": "Local library",
   "pbr": {

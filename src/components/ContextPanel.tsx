@@ -22,7 +22,8 @@ import { MaterialChoice } from './MaterialChoice'
 import { getModelMaterialTextureTransform } from '../modelMaterialOverrides'
 import { canMountObjectOnWall, fitWallMountedObject, getWallMountedObjectPlacement, isWallMountedDecoration, resolveWallCabinetPlacement } from '../modelPlacement'
 import { getStairFinish, stairParts } from '../stairDesign'
-import { getKitchenHandleFinish } from '../kitchenUnitDesign'
+import { getKitchenHandleFinish, kitchenHandleFinishes } from '../kitchenUnitDesign'
+import { DOOR_MAX_ANGLE, normalizeDoorAngles } from '../doorDesign'
 
 type ContextPanelProps = {
   lightControl?: LocalLightControl
@@ -521,16 +522,39 @@ export function ContextPanel({
         {selectedModel?.definition.materialRegions?.map(region => {
           const part = stairParts.find(part => region.id === `stairs_${part}`)
           const kitchen = selectedModel.definition.kitchenUnitDesign
+          const door = selectedModel.definition.doorDesign
           const original = part && selectedModel.definition.stairDesign
             ? getStairFinish(selectedModel.definition.stairDesign, part)
             : kitchen && region.id === 'hd_worktop' ? { materialId: kitchen.worktopMaterialId, color: kitchen.worktopColor }
-              : kitchen && region.id === 'hd_handles' ? getKitchenHandleFinish(kitchen) : undefined
+              : kitchen && region.id === 'hd_handles' ? getKitchenHandleFinish(kitchen)
+                : door && region.id === 'hd_oak' ? { materialId: door.oakMaterialId, color: '#c99e68', label: 'Natural oak grain' }
+                  : door && region.id === 'hd_frame' ? { materialId: door.frameMaterialId === undefined
+                    ? selectedModel.model.materialOverrides?.hd_oak ?? door.oakMaterialId : door.frameMaterialId ?? undefined,
+                  color: '#c99e68', label: door.frameMaterialId === undefined ? 'Match leaf finish' : 'Natural oak grain' }
+                  : door && region.id === 'hd_handle' ? kitchenHandleFinishes[door.handleFinish] : undefined
           return <div className="context-field context-model-material" key={`${selectedModel.model.id}:${region.id}`}>
             <dt>{region.label}</dt>
             <dd>{renderModelMaterial(region.id, region.label, original)}</dd>
           </div>
         })}
         {transformControls && <div className="context-transform"><dt>Transform</dt><dd>{transformControls}</dd></div>}
+        {selectedModel?.definition.doorDesign && (selectedModel.definition.doorDesign.leafCount === 2
+          ? ['Left leaf angle', 'Right leaf angle'] : ['Door angle']).map((label, index) => {
+          const id = selectedModel.model.id
+          const angle = Math.round(normalizeDoorAngles(selectedModel.model.doorLeafAngles)[index])
+          return <div className="context-field" key={label}>
+            <dt>{label}</dt>
+            <dd><input key={`${id}:${angle}`} aria-label={label} type="number" min={0} max={DOOR_MAX_ANGLE} step={1} defaultValue={angle}
+              onBlur={event => {
+                const angles = normalizeDoorAngles(selectedModel.model.doorLeafAngles)
+                if (Number.isFinite(event.currentTarget.valueAsNumber)) {
+                  angles[index] = Math.max(0, Math.min(DOOR_MAX_ANGLE, event.currentTarget.valueAsNumber))
+                }
+                event.currentTarget.value = String(Math.round(angles[index]))
+                if (Math.round(angles[index]) !== angle) onUpdateModel(id, { doorLeafAngles: angles })
+              }} onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur() }} /><span>°</span></dd>
+          </div>
+        })}
         {canMountSelectedObject && selectedModel && <div className="context-actions">
           <dt>Placement</dt>
           <dd>{nearestWallMount

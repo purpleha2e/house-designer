@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { materialVariationMetadataDefaults } from '../materials/proceduralVariation'
-
-type PortalUser = {
-  email: string
-  id: string
-  name: string
-  role: 'admin' | 'manufacturer'
-}
+import { portalRequest, readPortalToken, setPortalToken, type PortalSession } from '../assetPortalClient'
 
 type PortalManufacturer = {
   id: string
@@ -45,6 +39,7 @@ type PortalAsset = {
   manufacturer: PortalManufacturer
   metadata: Record<string, string>
   processedFiles?: PortalAssetFile[]
+  published?: boolean
   updatedAt: string
 }
 
@@ -53,13 +48,6 @@ type PortalAssetGroup = {
   manufacturer: PortalManufacturer
 }
 
-type PortalSession = {
-  manufacturer: PortalManufacturer | null
-  token: string
-  user: PortalUser
-}
-
-const portalTokenStorageKey = 'houseDesignerAssetPortalToken'
 const emptyAssetMetadata = {
   ...materialVariationMetadataDefaults,
   category: '',
@@ -114,42 +102,6 @@ function formatFileSize(bytes: number) {
   }
 
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-async function portalRequest<T>(
-  path: string,
-  {
-    body,
-    method = 'GET',
-    token,
-  }: {
-    body?: BodyInit
-    method?: string
-    token?: string | null
-  } = {},
-) {
-  const headers = new Headers()
-
-  if (token) {
-    headers.set('authorization', `Bearer ${token}`)
-  }
-
-  if (body && !(body instanceof FormData)) {
-    headers.set('content-type', 'application/json')
-  }
-
-  const response = await fetch(path, {
-    body,
-    headers,
-    method,
-  })
-  const data = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    throw new Error(data.error ?? 'Asset portal request failed')
-  }
-
-  return data as T
 }
 
 function metadataValue(asset: PortalAsset, key: string) {
@@ -243,24 +195,26 @@ function ConversionStatus({ asset }: { asset: PortalAsset }) {
 }
 
 export function ManufacturerPortal({
+  initialAssetKind = 'material',
   onCatalogChanged,
   onClose,
 }: {
+  initialAssetKind?: 'material' | 'model'
   onCatalogChanged: () => void
   onClose: () => void
 }) {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
   const [session, setSession] = useState<PortalSession | null>(null)
   const [assetGroups, setAssetGroups] = useState<PortalAssetGroup[]>([])
-  const [assetKind, setAssetKind] = useState<'material' | 'model'>('material')
+  const [assetKind, setAssetKind] = useState(initialAssetKind)
   const [assetListKind, setAssetListKind] = useState<'material' | 'model'>(
-    'material',
+    initialAssetKind,
   )
   const [editingAsset, setEditingAsset] = useState<PortalAsset | null>(null)
   const [message, setMessage] = useState('')
   const [isBusy, setIsBusy] = useState(false)
-  const [loginEmail, setLoginEmail] = useState('admin@housedesigner.local')
-  const [loginPassword, setLoginPassword] = useState('admin')
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
   const [signupName, setSignupName] = useState('')
   const [signupEmail, setSignupEmail] = useState('')
   const [signupPassword, setSignupPassword] = useState('')
@@ -268,7 +222,7 @@ export function ManufacturerPortal({
     ...emptyAssetMetadata,
   })
   const uploadFormRef = useRef<HTMLFormElement>(null)
-  const token = session?.token ?? localStorage.getItem(portalTokenStorageKey)
+  const token = session?.token ?? readPortalToken()
   const allAssets = useMemo(
     () => assetGroups.flatMap((group) => group.assets),
     [assetGroups],
@@ -291,7 +245,7 @@ export function ManufacturerPortal({
   }
 
   useEffect(() => {
-    const savedToken = localStorage.getItem(portalTokenStorageKey)
+    const savedToken = readPortalToken()
 
     if (!savedToken) {
       return
@@ -305,7 +259,7 @@ export function ManufacturerPortal({
         return loadAssets(savedToken)
       })
       .catch(() => {
-        localStorage.removeItem(portalTokenStorageKey)
+        if (readPortalToken() === savedToken) setPortalToken(null)
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -334,7 +288,7 @@ export function ManufacturerPortal({
         body: JSON.stringify({ email: loginEmail, password: loginPassword }),
         method: 'POST',
       })
-      localStorage.setItem(portalTokenStorageKey, data.token)
+      setPortalToken(data.token)
       setSession(data)
       await loadAssets(data.token)
       setMessage('Signed in')
@@ -431,7 +385,8 @@ export function ManufacturerPortal({
       setMessage(
         wasEditing
           ? 'Asset changes confirmed'
-          : changedAssetKind === 'material'
+          : saved.asset.published === false ? 'Uploaded as a draft for administrator approval'
+            : changedAssetKind === 'material'
             ? 'Material uploaded and queued for processing'
             : 'Model uploaded',
       )
@@ -479,6 +434,21 @@ export function ManufacturerPortal({
     } finally {
       setIsBusy(false)
     }
+  }
+
+  const publishAsset = async (asset: PortalAsset) => {
+    if (!token || session?.user.role !== 'admin') return
+    setIsBusy(true)
+    setMessage('')
+    try {
+      await portalRequest('/api/portal/catalogue-layout', { method: 'PATCH', token,
+        body: JSON.stringify({ id: `portal-${asset.assetKind}-${asset.id}`, entry: { published: true } }) })
+      await loadAssets(token)
+      onCatalogChanged()
+      setMessage('Asset published to the public catalogue')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error))
+    } finally { setIsBusy(false) }
   }
 
   const handleProcessAsset = async (asset: PortalAsset) => {
@@ -675,7 +645,7 @@ export function ManufacturerPortal({
             <button
               type="button"
               onClick={() => {
-                localStorage.removeItem(portalTokenStorageKey)
+                setPortalToken(null)
                 setSession(null)
                 setAssetGroups([])
               }}
@@ -1139,7 +1109,7 @@ export function ManufacturerPortal({
                         <h3>
                           <button
                             className="portal-asset-edit-chip"
-                            disabled={isBusy}
+                            disabled={isBusy || (session.user.role !== 'admin' && asset.published !== false)}
                             type="button"
                             onClick={() => editAsset(asset)}
                           >
@@ -1148,23 +1118,25 @@ export function ManufacturerPortal({
                         </h3>
                         <p>
                           {asset.assetKind} - {asset.manufacturer.name} -{' '}
-                          <ConversionStatus asset={asset} />
+                          <ConversionStatus asset={asset} />{asset.published === false ? ' · Draft' : ''}
                         </p>
                       </div>
-                      <button
+                      {session.user.role === 'admin' && asset.published === false && <button type="button"
+                        disabled={isBusy || isProcessingStatus(asset.conversion.status)} onClick={() => void publishAsset(asset)}>Publish</button>}
+                      {(session.user.role === 'admin' || asset.published === false) && <button
                         disabled={isBusy || isProcessingStatus(asset.conversion.status)}
                         type="button"
                         onClick={() => handleProcessAsset(asset)}
                       >
                         Process
-                      </button>
-                      <button
+                      </button>}
+                      {(session.user.role === 'admin' || asset.published === false) && <button
                         disabled={isBusy}
                         type="button"
                         onClick={() => handleDeleteAsset(asset)}
                       >
                         Remove
-                      </button>
+                      </button>}
                     </header>
                     <dl>
                       <div>

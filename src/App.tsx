@@ -36,15 +36,23 @@ import { makeSceneSource } from './assistant/scene'
 import { materializeProposalFloors, type DesignOption, type DesignProposal, type FloorEdits } from './assistant/proposal'
 import { ManufacturerPortal } from './components/ManufacturerPortal'
 import { MaterialEditor } from './components/MaterialEditor'
+import { usePortalAdmin } from './components/usePortalAdmin'
+import { MaterialCatalogueContext } from './materials/materialCatalogueContext'
+import { emptyMaterialCatalogue, type MaterialCatalogueChange, type MaterialCatalogueLayout } from './materials/materialCatalogueLayout'
 import { AccountDialog } from './components/AccountDialog'
 import { workspaceClient } from './workspace/workspaceClient'
 import { collectLocalMaterialDefinitions, loadLocalMaterials, saveLocalMaterial, validateLocalMaterial } from './materials/localMaterials'
 import { ModelSelector } from './components/ModelSelector'
 import { WindowBuilder } from './components/WindowBuilder'
 import { StairBuilder } from './components/StairBuilder'
-import { ObjectBuilder } from './components/ObjectBuilder'
+import { portalRequest } from './assetPortalClient'
+import { personalCatalogueKey, readObjectCatalogue, type ObjectBuilderType, type ObjectCatalogue,
+  type ObjectCatalogueEntry } from './models/objectCatalogue'
 import { PictureFrameBuilder } from './components/PictureFrameBuilder'
 import { KitchenUnitBuilder } from './components/KitchenUnitBuilder'
+import { DoorBuilder } from './components/DoorBuilder'
+import { validateDoorDesign } from './doorDesign'
+import { loadDoorLibrary, registerDoorModels, removeDoorsFromLibrary, saveDoorToLibrary } from './doorLibrary'
 import { validatePictureFrameDesign } from './pictureFrameDesign'
 import { validateKitchenUnitDesign } from './kitchenUnitDesign'
 import { loadPictureFrameLibrary, registerPictureFrameModels, removePictureFramesFromLibrary,
@@ -92,6 +100,7 @@ import {
 } from './models/modelLibrary'
 import {
   isOpeningModel,
+  getModelCatalogueFolder,
   type ModelLibraryRoot,
   type ModelLibrarySection,
 } from './models/modelLibrarySections'
@@ -120,6 +129,7 @@ import {
   createPlacedModel,
   doorPlacementFits,
   getDoorWallOffset,
+  getModelPositionInView,
   getWallMountForPoint,
   fitWallMountedObject,
   getWallMountedObjectPlacement,
@@ -362,6 +372,7 @@ function isSavedProject(value: unknown): value is SavedProject {
     project.floors.length > 0 &&
     (project.wallKind === 'external' || project.wallKind === 'internal') &&
     (!Array.isArray(project.modelDefinitions) || project.modelDefinitions.every(model =>
+      (!model?.doorDesign || !validateDoorDesign(model.doorDesign)) &&
       (!model?.stairDesign || !validateStairDesign(model.stairDesign)) &&
       (!model?.pictureFrameDesign || !validatePictureFrameDesign(model.pictureFrameDesign)) &&
       (!model?.kitchenUnitDesign || !validateKitchenUnitDesign(model.kitchenUnitDesign))))
@@ -450,14 +461,14 @@ function getSavedProjectModelDefinitions(floors: FloorLevel[]) {
   const modelIds = new Set(
     floors.flatMap((floor) => (floor.models ?? []).map((model) => model.modelId)),
   )
-  modelLibrary.filter(model => model.windowDesign || model.stairDesign || model.pictureFrameDesign || model.kitchenUnitDesign)
+  modelLibrary.filter(model => model.windowDesign || model.doorDesign || model.stairDesign || model.pictureFrameDesign || model.kitchenUnitDesign)
     .forEach(model => modelIds.add(model.id))
 
   return Array.from(modelIds)
     .flatMap((modelId) => {
       const definition = modelsById.get(modelId)
 
-      return definition && (modelId.startsWith('portal-model-') || definition.windowDesign ||
+      return definition && (modelId.startsWith('portal-model-') || definition.windowDesign || definition.doorDesign ||
         definition.stairDesign || definition.pictureFrameDesign || definition.kitchenUnitDesign)
         ? [definition]
         : []
@@ -722,16 +733,26 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   const [splitPercent, setSplitPercent] = useState(50)
   const [isResizingSplit, setIsResizingSplit] = useState(false)
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false)
-  const [windowBuilder, setWindowBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
-  const [stairBuilder, setStairBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
-  const [objectBuilderOpen, setObjectBuilderOpen] = useState(false)
-  const [pictureFrameBuilder, setPictureFrameBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
-  const [kitchenUnitBuilder, setKitchenUnitBuilder] = useState<{ definition: ModelDefinition | null } | null>(null)
+  type BuilderRequest = { definition: ModelDefinition | null; folder?: string }
+  const [windowBuilder, setWindowBuilder] = useState<BuilderRequest | null>(null)
+  const [doorBuilder, setDoorBuilder] = useState<BuilderRequest | null>(null)
+  const [stairBuilder, setStairBuilder] = useState<BuilderRequest | null>(null)
+  const [pictureFrameBuilder, setPictureFrameBuilder] = useState<BuilderRequest | null>(null)
+  const [kitchenUnitBuilder, setKitchenUnitBuilder] = useState<BuilderRequest | null>(null)
   const [modelSelectorLocation, setModelSelectorLocation] =
-    useState<{ root: ModelLibraryRoot; section: ModelLibrarySection }>({ root: 'public', section: 'objects' })
+    useState<{ root: ModelLibraryRoot; section: ModelLibrarySection; folder?: string }>({ root: 'public', section: 'objects' })
+  const [publicCatalogue, setPublicCatalogue] = useState<ObjectCatalogue>({})
+  const [materialCatalogue, setMaterialCatalogue] = useState(emptyMaterialCatalogue)
+  const [personalCatalogue, setPersonalCatalogue] = useState<ObjectCatalogue>(() => {
+    try { return readObjectCatalogue(JSON.parse(localStorage.getItem(personalCatalogueKey) ?? '{}')) }
+    catch { return {} }
+  })
   const [pendingModelId, setPendingModelId] = useState<string | null>(null)
-  const [isManufacturerPortalOpen, setIsManufacturerPortalOpen] = useState(false)
-  const [isMaterialEditorOpen, setIsMaterialEditorOpen] = useState(false)
+  const [portalAssetKind, setPortalAssetKind] = useState<'model' | 'material' | null>(null)
+  const [materialEditorView, setMaterialEditorView] = useState<'personal' | { token: string } | null>(null)
+  const portalAdminToken = usePortalAdmin()
+  const publicMaterialsOpen = !!portalAdminToken && typeof materialEditorView === 'object' && materialEditorView?.token === portalAdminToken
+  const isMaterialEditorOpen = materialEditorView === 'personal' || publicMaterialsOpen
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const [saveDestination, setSaveDestination] = useState<ProjectSaveDestination | null>(null)
   const [isSavingProject, setIsSavingProject] = useState(false)
@@ -798,6 +819,8 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         `[HouseDesigner] Loaded portal catalog: ${catalog.models.length} models, ${catalog.materials.length} materials`,
       )
       registerRuntimeSurfaceMaterials(catalog.materials)
+      setPublicCatalogue(catalog.catalogueLayout ?? {})
+      setMaterialCatalogue(catalog.materialCatalogue ?? emptyMaterialCatalogue)
       portalModelsRef.current = catalog.models
       registerRuntimeModels(retainProjectModels(catalog.models, currentFloorsRef.current, modelsById, preserveSavedDefinitions))
       setAvailableMaterials([...surfaceMaterialCatalog])
@@ -853,6 +876,16 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       registerPictureFrameModels(frames.filter(model => !modelsById.has(model.id)))
       setAvailableModels([...modelLibrary])
     }).catch(error => console.warn('Could not read saved picture frames:', error))
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    void loadDoorLibrary().then(doors => {
+      if (cancelled) return
+      registerDoorModels(doors.filter(model => !modelsById.has(model.id)))
+      setAvailableModels([...modelLibrary])
+    }).catch(error => console.warn('Could not read saved doors:', error))
     return () => { cancelled = true }
   }, [])
 
@@ -949,9 +982,12 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       void removePictureFramesFromLibrary(removedFrames).catch(error => console.warn('Could not undo local picture frames:', error))
       const removedUnits = modelLibrary.filter(model => model.kitchenUnitDesign && !restoredIds.has(model.id)).map(model => model.id)
       void removeKitchenUnitsFromLibrary(removedUnits).catch(error => console.warn('Could not undo local kitchen units:', error))
+      const removedDoors = modelLibrary.filter(model => model.doorDesign && !restoredIds.has(model.id)).map(model => model.id)
+      void removeDoorsFromLibrary(removedDoors).catch(error => console.warn('Could not undo local doors:', error))
       registerRuntimeModels(mergeProjectModelDefinitions(portalModelsRef.current,
-        snapshot.modelDefinitions.filter(model => !model.windowDesign && !model.stairDesign && !model.pictureFrameDesign && !model.kitchenUnitDesign)))
+        snapshot.modelDefinitions.filter(model => !model.windowDesign && !model.doorDesign && !model.stairDesign && !model.pictureFrameDesign && !model.kitchenUnitDesign)))
       registerWindowModels(snapshot.modelDefinitions.filter(model => model.windowDesign), true)
+      registerDoorModels(snapshot.modelDefinitions.filter(model => model.doorDesign), true)
       registerStairModels(snapshot.modelDefinitions.filter(model => model.stairDesign), true)
       registerPictureFrameModels(snapshot.modelDefinitions.filter(model => model.pictureFrameDesign), true)
       registerKitchenUnitModels(snapshot.modelDefinitions.filter(model => model.kitchenUnitDesign), true)
@@ -959,6 +995,9 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       setSceneRevision(revision => revision + 1)
       for (const model of snapshot.modelDefinitions.filter(model => model.windowDesign)) {
         void saveWindowToLibrary(model).catch(error => console.warn('Could not restore local window:', error))
+      }
+      for (const model of snapshot.modelDefinitions.filter(model => model.doorDesign)) {
+        void saveDoorToLibrary(model).catch(error => console.warn('Could not restore local door:', error))
       }
       for (const model of snapshot.modelDefinitions.filter(model => model.stairDesign)) {
         void saveStairToLibrary(model).catch(error => console.warn('Could not restore local stairs:', error))
@@ -1572,12 +1611,16 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   }
 
   const addModel = (modelId: string, placement?: ModelPlacement) => {
-    const activeFloorForPlacement =
-      floors.find((floor) => floor.id === (placement?.floorId ?? activeFloorId)) ?? floors[0]
+    const definition = modelsById.get(modelId)
+    const shownFloorId = selectedFloorViewId === ALL_FLOORS_VIEW_ID ? activeFloorId : selectedFloorViewId
+    const activeFloorForPlacement = floors.find(floor => floor.id === (placement?.floorId ?? shownFloorId)) ?? floors[0]
     const baseModel = createPlacedModel({
       id: createId(),
       modelId,
       modelsById,
+      position: !placement && definition
+        ? getModelPositionInView(threeDViewCameraRef.current, activeFloorForPlacement.elevation, definition)
+        : undefined,
       walls: activeFloorForPlacement.walls,
     })
     const model = placement
@@ -1591,7 +1634,6 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           wallOpeningBottom: placement.wallOpeningBottom,
         }
       : baseModel
-    const definition = modelsById.get(modelId)
     if (definition && ((definition.placement === 'wall-mounted' && !model.wallAttachment) ||
       !doorPlacementFits(definition, activeFloorForPlacement.walls, model.wallAttachment, model))) return
     recordHistory()
@@ -1640,6 +1682,58 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
     }
 
     addModel(modelId)
+  }
+
+  const openObjectBrowser = (root: ModelLibraryRoot, section: ModelLibrarySection, folder?: string) => {
+    setModelSelectorLocation({ root, section, folder })
+    setIsModelSelectorOpen(true)
+  }
+
+  const openModelBuilder = (type: ObjectBuilderType, definition: ModelDefinition | null, folder: string) => {
+    const request = { definition, folder }
+    setIsModelSelectorOpen(false)
+    switch (type) {
+      case 'stairs': setStairBuilder(request); break
+      case 'windows': setWindowBuilder(request); break
+      case 'doors': setDoorBuilder(request); break
+      case 'picture-frame': setPictureFrameBuilder(request); break
+      case 'kitchen-unit': setKitchenUnitBuilder(request); break
+    }
+  }
+
+  const editModelInBrowser = (definition: ModelDefinition) => {
+    const folder = getModelCatalogueFolder(definition, personalCatalogue[definition.id])
+    if (definition.windowDesign) openModelBuilder('windows', definition, folder)
+    else if (definition.doorDesign) openModelBuilder('doors', definition, folder)
+    else if (definition.stairDesign) openModelBuilder('stairs', definition, folder)
+    else if (definition.pictureFrameDesign) openModelBuilder('picture-frame', definition, folder)
+    else if (definition.kitchenUnitDesign) openModelBuilder('kitchen-unit', definition, folder)
+  }
+
+  const updatePersonalCatalogue = (id: string, entry: ObjectCatalogueEntry) => {
+    const next = { ...personalCatalogue, [id]: { ...personalCatalogue[id], ...entry } }
+    localStorage.setItem(personalCatalogueKey, JSON.stringify(next))
+    setPersonalCatalogue(next)
+  }
+
+  const updatePublicCatalogue = async (id: string, entry: ObjectCatalogueEntry, token: string) => {
+    const result = await portalRequest<{ entry: ObjectCatalogueEntry }>('/api/portal/catalogue-layout', {
+      method: 'PATCH', token, body: JSON.stringify({ id, entry }),
+    })
+    setPublicCatalogue(current => ({ ...current, [id]: result.entry }))
+  }
+
+  const updateMaterialCatalogue = async (change: MaterialCatalogueChange, token: string) => {
+    const { materialCatalogue: next } = await portalRequest<{ materialCatalogue: MaterialCatalogueLayout }>('/api/portal/material-catalogue', {
+      method: 'PATCH', token, body: JSON.stringify(change),
+    })
+    setMaterialCatalogue(next)
+  }
+
+  const finishObjectSave = (definition: ModelDefinition, place: boolean, section: ModelLibrarySection, folder?: string) => {
+    if (folder) updatePersonalCatalogue(definition.id, { folder })
+    if (place) chooseModel(definition.id)
+    else openObjectBrowser('mine', section, folder ?? getModelCatalogueFolder(definition, personalCatalogue[definition.id]))
   }
 
   const pendingModel = pendingModelId
@@ -1771,6 +1865,13 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   }
   const commitModelUpdate = (modelId: string, updates: Partial<PlacedModel>) => {
     recordHistory(`model:${modelId}`)
+    if (updates.doorLeafAngles && Object.keys(updates).length === 1) {
+      // A swinging leaf does not change the wall cutout or any room geometry.
+      setFloors(current => current.map(floor => floor.models.some(model => model.id === modelId)
+        ? { ...floor, models: floor.models.map(model => model.id === modelId ? { ...model, ...updates } : model) }
+        : floor))
+      return
+    }
     setFloors((currentFloors) => {
       const nextFloors = currentFloors.map((floor) => {
         const modelOnFloor = (floor.models ?? []).find((model) => model.id === modelId)
@@ -3395,7 +3496,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
   ])
 
   return (
-    <main className="app-shell">
+    <MaterialCatalogueContext.Provider value={materialCatalogue}><main className="app-shell">
       {loadConfirmation && <ProjectLoadConfirmation {...loadConfirmation} />}
       {loadFeedback && <div className="project-load-feedback" role={loadFeedback.error ? 'alert' : 'status'}>
         <span>{loadFeedback.message}</span>
@@ -3404,8 +3505,24 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
       </div>}
       {isAccountOpen && <AccountDialog onClose={() => { setIsAccountOpen(false); setCloudSaveRequested(false) }}
         onSignedIn={cloudSaveRequested ? () => { setIsAccountOpen(false); setCloudSaveRequested(false); void saveProject('cloud') } : undefined} />}
-      {isMaterialEditorOpen ? <MaterialEditor materials={availableMaterials}
-        onClose={() => setIsMaterialEditorOpen(false)}
+      {publicMaterialsOpen && portalAdminToken ? <MaterialEditor key="public" materials={availableMaterials}
+        onClose={() => setMaterialEditorView(null)}
+        publicCatalogue={{ token: portalAdminToken, onPublished: refreshPortalCatalog, onUpdate: updateMaterialCatalogue,
+          onSaved: material => {
+            const previous = surfaceMaterialsById.get(material.id)
+            const appearanceChanged = previous?.category !== material.category ||
+              indirectContentKey(indirectAssetIdentity(previous?.pbr)) !== indirectContentKey(indirectAssetIdentity(material.pbr))
+            registerLocalSurfaceMaterials([material])
+            setAvailableMaterials([...surfaceMaterialCatalog])
+            if (appearanceChanged) {
+              setSceneRevision(revision => revision + 1)
+              bakedLightingRef.current = undefined
+              setLoadedLightingCache(undefined)
+            }
+          },
+        }} /> :
+      materialEditorView === 'personal' ? <MaterialEditor key="personal" materials={availableMaterials}
+        onClose={() => setMaterialEditorView(null)}
         onSave={async material => {
           let storageError: unknown
           try { await saveLocalMaterial(material) } catch (error) { storageError = error }
@@ -3423,10 +3540,11 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           }
           if (storageError) throw storageError
         }} /> : null}
-      {isManufacturerPortalOpen ? (
+      {portalAssetKind ? (
         <ManufacturerPortal
+          initialAssetKind={portalAssetKind}
           onCatalogChanged={refreshPortalCatalog}
-          onClose={() => setIsManufacturerPortalOpen(false)}
+          onClose={() => setPortalAssetKind(null)}
         />
       ) : null}
       <LeftToolRail
@@ -3438,7 +3556,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         isRoofMode={isRoofMode}
         materials={availableMaterials}
         openPanel={isAddingWall && railPanel === 'wall' ? null : railPanel}
-        onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
+        onOpenMaterialEditor={() => setMaterialEditorView('personal')}
         onPanelChange={setRailPanel}
         selectedSurface={selectedSurface}
         selectedModelCount={selectedModelIds.length}
@@ -3453,10 +3571,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
         onAlignModels={alignSelectedModels}
         onApplyMaterial={applyMaterialToSelectedSurface}
         onDeleteFloor={deleteActiveFloor}
-        onOpenModelSelector={(section) => {
-          setModelSelectorLocation({ root: 'public', section })
-          setIsModelSelectorOpen(true)
-        }}
+        onOpenModelSelector={section => openObjectBrowser('public', section)}
         onRoofModeChange={(nextIsRoofMode) => {
           setIsRoofMode(nextIsRoofMode)
 
@@ -3512,9 +3627,10 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
                 if (entry) void loadProject(() => readRecentProject(entry), id)
               }}
               onNewProject={newProject}
-              onOpenManufacturerPortal={() => setIsManufacturerPortalOpen(true)}
-              onOpenMaterialEditor={() => setIsMaterialEditorOpen(true)}
-              onOpenObjectBuilder={() => setObjectBuilderOpen(true)}
+              onOpenManufacturerPortal={() => setPortalAssetKind('material')}
+              onOpenMaterialEditor={() => setMaterialEditorView('personal')}
+              onOpenPublicMaterials={portalAdminToken ? () => setMaterialEditorView({ token: portalAdminToken }) : undefined}
+              onOpenObjectBrowser={() => openObjectBrowser('public', 'objects')}
               onOpenAccount={() => setIsAccountOpen(true)}
               onOpenDesignAssistant={() => setAssistantOpen(true)}
               onSaveProject={() => { void saveProject() }}
@@ -3735,32 +3851,29 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           surfaceAssignments={surfaceAssignments}
         />
       </section>
-      {isModelSelectorOpen ? (
+      {isModelSelectorOpen && !portalAssetKind ? (
         <ModelSelector
           initialRoot={modelSelectorLocation.root}
           initialSection={modelSelectorLocation.section}
+          initialFolder={modelSelectorLocation.folder}
           models={availableModels}
+          publicCatalogue={publicCatalogue}
+          personalCatalogue={personalCatalogue}
           onClose={() => setIsModelSelectorOpen(false)}
           onRefreshModels={refreshModelAssets}
           onSelectModel={chooseModel}
-          onBuildWindow={() => { setIsModelSelectorOpen(false); setWindowBuilder({ definition: null }) }}
-          onEditWindow={definition => { setIsModelSelectorOpen(false); setWindowBuilder({ definition }) }}
-          onBuildStairs={() => { setIsModelSelectorOpen(false); setStairBuilder({ definition: null }) }}
-          onEditStairs={definition => { setIsModelSelectorOpen(false); setStairBuilder({ definition }) }}
-          onEditPictureFrame={definition => { setIsModelSelectorOpen(false); setPictureFrameBuilder({ definition }) }}
-          onEditKitchenUnit={definition => { setIsModelSelectorOpen(false); setKitchenUnitBuilder({ definition }) }}
+          onBuild={(type, folder) => openModelBuilder(type, null, folder)}
+          onEdit={editModelInBrowser}
+          onOpenPublicUploads={() => setPortalAssetKind('model')}
+          onUpdatePublic={updatePublicCatalogue}
+          onUpdatePersonal={updatePersonalCatalogue}
         />
       ) : null}
-      {objectBuilderOpen && <ObjectBuilder onClose={() => setObjectBuilderOpen(false)} onChoose={type => {
-        setObjectBuilderOpen(false)
-        if (type === 'stairs') setStairBuilder({ definition: null })
-        if (type === 'windows') setWindowBuilder({ definition: null })
-        if (type === 'picture-frame') setPictureFrameBuilder({ definition: null })
-        if (type === 'kitchen-unit') setKitchenUnitBuilder({ definition: null })
-      }} />}
-      {!windowBuilder && !stairBuilder && !pictureFrameBuilder && !kitchenUnitBuilder && selectedModelId && (() => {
+      {!windowBuilder && !doorBuilder && !stairBuilder && !pictureFrameBuilder && !kitchenUnitBuilder && selectedModelId && (() => {
         const instance = floors.flatMap(floor => floor.models ?? []).find(model => model.id === selectedModelId)
         const definition = instance && modelsById.get(instance.modelId)
+        if (definition?.doorDesign) return <button type="button" className="window-variety-edit"
+          onClick={() => setDoorBuilder({ definition })}>Edit door</button>
         return definition?.stairDesign ? <button type="button" className="window-variety-edit"
           onClick={() => setStairBuilder({ definition })}>Edit stair variety</button> : definition?.windowDesign ? <button type="button" className="window-variety-edit"
           onClick={() => setWindowBuilder({ definition })}>Edit window variety</button> : definition?.pictureFrameDesign
@@ -3790,8 +3903,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
             }) } : floor))
           setSceneRevision(revision => revision + 1)
           setPictureFrameBuilder(null)
-          if (place) chooseModel(definition.id)
-          else { setModelSelectorLocation({ root: 'mine', section: 'objects' }); setIsModelSelectorOpen(true) }
+          finishObjectSave(definition, place, 'objects', pictureFrameBuilder.folder)
         }} />}
       {kitchenUnitBuilder && <KitchenUnitBuilder definition={kitchenUnitBuilder.definition} materials={availableMaterials} models={availableModels}
         onClose={() => setKitchenUnitBuilder(null)} onSave={async (definition, place) => {
@@ -3820,8 +3932,7 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
             setSceneRevision(revision => revision + 1)
           }
           setKitchenUnitBuilder(null)
-          if (place) chooseModel(definition.id)
-          else { setModelSelectorLocation({ root: 'mine', section: 'objects' }); setIsModelSelectorOpen(true) }
+          finishObjectSave(definition, place, 'objects', kitchenUnitBuilder.folder)
         }} />}
       {stairBuilder ? <StairBuilder definition={stairBuilder.definition}
         instanceCount={floors.flatMap(floor => floor.models ?? []).filter(model => model.modelId === stairBuilder.definition?.id).length}
@@ -3842,9 +3953,26 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
             ? { ...floor, models: [...floor.models] } : floor))
           if (geometryChanged) setSceneRevision(revision => revision + 1)
           setStairBuilder(null)
-          if (place) chooseModel(definition.id)
-          else { setModelSelectorLocation({ root: 'mine', section: 'objects' }); setIsModelSelectorOpen(true) }
+          finishObjectSave(definition, place, 'objects', stairBuilder.folder)
         }} /> : null}
+      {doorBuilder && <DoorBuilder definition={doorBuilder.definition} materials={availableMaterials}
+        onClose={() => setDoorBuilder(null)} onSave={async (definition, place) => {
+          for (const floor of floors) for (const model of floor.models) {
+            if (model.modelId === definition.id && !doorPlacementFits(definition, floor.walls, model.wallAttachment, model)) {
+              throw new Error(`The resized door would not fit its existing position on ${floor.name}.`)
+            }
+          }
+          await saveDoorToLibrary(definition)
+          recordHistory()
+          registerDoorModels([definition])
+          setAvailableModels([...modelLibrary])
+          if (doorBuilder.definition) {
+            setFloors(current => current.map(floor => syncWallOpenings(floor, modelsById)))
+            setSceneRevision(revision => revision + 1)
+          }
+          setDoorBuilder(null)
+          finishObjectSave(definition, place, 'openings', doorBuilder.folder)
+        }} />}
       {windowBuilder ? <WindowBuilder definition={windowBuilder.definition}
         instanceCount={floors.flatMap(floor => floor.models ?? []).filter(model => model.modelId === windowBuilder.definition?.id).length}
         onClose={() => setWindowBuilder(null)}
@@ -3866,10 +3994,9 @@ export function App({ initialProjectSource }: { initialProjectSource: unknown })
           setFloors(current => current.map(floor => syncWallOpenings(floor, modelsById)))
           setSceneRevision(revision => revision + 1)
           setWindowBuilder(null)
-          if (place) chooseModel(definition.id)
-          else { setModelSelectorLocation({ root: 'mine', section: 'openings' }); setIsModelSelectorOpen(true) }
+          finishObjectSave(definition, place, 'openings', windowBuilder.folder)
         }} /> : null}
-    </main>
+    </main></MaterialCatalogueContext.Provider>
   )
 }
 

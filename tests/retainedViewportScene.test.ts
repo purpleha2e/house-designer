@@ -55,6 +55,36 @@ test('source disposal waits until the last retained scene releases its GPU resou
   assert.deepEqual(disposed, { geometry: 1, material: 1, texture: 1 })
 })
 
+test('retained door leaves follow their individual hinges while the frame stays still', () => {
+  const scene = new Scene(), material = new MeshStandardMaterial()
+  const geometry = new BoxGeometry(), model = new Group(), frame = new Mesh(geometry, material)
+  const left = new Group(), right = new Group(), leftPanel = new Mesh(geometry, material), rightPanel = new Mesh(geometry, material)
+  model.name = 'model-local-transform-hinged-door'
+  left.name = 'door-leaf-0'; right.name = 'door-leaf-1'
+  frame.name = 'door-frame'; leftPanel.name = 'left-panel'; rightPanel.name = 'right-panel'
+  left.position.x = -.4; right.position.x = .4
+  leftPanel.position.x = .2; rightPanel.position.x = -.2
+  left.add(leftPanel); right.add(rightPanel); model.add(frame, left, right); scene.add(model)
+  const snapshot = retainViewportScene(scene)
+  const check = (name: string, original: Mesh) => {
+    original.updateWorldMatrix(true, false)
+    assert.ok(snapshot.scene.getObjectByName(name)!.matrixWorld.equals(original.matrixWorld))
+  }
+  try {
+    left.rotation.y = -.6; right.rotation.y = .3
+    assert.equal(snapshot.syncTransforms(), true)
+    check(frame.name, frame); check(leftPanel.name, leftPanel); check(rightPanel.name, rightPanel)
+    assert.equal(snapshot.syncTransforms(), false)
+
+    const replacement = model.clone()
+    scene.remove(model); scene.add(replacement)
+    replacement.getObjectByName(left.name)!.rotation.y = -Math.PI / 2
+    assert.equal(snapshot.syncTransforms(), true)
+    check(leftPanel.name, replacement.getObjectByName(leftPanel.name) as Mesh)
+    check(rightPanel.name, replacement.getObjectByName(rightPanel.name) as Mesh)
+  } finally { snapshot.dispose(); geometry.dispose(); material.dispose() }
+})
+
 test('retained display applies lamp toggles and uniform edits while geometry and shader features stay frozen', () => {
   const source = new Scene(), parent = new Group(), point = new PointLight('#ff8800', 3, 20), spot = new SpotLight('#ffffff', 2)
   parent.position.set(2, 1, 3); parent.add(point, spot, spot.target); source.add(parent)

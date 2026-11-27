@@ -1,14 +1,15 @@
 import type { SurfaceMaterialProduct } from '../types.ts'
 import { normalizeMaterialFolder } from './materialFolderPath.ts'
+import { surfaceCategoryLabels } from './materialCatalogueMetadata.ts'
 
 export const localMaterialPrefix = 'local-material-'
 export const materialMapSlots = [
-  { key: 'baseColorTextureUrl', label: 'Base colour', help: 'The colour or pattern of the surface.' },
-  { key: 'normalTextureUrl', label: 'Normal', help: 'Fine surface detail. Use an OpenGL normal map, or flip its green channel below.' },
-  { key: 'roughnessTextureUrl', label: 'Roughness', help: 'Black is smooth; white is rough. Multiplied by the roughness setting.' },
-  { key: 'metalnessTextureUrl', label: 'Metalness', help: 'White is metal; black is non-metal. Multiplied by the metalness setting.' },
-  { key: 'ambientOcclusionTextureUrl', label: 'Ambient occlusion', help: 'Shading in small creases and cavities.' },
-  { key: 'displacementTextureUrl', label: 'Height', help: 'Moves surface vertices. Keep the height subtle; disabled on some house surfaces and in VR.' },
+  { key: 'baseColorTextureUrl', field: 'baseColor', label: 'Base colour', help: 'The colour or pattern of the surface.' },
+  { key: 'normalTextureUrl', field: 'normal', label: 'Normal', help: 'Fine surface detail. Use an OpenGL normal map, or flip its green channel below.' },
+  { key: 'roughnessTextureUrl', field: 'roughness', label: 'Roughness', help: 'Black is smooth; white is rough. Multiplied by the roughness setting.' },
+  { key: 'metalnessTextureUrl', field: 'metalness', label: 'Metalness', help: 'White is metal; black is non-metal. Multiplied by the metalness setting.' },
+  { key: 'ambientOcclusionTextureUrl', field: 'ambientOcclusion', label: 'Ambient occlusion', help: 'Shading in small creases and cavities.' },
+  { key: 'displacementTextureUrl', field: 'displacement', label: 'Height', help: 'Moves surface vertices. Keep the height subtle; disabled on some house surfaces and in VR.' },
 ] as const
 export type MaterialMapKey = typeof materialMapSlots[number]['key']
 
@@ -31,8 +32,8 @@ export function validateLocalMaterial(value: unknown): asserts value is SurfaceM
   if (!material || typeof material.id !== 'string' || !material.id.startsWith(localMaterialPrefix) ||
     typeof material.productName !== 'string' || !material.productName.trim() ||
     typeof material.manufacturer !== 'string' ||
-    !material.pbr || typeof material.pbr !== 'object' ||
-    !['ceiling', 'flooring', 'paint', 'tile', 'wall-covering', 'worktop'].includes(material.category)) {
+    !material.pbr || typeof material.pbr !== 'object' || typeof material.category !== 'string' ||
+    !Object.hasOwn(surfaceCategoryLabels, material.category)) {
     throw new Error('This is not a saved local material.')
   }
   if (material.folder !== undefined) {

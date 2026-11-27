@@ -8,7 +8,8 @@ type ToolbarProps = {
   onNewProject: () => void
   onOpenManufacturerPortal: () => void
   onOpenMaterialEditor: () => void
-  onOpenObjectBuilder?: () => void
+  onOpenPublicMaterials?: () => void
+  onOpenObjectBrowser?: () => void
   onOpenAccount?: () => void
   onOpenDesignAssistant?: () => void
   onSaveProject: () => void
@@ -30,7 +31,8 @@ export function Toolbar({
   onNewProject,
   onOpenManufacturerPortal,
   onOpenMaterialEditor,
-  onOpenObjectBuilder,
+  onOpenPublicMaterials,
+  onOpenObjectBrowser,
   onOpenAccount,
   onOpenDesignAssistant,
   onSaveProject,
@@ -89,7 +91,7 @@ export function Toolbar({
       <button type="button" disabled={isSaving} onClick={() => { onSaveToCloud(); onClose() }}>Save to cloud</button>
       <button type="button" disabled={isSaving} onClick={() => { onSaveToDevice(); onClose() }}>Save to device</button>
       {onDownloadCopy && <button type="button" disabled={isSaving} onClick={() => { onDownloadCopy(); onClose() }}>Download copy</button>}
-      {onOpenObjectBuilder && <button type="button" onClick={() => { onOpenObjectBuilder(); onClose() }}>Object builder</button>}
+      {onOpenObjectBrowser && <button type="button" onClick={() => { onOpenObjectBrowser(); onClose() }}>Object browser</button>}
       <button
         type="button"
         onClick={() => {
@@ -97,8 +99,9 @@ export function Toolbar({
           onClose()
         }}
       >
-        Material editor
+        Material browser
       </button>
+      {onOpenPublicMaterials && <button type="button" onClick={() => { onOpenPublicMaterials(); onClose() }}>Public Materials</button>}
       <button
         type="button"
         onClick={() => {

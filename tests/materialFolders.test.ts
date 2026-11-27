@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { buildMaterialFolderTree, filterMaterialFolderTree, mergeMaterialFolders } from '../src/materials/materialFolders.ts'
 import { normalizeMaterialFolder } from '../src/materials/materialFolderPath.ts'
+import { changeMaterialCatalogue, emptyMaterialCatalogue, getCatalogueFolderPaths, getMaterialCatalogueFolder } from '../src/materials/materialCatalogueLayout.ts'
 import { indirectAssetIdentity } from '../src/indirectLightingPersistence.ts'
 import { validateLocalMaterial } from '../src/materials/localMaterials.ts'
 import type { SurfaceMaterialProduct } from '../src/types.ts'
@@ -41,4 +42,35 @@ test('folder paths travel with material files and do not invalidate saved lighti
   assert.deepEqual(mergeMaterialFolders(['Metals/Chrome', 'metals/Brushed']), ['Metals', 'Metals/Brushed', 'Metals/Chrome'])
   assert.throws(() => normalizeMaterialFolder('Bricks/../Paint'), /folder levels/)
   assert.throws(() => validateLocalMaterial({ ...before, folder: 1 }), /folder/)
+})
+
+test('public folders move their contents and removals only affect catalogue browsing', () => {
+  const oak: SurfaceMaterialProduct = { ...material('Oak'), id: 'oak', catalogueFolder: 'Wood/Timber' }
+  const pine: SurfaceMaterialProduct = { ...material('Pine'), id: 'pine', catalogueFolder: 'Wood/Timber/Light' }
+  const materials = [oak, pine]
+  let layout = emptyMaterialCatalogue
+  const change = (operation: Parameters<typeof changeMaterialCatalogue>[2]) => changeMaterialCatalogue(layout, materials, operation)
+  layout = change({ action: 'create-folder', path: 'Wood/Empty' })
+  layout = change({ action: 'set-removed', id: pine.id, removed: true })
+  assert.throws(() => change({ action: 'delete-folder', path: 'Wood' }), /Move or remove/)
+  assert.throws(() => change({ action: 'move-folder', from: 'Wood', to: 'Wood/Empty/Deeper' }), /outside/)
+  assert.throws(() => change({ action: 'create-folder', path: 'wood/empty' }), /already exists/)
+
+  layout = change({ action: 'move-folder', from: 'wood', to: 'Finishes/Wood' })
+  assert.deepEqual(getCatalogueFolderPaths(layout, materials), ['Finishes', 'Finishes/Wood', 'Finishes/Wood/Empty', 'Finishes/Wood/Timber'])
+  assert.deepEqual(layout.entries[pine.id], { folder: 'Finishes/Wood/Timber/Light', removed: true })
+  const visible = buildMaterialFolderTree(materials, [], layout)
+  const admin = buildMaterialFolderTree(materials, [], layout, true)
+  assert.deepEqual(filterMaterialFolderTree(visible, 'Pine'), [])
+  assert.equal(filterMaterialFolderTree(admin, 'Pine').length, 1)
+  assert.equal(oak.catalogueFolder, 'Wood/Timber')
+
+  layout = change({ action: 'move-material', id: oak.id, folder: '' })
+  assert.equal(getMaterialCatalogueFolder(oak, layout), '')
+  assert.deepEqual(buildMaterialFolderTree(materials, [], layout).find(folder => folder.name === 'Catalogue')?.materials, [oak])
+  layout = change({ action: 'delete-folder', path: 'Finishes/Wood' })
+  assert.deepEqual(getCatalogueFolderPaths(layout, materials), [])
+  layout = change({ action: 'set-removed', id: pine.id, removed: false })
+  assert.equal(getMaterialCatalogueFolder(pine, layout), 'Finishes/Wood/Timber/Light')
+  assert.equal(filterMaterialFolderTree(buildMaterialFolderTree(materials, [], layout), 'Pine').length, 1)
 })

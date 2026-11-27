@@ -32,10 +32,6 @@
 .object-builder button:hover:not(:disabled) { background: #eff6fa; border-color: #4081a7; }
 .object-builder button:disabled { opacity: .5; cursor: default; }
 .object-builder-header button { font-size: 21px; padding: 2px 9px; }
-.object-builder-options { display: grid; gap: 9px; padding: 18px 22px 22px; overflow: auto; }
-.object-builder-options button { display: grid; gap: 5px; text-align: left; padding: 13px 15px; }
-.object-builder-options strong { font-size: 15px; }
-.object-builder-options span { color: #4a6072; font-size: 13px; }
 .object-builder-body { display: grid; grid-template-columns: 335px minmax(0, 1fr); min-height: 0; overflow: auto; }
 .object-builder-settings { margin: 0; padding: 18px 22px; border: 0; min-width: 0; display: grid; gap: 12px; }
 .object-builder-settings label, .object-builder-material > span { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
@@ -77,7 +73,25 @@
 .object-builder-footer [role="status"] { flex: 1; min-width: min(100%, 200px); font-size: 13px; color: #96332d; }
 .object-builder button.object-builder-primary { background: #156e9f; color: white; border-color: #156e9f; }
 .object-builder button.object-builder-primary:hover:not(:disabled) { background: #115b84; }
+.door-width-options { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.door-width-options button { padding: 6px 2px; font-size: 12px; }
+.door-width-options button[aria-pressed="true"] { border-color: #156e9f; background: #e7f4fb; }
+.door-panel-editor { display: grid; gap: 9px; border-top: 1px solid #e1e8ed; padding-top: 10px; }
+.door-panel-toolbar, .door-preview-controls { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.door-panel-toolbar strong { font-size: 13px; }
+.door-panel-toolbar button, .door-panel-fields button { font-size: 12px; }
+.door-panel-controls { display: grid; gap: 10px; grid-template-columns: 62px minmax(0, 1fr); align-items: start; }
+.door-panel-diagram { position: relative; height: 150px; border: 1px solid #aa8157; border-radius: 3px; background: #e3c69e; }
+.door-panel-diagram button { position: absolute; padding: 0; border-radius: 1px; background: #f3e0c4; border-color: #a67a4e; }
+.door-panel-diagram button[aria-pressed="true"] { background: #b9e2f7; border-color: #156e9f; z-index: 1; }
+.door-panel-fields { display: grid; gap: 8px; }
+.door-builder-preview { align-self: start; position: sticky; top: 0; height: min(680px, calc(100dvh - 170px)); }
+.door-builder-preview .object-builder-viewport { min-height: 280px; }
+.door-preview-controls { padding: 8px 12px; flex-wrap: wrap; }
+.door-preview-controls p { padding: 0; }
 @media (max-width: 660px) {
   .object-builder-body { grid-template-columns: 1fr; }
   .object-builder-preview { grid-template-rows: 230px auto; }
+  .door-builder-preview { position: static; height: auto; }
+  .door-builder-preview .object-builder-viewport { min-height: 0; }
 }

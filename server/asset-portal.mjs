@@ -17,14 +17,24 @@ import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { getMaterialVariationMetadata } from './material-variation-metadata.mjs'
 import { readModelMaterialNames } from './model-material-names.mjs'
+import { isObjectCatalogueId, readObjectCatalogue, readObjectCatalogueEntry } from '../src/models/objectCatalogue.ts'
+import { changeMaterialCatalogue, emptyMaterialCatalogue, getMaterialCatalogueFolder, readMaterialCatalogueLayout } from '../src/materials/materialCatalogueLayout.ts'
+import { normalizeMaterialFolder } from '../src/materials/materialFolderPath.ts'
+import { normalizeMaterialLabel, parseSurfaceCategory } from '../src/materials/materialCatalogueMetadata.ts'
+import { createRuntimePortalCatalog } from '../src/portalCatalog.ts'
 
 const PORT = Number(process.env.ASSET_PORTAL_PORT ?? 5174)
 const ROOT_DIR = resolve(import.meta.dirname, '..')
-const STORAGE_DIR = resolve(ROOT_DIR, 'manufacturer-assets')
+const STORAGE_DIR = resolve(ROOT_DIR, process.env.ASSET_PORTAL_STORAGE_DIR ?? 'manufacturer-assets')
 const DB_PATH = join(STORAGE_DIR, 'portal-db.json')
+const CATALOGUE_PATH = join(STORAGE_DIR, 'catalogue-layout.json')
+const MATERIAL_CATALOGUE_PATH = join(STORAGE_DIR, 'material-catalogue.json')
+const defaultAdminPassword = 'admin'
+const configuredAdminPassword = process.env.ASSET_PORTAL_ADMIN_PASSWORD
 const MAX_UPLOAD_BYTES = 250 * 1024 * 1024
 const HOUSE_DESIGNER_MANUFACTURER_NAME = 'House Designer'
 const HOUSE_DESIGNER_MANUFACTURER_SLUG = 'house-designer'
+const BUNDLED_MATERIAL_OWNER = { name: 'House Designer', slug: '.bundled-material-edits' }
 const LEGACY_ADMIN_MANUFACTURER_SLUG = 'house-designer-admin'
 const modelDimensionIo = new NodeIO().registerExtensions(ALL_EXTENSIONS)
 const MATERIAL_TEXTURE_FIELDS = new Set([
@@ -38,6 +48,10 @@ const MATERIAL_TEXTURE_FIELDS = new Set([
 
 const sessions = new Map()
 const processingJobs = new Set()
+const assetMutations = new Map()
+let catalogueWrites = Promise.resolve()
+let materialCatalogueWrites = Promise.resolve()
+let bundledCatalogueMaterials
 
 function createId() {
   return randomBytes(16).toString('hex')
@@ -77,7 +91,7 @@ async function ensureDb() {
     return
   }
 
-  const { hash, salt } = hashPassword('admin')
+  const { hash, salt } = hashPassword(configuredAdminPassword || defaultAdminPassword)
   const db = {
     manufacturers: [],
     users: [
@@ -115,6 +129,13 @@ async function readDb() {
   let changed = false
 
   for (const user of db.users) {
+    if (user.role === 'admin' && configuredAdminPassword && configuredAdminPassword !== defaultAdminPassword &&
+      verifyPassword(defaultAdminPassword, user)) {
+      const { hash, salt } = hashPassword(configuredAdminPassword)
+      user.passwordHash = hash
+      user.passwordSalt = salt
+      changed = true
+    }
     if (user.role === 'admin' && user.name === 'HouseDesigner Admin') {
       user.name = HOUSE_DESIGNER_MANUFACTURER_NAME
       changed = true
@@ -314,6 +335,18 @@ function getMaterialBaseColorField(fields, fallback = '') {
   return albedoColor || baseColor || fallback
 }
 
+function getMaterialMappingFields(fields, previous = {}) {
+  return Object.fromEntries(['normalStrength', 'normalFlipY', 'displacementScale', 'repeatX', 'repeatY', 'rotation']
+    .map(key => [key, fields[key] ?? previous[key] ?? '']))
+}
+
+function normalizePublicMaterialDetails(fields) {
+  for (const field of ['productName', 'brand', 'collection', 'category', 'materialType']) {
+    fields[field] = normalizeMaterialLabel(fields[field])
+    if (fields[field].length > 100) return 'Material details can contain up to 100 characters per field'
+  }
+}
+
 function normalizeSimpleMaterialMetadata(metadata) {
   if (metadata.assetKind !== 'material' || hasMaterialTextureFiles(metadata)) {
     return false
@@ -354,8 +387,7 @@ function normalizeSimpleMaterialMetadata(metadata) {
   return changed
 }
 
-async function listAssetsForManufacturer(manufacturer) {
-  const assetKinds = ['materials', 'models']
+async function listAssetsForManufacturer(manufacturer, assetKinds = ['materials', 'models']) {
   const assets = []
 
   for (const kind of assetKinds) {
@@ -931,7 +963,8 @@ async function handleLogin(request, response) {
   const db = await readDb()
   const user = db.users.find((candidate) => candidate.email === email)
 
-  if (!user || !verifyPassword(password, user)) {
+  if (!user || !verifyPassword(password, user) ||
+    (process.env.NODE_ENV === 'production' && user.role === 'admin' && password === defaultAdminPassword)) {
     sendError(response, 401, 'Invalid email or password')
     return
   }
@@ -999,9 +1032,10 @@ async function handleListAssets(request, response) {
       : current.db.manufacturers.filter(
           (manufacturer) => manufacturer.id === current.user.manufacturerId,
         )
+  const layout = await readCatalogueLayout()
   const assetsByManufacturer = await Promise.all(
     manufacturers.map(async (manufacturer) => ({
-      assets: await listAssetsForManufacturer(manufacturer),
+      assets: (await listAssetsForManufacturer(manufacturer)).map(asset => ({ ...asset, published: isPublishedAsset(asset, layout) })),
       manufacturer,
     })),
   )
@@ -1011,30 +1045,249 @@ async function handleListAssets(request, response) {
   })
 }
 
+async function readCatalogueLayout() {
+  return readObjectCatalogue(await readJson(CATALOGUE_PATH, {}))
+}
+
+function isPublishedAsset(asset, layout) {
+  return layout[`portal-${asset.assetKind}-${asset.id}`]?.published ?? (asset.published !== false)
+}
+
 async function handleCatalog(response) {
   const db = await readDb()
+  const catalogueLayout = await readCatalogueLayout()
   const manufacturers = await Promise.all(
     db.manufacturers.map(async (manufacturer) => ({
-      assets: await listAssetsForManufacturer(manufacturer),
+      assets: (await listAssetsForManufacturer(manufacturer)).filter(asset => isPublishedAsset(asset, catalogueLayout)),
       manufacturer,
     })),
   )
+  const bundledEdits = await listAssetsForManufacturer(BUNDLED_MATERIAL_OWNER, ['materials'])
+  if (bundledEdits.length) manufacturers.push({ assets: bundledEdits, manufacturer: BUNDLED_MATERIAL_OWNER })
 
   sendJson(response, 200, {
     manufacturers,
+    catalogueLayout,
+    materialCatalogue: await readMaterialCatalogue(),
   })
 }
 
-async function handleUpload(request, response) {
+async function readMaterialCatalogue() {
+  return readMaterialCatalogueLayout(await readJson(MATERIAL_CATALOGUE_PATH, {}))
+}
+
+function getBundledCatalogueMaterials() {
+  bundledCatalogueMaterials ??= (async () => {
+    const files = await readdir(join(ROOT_DIR, 'src', 'materials', 'catalog'), { recursive: true, withFileTypes: true })
+    const definitions = await Promise.all(files.filter(file => file.isFile() && file.name.endsWith('.json'))
+      .map(file => readJson(join(file.parentPath, file.name), null)))
+    return definitions.filter(material => material?.id)
+  })()
+  return bundledCatalogueMaterials
+}
+
+async function handleMaterialCatalogueUpdate(request, response) {
+  const current = await getCurrentUser(request)
+  if (!current) return sendError(response, 401, 'Not signed in')
+  if (current.user.role !== 'admin') return sendError(response, 403, 'An administrator account is required')
+  const change = await readJsonBody(request).catch(() => null)
+  const write = materialCatalogueWrites.catch(() => undefined).then(async () => {
+    const [layout, objectLayout, bundled] = await Promise.all([readMaterialCatalogue(), readCatalogueLayout(), getBundledCatalogueMaterials()])
+    const manufacturers = await Promise.all(current.db.manufacturers.map(async manufacturer => ({
+      assets: (await listAssetsForManufacturer(manufacturer, ['materials'])).filter(asset => isPublishedAsset(asset, objectLayout)),
+    })))
+    manufacturers.push({ assets: await listAssetsForManufacturer(BUNDLED_MATERIAL_OWNER, ['materials']) })
+    const { materials } = createRuntimePortalCatalog({ manufacturers })
+    let next
+    try { next = changeMaterialCatalogue(layout, [...new Map([...bundled, ...materials].map(material => [material.id, material])).values()], change) }
+    catch (error) { return { error: error.message } }
+    const temporary = `${MATERIAL_CATALOGUE_PATH}.${createId()}.tmp`
+    try {
+      await writeJson(temporary, next)
+      await rename(temporary, MATERIAL_CATALOGUE_PATH)
+    } finally { await rm(temporary, { force: true }) }
+    return { materialCatalogue: next }
+  })
+  materialCatalogueWrites = write
+  const result = await write
+  if (result.error) return sendError(response, 400, result.error)
+  sendJson(response, 200, result)
+}
+
+async function handleCatalogueUpdate(request, response) {
+  const current = await getCurrentUser(request)
+  if (!current) return sendError(response, 401, 'Not signed in')
+  if (current.user.role !== 'admin') return sendError(response, 403, 'An administrator account is required')
+
+  const payload = await readJsonBody(request).catch(() => null)
+  const entry = readObjectCatalogueEntry(payload?.entry)
+  const id = payload?.id
+  if (!isObjectCatalogueId(id) || !entry || !Object.keys(entry).length) return sendError(response, 400, 'Invalid catalogue change')
+  const publishedAsset = entry.published !== undefined && /^portal-(?:model|material)-([a-f\d]{32})$/.exec(id)
+  if (entry.published !== undefined && !publishedAsset) return sendError(response, 400, 'Invalid asset to publish')
+
+  const update = () => {
+    const write = catalogueWrites.catch(() => undefined).then(async () => {
+      const layout = await readCatalogueLayout()
+      layout[id] = { ...layout[id], ...entry }
+      const temporary = `${CATALOGUE_PATH}.${createId()}.tmp`
+      try {
+        await writeJson(temporary, layout)
+        await rename(temporary, CATALOGUE_PATH)
+      } finally { await rm(temporary, { force: true }) }
+      return layout[id]
+    })
+    catalogueWrites = write
+    return write
+  }
+  sendJson(response, 200, { entry: await (publishedAsset ? mutateAsset(publishedAsset[1], update) : update()) })
+}
+
+// Approval and manufacturer changes to the same upload must see the latest role restrictions.
+async function mutateAsset(id, operation) {
+  const task = (assetMutations.get(id) ?? Promise.resolve()).catch(() => undefined).then(operation)
+  assetMutations.set(id, task)
+  try { return await task }
+  finally { if (assetMutations.get(id) === task) assetMutations.delete(id) }
+}
+
+async function mayEditAsset(current, asset, response) {
+  if (current.user.role === 'admin' || !isPublishedAsset(asset, await readCatalogueLayout())) return true
+  sendError(response, 403, 'Only an administrator can change a published asset')
+  return false
+}
+
+async function handleEditPublicMaterial(request, response, materialId) {
+  const current = await getCurrentUser(request)
+  if (!current) return sendError(response, 401, 'Not signed in')
+  if (current.user.role !== 'admin') return sendError(response, 403, 'An administrator account is required')
+  const uploadedId = /^portal-material-([a-f\d]{32})$/.exec(materialId)?.[1]
+  const bundled = uploadedId ? undefined : (await getBundledCatalogueMaterials()).find(material => material.id === materialId)
+  if (!uploadedId && !bundled) return sendError(response, 404, 'That public material is no longer available')
+
+  const { fields, files } = parseMultipart(request, await readRequestBody(request))
+  const invalidDetails = normalizePublicMaterialDetails(fields)
+  if (invalidDetails) return sendError(response, 400, invalidDetails)
+  if (!fields.productName || !fields.brand || !fields.category || !fields.materialType) {
+    return sendError(response, 400, 'Enter a name, brand, category and material type')
+  }
+  const baseColor = getMaterialBaseColorField(fields)
+  if (!/^#[\da-f]{6}$/i.test(baseColor)) return sendError(response, 400, 'Choose a valid base colour')
+  const removeMaps = (fields.removeMaps ?? '').split(',').filter(Boolean)
+  const changedMaps = new Set([...removeMaps, ...files.map(file => file.fieldName)])
+  if ([...changedMaps].some(field => !MATERIAL_TEXTURE_FIELDS.has(field)) || changedMaps.size !== removeMaps.length + files.length ||
+    files.some(file => !/^\.(png|jpe?g|webp)$/i.test(extname(file.filename)))) {
+    return sendError(response, 400, 'Choose one PNG, JPEG or WebP replacement per texture map')
+  }
+
+  const assetId = uploadedId ?? materialId
+  await mutateAsset(assetId, async () => {
+    let asset, assetDir
+    if (bundled) {
+      assetDir = safeStoragePath(BUNDLED_MATERIAL_OWNER.slug, 'materials', assetId)
+      asset = await readJson(join(assetDir, 'metadata.json'), null) ?? {
+        id: assetId, bundledMaterialId: materialId, manufacturer: BUNDLED_MATERIAL_OWNER,
+        assetKind: 'material', published: true, files: [], createdAt: new Date().toISOString(),
+        conversion: { status: 'complete', target: 'ktx2-2048' }, metadata: {},
+      }
+    } else {
+      for (const manufacturer of current.db.manufacturers) {
+        const directory = safeStoragePath(manufacturer.slug, 'materials', assetId)
+        asset = await readJson(join(directory, 'metadata.json'), null)
+        if (asset) { assetDir = directory; break }
+      }
+      if (asset?.assetKind !== 'material' || !isPublishedAsset(asset, await readCatalogueLayout())) {
+        return sendError(response, 404, 'That public material is no longer available')
+      }
+    }
+    const metadataPath = join(assetDir, 'metadata.json')
+    if (processingJobs.has(metadataPath)) return sendError(response, 409, 'Textures are still processing. Try saving again in a moment.')
+    const original = bundled ?? createRuntimePortalCatalog({ manufacturers: [{ assets: [asset] }] }).materials[0]
+    if (!original) return sendError(response, 404, 'That public material is no longer available')
+
+    // Keep previous versions available to readers until the new record is committed.
+    const stored = asset.files.filter(file => !changedMaps.has(file.fieldName))
+    const processed = (asset.processedFiles ?? []).filter(file => !changedMaps.has(file.fieldName))
+    const staged = []
+    const temporary = `${metadataPath}.${createId()}.tmp`
+    let committed = false
+    try {
+      if (files.length) {
+        const { convertMaterialTextureToKtx2 } = await import('./material-conversion-worker.mjs')
+        await mkdir(join(assetDir, 'processed'), { recursive: true })
+        for (const file of files) {
+          const version = `${slugify(file.fieldName)}-${createId()}`
+          const name = `${version}${extname(file.filename).toLowerCase()}`
+          const raw = join(assetDir, name), compressed = join(assetDir, 'processed', `${version}.ktx2`)
+          staged.push(raw, compressed)
+          await writeFile(raw, file.data)
+          let processing
+          try { processing = await convertMaterialTextureToKtx2(raw, compressed, file.fieldName) }
+          catch { return sendError(response, 400, `Could not process the ${file.fieldName} texture. Choose a valid image.`) }
+          const url = publicAssetUrl(asset.manufacturer.slug, 'materials', assetId, name)
+          stored.push({ contentType: file.contentType, fieldName: file.fieldName, originalName: file.filename, size: file.data.length, url })
+          processed.push({ contentType: 'image/ktx2', fieldName: file.fieldName, originalName: file.filename,
+            size: (await stat(compressed)).size, processing, sourceUrl: url,
+            url: publicAssetUrl(asset.manufacturer.slug, 'materials', assetId, `processed/${version}.ktx2`) })
+        }
+      }
+      const timestamp = new Date().toISOString()
+      const textureCount = stored.filter(file => MATERIAL_TEXTURE_FIELDS.has(file.fieldName)).length
+      const previous = { ...asset.metadata }
+      delete previous.category
+      delete previous.collection
+      const next = { ...asset,
+        category: fields.category, collection: fields.collection, files: stored, processedFiles: processed, updatedAt: timestamp,
+        conversion: changedMaps.size ? { ...asset.conversion, completedAt: timestamp, errors: [],
+          status: processed.length === textureCount ? 'complete' : 'partial' } : asset.conversion,
+        metadata: { ...previous, ...getMaterialMappingFields(fields, previous), ...getMaterialVariationMetadata(fields, previous),
+          catalogueFolder: previous.catalogueFolder ?? getMaterialCatalogueFolder(original, emptyMaterialCatalogue),
+          brand: fields.brand, productName: fields.productName,
+          surfaceCategory: parseSurfaceCategory(fields.surfaceCategory) ?? original.category,
+          materialType: fields.materialType, baseColor,
+          roughness: getMultipartField(fields, 'pbrRoughness', previous.roughness),
+          metalness: getMultipartField(fields, 'pbrMetalness', previous.metalness),
+          imageBasedLighting: getMultipartField(fields, 'imageBasedLighting', previous.imageBasedLighting),
+          realWorldWidthMeters: getMultipartField(fields, 'realWorldWidthMeters', previous.realWorldWidthMeters),
+          realWorldHeightMeters: getMultipartField(fields, 'realWorldHeightMeters', previous.realWorldHeightMeters),
+          ...Object.fromEntries(['colourFamily', 'finish', 'productUrl', 'sku', 'tags'].map(key => [key, getMultipartField(fields, key, previous[key])])),
+        },
+      }
+      await writeJson(temporary, next)
+      await rename(temporary, metadataPath)
+      committed = true
+      const { materials: [material] } = createRuntimePortalCatalog({ manufacturers: [{ assets: [next] }] })
+      sendJson(response, 200, { material })
+    } finally {
+      await rm(temporary, { force: true })
+      if (!committed) await Promise.all(staged.map(path => rm(path, { force: true })))
+    }
+  })
+}
+
+async function handleUpload(request, response, publishingMaterial = false) {
   const current = await getCurrentUser(request)
 
   if (!current) {
     sendError(response, 401, 'Not signed in')
     return
   }
+  if (publishingMaterial && current.user.role !== 'admin') return sendError(response, 403, 'An administrator account is required')
 
   const body = await readRequestBody(request)
   const { fields, files } = parseMultipart(request, body)
+  let surfaceCategory
+  if (publishingMaterial) {
+    const invalidDetails = normalizePublicMaterialDetails(fields)
+    if (invalidDetails) return sendError(response, 400, invalidDetails)
+    if (fields.assetKind !== 'material' || !fields.productName) return sendError(response, 400, 'Choose a named material to publish')
+    surfaceCategory = parseSurfaceCategory(fields.surfaceCategory)
+  }
+  let catalogueFolder
+  if (publishingMaterial && Object.hasOwn(fields, 'catalogueFolder')) {
+    try { catalogueFolder = normalizeMaterialFolder(fields.catalogueFolder) }
+    catch (error) { return sendError(response, 400, error.message) }
+  }
   const assetKind = fields.assetKind === 'model' ? 'models' : 'materials'
   let manufacturer =
     current.user.role === 'admin'
@@ -1080,6 +1333,7 @@ async function handleUpload(request, response) {
       : null
   const metadata = {
     assetKind: metadataAssetKind,
+    published: current.user.role === 'admin',
     category: fields.category ?? '',
     collection: fields.collection ?? '',
     conversion: {
@@ -1099,6 +1353,10 @@ async function handleUpload(request, response) {
       ? await inferModelMaterialNames(join(assetDir, modelFile.url.split('/').pop() ?? '')) : undefined,
     metadata: {
       ...getMaterialVariationMetadata(fields),
+      ...(metadataAssetKind === 'material' && getMaterialMappingFields(fields)),
+      ...(catalogueFolder !== undefined && { catalogueFolder }),
+      ...(publishingMaterial && fields.brand && { brand: fields.brand }),
+      ...(surfaceCategory && { surfaceCategory }),
       baseColor: getMaterialBaseColorField(fields),
       colourFamily: fields.colourFamily ?? '',
       depth: fields.depth ?? '',
@@ -1183,6 +1441,7 @@ async function handleProcessAsset(request, response, pathname) {
     sendError(response, 404, 'Asset was not found')
     return
   }
+  if (!await mayEditAsset(current, metadata, response)) return
 
   if (kind === 'materials' && !hasMaterialTextureFiles(metadata)) {
     metadata.processedFiles = []
@@ -1251,6 +1510,7 @@ async function handleUpdateAsset(request, response, pathname) {
     sendError(response, 404, 'Asset was not found')
     return
   }
+  if (!await mayEditAsset(current, metadata, response)) return
 
   const body = await readRequestBody(request)
   const { fields, files } = parseMultipart(request, body)
@@ -1297,6 +1557,7 @@ async function handleUpdateAsset(request, response, pathname) {
   metadata.metadata = {
     ...metadata.metadata,
     ...getMaterialVariationMetadata(fields, metadata.metadata),
+    ...(expectedAssetKind === 'material' && getMaterialMappingFields(fields, metadata.metadata)),
     baseColor: getMaterialBaseColorField(
       fields,
       metadata.metadata?.baseColor ?? '',
@@ -1402,7 +1663,11 @@ async function handleDeleteAsset(request, response, pathname) {
     return
   }
 
-  await rm(safeStoragePath(manufacturerSlug, kind, assetId), {
+  const assetDir = safeStoragePath(manufacturerSlug, kind, assetId)
+  const metadata = await readJson(join(assetDir, 'metadata.json'), null)
+  if (!metadata) return sendError(response, 404, 'Asset was not found')
+  if (!await mayEditAsset(current, metadata, response)) return
+  await rm(assetDir, {
     force: true,
     recursive: true,
   })
@@ -1471,13 +1736,34 @@ async function route(request, response) {
       return
     }
 
+    if (request.method === 'PATCH' && pathname === '/api/portal/catalogue-layout') {
+      await handleCatalogueUpdate(request, response)
+      return
+    }
+
+    if (request.method === 'PATCH' && pathname === '/api/portal/material-catalogue') {
+      await handleMaterialCatalogueUpdate(request, response)
+      return
+    }
+
     if (request.method === 'POST' && pathname === '/api/portal/assets') {
       await handleUpload(request, response)
       return
     }
 
+    if (request.method === 'POST' && pathname === '/api/portal/materials/publish') {
+      await handleUpload(request, response, true)
+      return
+    }
+
+    const publicMaterialEdit = /^\/api\/portal\/materials\/([a-z\d][a-z\d_-]{0,159})$/i.exec(pathname)
+    if (request.method === 'PATCH' && publicMaterialEdit) {
+      await handleEditPublicMaterial(request, response, publicMaterialEdit[1])
+      return
+    }
+
     if (request.method === 'PATCH' && pathname.startsWith('/api/portal/assets/')) {
-      await handleUpdateAsset(request, response, pathname)
+      await mutateAsset(pathname.split('/')[6], () => handleUpdateAsset(request, response, pathname))
       return
     }
 
@@ -1485,12 +1771,12 @@ async function route(request, response) {
       request.method === 'POST' &&
       pathname.startsWith('/api/portal/process/')
     ) {
-      await handleProcessAsset(request, response, pathname)
+      await mutateAsset(pathname.split('/')[6], () => handleProcessAsset(request, response, pathname))
       return
     }
 
     if (request.method === 'DELETE' && pathname.startsWith('/api/portal/assets/')) {
-      await handleDeleteAsset(request, response, pathname)
+      await mutateAsset(pathname.split('/')[6], () => handleDeleteAsset(request, response, pathname))
       return
     }
 
@@ -1507,7 +1793,7 @@ async function route(request, response) {
 
 await ensureDb()
 
-createServer(route).listen(PORT, () => {
-  console.log(`Asset portal server listening on http://localhost:${PORT}`)
+const server = createServer(route).listen(PORT, () => {
+  console.log(`Asset portal server listening on http://localhost:${server.address().port}`)
   console.log(`Storage directory: ${pathToFileURL(STORAGE_DIR).href}`)
 })

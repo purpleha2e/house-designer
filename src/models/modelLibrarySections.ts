@@ -1,4 +1,5 @@
 import type { ModelDefinition, ModelObjectType } from './modelLibrary'
+import { normalizeObjectFolder, type ObjectCatalogueEntry } from './objectCatalogue.ts'
 
 export type ModelLibrarySection = 'objects' | 'openings'
 export type ModelLibraryRoot = 'public' | 'mine'
@@ -26,12 +27,17 @@ export function getModelLibrarySection(
 }
 
 export function getModelLibraryRoot(model: ModelDefinition): ModelLibraryRoot {
-  return model.windowDesign || model.stairDesign || model.pictureFrameDesign || model.kitchenUnitDesign ? 'mine' : 'public'
+  return model.windowDesign || model.doorDesign || model.stairDesign || model.pictureFrameDesign || model.kitchenUnitDesign ? 'mine' : 'public'
 }
 
 export function getModelTypeLabel(model: ModelDefinition) {
   const type = model.roofMount ? 'dormer-window' : model.wallMount ?? model.objectType
   return (type && modelTypeLabels[type]) ?? (model.category?.trim() || 'Other objects')
+}
+
+export function getModelCatalogueFolder(model: ModelDefinition, entry?: ObjectCatalogueEntry) {
+  const folder = entry?.folder || model.catalogueFolder
+  return (typeof folder === 'string' && folder.length <= 240 ? normalizeObjectFolder(folder) : '') || getModelTypeLabel(model)
 }
 
 export function normalizeModelTag(tag: string) {
@@ -42,8 +48,8 @@ function getModelTags(model: ModelDefinition): string[] {
   return Array.isArray(model.tags) ? model.tags.filter(tag => typeof tag === 'string') : []
 }
 
-export function matchesModelTags(model: ModelDefinition, tags: string[]) {
-  const fields = [model.name, model.category ?? '', getModelTypeLabel(model), model.objectType ?? '', ...getModelTags(model)]
+export function matchesModelTags(model: ModelDefinition, tags: string[], folder = getModelCatalogueFolder(model)) {
+  const fields = [model.name, model.category ?? '', getModelTypeLabel(model), model.objectType ?? '', folder, ...getModelTags(model)]
     .map(field => ` ${normalizeModelTag(field)} `)
   return tags.every(tag => fields.some(field => field.includes(` ${tag} `)))
 }

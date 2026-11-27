@@ -1,4 +1,5 @@
 import type { WindowDesign } from '../windowDesign'
+import { doorMaterialRegions, type DoorDesign } from '../doorDesign'
 import { getPictureFrameMaterialRegions, type PictureFrameDesign } from '../pictureFrameDesign'
 import { getKitchenUnitBounds, getKitchenUnitMaterialRegions, type KitchenUnitDesign } from '../kitchenUnitDesign'
 import { parametricStairMaterialRegions, type StairDesign } from '../stairDesign'
@@ -55,6 +56,7 @@ export type ModelDefinition = {
   /** Number of hinged leaves shown in the floor plan, independent of width. */
   doorLeafCount?: 1 | 2
   windowDesign?: WindowDesign
+  doorDesign?: DoorDesign
   pictureFrameDesign?: PictureFrameDesign
   kitchenUnitDesign?: KitchenUnitDesign
   stairDesign?: StairDesign
@@ -63,6 +65,7 @@ export type ModelDefinition = {
   id: string
   name: string
   category: string
+  catalogueFolder?: string
   color: string
   height: number
   isLight?: boolean
@@ -119,6 +122,26 @@ const bundledObjectGroups = [
   { category: 'Appliances', objectType: 'appliance', ids: ['double-fridge', 'double-fridge-2', 'kitchen-range', 'oven-hob', 'washer-dryer-stack', 'washer-dryer-stack-mid', 'washer-mid', 'widescreen-tv'] },
   { category: 'Bathroom', objectType: 'bathroom', ids: ['bath', 'pedestal-basin', 'pedestal-basin-gold-taps', 'shower', 'toilet'] },
 ] as const
+
+const bundledCatalogueFolders = {
+  'Furniture/Seating': ['sofa', 'corner-sofa', 'office-chair', 'stool'],
+  'Furniture/Beds': ['king-bed'],
+  'Furniture/Tables and desks': ['bedside-table', 'computer-desk'],
+  'Furniture/Storage': ['cabinet', 'corner-cupboard', 'cupboard', 'high-tv-shelf', 'low-tv-cabinet', 'wardrobe'],
+  'Kitchen/Cabinets': ['base-cabinet-marble-cream-800mm', 'sink-unit'],
+  'Kitchen/Islands': ['island', 'island-marble', 'waterfall-shaker-island', 'waterfall-shaker-island-blender'],
+  'Kitchen/Tables': ['kitchen-table-1'],
+  'Appliances/Refrigeration': ['double-fridge', 'double-fridge-2'],
+  'Appliances/Cooking': ['kitchen-range', 'oven-hob'],
+  'Appliances/Laundry': ['washer-dryer-stack', 'washer-dryer-stack-mid', 'washer-mid'],
+  'Appliances/Televisions': ['widescreen-tv'],
+  'Bathroom/Basins': ['pedestal-basin', 'pedestal-basin-gold-taps'],
+  'Bathroom/Baths and showers': ['bath', 'shower'],
+  'Bathroom/Toilets': ['toilet'],
+  'Decoration/Picture frames': ['square-photo'],
+  'Lighting/Lamps': ['reto-lamp'],
+}
+const folderByBundledModel = new Map(Object.entries(bundledCatalogueFolders).flatMap(([folder, ids]) => ids.map(id => [id, folder] as const)))
 
 const bundledObjectMetadata = new Map<string, Pick<ModelDefinition, 'category' | 'objectType'>>(
   bundledObjectGroups.flatMap(({ category, objectType, ids }) => ids.map(id => [id, { category, objectType }] as const)),
@@ -273,6 +296,7 @@ const discoveredModels: ModelDefinition[] = Object.entries(discoveredModelFiles)
     const definition = {
       ...baseDefinition,
       ...bundledObjectMetadata.get(baseDefinition.id),
+      catalogueFolder: folderByBundledModel.get(baseDefinition.id),
       ...modelDefinitionOverrides[baseDefinition.id],
     }
     const authored = definition.materialRegions ?? []
@@ -412,7 +436,7 @@ export function registerRuntimeModels(models: ModelDefinition[]) {
       ...(model.kitchenUnitDesign && { localBounds: getKitchenUnitBounds(model.kitchenUnitDesign) }),
       materialRegions:
         model.stairDesign ? parametricStairMaterialRegions : model.pictureFrameDesign ? getPictureFrameMaterialRegions(model.pictureFrameDesign) :
-        model.kitchenUnitDesign ? getKitchenUnitMaterialRegions(model.kitchenUnitDesign) :
+        model.kitchenUnitDesign ? getKitchenUnitMaterialRegions(model.kitchenUnitDesign) : model.doorDesign ? doorMaterialRegions :
         normalizeArtworkMaterialRegions(model.materialRegions ?? existingModel?.materialRegions ??
           (model.objectType === 'stairs' ? stairMaterialRegions : undefined), model.objectType ?? existingModel?.objectType),
     }

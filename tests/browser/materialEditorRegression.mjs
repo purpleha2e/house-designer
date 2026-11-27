@@ -178,7 +178,7 @@ try {
     await wait(`document.title.includes('material-house')||!!document.querySelector('.project-menu-dropdown')===false`, 'portable house load submitted')
     await pause(700)
     await evaluate(`document.querySelector('button[aria-label="Project menu"]').click()`)
-    await click('Material editor')
+    await click('Material browser')
     await wait(`!!document.querySelector('.material-editor')&&!!document.querySelector('.material-library-list')`, 'material editor opens directly from production app')
     await openFolder('Paint')
     await evaluate(`document.querySelector('.material-library-list button[data-material-id]').click()`)

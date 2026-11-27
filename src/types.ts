@@ -117,10 +117,12 @@ export type SurfaceMaterialVariation = {
   offsetV: number
 }
 
+export type SurfaceMaterialMapKey = 'baseColorTextureUrl' | 'normalTextureUrl' | 'roughnessTextureUrl' |
+  'metalnessTextureUrl' | 'ambientOcclusionTextureUrl' | 'displacementTextureUrl'
+
 export type SurfaceMaterialPbr = {
   /** Source-image hashes keep saved lighting portable across texture compression. */
-  textureSourceHashes?: Partial<Record<'baseColorTextureUrl' | 'normalTextureUrl' | 'roughnessTextureUrl' |
-    'metalnessTextureUrl' | 'ambientOcclusionTextureUrl' | 'displacementTextureUrl', string>>
+  textureSourceHashes?: Partial<Record<SurfaceMaterialMapKey, string>>
   proceduralVariation?: SurfaceMaterialVariation
   ambientOcclusionTextureUrl?: string
   baseColor?: string
@@ -146,12 +148,17 @@ export type SurfaceMaterialProduct = {
   /** User library path, independent of the technical surface category. */
   folder?: string
   category: SurfaceCategory
+  /** Display category for the public catalogue. The surface category is used by the editor. */
+  catalogueCategory?: string
   collection?: string
   colourFamily?: string
   finish?: SurfaceFinish
   id: string
   manufacturer: string
   materialType?: string
+  catalogueFolder?: string
+  /** Source images for saving a personal copy of a compressed catalogue material. */
+  originalTextureUrls?: Partial<Record<SurfaceMaterialMapKey, string>>
   pbr: SurfaceMaterialPbr
   productName: string
   productUrl?: string
@@ -226,6 +233,7 @@ export type SelectableSurface =
     }
 
 export type PlacedModel = {
+  doorLeafAngles?: [number, number]
   /** Dormer body dimensions before the placed model's scale is applied. */
   dormerWidth?: number
   dormerHeight?: number

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { Ray, Vector3 } from 'three'
+import { PerspectiveCamera, Ray, Vector3 } from 'three'
 import { createKitchenUnitDesign, kitchenUnitDefinition } from '../src/kitchenUnitDesign.ts'
 import {
   ceilingMountFits,
@@ -16,6 +16,7 @@ import {
   getWallMountedObjectPlacement,
   getWallMountedObjectPlacementAlongRay,
   getModelOpenings,
+  getModelPositionInView,
   isWallMountedDecoration,
   normalizeFloor,
   resolveWallCabinetPlacement,
@@ -405,6 +406,29 @@ test('creates a wall-mounted model from the plan center', () => {
     offset: 2.5,
     side: 1,
   })
+})
+
+test('new floor objects line up with the 3D view on the chosen storey', () => {
+  const cabinet = kitchenUnitDefinition('base', 'Base cabinet', createKitchenUnitDesign('base'))
+  const elevation = 2.7
+  const camera = new PerspectiveCamera()
+  camera.position.set(6, 6.1, 8)
+  camera.lookAt(4, elevation + cabinet.height / 2, 3)
+  const position = getModelPositionInView(camera, elevation, cabinet)
+  assert.ok(Math.abs(position.x - 4) < 1e-8)
+  assert.ok(Math.abs(position.y - 3) < 1e-8)
+  const model = createPlacedModel({ id: 'cabinet', modelId: cabinet.id, modelsById: new Map([[cabinet.id, cabinet]]), position, walls: [] })
+  assert.ok(Math.abs(model.position.y + cabinet.depth / 2 - 3) < 1e-8, 'aligns the cabinet centre while retaining its back pivot')
+  assert.equal(model.kitchenUnitOrigin, 'back')
+})
+
+test('a level or near-horizontal camera spawns models a short distance ahead', () => {
+  const camera = new PerspectiveCamera()
+  camera.position.set(4, 1.8, 6)
+  for (const lookHeight of [1.79, 1.8, 2]) {
+    camera.lookAt(4, lookHeight, 5)
+    assert.deepEqual(getModelPositionInView(camera, 0, { width: 1, depth: 1, height: 1 }), { x: 4, y: 3 })
+  }
 })
 
 test('new dormers start without a window and preserve that choice on load', () => {

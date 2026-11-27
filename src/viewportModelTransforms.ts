@@ -53,25 +53,35 @@ export function createViewportInstanceTransforms(scene: Object3D) {
  * placement, including its nested flip/mirror group. Building geometry stays
  * frozen until its replacement is ready. */
 export function createViewportModelTransforms(scene: Scene) {
-  const anchors = new Map<string, { object: Object3D; copies: { object: Object3D; local: Matrix4 }[] }>()
+  const anchors = new Map<string, { object: Object3D; modelName: string; leafName?: string; copies: { object: Object3D; local: Matrix4 }[] }>()
   const inverse = new Matrix4(), world = new Matrix4()
   return {
     bind(source: Object3D, copy: Object3D, matrix = source.matrixWorld) {
       let anchor: Object3D | null = source
-      while (anchor && !anchor.name.startsWith('model-local-transform-') && !anchor.name.startsWith('model-transform-')) anchor = anchor.parent
+      let leaf: Object3D | undefined
+      while (anchor && !anchor.name.startsWith('model-local-transform-') && !anchor.name.startsWith('model-transform-')) {
+        if (anchor.name === 'door-leaf-0' || anchor.name === 'door-leaf-1') leaf = anchor
+        anchor = anchor.parent
+      }
       if (!anchor) return
-      let entry = anchors.get(anchor.name)
-      if (!entry) { entry = { object: anchor, copies: [] }; anchors.set(anchor.name, entry) }
-      const local = new Matrix4().multiplyMatrices(inverse.copy(anchor.matrixWorld).invert(), matrix)
+      // A door frame follows model placement. Each leaf also rotates about its own hinge.
+      const key = leaf ? `${anchor.name}/${leaf.name}` : anchor.name
+      let entry = anchors.get(key)
+      if (!entry) {
+        entry = { object: leaf ?? anchor, modelName: anchor.name, leafName: leaf?.name, copies: [] }
+        anchors.set(key, entry)
+      }
+      const local = new Matrix4().multiplyMatrices(inverse.copy(entry.object.matrixWorld).invert(), matrix)
       entry.copies.push({ object: copy, local })
     },
     sync() {
       let changed = false
-      for (const [name, entry] of anchors) {
+      for (const entry of anchors.values()) {
         let root: Object3D = entry.object, visible = root.visible
         while (root.parent) { root = root.parent; visible &&= root.visible }
         if (root !== scene) {
-          const replacement = scene.getObjectByName(name)
+          const model = scene.getObjectByName(entry.modelName)
+          const replacement = entry.leafName ? model?.getObjectByName(entry.leafName) : model
           if (replacement) {
             entry.object = replacement; visible = replacement.visible
             for (let p = replacement.parent; p; p = p.parent) visible &&= p.visible

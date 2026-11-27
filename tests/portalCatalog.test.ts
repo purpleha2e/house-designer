@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { loadPortalCatalog, createRuntimePortalCatalog } from '../src/portalCatalog.ts'
 import { getModelLibrarySection, matchesModelTags, normalizeModelTag } from '../src/models/modelLibrarySections.ts'
+import { materialCategoryLabel, materialLabelChoices } from '../src/materials/materialCatalogueMetadata.ts'
 
 test('tagged slots become editable regions for furniture, doors, windows and stairs', () => {
   const names=['hd_frame','hd_drawer_fronts','original_fixed_finish']
@@ -124,4 +125,18 @@ test('portal catalogue maps the material image-based-lighting flag', async (cont
   const catalog = await loadPortalCatalog()
 
   assert.equal(catalog.materials[0].pbr.imageBasedLighting, true)
+})
+
+test('publication labels preserve custom categories while legacy materials keep their surface categories', () => {
+  const assets = [
+    { id: 'legacy-tile', category: 'Tiles', metadata: { baseColor: '#ffffff' } },
+    { id: 'legacy-plaster', category: 'Decorative plaster', metadata: { baseColor: '#ffffff' } },
+    { id: 'new-floor', category: 'Outdoor surfaces', metadata: { baseColor: '#ffffff', surfaceCategory: 'flooring', brand: 'First Brand' } },
+  ].map(asset => ({ ...asset, assetKind: 'material' as const, collection: '', files: [], manufacturer: { name: 'Test', slug: 'test' } }))
+  const { materials } = createRuntimePortalCatalog({ manufacturers: [{ assets }] })
+  assert.deepEqual(materials.map(material => material.category), ['tile', 'wall-covering', 'flooring'])
+  assert.deepEqual(materials.map(materialCategoryLabel), ['Tile', 'Decorative plaster', 'Outdoor surfaces'])
+  assert.deepEqual(materials.map(material => material.manufacturer), ['Test', 'Test', 'First Brand'])
+  assert.deepEqual(materials.map(material => material.collection), ['Portal uploads', 'Portal uploads', undefined])
+  assert.deepEqual(materialLabelChoices(['Tile', 'OUTDOOR SURFACES', 'tile', ' Outdoor  surfaces ']), ['OUTDOOR SURFACES', 'Tile'])
 })

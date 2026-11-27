@@ -84,7 +84,7 @@ async function prepare(projectPath, title, allowUnbaked = false, retiredModelIds
   for (const path of await metadataFiles(resolve(workspace, 'manufacturer-assets'))) {
     const asset = JSON.parse(await readFile(path, 'utf8'))
     const id = `portal-${asset.assetKind}-${asset.id}`
-    if (usedMaterialIds.has(id) || usedPortalModelIds.has(id)) assets.push(asset)
+    if (usedMaterialIds.has(id) || usedPortalModelIds.has(id) || (asset.bundledMaterialId && strings.has(asset.bundledMaterialId))) assets.push(asset)
   }
   const catalog = createRuntimePortalCatalog({ manufacturers: [{ assets }] })
   // Local materials carry their own image data. A viewer never needs the

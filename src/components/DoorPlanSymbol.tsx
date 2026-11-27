@@ -1,10 +1,13 @@
 import { Group, Line, Rect, Shape } from 'react-konva'
 
-export function DoorPlanSymbol({ width, wallThickness, leafCount, selected = false }: {
+export function DoorPlanSymbol({ width, wallThickness, leafCount, selected = false, angles, hingeSide = -1, swingDirection = -1 }: {
   width: number
   wallThickness: number
   leafCount: 1 | 2
   selected?: boolean
+  angles?: [number, number]
+  hingeSide?: -1 | 1
+  swingDirection?: -1 | 1
 }) {
   const stroke = selected ? '#2563eb' : '#334155'
   const jambWidth = Math.min(2, width / 12, wallThickness / 3)
@@ -21,23 +24,25 @@ export function DoorPlanSymbol({ width, wallThickness, leafCount, selected = fal
       x={side < 0 ? -width / 2 : width / 2 - jambWidth} y={-wallThickness / 2}
       width={jambWidth} height={wallThickness} fill="#e2e8f0"
       stroke={stroke} strokeWidth={selected ? 2 : 1.25} strokeScaleEnabled={false} />)}
-    {(leafCount === 2 ? [-1, 1] : [-1]).map(side => <Group key={side}
-      x={side * clearWidth / 2} y={-wallThickness / 2} scaleX={-side}>
-      <Rect name="door-leaf" x={0} y={-radius} width={leafThickness} height={radius}
+    {(leafCount === 2 ? [-1, 1] : [hingeSide]).map((side, index) => <Group key={side}
+      x={side * clearWidth / 2} y={angles ? 0 : -wallThickness / 2} scaleX={-side}>
+      <Rect name="door-leaf" x={0} y={angles ? -leafThickness / 2 : -radius}
+        width={angles ? radius : leafThickness} height={angles ? leafThickness : radius}
+        rotation={angles ? angles[index] * swingDirection : 0}
         fill="#f8fafc" stroke={stroke} strokeWidth={selected ? 2 : 1.25}
         strokeScaleEnabled={false} hitStrokeWidth={12} />
       <Shape name="door-swing" stroke={stroke} strokeWidth={selected ? 1.75 : 1}
         strokeScaleEnabled={false}
         sceneFunc={(context, shape) => {
           context.beginPath()
-          context.arc(0, 0, radius, 0, -Math.PI / 2, true)
+          context.arc(0, 0, radius, 0, swingDirection * Math.PI / 2, swingDirection < 0)
           context.strokeShape(shape)
         }}
         hitFunc={(context, shape) => {
           // The clear swing area remains easy to select and drag.
           context.beginPath()
           context.moveTo(0, 0)
-          context.arc(0, 0, radius, 0, -Math.PI / 2, true)
+          context.arc(0, 0, radius, 0, swingDirection * Math.PI / 2, swingDirection < 0)
           context.closePath()
           context.fillStrokeShape(shape)
         }} fillEnabled fill="rgba(0,0,0,0)" />

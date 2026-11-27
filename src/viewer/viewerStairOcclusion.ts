@@ -5,7 +5,8 @@ import { Object3D, Raycaster, Vector3, type Intersection } from 'three'
  * the shared picking/navigation raycaster and the scene stay untouched. */
 export function createStairOcclusionQuery(root: Object3D) {
   const query = new Raycaster(), hits: Intersection[] = []
-  const visit = (object: Object3D, distance: number): boolean => {
+  const visit = (object: Object3D, distance: number, skip?: (object: Object3D) => boolean): boolean => {
+    if (skip?.(object)) return false
     let propagate = true
     if (object.layers.test(query.layers)) {
       hits.length = 0
@@ -13,17 +14,17 @@ export function createStairOcclusionQuery(root: Object3D) {
       propagate = (object.raycast as (ray: Raycaster, out: Intersection[]) => unknown)(query, hits) !== false
       if (hits.some(hit => hit.distance <= distance)) return true
     }
-    if (propagate) for (const child of object.children) if (visit(child, distance)) return true
+    if (propagate) for (const child of object.children) if (visit(child, distance, skip)) return true
     return false
   }
-  return (source: Raycaster, distance: number) => {
+  return (source: Raycaster, distance: number, skip?: (object: Object3D) => boolean) => {
     query.ray.copy(source.ray)
     query.camera = source.camera
     query.layers.mask = source.layers.mask
     query.near = source.near
     query.far = Math.min(source.far, distance)
     query.params = source.params
-    try { return visit(root, distance) }
+    try { return visit(root, distance, skip) }
     finally { hits.length = 0 }
   }
 }
